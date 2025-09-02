@@ -354,7 +354,7 @@ export const deleteUser = async (userId: string): Promise<{ success: boolean; er
 
     // Call the privileged function to delete the user
     const { error: deleteError } = await supabaseAdmin!
-      .rpc('delete_user_with_privileges', { user_id: userId });
+      .rpc('delete_user_with_privileges', { p_user_id: userId });
 
     if (deleteError) {
       return { success: false, error: `Error deleting from database: ${deleteError.message}` };

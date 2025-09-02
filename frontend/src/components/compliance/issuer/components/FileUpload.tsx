@@ -48,10 +48,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       fileTypeConfig.transformations
     );
 
-    // Convert Buffer to ArrayBuffer which is a valid BlobPart type
-    const arrayBuffer = transformedBuffer.buffer.slice(0);
-    // Ensure we're using a proper ArrayBuffer for the File constructor
-    return new File([transformedBuffer], file.name, { type: file.type });
+    // Convert Buffer to Uint8Array which is a valid BlobPart type for browser compatibility
+    const uint8Array = new Uint8Array(transformedBuffer);
+    // Create File with browser-compatible BlobPart
+    return new File([uint8Array], file.name, { type: file.type });
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
