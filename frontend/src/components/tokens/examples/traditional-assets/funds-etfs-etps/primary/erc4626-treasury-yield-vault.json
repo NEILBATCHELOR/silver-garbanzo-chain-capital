@@ -1,0 +1,284 @@
+{
+  "name": "Treasury Yield Vault",
+  "symbol": "TYV",
+  "description": "ERC-4626 vault managing the underlying treasury assets for the Institutional Digital Treasury Fund. Provides automated yield optimization and portfolio management for US Treasury bills and repo agreements.",
+  "decimals": 18,
+  "standard": "ERC-4626",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "vaultPurpose": "treasury_asset_management",
+    "investmentStrategy": "conservative_yield_optimization",
+    "riskProfile": "low",
+    "performanceBenchmark": "ICE_BofA_US_3M_Treasury_Bill_Index",
+    "rebalanceFrequency": "daily",
+    "yieldDistribution": "daily_accrual"
+  },
+  "assetAddress": "0xA0b86a33E6441c41De00b4fA8A2b24e97F7E5f92",
+  "assetName": "USD Coin",
+  "assetSymbol": "USDC",
+  "assetDecimals": 6,
+  "vaultType": "treasury_yield",
+  "vaultStrategy": "conservative_diversified",
+  "customStrategy": true,
+  "strategyController": "0x3456789012345678901234567890123456789012",
+  "flashLoans": false,
+  "emergencyShutdown": true,
+  "performanceMetrics": true,
+  "erc4626Properties": {
+    "accessControl": "roles",
+    "permit": true,
+    
+    "yieldSource": "us_treasury_bills_repo",
+    "strategyDocumentation": "https://vault.example.com/strategy/treasury-yield-optimization",
+    "strategyComplexity": "medium",
+    "rebalanceThreshold": "2.5",
+    "liquidityReserve": "5.0",
+    "maxSlippage": "0.1",
+    
+    "depositLimit": "1000000000000",
+    "withdrawalLimit": "500000000000",
+    "minDeposit": "100000000",
+    "maxDeposit": "10000000000000",
+    "minWithdrawal": "100000000",
+    "maxWithdrawal": "5000000000000",
+    
+    "performanceTracking": {
+      "enabled": true,
+      "metricsRetention": "5_years",
+      "benchmarkComparison": true,
+      "riskAdjustedReturns": true
+    },
+    
+    "depositFee": "0.00",
+    "withdrawalFee": "0.00",
+    "managementFee": "0.15",
+    "performanceFee": "0.00",
+    "feeRecipient": "0x4567890123456789012345678901234567890123",
+    
+    "yieldOptimizationEnabled": true,
+    "automatedRebalancing": true,
+    "multiAssetEnabled": true,
+    "rebalancingEnabled": true,
+    "autoCompoundingEnabled": true,
+    "yieldOptimizationStrategy": "duration_laddering",
+    
+    "riskManagementEnabled": true,
+    "riskTolerance": "conservative",
+    "diversificationEnabled": true,
+    
+    "apyTrackingEnabled": true,
+    "benchmarkTrackingEnabled": true,
+    "benchmarkIndex": "ICE_BofA_US_3M_Treasury_Bill_Index",
+    "performanceHistoryRetention": "10_years",
+    
+    "yieldSources": [
+      {
+        "source": "us_treasury_bills",
+        "allocation": "70%",
+        "maturityRange": "1M_to_12M",
+        "creditRating": "AAA"
+      },
+      {
+        "source": "repo_agreements",
+        "allocation": "25%",
+        "counterpartyRating": "A_or_better",
+        "maxMaturity": "90_days"
+      },
+      {
+        "source": "cash_equivalents",
+        "allocation": "5%",
+        "purpose": "liquidity_buffer"
+      }
+    ],
+    "yieldDistributionSchedule": "daily",
+    "compoundFrequency": "daily",
+    
+    "insuranceEnabled": true,
+    "insuranceProvider": "Federal_Reserve_Discount_Window",
+    "insuranceCoverageAmount": "250000000000000",
+    "emergencyExitEnabled": true,
+    "circuitBreakerEnabled": true,
+    "maxDrawdownThreshold": "0.5",
+    "stopLossEnabled": false,
+    "stopLossThreshold": "0.0",
+    
+    "governanceTokenEnabled": false,
+    "governanceTokenAddress": "0x0000000000000000000000000000000000000000",
+    "votingPowerPerShare": "0",
+    "strategyVotingEnabled": false,
+    "feeVotingEnabled": false,
+    "managerPerformanceThreshold": "95",
+    "managerReplacementEnabled": true,
+    
+    "dynamicFeesEnabled": false,
+    "performanceFeeHighWaterMark": false,
+    "feeTierSystemEnabled": false,
+    "earlyWithdrawalPenalty": "0.00",
+    "lateWithdrawalPenalty": "0.00",
+    "gasFeeOptimization": true,
+    "feeRebateEnabled": false,
+    
+    "liquidityMiningEnabled": false,
+    "liquidityIncentivesRate": "0.00",
+    "marketMakingEnabled": false,
+    "arbitrageEnabled": false,
+    "crossDexOptimization": false,
+    "liquidityProviderRewards": "0.00",
+    "impermanentLossProtection": false,
+    
+    "defiProtocolIntegrations": [
+      {
+        "protocol": "compound_v3",
+        "purpose": "short_term_lending",
+        "maxAllocation": "10%"
+      },
+      {
+        "protocol": "aave_v3",
+        "purpose": "liquidity_management",
+        "maxAllocation": "5%"
+      }
+    ],
+    "lendingProtocolEnabled": true,
+    "borrowingEnabled": false,
+    "leverageEnabled": false,
+    "maxLeverageRatio": "1.0",
+    "crossChainYieldEnabled": false,
+    "bridgeProtocols": [],
+    
+    "portfolioAnalyticsEnabled": true,
+    "realTimePnlTracking": true,
+    "taxReportingEnabled": true,
+    "automatedReporting": true,
+    "notificationSystemEnabled": true,
+    "mobileAppIntegration": false,
+    "socialTradingEnabled": false,
+    
+    "institutionalGrade": true,
+    "custodyIntegration": "bank_of_new_york_mellon",
+    "auditTrailComprehensive": true,
+    "complianceReportingEnabled": true,
+    "regulatoryFramework": "SEC_40_Act",
+    "fundAdministrationEnabled": true,
+    "thirdPartyAuditsEnabled": true,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "deny"
+  },
+  "fee": {
+    "structure": "tiered",
+    "managementFee": "0.15",
+    "performanceFee": "0.00",
+    "depositFee": "0.00",
+    "withdrawalFee": "0.00",
+    "tiers": [
+      {
+        "minBalance": "0",
+        "maxBalance": "10000000000000",
+        "managementFee": "0.20"
+      },
+      {
+        "minBalance": "10000000000000",
+        "maxBalance": "100000000000000",
+        "managementFee": "0.15"
+      },
+      {
+        "minBalance": "100000000000000",
+        "maxBalance": "1000000000000000",
+        "managementFee": "0.10"
+      }
+    ]
+  },
+  "assetAllocation": [
+    {
+      "assetType": "US_Treasury_Bills",
+      "allocation": "70.0",
+      "maturityRange": "30_to_365_days",
+      "creditRating": "AAA",
+      "rebalanceThreshold": "5.0"
+    },
+    {
+      "assetType": "Repo_Agreements",
+      "allocation": "25.0",
+      "maxMaturity": "90_days",
+      "counterpartyRating": "A_minimum",
+      "rebalanceThreshold": "3.0"
+    },
+    {
+      "assetType": "Cash_Equivalents",
+      "allocation": "5.0",
+      "purpose": "Liquidity_Buffer",
+      "rebalanceThreshold": "2.0"
+    }
+  ],
+  "vaultStrategies": [
+    {
+      "strategyId": "duration_laddering",
+      "strategyName": "Treasury Duration Laddering",
+      "allocation": "70.0",
+      "parameters": {
+        "shortDuration": "30_days",
+        "longDuration": "365_days",
+        "ladderSteps": "12",
+        "rolloverFrequency": "monthly"
+      },
+      "active": true
+    },
+    {
+      "strategyId": "repo_optimization",
+      "strategyName": "Repo Rate Optimization",
+      "allocation": "25.0",
+      "parameters": {
+        "minRepoRate": "3.0",
+        "maxMaturity": "90_days",
+        "counterpartyDiversification": "5_minimum"
+      },
+      "active": true
+    }
+  ],
+  "strategyParams": [
+    {
+      "paramName": "rebalance_frequency",
+      "paramValue": "daily",
+      "paramType": "string",
+      "description": "How often the portfolio is rebalanced"
+    },
+    {
+      "paramName": "max_duration",
+      "paramValue": "365",
+      "paramType": "number",
+      "description": "Maximum duration in days for treasury holdings"
+    },
+    {
+      "paramName": "credit_quality_filter",
+      "paramValue": "AAA_AA_A",
+      "paramType": "string",
+      "description": "Minimum acceptable credit ratings"
+    }
+  ],
+  "performanceMetrics": [
+    {
+      "metricName": "7_day_yield",
+      "targetValue": "4.5",
+      "currentValue": "4.3",
+      "unit": "percentage",
+      "lastUpdated": "2024-06-17T00:00:00Z"
+    },
+    {
+      "metricName": "effective_duration",
+      "targetValue": "90",
+      "currentValue": "85",
+      "unit": "days",
+      "lastUpdated": "2024-06-17T00:00:00Z"
+    },
+    {
+      "metricName": "nav_volatility",
+      "targetValue": "0.1",
+      "currentValue": "0.08",
+      "unit": "percentage",
+      "lastUpdated": "2024-06-17T00:00:00Z"
+    }
+  ]
+}

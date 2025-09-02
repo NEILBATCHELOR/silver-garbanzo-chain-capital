@@ -1,0 +1,188 @@
+{
+  "name": "Liquid Treasury Fund Token",
+  "symbol": "LTFT",
+  "description": "ERC-20 liquidity token providing tradeable exposure to the Institutional Digital Treasury Fund. Enables seamless transfer and DeFi integration while maintaining compliance with underlying ERC-1400 security token.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "tokenPurpose": "liquidity_wrapper",
+    "underlyingAsset": "IDTF_security_token",
+    "bridgeContract": "0x5678901234567890123456789012345678901234",
+    "redeemabilityRatio": "1:1",
+    "liquidityProvider": "institutional_market_makers",
+    "tradingVenues": ["uniswap_v4", "curve_finance", "institutional_otc"]
+  },
+  "initialSupply": "500000000000000000000000000",
+  "cap": "10000000000000000000000000000",
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "tokenType": "liquidity_wrapper",
+  "accessControl": "roles",
+  "erc20Properties": {
+    "allowManagement": true,
+    "permit": true,
+    "snapshot": true,
+    
+    "pausableBy": "admin",
+    "mintableBy": "bridge_contract",
+    "burnableBy": "bridge_contract",
+    
+    "maxTotalSupply": "10000000000000000000000000000",
+    "antiWhaleEnabled": false,
+    "maxWalletAmount": "0",
+    "cooldownPeriod": 0,
+    "blacklistEnabled": true,
+    
+    "deflationEnabled": false,
+    "deflationRate": "0",
+    "reflectionEnabled": false,
+    "reflectionPercentage": "0",
+    "burnOnTransfer": false,
+    "burnPercentage": "0",
+    
+    "stakingEnabled": false,
+    "stakingRewardsRate": "0",
+    
+    "buyFeeEnabled": false,
+    "sellFeeEnabled": false,
+    "liquidityFeePercentage": "0",
+    "marketingFeePercentage": "0",
+    "charityFeePercentage": "0",
+    "autoLiquidityEnabled": true,
+    
+    "lotteryEnabled": false,
+    "lotteryPercentage": "0",
+    
+    "presaleEnabled": false,
+    "presaleRate": "0",
+    "presaleStartTime": "",
+    "presaleEndTime": "",
+    "vestingEnabled": false,
+    "vestingCliffPeriod": 0,
+    "vestingTotalPeriod": 0,
+    "vestingReleaseFrequency": "instant",
+    
+    "tradingStartTime": "2024-06-01T00:00:00Z",
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "allow"
+  },
+  "feeOnTransfer": {
+    "enabled": false,
+    "fee": "0.0",
+    "recipient": "0x0000000000000000000000000000000000000000",
+    "feeType": "percentage"
+  },
+  "governanceFeatures": {
+    "enabled": false,
+    "votingPeriod": 0,
+    "votingThreshold": "0"
+  },
+  "rebasing": {
+    "enabled": false,
+    "mode": "none",
+    "targetSupply": "0"
+  },
+  "transferConfig": {
+    "maxTransferAmount": "100000000000000000000000000",
+    "minTransferAmount": "1000000000000000000",
+    "cooldownEnabled": false
+  },
+  "gasConfig": {
+    "gasOptimization": true,
+    "maxGasPrice": "50000000000"
+  },
+  "complianceConfig": {
+    "kycRequired": false,
+    "sanctionsCheck": true,
+    "geoblockingEnabled": true
+  },
+  "whitelistConfig": {
+    "enabled": false,
+    "addresses": [],
+    "merkleRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "bridgeConfig": {
+    "underlyingToken": "0x1234567890123456789012345678901234567890",
+    "bridgeContract": "0x5678901234567890123456789012345678901234",
+    "exchangeRate": "1000000000000000000",
+    "redemptionEnabled": true,
+    "instantRedemption": false,
+    "redemptionPeriod": "T+1",
+    "complianceChecks": [
+      "kyc_verification",
+      "sanctions_screening",
+      "accredited_investor_status"
+    ]
+  },
+  "liquidityProvision": {
+    "enabled": true,
+    "providers": [
+      {
+        "provider": "jump_trading",
+        "allocation": "40%",
+        "minSpread": "0.05%"
+      },
+      {
+        "provider": "wintermute",
+        "allocation": "35%",
+        "minSpread": "0.05%"
+      },
+      {
+        "provider": "alameda_research",
+        "allocation": "25%",
+        "minSpread": "0.1%"
+      }
+    ],
+    "minimumLiquidity": "10000000000000000000000000",
+    "liquidityIncentives": "0.1%"
+  },
+  "tradingVenues": [
+    {
+      "venue": "uniswap_v4",
+      "pairAddress": "0x6789012345678901234567890123456789012345",
+      "baseToken": "USDC",
+      "fee": "0.05",
+      "active": true
+    },
+    {
+      "venue": "curve_finance",
+      "poolAddress": "0x7890123456789012345678901234567890123456",
+      "poolType": "stable_swap",
+      "fee": "0.04",
+      "active": true
+    },
+    {
+      "venue": "institutional_otc",
+      "provider": "bloomberg_aex",
+      "minTradeSize": "1000000000000000000000000",
+      "maxSpread": "0.1",
+      "active": true
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "daily",
+    "distributionToken": "USDC",
+    "autoCompound": true,
+    "taxOptimized": true,
+    "distributionContract": "0x8901234567890123456789012345678901234567"
+  },
+  "riskManagement": {
+    "maxExposure": "500000000000000000000000000",
+    "concentrationLimits": {
+      "singleInvestor": "10%",
+      "institutionalCap": "50%"
+    },
+    "pauseConditions": [
+      "underlying_vault_paused",
+      "compliance_breach",
+      "extreme_volatility"
+    ]
+  }
+}

@@ -1,0 +1,379 @@
+{
+  "name": "Apollo Strategic Private Equity Master Fund",
+  "symbol": "APOLLOPE",
+  "description": "Master fund structure for Apollo's diversified private equity strategies including leveraged buyouts, growth equity, distressed investments, and special situations. Provides institutional investors with exposure to Apollo's full spectrum of private equity capabilities across multiple vintage years and strategies.",
+  "decimals": 18,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "25000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "private_equity_master_fund",
+    "regulatoryFramework": "Investment_Company_Act_1940_Section_3c7",
+    "investmentObjective": "diversified_private_equity_exposure_across_strategies",
+    "benchmarkIndex": "Cambridge_Associates_PE_Index",
+    "fundType": "multi_strategy_private_equity",
+    "riskRating": "High",
+    "liquidityProfile": "Illiquid_diversified_commitment_periods",
+    "managementCompany": "Apollo_Global_Management",
+    "sector": "diversified_private_equity_and_credit",
+    "masterFundInception": "2025-06-17",
+    "totalCommitments": "$25,000,000,000",
+    "minimumCommitment": "$50,000,000",
+    "targetNetIRR": "15-25%",
+    "diversificationBenefit": "multi_vintage_multi_strategy",
+    "fundStructure": "master_feeder_with_series"
+  },
+  "erc1400Properties": {
+    "initialSupply": "25000000000000000000000000000",
+    "cap": "35000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "decimals": 18,
+    
+    "documentUri": "https://apollo.com/funds/strategic-pe-master/private-placement-memorandum",
+    "documentHash": "0xapollo123456789012345678901234567890abcdef123456789012345678901",
+    "tokenDetails": "Master fund providing diversified exposure to Apollo's private equity strategies",
+    "legalTerms": "https://apollo.com/funds/strategic-pe-master/master-fund-agreement",
+    "prospectus": "https://apollo.com/funds/strategic-pe-master/private-placement-memorandum",
+    
+    "controllerAddress": "0x1111111111111111111111111111111111111111",
+    "requireKyc": true,
+    "enforceKyc": true,
+    "securityType": "master_fund_interests",
+    
+    "issuingJurisdiction": "United States",
+    "issuingEntityName": "Apollo Strategic Private Equity Master Fund, L.P.",
+    "issuingEntityLei": "549300APO123456789012",
+    "regulationType": "private_investment_fund",
+    
+    "isMultiClass": true,
+    "trancheTransferability": true,
+    
+    "forcedTransfers": true,
+    "forcedRedemptionEnabled": false,
+    "isIssuable": true,
+    
+    "autoCompliance": true,
+    "manualApprovals": true,
+    "complianceModule": "enhanced_manual_approval",
+    "complianceAutomationLevel": "semi_automated",
+    
+    "whitelistEnabled": true,
+    "investorWhitelistEnabled": true,
+    "accreditedInvestorOnly": true,
+    "investorAccreditation": true,
+    "holdingPeriod": 2555,
+    "maxInvestorCount": 300,
+    
+    "issuanceModules": true,
+    "documentManagement": true,
+    "recoveryMechanism": true,
+    "granularControl": true,
+    "dividendDistribution": true,
+    "corporateActions": true,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "blocked",
+    "geographicRestrictions": [
+      {
+        "country": "US",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CA",
+        "restriction": "allowed"
+      },
+      {
+        "country": "EU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "GB",
+        "restriction": "allowed"
+      },
+      {
+        "country": "JP",
+        "restriction": "restricted"
+      },
+      {
+        "country": "AU",
+        "restriction": "restricted"
+      },
+      {
+        "country": "CN",
+        "restriction": "blocked"
+      },
+      {
+        "country": "RU",
+        "restriction": "blocked"
+      },
+      {
+        "country": "ALL_OTHERS",
+        "restriction": "case_by_case"
+      }
+    ],
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "institutional_private_settlement",
+    "clearingHouseIntegration": false,
+    "centralSecuritiesDepositoryIntegration": false,
+    "thirdPartyCustodyAddresses": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "transactionMonitoringRules": {
+      "maxTransactionSize": "2000000000000000000000000000",
+      "flagThreshold": "250000000000000000000000000",
+      "reportingThreshold": "500000000000000000000000000"
+    },
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": true,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": false,
+    "rightsOfferingsEnabled": true,
+    "spinOffsEnabled": true,
+    "mergersAcquisitionsSupport": true,
+    "treasuryManagementEnabled": true,
+    "buybackProgramsEnabled": false,
+    "shareRepurchaseAutomation": false,
+    
+    "advancedGovernanceEnabled": true,
+    "proxyVotingEnabled": true,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": true,
+    "quorumRequirements": {
+      "minimumQuorum": "50%",
+      "supermajorityThreshold": "66.67%"
+    },
+    "votingDelegationEnabled": true,
+    "institutionalVotingServices": true,
+    "boardElectionSupport": true,
+    
+    "crossBorderTradingEnabled": true,
+    "multiJurisdictionCompliance": true,
+    "passportRegimeSupport": true,
+    "treatyBenefitsEnabled": true,
+    "withholdingTaxAutomation": true,
+    "currencyHedgingEnabled": true,
+    "foreignOwnershipRestrictions": {
+      "maxForeignOwnership": "75%",
+      "restrictedCountries": ["CN", "RU", "IR", "KP"]
+    },
+    "regulatoryEquivalenceMapping": {
+      "US": "Investment_Advisers_Act_1940",
+      "EU": "AIFMD",
+      "UK": "FCA_FUND",
+      "CA": "NI_31_103"
+    },
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": true,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": false,
+    "priceDiscoveryMechanisms": ["independent_valuation", "mark_to_model", "consensus_pricing"],
+    
+    "crossChainBridgeSupport": false,
+    "layer2ScalingSupport": false,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "concentrationLimits": {
+      "maxSingleStrategy": "40%",
+      "maxSingleVintage": "25%",
+      "maxSectorExposure": "30%",
+      "maxGeographicExposure": "100%"
+    },
+    "stressTestingEnabled": true,
+    "marginRequirementsDynamic": false,
+    "collateralManagementEnabled": false,
+    "insuranceCoverageEnabled": true,
+    "disasterRecoveryEnabled": true
+  },
+  "masterFundProperties": {
+    "underlyingStrategies": [
+      "leveraged_buyouts",
+      "growth_equity",
+      "distressed_debt",
+      "special_situations",
+      "opportunistic_credit"
+    ],
+    "strategicAllocation": {
+      "leveraged_buyouts": "40%",
+      "growth_equity": "25%",
+      "distressed_debt": "20%",
+      "special_situations": "10%",
+      "opportunistic_credit": "5%"
+    },
+    "geographicAllocation": {
+      "north_america": "60%",
+      "europe": "25%",
+      "asia_pacific": "10%",
+      "emerging_markets": "5%"
+    },
+    "vintageYearSpread": "2023-2027",
+    "diversificationMetrics": {
+      "numberOfUnderlyingFunds": "12-15",
+      "numberOfPortfolioCompanies": "300+",
+      "correlationReduction": "35%"
+    },
+    "feederFundStructure": true,
+    "coinvestmentAccess": true,
+    "secondaryMarketParticipation": true
+  },
+  "partitions": [
+    {
+      "name": "Core Institutional",
+      "symbol": "APOLLOPE-CORE",
+      "totalSupply": "15000000000000000000000000000",
+      "minInvestment": "50000000000000000000000000",
+      "managementFee": "1.50",
+      "carriedInterest": "15.00",
+      "investorType": "core_institutional",
+      "transferRestrictions": {
+        "holdingPeriod": 2555,
+        "maxTransferSize": "1000000000000000000000000000",
+        "approvalRequired": true,
+        "generalPartnerConsent": true
+      }
+    },
+    {
+      "name": "Strategic Partners",
+      "symbol": "APOLLOPE-STRAT",
+      "totalSupply": "7000000000000000000000000000",
+      "minInvestment": "100000000000000000000000000",
+      "managementFee": "1.25",
+      "carriedInterest": "12.50",
+      "investorType": "strategic_institutional",
+      "transferRestrictions": {
+        "holdingPeriod": 2555,
+        "maxTransferSize": "500000000000000000000000000",
+        "approvalRequired": true,
+        "generalPartnerConsent": true
+      }
+    },
+    {
+      "name": "Anchor Investors",
+      "symbol": "APOLLOPE-ANCHOR",
+      "totalSupply": "3000000000000000000000000000",
+      "minInvestment": "500000000000000000000000000",
+      "managementFee": "1.00",
+      "carriedInterest": "10.00",
+      "investorType": "anchor_investor",
+      "transferRestrictions": {
+        "holdingPeriod": 2555,
+        "maxTransferSize": "250000000000000000000000000",
+        "approvalRequired": true,
+        "generalPartnerConsent": true
+      }
+    }
+  ],
+  "controllers": [
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "role": "general_partner",
+      "permissions": ["strategy_allocation", "capital_deployment", "fund_operations", "investor_relations"],
+      "description": "Apollo Global Management as General Partner with full management authority"
+    },
+    {
+      "address": "0x2222222222222222222222222222222222222222",
+      "role": "investment_committee",
+      "permissions": ["investment_approval", "strategic_decisions", "risk_oversight"],
+      "description": "Apollo Investment Committee for major investment decisions"
+    },
+    {
+      "address": "0x3333333333333333333333333333333333333333",
+      "role": "fund_administrator",
+      "permissions": ["nav_calculation", "distribution_processing", "compliance_monitoring"],
+      "description": "Third-party fund administrator for operational management"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Master Fund Private Placement Memorandum",
+      "uri": "https://apollo.com/funds/strategic-pe-master/master-ppm.pdf",
+      "hash": "0xapollo123456789012345678901234567890abcdef123456789012345678901",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Master Fund Limited Partnership Agreement",
+      "uri": "https://apollo.com/funds/strategic-pe-master/master-lpa.pdf",
+      "hash": "0xapollo23456789012345678901234567890abcdef123456789012345678901a",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Investment Strategy and Allocation Framework",
+      "uri": "https://apollo.com/funds/strategic-pe-master/strategy-framework.pdf",
+      "hash": "0xapollo3456789012345678901234567890abcdef123456789012345678901ab",
+      "category": "strategy",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Risk Management and Diversification Policy",
+      "uri": "https://apollo.com/funds/strategic-pe-master/risk-policy.pdf",
+      "hash": "0xapollo456789012345678901234567890abcdef123456789012345678901abc",
+      "category": "risk",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    }
+  ],
+  "transferRestrictions": {
+    "enabled": true,
+    "rules": [
+      {
+        "ruleType": "master_fund_approval",
+        "description": "All transfers require approval from master fund general partner",
+        "active": true
+      },
+      {
+        "ruleType": "feeder_fund_coordination",
+        "description": "Transfers must coordinate with underlying feeder fund structures",
+        "active": true
+      },
+      {
+        "ruleType": "diversification_maintenance",
+        "description": "Transfers cannot compromise master fund diversification objectives",
+        "active": true
+      },
+      {
+        "ruleType": "qualified_institutional_buyer",
+        "description": "Transfers limited to qualified institutional buyers",
+        "active": true
+      }
+    ]
+  },
+  "masterFundOperations": {
+    "allocationCommittee": true,
+    "riskCommittee": true,
+    "valuationCommittee": true,
+    "rebalancingFrequency": "quarterly",
+    "performanceReporting": "monthly",
+    "capitalCallCoordination": true,
+    "distributionCoordination": true,
+    "taxEfficiencyOptimization": true
+  }
+}

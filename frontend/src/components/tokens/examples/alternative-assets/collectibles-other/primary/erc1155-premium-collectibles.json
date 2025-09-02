@@ -1,0 +1,334 @@
+{
+  "base_uri": "https://api.premiumcollectibles.com/metadata/",
+  "metadata_storage": "ipfs",
+  "has_royalty": true,
+  "royalty_percentage": "5.0",
+  "royalty_receiver": "0x1234567890123456789012345678901234567890",
+  "is_burnable": true,
+  "is_pausable": true,
+  "access_control": "role_based",
+  "updatable_uris": true,
+  "supply_tracking": true,
+  "enable_approval_for_all": true,
+  "batch_minting_enabled": true,
+  "container_enabled": false,
+  "use_geographic_restrictions": false,
+  "default_restriction_policy": "allowed",
+  "dynamic_uris": true,
+  "updatable_metadata": true,
+  "supply_tracking_advanced": true,
+  "max_supply_per_type": "10000",
+  "burning_enabled": true,
+  "mint_roles": ["0x1234567890123456789012345678901234567890"],
+  "burn_roles": ["0x1234567890123456789012345678901234567890"],
+  "metadata_update_roles": ["0x2345678901234567890123456789012345678901"],
+  
+  "pricing_model": "tiered",
+  "base_price": "0.5",
+  "bulk_discount_enabled": true,
+  "referral_rewards_enabled": true,
+  "referral_percentage": "2.5",
+  "lazy_minting_enabled": true,
+  "airdrop_enabled": true,
+  "claim_period_enabled": true,
+  "claim_start_time": "2024-06-01T00:00:00Z",
+  "claim_end_time": "2024-12-31T23:59:59Z",
+  "marketplace_fees_enabled": true,
+  "marketplace_fee_percentage": "2.5",
+  "marketplace_fee_recipient": "0x3456789012345678901234567890123456789012",
+  "bundle_trading_enabled": true,
+  "atomic_swaps_enabled": true,
+  "cross_collection_trading": true,
+  
+  "crafting_enabled": false,
+  "fusion_enabled": false,
+  "experience_points_enabled": false,
+  "leveling_enabled": false,
+  "consumable_tokens": false,
+  "voting_power_enabled": true,
+  "voting_weight_per_token": {
+    "1": 1,
+    "2": 2,
+    "3": 5,
+    "4": 10
+  },
+  "community_treasury_enabled": true,
+  "treasury_percentage": "10.0",
+  "proposal_creation_threshold": "1000",
+  "bridge_enabled": true,
+  "bridgeable_token_types": ["1", "2", "3", "4"],
+  "wrapped_versions": {
+    "polygon": "0x4567890123456789012345678901234567890123",
+    "arbitrum": "0x5678901234567890123456789012345678901234"
+  },
+  "layer2_support_enabled": true,
+  "supported_layer2_networks": ["polygon", "arbitrum", "optimism"],
+  
+  "tokenTypes": [
+    {
+      "token_id": "1",
+      "name": "Rare Art Prints",
+      "description": "Limited edition art prints from renowned contemporary artists",
+      "max_supply": "1000",
+      "current_supply": "0",
+      "price": "2.5",
+      "currency": "ETH",
+      "metadata_uri": "ipfs://QmArtPrintsMetadata/",
+      "transferable": true,
+      "tradeable": true,
+      "properties": {
+        "category": "fine_art",
+        "rarity": "rare",
+        "physical_backing": true,
+        "certificate_of_authenticity": true
+      }
+    },
+    {
+      "token_id": "2",
+      "name": "Vintage Wine Collection",
+      "description": "Tokenized vintage wines from prestigious wineries and exceptional vintages",
+      "max_supply": "500",
+      "current_supply": "0", 
+      "price": "5.0",
+      "currency": "ETH",
+      "metadata_uri": "ipfs://QmVintageWineMetadata/",
+      "transferable": true,
+      "tradeable": true,
+      "properties": {
+        "category": "wine_collectibles",
+        "rarity": "very_rare",
+        "physical_backing": true,
+        "temperature_controlled_storage": true,
+        "provenance_verified": true
+      }
+    },
+    {
+      "token_id": "3",
+      "name": "Luxury Handbag Collection",
+      "description": "Authenticated luxury handbags from top fashion houses including Hermès, Chanel, and Louis Vuitton",
+      "max_supply": "2000",
+      "current_supply": "0",
+      "price": "3.0",
+      "currency": "ETH", 
+      "metadata_uri": "ipfs://QmLuxuryHandbagMetadata/",
+      "transferable": true,
+      "tradeable": true,
+      "properties": {
+        "category": "luxury_fashion",
+        "rarity": "rare",
+        "physical_backing": true,
+        "authentication_verified": true,
+        "condition_graded": true
+      }
+    },
+    {
+      "token_id": "4",
+      "name": "Classic Car Shares",
+      "description": "Fractional ownership tokens representing shares in classic and exotic automobiles",
+      "max_supply": "100",
+      "current_supply": "0",
+      "price": "25.0",
+      "currency": "ETH",
+      "metadata_uri": "ipfs://QmClassicCarMetadata/",
+      "transferable": true,
+      "tradeable": true,
+      "properties": {
+        "category": "classic_automobiles",
+        "rarity": "ultra_rare",
+        "physical_backing": true,
+        "professional_storage": true,
+        "insurance_coverage": "full_value",
+        "fractional_ownership": true
+      }
+    }
+  ],
+  
+  "discountTiers": [
+    {
+      "tier_name": "Bronze Collector",
+      "minimum_tokens": "10",
+      "discount_percentage": "5.0",
+      "additional_benefits": ["early_access_notifications"],
+      "qualification_period": "30_days"
+    },
+    {
+      "tier_name": "Silver Collector",
+      "minimum_tokens": "25",
+      "discount_percentage": "10.0", 
+      "additional_benefits": ["early_access_notifications", "exclusive_drops"],
+      "qualification_period": "30_days"
+    },
+    {
+      "tier_name": "Gold Collector",
+      "minimum_tokens": "50",
+      "discount_percentage": "15.0",
+      "additional_benefits": ["early_access_notifications", "exclusive_drops", "curator_insights"],
+      "qualification_period": "30_days"
+    },
+    {
+      "tier_name": "Platinum Collector",
+      "minimum_tokens": "100",
+      "discount_percentage": "20.0",
+      "additional_benefits": ["early_access_notifications", "exclusive_drops", "curator_insights", "private_events"],
+      "qualification_period": "30_days"
+    }
+  ],
+  
+  "typeConfigs": [
+    {
+      "token_id": "1",
+      "config_name": "Art Print Configuration",
+      "metadata": {
+        "artist_verification_required": true,
+        "edition_numbering": true,
+        "certificate_of_authenticity": true,
+        "physical_shipping_enabled": true,
+        "framing_service_available": true
+      },
+      "transfer_restrictions": {
+        "require_kyc": false,
+        "geographic_restrictions": false,
+        "holding_period": 0
+      }
+    },
+    {
+      "token_id": "2",
+      "config_name": "Wine Collection Configuration", 
+      "metadata": {
+        "wine_rating_required": true,
+        "vintage_verification": true,
+        "storage_documentation": true,
+        "insurance_required": true,
+        "temperature_monitoring": true
+      },
+      "transfer_restrictions": {
+        "require_kyc": true,
+        "age_verification": true,
+        "geographic_restrictions": true,
+        "holding_period": 90
+      }
+    },
+    {
+      "token_id": "3",
+      "config_name": "Luxury Handbag Configuration",
+      "metadata": {
+        "authenticity_verification": true,
+        "condition_assessment": true,
+        "serial_number_tracking": true,
+        "market_valuation": true,
+        "care_instructions": true
+      },
+      "transfer_restrictions": {
+        "require_kyc": false,
+        "geographic_restrictions": false,
+        "holding_period": 30
+      }
+    },
+    {
+      "token_id": "4",
+      "config_name": "Classic Car Configuration",
+      "metadata": {
+        "vehicle_identification": true,
+        "maintenance_records": true,
+        "insurance_documentation": true,
+        "storage_certification": true,
+        "market_appraisal": true
+      },
+      "transfer_restrictions": {
+        "require_kyc": true,
+        "accredited_investor_only": true,
+        "geographic_restrictions": true,
+        "holding_period": 365
+      }
+    }
+  ],
+  
+  "uriMappings": [
+    {
+      "token_id": "1",
+      "base_uri": "ipfs://QmArtPrintsCollection/",
+      "metadata_extension": ".json",
+      "image_base_uri": "ipfs://QmArtPrintsImages/",
+      "animation_base_uri": "",
+      "external_url": "https://premiumcollectibles.com/art-prints/"
+    },
+    {
+      "token_id": "2",
+      "base_uri": "ipfs://QmVintageWineCollection/",
+      "metadata_extension": ".json",
+      "image_base_uri": "ipfs://QmVintageWineImages/",
+      "animation_base_uri": "",
+      "external_url": "https://premiumcollectibles.com/vintage-wines/"
+    },
+    {
+      "token_id": "3", 
+      "base_uri": "ipfs://QmLuxuryHandbagCollection/",
+      "metadata_extension": ".json",
+      "image_base_uri": "ipfs://QmLuxuryHandbagImages/",
+      "animation_base_uri": "ipfs://QmHandbag360Views/",
+      "external_url": "https://premiumcollectibles.com/luxury-handbags/"
+    },
+    {
+      "token_id": "4",
+      "base_uri": "ipfs://QmClassicCarCollection/",
+      "metadata_extension": ".json", 
+      "image_base_uri": "ipfs://QmClassicCarImages/",
+      "animation_base_uri": "ipfs://QmCarVideoTours/",
+      "external_url": "https://premiumcollectibles.com/classic-cars/"
+    }
+  ],
+  
+  "collectionDetails": {
+    "name": "Premium Collectibles Multi-Token",
+    "description": "Curated collection of tokenized luxury collectibles across multiple categories including art, wine, fashion, and automobiles",
+    "website": "https://premiumcollectibles.com",
+    "social_media": {
+      "twitter": "@PremiumCollectiblesNFT",
+      "discord": "https://discord.gg/premiumcollectibles",
+      "instagram": "@premiumcollectibles"
+    }
+  },
+  
+  "custodyAndStorage": {
+    "art_prints": {
+      "facility": "Crozier Fine Arts",
+      "location": "New York, NY",
+      "insurance": "AXA Art Insurance",
+      "climate_controlled": true
+    },
+    "vintage_wines": {
+      "facility": "Vin-X Wine Storage",
+      "location": "Bordeaux, France",
+      "insurance": "Willis Towers Watson",
+      "temperature_monitoring": true,
+      "humidity_control": true
+    },
+    "luxury_handbags": {
+      "facility": "Garde Storage",
+      "location": "Los Angeles, CA", 
+      "insurance": "Berkshire Hathaway",
+      "security_features": ["24_7_monitoring", "biometric_access"]
+    },
+    "classic_cars": {
+      "facility": "MotorSport Ranch",
+      "location": "Texas, USA",
+      "insurance": "Hagerty Classic Car Insurance",
+      "climate_controlled": true,
+      "maintenance_included": true
+    }
+  },
+  
+  "authentication": {
+    "art_prints": "Masterworks Authentication",
+    "vintage_wines": "Wine Spectator Verification",
+    "luxury_handbags": "Entrupy Authentication",
+    "classic_cars": "Hagerty Valuation Services"
+  },
+  
+  "investmentMetrics": {
+    "total_collection_value": "50000000",
+    "average_appreciation": "8.5%_annually",
+    "liquidity_score": "high",
+    "diversification_benefit": true
+  }
+}

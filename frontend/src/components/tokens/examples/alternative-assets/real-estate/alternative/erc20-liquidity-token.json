@@ -1,0 +1,281 @@
+{
+  "name": "Brookfield Real Estate Liquidity Token",
+  "symbol": "LBREF4",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "initialSupply": "80000000",
+  "cap": "400000000",
+  "tokenDetails": "ERC-20 liquidity token providing secondary market access to Brookfield Global Real Estate Fund IV. Features simplified structure with enhanced trading capabilities and institutional compliance.",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasVoting": false,
+  
+  "taxWithholding": true,
+  "taxRate": "0",
+  "dividendDistribution": true,
+  "maxTransactionLimit": "1000000",
+  "maxWalletLimit": "10000000",
+  
+  "useBlacklist": true,
+  "useWhitelist": true,
+  "complianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  
+  "useTransferRestrictions": true,
+  "useHoldingPeriod": true,
+  "holdingPeriodDays": "365",
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  
+  "bridgeEnabled": false,
+  "crossChainSupport": false,
+  "supportedChains": ["ethereum"],
+  
+  "liquidityProvisionEnabled": true,
+  "dexIntegrationEnabled": true,
+  "yieldFarmingEnabled": false,
+  "stakingEnabled": true,
+  "stakingRewardRate": "2.5",
+  "stakingLockupPeriod": "180",
+  
+  "flashLoanEnabled": false,
+  "collateralFactor": "0.65",
+  "liquidationThreshold": "0.75",
+  
+  "upgradeability": "transparent_proxy",
+  "adminMultisig": true,
+  "timelockDelay": "604800",
+  
+  "complianceSettings": {
+    "requireKyc": true,
+    "kycProviders": ["Onfido", "Jumio"],
+    "sanctionsScreening": true,
+    "amlMonitoring": true,
+    "pepScreening": true,
+    "transactionLimits": {
+      "daily": "500000",
+      "weekly": "2000000",
+      "monthly": "6000000"
+    },
+    "sourceOfFundsVerification": true,
+    "institutionalCompliance": true
+  },
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 365,
+    "qualifiedInvestorOnly": true,
+    "transferApprovalRequired": true,
+    "automaticCompliance": false,
+    "fractionalTransfersEnabled": false,
+    "manualReviewRequired": true
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor"]
+    },
+    {
+      "country": "GB",
+      "allowed": true,
+      "conditions": ["sophisticated_investor"]
+    },
+    {
+      "country": "AU",
+      "allowed": true,
+      "conditions": ["wholesale_investor"]
+    },
+    {
+      "country": "DE",
+      "allowed": true,
+      "conditions": ["professional_investor"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "regulatory_restrictions"
+    },
+    {
+      "country": "IR",
+      "allowed": false,
+      "reason": "sanctions"
+    }
+  ],
+  
+  "dexIntegration": {
+    "uniswapV3": {
+      "enabled": true,
+      "poolFee": "10000",
+      "initialLiquidity": "200000",
+      "concentratedLiquidity": false
+    },
+    "curve": {
+      "enabled": false
+    },
+    "balancer": {
+      "enabled": true,
+      "poolType": "weighted",
+      "weights": ["90", "10"],
+      "swapFee": "100"
+    }
+  },
+  
+  "yieldStrategies": [
+    {
+      "strategy": "real_estate_income",
+      "allocation": "85",
+      "targetApy": "8.5",
+      "riskLevel": "medium",
+      "protocol": "Native"
+    },
+    {
+      "strategy": "stable_yield",
+      "allocation": "15",
+      "targetApy": "3.0",
+      "riskLevel": "low",
+      "protocol": "Reserve"
+    }
+  ],
+  
+  "liquidityMining": {
+    "enabled": false,
+    "rewardToken": "",
+    "emissionRate": "0",
+    "duration": "0",
+    "boostMultiplier": "0"
+  },
+  
+  "governance": {
+    "votingEnabled": false,
+    "proposalThreshold": "0",
+    "quorumRequirement": "0",
+    "votingDelay": "0",
+    "votingPeriod": "0",
+    "executionDelay": "0",
+    "vetoEnabled": false
+  },
+  
+  "integrationAPIs": {
+    "chainlink": {
+      "priceFeed": true,
+      "proofOfReserve": false,
+      "automation": false
+    },
+    "realEstateData": {
+      "brookfieldPlatform": true,
+      "propertyValuation": true,
+      "occupancyTracking": true
+    },
+    "complianceProviders": {
+      "chainalysis": false,
+      "elliptic": false,
+      "onfido": true
+    }
+  },
+  
+  "realEstateSpecificFeatures": {
+    "propertyVoting": {
+      "enabled": false
+    },
+    "distributionMechanism": {
+      "frequency": "quarterly",
+      "source": "fund_distributions",
+      "reinvestmentOption": false,
+      "taxOptimization": false
+    },
+    "propertyReporting": {
+      "quarterlyReports": true,
+      "annualReports": true,
+      "monthlyUpdates": false,
+      "propertyLevelReporting": false
+    },
+    "liquidityMechanisms": {
+      "redemptionProgram": {
+        "enabled": true,
+        "frequency": "annual",
+        "capacityLimit": "5",
+        "noticePeriod": "180"
+      },
+      "secondaryMarket": {
+        "enabled": true,
+        "matchingService": false,
+        "pricingOracle": false
+      }
+    }
+  },
+  
+  "institutionalFeatures": {
+    "bulkTransactions": true,
+    "institutionalDashboard": false,
+    "complianceReporting": true,
+    "customReporting": false,
+    "dedicatedSupport": true,
+    "whitelabelInterface": false
+  },
+  
+  "securityFeatures": {
+    "pauseGuardian": "0xabcdef7890123456789012345678901234567890",
+    "emergencyWithdraw": false,
+    "upgradePause": true,
+    "contractVerification": true,
+    "auditReports": [
+      {
+        "auditor": "Trail of Bits",
+        "date": "2024-01-20",
+        "score": "88",
+        "focus": "tokenization_security"
+      }
+    ],
+    "insuranceCoverage": {
+      "smartContractInsurance": false,
+      "propertyInsurance": true,
+      "liabilityInsurance": true,
+      "amount": "25000000"
+    }
+  },
+  
+  "metadata": {
+    "underlyingAsset": "Brookfield Global Real Estate Fund IV",
+    "assetClass": "global_real_estate",
+    "strategy": "diversified_real_estate",
+    "geography": "global",
+    "vintage": "2024",
+    "targetReturn": "10-12%",
+    "fundSize": "2000000000",
+    "managementFee": "1.5",
+    "performanceFee": "20",
+    "distributionFrequency": "quarterly",
+    "redemptionFrequency": "annual",
+    "noticePeriod": "180",
+    "lockupPeriod": "24",
+    "fundLife": "10",
+    "extensionOptions": "2x1year",
+    "totalProperties": "142",
+    "totalSquareFootage": "85000000",
+    "averageOccupancy": "91.2",
+    "leverage": "62",
+    "geographicDiversification": {
+      "north_america": "45",
+      "europe": "35",
+      "asia_pacific": "20"
+    },
+    "propertyTypeDiversification": {
+      "office": "35",
+      "retail": "25",
+      "logistics": "20",
+      "multifamily": "15",
+      "hotels": "5"
+    }
+  }
+}

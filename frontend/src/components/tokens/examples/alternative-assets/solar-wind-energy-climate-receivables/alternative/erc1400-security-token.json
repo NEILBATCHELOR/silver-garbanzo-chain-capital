@@ -1,0 +1,233 @@
+{
+  "name": "Simplified Renewable Energy Credits Token",
+  "symbol": "sRECS",
+  "decimals": 18,
+  "description": "Simplified security token representing institutional ownership in a diversified portfolio of renewable energy credits with streamlined compliance",
+  "initialSupply": "25000000",
+  "cap": "50000000",
+  "tokenDetails": "ERC-1400 security token backed by verified renewable energy credits with simplified structure for enhanced liquidity",
+  "securityType": "environmental-commodity",
+  "regulationType": "reg-s",
+  "issuingEntityName": "Green Capital Simple REC Fund LLC",
+  "issuingJurisdiction": "Delaware",
+  "issuingEntityLei": "5493000GSREC1A7T25",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": false,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "fully-automated",
+  "complianceModule": "environmental-compliance-simple-v1",
+  
+  "holdingPeriod": "0",
+  "maxInvestorCount": "2000",
+  "useGeographicRestrictions": false,
+  "defaultRestrictionPolicy": "allow",
+  "geographicRestrictions": [],
+  
+  "forcedTransfers": false,
+  "forcedRedemptionEnabled": true,
+  "granularControl": false,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": false,
+  "trancheTransferability": false,
+  
+  "corporateActions": false,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://ipfs.io/ipfs/QmSREC8hGvFJK2kN3PvQq7L8M9wBxYzK1pV",
+  "documentHash": "0x6e7f0a1b3c5d7e0f2a4b6c8d9e1f3a5b7c9d0e2f4a6b8c0d2e4f6a8b0c2d4e6f",
+  "legalTerms": "https://docs.greencapital.com/simple-rec-fund/legal-terms",
+  "prospectus": "https://docs.greencapital.com/simple-rec-fund/prospectus",
+  
+  "institutionalGrade": false,
+  "custodyIntegrationEnabled": false,
+  "primeBrokerageSupport": false,
+  "settlementIntegration": "basic",
+  "clearingHouseIntegration": false,
+  "centralSecuritiesDepositoryIntegration": false,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": false,
+  "pepScreeningEnabled": false,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": false,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": false,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": false,
+  "positionReconciliationEnabled": false,
+  "regulatoryFilingAutomation": false,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": true,
+  
+  "traditionalFinanceIntegration": false,
+  "swiftIntegrationEnabled": false,
+  "iso20022MessagingSupport": false,
+  "financialDataVendorIntegration": false,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": true,
+  "layer2ScalingSupport": true,
+  
+  "advancedRiskManagement": false,
+  "positionLimitsEnabled": false,
+  "stressTestingEnabled": false,
+  "marginRequirementsDynamic": false,
+  "collateralManagementEnabled": false,
+  "insuranceCoverageEnabled": false,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingAmount": "100",
+    "transferCooldownPeriod": "0",
+    "maximumTransferAmount": "1000000",
+    "requiresApproval": false,
+    "restrictedHours": []
+  },
+  
+  "kycSettings": {
+    "requiresCertifiedInvestor": false,
+    "minimumInvestmentAmount": "1000",
+    "maximumInvestmentAmount": "100000",
+    "requiresAccreditation": false,
+    "accreditationTypes": []
+  },
+  
+  "complianceSettings": {
+    "regulatoryFramework": "Simplified Environmental Commodity",
+    "investorLimits": {
+      "maxAccredited": 2000,
+      "maxNonAccredited": 2000
+    },
+    "reportingRequirements": {
+      "quarterly": false,
+      "annual": true,
+      "realTime": false,
+      "environmental": true
+    }
+  },
+  
+  "customFeatures": {
+    "energyType": "simplified-renewable-portfolio",
+    "creditSources": ["solar", "wind"],
+    "vintageRange": "2024",
+    "geographicFocus": "US",
+    "registryIntegration": ["simplified-registry"],
+    "retirementMechanism": "automatic",
+    "carbonOffset": true,
+    "additionalityVerified": true,
+    "simplifiedStructure": true,
+    "environmentalBenefits": {
+      "co2Avoided": "125000 tCO2e",
+      "renewableEnergyGenerated": "250000 MWh",
+      "projectsSupported": "50"
+    }
+  },
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "autoApproval": true,
+    "requiresManualReview": false,
+    "kycRequirement": "basic"
+  },
+  
+  "investorLimits": {
+    "minimumInvestment": "1000",
+    "maximumInvestment": "100000",
+    "accreditationRequired": false,
+    "institutionalOnly": false
+  },
+  
+  "transactionMonitoringRules": {
+    "largeTransactionThreshold": "10000",
+    "velocityLimits": {
+      "daily": "100000",
+      "monthly": "500000"
+    },
+    "amlScreening": false,
+    "sanctionsChecking": false
+  },
+  
+  "jurisdictionRestrictions": [
+    {
+      "jurisdiction": "US",
+      "allowed": true,
+      "requirements": ["basic-kyc"]
+    }
+  ],
+  
+  "thirdPartyCustodyAddresses": [],
+  
+  "partitions": [],
+  
+  "controllers": [
+    {
+      "address": "0x7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
+      "name": "Fund Manager",
+      "permissions": ["issue", "redeem", "environmental-reporting"],
+      "isActive": true,
+      "canDelegate": false
+    },
+    {
+      "address": "0x9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d",
+      "name": "Registry Oracle",
+      "permissions": ["verification", "retirement"],
+      "isActive": true,
+      "canDelegate": false
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Simplified Environmental Impact Report",
+      "documentUri": "https://ipfs.io/ipfs/QmSEIR789xyz",
+      "documentType": "environmental-report",
+      "documentHash": "0x3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
+    },
+    {
+      "name": "Portfolio Summary",
+      "documentUri": "https://ipfs.io/ipfs/QmPS456def",
+      "documentType": "portfolio-summary",
+      "documentHash": "0x4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c"
+    }
+  ],
+  
+  "environmentalMetrics": {
+    "totalMWhRepresented": "250000",
+    "co2AvoidedTons": "125000",
+    "renewableCapacityMW": "400",
+    "projectCount": "50",
+    "vintageDistribution": {
+      "2024": "100%"
+    },
+    "technologyMix": {
+      "solar": "70%",
+      "wind": "30%"
+    },
+    "geographicMix": {
+      "us": "100%"
+    }
+  },
+  
+  "simplificationFeatures": {
+    "singleVintage": true,
+    "limitedGeography": true,
+    "basicCompliance": true,
+    "streamlinedReporting": true,
+    "reducedFees": true,
+    "fasterSettlement": true,
+    "enhancedLiquidity": true
+  }
+}

@@ -1,0 +1,452 @@
+{
+  "name": "Manhattan Property Value Units",
+  "symbol": "MPVU",
+  "description": "Semi-fungible value units representing fractional ownership in specific Manhattan commercial properties with varying lease terms, property types, and income streams",
+  "valueDecimals": 6,
+  "standard": "ERC-3525",
+  
+  "baseUri": "https://manhattan-reit.com/metadata/",
+  "metadataStorage": "ipfs",
+  "dynamicMetadata": true,
+  "updatableUris": true,
+  
+  "slotType": "property_asset",
+  "allowsSlotEnumeration": true,
+  "slotTransferValidation": {
+    "requireSamePropertyType": false,
+    "allowCrossPropertyTransfers": true,
+    "requirePropertyApproval": true,
+    "respectTenantRights": true
+  },
+  
+  "accessControl": "property_based",
+  
+  "isBurnable": false,
+  "isPausable": true,
+  "hasRoyalty": true,
+  "royaltyPercentage": "1.0",
+  "royaltyReceiver": "0x1a2b3c4d5e6f7890123456789012345678901234",
+  
+  "slotApprovals": true,
+  "valueApprovals": true,
+  "valueTransfersEnabled": true,
+  "updatableSlots": true,
+  "updatableValues": true,
+  
+  "mergable": true,
+  "splittable": true,
+  "valueAggregation": true,
+  "fractionalOwnershipEnabled": true,
+  "autoUnitCalculation": true,
+  
+  "permissioningEnabled": true,
+  "permissioningAdvanced": true,
+  
+  "supplyTracking": true,
+  "slotEnumerationEnabled": true,
+  "valueAggregationEnabled": true,
+  
+  "slotTransferRestrictions": {
+    "requireKyc": true,
+    "accreditedInvestorOnly": true,
+    "holdingPeriodDays": 365,
+    "geographicRestrictions": true,
+    "foreignOwnershipLimits": true,
+    "rightOfFirstRefusal": true
+  },
+  
+  "valueTransferRestrictions": {
+    "minimumTransferValue": "10000",
+    "maximumTransferValue": "25000000",
+    "transferLimits": {
+      "daily": "1000000",
+      "monthly": "5000000",
+      "annual": "50000000"
+    },
+    "tenantNotificationRequired": false
+  },
+  
+  "financialInstrumentType": "real_estate_equity",
+  "principalAmount": "1000000000",
+  "interestRate": "property_income_based",
+  "maturityDate": "",
+  "couponFrequency": "quarterly",
+  "paymentSchedule": {
+    "type": "income_distribution",
+    "frequency": "quarterly",
+    "firstPaymentDate": "2024-06-30",
+    "distributionPolicy": "net_rental_income"
+  },
+  "earlyRedemptionEnabled": true,
+  "redemptionPenaltyRate": "2.0",
+  
+  "slotCreationEnabled": true,
+  "dynamicSlotCreation": false,
+  "slotAdminRoles": ["PROPERTY_MANAGER", "ASSET_MANAGER"],
+  "slotFreezeEnabled": true,
+  "slotMergeEnabled": false,
+  "slotSplitEnabled": true,
+  "crossSlotTransfers": true,
+  
+  "valueComputationMethod": "property_appraisal_based",
+  "valueOracleAddress": "0x2b3c4d5e6f7890123456789012345678901234ab",
+  "valueCalculationFormula": "appraised_value * ownership_percentage / total_units",
+  "accrualEnabled": true,
+  "accrualRate": "property_appreciation",
+  "accrualFrequency": "quarterly",
+  "valueAdjustmentEnabled": true,
+  
+  "slotMarketplaceEnabled": true,
+  "valueMarketplaceEnabled": true,
+  "partialValueTrading": true,
+  "minimumTradeValue": "10000",
+  "tradingFeesEnabled": true,
+  "tradingFeePercentage": "0.5",
+  "marketMakerEnabled": false,
+  
+  "slotVotingEnabled": true,
+  "valueWeightedVoting": true,
+  "votingPowerCalculation": "ownership_percentage",
+  "quorumCalculationMethod": "majority_by_value",
+  "proposalValueThreshold": "5000000",
+  "delegateEnabled": true,
+  
+  "yieldFarmingEnabled": false,
+  "liquidityProvisionEnabled": true,
+  "stakingYieldRate": "0",
+  "compoundInterestEnabled": false,
+  "flashLoanEnabled": false,
+  "collateralFactor": "0.75",
+  "liquidationThreshold": "0.85",
+  
+  "regulatoryComplianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  "holdingPeriodRestrictions": 365,
+  "transferLimits": {
+    "daily": "1000000",
+    "monthly": "5000000",
+    "annual": "50000000"
+  },
+  "reportingRequirements": {
+    "quarterly": true,
+    "annual": true,
+    "regulatory": true,
+    "propertySpecific": true
+  },
+  
+  "multiSignatureRequired": true,
+  "approvalWorkflowEnabled": true,
+  "institutionalCustodySupport": true,
+  "auditTrailEnhanced": true,
+  "batchOperationsEnabled": true,
+  "emergencyPauseEnabled": true,
+  "recoveryMechanisms": {
+    "keyRecovery": true,
+    "socialRecovery": false,
+    "guardianRecovery": true,
+    "propertyEmergencyAccess": true
+  },
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor", "no_foreign_person_restrictions"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor", "foreign_investment_approval"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "foreign_real_estate_restrictions"
+    }
+  ],
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "automaticApproval": false,
+    "kycRequired": true,
+    "accreditationRequired": true,
+    "propertyOwnershipVerification": true
+  },
+  
+  "salesConfig": {
+    "publicSale": false,
+    "privateSale": true,
+    "minimumPurchase": "50000",
+    "maximumPurchase": "25000000",
+    "foreignInvestorLimits": true
+  },
+  
+  "customExtensions": "property_insurance_oracle,maintenance_reserve_fund,tenant_notification_system",
+  "customSlotProperties": {
+    "propertyAddress": "string",
+    "propertyType": "string",
+    "squareFootage": "uint256",
+    "yearBuilt": "uint256",
+    "lastRenovation": "uint256",
+    "occupancyRate": "uint256",
+    "averageRent": "uint256",
+    "leaseExpiry": "uint256",
+    "propertyGrade": "string",
+    "environmentalRating": "string"
+  },
+  
+  "metadata": {
+    "portfolioType": "commercial_real_estate",
+    "geographicFocus": "manhattan_nyc",
+    "propertyTypes": ["office", "retail", "mixed_use"],
+    "totalSquareFootage": "2500000",
+    "averageOccupancy": "93.5",
+    "averageLeaseLength": "8.2",
+    "managementFee": "1.0",
+    "performanceFee": "0",
+    "distributionFrequency": "quarterly"
+  },
+  
+  "slots": [
+    {
+      "slotId": "1",
+      "slotName": "One Madison Avenue",
+      "slotDescription": "Class A office building - 1.2M sq ft",
+      "valueUnits": "USD",
+      "slotType": "office_property",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "10000",
+      "maxValue": "150000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "propertyAddress": "23 East 23rd Street, New York, NY 10010",
+        "propertyType": "office",
+        "squareFootage": "1200000",
+        "yearBuilt": "1909",
+        "lastRenovation": "2019",
+        "occupancyRate": "95",
+        "averageRent": "85",
+        "propertyGrade": "A",
+        "environmentalRating": "LEED Gold"
+      }
+    },
+    {
+      "slotId": "2",
+      "slotName": "Fifth Avenue Retail",
+      "slotDescription": "Premier retail space on Fifth Avenue",
+      "valueUnits": "USD",
+      "slotType": "retail_property",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "25000",
+      "maxValue": "75000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "propertyAddress": "725 Fifth Avenue, New York, NY 10022",
+        "propertyType": "retail",
+        "squareFootage": "150000",
+        "yearBuilt": "1965",
+        "lastRenovation": "2021",
+        "occupancyRate": "100",
+        "averageRent": "500",
+        "propertyGrade": "A+",
+        "environmentalRating": "LEED Platinum"
+      }
+    },
+    {
+      "slotId": "3",
+      "slotName": "Hudson Yards Mixed-Use",
+      "slotDescription": "Modern mixed-use development",
+      "valueUnits": "USD",
+      "slotType": "mixed_use_property",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "50000",
+      "maxValue": "100000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "propertyAddress": "30 Hudson Yards, New York, NY 10001",
+        "propertyType": "mixed_use",
+        "squareFootage": "800000",
+        "yearBuilt": "2019",
+        "lastRenovation": "2019",
+        "occupancyRate": "88",
+        "averageRent": "95",
+        "propertyGrade": "A",
+        "environmentalRating": "LEED Platinum"
+      }
+    }
+  ],
+  
+  "allocations": [
+    {
+      "tokenIdWithinSlot": "1001",
+      "slotId": "1",
+      "recipient": "0x1111111111111111111111111111111111111111",
+      "value": "50000000",
+      "linkedTokenId": "",
+      "allocationDetails": {
+        "allocationDate": "2024-01-15",
+        "allocationMethod": "initial_offering",
+        "vestingSchedule": "none"
+      }
+    },
+    {
+      "tokenIdWithinSlot": "2001",
+      "slotId": "2",
+      "recipient": "0x2222222222222222222222222222222222222222",
+      "value": "25000000",
+      "linkedTokenId": "",
+      "allocationDetails": {
+        "allocationDate": "2024-01-15",
+        "allocationMethod": "initial_offering",
+        "vestingSchedule": "none"
+      }
+    },
+    {
+      "tokenIdWithinSlot": "3001",
+      "slotId": "3",
+      "recipient": "0x3333333333333333333333333333333333333333",
+      "value": "15000000",
+      "linkedTokenId": "",
+      "allocationDetails": {
+        "allocationDate": "2024-01-15",
+        "allocationMethod": "initial_offering",
+        "vestingSchedule": "none"
+      }
+    }
+  ],
+  
+  "paymentSchedules": [
+    {
+      "slotId": "1",
+      "paymentDate": "2024-06-30",
+      "paymentAmount": "3750000",
+      "paymentType": "rental_income",
+      "currency": "USD",
+      "isCompleted": false,
+      "paymentDetails": {
+        "source": "tenant_rent_payments",
+        "grossRent": "4200000",
+        "expenses": "450000",
+        "netAmount": "3750000"
+      }
+    },
+    {
+      "slotId": "2",
+      "paymentDate": "2024-06-30",
+      "paymentAmount": "1875000",
+      "paymentType": "rental_income",
+      "currency": "USD",
+      "isCompleted": false,
+      "paymentDetails": {
+        "source": "tenant_rent_payments",
+        "grossRent": "2100000",
+        "expenses": "225000",
+        "netAmount": "1875000"
+      }
+    },
+    {
+      "slotId": "3",
+      "paymentDate": "2024-06-30",
+      "paymentAmount": "1650000",
+      "paymentType": "rental_income",
+      "currency": "USD",
+      "isCompleted": false,
+      "paymentDetails": {
+        "source": "tenant_rent_payments",
+        "grossRent": "1900000",
+        "expenses": "250000",
+        "netAmount": "1650000"
+      }
+    }
+  ],
+  
+  "valueAdjustments": [
+    {
+      "slotId": "1",
+      "adjustmentDate": "2024-03-31",
+      "adjustmentType": "quarterly_appraisal",
+      "adjustmentAmount": "7500000",
+      "adjustmentReason": "market_appreciation",
+      "oraclePrice": "625.00",
+      "oracleSource": "CBRE Property Valuation",
+      "approvedBy": "0x1a2b3c4d5e6f7890123456789012345678901234",
+      "adjustmentDetails": {
+        "previousValuation": "600000000",
+        "newValuation": "607500000",
+        "adjustmentPercentage": "1.25"
+      }
+    },
+    {
+      "slotId": "2",
+      "adjustmentDate": "2024-03-31",
+      "adjustmentType": "quarterly_appraisal",
+      "adjustmentAmount": "2250000",
+      "adjustmentReason": "market_appreciation",
+      "oraclePrice": "1517.50",
+      "oracleSource": "JLL Property Valuation",
+      "approvedBy": "0x1a2b3c4d5e6f7890123456789012345678901234",
+      "adjustmentDetails": {
+        "previousValuation": "225000000",
+        "newValuation": "227250000",
+        "adjustmentPercentage": "1.00"
+      }
+    }
+  ],
+  
+  "slotConfigs": [
+    {
+      "slotId": "1",
+      "name": "One Madison Avenue Configuration",
+      "description": "Configuration for Class A office building",
+      "metadata": {
+        "propertyManager": "CBRE",
+        "insuranceCarrier": "AIG",
+        "maintenanceReserve": "5000000",
+        "capitalImprovementReserve": "10000000",
+        "environmentalCompliance": "full",
+        "securityLevel": "institutional"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "2",
+      "name": "Fifth Avenue Retail Configuration",
+      "description": "Configuration for premier retail property",
+      "metadata": {
+        "propertyManager": "JLL",
+        "insuranceCarrier": "Chubb",
+        "maintenanceReserve": "2000000",
+        "capitalImprovementReserve": "3000000",
+        "environmentalCompliance": "full",
+        "securityLevel": "premium"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "3",
+      "name": "Hudson Yards Mixed-Use Configuration",
+      "description": "Configuration for mixed-use development",
+      "metadata": {
+        "propertyManager": "Cushman & Wakefield",
+        "insuranceCarrier": "Zurich",
+        "maintenanceReserve": "3000000",
+        "capitalImprovementReserve": "5000000",
+        "environmentalCompliance": "leed_platinum",
+        "securityLevel": "institutional"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    }
+  ]
+}

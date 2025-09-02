@@ -1,0 +1,48 @@
+{
+  "name": "Elastic Supply Dollar",
+  "symbol": "ESD",
+  "decimals": 18,
+  "description": "A rebasing algorithmic stablecoin that maintains its USD peg through automatic daily supply adjustments, distributing expansion and contraction proportionally across all holders.",
+  "standard": "ERC-20",
+  "total_supply": "1000000000",
+  "initial_supply": "100000000",
+  "cap": "0",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "stablecoin",
+  "access_control": "ownable",
+  "pausable_by": "owner",
+  "mintable_by": "rebase_contract",
+  "burnable_by": "rebase_contract",
+  "allow_management": true,
+  "permit": true,
+  "snapshot": true,
+  "rebasing": {
+    "enabled": true,
+    "rebase_function": "elastic_supply_adjustment",
+    "rebase_trigger": "price_deviation",
+    "rebase_mechanism": "proportional_distribution",
+    "negative_rebase_enabled": true,
+    "max_positive_rebase": "10.0",
+    "max_negative_rebase": "10.0",
+    "rebase_delay": "24_hours",
+    "oracle_integration": true,
+    "smoothing_factor": "0.1"
+  },
+  "algorithmic_features": {
+    "algorithm_type": "rebasing",
+    "price_oracle": "chainlink_usd",
+    "rebase_calculation": "supply_adjustment",
+    "stabilization_mechanism": "elastic_supply",
+    "arbitrage_incentives": true,
+    "market_maker_rewards": true
+  },
+  "metadata": {
+    "stablecoin_type": "algorithmic_rebasing",
+    "algorithm_model": "elastic_supply",
+    "peg_mechanism": "supply_adjustment",
+    "target_users": ["defi_enthusiasts", "algorithmic_traders", "yield_farmers"],
+    "risk_level": "high"
+  }
+}

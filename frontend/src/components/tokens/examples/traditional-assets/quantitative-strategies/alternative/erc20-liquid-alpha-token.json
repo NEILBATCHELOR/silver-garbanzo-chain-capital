@@ -1,0 +1,292 @@
+{
+  "name": "Two Sigma Liquid Alpha Token",
+  "symbol": "lTSALPHA",
+  "description": "Liquid ERC-20 wrapper for Two Sigma ML Alpha Vault (TSMLAV). Provides immediate liquidity and DeFi compatibility for machine learning-driven quantitative strategies with minimal compliance overhead. Optimized for retail and DeFi integration.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "250000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "liquidity_wrapper",
+    "underlyingAsset": "TSMLAV",
+    "wrapperType": "ml_alpha_liquidity_token",
+    "liquidityProvider": "automated_market_maker",
+    "tradingPairs": ["lTSALPHA/USDC", "lTSALPHA/ETH", "lTSALPHA/WBTC"],
+    "exchangeCompatibility": ["uniswap_v3", "sushiswap", "pancakeswap", "1inch"],
+    "yieldBearing": true,
+    "redeemable": true,
+    "leverageAvailable": true,
+    "hedgedExposure": false,
+    "defiNative": true
+  },
+  "erc20Properties": {
+    "name": "Two Sigma Liquid Alpha Token",
+    "symbol": "lTSALPHA",
+    "decimals": 18,
+    "initialSupply": "250000000000000000000000000",
+    "maxSupply": "1000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": false,
+    "isFreezable": false,
+    
+    "permitEnabled": true,
+    "permit2Enabled": true,
+    "gaslessTransactionSupport": true,
+    "metaTransactionSupport": true,
+    
+    "reflectionMechanism": false,
+    "taxOnTransfer": false,
+    "maxTransactionAmount": "0",
+    "maxWalletAmount": "0",
+    "transferCooldown": 0,
+    
+    "liquidityProvisionEnabled": true,
+    "liquidityLockEnabled": false,
+    "liquidityBurnEnabled": false,
+    "liquidityFeeEnabled": true,
+    
+    "stakingEnabled": true,
+    "stakingRewardsEnabled": true,
+    "governanceEnabled": false,
+    "votingEnabled": false,
+    
+    "whitelistEnabled": false,
+    "blacklistEnabled": false,
+    "pauseByOwnerEnabled": false,
+    "burnByOwnerEnabled": false,
+    "mintByOwnerEnabled": true,
+    
+    "complianceModuleEnabled": false,
+    "taxComplianceEnabled": false,
+    "kycRequired": false,
+    "amlEnabled": false,
+    "sanctionsScreeningEnabled": false,
+    
+    "crossChainEnabled": true,
+    "bridgeProtocols": ["layerzero", "axelar", "wormhole", "cctp", "hop"],
+    "multiChainDeployment": true,
+    "chainIds": [1, 137, 42161, 10, 8453, 43114, 250],
+    
+    "dexIntegrationEnabled": true,
+    "automaticLiquidityEnabled": true,
+    "priceOracleEnabled": true,
+    "priceOracleAddress": "0x9999999999999999999999999999999999999999",
+    
+    "yieldDistributionEnabled": true,
+    "yieldDistributionFrequency": "daily",
+    "compoundingEnabled": true,
+    "reinvestmentEnabled": true,
+    
+    "flashLoanEnabled": true,
+    "collateralEnabled": true,
+    "borrowingEnabled": true,
+    "lendingEnabled": true,
+    
+    "emergencyWithdrawalEnabled": true,
+    "emergencyPauseEnabled": false,
+    "recoveryModeEnabled": false,
+    "safeModeEnabled": false,
+    
+    "feeStructure": {
+      "transferFee": "0.00",
+      "mintFee": "0.00", 
+      "burnFee": "0.50",
+      "liquidityFee": "0.10"
+    },
+    
+    "antiMEVEnabled": true,
+    "frontRunningProtection": true,
+    "slippageProtection": true,
+    "maxSlippage": "2.0",
+    
+    "auditReports": [
+      {
+        "auditor": "Consensys Diligence",
+        "date": "2025-06-17",
+        "score": "89/100",
+        "reportUri": "https://audits.consensys.net/lTSALPHA-2025-06.pdf"
+      },
+      {
+        "auditor": "Quantstamp",
+        "date": "2025-06-12",
+        "score": "91/100", 
+        "reportUri": "https://audits.quantstamp.com/lTSALPHA-2025-06.pdf"
+      }
+    ],
+    
+    "insuranceEnabled": false,
+    "insuranceProvider": "",
+    "insuranceCoverage": "",
+    "insuredAmount": "0",
+    
+    "socialRecoveryEnabled": false,
+    "multisigRequired": false,
+    "timelockEnabled": false,
+    "timelockDelay": 0,
+    
+    "analyticsEnabled": true,
+    "metricsTracking": true,
+    "performanceMonitoring": true,
+    "realTimeDataEnabled": true,
+    
+    "integrations": {
+      "defi_protocols": ["aave", "compound", "uniswap", "sushiswap", "curve", "yearn", "convex"],
+      "portfolio_trackers": ["debank", "zapper", "zerion", "defi_pulse"],
+      "tax_reporting": ["koinly", "cointracker"],
+      "custody_solutions": ["metamask", "trust_wallet", "ledger", "trezor"],
+      "trading_platforms": ["1inch", "paraswap", "matcha", "dex_aggregators"]
+    }
+  },
+  "liquidityConfig": {
+    "wrapperContract": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "underlyingTokenAddress": "0x7777777777777777777777777777777777777777",
+    "conversionRatio": "1:1",
+    "instantRedemption": true,
+    "redemptionDelay": 0,
+    "redemptionFee": "0.50",
+    "wrappingFee": "0.00",
+    "minimumLiquidity": "1000000000000000000000000",
+    "liquidityIncentives": true,
+    "stakingAPY": "15.2",
+    "liquidityMiningRewards": true,
+    "boostMultiplier": "3.0"
+  },
+  "dexListings": [
+    {
+      "exchange": "Uniswap V3",
+      "pair": "lTSALPHA/USDC",
+      "liquidityPool": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "feeTier": "0.30",
+      "initialLiquidity": "10000000000000000000000000"
+    },
+    {
+      "exchange": "SushiSwap",
+      "pair": "lTSALPHA/ETH",
+      "liquidityPool": "0xcccccccccccccccccccccccccccccccccccccccc",
+      "feeTier": "0.25",
+      "initialLiquidity": "8000000000000000000000000"
+    },
+    {
+      "exchange": "PancakeSwap V3",
+      "pair": "lTSALPHA/USDT",
+      "liquidityPool": "0xdddddddddddddddddddddddddddddddddddddddd",
+      "feeTier": "0.25",
+      "initialLiquidity": "12000000000000000000000000"
+    },
+    {
+      "exchange": "Balancer V2",
+      "pair": "lTSALPHA/WETH/WBTC",
+      "liquidityPool": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "feeTier": "0.30",
+      "initialLiquidity": "6000000000000000000000000"
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "daily",
+    "distributor": "0xffffffffffffffffffffffffffffffffffffffff",
+    "yieldSource": "underlying_vault_alpha_generation",
+    "autoCompound": true,
+    "distributionToken": "USDC",
+    "claimPeriod": 1,
+    "vestingPeriod": 0,
+    "boostEligible": true
+  },
+  "defiIntegrations": [
+    {
+      "protocol": "Aave V3",
+      "functionality": "collateral_borrowing",
+      "ltv": "60%",
+      "liquidationThreshold": "70%",
+      "liquidationPenalty": "10%"
+    },
+    {
+      "protocol": "Compound V3",
+      "functionality": "lending_borrowing",
+      "supplyAPY": "5.8%",
+      "borrowAPY": "8.2%",
+      "collateralFactor": "55%"
+    },
+    {
+      "protocol": "Yearn Finance",
+      "functionality": "yield_optimization",
+      "vaultAPY": "18.7%",
+      "managementFee": "2.0%",
+      "performanceFee": "20.0%"
+    },
+    {
+      "protocol": "Convex Finance",
+      "functionality": "boosted_yield_farming",
+      "boostMultiplier": "2.5x",
+      "additionalRewards": ["CVX", "CRV"],
+      "lockingPeriod": "16_weeks"
+    },
+    {
+      "protocol": "1inch",
+      "functionality": "optimized_trading",
+      "averageSlippage": "0.15%",
+      "gasOptimization": true,
+      "pathfindingEnabled": true
+    }
+  ],
+  "liquidityMining": {
+    "enabled": true,
+    "rewardTokens": ["lTSALPHA", "TS", "ALPHA"],
+    "emissionRate": "1000000000000000000000",
+    "totalRewardsPool": "50000000000000000000000000",
+    "stakingContract": "0x1111111111111111111111111111111111111111",
+    "lockupPeriods": [
+      {
+        "duration": "7_days",
+        "multiplier": "1.0x",
+        "earlyWithdrawalPenalty": "2%"
+      },
+      {
+        "duration": "30_days",
+        "multiplier": "1.5x",
+        "earlyWithdrawalPenalty": "5%"
+      },
+      {
+        "duration": "90_days",
+        "multiplier": "2.5x",
+        "earlyWithdrawalPenalty": "10%"
+      }
+    ]
+  },
+  "tradingFeatures": {
+    "flashLoanIntegration": true,
+    "maxFlashLoanAmount": "100000000000000000000000000",
+    "flashLoanFee": "0.09%",
+    "arbitrageEnabled": true,
+    "mevProtection": "flashbots_integration",
+    "orderBookIntegration": false,
+    "limitOrderSupport": true,
+    "stopLossSupport": true,
+    "automaticRebalancing": true
+  },
+  "performanceTracking": {
+    "realTimeMetrics": true,
+    "historicalDataRetention": 365,
+    "performanceComparison": ["BTC", "ETH", "DeFi_Index"],
+    "riskMetrics": ["sharpe_ratio", "max_drawdown", "var_95"],
+    "dashboardEnabled": true,
+    "alertsEnabled": true,
+    "exportFormats": ["CSV", "JSON", "PDF"]
+  },
+  "communityFeatures": {
+    "discordIntegration": true,
+    "telegramBot": true,
+    "twitterUpdates": true,
+    "weeklyNewsletter": true,
+    "performanceLeaderboard": true,
+    "referralProgram": {
+      "enabled": true,
+      "referrerReward": "5%",
+      "refereeDiscount": "2%",
+      "maxRewards": "10000000000000000000000"
+    }
+  }
+}

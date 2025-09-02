@@ -1,0 +1,277 @@
+{
+  "name": "Corporate Bond Liquid Token",
+  "symbol": "lCBND25A",
+  "description": "Liquid ERC-20 wrapper token for Apple Inc. Corporate Bond Series 2025-A tranches. Provides enhanced liquidity and DeFi compatibility while maintaining underlying bond exposure with semi-fungible features.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "liquidity_wrapper",
+    "underlyingAsset": "CBNDT25A",
+    "wrapperType": "bond_tranche_liquidity_token",
+    "liquidityProvider": "automated_market_maker",
+    "tradingPairs": ["lCBND25A/USDC", "lCBND25A/ETH", "lCBND25A/WBTC"],
+    "exchangeCompatibility": ["uniswap_v3", "curve", "balancer", "sushiswap"],
+    "yieldBearing": true,
+    "redeemable": true,
+    "couponRate": "5.25%",
+    "maturityDate": "2030-06-17",
+    "creditRating": "AA+"
+  },
+  "erc20Properties": {
+    "name": "Corporate Bond Liquid Token",
+    "symbol": "lCBND25A",
+    "decimals": 18,
+    "initialSupply": "500000000000000000000000000",
+    "maxSupply": "2000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "isFreezable": false,
+    
+    "permitEnabled": true,
+    "permit2Enabled": true,
+    "gaslessTransactionSupport": true,
+    "metaTransactionSupport": true,
+    
+    "reflectionMechanism": false,
+    "taxOnTransfer": false,
+    "maxTransactionAmount": "25000000000000000000000000",
+    "maxWalletAmount": "50000000000000000000000000",
+    "transferCooldown": 0,
+    
+    "liquidityProvisionEnabled": true,
+    "liquidityLockEnabled": true,
+    "liquidityBurnEnabled": false,
+    "liquidityFeeEnabled": false,
+    
+    "stakingEnabled": true,
+    "stakingRewardsEnabled": true,
+    "governanceEnabled": false,
+    "votingEnabled": false,
+    
+    "whitelistEnabled": true,
+    "blacklistEnabled": true,
+    "pauseByOwnerEnabled": true,
+    "burnByOwnerEnabled": false,
+    "mintByOwnerEnabled": true,
+    
+    "complianceModuleEnabled": true,
+    "taxComplianceEnabled": true,
+    "kycRequired": true,
+    "amlEnabled": true,
+    "sanctionsScreeningEnabled": true,
+    
+    "crossChainEnabled": true,
+    "bridgeProtocols": ["layerzero", "axelar", "wormhole", "multichain"],
+    "multiChainDeployment": true,
+    "chainIds": [1, 137, 42161, 10, 56],
+    
+    "dexIntegrationEnabled": true,
+    "automaticLiquidityEnabled": true,
+    "priceOracleEnabled": true,
+    "priceOracleAddress": "0x7777777777777777777777777777777777777777",
+    
+    "yieldDistributionEnabled": true,
+    "yieldDistributionFrequency": "semi_annual",
+    "compoundingEnabled": true,
+    "reinvestmentEnabled": true,
+    
+    "flashLoanEnabled": true,
+    "flashLoanFee": "0.09",
+    "collateralEnabled": true,
+    "borrowingEnabled": true,
+    "lendingEnabled": true,
+    
+    "emergencyWithdrawalEnabled": true,
+    "emergencyPauseEnabled": true,
+    "recoveryModeEnabled": true,
+    "safeModeEnabled": true,
+    
+    "feeStructure": {
+      "transferFee": "0.00",
+      "mintFee": "0.00", 
+      "burnFee": "0.00",
+      "liquidityFee": "0.00",
+      "flashLoanFee": "0.09"
+    },
+    
+    "antiMEVEnabled": true,
+    "frontRunningProtection": true,
+    "slippageProtection": true,
+    "maxSlippage": "2.0",
+    
+    "auditReports": [
+      {
+        "auditor": "OpenZeppelin",
+        "date": "2025-06-17",
+        "score": "97/100",
+        "reportUri": "https://audits.openzeppelin.com/lCBND25A-2025-06.pdf"
+      },
+      {
+        "auditor": "ConsenSys Diligence",
+        "date": "2025-06-15",
+        "score": "95/100", 
+        "reportUri": "https://audits.consensys.net/lCBND25A-2025-06.pdf"
+      },
+      {
+        "auditor": "Quantstamp",
+        "date": "2025-06-12",
+        "score": "94/100", 
+        "reportUri": "https://audits.quantstamp.com/lCBND25A-2025-06.pdf"
+      }
+    ],
+    
+    "insuranceEnabled": true,
+    "insuranceProvider": "Nexus Mutual",
+    "insuranceCoverage": "smart_contract_risk_and_credit_risk",
+    "insuredAmount": "50000000000000000000000000",
+    
+    "socialRecoveryEnabled": false,
+    "multisigRequired": true,
+    "multisigThreshold": "3/5",
+    "timelockEnabled": true,
+    "timelockDelay": 172800,
+    
+    "analyticsEnabled": true,
+    "metricsTracking": true,
+    "performanceMonitoring": true,
+    "realTimeDataEnabled": true,
+    
+    "integrations": {
+      "defi_protocols": ["aave", "compound", "uniswap", "curve", "convex", "yearn"],
+      "portfolio_trackers": ["debank", "zapper", "zerion", "rotki"],
+      "tax_reporting": ["koinly", "cointracker", "accointing", "cryptotaxcalculator"],
+      "custody_solutions": ["fireblocks", "copper", "anchorage", "coinbase_custody"],
+      "institutional_platforms": ["metamask_institutional", "gnosis_safe", "multis"]
+    }
+  },
+  "liquidityConfig": {
+    "wrapperContract": "0x5555555555555555555555555555555555555555",
+    "underlyingTokenAddress": "0x6666666666666666666666666666666666666666",
+    "trancheContract": "0x7777777777777777777777777777777777777777",
+    "conversionRatio": "1:1",
+    "instantRedemption": true,
+    "redemptionFee": "0.15",
+    "wrappingFee": "0.10",
+    "minimumLiquidity": "5000000000000000000000000",
+    "liquidityIncentives": true,
+    "stakingAPY": "5.25",
+    "liquidityMiningRewards": true,
+    "trancheCompatibility": true,
+    "valueTransferSupport": true
+  },
+  "bondIntegration": {
+    "couponDistribution": true,
+    "maturityRedemption": true,
+    "callableSupport": true,
+    "creditRiskMonitoring": true,
+    "priceDiscovery": true,
+    "yieldCurveIntegration": true,
+    "creditSpreadTracking": true,
+    "durationHedging": false
+  },
+  "dexListings": [
+    {
+      "exchange": "Uniswap V3",
+      "pair": "lCBND25A/USDC",
+      "liquidityPool": "0x8888888888888888888888888888888888888888",
+      "feeTier": "0.30",
+      "initialLiquidity": "10000000000000000000000000"
+    },
+    {
+      "exchange": "Curve Finance", 
+      "pair": "lCBND25A/DAI/USDC/USDT",
+      "liquidityPool": "0x9999999999999999999999999999999999999999",
+      "feeTier": "0.04",
+      "initialLiquidity": "25000000000000000000000000"
+    },
+    {
+      "exchange": "Balancer",
+      "pair": "lCBND25A/WETH/WBTC",
+      "liquidityPool": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "feeTier": "0.30",
+      "initialLiquidity": "5000000000000000000000000"
+    },
+    {
+      "exchange": "SushiSwap",
+      "pair": "lCBND25A/SUSHI",
+      "liquidityPool": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "feeTier": "0.30",
+      "initialLiquidity": "2000000000000000000000000"
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "semi_annual",
+    "distributor": "0xcccccccccccccccccccccccccccccccccccccccc",
+    "yieldSource": "underlying_bond_coupon",
+    "autoCompound": true,
+    "distributionToken": "USDC",
+    "claimPeriod": 30,
+    "vestingPeriod": 0,
+    "couponRate": "5.25",
+    "paymentDates": [
+      "2025-12-17T00:00:00Z",
+      "2026-06-17T00:00:00Z",
+      "2026-12-17T00:00:00Z",
+      "2027-06-17T00:00:00Z",
+      "2027-12-17T00:00:00Z",
+      "2028-06-17T00:00:00Z",
+      "2028-12-17T00:00:00Z",
+      "2029-06-17T00:00:00Z",
+      "2029-12-17T00:00:00Z",
+      "2030-06-17T00:00:00Z"
+    ]
+  },
+  "defiIntegrations": [
+    {
+      "protocol": "Aave",
+      "integration_type": "collateral",
+      "ltv_ratio": "70%",
+      "liquidation_threshold": "75%",
+      "enabled": true
+    },
+    {
+      "protocol": "Compound",
+      "integration_type": "lending",
+      "supply_apy": "3.2%",
+      "borrow_apy": "4.8%",
+      "enabled": true
+    },
+    {
+      "protocol": "Yearn Finance",
+      "integration_type": "vault_strategy",
+      "strategy_apy": "6.5%",
+      "risk_level": "medium",
+      "enabled": true
+    },
+    {
+      "protocol": "Convex Finance",
+      "integration_type": "yield_farming",
+      "rewards_apy": "2.1%",
+      "boosted_rewards": true,
+      "enabled": true
+    }
+  ],
+  "riskManagement": {
+    "creditRiskMonitoring": true,
+    "interestRateRiskHedging": false,
+    "liquidityRiskManagement": true,
+    "concentrationLimits": {
+      "maxSingleWallet": "10%",
+      "maxInstitutionalHolding": "25%",
+      "maxDefiProtocolExposure": "15%"
+    },
+    "stressTestingEnabled": true,
+    "circuitBreakers": {
+      "enabled": true,
+      "priceDropThreshold": "10%",
+      "volumeSpikeThreshold": "500%",
+      "pauseDuration": 3600
+    }
+  }
+}

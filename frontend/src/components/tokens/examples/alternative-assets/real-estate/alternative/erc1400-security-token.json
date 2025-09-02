@@ -1,0 +1,362 @@
+{
+  "name": "Brookfield Global Real Estate Fund IV",
+  "symbol": "BREF4",
+  "decimals": 6,
+  "standard": "ERC-1400",
+  "initialSupply": "400000000",
+  "cap": "2000000000",
+  "securityType": "real_estate_fund",
+  "regulationType": "reg-d",
+  "tokenDetails": "Tokenized global real estate fund focusing on diversified commercial properties across major markets. Simplified structure with quarterly distributions and institutional-grade management.",
+  "issuingEntityName": "Brookfield Real Estate Partners IV, LP",
+  "issuingJurisdiction": "Delaware, USA",
+  "issuingEntityLei": "549300BROOKFIELDRE234",
+  
+  "isMintable": true,
+  "isBurnable": false,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "fully-automated",
+  "complianceModule": "global-real-estate-compliance",
+  
+  "holdingPeriod": "24",
+  "maxInvestorCount": "499",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": false,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": false,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://brookfield-re.com/docs/fund-iv/",
+  "documentHash": "0xdef456789012abcd",
+  "legalTerms": "https://brookfield-re.com/legal/fund-iv-terms.pdf",
+  "prospectus": "https://brookfield-re.com/prospectus/fund-iv-prospectus.pdf",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": false,
+  "settlementIntegration": "real_estate_settlement_network",
+  "clearingHouseIntegration": false,
+  "centralSecuritiesDepositoryIntegration": false,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": true,
+  
+  "traditionalFinanceIntegration": false,
+  "swiftIntegrationEnabled": false,
+  "iso20022MessagingSupport": false,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": false,
+  "layer2ScalingSupport": true,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": true,
+  "marginRequirementsDynamic": false,
+  "collateralManagementEnabled": false,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 730,
+    "qualifiedInvestorOnly": true,
+    "maximumInvestorsPerJurisdiction": 99,
+    "transferApprovalRequired": true,
+    "automaticCompliance": false,
+    "fractionalTransfersEnabled": false,
+    "lockupPeriods": [
+      {
+        "investorType": "institutional",
+        "lockupDays": 365
+      },
+      {
+        "investorType": "qualified",
+        "lockupDays": 730
+      }
+    ]
+  },
+  
+  "kycSettings": {
+    "kycProviders": ["Onfido", "Jumio"],
+    "verificationLevels": ["basic", "enhanced"],
+    "documentRequirements": ["passport", "utility_bill", "bank_statement"],
+    "biometricVerification": true,
+    "continuousMonitoring": true,
+    "institutionalDueDiligence": true
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": {
+      "enabled": true,
+      "databases": ["OFAC", "EU", "UN", "HMT"],
+      "realTimeChecking": true
+    },
+    "amlCompliance": {
+      "enabled": true,
+      "transactionMonitoring": true,
+      "sourceOfFundsVerification": true,
+      "suspiciousActivityThresholds": {
+        "singleTransaction": "1000000",
+        "dailyAggregate": "2000000",
+        "monthlyAggregate": "10000000"
+      }
+    },
+    "pepScreening": {
+      "enabled": true,
+      "extendedFamily": true,
+      "associateScreening": true
+    }
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor", "kyc_verified"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor", "kyc_verified"]
+    },
+    {
+      "country": "GB",
+      "allowed": true,
+      "conditions": ["sophisticated_investor", "kyc_verified"]
+    },
+    {
+      "country": "AU",
+      "allowed": true,
+      "conditions": ["wholesale_investor", "kyc_verified"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "regulatory_restrictions"
+    },
+    {
+      "country": "IR",
+      "allowed": false,
+      "reason": "sanctions"
+    }
+  ],
+  
+  "investorLimits": {
+    "maximumInvestors": 499,
+    "minimumInvestment": "1000000",
+    "maximumInvestment": "100000000",
+    "accreditationRequired": true,
+    "institutionalMinimum": "10000000"
+  },
+  
+  "partitions": [
+    {
+      "id": "single-class",
+      "name": "Brookfield Global Real Estate Class A",
+      "description": "Single class equity participation in global real estate portfolio",
+      "amount": "2000000000",
+      "percentage": "100",
+      "riskRating": "A-",
+      "targetReturn": "10-12%",
+      "transferable": true,
+      "votingRights": true,
+      "redemptionRights": true,
+      "liquidityScore": "medium"
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0xabcdef7890123456789012345678901234567890",
+      "name": "Brookfield Asset Management",
+      "role": "general_partner",
+      "permissions": ["fund_management", "property_acquisition", "disposition", "distributions", "governance"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "investor-relations@brookfield.com",
+        "phone": "+1-416-363-9491"
+      }
+    },
+    {
+      "address": "0xbcdef78901234567890123456789012345678901",
+      "name": "Deutsche Bank Trust Company",
+      "role": "administrator",
+      "permissions": ["fund_administration", "investor_services", "reporting", "compliance"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "fund-admin@db.com",
+        "phone": "+1-212-250-2500"
+      }
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Limited Partnership Agreement",
+      "documentUri": "https://brookfield-re.com/docs/lpa-fund-iv.pdf",
+      "documentType": "legal_agreement",
+      "documentHash": "0x789abc012def3456",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "https://brookfield-re.com/docs/ppm-fund-iv.pdf",
+      "documentType": "prospectus",
+      "documentHash": "0xabc012def3456789",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Global Property Portfolio Report",
+      "documentUri": "https://brookfield-re.com/docs/portfolio-report.pdf",
+      "documentType": "portfolio_report",
+      "documentHash": "0x012def3456789abc",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "ESG Impact Report",
+      "documentUri": "https://brookfield-re.com/docs/esg-report.pdf",
+      "documentType": "esg_report",
+      "documentHash": "0xdef3456789abc012",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    }
+  ],
+  
+  "corporateActions": [
+    {
+      "actionType": "distribution",
+      "announcementDate": "2024-03-01",
+      "recordDate": "2024-03-15",
+      "effectiveDate": "2024-03-31",
+      "paymentDate": "2024-04-15",
+      "actionDetails": {
+        "distributionType": "quarterly_distribution",
+        "amountPerToken": "0.15",
+        "currency": "USD",
+        "taxWithholding": true,
+        "reinvestmentOption": true,
+        "sourceOfFunds": "property_income_and_dispositions"
+      },
+      "status": "completed"
+    },
+    {
+      "actionType": "property_acquisition",
+      "announcementDate": "2024-04-01",
+      "recordDate": "2024-04-01",
+      "effectiveDate": "2024-05-01",
+      "actionDetails": {
+        "acquisitionType": "portfolio_acquisition",
+        "propertyCount": "12",
+        "totalValue": "850000000",
+        "geography": "european_logistics",
+        "leverage": "65"
+      },
+      "status": "completed"
+    }
+  ],
+  
+  "custodyProviders": [
+    {
+      "providerName": "Deutsche Bank Trust Company Americas",
+      "providerType": "global_custodian",
+      "providerLei": "8EWQ2UQKS07AKK8ANH81",
+      "custodyAgreementHash": "0x456789abc012def3",
+      "isActive": true,
+      "certificationLevel": "tier_1",
+      "jurisdiction": "United States",
+      "regulatoryApprovals": ["OCC", "FDIC", "Federal Reserve"],
+      "integrationStatus": "live",
+      "services": ["fund_administration", "investor_services", "custody", "reporting"]
+    }
+  ],
+  
+  "regulatoryFilings": [
+    {
+      "filingType": "Form D",
+      "filingDate": "2024-01-30",
+      "filingJurisdiction": "SEC",
+      "filingReference": "021-407456",
+      "regulatoryBody": "Securities and Exchange Commission",
+      "complianceStatus": "filed",
+      "autoGenerated": false
+    },
+    {
+      "filingType": "Form ADV",
+      "filingDate": "2024-02-15",
+      "filingJurisdiction": "SEC",
+      "filingReference": "801-888888",
+      "regulatoryBody": "Securities and Exchange Commission",
+      "complianceStatus": "filed",
+      "autoGenerated": true
+    }
+  ],
+  
+  "globalPortfolioData": {
+    "totalProperties": 142,
+    "totalSquareFeet": "85000000",
+    "geographicDiversification": {
+      "north_america": "45",
+      "europe": "35",
+      "asia_pacific": "20"
+    },
+    "propertyTypeDiversification": {
+      "office": "35",
+      "retail": "25",
+      "logistics": "20",
+      "multifamily": "15",
+      "hotels": "5"
+    },
+    "averageOccupancyRate": "91.2",
+    "averageLeaseLength": "6.8",
+    "totalAssetValue": "12500000000",
+    "leverage": "62",
+    "portfolioManagement": {
+      "inHouseTeam": true,
+      "localPartners": true,
+      "globalCoverage": true,
+      "assetManagementExpertise": "institutional_grade"
+    },
+    "esgMetrics": {
+      "greenBuildingCertifications": "78",
+      "carbonNeutralProperties": "45",
+      "sustainabilityRating": "A",
+      "socialImpactPrograms": true
+    }
+  }
+}

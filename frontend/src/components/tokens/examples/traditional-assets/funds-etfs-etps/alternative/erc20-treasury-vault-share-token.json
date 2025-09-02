@@ -1,0 +1,258 @@
+{
+  "name": "Treasury Vault Share Token",
+  "symbol": "TVST",
+  "description": "ERC-20 liquidity token representing shares in the Digital Treasury Yield Vault. Provides direct tradeable exposure to DeFi treasury yield strategies with simplified compliance requirements.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "1000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "tokenPurpose": "vault_share_token",
+    "underlyingAsset": "DTYV_vault_shares",
+    "redeemabilityRatio": "1:1",
+    "liquidityProvider": "decentralized_market_makers",
+    "tradingVenues": ["uniswap_v4", "sushiswap_v3", "curve_finance", "1inch"]
+  },
+  "initialSupply": "1000000000000000000000000000",
+  "cap": "0",
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "tokenType": "vault_share",
+  "accessControl": "public",
+  "erc20Properties": {
+    "allowManagement": true,
+    "permit": true,
+    "snapshot": true,
+    
+    "pausableBy": "admin",
+    "mintableBy": "vault_contract",
+    "burnableBy": "vault_contract",
+    
+    "maxTotalSupply": "0",
+    "antiWhaleEnabled": true,
+    "maxWalletAmount": "10000000000000000000000000",
+    "cooldownPeriod": 0,
+    "blacklistEnabled": false,
+    
+    "deflationEnabled": false,
+    "deflationRate": "0",
+    "reflectionEnabled": true,
+    "reflectionPercentage": "2.0",
+    "burnOnTransfer": false,
+    "burnPercentage": "0",
+    
+    "stakingEnabled": true,
+    "stakingRewardsRate": "500000000000000000",
+    
+    "buyFeeEnabled": false,
+    "sellFeeEnabled": false,
+    "liquidityFeePercentage": "0",
+    "marketingFeePercentage": "0",
+    "charityFeePercentage": "0",
+    "autoLiquidityEnabled": true,
+    
+    "lotteryEnabled": false,
+    "lotteryPercentage": "0",
+    
+    "presaleEnabled": false,
+    "presaleRate": "0",
+    "presaleStartTime": "",
+    "presaleEndTime": "",
+    "vestingEnabled": false,
+    "vestingCliffPeriod": 0,
+    "vestingTotalPeriod": 0,
+    "vestingReleaseFrequency": "instant",
+    
+    "tradingStartTime": "2024-06-01T00:00:00Z",
+    
+    "useGeographicRestrictions": false,
+    "defaultRestrictionPolicy": "allow"
+  },
+  "feeOnTransfer": {
+    "enabled": false,
+    "fee": "0.0",
+    "recipient": "0x0000000000000000000000000000000000000000",
+    "feeType": "percentage"
+  },
+  "governanceFeatures": {
+    "enabled": true,
+    "votingPeriod": 604800,
+    "votingThreshold": "1000000000000000000000",
+    "governanceToken": "TVST",
+    "proposalThreshold": "10000000000000000000000",
+    "quorumPercentage": "10"
+  },
+  "rebasing": {
+    "enabled": true,
+    "mode": "positive_rebase",
+    "targetSupply": "dynamic",
+    "rebaseFrequency": "daily",
+    "maxRebaseRate": "10"
+  },
+  "transferConfig": {
+    "maxTransferAmount": "0",
+    "minTransferAmount": "1000000000000000000",
+    "cooldownEnabled": false
+  },
+  "gasConfig": {
+    "gasOptimization": true,
+    "maxGasPrice": "100000000000"
+  },
+  "complianceConfig": {
+    "kycRequired": false,
+    "sanctionsCheck": false,
+    "geoblockingEnabled": false
+  },
+  "whitelistConfig": {
+    "enabled": false,
+    "addresses": [],
+    "merkleRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "vaultIntegration": {
+    "vaultAddress": "0x3456789012345678901234567890123456789012",
+    "shareRatio": "1000000000000000000",
+    "autoCompound": true,
+    "yieldDistribution": "automatic_rebase",
+    "emergencyWithdrawal": true
+  },
+  "liquidityProvision": {
+    "enabled": true,
+    "providers": [
+      {
+        "provider": "uniswap_v4_pool",
+        "allocation": "40%",
+        "incentives": "2.5%"
+      },
+      {
+        "provider": "curve_stable_pool",
+        "allocation": "35%",
+        "incentives": "2.0%"
+      },
+      {
+        "provider": "balancer_weighted_pool",
+        "allocation": "25%",
+        "incentives": "1.5%"
+      }
+    ],
+    "minimumLiquidity": "5000000000000000000000000",
+    "liquidityIncentives": "2.0%"
+  },
+  "tradingVenues": [
+    {
+      "venue": "uniswap_v4",
+      "pairAddress": "0x6789012345678901234567890123456789012345",
+      "baseToken": "USDC",
+      "fee": "0.05",
+      "active": true
+    },
+    {
+      "venue": "sushiswap_v3",
+      "pairAddress": "0x7890123456789012345678901234567890123456",
+      "baseToken": "USDC",
+      "fee": "0.05",
+      "active": true
+    },
+    {
+      "venue": "curve_finance",
+      "poolAddress": "0x8901234567890123456789012345678901234567",
+      "poolType": "stable_swap",
+      "fee": "0.04",
+      "active": true
+    },
+    {
+      "venue": "1inch_aggregator",
+      "routerAddress": "0x9012345678901234567890123456789012345678",
+      "maxSlippage": "0.5",
+      "active": true
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "method": "rebase",
+    "frequency": "continuous",
+    "distributionToken": "TVST",
+    "autoCompound": true,
+    "taxOptimized": false
+  },
+  "stakingRewards": {
+    "enabled": true,
+    "rewardToken": "TVST",
+    "rewardRate": "500000000000000000",
+    "stakingPeriods": [
+      {
+        "duration": "30_days",
+        "multiplier": "1.0",
+        "earlyWithdrawalPenalty": "5.0"
+      },
+      {
+        "duration": "90_days",
+        "multiplier": "1.25",
+        "earlyWithdrawalPenalty": "2.5"
+      },
+      {
+        "duration": "180_days",
+        "multiplier": "1.5",
+        "earlyWithdrawalPenalty": "1.0"
+      },
+      {
+        "duration": "365_days",
+        "multiplier": "2.0",
+        "earlyWithdrawalPenalty": "0.0"
+      }
+    ]
+  },
+  "deFiIntegrations": [
+    {
+      "protocol": "compound_v3",
+      "purpose": "collateral_lending",
+      "maxLTV": "75%",
+      "active": true
+    },
+    {
+      "protocol": "aave_v3",
+      "purpose": "collateral_borrowing",
+      "maxLTV": "80%",
+      "active": true
+    },
+    {
+      "protocol": "makerdao",
+      "purpose": "dai_generation",
+      "maxLTV": "70%",
+      "active": false
+    }
+  ],
+  "governance": {
+    "enabled": true,
+    "votingPower": "balance_based",
+    "proposalTypes": [
+      "strategy_changes",
+      "fee_adjustments",
+      "protocol_integrations",
+      "parameter_updates"
+    ],
+    "votingPeriod": 604800,
+    "executionDelay": 172800,
+    "quorumThreshold": "10%",
+    "proposalThreshold": "0.1%"
+  },
+  "riskManagement": {
+    "maxExposure": "1000000000000000000000000000",
+    "concentrationLimits": {
+      "singleInvestor": "5%",
+      "whaleThreshold": "1%"
+    },
+    "pauseConditions": [
+      "vault_emergency_shutdown",
+      "defi_protocol_exploit",
+      "extreme_market_volatility"
+    ],
+    "emergencyActions": [
+      "pause_transfers",
+      "emergency_withdrawal",
+      "vault_migration"
+    ]
+  }
+}

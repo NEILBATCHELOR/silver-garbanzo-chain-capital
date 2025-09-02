@@ -1,0 +1,148 @@
+{
+  "name": "Tokenized Gold-Backed Stablecoin",
+  "symbol": "TGBS",
+  "decimals": 18,
+  "description": "A regulatory-compliant, gold-backed stablecoin where each token represents 1/100th troy ounce of LBMA-certified gold bars stored in accredited vaults with full auditability and redemption rights.",
+  "standard": "ERC-1400",
+  "total_supply": "10000000000",
+  "initial_supply": "1000000000",
+  "cap": "50000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "commodity_backed",
+  "regulation_type": "reg-s",
+  "issuing_entity_name": "Gold Standard Digital Assets Ltd.",
+  "issuing_jurisdiction": "Cayman Islands",
+  "issuing_entity_lei": "549300GSDA123456789012",
+  "commodity_type": "gold",
+  "commodity_grade": "LBMA Good Delivery",
+  "backing_ratio": "0.01",
+  "backing_unit": "troy_ounce",
+  "vault_locations": ["London", "Zurich", "Singapore"],
+  "custodian": "Brink's Global Services",
+  "assayer": "Metalor Technologies",
+  "insurance_provider": "Lloyd's of London",
+  "insurance_coverage": "500000000",
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": false,
+  "controllers": ["0x4567890123456789012345678901234567890123"],
+  "operators": ["0x5678901234567890123456789012345678901234"],
+  "default_partitions": ["retail", "institutional"],
+  "partitions": [
+    {
+      "name": "retail",
+      "flag": "0x01",
+      "is_default": true,
+      "transferable": true,
+      "controllable": false,
+      "description": "Retail investor partition for small gold investments"
+    },
+    {
+      "name": "institutional",
+      "flag": "0x02",
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Institutional partition with enhanced services"
+    },
+    {
+      "name": "vault_reserve",
+      "flag": "0x03",
+      "is_default": false,
+      "transferable": false,
+      "controllable": true,
+      "description": "Reserve partition for vault management"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Gold Storage Agreement",
+      "uri": "https://goldstandardassets.com/docs/storage-agreement.pdf",
+      "document_hash": "0x789abc123456789abc123456789abc123456789abc"
+    },
+    {
+      "name": "Custody Certificate",
+      "uri": "https://goldstandardassets.com/docs/custody-certificate.pdf",
+      "document_hash": "0x89abc1234567890abc1234567890abc1234567890"
+    },
+    {
+      "name": "LBMA Certification",
+      "uri": "https://goldstandardassets.com/docs/lbma-certification.pdf",
+      "document_hash": "0x9abc12345678901abc12345678901abc12345678901"
+    }
+  ],
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": ["IR", "KP", "SY"],
+  "whitelist_enabled": false,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": false,
+    "maximum_investors": 0,
+    "minimum_investment": "0.01",
+    "maximum_investment": "100000",
+    "lock_up_period": "0",
+    "transfer_restrictions": {
+      "cooling_off_period": "0",
+      "requires_approval": false,
+      "whitelist_only": false
+    }
+  },
+  "commodity_details": {
+    "commodity_name": "Investment Grade Gold",
+    "purity": "99.5",
+    "weight_standard": "troy_ounce",
+    "certification": "LBMA Good Delivery",
+    "serial_number_tracking": true,
+    "bar_list_transparency": true,
+    "allocation_method": "pooled_allocated"
+  },
+  "vault_management": {
+    "segregated_storage": true,
+    "fully_insured": true,
+    "regular_audits": true,
+    "audit_frequency": "monthly",
+    "vault_locations": ["London", "Zurich", "Singapore"],
+    "security_standards": "LBMA_approved",
+    "access_controls": "biometric_multi_factor"
+  },
+  "redemption_terms": {
+    "physical_redemption": true,
+    "minimum_redemption": "1.0",
+    "redemption_fee": "2.0",
+    "processing_time": "5_business_days",
+    "delivery_options": ["vault_pickup", "secure_delivery", "allocated_account"],
+    "cash_redemption": true,
+    "cash_redemption_fee": "0.5"
+  },
+  "pricing_mechanism": {
+    "price_source": "LBMA_fixing",
+    "update_frequency": "twice_daily",
+    "premium": "1.5",
+    "discount": "1.5",
+    "price_transparency": "real_time_api"
+  },
+  "fees": {
+    "storage_fee": "0.5",
+    "management_fee": "0.25",
+    "insurance_fee": "0.1",
+    "audit_fee": "0.05"
+  },
+  "metadata": {
+    "commodity_type": "precious_metal",
+    "backing_asset": "physical_gold",
+    "storage_model": "allocated_segregated",
+    "price_tracking": "gold_spot_price",
+    "redemption_model": "physical_and_cash",
+    "regulatory_compliance": "cayman_islands_regulated",
+    "target_market": "gold_investors_and_hedgers",
+    "use_cases": ["inflation_hedge", "portfolio_diversification", "digital_gold_trading"],
+    "competitive_advantages": ["fractional_ownership", "instant_settlement", "global_accessibility"]
+  }
+}

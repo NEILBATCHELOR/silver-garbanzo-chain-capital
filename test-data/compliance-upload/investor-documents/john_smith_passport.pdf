@@ -1,0 +1,14 @@
+SAMPLE PASSPORT DOCUMENT
+
+This is a blank sample passport document for testing the compliance upload functionality.
+
+Document Type: Passport
+Entity: John Richardson Smith
+Document ID: PASSPORT-001
+Issue Date: 2020-01-15
+Expiry Date: 2030-01-15
+Country: United States
+
+[This would contain passport details in a real document]
+
+Status: Test Document - Not Valid for Legal Purposes

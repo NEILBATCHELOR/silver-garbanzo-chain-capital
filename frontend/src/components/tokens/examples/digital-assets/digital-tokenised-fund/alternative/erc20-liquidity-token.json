@@ -1,0 +1,261 @@
+{
+  "name": "Simple Digital Yield Token",
+  "symbol": "sDYT",
+  "decimals": 18,
+  "description": "Simple liquid ERC-20 representation of digital yield vault optimized for retail DeFi participation and maximum accessibility",
+  "initialSupply": "50000000",
+  "maxSupply": "200000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": false,
+  "hasVotes": false,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": false,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "wrappedToken": {
+    "enabled": true,
+    "underlyingToken": "sDYV",
+    "underlyingStandard": "ERC-4626",
+    "conversionRate": "dynamic-nav",
+    "wrappingMechanism": "simple-vault-bridge",
+    "unwrappingEnabled": true,
+    "autoCompounding": true
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": false,
+    "balancerVaultSupport": false,
+    "sushiswapCompatible": true,
+    "1inchCompatible": true,
+    "liquidityIncentives": true,
+    "concentrated": false,
+    "stableswapOptimized": false,
+    "yieldBearing": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "75%",
+    "flashLoanEnabled": false,
+    "synthAssetsSupport": false,
+    "crossChainYield": false,
+    "autoCompounding": true,
+    "yieldRedirection": false
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": false,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "permissionless": true,
+    "decentralized": true
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "multiOracleSupport": false,
+    "navOracle": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "sDYT/USD",
+        "address": "0x8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d"
+      },
+      {
+        "source": "uniswap-v3-twap",
+        "pair": "sDYT/USDC",
+        "address": "0x0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "2500000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "sDYT/USDC",
+        "fee": "0.3%",
+        "allocation": "50%",
+        "simple": true
+      },
+      {
+        "dex": "sushiswap",
+        "pair": "sDYT/WETH",
+        "fee": "0.25%",
+        "allocation": "30%",
+        "onsen": false
+      },
+      {
+        "dex": "quickswap",
+        "pair": "sDYT/MATIC",
+        "fee": "0.05%",
+        "allocation": "20%",
+        "polygon": true
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": ["ethereum", "polygon", "arbitrum"],
+    "bridgeProtocols": ["layer-zero"],
+    "bridgeFees": "0.05%",
+    "instantBridging": false,
+    "yieldPreservation": false
+  },
+  
+  "yieldStrategies": {
+    "autoCompoundingEnabled": true,
+    "yieldOptimization": false,
+    "crossProtocolArbitrage": false,
+    "strategies": [
+      {
+        "name": "Simple Vault Yield",
+        "description": "Direct yield from underlying vault strategies",
+        "apy": "8-15%",
+        "riskLevel": "low",
+        "allocation": "90%"
+      },
+      {
+        "name": "Liquidity Provision",
+        "description": "Additional yield from providing liquidity",
+        "apy": "3-8%",
+        "riskLevel": "low-medium",
+        "allocation": "10%"
+      }
+    ]
+  },
+  
+  "governance": {
+    "governanceEnabled": false,
+    "votingRights": false,
+    "proposalRights": false,
+    "adminControl": true,
+    "multisigRequired": true
+  },
+  
+  "stakingPrograms": {
+    "enabled": true,
+    "stakingPools": [
+      {
+        "name": "Simple Yield Staking",
+        "apy": "15-20%",
+        "lockupPeriod": "30d",
+        "rewards": ["sDYT"],
+        "autoCompound": true,
+        "slashingRisk": false
+      }
+    ]
+  },
+  
+  "metadata": {
+    "website": "https://chaincapital.com/vaults/simple-yield-token",
+    "documentation": "https://docs.chaincapital.com/tokens/sdyt",
+    "logo": "https://assets.chaincapital.com/tokens/sdyt/logo.svg",
+    "tags": ["simple", "yield", "retail", "defi", "vault"],
+    "category": "simple-yield-token"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits"],
+    "auditReports": [
+      "https://audits.chaincapital.com/sdyt-trail-of-bits-2024.pdf"
+    ],
+    "bugBountyProgram": false,
+    "multisigRequired": true,
+    "timelock": "24h"
+  },
+  
+  "fees": {
+    "transferFee": "0%",
+    "wrappingFee": "0%",
+    "unwrappingFee": "0%",
+    "managementFee": "1%",
+    "performanceFee": "10%"
+  },
+  
+  "supply": {
+    "totalSupply": "50000000",
+    "circulatingSupply": "48000000",
+    "treasuryReserve": "1500000",
+    "teamReserve": "500000",
+    "lockedSupply": "0",
+    "burnedSupply": "0"
+  },
+  
+  "performance": {
+    "inceptionDate": "2024-01-01",
+    "currentAPY": "12.8%",
+    "averageAPY": "11.9%",
+    "maxAPY": "18.2%",
+    "minAPY": "6.1%",
+    "volatility": "8.2%",
+    "sharpeRatio": "1.46",
+    "maxDrawdown": "4.8%",
+    "totalValueLocked": "45000000",
+    "averageTradingVolume": "2500000"
+  },
+  
+  "userExperience": {
+    "oneClickDeposit": true,
+    "instantWithdrawal": true,
+    "gasOptimized": true,
+    "mobileOptimized": true,
+    "beginnerFriendly": true,
+    "educationalResources": true,
+    "customerSupport": "community"
+  },
+  
+  "analytics": {
+    "trackingEnabled": true,
+    "metricsCollection": [
+      "trading-volume",
+      "yield-performance",
+      "user-count",
+      "average-deposit",
+      "retention-rate"
+    ],
+    "dashboardUrl": "https://analytics.chaincapital.com/sdyt",
+    "publicAPI": false,
+    "realTimeData": true
+  },
+  
+  "integrations": {
+    "wallets": ["metamask", "coinbase-wallet", "walletconnect"],
+    "dexAggregators": ["1inch", "paraswap"],
+    "yieldOptimizers": ["yearn"],
+    "lendingProtocols": ["aave", "compound"],
+    "bridgeProtocols": ["layer-zero"],
+    "analytics": ["defipulse", "debank"]
+  },
+  
+  "roadmap": {
+    "phase1": "Simple vault integration (Complete)",
+    "phase2": "Multi-chain expansion (In Progress)",
+    "phase3": "Advanced yield strategies (Planned)",
+    "phase4": "Mobile app integration (Planned)"
+  }
+}

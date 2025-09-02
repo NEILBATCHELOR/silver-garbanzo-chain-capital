@@ -1,0 +1,352 @@
+{
+  "name": "Diamond Reserve Collection",
+  "symbol": "DIAMOND",
+  "description": "Exclusive NFT collection representing ownership of certified rare diamonds stored in secure vaults. Each token represents a unique certified diamond with full provenance and authenticity guarantees.",
+  "decimals": 0,
+  "total_supply": "1000",
+  "max_supply": "1000",
+  
+  "standard": "ERC-721",
+  "asset_type": "precious_stones",
+  "collection_type": "physical_backed_luxury",
+  
+  "metadata_storage": "ipfs",
+  "base_uri": "ipfs://QmDiamondReserveCollection/",
+  "metadata_updatable": false,
+  "revealed": true,
+  
+  "minting_type": "curated",
+  "auto_increment_ids": true,
+  "start_token_id": "1",
+  "minting_enabled": true,
+  "burning_enabled": true,
+  
+  "has_royalty": true,
+  "royalty_percentage": "5.0",
+  "royalty_receiver": "0x1234567890123456789012345678901234567890",
+  "resale_royalty_enabled": true,
+  
+  "transferable": true,
+  "tradeable": true,
+  "fractional_enabled": true,
+  "rental_enabled": false,
+  
+  "access_control": "ownable",
+  "pausable": true,
+  "upgradeable": false,
+  
+  "whitelist_enabled": true,
+  "public_minting_enabled": false,
+  "presale_enabled": true,
+  
+  "provenance_tracking": true,
+  "authenticity_verification": true,
+  "physical_backing": true,
+  "custodial_storage": true,
+  
+  "insurance_enabled": true,
+  "appraisal_required": true,
+  "condition_monitoring": false,
+  
+  "marketplace_integration": true,
+  "auction_enabled": true,
+  "fixed_price_enabled": true,
+  "offer_system_enabled": true,
+  
+  "staking_enabled": true,
+  "rewards_enabled": true,
+  "governance_enabled": true,
+  
+  "cross_chain_enabled": true,
+  "bridgeable": true,
+  "layer2_support": true,
+  
+  "token_attributes": [
+    {
+      "trait_type": "Carat Weight",
+      "values": [
+        "0.50-0.99",
+        "1.00-1.99", 
+        "2.00-2.99",
+        "3.00-4.99",
+        "5.00-9.99",
+        "10.00+"
+      ]
+    },
+    {
+      "trait_type": "Cut Grade",
+      "values": ["Excellent", "Very Good", "Good", "Fair"]
+    },
+    {
+      "trait_type": "Color Grade",
+      "values": ["D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]
+    },
+    {
+      "trait_type": "Clarity Grade", 
+      "values": ["FL", "IF", "VVS1", "VVS2", "VS1", "VS2", "SI1", "SI2"]
+    },
+    {
+      "trait_type": "Shape",
+      "values": [
+        "Round Brilliant",
+        "Princess",
+        "Emerald",
+        "Asscher",
+        "Oval",
+        "Radiant",
+        "Cushion",
+        "Heart",
+        "Pear",
+        "Marquise"
+      ]
+    },
+    {
+      "trait_type": "Certification",
+      "values": ["GIA", "AGS", "SSEF", "Gübelin", "EGL"]
+    },
+    {
+      "trait_type": "Origin",
+      "values": [
+        "Botswana",
+        "Canada", 
+        "South Africa",
+        "Russia",
+        "Australia",
+        "Angola",
+        "Lab Grown"
+      ]
+    },
+    {
+      "trait_type": "Investment Grade",
+      "values": ["Museum Quality", "Investment Grade", "Premium", "Standard"]
+    }
+  ],
+  
+  "mint_phases": [
+    {
+      "phase_name": "Elite Collector Preview",
+      "start_time": "2024-07-01T00:00:00Z",
+      "end_time": "2024-07-07T23:59:59Z", 
+      "price": "50.0",
+      "currency": "ETH",
+      "max_per_wallet": "5",
+      "max_supply": "100",
+      "whitelist_only": true,
+      "tier": "museum_quality"
+    },
+    {
+      "phase_name": "Diamond Dealer Presale",
+      "start_time": "2024-07-08T00:00:00Z",
+      "end_time": "2024-07-14T23:59:59Z",
+      "price": "25.0", 
+      "currency": "ETH",
+      "max_per_wallet": "10",
+      "max_supply": "300",
+      "whitelist_only": true,
+      "tier": "investment_grade"
+    },
+    {
+      "phase_name": "Public Auction",
+      "start_time": "2024-07-15T00:00:00Z",
+      "end_time": "2024-07-31T23:59:59Z",
+      "price": "10.0",
+      "currency": "ETH", 
+      "max_per_wallet": "20",
+      "max_supply": "600",
+      "whitelist_only": false,
+      "tier": "premium_standard"
+    }
+  ],
+  
+  "trait_definitions": [
+    {
+      "trait_name": "Rarity Classification",
+      "trait_type": "investment_rarity",
+      "possible_values": [
+        {
+          "value": "Exceptional",
+          "rarity_weight": 3,
+          "description": "D-F color, FL-VVS2 clarity, Excellent cut, 3+ carats"
+        },
+        {
+          "value": "Rare",
+          "rarity_weight": 12,
+          "description": "D-G color, FL-VS1 clarity, Very Good+ cut, 2+ carats"  
+        },
+        {
+          "value": "Premium",
+          "rarity_weight": 35,
+          "description": "D-H color, FL-VS2 clarity, Good+ cut, 1+ carats"
+        },
+        {
+          "value": "Investment",
+          "rarity_weight": 50,
+          "description": "D-I color, FL-SI1 clarity, Good+ cut, 0.5+ carats"
+        }
+      ]
+    },
+    {
+      "trait_name": "Historical Significance",
+      "trait_type": "provenance",
+      "possible_values": [
+        {
+          "value": "Royal Provenance",
+          "rarity_weight": 1,
+          "description": "Previously owned by royalty or nobility"
+        },
+        {
+          "value": "Celebrity Owned",
+          "rarity_weight": 3,
+          "description": "Previously owned by famous personalities"
+        },
+        {
+          "value": "Estate Collection",
+          "rarity_weight": 15,
+          "description": "From prestigious private estates"
+        },
+        {
+          "value": "Direct Source",
+          "rarity_weight": 81,
+          "description": "Directly sourced from certified dealers"
+        }
+      ]
+    }
+  ],
+  
+  "custody_details": {
+    "custodian": "Malca-Amit Global Diamond Security",
+    "storage_locations": ["Antwerp", "New York", "Singapore", "Geneva"],
+    "insurance_provider": "Lloyd's of London Precious Stones Division",
+    "insurance_coverage": "full_replacement_value_plus_appreciation",
+    "security_features": [
+      "biometric_multi_factor_access",
+      "24_7_armed_guards",
+      "motion_sensors",
+      "temperature_humidity_control",
+      "individual_secure_compartments"
+    ],
+    "retrieval_process": "token_burn_with_48h_notice"
+  },
+  
+  "authentication": {
+    "primary_certifier": "Gemological Institute of America (GIA)",
+    "secondary_certifiers": ["AGS", "Gübelin", "SSEF"],
+    "certification_process": [
+      "4c_grading",
+      "fluorescence_assessment",
+      "symmetry_polish_evaluation",
+      "origin_determination",
+      "treatment_detection",
+      "laser_inscription"
+    ],
+    "blockchain_certification": "immutable_certificate_hash",
+    "re_certification_schedule": "every_5_years"
+  },
+  
+  "marketplace_features": {
+    "primary_marketplace": "Christie's 3.0",
+    "secondary_marketplaces": ["Sotheby's Metaverse", "Foundation", "SuperRare"],
+    "auction_house_partnerships": ["Phillips", "Bonhams"],
+    "price_discovery": "reserve_auction",
+    "reserve_pricing": true,
+    "buy_now_option": true,
+    "negotiation_system": true
+  },
+  
+  "fractional_ownership": {
+    "enabled": true,
+    "minimum_fraction": "0.001",
+    "maximum_fractions": "1000",
+    "governance_rights": "proportional_to_fraction",
+    "exit_mechanism": "market_maker_liquidity",
+    "liquidity_pool": "Balancer_weighted_pool"
+  },
+  
+  "utility_features": {
+    "exclusive_events": [
+      "Private_Diamond_Exhibitions",
+      "Antwerp_Diamond_District_Tours", 
+      "Master_Cutter_Workshops",
+      "Investment_Strategy_Seminars"
+    ],
+    "physical_benefits": [
+      "Insurance_Discounts",
+      "Authentication_Services",
+      "Appraisal_Updates",
+      "White_Glove_Delivery"
+    ],
+    "digital_perks": [
+      "3D_Diamond_Visualization",
+      "AR_Size_Comparison",
+      "Portfolio_Analytics",
+      "Market_Intelligence_Reports"
+    ]
+  },
+  
+  "investment_metrics": {
+    "historical_appreciation": "7.8%_annually",
+    "liquidity_score": "medium_high",
+    "market_volatility": "low_moderate",
+    "correlation_to_traditional_assets": "very_low",
+    "inflation_hedge_quality": "excellent",
+    "portfolio_diversification_benefit": "high"
+  },
+  
+  "market_integration": {
+    "diamond_indices": ["Polished Prices", "IDEX Diamond Index"],
+    "pricing_transparency": "real_time_market_data",
+    "liquidity_mechanisms": ["auction_houses", "dealer_networks", "fractional_trading"],
+    "exit_strategies": ["physical_redemption", "secondary_sale", "fractional_exit"]
+  },
+  
+  "regulatory_compliance": {
+    "kimberley_process_certified": true,
+    "conflict_free_guarantee": true,
+    "origin_verification": "blockchain_tracked",
+    "anti_money_laundering": "full_kyc_compliance",
+    "export_import_compliance": true
+  },
+  
+  "environmental_impact": {
+    "sustainable_sourcing": true,
+    "carbon_neutral_operations": true,
+    "ethical_mining_partnerships": true,
+    "lab_grown_options": "clearly_identified",
+    "environmental_offset_program": true
+  },
+  
+  "technology_features": {
+    "diamond_dna_fingerprinting": true,
+    "blockchain_provenance_tracking": true,
+    "ai_powered_valuation": true,
+    "photorealistic_3d_models": true,
+    "virtual_reality_viewing": true
+  },
+  
+  "legal_framework": {
+    "ownership_structure": "beneficial_ownership_via_trust",
+    "jurisdiction": "Singapore",
+    "regulatory_compliance": ["MAS_Guidelines", "Precious_Stones_Act"],
+    "tax_considerations": "goods_and_services_tax_exempt",
+    "inheritance_provisions": "digital_estate_planning_compatible",
+    "dispute_resolution": "singapore_international_arbitration"
+  },
+  
+  "insurance_details": {
+    "coverage_type": "all_risk_worldwide",
+    "coverage_amount": "full_certified_value",
+    "appreciation_protection": "annual_revaluation",
+    "loss_replacement": "like_kind_quality",
+    "geographic_coverage": "worldwide",
+    "exclusions": ["war_risks", "nuclear_risks"]
+  },
+  
+  "performance_tracking": {
+    "price_appreciation_tracking": "real_time",
+    "market_comparison_tools": true,
+    "portfolio_analytics": "comprehensive",
+    "risk_assessment": "continuous",
+    "liquidity_monitoring": "daily",
+    "yield_calculation": "total_return_basis"
+  }
+}

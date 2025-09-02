@@ -1,0 +1,215 @@
+{
+  "name": "Alphabet Inc. Multi-Class Share Tokens",
+  "symbol": "GOOGL-SFT",
+  "decimals": 18,
+  "description": "Semi-fungible tokens representing different classes of Alphabet Inc. shares with distinct voting rights and characteristics.",
+  "standard": "ERC-3525",
+  "total_supply": "12800000000",
+  "initial_supply": "12800000000",
+  "cap": "15000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "semi_fungible_equity",
+  "value_decimals": 18,
+  "base_token_address": "",
+  "slots": [
+    {
+      "slot": 1,
+      "name": "Class A Voting Shares",
+      "description": "Alphabet Class A shares with voting rights (GOOGL)",
+      "total_value": "6400000000000000000000000000",
+      "currency": "USD",
+      "share_class": "A",
+      "ticker": "GOOGL",
+      "cusip": "02079K305",
+      "isin": "US02079K3059",
+      "voting_rights": true,
+      "votes_per_share": 1,
+      "dividend_rights": true,
+      "liquidation_preference": "pari_passu",
+      "conversion_rights": false,
+      "outstanding_shares": "6400000000",
+      "par_value": "0.001"
+    },
+    {
+      "slot": 2,
+      "name": "Class C Non-Voting Shares", 
+      "description": "Alphabet Class C shares without voting rights (GOOG)",
+      "total_value": "6400000000000000000000000000",
+      "currency": "USD",
+      "share_class": "C",
+      "ticker": "GOOG",
+      "cusip": "02079K107",
+      "isin": "US02079K1079",
+      "voting_rights": false,
+      "votes_per_share": 0,
+      "dividend_rights": true,
+      "liquidation_preference": "pari_passu",
+      "conversion_rights": false,
+      "outstanding_shares": "6400000000",
+      "par_value": "0.001"
+    }
+  ],
+  "slot_configs": [
+    {
+      "slot": 1,
+      "transferable": true,
+      "splittable": true,
+      "mergeable": true,
+      "approval_required": false,
+      "whitelist_required": false,
+      "max_holders": 0,
+      "lock_up_period": "0",
+      "trading_start_date": "2025-06-15T09:30:00Z",
+      "voting_enabled": true,
+      "proxy_voting": true,
+      "shareholder_proposals": true
+    },
+    {
+      "slot": 2,
+      "transferable": true,
+      "splittable": true,
+      "mergeable": true,
+      "approval_required": false,
+      "whitelist_required": false,
+      "max_holders": 0,
+      "lock_up_period": "0",
+      "trading_start_date": "2025-06-15T09:30:00Z",
+      "voting_enabled": false,
+      "proxy_voting": false,
+      "shareholder_proposals": false
+    }
+  ],
+  "allocations": [
+    {
+      "slot": 1,
+      "recipient_type": "public_investors",
+      "allocation_percentage": "50",
+      "minimum_investment": "1",
+      "vesting_schedule": "none"
+    },
+    {
+      "slot": 2,
+      "recipient_type": "public_investors",
+      "allocation_percentage": "50",
+      "minimum_investment": "1",
+      "vesting_schedule": "none"
+    }
+  ],
+  "payment_schedules": [
+    {
+      "slot": 1,
+      "payment_type": "dividend",
+      "frequency": "none",
+      "amount": "0",
+      "payment_dates": []
+    },
+    {
+      "slot": 2,
+      "payment_type": "dividend",
+      "frequency": "none", 
+      "amount": "0",
+      "payment_dates": []
+    }
+  ],
+  "value_adjustments": [
+    {
+      "slot": 1,
+      "adjustment_type": "stock_split",
+      "trigger_condition": "corporate_action_declared",
+      "adjustment_value": "proportional_adjustment",
+      "effective_date": "ex_dividend_date"
+    },
+    {
+      "slot": 2,
+      "adjustment_type": "stock_split",
+      "trigger_condition": "corporate_action_declared",
+      "adjustment_value": "proportional_adjustment",
+      "effective_date": "ex_dividend_date"
+    },
+    {
+      "slot": 1,
+      "adjustment_type": "stock_dividend",
+      "trigger_condition": "dividend_declared",
+      "adjustment_value": "additional_shares",
+      "effective_date": "ex_dividend_date"
+    },
+    {
+      "slot": 2,
+      "adjustment_type": "stock_dividend", 
+      "trigger_condition": "dividend_declared",
+      "adjustment_value": "additional_shares",
+      "effective_date": "ex_dividend_date"
+    }
+  ],
+  "voting_features": {
+    "slot_1_voting_enabled": true,
+    "slot_2_voting_enabled": false,
+    "voting_power_calculation": "one_share_one_vote",
+    "proxy_voting_allowed": true,
+    "electronic_voting": true,
+    "shareholder_proposals": true,
+    "board_nominations": true,
+    "special_resolutions": true
+  },
+  "corporate_actions": {
+    "stock_splits": true,
+    "stock_dividends": true,
+    "spin_offs": true,
+    "mergers_acquisitions": true,
+    "rights_offerings": true,
+    "special_distributions": true,
+    "name_changes": true,
+    "ticker_changes": true
+  },
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": ["CN", "RU"],
+  "whitelist_enabled": false,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": false,
+    "aml_required": false,
+    "accredited_investors_only": false,
+    "qualified_purchaser_only": false,
+    "institutional_only": false,
+    "maximum_investors": 0,
+    "transfer_restrictions": {
+      "cooling_off_period": "0",
+      "requires_approval": false,
+      "slot_specific_rules": true
+    }
+  },
+  "market_data": {
+    "primary_exchange": "NASDAQ",
+    "trading_hours": "09:30-16:00 EST",
+    "extended_hours": true,
+    "market_makers": ["Citadel Securities", "Virtu Financial", "Jane Street"],
+    "average_daily_volume": {
+      "slot_1": "25000000",
+      "slot_2": "22000000"
+    },
+    "bid_ask_spread": {
+      "slot_1": "0.01",
+      "slot_2": "0.01"
+    }
+  },
+  "metadata": {
+    "underlying_erc1400": "",
+    "share_class_structure": "dual_class",
+    "voting_control": "founder_controlled",
+    "liquidity_provider": "NASDAQ",
+    "transfer_agent": "Computershare Trust Company, N.A.",
+    "custodian": "State Street Corporation",
+    "settlement_cycle": "T+2",
+    "clearing_corporation": "NSCC",
+    "corporate_governance": "dual_class_voting",
+    "shareholder_rights": "class_differentiated",
+    "price_correlation": "high",
+    "arbitrage_opportunities": "minimal",
+    "conversion_mechanism": "none",
+    "class_premium_discount": "voting_premium"
+  }
+}

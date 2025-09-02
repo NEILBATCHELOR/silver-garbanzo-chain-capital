@@ -1,0 +1,585 @@
+{
+  "base_uri": "https://metadata.carboncapital.com/credits/",
+  "metadata_storage": "ipfs",
+  "has_royalty": false,
+  "is_burnable": true,
+  "is_pausable": true,
+  "access_control": "role-based",
+  "updatable_uris": true,
+  "supply_tracking": true,
+  "enable_approval_for_all": true,
+  "batch_minting_enabled": true,
+  "container_enabled": false,
+  "use_geographic_restrictions": false,
+  "default_restriction_policy": "allowed",
+  "dynamic_uris": true,
+  "updatable_metadata": true,
+  "supply_tracking_advanced": true,
+  "max_supply_per_type": "50000000",
+  "burning_enabled": true,
+  "mint_roles": ["project-developer", "registry-oracle", "verification-body"],
+  "burn_roles": ["offset-buyer", "retirement-service", "compliance-officer"],
+  "metadata_update_roles": ["registry-oracle", "verification-body", "project-developer"],
+  
+  "pricing_model": "market-based",
+  "base_price": "15",
+  "bulk_discount_enabled": true,
+  "referral_rewards_enabled": false,
+  "lazy_minting_enabled": true,
+  "airdrop_enabled": false,
+  "claim_period_enabled": false,
+  "marketplace_fees_enabled": true,
+  "marketplace_fee_percentage": "2.0",
+  "marketplace_fee_recipient": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F",
+  "bundle_trading_enabled": true,
+  "atomic_swaps_enabled": true,
+  "cross_collection_trading": true,
+  
+  "crafting_enabled": false,
+  "fusion_enabled": false,
+  "experience_points_enabled": false,
+  "leveling_enabled": false,
+  "consumable_tokens": true,
+  "voting_power_enabled": false,
+  "community_treasury_enabled": true,
+  "treasury_percentage": "5",
+  "bridge_enabled": true,
+  "bridgeable_token_types": ["1", "2", "3", "4", "5", "6"],
+  "wrapped_versions": {
+    "ethereum": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F",
+    "polygon": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+    "celo": "0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f"
+  },
+  "layer2_support_enabled": true,
+  "supported_layer2_networks": ["polygon", "arbitrum", "celo", "energy-web-chain"],
+  
+  "tokenTypes": [
+    {
+      "id": "1",
+      "name": "Verified Carbon Standard Credits",
+      "symbol": "VCS",
+      "description": "High-quality verified carbon credits certified under the Verified Carbon Standard (VCS) registry",
+      "maxSupply": "15000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "creditType": "removal",
+        "methodology": "VCS",
+        "projectType": "afforestation-reforestation",
+        "geography": "Brazil-Amazon",
+        "vintage": "2024",
+        "verificationStandard": "VCS-v4",
+        "additionalityConfirmed": true,
+        "permanence": "100-years",
+        "cobenefits": ["biodiversity", "community-development", "watershed-protection"],
+        "sdgAlignment": ["SDG-13", "SDG-15", "SDG-1", "SDG-6"],
+        "properties": {
+          "durable": true,
+          "additional": true,
+          "permanent": true,
+          "measurable": true,
+          "verified": true
+        }
+      }
+    },
+    {
+      "id": "2",
+      "name": "Gold Standard Credits",
+      "symbol": "GS",
+      "description": "Premium carbon credits certified under the Gold Standard with verified sustainable development benefits",
+      "maxSupply": "10000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "creditType": "avoidance",
+        "methodology": "Gold-Standard",
+        "projectType": "renewable-energy",
+        "geography": "India-Rural",
+        "vintage": "2024",
+        "verificationStandard": "GS-VER",
+        "additionalityConfirmed": true,
+        "permanence": "verified",
+        "cobenefits": ["energy-access", "local-employment", "air-quality"],
+        "sdgAlignment": ["SDG-7", "SDG-13", "SDG-8", "SDG-3"],
+        "properties": {
+          "durable": true,
+          "additional": true,
+          "verified": true,
+          "socialImpact": true,
+          "sustainableDevelopment": true
+        }
+      }
+    },
+    {
+      "id": "3",
+      "name": "American Carbon Registry Credits",
+      "symbol": "ACR",
+      "description": "Rigorously verified carbon credits from the American Carbon Registry with North American focus",
+      "maxSupply": "8000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "creditType": "removal",
+        "methodology": "ACR",
+        "projectType": "forest-carbon",
+        "geography": "US-Pacific-Northwest",
+        "vintage": "2024",
+        "verificationStandard": "ACR-Standard",
+        "additionalityConfirmed": true,
+        "permanence": "100-years",
+        "cobenefits": ["wildlife-habitat", "water-quality", "recreation"],
+        "sdgAlignment": ["SDG-13", "SDG-15", "SDG-6"],
+        "properties": {
+          "durable": true,
+          "additional": true,
+          "permanent": true,
+          "verified": true,
+          "nature-based": true
+        }
+      }
+    },
+    {
+      "id": "4",
+      "name": "Climate Action Reserve Credits",
+      "symbol": "CAR",
+      "description": "Carbon credits from the Climate Action Reserve focused on compliance and high-quality voluntary markets",
+      "maxSupply": "6000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "creditType": "avoidance",
+        "methodology": "CAR",
+        "projectType": "methane-capture",
+        "geography": "US-California",
+        "vintage": "2024",
+        "verificationStandard": "CAR-Protocol",
+        "additionalityConfirmed": true,
+        "permanence": "immediate",
+        "cobenefits": ["air-quality", "public-health"],
+        "sdgAlignment": ["SDG-13", "SDG-3", "SDG-11"],
+        "properties": {
+          "durable": true,
+          "additional": true,
+          "verified": true,
+          "compliance-eligible": true,
+          "high-integrity": true
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Direct Air Capture Credits",
+      "symbol": "DAC",
+      "description": "Technology-based carbon removal credits from direct air capture with permanent geological storage",
+      "maxSupply": "2000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "creditType": "removal",
+        "methodology": "DAC",
+        "projectType": "direct-air-capture",
+        "geography": "Iceland-Global",
+        "vintage": "2024",
+        "verificationStandard": "Technology-Verified",
+        "additionalityConfirmed": true,
+        "permanence": "1000-years",
+        "cobenefits": ["technology-advancement", "scalability"],
+        "sdgAlignment": ["SDG-13", "SDG-9"],
+        "properties": {
+          "durable": true,
+          "additional": true,
+          "permanent": true,
+          "technology-based": true,
+          "scalable": true,
+          "measurable": true
+        }
+      }
+    },
+    {
+      "id": "6",
+      "name": "Enhanced Rock Weathering Credits",
+      "symbol": "ERW",
+      "description": "Innovative carbon removal credits from enhanced rock weathering with agricultural co-benefits",
+      "maxSupply": "3000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "creditType": "removal",
+        "methodology": "ERW",
+        "projectType": "enhanced-weathering",
+        "geography": "Australia-Agricultural",
+        "vintage": "2024",
+        "verificationStandard": "Science-Based-Verification",
+        "additionalityConfirmed": true,
+        "permanence": "1000-years",
+        "cobenefits": ["soil-health", "crop-yields", "ph-balance"],
+        "sdgAlignment": ["SDG-13", "SDG-2", "SDG-15"],
+        "properties": {
+          "durable": true,
+          "additional": true,
+          "permanent": true,
+          "nature-based": true,
+          "agricultural-benefits": true,
+          "scalable": true
+        }
+      }
+    }
+  ],
+  
+  "discountTiers": [
+    {
+      "id": "1",
+      "tierName": "Individual",
+      "minQuantity": "1",
+      "maxQuantity": "99",
+      "discountPercentage": "0",
+      "isActive": true
+    },
+    {
+      "id": "2",
+      "tierName": "Corporate",
+      "minQuantity": "100",
+      "maxQuantity": "999",
+      "discountPercentage": "3",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "tierName": "Bulk",
+      "minQuantity": "1000",
+      "maxQuantity": "9999",
+      "discountPercentage": "7",
+      "isActive": true
+    },
+    {
+      "id": "4",
+      "tierName": "Institutional",
+      "minQuantity": "10000",
+      "maxQuantity": "100000",
+      "discountPercentage": "12",
+      "isActive": true
+    },
+    {
+      "id": "5",
+      "tierName": "Enterprise",
+      "minQuantity": "100001",
+      "maxQuantity": "1000000",
+      "discountPercentage": "18",
+      "isActive": true
+    }
+  ],
+  
+  "typeConfigs": [
+    {
+      "id": "1",
+      "tokenTypeId": "1",
+      "name": "VCS Configuration",
+      "description": "Configuration for Verified Carbon Standard credits with automatic retirement and registry integration",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "VCS-Registry",
+        "permanenceTracking": true,
+        "cobenefitsVerification": true
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "compliance"],
+        "qualityScore": "99",
+        "riskRating": "Very Low",
+        "premiumTier": "AAA"
+      }
+    },
+    {
+      "id": "2",
+      "tokenTypeId": "2",
+      "name": "Gold Standard Configuration",
+      "description": "Configuration for Gold Standard credits with enhanced sustainable development verification",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "GS-Registry",
+        "sustainableDevelopmentTracking": true,
+        "socialImpactVerification": true
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "premium"],
+        "qualityScore": "99",
+        "riskRating": "Very Low",
+        "premiumTier": "AAA",
+        "sdgVerified": true
+      }
+    },
+    {
+      "id": "3",
+      "tokenTypeId": "3",
+      "name": "ACR Configuration",
+      "description": "Configuration for American Carbon Registry credits with enhanced forest monitoring",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "ACR-Registry",
+        "forestMonitoring": true,
+        "satelliteVerification": true
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "compliance"],
+        "qualityScore": "98",
+        "riskRating": "Low",
+        "premiumTier": "AA+"
+      }
+    },
+    {
+      "id": "4",
+      "tokenTypeId": "4",
+      "name": "CAR Configuration",
+      "description": "Configuration for Climate Action Reserve credits with compliance market focus",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "CAR-Registry",
+        "complianceTracking": true,
+        "regulatoryAlignment": true
+      },
+      "metadata": {
+        "eligibleMarkets": ["compliance", "voluntary"],
+        "qualityScore": "97",
+        "riskRating": "Low",
+        "premiumTier": "AA",
+        "complianceEligible": true
+      }
+    },
+    {
+      "id": "5",
+      "tokenTypeId": "5",
+      "name": "DAC Configuration",
+      "description": "Configuration for Direct Air Capture credits with technology verification",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "Technology-Registry",
+        "technologyVerification": true,
+        "permanenceTracking": true,
+        "energySourceTracking": true
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "premium", "technology"],
+        "qualityScore": "100",
+        "riskRating": "Very Low",
+        "premiumTier": "AAA+",
+        "technologyBased": true
+      }
+    },
+    {
+      "id": "6",
+      "tokenTypeId": "6",
+      "name": "ERW Configuration",
+      "description": "Configuration for Enhanced Rock Weathering credits with agricultural monitoring",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "Science-Registry",
+        "soilMonitoring": true,
+        "agriculturalTracking": true,
+        "permanenceTracking": true
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "agricultural", "innovation"],
+        "qualityScore": "96",
+        "riskRating": "Medium",
+        "premiumTier": "A+",
+        "innovative": true
+      }
+    }
+  ],
+  
+  "uriMappings": [
+    {
+      "id": "1",
+      "tokenTypeId": "1",
+      "tokenId": "1",
+      "uri": "https://metadata.carboncapital.com/credits/vcs/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "2",
+      "tokenTypeId": "2",
+      "tokenId": "2",
+      "uri": "https://metadata.carboncapital.com/credits/gold-standard/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "tokenTypeId": "3",
+      "tokenId": "3",
+      "uri": "https://metadata.carboncapital.com/credits/acr/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "4",
+      "tokenTypeId": "4",
+      "tokenId": "4",
+      "uri": "https://metadata.carboncapital.com/credits/car/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "5",
+      "tokenTypeId": "5",
+      "tokenId": "5",
+      "uri": "https://metadata.carboncapital.com/credits/dac/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "6",
+      "tokenTypeId": "6",
+      "tokenId": "6",
+      "uri": "https://metadata.carboncapital.com/credits/erw/{id}.json",
+      "isActive": true
+    }
+  ],
+  
+  "registryIntegration": {
+    "enabled": true,
+    "registries": [
+      {
+        "name": "Verra",
+        "type": "VCS",
+        "apiEndpoint": "https://registry.verra.org/api/v1",
+        "credentialHash": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F",
+        "autoSync": true,
+        "retirementTracking": true,
+        "realTimeUpdates": true
+      },
+      {
+        "name": "Gold Standard",
+        "type": "GS",
+        "apiEndpoint": "https://registry.goldstandard.org/api/v1",
+        "credentialHash": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+        "autoSync": true,
+        "retirementTracking": true,
+        "sustainableDevelopmentTracking": true
+      },
+      {
+        "name": "American Carbon Registry",
+        "type": "ACR",
+        "apiEndpoint": "https://acr2.apx.com/api/v1",
+        "credentialHash": "0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f",
+        "autoSync": true,
+        "retirementTracking": true,
+        "forestMonitoring": true
+      },
+      {
+        "name": "Climate Action Reserve",
+        "type": "CAR",
+        "apiEndpoint": "https://thereserve2.apx.com/api/v1",
+        "credentialHash": "0x7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
+        "autoSync": true,
+        "retirementTracking": true,
+        "complianceTracking": true
+      }
+    ]
+  },
+  
+  "verificationOracles": [
+    {
+      "name": "Pachama Forest Oracle",
+      "address": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F",
+      "verificationScope": ["forest-monitoring", "biomass-estimation", "deforestation-alerts"],
+      "updateFrequency": "daily",
+      "dataSource": "satellite-lidar"
+    },
+    {
+      "name": "Climate TRACE Emissions Oracle",
+      "address": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+      "verificationScope": ["emissions-tracking", "project-monitoring", "baseline-verification"],
+      "updateFrequency": "hourly",
+      "dataSource": "satellite-ai"
+    },
+    {
+      "name": "Dovu MRV Oracle",
+      "address": "0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f",
+      "verificationScope": ["project-verification", "additionality-assessment", "permanence-monitoring"],
+      "updateFrequency": "weekly",
+      "dataSource": "field-sensors-satellite"
+    }
+  ],
+  
+  "retirementMechanism": {
+    "enabled": true,
+    "automaticRetirement": false,
+    "retirementOracle": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F",
+    "retirementRegistry": "multi-registry",
+    "beneficiaryTracking": true,
+    "retirementReasons": [
+      "voluntary-offset",
+      "compliance-obligation",
+      "corporate-neutrality",
+      "net-zero-commitment",
+      "product-lifecycle",
+      "event-neutrality"
+    ]
+  },
+  
+  "qualityAssurance": {
+    "enabled": true,
+    "qualityScoring": true,
+    "riskAssessment": true,
+    "additionalityVerification": true,
+    "permanenceMonitoring": true,
+    "cobeneifitsTracking": true,
+    "socialSafeguards": true,
+    "environmentalSafeguards": true
+  },
+  
+  "marketplaceFeatures": {
+    "pricingTransparency": true,
+    "qualityFiltering": true,
+    "geographicFiltering": true,
+    "vintageFiltering": true,
+    "methodologyFiltering": true,
+    "bulkDiscounts": true,
+    "portfolioManagement": true,
+    "retirementServices": true
+  },
+  
+  "environmentalImpact": {
+    "totalCreditsIssued": "44000000",
+    "totalCO2Represented": "44000000",
+    "creditsRetired": "8800000",
+    "co2PermanentlyRemoved": "8800000",
+    "projectsSupported": "350",
+    "geographicCoverage": ["Global"],
+    "vintageRange": ["2020", "2021", "2022", "2023", "2024"],
+    "verificationStandards": ["VCS", "GS", "ACR", "CAR"],
+    "sdgContribution": {
+      "climate-action": "100%",
+      "life-on-land": "65%",
+      "clean-energy": "30%",
+      "sustainable-communities": "25%",
+      "decent-work": "20%"
+    }
+  }
+}

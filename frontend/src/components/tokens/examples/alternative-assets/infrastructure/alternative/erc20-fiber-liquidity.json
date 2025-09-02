@@ -1,0 +1,242 @@
+{
+  "name": "Pacific Fiber Network Liquidity Token",
+  "symbol": "PFNLT",
+  "description": "ERC-20 liquidity token providing tradeable exposure to Pacific Fiber Network infrastructure investment. Enables institutional DeFi access and secondary market liquidity.",
+  "decimals": 18,
+  "initialSupply": "15000000",
+  "maxSupply": "15000000",
+  "totalSupply": "15000000",
+  
+  "tokenDetails": "Infrastructure-backed utility token representing submarine fiber optic cable network ownership with telecom revenue streams",
+  "tokenType": "infrastructure_utility",
+  "useCase": "telecom_infrastructure_access",
+  
+  "isMintable": false,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasCap": true,
+  
+  "transfer_restrictions_enabled": true,
+  "kyc_required": true,
+  "whitelist_enabled": true,
+  "pausable_transfers": true,
+  
+  "has_fees": true,
+  "transfer_fee_percentage": "0.20",
+  "fee_recipient": "0x1234567890123456789012345678901234567890",
+  "fee_exemptions": [
+    "0x1234567890123456789012345678901234567890",
+    "0x2345678901234567890123456789012345678901"
+  ],
+  
+  "has_rewards": true,
+  "rewards_token": "0x0000000000000000000000000000000000000000",
+  "rewards_rate": "10.0",
+  "staking_enabled": true,
+  "staking_rewards_rate": "12.0",
+  
+  "deflationary": false,
+  "buyback_enabled": true,
+  "buyback_percentage": "2.0",
+  "tax_on_transactions": false,
+  
+  "governance_enabled": true,
+  "voting_power": 1,
+  "proposal_threshold": "75000",
+  "voting_delay": "3_days",
+  "voting_period": "7_days",
+  
+  "liquidity_provision": {
+    "automated_market_maker": true,
+    "supported_dexes": ["Uniswap V3", "Curve Finance", "Balancer"],
+    "initial_liquidity_pairs": [
+      {
+        "token_a": "PFNLT",
+        "token_b": "USDC",
+        "initial_ratio": "1:100",
+        "liquidity_amount": "500000",
+        "pool_type": "concentrated_liquidity"
+      },
+      {
+        "token_a": "PFNLT",
+        "token_b": "WETH",
+        "initial_ratio": "1:0.035",
+        "liquidity_amount": "250000",
+        "pool_type": "weighted_pool"
+      }
+    ]
+  },
+  
+  "institutional_features": {
+    "qualified_investors_only": true,
+    "minimum_investment": "50000",
+    "lock_up_periods": {
+      "institutional": "18_months",
+      "strategic_partners": "36_months"
+    },
+    "custody_integration": ["Coinbase Custody", "BitGo", "Fireblocks"],
+    "reporting_standards": ["GAAP", "IFRS"]
+  },
+  
+  "defi_integration": {
+    "lending_protocols": ["Aave", "Compound"],
+    "yield_strategies": ["Convex Finance", "Ribbon Finance"],
+    "collateral_factor": "0.70",
+    "liquidation_threshold": "0.80",
+    "synthetic_assets": ["sFiber", "synthPFNLT"]
+  },
+  
+  "oracle_integration": {
+    "price_feeds": ["Chainlink", "Band Protocol"],
+    "nav_calculation": "daily",
+    "price_update_frequency": "3600",
+    "backup_oracles": ["API3", "DIA"],
+    "telecom_revenue_oracle": "0x4567890123456789012345678901234567890123"
+  },
+  
+  "bridge_support": {
+    "cross_chain_enabled": true,
+    "supported_chains": ["Polygon", "Arbitrum", "BSC"],
+    "bridge_protocols": ["Wormhole", "LayerZero"],
+    "cross_chain_staking": true
+  },
+  
+  "regulatory_compliance": {
+    "security_classification": "infrastructure_utility_token",
+    "registration_status": "reg_d_506b",
+    "export_control_compliance": true,
+    "telecom_regulations": ["FCC", "ISED", "MIC_Japan"],
+    "data_governance": "gdpr_compliant"
+  },
+  
+  "metadata": {
+    "website": "https://pacificfibertoken.com",
+    "whitepaper": "https://docs.pacificfibertoken.com/whitepaper.pdf",
+    "technical_documentation": "https://docs.pacificfibertoken.com/technical.pdf",
+    "social_media": {
+      "twitter": "@PacificFiberNet",
+      "linkedin": "company/pacific-fiber-networks",
+      "telegram": "https://t.me/pacificfibernetwork"
+    },
+    "network_monitoring": {
+      "dashboard": "https://monitor.pacificfibertoken.com",
+      "api_access": "https://api.pacificfibertoken.com",
+      "status_page": "https://status.pacificfibertoken.com"
+    }
+  },
+  
+  "tokenomics": {
+    "initial_distribution": {
+      "institutional_sale": "50%",
+      "strategic_partners": "20%",
+      "public_offering": "15%",
+      "liquidity_provision": "8%",
+      "team_allocation": "4%",
+      "treasury_reserve": "3%"
+    },
+    "revenue_distribution": {
+      "capacity_revenue": "75%",
+      "wavelength_services": "15%",
+      "maintenance_fees": "5%",
+      "token_buybacks": "3%",
+      "operational_reserve": "2%"
+    },
+    "vesting_schedules": {
+      "strategic_partners": {
+        "cliff_period": "12_months",
+        "vesting_period": "48_months",
+        "release_schedule": "quarterly"
+      },
+      "team_allocation": {
+        "cliff_period": "24_months",
+        "vesting_period": "36_months",
+        "release_schedule": "monthly"
+      }
+    }
+  },
+  
+  "network_utility": {
+    "bandwidth_allocation": {
+      "token_based_priority": true,
+      "minimum_holding_for_access": "1000",
+      "bandwidth_units_per_token": "10_mbps"
+    },
+    "service_discounts": {
+      "wavelength_services": "15%",
+      "dedicated_capacity": "10%",
+      "maintenance_priority": "20%"
+    },
+    "governance_participation": {
+      "network_upgrades": true,
+      "capacity_expansion": true,
+      "service_pricing": true,
+      "strategic_partnerships": true
+    }
+  },
+  
+  "risk_management": {
+    "concentration_limits": {
+      "max_single_holder": "10%",
+      "max_telecom_provider": "25%"
+    },
+    "operational_risk": {
+      "cable_protection_fund": "50000000",
+      "redundancy_investment": "100000000",
+      "insurance_coverage": "800000000"
+    },
+    "market_risk": {
+      "customer_diversification": "minimum_5_major_customers",
+      "contract_duration": "minimum_10_year_agreements",
+      "pricing_protection": "inflation_adjustment_clauses"
+    }
+  },
+  
+  "performance_metrics": {
+    "network_uptime": "99.9%",
+    "average_latency": "145_ms",
+    "capacity_utilization": "68%",
+    "customer_retention": "95%",
+    "annual_revenue_growth": "8.5%",
+    "ebitda_margin": "81%"
+  },
+  
+  "technology_integration": {
+    "network_apis": {
+      "capacity_monitoring": true,
+      "bandwidth_allocation": true,
+      "performance_metrics": true,
+      "billing_integration": true
+    },
+    "iot_integration": {
+      "cable_monitoring": "real_time",
+      "environmental_sensors": "continuous",
+      "security_monitoring": "24_7"
+    },
+    "ai_optimization": {
+      "traffic_routing": true,
+      "predictive_maintenance": true,
+      "capacity_planning": true
+    }
+  },
+  
+  "audit": {
+    "audited": true,
+    "audit_firms": ["Deloitte", "CertiK"],
+    "audit_reports": [
+      "ipfs://QmTelecomAuditHash1",
+      "ipfs://QmTelecomAuditHash2"
+    ],
+    "last_audit_date": "2024-04-10",
+    "next_audit_scheduled": "2024-10-10",
+    "continuous_monitoring": true
+  },
+  
+  "operational_partners": {
+    "cable_manufacturer": "SubCom",
+    "marine_installer": "Global Marine",
+    "network_operator": "NTT Communications",
+    "maintenance_provider": "Alcatel Submarine Networks",
+    "landing_station_operator": "Equinix"
+  }
+}

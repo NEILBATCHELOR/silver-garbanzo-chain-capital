@@ -1,0 +1,480 @@
+{
+  "name": "Apollo PE Strategy Fractions",
+  "symbol": "APOLLOSF",
+  "description": "Semi-fungible token representing fractional interests in Apollo's diversified private equity strategies. Each slot represents a different strategy/vintage combination with unique risk-return profiles and payment schedules. Enables fine-grained exposure to specific Apollo PE strategies with flexible value allocation.",
+  "decimals": 18,
+  "standard": "ERC-3525",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "0",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "semi_fungible_pe_interests",
+    "underlyingFund": "Apollo Strategic Private Equity Master Fund",
+    "slotTypes": "pe_strategy_vintage_combinations",
+    "valueUnits": "USD_equivalent_commitment",
+    "transferability": "slot_specific_restrictions",
+    "fractionalization": "strategy_based_allocation",
+    "paymentStreams": "variable_by_slot",
+    "governanceRights": "proportional_by_value"
+  },
+  "erc3525Properties": {
+    "name": "Apollo PE Strategy Fractions",
+    "symbol": "APOLLOSF",
+    "decimals": 18,
+    "valueDecimals": 6,
+    
+    "baseUri": "https://apollo.com/nft/metadata/",
+    "metadataStorage": "ipfs",
+    "dynamicMetadata": true,
+    "updatableUris": true,
+    
+    "slotType": "strategy_vintage",
+    "allowsSlotEnumeration": true,
+    "slotTransferValidation": {
+      "requireApproval": true,
+      "restrictToQualified": true,
+      "enforceHoldingPeriods": true
+    },
+    
+    "accessControl": "role_based",
+    
+    "isBurnable": true,
+    "isPausable": true,
+    "hasRoyalty": false,
+    "royaltyPercentage": "0.00",
+    "royaltyReceiver": "",
+    
+    "slotApprovals": true,
+    "valueApprovals": true,
+    "valueTransfersEnabled": true,
+    "updatableSlots": true,
+    "updatableValues": true,
+    
+    "mergable": true,
+    "splittable": true,
+    "valueAggregation": true,
+    "fractionalOwnershipEnabled": true,
+    "autoUnitCalculation": true,
+    
+    "permissioningEnabled": true,
+    "permissioningAdvanced": true,
+    
+    "supplyTracking": true,
+    "slotEnumerationEnabled": true,
+    "valueAggregationEnabled": true,
+    
+    "slotTransferRestrictions": {
+      "qualifiedInvestorsOnly": true,
+      "minimumHoldingPeriod": 2555,
+      "approvalRequired": true,
+      "geographicRestrictions": true
+    },
+    "valueTransferRestrictions": {
+      "minimumTransferValue": "1000000",
+      "maximumTransferValue": "100000000",
+      "dailyTransferLimit": "500000000",
+      "approvalThreshold": "10000000"
+    },
+    
+    "financialInstrumentType": "private_equity_interests",
+    "principalAmount": "25000000000",
+    "interestRate": "0.00",
+    "maturityDate": "2032-06-17",
+    "couponFrequency": "irregular",
+    "paymentSchedule": {
+      "distributionFrequency": "quarterly",
+      "capitalCallFrequency": "as_needed",
+      "finalDistribution": "fund_termination"
+    },
+    "earlyRedemptionEnabled": false,
+    "redemptionPenaltyRate": "0.00",
+    
+    "derivativeType": "",
+    "underlyingAsset": "Apollo_PE_Master_Fund",
+    "underlyingAssetAddress": "0x1111111111111111111111111111111111111111",
+    "strikePrice": "",
+    "expirationDate": "",
+    "settlementType": "",
+    "marginRequirements": {},
+    "leverageRatio": "",
+    
+    "slotCreationEnabled": true,
+    "dynamicSlotCreation": true,
+    "slotAdminRoles": ["strategy_manager", "fund_administrator"],
+    "slotFreezeEnabled": true,
+    "slotMergeEnabled": true,
+    "slotSplitEnabled": true,
+    "crossSlotTransfers": false,
+    
+    "valueComputationMethod": "nav_based_with_illiquidity_discount",
+    "valueOracleAddress": "0x4444444444444444444444444444444444444444",
+    "valueCalculationFormula": "underlying_nav * strategy_allocation * illiquidity_discount",
+    "accrualEnabled": true,
+    "accrualRate": "0.00",
+    "accrualFrequency": "quarterly",
+    "valueAdjustmentEnabled": true,
+    
+    "slotMarketplaceEnabled": false,
+    "valueMarketplaceEnabled": false,
+    "partialValueTrading": true,
+    "minimumTradeValue": "1000000",
+    "tradingFeesEnabled": true,
+    "tradingFeePercentage": "0.50",
+    "marketMakerEnabled": false,
+    
+    "slotVotingEnabled": true,
+    "valueWeightedVoting": true,
+    "votingPowerCalculation": "value_pro_rata",
+    "quorumCalculationMethod": "aggregate_value_threshold",
+    "proposalValueThreshold": "10000000",
+    "delegateEnabled": true,
+    
+    "yieldFarmingEnabled": false,
+    "liquidityProvisionEnabled": false,
+    "stakingYieldRate": "0.00",
+    "compoundInterestEnabled": false,
+    "flashLoanEnabled": false,
+    "collateralFactor": "0.00",
+    "liquidationThreshold": "0.00",
+    
+    "regulatoryComplianceEnabled": true,
+    "kycRequired": true,
+    "accreditedInvestorOnly": true,
+    "holdingPeriodRestrictions": 2555,
+    "transferLimits": {
+      "dailyLimit": "500000000",
+      "monthlyLimit": "2000000000",
+      "annualLimit": "10000000000"
+    },
+    "reportingRequirements": {
+      "quarterly": true,
+      "annual": true,
+      "kFormRequired": true,
+      "erisa": true
+    },
+    
+    "multiSignatureRequired": true,
+    "approvalWorkflowEnabled": true,
+    "institutionalCustodySupport": true,
+    "auditTrailEnhanced": true,
+    "batchOperationsEnabled": true,
+    "emergencyPauseEnabled": true,
+    "recoveryMechanisms": {
+      "keyRecovery": true,
+      "socialRecovery": false,
+      "timelockRecovery": true
+    },
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "blocked",
+    "geographicRestrictions": [
+      {
+        "country": "US",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CA",
+        "restriction": "allowed"
+      },
+      {
+        "country": "EU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "GB",
+        "restriction": "allowed"
+      },
+      {
+        "country": "ALL_OTHERS",
+        "restriction": "case_by_case"
+      }
+    ],
+    
+    "whitelistConfig": {
+      "enabled": true,
+      "autoApproval": false,
+      "kycRequired": true,
+      "accreditationRequired": true
+    },
+    
+    "salesConfig": {
+      "publicSale": false,
+      "privatePlacement": true,
+      "dutchAuction": false,
+      "batchSale": true
+    },
+    
+    "customExtensions": "apollo_pe_governance_and_reporting",
+    "customSlotProperties": {
+      "strategyType": "string",
+      "vintageYear": "uint256",
+      "targetIRR": "uint256",
+      "riskRating": "string",
+      "geographicFocus": "string"
+    },
+    
+    "metadata": {
+      "description": "Fractional interests in Apollo PE strategies",
+      "external_url": "https://apollo.com/pe-fractions",
+      "attributes": []
+    }
+  },
+  "slots": [
+    {
+      "slotId": "1",
+      "slotName": "LBO North America 2025",
+      "slotDescription": "Leveraged buyout strategy focused on North American mid-to-large cap companies",
+      "valueUnits": "USD",
+      "slotType": "leveraged_buyout",
+      "transferable": true,
+      "tradeable": false,
+      "divisible": true,
+      "minValue": "1000000",
+      "maxValue": "500000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "strategyType": "leveraged_buyout",
+        "vintageYear": "2025",
+        "targetIRR": "18",
+        "riskRating": "Medium-High",
+        "geographicFocus": "North America",
+        "sectorFocus": "Technology, Healthcare, Consumer",
+        "fundLife": "10 years",
+        "managementFee": "1.5%",
+        "carriedInterest": "15%"
+      }
+    },
+    {
+      "slotId": "2",
+      "slotName": "Growth Equity Global 2025",
+      "slotDescription": "Growth equity investments in high-growth companies globally",
+      "valueUnits": "USD",
+      "slotType": "growth_equity",
+      "transferable": true,
+      "tradeable": false,
+      "divisible": true,
+      "minValue": "1000000",
+      "maxValue": "300000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "strategyType": "growth_equity",
+        "vintageYear": "2025",
+        "targetIRR": "22",
+        "riskRating": "Medium-High",
+        "geographicFocus": "Global",
+        "sectorFocus": "Technology, FinTech, HealthTech",
+        "fundLife": "8 years",
+        "managementFee": "1.5%",
+        "carriedInterest": "15%"
+      }
+    },
+    {
+      "slotId": "3",
+      "slotName": "Distressed Credit 2025",
+      "slotDescription": "Distressed debt and special situations investments",
+      "valueUnits": "USD",
+      "slotType": "distressed_credit",
+      "transferable": true,
+      "tradeable": false,
+      "divisible": true,
+      "minValue": "5000000",
+      "maxValue": "200000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "strategyType": "distressed_credit",
+        "vintageYear": "2025",
+        "targetIRR": "15",
+        "riskRating": "High",
+        "geographicFocus": "North America, Europe",
+        "sectorFocus": "Diversified",
+        "fundLife": "6 years",
+        "managementFee": "1.75%",
+        "carriedInterest": "20%"
+      }
+    },
+    {
+      "slotId": "4",
+      "slotName": "Infrastructure Equity 2025",
+      "slotDescription": "Infrastructure equity investments in essential assets",
+      "valueUnits": "USD",
+      "slotType": "infrastructure",
+      "transferable": true,
+      "tradeable": false,
+      "divisible": true,
+      "minValue": "10000000",
+      "maxValue": "400000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "strategyType": "infrastructure",
+        "vintageYear": "2025",
+        "targetIRR": "12",
+        "riskRating": "Medium",
+        "geographicFocus": "North America, Europe",
+        "sectorFocus": "Energy, Transportation, Digital Infrastructure",
+        "fundLife": "12 years",
+        "managementFee": "1.25%",
+        "carriedInterest": "12.5%"
+      }
+    }
+  ],
+  "allocations": [
+    {
+      "tokenIdWithinSlot": "1001",
+      "slotId": "1",
+      "recipient": "0x5555555555555555555555555555555555555555",
+      "value": "50000000",
+      "linkedTokenId": ""
+    },
+    {
+      "tokenIdWithinSlot": "1002", 
+      "slotId": "1",
+      "recipient": "0x6666666666666666666666666666666666666666",
+      "value": "100000000",
+      "linkedTokenId": ""
+    },
+    {
+      "tokenIdWithinSlot": "2001",
+      "slotId": "2",
+      "recipient": "0x5555555555555555555555555555555555555555",
+      "value": "75000000",
+      "linkedTokenId": ""
+    },
+    {
+      "tokenIdWithinSlot": "3001",
+      "slotId": "3",
+      "recipient": "0x7777777777777777777777777777777777777777",
+      "value": "25000000",
+      "linkedTokenId": ""
+    }
+  ],
+  "paymentSchedules": [
+    {
+      "slotId": "1",
+      "paymentDate": "2025-09-30T00:00:00Z",
+      "paymentAmount": "0",
+      "paymentType": "capital_call",
+      "currency": "USD",
+      "isCompleted": false,
+      "transactionHash": ""
+    },
+    {
+      "slotId": "1",
+      "paymentDate": "2025-12-31T00:00:00Z",
+      "paymentAmount": "2500000",
+      "paymentType": "distribution",
+      "currency": "USD",
+      "isCompleted": false,
+      "transactionHash": ""
+    },
+    {
+      "slotId": "2",
+      "paymentDate": "2025-12-31T00:00:00Z",
+      "paymentAmount": "3750000",
+      "paymentType": "distribution",
+      "currency": "USD",
+      "isCompleted": false,
+      "transactionHash": ""
+    },
+    {
+      "slotId": "3",
+      "paymentDate": "2025-09-30T00:00:00Z",
+      "paymentAmount": "1250000",
+      "paymentType": "distribution",
+      "currency": "USD",
+      "isCompleted": false,
+      "transactionHash": ""
+    }
+  ],
+  "valueAdjustments": [
+    {
+      "slotId": "1",
+      "adjustmentDate": "2025-06-30T00:00:00Z",
+      "adjustmentType": "quarterly_revaluation",
+      "adjustmentAmount": "0",
+      "adjustmentReason": "Initial valuation establishment",
+      "oraclePrice": "1.00",
+      "oracleSource": "Independent_Valuation_Firm",
+      "approvedBy": "Apollo_Valuation_Committee",
+      "transactionHash": ""
+    },
+    {
+      "slotId": "2",
+      "adjustmentDate": "2025-06-30T00:00:00Z",
+      "adjustmentType": "quarterly_revaluation",
+      "adjustmentAmount": "0",
+      "adjustmentReason": "Initial valuation establishment",
+      "oraclePrice": "1.00",
+      "oracleSource": "Independent_Valuation_Firm",
+      "approvedBy": "Apollo_Valuation_Committee",
+      "transactionHash": ""
+    }
+  ],
+  "slotConfigs": [
+    {
+      "slotId": "1",
+      "name": "LBO North America 2025 Config",
+      "description": "Configuration for leveraged buyout strategy slot",
+      "metadata": {
+        "investmentPeriod": "5 years",
+        "distributionPeriod": "5 years",
+        "extensionOptions": "2 x 1 year",
+        "keyPersons": ["Apollo_Senior_Partners"],
+        "investmentCommittee": "Apollo_LBO_IC",
+        "valuationFrequency": "quarterly",
+        "reportingFrequency": "quarterly"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "2",
+      "name": "Growth Equity Global 2025 Config",
+      "description": "Configuration for growth equity strategy slot",
+      "metadata": {
+        "investmentPeriod": "4 years",
+        "distributionPeriod": "4 years",
+        "extensionOptions": "2 x 1 year",
+        "keyPersons": ["Apollo_Growth_Partners"],
+        "investmentCommittee": "Apollo_Growth_IC",
+        "valuationFrequency": "quarterly",
+        "reportingFrequency": "quarterly"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    }
+  ],
+  "governanceStructure": {
+    "investmentCommittee": {
+      "members": 7,
+      "votingThreshold": "majority",
+      "quorum": 5,
+      "investmentApprovalLimit": "100000000"
+    },
+    "limitedPartnerAdvisoryCommittee": {
+      "representation": "by_commitment_size",
+      "votingRights": ["conflict_resolution", "key_person_waiver", "fundamental_changes"],
+      "meetings": "semi_annual"
+    },
+    "valuationCommittee": {
+      "independentMembers": 3,
+      "apolloMembers": 2,
+      "valuationPolicy": "quarterly_mark_to_market"
+    }
+  },
+  "riskManagement": {
+    "diversificationLimits": {
+      "maxSingleInvestment": "15%",
+      "maxSectorExposure": "35%",
+      "maxGeographicExposure": "70%"
+    },
+    "leverageLimits": {
+      "fundLevelLeverage": "1.5x",
+      "portfolioCompanyLeverage": "6.0x"
+    },
+    "liquidityManagement": {
+      "reserveRequirement": "5%",
+      "emergencyFunding": "credit_facility"
+    }
+  }
+}

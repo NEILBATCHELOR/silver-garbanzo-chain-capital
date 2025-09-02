@@ -1,0 +1,6 @@
+name,contact_email,contact_phone,website,registration_date,status,compliance_status,onboarding_completed,description,industry,employees,headquarters_country,regulatory_jurisdiction,registration_number
+TechCorp Industries,contact@techcorp.com,+1-555-123-4567,https://www.techcorp.com,2020-01-15,active,compliant,true,Leading technology corporation,Technology,500,United States,SEC,12345678
+Green Energy Solutions,info@greenenergy.com,+1-555-234-5678,https://www.greenenergy.com,2019-06-01,active,compliant,true,Renewable energy development,Energy,250,United States,SEC,23456789
+European Holdings Ltd,admin@euroholdings.eu,+44-20-1234-5678,https://www.euroholdings.eu,2018-03-20,active,compliant,true,European investment holding company,Financial Services,100,United Kingdom,FCA,34567890
+Asia Pacific Fund,contact@apfund.com,+65-6123-4567,https://www.apfund.com,2021-09-10,active,pending_review,true,Asia Pacific investment fund,Investment Management,75,Singapore,MAS,45678901
+Healthcare Innovations,info@healthinnovations.com,+1-555-345-6789,https://www.healthinnovations.com,2022-02-28,pending,pending_review,false,Medical device innovation company,Healthcare,150,United States,FDA,56789012

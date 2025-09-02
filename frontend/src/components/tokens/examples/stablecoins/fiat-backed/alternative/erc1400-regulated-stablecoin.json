@@ -1,0 +1,139 @@
+{
+  "name": "Regulated USD Stablecoin",
+  "symbol": "rUSD",
+  "decimals": 18,
+  "description": "A compliance-focused, fiat-backed stablecoin built on ERC-1400 standards with advanced regulatory features, partition management, and institutional-grade controls.",
+  "standard": "ERC-1400",
+  "total_supply": "5000000000",
+  "initial_supply": "500000000",
+  "cap": "50000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "stablecoin",
+  "regulation_type": "reg-d",
+  "issuing_entity_name": "Regulated Stablecoin Corporation",
+  "issuing_jurisdiction": "New York, USA",
+  "issuing_entity_lei": "213800G3QM7KWBQF7Y14",
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": true,
+  "controllers": ["0x1234567890123456789012345678901234567890"],
+  "operators": ["0x2345678901234567890123456789012345678901"],
+  "default_partitions": ["institutional", "retail"],
+  "partitions": [
+    {
+      "name": "institutional",
+      "flag": "0x01",
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Institutional investor partition with enhanced compliance"
+    },
+    {
+      "name": "retail",
+      "flag": "0x02",
+      "is_default": true,
+      "transferable": true,
+      "controllable": false,
+      "description": "Retail investor partition for general trading"
+    },
+    {
+      "name": "treasury",
+      "flag": "0x03",
+      "is_default": false,
+      "transferable": false,
+      "controllable": true,
+      "description": "Treasury partition for reserve management"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Offering Memorandum",
+      "uri": "https://regulatedstable.com/docs/offering-memorandum.pdf",
+      "document_hash": "0xabcd1234567890abcdef1234567890abcdef1234"
+    },
+    {
+      "name": "Reserve Management Policy",
+      "uri": "https://regulatedstable.com/docs/reserve-policy.pdf",
+      "document_hash": "0xbcde2345678901bcdef2345678901bcdef2345678"
+    },
+    {
+      "name": "Monthly Attestation",
+      "uri": "https://regulatedstable.com/docs/monthly-attestation.pdf",
+      "document_hash": "0xcdef3456789012cdef3456789012cdef3456789"
+    }
+  ],
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "blocked",
+  "geographic_restrictions": ["CN", "RU", "IR", "KP", "SY", "CU", "MM"],
+  "whitelist_enabled": true,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": false,
+    "maximum_investors": 0,
+    "minimum_investment": "100",
+    "maximum_investment": "10000000",
+    "lock_up_period": "0",
+    "transfer_restrictions": {
+      "cooling_off_period": "86400",
+      "requires_approval": true,
+      "whitelist_only": false
+    }
+  },
+  "stablecoin_governance": {
+    "reserve_committee": true,
+    "compliance_committee": true,
+    "audit_committee": true,
+    "risk_committee": true,
+    "quarterly_reporting": true,
+    "regulatory_reporting": true,
+    "investor_relations": true
+  },
+  "reserve_policy": {
+    "reserve_requirement": "100",
+    "reserve_currency": "USD",
+    "daily_reconciliation": true,
+    "third_party_custody": true,
+    "segregated_accounts": true,
+    "reserve_transparency": "real_time"
+  },
+  "regulatory_framework": {
+    "primary_regulator": "NY DFS",
+    "secondary_regulators": ["SEC", "CFTC", "FinCEN"],
+    "license_type": "BitLicense",
+    "compliance_framework": "Bank Secrecy Act",
+    "reporting_requirements": "daily",
+    "audit_requirements": "annual"
+  },
+  "operational_controls": {
+    "multi_signature_required": true,
+    "transaction_limits": true,
+    "velocity_controls": true,
+    "suspicious_activity_monitoring": true,
+    "real_time_compliance_checking": true,
+    "automated_sanctions_screening": true
+  },
+  "fees": {
+    "issuance_fee": "0.1",
+    "redemption_fee": "0.1",
+    "transfer_fee": "0.0",
+    "custody_fee": "0.0"
+  },
+  "metadata": {
+    "stablecoin_type": "regulated_fiat_backed",
+    "regulatory_focus": "institutional_compliance",
+    "target_market": "institutional_investors",
+    "reserve_model": "full_reserve",
+    "custody_model": "third_party_segregated",
+    "audit_frequency": "monthly_attestation_annual_audit",
+    "compliance_level": "tier_1",
+    "jurisdiction_focus": "us_regulated",
+    "investor_protection": "enhanced",
+    "operational_oversight": "regulatory_supervised"
+  }
+}

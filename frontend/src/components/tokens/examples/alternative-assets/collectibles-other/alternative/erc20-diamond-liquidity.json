@@ -1,0 +1,291 @@
+{
+  "name": "Diamond Reserve Liquidity Token",
+  "symbol": "DRLT",
+  "description": "ERC-20 liquidity token providing tradeable exposure to the Diamond Reserve Collection. Enables fractional ownership and DeFi integration for certified rare diamonds.",
+  "decimals": 18,
+  "initialSupply": "50000000",
+  "maxSupply": "50000000",
+  "totalSupply": "50000000",
+  
+  "tokenDetails": "Premium liquidity token backed by GIA-certified rare diamonds with full custody and insurance coverage",
+  "tokenType": "precious_stones_backed",
+  "useCase": "diamond_investment_exposure",
+  
+  "isMintable": false,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasCap": true,
+  
+  "transfer_restrictions_enabled": false,
+  "kyc_required": false,
+  "whitelist_enabled": false,
+  "pausable_transfers": true,
+  
+  "has_fees": true,
+  "transfer_fee_percentage": "0.30",
+  "fee_recipient": "0x1234567890123456789012345678901234567890",
+  "fee_exemptions": [
+    "0x1234567890123456789012345678901234567890",
+    "0x2345678901234567890123456789012345678901"
+  ],
+  
+  "has_rewards": true,
+  "rewards_token": "0x0000000000000000000000000000000000000000",
+  "rewards_rate": "5.5",
+  "staking_enabled": true,
+  "staking_rewards_rate": "7.0",
+  
+  "deflationary": true,
+  "burn_rate": "0.05",
+  "buyback_enabled": true,
+  "buyback_percentage": "2.5",
+  "tax_on_transactions": false,
+  
+  "governance_enabled": true,
+  "voting_power": 1,
+  "proposal_threshold": "100000",
+  "voting_delay": "5_days",
+  "voting_period": "10_days",
+  
+  "liquidity_provision": {
+    "automated_market_maker": true,
+    "supported_dexes": ["Uniswap V3", "Balancer", "Curve Finance"],
+    "stable_coin_pairs": true,
+    "initial_liquidity_pairs": [
+      {
+        "token_a": "DRLT",
+        "token_b": "USDC",
+        "initial_ratio": "1:75.00",
+        "liquidity_amount": "2000000",
+        "pool_type": "concentrated_liquidity"
+      },
+      {
+        "token_a": "DRLT",
+        "token_b": "WETH",
+        "initial_ratio": "1:0.025",
+        "liquidity_amount": "1500000",
+        "pool_type": "weighted_pool"
+      },
+      {
+        "token_a": "DRLT",
+        "token_b": "PAXG",
+        "initial_ratio": "1:0.038",
+        "liquidity_amount": "1000000",
+        "pool_type": "stable_pool"
+      }
+    ]
+  },
+  
+  "diamond_backing": {
+    "total_diamond_value": "375000000",
+    "average_carat_weight": "2.5",
+    "average_color_grade": "G",
+    "average_clarity_grade": "VS1",
+    "certification_distribution": {
+      "GIA": "70%",
+      "AGS": "15%",
+      "Gübelin": "10%",
+      "SSEF": "5%"
+    },
+    "geographical_distribution": {
+      "botswana": "30%",
+      "canada": "25%",
+      "south_africa": "20%",
+      "russia": "15%",
+      "australia": "10%"
+    }
+  },
+  
+  "defi_integration": {
+    "lending_protocols": ["Aave", "Compound"],
+    "yield_strategies": ["Yearn Finance", "Convex Finance"],
+    "collateral_factor": "0.65",
+    "liquidation_threshold": "0.80",
+    "flash_loan_enabled": true,
+    "synthetic_assets": ["sDiamond", "synthDRLT"]
+  },
+  
+  "oracle_integration": {
+    "price_feeds": ["Chainlink", "Band Protocol"],
+    "diamond_price_oracles": [
+      "Polished_Prices_Oracle",
+      "IDEX_Diamond_Oracle",
+      "Rapaport_Price_Oracle"
+    ],
+    "price_update_frequency": "3600",
+    "backup_oracles": ["API3", "DIA"],
+    "volatility_smoothing": true
+  },
+  
+  "bridge_support": {
+    "cross_chain_enabled": true,
+    "supported_chains": ["Polygon", "Arbitrum", "Optimism", "Avalanche"],
+    "bridge_protocols": ["LayerZero", "Wormhole"],
+    "cross_chain_farming": true
+  },
+  
+  "precious_metals_integration": {
+    "gold_correlation_tracking": true,
+    "precious_metals_index_exposure": true,
+    "commodity_basket_inclusion": true,
+    "inflation_hedge_properties": "enhanced"
+  },
+  
+  "metadata": {
+    "website": "https://diamondreservetoken.com",
+    "whitepaper": "https://docs.diamondreservetoken.com/whitepaper.pdf",
+    "gemological_report": "https://docs.diamondreservetoken.com/gemological-analysis.pdf",
+    "social_media": {
+      "twitter": "@DiamondReserveToken",
+      "discord": "https://discord.gg/drlt",
+      "telegram": "https://t.me/diamondreserve",
+      "youtube": "DiamondReserveEducation"
+    },
+    "diamond_gallery": "https://gallery.diamondreservetoken.com",
+    "certification_portal": "https://verify.diamondreservetoken.com"
+  },
+  
+  "tokenomics": {
+    "initial_distribution": {
+      "public_sale": "35%",
+      "institutional_sale": "30%",
+      "liquidity_provision": "15%",
+      "diamond_acquisition": "10%",
+      "team_allocation": "5%",
+      "marketing_partnerships": "3%",
+      "treasury_reserve": "2%"
+    },
+    "revenue_distribution": {
+      "diamond_appreciation": "70%",
+      "trading_fees": "15%",
+      "staking_rewards": "8%",
+      "operational_costs": "4%",
+      "insurance_premiums": "2%",
+      "custody_fees": "1%"
+    },
+    "vesting_schedules": {
+      "team_allocation": {
+        "cliff_period": "18_months",
+        "vesting_period": "42_months",
+        "release_schedule": "linear"
+      },
+      "treasury_reserve": {
+        "cliff_period": "12_months",
+        "vesting_period": "48_months",
+        "release_schedule": "quarterly"
+      }
+    }
+  },
+  
+  "fractional_diamond_ownership": {
+    "minimum_fractional_investment": "1000_DRLT",
+    "fractional_nft_creation": "automatic",
+    "voting_rights": "proportional",
+    "physical_redemption_threshold": "100000_DRLT",
+    "fractional_trading_enabled": true
+  },
+  
+  "insurance_framework": {
+    "primary_insurer": "Lloyd's of London",
+    "secondary_coverage": ["AIG Precious Stones", "Zurich Luxury Assets"],
+    "coverage_amount": "450000000",
+    "coverage_types": [
+      "theft_and_mysterious_disappearance",
+      "damage_and_destruction", 
+      "market_value_protection",
+      "authenticity_guarantee",
+      "custody_liability"
+    ],
+    "annual_premium": "0.75%_of_total_value"
+  },
+  
+  "market_making": {
+    "professional_market_makers": ["Wintermute", "Jump Trading", "Alameda Research"],
+    "liquidity_incentives": "yield_farming_rewards",
+    "spread_targets": "max_0.5%",
+    "minimum_liquidity_depth": "10000000_USD",
+    "arbitrage_opportunities": "cross_exchange_enabled"
+  },
+  
+  "risk_management": {
+    "diamond_diversification": {
+      "max_single_diamond": "2%_of_total_value",
+      "carat_weight_distribution": "balanced_across_sizes",
+      "color_grade_distribution": "d_to_h_focus",
+      "clarity_distribution": "fl_to_vs2_range"
+    },
+    "custody_risk": {
+      "multi_location_storage": true,
+      "redundant_security_systems": true,
+      "insurance_coverage": "comprehensive",
+      "regular_audits": "quarterly"
+    },
+    "market_risk": {
+      "volatility_smoothing": "price_averaging",
+      "liquidity_buffers": "emergency_reserves",
+      "correlation_management": "low_correlation_assets"
+    }
+  },
+  
+  "performance_analytics": {
+    "nav_calculation": "real_time",
+    "benchmark_tracking": ["Diamond_Index", "Gold_Price", "S&P_500"],
+    "risk_metrics": ["volatility", "sharpe_ratio", "maximum_drawdown"],
+    "liquidity_metrics": ["trading_volume", "bid_ask_spread", "market_depth"],
+    "correlation_analysis": "comprehensive"
+  },
+  
+  "educational_initiatives": {
+    "diamond_investment_academy": true,
+    "webinar_series": "monthly",
+    "market_research_reports": "quarterly",
+    "certification_courses": "partnership_with_GIA",
+    "mobile_learning_app": true
+  },
+  
+  "sustainability_features": {
+    "ethical_sourcing_guarantee": true,
+    "conflict_free_certification": "kimberley_process_plus",
+    "environmental_impact_tracking": true,
+    "carbon_neutral_operations": true,
+    "sustainable_mining_partnerships": true
+  },
+  
+  "technology_integration": {
+    "blockchain_provenance": "full_traceability",
+    "ai_price_prediction": "machine_learning_models",
+    "iot_monitoring": "environmental_sensors",
+    "3d_visualization": "photorealistic_models",
+    "ar_vr_integration": "immersive_viewing_experience"
+  },
+  
+  "audit": {
+    "audited": true,
+    "audit_firms": ["PwC Digital Assets", "EY Blockchain", "KPMG Crypto"],
+    "audit_reports": [
+      "ipfs://QmDiamondTokenAuditHash1",
+      "ipfs://QmDiamondTokenAuditHash2",
+      "ipfs://QmDiamondTokenAuditHash3"
+    ],
+    "last_audit_date": "2024-06-01",
+    "physical_diamond_audit": "annual_third_party_verification",
+    "custody_audit": "quarterly_surprise_inspections"
+  },
+  
+  "regulatory_framework": {
+    "securities_classification": "commodity_backed_utility_token",
+    "jurisdiction": "Dubai_DIFC",
+    "regulatory_status": "DFSA_approved",
+    "compliance_framework": ["FATCA", "CRS", "AML_KYC"],
+    "tax_optimization": "commodity_treatment"
+  },
+  
+  "exit_strategies": {
+    "physical_redemption": "token_burn_mechanism",
+    "secondary_market_sale": "dex_and_cex_liquidity",
+    "fractional_exit": "partial_liquidation",
+    "institutional_buyout": "large_block_trading",
+    "auction_house_consignment": "premium_pieces_only"
+  }
+}

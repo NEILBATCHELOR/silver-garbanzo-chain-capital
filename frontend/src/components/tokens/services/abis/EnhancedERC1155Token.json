@@ -1,0 +1,226 @@
+{
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "_config",
+          "type": "tuple",
+          "components": [
+            {"name": "name", "type": "string"},
+            {"name": "symbol", "type": "string"},
+            {"name": "baseURI", "type": "string"},
+            {"name": "batchMintingEnabled", "type": "bool"},
+            {"name": "dynamicUris", "type": "bool"},
+            {"name": "updatableMetadata", "type": "bool"},
+            {"name": "geographicRestrictionsEnabled", "type": "bool"},
+            {"name": "initialOwner", "type": "address"}
+          ]
+        },
+        {
+          "name": "_royaltyConfig",
+          "type": "tuple",
+          "components": [
+            {"name": "enabled", "type": "bool"},
+            {"name": "percentage", "type": "uint96"},
+            {"name": "receiver", "type": "address"}
+          ]
+        },
+        {
+          "name": "_pricingConfig",
+          "type": "tuple",
+          "components": [
+            {"name": "model", "type": "uint8"},
+            {"name": "basePrice", "type": "uint256"},
+            {"name": "bulkDiscountEnabled", "type": "bool"},
+            {"name": "referralRewardsEnabled", "type": "bool"},
+            {"name": "referralPercentage", "type": "uint96"}
+          ]
+        },
+        {
+          "name": "_marketplaceConfig",
+          "type": "tuple",
+          "components": [
+            {"name": "feesEnabled", "type": "bool"},
+            {"name": "feePercentage", "type": "uint96"},
+            {"name": "feeRecipient", "type": "address"},
+            {"name": "bundleTradingEnabled", "type": "bool"},
+            {"name": "atomicSwapsEnabled", "type": "bool"},
+            {"name": "crossCollectionTradingEnabled", "type": "bool"}
+          ]
+        },
+        {
+          "name": "_governanceConfig",
+          "type": "tuple",
+          "components": [
+            {"name": "votingPowerEnabled", "type": "bool"},
+            {"name": "communityTreasuryEnabled", "type": "bool"},
+            {"name": "treasuryPercentage", "type": "uint96"},
+            {"name": "proposalThreshold", "type": "uint256"}
+          ]
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "mint",
+      "inputs": [
+        {"name": "to", "type": "address"},
+        {"name": "tokenType", "type": "uint256"},
+        {"name": "amount", "type": "uint256"},
+        {"name": "data", "type": "bytes"}
+      ],
+      "outputs": [],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "mintBatch",
+      "inputs": [
+        {"name": "to", "type": "address"},
+        {"name": "tokenTypes", "type": "uint256[]"},
+        {"name": "amounts", "type": "uint256[]"},
+        {"name": "data", "type": "bytes"}
+      ],
+      "outputs": [],
+      "stateMutability": "payable"
+    },
+    {
+      "type": "function",
+      "name": "createTokenType",
+      "inputs": [
+        {"name": "maxSupply", "type": "uint256"},
+        {"name": "mintPrice", "type": "uint256"},
+        {"name": "tokenURI", "type": "string"},
+        {"name": "transferrable", "type": "bool"},
+        {"name": "burnable", "type": "bool"},
+        {"name": "consumable", "type": "bool"},
+        {"name": "experiencePoints", "type": "uint256"},
+        {"name": "requiredLevel", "type": "uint256"}
+      ],
+      "outputs": [{"name": "", "type": "uint256"}],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "createCraftingRecipe",
+      "inputs": [
+        {"name": "name", "type": "string"},
+        {"name": "inputTokenTypes", "type": "uint256[]"},
+        {"name": "inputAmounts", "type": "uint256[]"},
+        {"name": "outputTokenType", "type": "uint256"},
+        {"name": "outputQuantity", "type": "uint256"},
+        {"name": "successRate", "type": "uint256"},
+        {"name": "cooldownPeriod", "type": "uint256"},
+        {"name": "requiredLevel", "type": "uint256"}
+      ],
+      "outputs": [{"name": "", "type": "uint256"}],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "craft",
+      "inputs": [{"name": "recipeId", "type": "uint256"}],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "stake",
+      "inputs": [
+        {"name": "tokenType", "type": "uint256"},
+        {"name": "amount", "type": "uint256"}
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unstake",
+      "inputs": [
+        {"name": "tokenType", "type": "uint256"},
+        {"name": "amount", "type": "uint256"}
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getVotingPower",
+      "inputs": [
+        {"name": "user", "type": "address"},
+        {"name": "tokenType", "type": "uint256"}
+      ],
+      "outputs": [{"name": "", "type": "uint256"}],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "bridgeTokens",
+      "inputs": [
+        {"name": "tokenType", "type": "uint256"},
+        {"name": "amount", "type": "uint256"},
+        {"name": "targetNetwork", "type": "string"}
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "royaltyInfo",
+      "inputs": [
+        {"name": "tokenId", "type": "uint256"},
+        {"name": "salePrice", "type": "uint256"}
+      ],
+      "outputs": [
+        {"name": "", "type": "address"},
+        {"name": "", "type": "uint256"}
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "supportsInterface",
+      "inputs": [{"name": "interfaceId", "type": "bytes4"}],
+      "outputs": [{"name": "", "type": "bool"}],
+      "stateMutability": "view"
+    },
+    {
+      "type": "event",
+      "name": "TokenTypeCreated",
+      "inputs": [
+        {"name": "tokenType", "type": "uint256", "indexed": true},
+        {"name": "maxSupply", "type": "uint256", "indexed": false},
+        {"name": "mintPrice", "type": "uint256", "indexed": false}
+      ]
+    },
+    {
+      "type": "event",
+      "name": "TokenCrafted",
+      "inputs": [
+        {"name": "user", "type": "address", "indexed": true},
+        {"name": "recipeId", "type": "uint256", "indexed": true},
+        {"name": "outputTokenType", "type": "uint256", "indexed": false},
+        {"name": "quantity", "type": "uint256", "indexed": false}
+      ]
+    },
+    {
+      "type": "event",
+      "name": "TokenStaked",
+      "inputs": [
+        {"name": "user", "type": "address", "indexed": true},
+        {"name": "tokenType", "type": "uint256", "indexed": true},
+        {"name": "amount", "type": "uint256", "indexed": false}
+      ]
+    },
+    {
+      "type": "event",
+      "name": "ExperienceGained",
+      "inputs": [
+        {"name": "user", "type": "address", "indexed": true},
+        {"name": "tokenType", "type": "uint256", "indexed": true},
+        {"name": "experience", "type": "uint256", "indexed": false}
+      ]
+    }
+  ]
+}

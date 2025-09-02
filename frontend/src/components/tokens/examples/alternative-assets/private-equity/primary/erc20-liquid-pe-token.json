@@ -1,0 +1,264 @@
+{
+  "name": "KKR PE XVI Liquid Token",
+  "symbol": "lKKRPE16",
+  "description": "Liquid ERC-20 wrapper token for KKR North America Private Equity Fund XVI (KKRPE16). Provides enhanced liquidity for private equity exposure through secondary market trading while maintaining underlying fund returns. Designed for institutional investors seeking liquid alternatives.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "15000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "liquidity_wrapper",
+    "underlyingAsset": "KKRPE16",
+    "wrapperType": "private_equity_liquidity_token",
+    "liquidityProvider": "institutional_secondary_market",
+    "tradingPairs": ["lKKRPE16/USDC", "lKKRPE16/ETH"],
+    "exchangeCompatibility": ["institutional_crossing_networks", "qualified_dex"],
+    "yieldBearing": true,
+    "redeemable": false,
+    "leverageAvailable": false,
+    "hedgedExposure": false,
+    "accreditedInvestorOnly": true
+  },
+  "erc20Properties": {
+    "name": "KKR PE XVI Liquid Token",
+    "symbol": "lKKRPE16",
+    "decimals": 18,
+    "initialSupply": "15000000000000000000000000000",
+    "maxSupply": "20000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "isFreezable": true,
+    
+    "permitEnabled": true,
+    "permit2Enabled": true,
+    "gaslessTransactionSupport": false,
+    "metaTransactionSupport": false,
+    
+    "reflectionMechanism": false,
+    "taxOnTransfer": false,
+    "maxTransactionAmount": "500000000000000000000000000",
+    "maxWalletAmount": "1000000000000000000000000000",
+    "transferCooldown": 86400,
+    
+    "liquidityProvisionEnabled": true,
+    "liquidityLockEnabled": true,
+    "liquidityBurnEnabled": false,
+    "liquidityFeeEnabled": true,
+    
+    "stakingEnabled": false,
+    "stakingRewardsEnabled": false,
+    "governanceEnabled": true,
+    "votingEnabled": true,
+    
+    "whitelistEnabled": true,
+    "blacklistEnabled": true,
+    "pauseByOwnerEnabled": true,
+    "burnByOwnerEnabled": false,
+    "mintByOwnerEnabled": true,
+    
+    "complianceModuleEnabled": true,
+    "taxComplianceEnabled": true,
+    "kycRequired": true,
+    "amlEnabled": true,
+    "sanctionsScreeningEnabled": true,
+    
+    "crossChainEnabled": false,
+    "bridgeProtocols": [],
+    "multiChainDeployment": false,
+    "chainIds": [1],
+    
+    "dexIntegrationEnabled": true,
+    "automaticLiquidityEnabled": false,
+    "priceOracleEnabled": true,
+    "priceOracleAddress": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    
+    "yieldDistributionEnabled": true,
+    "yieldDistributionFrequency": "quarterly",
+    "compoundingEnabled": false,
+    "reinvestmentEnabled": true,
+    
+    "flashLoanEnabled": false,
+    "collateralEnabled": true,
+    "borrowingEnabled": false,
+    "lendingEnabled": false,
+    
+    "emergencyWithdrawalEnabled": false,
+    "emergencyPauseEnabled": true,
+    "recoveryModeEnabled": true,
+    "safeModeEnabled": true,
+    
+    "feeStructure": {
+      "transferFee": "0.25",
+      "mintFee": "0.00", 
+      "burnFee": "0.00",
+      "liquidityFee": "0.50"
+    },
+    
+    "antiMEVEnabled": true,
+    "frontRunningProtection": true,
+    "slippageProtection": true,
+    "maxSlippage": "5.0",
+    
+    "auditReports": [
+      {
+        "auditor": "EY Blockchain",
+        "date": "2025-06-17",
+        "score": "98/100",
+        "reportUri": "https://audits.ey.com/lKKRPE16-2025-06.pdf"
+      },
+      {
+        "auditor": "Deloitte Cyber",
+        "date": "2025-06-10",
+        "score": "97/100", 
+        "reportUri": "https://audits.deloitte.com/lKKRPE16-2025-06.pdf"
+      }
+    ],
+    
+    "insuranceEnabled": true,
+    "insuranceProvider": "Lloyd's of London",
+    "insuranceCoverage": "custody_and_technology_errors",
+    "insuredAmount": "1000000000000000000000000000",
+    
+    "socialRecoveryEnabled": false,
+    "multisigRequired": true,
+    "timelockEnabled": true,
+    "timelockDelay": 604800,
+    
+    "analyticsEnabled": true,
+    "metricsTracking": true,
+    "performanceMonitoring": true,
+    "realTimeDataEnabled": false,
+    
+    "integrations": {
+      "institutional_platforms": ["blackrock_aladdin", "goldman_marquee", "jp_morgan_onyx"],
+      "portfolio_trackers": ["institutional_dashboards"],
+      "tax_reporting": ["kpmg_tax_tech", "pwc_tax_platform"],
+      "custody_solutions": ["bank_of_new_york_mellon", "state_street", "northern_trust"],
+      "trading_platforms": ["institutional_crossing_networks", "liquidnet"]
+    }
+  },
+  "liquidityConfig": {
+    "wrapperContract": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "underlyingTokenAddress": "0x1234567890123456789012345678901234567890",
+    "conversionRatio": "1:1",
+    "instantRedemption": false,
+    "redemptionDelay": 0,
+    "redemptionFee": "0.00",
+    "wrappingFee": "0.00",
+    "minimumLiquidity": "100000000000000000000000000",
+    "liquidityIncentives": false,
+    "stakingAPY": "0.0",
+    "liquidityMiningRewards": false,
+    "boostMultiplier": "1.0"
+  },
+  "institutionalListings": [
+    {
+      "exchange": "Liquidnet Private Markets",
+      "pair": "lKKRPE16/USD",
+      "liquidityPool": "0xcccccccccccccccccccccccccccccccccccccccc",
+      "feeTier": "0.50",
+      "initialLiquidity": "1000000000000000000000000000",
+      "minimumTradeSize": "25000000000000000000000000"
+    },
+    {
+      "exchange": "IEX Private Market",
+      "pair": "lKKRPE16/USDC",
+      "liquidityPool": "0xdddddddddddddddddddddddddddddddddddddddd",
+      "feeTier": "0.35",
+      "initialLiquidity": "500000000000000000000000000",
+      "minimumTradeSize": "10000000000000000000000000"
+    },
+    {
+      "exchange": "Forge Institutional",
+      "pair": "lKKRPE16/USD",
+      "liquidityPool": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "feeTier": "0.75",
+      "initialLiquidity": "750000000000000000000000000",
+      "minimumTradeSize": "50000000000000000000000000"
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "quarterly",
+    "distributor": "0xffffffffffffffffffffffffffffffffffffffff",
+    "yieldSource": "underlying_fund_distributions",
+    "autoCompound": false,
+    "distributionToken": "USDC",
+    "claimPeriod": 30,
+    "vestingPeriod": 0,
+    "boostEligible": false
+  },
+  "institutionalFeatures": {
+    "primeServicesIntegration": true,
+    "custodyBankSupport": ["BNY_Mellon", "State_Street", "Northern_Trust"],
+    "reportingStandards": ["GIPS", "ILPA", "SEC_Form_PF"],
+    "benchmarkingServices": true,
+    "riskAnalytics": "institutional_grade",
+    "operationalDueDiligence": "completed",
+    "regulatoryClassification": "alternative_investment_fund",
+    "distributionChannels": ["institutional_only", "qualified_purchasers"]
+  },
+  "secondaryMarketFeatures": {
+    "pricingMechanism": "nav_based_with_discount_premium",
+    "tradingHours": "business_days_9am_5pm_et",
+    "settlementPeriod": "T+3",
+    "marketMakers": ["Goldman_Sachs", "Morgan_Stanley", "Bank_of_America"],
+    "bidAskSpread": "2-5%",
+    "minimumOrderSize": "$1,000,000",
+    "averageDailyVolume": "$10,000,000",
+    "liquidityScore": "Medium"
+  },
+  "valuationFramework": {
+    "valuationFrequency": "quarterly",
+    "valuationMethod": "mark_to_model_with_independent_validation",
+    "independentValuer": "Duff_and_Phelps",
+    "discountToNAV": "15-25%",
+    "navCalculationDate": "quarter_end",
+    "pricePublicationDelay": "45_days",
+    "historicalPricing": true,
+    "performanceAttribution": true
+  },
+  "riskManagement": {
+    "concentrationLimits": {
+      "maxSingleInvestor": "10%",
+      "maxInstitutionType": "25%",
+      "maxGeographicExposure": "100%"
+    },
+    "liquidityRiskManagement": true,
+    "counterpartyRiskLimits": true,
+    "operationalRiskFramework": "institutional_standard",
+    "regulatoryRisk": "Medium",
+    "marketRisk": "High",
+    "liquidityRisk": "Very_High"
+  },
+  "governanceRights": {
+    "limitedPartnerAdvisoryCommittee": true,
+    "investmentCommitteeObserver": false,
+    "informationRights": "quarterly_reporting",
+    "consentRights": ["key_person_events", "fundamental_changes"],
+    "tagAlongRights": true,
+    "dragAlongRights": true,
+    "preemptiveRights": false
+  },
+  "taxConsiderations": {
+    "taxStructure": "pass_through_entity",
+    "k1Distribution": true,
+    "ubiTaxable": true,
+    "foreignTaxCredits": true,
+    "taxBlocKer": false,
+    "erisa": "plan_asset_compliant",
+    "registeredInvestmentCompany": false
+  },
+  "liquidityTerms": {
+    "initialLockup": "2_years",
+    "redemptionFrequency": "none",
+    "noticePeriod": "N/A",
+    "gateProvisions": "N/A",
+    "suspensionRights": "general_partner_discretion",
+    "sideLetters": "institutional_investors_only",
+    "mostFavoredNation": true
+  }
+}

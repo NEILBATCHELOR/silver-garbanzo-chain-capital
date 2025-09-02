@@ -1,0 +1,173 @@
+{
+  "name": "Seigniorage Algorithmic USD",
+  "symbol": "SAUSD",
+  "decimals": 18,
+  "description": "A seigniorage-based algorithmic stablecoin that maintains USD peg through a dual-token system with dynamic supply adjustment and bond mechanisms for stability.",
+  "standard": "ERC-20",
+  "total_supply": "500000000",
+  "initial_supply": "50000000",
+  "cap": "0",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "stablecoin",
+  "access_control": "ownable",
+  "pausable_by": "owner",
+  "mintable_by": "treasury_contract",
+  "burnable_by": "treasury_contract",
+  "allow_management": true,
+  "permit": true,
+  "snapshot": true,
+  "algorithmic_type": "seigniorage",
+  "target_price": "1.0",
+  "price_ceiling": "1.01",
+  "price_floor": "0.99",
+  "expansion_rate": "5.0",
+  "contraction_mechanism": "bond_system",
+  "share_token_address": "",
+  "bond_token_address": "",
+  "treasury_address": "",
+  "oracle_address": "",
+  "epoch_period": 86400,
+  "expansion_threshold": "1.01",
+  "contraction_threshold": "0.99",
+  "debt_ratio_cap": "35.0",
+  "anti_whale_enabled": false,
+  "max_wallet_amount": "",
+  "cooldown_period": 0,
+  "buy_fee_enabled": false,
+  "sell_fee_enabled": false,
+  "liquidity_fee_percentage": "",
+  "marketing_fee_percentage": "",
+  "charity_fee_percentage": "",
+  "auto_liquidity_enabled": false,
+  "reflection_enabled": false,
+  "reflection_percentage": "",
+  "deflation_enabled": false,
+  "deflation_rate": "",
+  "burn_on_transfer": false,
+  "burn_percentage": "",
+  "staking_enabled": true,
+  "staking_rewards_rate": "8.0",
+  "lottery_enabled": false,
+  "lottery_percentage": "",
+  "blacklist_enabled": false,
+  "trading_start_time": "2025-06-20T00:00:00Z",
+  "presale_enabled": false,
+  "presale_rate": "",
+  "presale_start_time": "",
+  "presale_end_time": "",
+  "vesting_enabled": false,
+  "vesting_cliff_period": 0,
+  "vesting_total_period": 0,
+  "vesting_release_frequency": "monthly",
+  "use_geographic_restrictions": false,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": [],
+  "whitelist_enabled": false,
+  "whitelist_addresses": [],
+  "governance_enabled": true,
+  "quorum_percentage": "20",
+  "proposal_threshold": "50000",
+  "voting_delay": 1,
+  "voting_period": 7,
+  "timelock_delay": 2,
+  "governance_token_address": "",
+  "fee_on_transfer": {
+    "enabled": false
+  },
+  "rebasing": {
+    "enabled": false
+  },
+  "governance_features": {
+    "parameter_adjustment": true,
+    "oracle_selection": true,
+    "treasury_management": true,
+    "emergency_pause": true
+  },
+  "transfer_config": {
+    "enabled": true,
+    "requires_approval": false,
+    "cooling_off_period": 0,
+    "trading_hours_restriction": false
+  },
+  "gas_config": {
+    "enabled": true,
+    "gas_optimization": true,
+    "meta_transactions": true
+  },
+  "compliance_config": {
+    "enabled": false,
+    "kyc_required": false,
+    "aml_required": false,
+    "accredited_investors_only": false,
+    "decentralized_compliance": true
+  },
+  "whitelist_config": {
+    "enabled": false,
+    "automatic_approval": true,
+    "requires_verification": false
+  },
+  "seigniorage_mechanics": {
+    "dual_token_system": true,
+    "share_token": "SASHARE",
+    "bond_token": "SABOND",
+    "expansion_distribution": "share_holders",
+    "contraction_mechanism": "bond_issuance",
+    "seigniorage_distribution": "proportional",
+    "treasury_fund": true
+  },
+  "algorithmic_features": {
+    "algorithm_type": "seigniorage",
+    "price_oracle": "twap_uniswap",
+    "stabilization_mechanism": "supply_bonds",
+    "expansion_rewards": true,
+    "contraction_bonds": true,
+    "debt_management": true
+  },
+  "stability_mechanisms": {
+    "bond_redemption": true,
+    "share_rewards": true,
+    "treasury_operations": true,
+    "arbitrage_incentives": true,
+    "liquidity_bootstrapping": true,
+    "market_operations": true
+  },
+  "economic_model": {
+    "supply_elasticity": "algorithmic",
+    "value_accrual": "share_token_rewards",
+    "debt_monetization": "bond_system",
+    "fiscal_policy": "treasury_managed",
+    "monetary_policy": "algorithmic_rules",
+    "stability_target": "narrow_band"
+  },
+  "token_ecosystem": {
+    "stablecoin": "SAUSD",
+    "share_token": "SASHARE", 
+    "bond_token": "SABOND",
+    "ecosystem_roles": {
+      "stablecoin": "unit_of_account",
+      "shares": "governance_and_rewards", 
+      "bonds": "contraction_mechanism"
+    }
+  },
+  "risk_parameters": {
+    "maximum_debt_ratio": "35.0",
+    "bond_maturity": "30_days",
+    "minimum_bond_price": "0.95",
+    "maximum_expansion_rate": "5.0",
+    "oracle_failure_handling": "emergency_pause",
+    "liquidity_requirements": "minimum_tvl"
+  },
+  "metadata": {
+    "stablecoin_type": "algorithmic_seigniorage",
+    "algorithm_model": "three_token_system",
+    "peg_mechanism": "supply_bonds_shares",
+    "target_users": ["defi_users", "yield_farmers", "governance_participants"],
+    "risk_level": "very_high",
+    "stability_model": "algorithmic_fiscal_policy",
+    "use_cases": ["defi_medium_of_exchange", "yield_generation", "governance"],
+    "innovation_focus": ["decentralized_central_banking", "algorithmic_monetary_policy"],
+    "success_requirements": ["strong_liquidity", "active_governance", "market_confidence"]
+  }
+}

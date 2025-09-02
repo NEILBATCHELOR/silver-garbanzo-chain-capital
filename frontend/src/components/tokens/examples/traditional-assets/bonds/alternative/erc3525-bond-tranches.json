@@ -1,0 +1,402 @@
+{
+  "name": "Corporate Bond Tranches 2025-A",
+  "symbol": "CBNDT25A",
+  "description": "Semi-fungible token representing fractional tranches of Apple Inc. Corporate Bond Series 2025-A. Enables flexible fractional ownership, value transfers, and enhanced bond management features.",
+  "decimals": 18,
+  "standard": "ERC-3525",
+  "status": "DRAFT",
+  "configMode": "max",
+  "valueDecimals": 18,
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "bond_tranche",
+    "underlyingAsset": "CBND25A",
+    "trancheType": "fractional_bond",
+    "valuationType": "bond_principal_value",
+    "transferability": "full",
+    "maturityDate": "2030-06-17",
+    "couponRate": "5.25%",
+    "creditRating": "AA+"
+  },
+  "baseUri": "https://apple.com/investor/bonds/metadata/",
+  "metadataStorage": "ipfs",
+  "dynamicMetadata": true,
+  "updatableUris": true,
+  
+  "slotType": "bond_maturity_tranches",
+  "allowsSlotEnumeration": true,
+  "slotTransferValidation": {
+    "requireSameMaturity": true,
+    "requireSameCoupon": true,
+    "requireMinimumValue": true
+  },
+  
+  "accessControl": "role_based",
+  
+  "isBurnable": true,
+  "isPausable": true,
+  "hasRoyalty": false,
+  "royaltyPercentage": "",
+  "royaltyReceiver": "",
+  
+  "slotApprovals": true,
+  "valueApprovals": true,
+  "valueTransfersEnabled": true,
+  "updatableSlots": true,
+  "updatableValues": true,
+  
+  "mergable": true,
+  "splittable": true,
+  "valueAggregation": true,
+  "fractionalOwnershipEnabled": true,
+  "autoUnitCalculation": true,
+  
+  "permissioningEnabled": true,
+  "permissioningAdvanced": true,
+  
+  "supplyTracking": true,
+  "slotEnumerationEnabled": true,
+  "valueAggregationEnabled": true,
+  
+  "slotTransferRestrictions": {
+    "enabled": true,
+    "requireKyc": true,
+    "minimumValue": "1000000000000000000000",
+    "maximumValue": "50000000000000000000000000",
+    "approvedTransferors": []
+  },
+  "valueTransferRestrictions": {
+    "enabled": true,
+    "minimumTransfer": "1000000000000000000000",
+    "maximumTransfer": "10000000000000000000000000",
+    "dailyLimit": "100000000000000000000000000"
+  },
+  
+  "financialInstrumentType": "corporate_bond",
+  "principalAmount": "500000000000000000000000000",
+  "interestRate": "5.25",
+  "maturityDate": "2030-06-17T00:00:00Z",
+  "couponFrequency": "semi_annual",
+  "paymentSchedule": {
+    "frequency": "semi_annual",
+    "paymentDates": [
+      "2025-12-17T00:00:00Z",
+      "2026-06-17T00:00:00Z",
+      "2026-12-17T00:00:00Z",
+      "2027-06-17T00:00:00Z",
+      "2027-12-17T00:00:00Z",
+      "2028-06-17T00:00:00Z",
+      "2028-12-17T00:00:00Z",
+      "2029-06-17T00:00:00Z",
+      "2029-12-17T00:00:00Z",
+      "2030-06-17T00:00:00Z"
+    ],
+    "paymentAmount": "2.625",
+    "finalPayment": "102.625"
+  },
+  "earlyRedemptionEnabled": true,
+  "redemptionPenaltyRate": "2.0",
+  
+  "derivativeType": "",
+  "underlyingAsset": "",
+  "underlyingAssetAddress": "",
+  "strikePrice": "",
+  "expirationDate": "",
+  "settlementType": "",
+  "marginRequirements": {},
+  "leverageRatio": "",
+  
+  "slotCreationEnabled": true,
+  "dynamicSlotCreation": true,
+  "slotAdminRoles": ["bond_issuer", "trustee", "administrator"],
+  "slotFreezeEnabled": true,
+  "slotMergeEnabled": true,
+  "slotSplitEnabled": true,
+  "crossSlotTransfers": false,
+  
+  "valueComputationMethod": "principal_plus_accrued_interest",
+  "valueOracleAddress": "0x7777777777777777777777777777777777777777",
+  "valueCalculationFormula": "principal * (1 + (couponRate * daysSinceLastPayment / 365))",
+  "accrualEnabled": true,
+  "accrualRate": "5.25",
+  "accrualFrequency": "daily",
+  "valueAdjustmentEnabled": true,
+  
+  "slotMarketplaceEnabled": true,
+  "valueMarketplaceEnabled": true,
+  "partialValueTrading": true,
+  "minimumTradeValue": "1000000000000000000000",
+  "tradingFeesEnabled": false,
+  "tradingFeePercentage": "",
+  "marketMakerEnabled": false,
+  
+  "slotVotingEnabled": false,
+  "valueWeightedVoting": false,
+  "votingPowerCalculation": "",
+  "quorumCalculationMethod": "",
+  "proposalValueThreshold": "",
+  "delegateEnabled": false,
+  
+  "yieldFarmingEnabled": false,
+  "liquidityProvisionEnabled": true,
+  "stakingYieldRate": "",
+  "compoundInterestEnabled": true,
+  "flashLoanEnabled": false,
+  "collateralFactor": "85.0",
+  "liquidationThreshold": "90.0",
+  
+  "regulatoryComplianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": false,
+  "holdingPeriodRestrictions": null,
+  "transferLimits": {
+    "dailyLimit": "100000000000000000000000000",
+    "monthlyLimit": "500000000000000000000000000",
+    "minimumHolding": "1000000000000000000000"
+  },
+  "reportingRequirements": {
+    "quarterlyReporting": true,
+    "annualReporting": true,
+    "transactionReporting": true,
+    "beneficialOwnershipReporting": true
+  },
+  
+  "multiSignatureRequired": false,
+  "approvalWorkflowEnabled": true,
+  "institutionalCustodySupport": true,
+  "auditTrailEnhanced": true,
+  "batchOperationsEnabled": true,
+  "emergencyPauseEnabled": true,
+  "recoveryMechanisms": {
+    "emergencyWithdrawal": true,
+    "contractUpgrade": true,
+    "pauseTransfers": true,
+    "freezeAccounts": true
+  },
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "allow",
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "restriction": "allowed"
+    },
+    {
+      "country": "EU",
+      "restriction": "allowed"
+    },
+    {
+      "country": "GB",
+      "restriction": "allowed"
+    },
+    {
+      "country": "CA",
+      "restriction": "allowed"
+    },
+    {
+      "country": "JP",
+      "restriction": "allowed"
+    },
+    {
+      "country": "AU",
+      "restriction": "allowed"
+    },
+    {
+      "country": "CN",
+      "restriction": "restricted"
+    },
+    {
+      "country": "RU",
+      "restriction": "blocked"
+    }
+  ],
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "autoApproval": false,
+    "kycRequired": true,
+    "accreditationRequired": false
+  },
+  
+  "salesConfig": {
+    "publicSale": false,
+    "privateSale": true,
+    "institutionalSale": true,
+    "minimumPurchase": "1000000000000000000000",
+    "maximumPurchase": "50000000000000000000000000"
+  },
+  
+  "customExtensions": "bond_specific_features",
+  "customSlotProperties": {
+    "maturityBuckets": true,
+    "riskTranches": true,
+    "couponTypes": true,
+    "callableFeatures": true
+  },
+  
+  "slots": [
+    {
+      "slotId": "1",
+      "slotName": "Short-Term Tranche (1-2 Years)",
+      "slotDescription": "Bond tranches with remaining maturity of 1-2 years",
+      "valueUnits": "USD",
+      "slotType": "maturity_tranche",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000000000000000000000",
+      "maxValue": "100000000000000000000000000",
+      "valuePrecision": 18,
+      "slotProperties": {
+        "maturityRange": "1-2 years",
+        "riskLevel": "low",
+        "expectedYield": "5.15%",
+        "duration": "1.5"
+      }
+    },
+    {
+      "slotId": "2",
+      "slotName": "Medium-Term Tranche (2-4 Years)",
+      "slotDescription": "Bond tranches with remaining maturity of 2-4 years",
+      "valueUnits": "USD",
+      "slotType": "maturity_tranche",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000000000000000000000",
+      "maxValue": "200000000000000000000000000",
+      "valuePrecision": 18,
+      "slotProperties": {
+        "maturityRange": "2-4 years",
+        "riskLevel": "medium",
+        "expectedYield": "5.25%",
+        "duration": "3.0"
+      }
+    },
+    {
+      "slotId": "3",
+      "slotName": "Long-Term Tranche (4-5 Years)",
+      "slotDescription": "Bond tranches with remaining maturity of 4-5 years",
+      "valueUnits": "USD",
+      "slotType": "maturity_tranche",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000000000000000000000",
+      "maxValue": "200000000000000000000000000",
+      "valuePrecision": 18,
+      "slotProperties": {
+        "maturityRange": "4-5 years",
+        "riskLevel": "medium-high",
+        "expectedYield": "5.35%",
+        "duration": "4.2"
+      }
+    }
+  ],
+  
+  "allocations": [
+    {
+      "tokenIdWithinSlot": "1001",
+      "slotId": "1",
+      "recipient": "0x1234567890123456789012345678901234567890",
+      "value": "25000000000000000000000000",
+      "linkedTokenId": "CBND25A-1001"
+    },
+    {
+      "tokenIdWithinSlot": "2001",
+      "slotId": "2",
+      "recipient": "0x2345678901234567890123456789012345678901",
+      "value": "100000000000000000000000000",
+      "linkedTokenId": "CBND25A-2001"
+    },
+    {
+      "tokenIdWithinSlot": "3001",
+      "slotId": "3",
+      "recipient": "0x3456789012345678901234567890123456789012",
+      "value": "200000000000000000000000000",
+      "linkedTokenId": "CBND25A-3001"
+    }
+  ],
+  
+  "paymentSchedules": [
+    {
+      "slotId": "1",
+      "paymentDate": "2025-12-17T00:00:00Z",
+      "paymentAmount": "1312500000000000000000000",
+      "paymentType": "coupon",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "2",
+      "paymentDate": "2025-12-17T00:00:00Z",
+      "paymentAmount": "2625000000000000000000000",
+      "paymentType": "coupon",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "3",
+      "paymentDate": "2025-12-17T00:00:00Z",
+      "paymentAmount": "5250000000000000000000000",
+      "paymentType": "coupon",
+      "currency": "USD",
+      "isCompleted": false
+    }
+  ],
+  
+  "valueAdjustments": [
+    {
+      "slotId": "1",
+      "adjustmentDate": "2025-06-17T00:00:00Z",
+      "adjustmentType": "accrual_adjustment",
+      "adjustmentAmount": "0",
+      "adjustmentReason": "Initial issuance - no accrual yet",
+      "oraclePrice": "100.00",
+      "oracleSource": "Bloomberg_Corporate_Bond_Index",
+      "approvedBy": "0x1234567890123456789012345678901234567890"
+    }
+  ],
+  
+  "slotConfigs": [
+    {
+      "slotId": "1",
+      "name": "Short-Term Tranche Configuration",
+      "description": "Configuration for 1-2 year maturity tranches",
+      "metadata": {
+        "riskWeight": "0.8",
+        "liquidityFactor": "0.95",
+        "marginRequirement": "5%",
+        "concentrationLimit": "25%"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "2",
+      "name": "Medium-Term Tranche Configuration",
+      "description": "Configuration for 2-4 year maturity tranches",
+      "metadata": {
+        "riskWeight": "1.0",
+        "liquidityFactor": "0.90",
+        "marginRequirement": "10%",
+        "concentrationLimit": "50%"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "3",
+      "name": "Long-Term Tranche Configuration",
+      "description": "Configuration for 4-5 year maturity tranches",
+      "metadata": {
+        "riskWeight": "1.2",
+        "liquidityFactor": "0.85",
+        "marginRequirement": "15%",
+        "concentrationLimit": "75%"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    }
+  ]
+}

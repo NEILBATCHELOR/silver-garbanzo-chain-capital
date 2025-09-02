@@ -1,0 +1,370 @@
+{
+  "name": "CIRF Fractional Ownership Units",
+  "symbol": "CIRF-SFT",
+  "description": "Semi-fungible tokens representing fractional ownership in specific pools of invoice receivables with granular value tracking",
+  "valueDecimals": 18,
+  
+  "baseUri": "https://metadata.chaincapital.com/receivables/",
+  "metadataStorage": "ipfs",
+  "dynamicMetadata": true,
+  "updatableUris": true,
+  
+  "slotType": "receivables-pool",
+  "allowsSlotEnumeration": true,
+  "slotTransferValidation": {
+    "enabled": true,
+    "requiresApproval": true,
+    "restrictionMatrix": {
+      "cross-pool": false,
+      "same-pool": true
+    }
+  },
+  
+  "accessControl": "role-based",
+  
+  "isBurnable": true,
+  "isPausable": true,
+  "hasRoyalty": false,
+  
+  "slotApprovals": true,
+  "valueApprovals": true,
+  "valueTransfersEnabled": true,
+  "updatableSlots": true,
+  "updatableValues": true,
+  
+  "mergable": true,
+  "splittable": true,
+  "valueAggregation": true,
+  "fractionalOwnershipEnabled": true,
+  "autoUnitCalculation": true,
+  
+  "permissioningEnabled": true,
+  "permissioningAdvanced": true,
+  
+  "supplyTracking": true,
+  "slotEnumerationEnabled": true,
+  "valueAggregationEnabled": true,
+  
+  "slotTransferRestrictions": {
+    "enabled": true,
+    "requiresApproval": true,
+    "kycRequired": true,
+    "whitelistOnly": true,
+    "minimumValue": "10000"
+  },
+  
+  "valueTransferRestrictions": {
+    "enabled": true,
+    "minimumTransferValue": "1000",
+    "maximumTransferValue": "1000000",
+    "cooldownPeriod": "0",
+    "requiresApproval": false
+  },
+  
+  "financialInstrumentType": "asset-backed-security",
+  "principalAmount": "50000000",
+  "interestRate": "8.5",
+  "maturityDate": "2025-12-31",
+  "couponFrequency": "quarterly",
+  "paymentSchedule": {
+    "frequency": "monthly",
+    "dayOfMonth": 15,
+    "firstPayment": "2024-07-15",
+    "lastPayment": "2025-12-15"
+  },
+  "earlyRedemptionEnabled": false,
+  
+  "underlyingAsset": "corporate-receivables",
+  "underlyingAssetAddress": "0x742d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9D",
+  "settlementType": "cash",
+  "marginRequirements": {
+    "initialMargin": "15%",
+    "maintenanceMargin": "10%",
+    "variationMargin": "5%"
+  },
+  
+  "slotCreationEnabled": true,
+  "dynamicSlotCreation": true,
+  "slotAdminRoles": ["fund-manager", "portfolio-manager"],
+  "slotFreezeEnabled": true,
+  "slotMergeEnabled": true,
+  "slotSplitEnabled": true,
+  "crossSlotTransfers": false,
+  
+  "valueComputationMethod": "nav-based",
+  "valueOracleAddress": "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0B",
+  "valueCalculationFormula": "underlying_value * (1 + accrued_interest) - fees",
+  "accrualEnabled": true,
+  "accrualRate": "0.00023287", 
+  "accrualFrequency": "daily",
+  "valueAdjustmentEnabled": true,
+  
+  "slotMarketplaceEnabled": true,
+  "valueMarketplaceEnabled": true,
+  "partialValueTrading": true,
+  "minimumTradeValue": "1000",
+  "tradingFeesEnabled": true,
+  "tradingFeePercentage": "0.25",
+  "marketMakerEnabled": false,
+  
+  "slotVotingEnabled": false,
+  "valueWeightedVoting": false,
+  
+  "yieldFarmingEnabled": false,
+  "liquidityProvisionEnabled": true,
+  "compoundInterestEnabled": true,
+  "flashLoanEnabled": false,
+  "collateralFactor": "80%",
+  "liquidationThreshold": "85%",
+  
+  "regulatoryComplianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  "holdingPeriodRestrictions": null,
+  "transferLimits": {
+    "daily": "1000000",
+    "monthly": "5000000",
+    "perTransaction": "500000"
+  },
+  "reportingRequirements": {
+    "daily": true,
+    "monthly": true,
+    "quarterly": true,
+    "annual": true
+  },
+  
+  "multiSignatureRequired": true,
+  "approvalWorkflowEnabled": true,
+  "institutionalCustodySupport": true,
+  "auditTrailEnhanced": true,
+  "batchOperationsEnabled": true,
+  "emergencyPauseEnabled": true,
+  "recoveryMechanisms": {
+    "enabled": true,
+    "multiSigRecovery": true,
+    "timelockRecovery": "72h",
+    "guardianRecovery": true
+  },
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  "geographicRestrictions": ["CN", "IR", "KP", "SY"],
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "autoApproval": false,
+    "requiresManualReview": true,
+    "kycRequirement": "institutional-grade"
+  },
+  
+  "salesConfig": {
+    "enabled": true,
+    "publicSale": false,
+    "privateSale": true,
+    "minimumInvestment": "100000",
+    "maximumInvestment": "5000000"
+  },
+  
+  "customExtensions": "",
+  "customSlotProperties": {
+    "riskRating": "string",
+    "creditRating": "string",
+    "maturityBucket": "string",
+    "paymentStatus": "string",
+    "collectionAgency": "string"
+  },
+  
+  "metadata": {
+    "assetClass": "trade-receivables",
+    "riskProfile": "medium-low",
+    "targetInvestors": "institutional",
+    "regulatoryStatus": "reg-d"
+  },
+  
+  "slots": [
+    {
+      "slotId": "1",
+      "slotName": "Healthcare Receivables Pool",
+      "slotDescription": "Invoice receivables from AAA-rated healthcare providers with 30-day average payment terms",
+      "valueUnits": "USD",
+      "slotType": "healthcare",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "10000000",
+      "valuePrecision": 18,
+      "slotProperties": {
+        "sector": "healthcare",
+        "creditRating": "AAA",
+        "averageMaturity": "30",
+        "concentrationLimit": "15%",
+        "expectedYield": "7.5%"
+      }
+    },
+    {
+      "slotId": "2",
+      "slotName": "Technology Receivables Pool",
+      "slotDescription": "Invoice receivables from investment-grade technology companies with 45-day average payment terms",
+      "valueUnits": "USD",
+      "slotType": "technology",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "15000000",
+      "valuePrecision": 18,
+      "slotProperties": {
+        "sector": "technology",
+        "creditRating": "A+",
+        "averageMaturity": "45",
+        "concentrationLimit": "20%",
+        "expectedYield": "9.2%"
+      }
+    },
+    {
+      "slotId": "3",
+      "slotName": "Manufacturing Receivables Pool",
+      "slotDescription": "Invoice receivables from established manufacturing companies with 60-day average payment terms",
+      "valueUnits": "USD",
+      "slotType": "manufacturing",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "8000000",
+      "valuePrecision": 18,
+      "slotProperties": {
+        "sector": "manufacturing",
+        "creditRating": "A",
+        "averageMaturity": "60",
+        "concentrationLimit": "25%",
+        "expectedYield": "11.8%"
+      }
+    }
+  ],
+  
+  "allocations": [
+    {
+      "tokenIdWithinSlot": "001",
+      "slotId": "1",
+      "recipient": "0x742d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9D",
+      "value": "5000000"
+    },
+    {
+      "tokenIdWithinSlot": "002",
+      "slotId": "1",
+      "recipient": "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0B",
+      "value": "10000000"
+    },
+    {
+      "tokenIdWithinSlot": "001",
+      "slotId": "2",
+      "recipient": "0x3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c",
+      "value": "15000000"
+    },
+    {
+      "tokenIdWithinSlot": "001",
+      "slotId": "3",
+      "recipient": "0x5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d",
+      "value": "8000000"
+    }
+  ],
+  
+  "paymentSchedules": [
+    {
+      "slotId": "1",
+      "paymentDate": "2024-07-15",
+      "paymentAmount": "375000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "1",
+      "paymentDate": "2024-08-15",
+      "paymentAmount": "375000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "2",
+      "paymentDate": "2024-07-15",
+      "paymentAmount": "690000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "3",
+      "paymentDate": "2024-07-15",
+      "paymentAmount": "472000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    }
+  ],
+  
+  "valueAdjustments": [
+    {
+      "slotId": "1",
+      "adjustmentDate": "2024-06-15",
+      "adjustmentType": "mark-to-market",
+      "adjustmentAmount": "25000",
+      "adjustmentReason": "Credit rating upgrade of major debtor",
+      "oraclePrice": "1.005",
+      "oracleSource": "nav-oracle",
+      "approvedBy": "0x8a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+    },
+    {
+      "slotId": "2",
+      "adjustmentDate": "2024-06-10",
+      "adjustmentType": "impairment",
+      "adjustmentAmount": "-50000",
+      "adjustmentReason": "Debtor payment delay beyond 90 days",
+      "oraclePrice": "0.985",
+      "oracleSource": "nav-oracle",
+      "approvedBy": "0x8a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+    }
+  ],
+  
+  "slotConfigs": [
+    {
+      "slotId": "1",
+      "name": "Healthcare Pool Configuration",
+      "description": "Configuration for healthcare receivables pool with enhanced risk parameters",
+      "metadata": {
+        "riskWeight": "15%",
+        "liquidityScore": "95",
+        "diversificationIndex": "0.85"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "2",
+      "name": "Technology Pool Configuration",
+      "description": "Configuration for technology receivables pool with moderate risk parameters",
+      "metadata": {
+        "riskWeight": "25%",
+        "liquidityScore": "88",
+        "diversificationIndex": "0.78"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "3",
+      "name": "Manufacturing Pool Configuration",
+      "description": "Configuration for manufacturing receivables pool with standard risk parameters",
+      "metadata": {
+        "riskWeight": "35%",
+        "liquidityScore": "82",
+        "diversificationIndex": "0.72"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+SELECT
+  t.id AS token_id,
+  t.name,
+  t.symbol,
+  t.decimals,
+  t.standard,
+  t.total_supply,
+  t.metadata,
+  t.status,
+  t.description,
+  t.created_at AS token_created_at,
+  t.updated_at AS token_updated_at,
+  p.id AS erc20_property_id,
+  p.token_type,
+  p.cap,
+  p.initial_supply,
+  p.access_control,
+  p.allow_management,
+  p.is_mintable,
+  p.is_burnable,
+  p.is_pausable,
+  p.snapshot,
+  p.permit,
+  p.rebasing,
+  p.fee_on_transfer,
+  p.governance_features,
+  p.compliance_config,
+  p.transfer_config,
+  p.gas_config,
+  p.whitelist_config,
+  p.governance_enabled,
+  p.quorum_percentage,
+  p.proposal_threshold,
+  p.voting_delay,
+  p.voting_period,
+  p.anti_whale_enabled,
+  p.max_wallet_amount,
+  p.reflection_enabled,
+  p.reflection_percentage,
+  p.vesting_enabled,
+  p.vesting_cliff_period,
+  p.presale_enabled,
+  p.presale_rate,
+  p.trading_start_time,
+  p.created_at AS property_created_at,
+  p.updated_at AS property_updated_at
+FROM
+  (
+    tokens t
+    LEFT JOIN token_erc20_properties p ON ((t.id = p.token_id))
+  )
+WHERE
+  (t.standard = 'ERC-20' :: token_standard_enum);

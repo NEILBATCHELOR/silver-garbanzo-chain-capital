@@ -1,0 +1,236 @@
+{
+  "name": "Multi-Asset Autocallable Note Tranches",
+  "symbol": "MAN25B-SFT",
+  "decimals": 18,
+  "description": "Semi-fungible tokens representing different tranches of the Multi-Asset Autocallable Note Series 2025-B with varying risk-return profiles.",
+  "standard": "ERC-3525",
+  "total_supply": "5000000",
+  "initial_supply": "5000000",
+  "cap": "5000000",
+  "is_mintable": false,
+  "is_burnable": false,
+  "is_pausable": true,
+  "token_type": "semi_fungible_security",
+  "value_decimals": 18,
+  "base_token_address": "",
+  "slots": [
+    {
+      "slot": 1,
+      "name": "Senior Tranche A",
+      "description": "Senior tranche with first loss protection and stable returns",
+      "total_value": "2000000000000000000000000",
+      "currency": "USD",
+      "maturity_date": "2028-09-15T00:00:00Z",
+      "coupon_rate": "6.5",
+      "protection_level": "80",
+      "participation_rate": "80",
+      "barrier_level": "65",
+      "priority": 1,
+      "risk_level": "low",
+      "minimum_denomination": "1000"
+    },
+    {
+      "slot": 2, 
+      "name": "Mezzanine Tranche B",
+      "description": "Mezzanine tranche with enhanced yield and moderate risk",
+      "total_value": "2000000000000000000000000",
+      "currency": "USD",
+      "maturity_date": "2028-09-15T00:00:00Z",
+      "coupon_rate": "8.5",
+      "protection_level": "65",
+      "participation_rate": "100",
+      "barrier_level": "65",
+      "priority": 2,
+      "risk_level": "medium",
+      "minimum_denomination": "5000"
+    },
+    {
+      "slot": 3,
+      "name": "Equity Tranche C", 
+      "description": "Equity tranche with maximum upside potential and higher risk",
+      "total_value": "1000000000000000000000000",
+      "currency": "USD",
+      "maturity_date": "2028-09-15T00:00:00Z",
+      "coupon_rate": "12.0",
+      "protection_level": "0",
+      "participation_rate": "150",
+      "barrier_level": "0",
+      "priority": 3,
+      "risk_level": "high",
+      "minimum_denomination": "25000"
+    }
+  ],
+  "slot_configs": [
+    {
+      "slot": 1,
+      "transferable": true,
+      "splittable": true,
+      "mergeable": true,
+      "approval_required": true,
+      "whitelist_required": true,
+      "max_holders": 50,
+      "lock_up_period": "90",
+      "trading_start_date": "2025-12-15T00:00:00Z"
+    },
+    {
+      "slot": 2,
+      "transferable": true, 
+      "splittable": true,
+      "mergeable": true,
+      "approval_required": true,
+      "whitelist_required": true,
+      "max_holders": 30,
+      "lock_up_period": "180",
+      "trading_start_date": "2026-03-15T00:00:00Z"
+    },
+    {
+      "slot": 3,
+      "transferable": true,
+      "splittable": false,
+      "mergeable": true, 
+      "approval_required": true,
+      "whitelist_required": true,
+      "max_holders": 10,
+      "lock_up_period": "365",
+      "trading_start_date": "2026-09-15T00:00:00Z"
+    }
+  ],
+  "allocations": [
+    {
+      "slot": 1,
+      "recipient_type": "institutional",
+      "allocation_percentage": "60",
+      "minimum_investment": "100000",
+      "vesting_schedule": "none"
+    },
+    {
+      "slot": 2,
+      "recipient_type": "qualified_investor", 
+      "allocation_percentage": "30",
+      "minimum_investment": "250000",
+      "vesting_schedule": "linear_6_months"
+    },
+    {
+      "slot": 3,
+      "recipient_type": "private_wealth",
+      "allocation_percentage": "10",
+      "minimum_investment": "1000000", 
+      "vesting_schedule": "cliff_12_months"
+    }
+  ],
+  "payment_schedules": [
+    {
+      "slot": 1,
+      "payment_type": "coupon",
+      "frequency": "quarterly",
+      "amount": "16.25",
+      "payment_dates": [
+        "2025-12-15T00:00:00Z",
+        "2026-03-15T00:00:00Z",
+        "2026-06-15T00:00:00Z",
+        "2026-09-15T00:00:00Z",
+        "2026-12-15T00:00:00Z",
+        "2027-03-15T00:00:00Z",
+        "2027-06-15T00:00:00Z",
+        "2027-09-15T00:00:00Z",
+        "2027-12-15T00:00:00Z",
+        "2028-03-15T00:00:00Z",
+        "2028-06-15T00:00:00Z",
+        "2028-09-15T00:00:00Z"
+      ]
+    },
+    {
+      "slot": 2,
+      "payment_type": "coupon",
+      "frequency": "quarterly", 
+      "amount": "21.25",
+      "payment_dates": [
+        "2025-12-15T00:00:00Z",
+        "2026-03-15T00:00:00Z",
+        "2026-06-15T00:00:00Z",
+        "2026-09-15T00:00:00Z",
+        "2026-12-15T00:00:00Z",
+        "2027-03-15T00:00:00Z",
+        "2027-06-15T00:00:00Z",
+        "2027-09-15T00:00:00Z",
+        "2027-12-15T00:00:00Z",
+        "2028-03-15T00:00:00Z",
+        "2028-06-15T00:00:00Z",
+        "2028-09-15T00:00:00Z"
+      ]
+    },
+    {
+      "slot": 3,
+      "payment_type": "coupon",
+      "frequency": "quarterly",
+      "amount": "30.0",
+      "payment_dates": [
+        "2025-12-15T00:00:00Z",
+        "2026-03-15T00:00:00Z",
+        "2026-06-15T00:00:00Z",
+        "2026-09-15T00:00:00Z", 
+        "2026-12-15T00:00:00Z",
+        "2027-03-15T00:00:00Z",
+        "2027-06-15T00:00:00Z",
+        "2027-09-15T00:00:00Z",
+        "2027-12-15T00:00:00Z",
+        "2028-03-15T00:00:00Z",
+        "2028-06-15T00:00:00Z",
+        "2028-09-15T00:00:00Z"
+      ]
+    }
+  ],
+  "value_adjustments": [
+    {
+      "slot": 1,
+      "adjustment_type": "barrier_breach",
+      "trigger_condition": "worst_of_underlyings < 65%",
+      "adjustment_value": "-0.35",
+      "effective_date": "barrier_observation"
+    },
+    {
+      "slot": 2,
+      "adjustment_type": "autocall_trigger",
+      "trigger_condition": "worst_of_underlyings >= 105%", 
+      "adjustment_value": "early_redemption",
+      "effective_date": "observation_date"
+    },
+    {
+      "slot": 3,
+      "adjustment_type": "performance_participation",
+      "trigger_condition": "worst_of_underlyings > 100%",
+      "adjustment_value": "1.5x_performance",
+      "effective_date": "maturity"
+    }
+  ],
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "blocked",
+  "geographic_restrictions": ["US"],
+  "whitelist_enabled": true,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": true,
+    "qualified_purchaser_only": false,
+    "institutional_only": false,
+    "maximum_investors": 199,
+    "transfer_restrictions": {
+      "cooling_off_period": "7",
+      "requires_approval": true,
+      "slot_specific_rules": true
+    }
+  },
+  "metadata": {
+    "underlying_erc1400": "",
+    "tranche_structure": "waterfall",
+    "payment_waterfall": ["slot_1", "slot_2", "slot_3"],
+    "risk_waterfall": ["slot_3", "slot_2", "slot_1"],
+    "liquidity_provider": "UBS AG", 
+    "valuation_agent": "UBS AG",
+    "calculation_frequency": "daily",
+    "reporting_frequency": "monthly",
+    "net_asset_value_calculation": "mark_to_market"
+  }
+}

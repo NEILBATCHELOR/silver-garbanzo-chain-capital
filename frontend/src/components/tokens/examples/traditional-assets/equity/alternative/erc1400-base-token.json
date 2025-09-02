@@ -1,0 +1,197 @@
+{
+  "name": "Alphabet Inc. Multi-Class Equity Token",
+  "symbol": "tGOOG",
+  "decimals": 18,
+  "description": "Tokenized representation of Alphabet Inc. multi-class equity structure including Class A (voting) and Class C (non-voting) shares.",
+  "standard": "ERC-1400",
+  "total_supply": "12800000000",
+  "initial_supply": "12800000000",
+  "cap": "15000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "equity",
+  "regulation_type": "public",
+  "issuing_entity_name": "Alphabet Inc.",
+  "issuing_jurisdiction": "Delaware, USA",
+  "issuing_entity_lei": "549300A6K85ZBNG1CQ37",
+  "underlying_stock_tickers": ["GOOGL", "GOOG"],
+  "underlying_stock_exchange": "NASDAQ",
+  "multi_class_structure": true,
+  "share_classes": [
+    {
+      "class": "A",
+      "ticker": "GOOGL",
+      "cusip": "02079K305",
+      "isin": "US02079K3059",
+      "voting_rights": true,
+      "votes_per_share": 1,
+      "dividend_rights": true,
+      "conversion_rights": false,
+      "liquidation_preference": "equal",
+      "outstanding_shares": "6400000000"
+    },
+    {
+      "class": "C",
+      "ticker": "GOOG", 
+      "cusip": "02079K107",
+      "isin": "US02079K1079",
+      "voting_rights": false,
+      "votes_per_share": 0,
+      "dividend_rights": true,
+      "conversion_rights": false,
+      "liquidation_preference": "equal",
+      "outstanding_shares": "6400000000"
+    }
+  ],
+  "par_value": "0.001",
+  "conversion_ratio": "1:1",
+  "conversion_enabled": true,
+  "stock_split_adjustment": true,
+  "dividend_distribution": true,
+  "corporate_actions_enabled": true,
+  "proxy_voting_enabled": true,
+  "shareholder_communications": true,
+  "transfer_agent": "Computershare Trust Company, N.A.",
+  "custodian": "State Street Corporation",
+  "market_capitalization": "2000000000000",
+  "public_float": "11500000000",
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": ["CN", "RU"],
+  "whitelist_enabled": false,
+  "whitelist_addresses": [],
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": false,
+  "controllers": [],
+  "operators": [],
+  "default_partitions": ["class_a_shares", "class_c_shares"],
+  "partitions": [
+    {
+      "name": "class_a_shares",
+      "flag": "0x01",
+      "is_default": true,
+      "transferable": true,
+      "controllable": false,
+      "description": "Alphabet Class A Shares (GOOGL) - Voting Rights"
+    },
+    {
+      "name": "class_c_shares",
+      "flag": "0x02", 
+      "is_default": false,
+      "transferable": true,
+      "controllable": false,
+      "description": "Alphabet Class C Shares (GOOG) - No Voting Rights"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Restated Certificate of Incorporation",
+      "uri": "https://abc.xyz/investor/other/certificate-of-incorporation/",
+      "document_hash": "0x4567890123defghi"
+    },
+    {
+      "name": "Amended and Restated Bylaws",
+      "uri": "https://abc.xyz/investor/other/bylaws/",
+      "document_hash": "0xdefghi4567890123"
+    },
+    {
+      "name": "Annual Report 10-K",
+      "uri": "https://abc.xyz/investor/sec-filings/10-k-2024/",
+      "document_hash": "0x567890123defghi4"
+    }
+  ],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": false,
+    "maximum_investors": 0,
+    "minimum_investment": "1",
+    "maximum_investment": "0",
+    "lock_up_period": "0",
+    "transfer_restrictions": {
+      "cooling_off_period": "0",
+      "requires_approval": false,
+      "whitelist_only": false
+    }
+  },
+  "corporate_governance": {
+    "board_of_directors": true,
+    "independent_directors": 9,
+    "audit_committee": true,
+    "compensation_committee": true,
+    "nominating_committee": true,
+    "leadership_development_committee": true,
+    "annual_meeting": true,
+    "quarterly_reporting": true,
+    "sec_reporting": true,
+    "insider_trading_policy": true,
+    "dual_class_structure": true,
+    "founder_control": true
+  },
+  "dividend_policy": {
+    "dividend_paying": false,
+    "dividend_frequency": "",
+    "dividend_yield": "0",
+    "last_dividend_date": "",
+    "ex_dividend_date": "",
+    "record_date": "",
+    "payment_date": "",
+    "special_dividends": false
+  },
+  "financial_metrics": {
+    "book_value_per_share": "67.89",
+    "earnings_per_share": "6.31",
+    "price_to_earnings_ratio": "25.1",
+    "price_to_book_ratio": "2.33",
+    "return_on_equity": "28.4",
+    "debt_to_equity_ratio": "0.08",
+    "current_ratio": "2.69",
+    "revenue_ttm": "307394000000",
+    "net_income_ttm": "80539000000"
+  },
+  "risk_factors": [
+    "Intense competition in technology markets",
+    "Regulatory scrutiny and antitrust investigations",
+    "Privacy and data protection regulations",
+    "Dependence on advertising revenue",
+    "Technology and cybersecurity risks",
+    "Key personnel and talent retention",
+    "International operations and currency risks",
+    "Content moderation and platform liability"
+  ],
+  "fees": {
+    "management_fee": "0",
+    "performance_fee": "0",
+    "custodial_fee": "0.03",
+    "transfer_fee": "0"
+  },
+  "metadata": {
+    "company_sector": "Communication Services",
+    "industry": "Interactive Media & Services",
+    "sub_industry": "Internet Search Engines",
+    "market_cap_category": "mega_cap",
+    "s_and_p_500": true,
+    "nasdaq_100": true,
+    "founded": "1998-09-04",
+    "headquarters": "Mountain View, California, USA",
+    "employees": "182502",
+    "website": "https://abc.xyz",
+    "ceo": "Sundar Pichai",
+    "cfo": "Ruth Porat",
+    "fiscal_year_end": "December 31",
+    "stock_exchange_listing": ["NASDAQ"],
+    "trading_venues": ["NASDAQ", "OTC"],
+    "settlement_type": "electronic",
+    "settlement_cycle": "T+2",
+    "clearing_house": "NSCC",
+    "market_makers": ["Citadel Securities", "Virtu Financial", "Jane Street"],
+    "analyst_coverage": 42,
+    "institutional_ownership": "65.2%",
+    "insider_ownership": "5.8%",
+    "founder_ownership": "51.2%"
+  }
+}

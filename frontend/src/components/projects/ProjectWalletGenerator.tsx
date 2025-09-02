@@ -1,0 +1,662 @@
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Wallet, 
+  Shield, 
+  Copy, 
+  Eye, 
+  EyeOff, 
+  Plus, 
+  CheckCircle, 
+  AlertTriangle,
+  Network,
+  Key,
+  RefreshCw,
+  ShieldAlert
+} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { ProjectWalletResult, enhancedProjectWalletService } from '@/services/project/project-wallet-service';
+
+// Module-level lock to prevent concurrent wallet generation for the same project
+const inProgressProjectGenerations = new Set<string>();
+
+import { useAuth } from "@/hooks/auth/useAuth";
+import { usePermissionsContext } from "@/hooks/auth/usePermissions";
+
+interface ProjectWalletGeneratorProps {
+  projectId: string;
+  projectName: string;
+  projectType: string;
+  onWalletGenerated?: (wallet: ProjectWalletResult) => void;
+}
+
+interface NetworkConfig {
+  name: string;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+const NETWORK_CONFIGS: NetworkConfig[] = [
+  { name: 'ethereum', label: 'Ethereum', icon: '⟠', color: 'bg-blue-500' },
+  { name: 'polygon', label: 'Polygon', icon: '', color: 'bg-purple-500' },
+  { name: 'solana', label: 'Solana', icon: '', color: 'bg-green-500' },
+  { name: 'bitcoin', label: 'Bitcoin', icon: '₿', color: 'bg-orange-500' },
+  { name: 'avalanche', label: 'Avalanche', icon: '', color: 'bg-red-500' },
+  { name: 'optimism', label: 'Optimism', icon: '', color: 'bg-red-400' },
+  { name: 'arbitrum', label: 'Arbitrum', icon: '', color: 'bg-blue-600' },
+  { name: 'base', label: 'Base', icon: '', color: 'bg-blue-400' },
+  { name: 'injective', label: 'Injective', icon: 'INJ', color: 'bg-gray-700' },
+];
+
+export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
+  projectId,
+  projectName,
+  projectType,
+  onWalletGenerated
+}) => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { hasPermission } = usePermissionsContext();
+  const [selectedNetwork, setSelectedNetwork] = useState<string>('ethereum');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedWallets, setGeneratedWallets] = useState<ProjectWalletResult[]>([]);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [showMnemonic, setShowMnemonic] = useState(false);
+  const [includePrivateKey, setIncludePrivateKey] = useState(true);
+  const [includeMnemonic, setIncludeMnemonic] = useState(true);
+  const [multiNetworkMode, setMultiNetworkMode] = useState(false);
+  const [selectedNetworks, setSelectedNetworks] = useState<string[]>(['ethereum']);
+  const [hasRequiredPermissions, setHasRequiredPermissions] = useState<boolean | null>(null);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  
+    const generationInProgressRef = useRef(false);
+  const lastGenerationIdRef = useRef<string>('');
+  const generationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check permissions on component mount
+  useEffect(() => {
+    const checkPermissions = async () => {
+      setIsCheckingPermissions(true);
+      if (!user) {
+        setHasRequiredPermissions(false);
+        setIsCheckingPermissions(false);
+        return;
+      }
+
+      try {
+        // Check for both required permissions
+        const hasCreatePermission = await hasPermission('project.create');
+        const hasEditPermission = await hasPermission('project.edit');
+        
+        setHasRequiredPermissions(hasCreatePermission && hasEditPermission);
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+        setHasRequiredPermissions(false);
+      } finally {
+        setIsCheckingPermissions(false);
+      }
+    };
+
+    checkPermissions();
+  }, [user, hasPermission]);
+
+  const handleNetworkToggle = useCallback((network: string, checked: boolean) => {
+    setSelectedNetworks(prev => 
+      checked 
+        ? [...prev, network]
+        : prev.filter(n => n !== network)
+    );
+  }, []);
+
+  // Generate a unique identifier for each generation request
+  const generateRequestId = useCallback(() => {
+    return `${projectId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }, [projectId]);
+
+  const generateSingleWallet = useCallback(async (requestId: string) => {
+    if (!selectedNetwork) {
+      toast({
+        title: "Error",
+        description: "Please select a network first",
+        variant: "destructive"
+      });
+      generationInProgressRef.current = false;
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to generate a wallet",
+        variant: "destructive"
+      });
+      generationInProgressRef.current = false;
+      return;
+    }
+
+    if (hasRequiredPermissions === false) {
+      toast({
+        title: "Permission Denied",
+        description: "You need project.create and project.edit permissions to generate a wallet",
+        variant: "destructive"
+      });
+      generationInProgressRef.current = false;
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratedWallets([]);
+
+    try {
+      console.log(`[WalletGenerator] Generating single wallet for ${selectedNetwork}, request: ${requestId}`);
+      
+      const result = await enhancedProjectWalletService.generateWalletForProject({
+        projectId,
+        projectName,
+        projectType,
+        network: selectedNetwork,
+        includePrivateKey,
+        includeMnemonic,
+        userId: user.id // Pass the user ID for permission checking
+      });
+
+      if (result.success) {
+        setGeneratedWallets([result]);
+        
+        // Notify parent component that a wallet was generated
+        if (onWalletGenerated) {
+          onWalletGenerated(result);
+        }
+        
+        toast({
+          title: "Success",
+          description: `${selectedNetwork.toUpperCase()} wallet generated successfully`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to generate wallet",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error generating wallet:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedNetwork, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user, hasRequiredPermissions]);
+
+  const generateMultiNetworkWallets = useCallback(async (requestId: string) => {
+    if (selectedNetworks.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one network",
+        variant: "destructive"
+      });
+      generationInProgressRef.current = false;
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to generate wallets",
+        variant: "destructive"
+      });
+      generationInProgressRef.current = false;
+      return;
+    }
+
+    if (hasRequiredPermissions === false) {
+      toast({
+        title: "Permission Denied",
+        description: "You need project.create and project.edit permissions to generate wallets",
+        variant: "destructive"
+      });
+      generationInProgressRef.current = false;
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratedWallets([]);
+
+    try {
+      console.log(`[WalletGenerator] Generating wallets for networks: ${selectedNetworks.join(', ')}, request: ${requestId}`);
+      
+      const results = await enhancedProjectWalletService.generateMultiNetworkWallets(
+        {
+          projectId,
+          projectName,
+          projectType,
+          includePrivateKey,
+          includeMnemonic,
+          userId: user.id // Pass the user ID for permission checking
+        },
+        selectedNetworks
+      );
+
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
+
+      if (successCount > 0) {
+        // Get all successful wallets
+        const successfulWallets = results.filter(r => r.success);
+        setGeneratedWallets(successfulWallets);
+        
+        // Call onWalletGenerated only ONCE with the first successful wallet as a signal
+        if (onWalletGenerated) {
+          onWalletGenerated(successfulWallets[0]);
+        }
+
+        toast({
+          title: "Success",
+          description: `Generated ${successCount} wallet${successCount > 1 ? 's' : ''} successfully${failCount > 0 ? ` (${failCount} failed)` : ''}`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to generate any wallets",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error generating multi-network wallets:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedNetworks, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user, hasRequiredPermissions]);
+
+  // Enhanced duplicate prevention for the generate button
+  const onGenerateClick = useCallback((isMultiNetwork: boolean) => {
+    // Check if a generation is already in progress
+    if (inProgressProjectGenerations.has(projectId)) {
+      console.warn(`[WalletGenerator] Wallet generation already in progress for project ${projectId}.`);
+      return;
+    }
+
+    if (generationInProgressRef.current) {
+      console.warn('[WalletGenerator] Generation already in progress.');
+      return;
+    }
+    
+    // Generate a unique request ID
+    const requestId = generateRequestId();
+    
+    // Check if this is the same as the last generation (double-click protection)
+    if (lastGenerationIdRef.current === requestId) {
+      console.log("Duplicate request ID detected - ignoring click");
+      return;
+    }
+    
+    // Update tracking
+    lastGenerationIdRef.current = requestId;
+    generationInProgressRef.current = true;
+    inProgressProjectGenerations.add(projectId);
+    
+    // Clear any existing timeout
+    if (generationTimeoutRef.current) {
+      clearTimeout(generationTimeoutRef.current);
+    }
+    
+    // Set a timeout to release the lock if something goes wrong
+    generationTimeoutRef.current = setTimeout(() => {
+      generationInProgressRef.current = false;
+      console.log("Generation timeout - releasing lock");
+    }, 30000); // 30 second timeout
+    
+    // Call the appropriate generation function
+    const generateWallets = async () => {
+      try {
+        if (isMultiNetwork) {
+          await generateMultiNetworkWallets(requestId);
+        } else {
+          await generateSingleWallet(requestId);
+        }
+      } finally {
+        // Always release the lock when done
+        generationInProgressRef.current = false;
+        inProgressProjectGenerations.delete(projectId);
+        if (generationTimeoutRef.current) {
+          clearTimeout(generationTimeoutRef.current);
+          generationTimeoutRef.current = null;
+        }
+      }
+    };
+    
+    generateWallets();
+  }, [generateRequestId, generateMultiNetworkWallets, generateSingleWallet]);
+
+  const copyToClipboard = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied",
+        description: `${label} copied to clipboard`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
+  const getNetworkConfig = (network: string): NetworkConfig => {
+    return NETWORK_CONFIGS.find(config => config.name === network) || 
+           { name: network, label: network.toUpperCase(), icon: '🔗', color: 'bg-gray-500' };
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Permission Check Warning */}
+      {isCheckingPermissions ? (
+        <Alert>
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <AlertDescription>
+            Checking permissions...
+          </AlertDescription>
+        </Alert>
+      ) : hasRequiredPermissions === false ? (
+        <Alert variant="destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Permission Denied</AlertTitle>
+          <AlertDescription>
+            You need both project.create and project.edit permissions to generate wallet credentials.
+            Please contact your administrator for access.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {/* Generation Mode Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Plus className="mr-2 h-5 w-5" />
+            Generate New Wallet
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Multi-network toggle */}
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="multi-network"
+              checked={multiNetworkMode}
+              onCheckedChange={(checked) => setMultiNetworkMode(checked === true)}
+            />
+            <label htmlFor="multi-network" className="text-sm font-medium">
+              Generate for multiple networks simultaneously
+            </label>
+          </div>
+
+          {/* Single Network Selection */}
+          {!multiNetworkMode && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Network:</label>
+              <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a blockchain network" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NETWORK_CONFIGS.map((config) => (
+                    <SelectItem key={config.name} value={config.name}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Multi-Network Selection */}
+          {multiNetworkMode && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Networks:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {NETWORK_CONFIGS.map((config) => (
+                  <div key={config.name} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={config.name}
+                      checked={selectedNetworks.includes(config.name)}
+                      onCheckedChange={(checked) => handleNetworkToggle(config.name, checked as boolean)}
+                    />
+                    <label htmlFor={config.name} className="text-sm flex items-center space-x-1">
+                      <span>{config.label}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selected: {selectedNetworks.length} network{selectedNetworks.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          )}
+
+          {/* Generation Options */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Generation Options:</label>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="include-private-key"
+                  checked={includePrivateKey}
+                  onCheckedChange={(checked) => setIncludePrivateKey(checked === true)}
+                />
+                <label htmlFor="include-private-key" className="text-sm">
+                  Include private key in response (required for vault storage)
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="include-mnemonic"
+                  checked={includeMnemonic}
+                  onCheckedChange={(checked) => setIncludeMnemonic(checked === true)}
+                />
+                <label htmlFor="include-mnemonic" className="text-sm">
+                  Include mnemonic phrase (for HD wallet backup)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Generate Button - Using the debounced click handler */}
+          <Button 
+            onClick={() => onGenerateClick(multiNetworkMode)}
+            disabled={isGenerating || isCheckingPermissions || hasRequiredPermissions === false || !user}
+            className="w-full"
+          >
+            {isGenerating ? (
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wallet className="mr-2 h-4 w-4" />
+            )}
+            {isGenerating 
+              ? 'Generating...' 
+              : multiNetworkMode 
+                ? `Generate ${selectedNetworks.length} Wallets`
+                : 'Generate Wallet'
+            }
+          </Button>
+        </CardContent>
+      </Card>
+      {/* Generated Wallets Display */}
+      {generatedWallets.length > 0 && (
+        <div className="space-y-4">
+          {generatedWallets.map((wallet, index) => (
+            <Card key={`${wallet.network}-${index}`}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
+                  {getNetworkConfig(wallet.network).label} Wallet Generated Successfully
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Network Badge */}
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline" className="flex items-center space-x-1">
+                    <Network className="h-3 w-3" />
+                    <span>{getNetworkConfig(wallet.network).label}</span>
+                  </Badge>
+                  {wallet.vaultStorageId && (
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <Shield className="h-3 w-3" />
+                      <span>Vault Stored</span>
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Wallet Address */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center">
+                    <Wallet className="mr-1 h-4 w-4" />
+                    Wallet Address:
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                      {wallet.walletAddress}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(wallet.walletAddress, `${wallet.network} wallet address`)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Public Key */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center">
+                    <Key className="mr-1 h-4 w-4" />
+                    Public Key:
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                      {wallet.publicKey}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(wallet.publicKey, `${wallet.network} public key`)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Private Key */}
+                {wallet.privateKey && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center">
+                      <Shield className="mr-1 h-4 w-4" />
+                      Private Key:
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                        {showPrivateKey ? wallet.privateKey : '••••••••••••••••••••••••••••••••'}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowPrivateKey(!showPrivateKey)}
+                      >
+                        {showPrivateKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(wallet.privateKey!, `${wallet.network} private key`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mnemonic Phrase */}
+                {wallet.mnemonic && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center">
+                      <Key className="mr-1 h-4 w-4" />
+                      Mnemonic Phrase:
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                        {showMnemonic ? wallet.mnemonic : '•••••• •••••• •••••• •••••• •••••• ••••••'}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowMnemonic(!showMnemonic)}
+                      >
+                        {showMnemonic ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(wallet.mnemonic!, `${wallet.network} mnemonic phrase`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vault Information */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Vault Information:</label>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Key Vault ID:</span>
+                      <p className="font-mono text-xs break-all">{wallet.keyVaultId}</p>
+                    </div>
+                    {wallet.vaultStorageId && (
+                      <div>
+                        <span className="text-muted-foreground">Vault Storage ID:</span>
+                        <p className="font-mono text-xs break-all">{wallet.vaultStorageId}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Security Warning - only show once for multiple wallets */}
+                {index === 0 && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Security Notice:</strong> The private keys and mnemonic phrases are shown here for immediate use. 
+                      They are securely stored in the vault and encrypted. Never share these credentials with unauthorized parties.
+                      {generatedWallets.some(w => w.vaultStorageId) 
+                        ? " Private keys are backed up in secure vault storage."
+                        : " Consider enabling vault storage for enhanced security."
+                      }
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+export default ProjectWalletGenerator;

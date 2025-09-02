@@ -1,0 +1,312 @@
+{
+  "name": "Blackstone Credit Liquidity Token",
+  "symbol": "LBCF2",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "initialSupply": "150000000",
+  "cap": "750000000",
+  "tokenDetails": "Advanced ERC-20 liquidity token providing secondary market access to Blackstone Private Credit Fund II value units. Features enhanced DeFi integrations, cross-chain compatibility, and institutional-grade compliance.",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasVoting": true,
+  
+  "taxWithholding": true,
+  "taxRate": "0",
+  "dividendDistribution": true,
+  "maxTransactionLimit": "2500000",
+  "maxWalletLimit": "25000000",
+  
+  "useBlacklist": true,
+  "useWhitelist": true,
+  "complianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  
+  "useTransferRestrictions": true,
+  "useHoldingPeriod": true,
+  "holdingPeriodDays": "30",
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  
+  "bridgeEnabled": true,
+  "crossChainSupport": true,
+  "supportedChains": ["ethereum", "polygon", "arbitrum", "optimism", "avalanche"],
+  
+  "liquidityProvisionEnabled": true,
+  "dexIntegrationEnabled": true,
+  "yieldFarmingEnabled": true,
+  "stakingEnabled": true,
+  "stakingRewardRate": "5.2",
+  "stakingLockupPeriod": "90",
+  
+  "flashLoanEnabled": true,
+  "collateralFactor": "0.80",
+  "liquidationThreshold": "0.90",
+  
+  "upgradeability": "beacon_proxy",
+  "adminMultisig": true,
+  "timelockDelay": "259200",
+  
+  "complianceSettings": {
+    "requireKyc": true,
+    "kycProviders": ["Chainalysis", "Elliptic", "Onfido"],
+    "sanctionsScreening": true,
+    "amlMonitoring": true,
+    "pepScreening": true,
+    "transactionLimits": {
+      "daily": "1000000",
+      "weekly": "5000000",
+      "monthly": "15000000"
+    },
+    "velocityChecks": true,
+    "behavioralAnalysis": true
+  },
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 30,
+    "qualifiedInvestorOnly": true,
+    "transferApprovalRequired": false,
+    "automaticCompliance": true,
+    "fractionalTransfersEnabled": true,
+    "crossBorderReporting": true
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor"]
+    },
+    {
+      "country": "GB",
+      "allowed": true,
+      "conditions": ["sophisticated_investor"]
+    },
+    {
+      "country": "DE",
+      "allowed": true,
+      "conditions": ["professional_investor"]
+    },
+    {
+      "country": "SG",
+      "allowed": true,
+      "conditions": ["accredited_investor"]
+    },
+    {
+      "country": "CN",
+      "allowed": false
+    },
+    {
+      "country": "IR",
+      "allowed": false
+    },
+    {
+      "country": "KP",
+      "allowed": false
+    }
+  ],
+  
+  "dexIntegration": {
+    "uniswapV3": {
+      "enabled": true,
+      "poolFee": "500",
+      "initialLiquidity": "2500000",
+      "concentratedLiquidity": true
+    },
+    "curve": {
+      "enabled": true,
+      "poolType": "stable",
+      "amplificationCoefficient": "500",
+      "adminFee": "50"
+    },
+    "balancer": {
+      "enabled": true,
+      "poolType": "weighted",
+      "weights": ["70", "30"],
+      "swapFee": "30"
+    },
+    "sushiswap": {
+      "enabled": true,
+      "poolType": "constant_product",
+      "fee": "25"
+    },
+    "pancakeswap": {
+      "enabled": true,
+      "chains": ["bsc", "ethereum"],
+      "poolType": "v3",
+      "fee": "500"
+    }
+  },
+  
+  "yieldStrategies": [
+    {
+      "strategy": "compound_v3",
+      "allocation": "25",
+      "targetApy": "4.2",
+      "riskLevel": "low",
+      "protocol": "Compound"
+    },
+    {
+      "strategy": "aave_v3",
+      "allocation": "25",
+      "targetApy": "4.8",
+      "riskLevel": "low",
+      "protocol": "Aave"
+    },
+    {
+      "strategy": "curve_3pool",
+      "allocation": "20",
+      "targetApy": "6.5",
+      "riskLevel": "medium",
+      "protocol": "Curve"
+    },
+    {
+      "strategy": "convex_cvx",
+      "allocation": "15",
+      "targetApy": "8.2",
+      "riskLevel": "medium",
+      "protocol": "Convex"
+    },
+    {
+      "strategy": "yearn_vault",
+      "allocation": "15",
+      "targetApy": "7.8",
+      "riskLevel": "medium",
+      "protocol": "Yearn"
+    }
+  ],
+  
+  "liquidityMining": {
+    "enabled": true,
+    "rewardToken": "BPCF2",
+    "emissionRate": "2500000",
+    "duration": "730",
+    "boostMultiplier": "3.0",
+    "vestingPeriod": "365",
+    "cliffPeriod": "90"
+  },
+  
+  "governance": {
+    "votingEnabled": true,
+    "proposalThreshold": "2500000",
+    "quorumRequirement": "15",
+    "votingDelay": "2",
+    "votingPeriod": "14",
+    "executionDelay": "7",
+    "vetoEnabled": false
+  },
+  
+  "integrationAPIs": {
+    "chainlink": {
+      "priceFeed": true,
+      "proofOfReserve": true,
+      "automation": true,
+      "vrf": true,
+      "ccip": true
+    },
+    "defipulse": {
+      "yieldTracking": true,
+      "riskMetrics": true,
+      "tvlTracking": true
+    },
+    "metamask": {
+      "walletIntegration": true,
+      "swapIntegration": true,
+      "portfolioTracking": true
+    },
+    "coingecko": {
+      "priceTracking": true,
+      "marketData": true,
+      "analytics": true
+    },
+    "dune": {
+      "analytics": true,
+      "customDashboards": true,
+      "reporting": true
+    }
+  },
+  
+  "crossChainBridges": [
+    {
+      "bridge": "layerzero",
+      "chains": ["ethereum", "polygon", "arbitrum", "optimism"],
+      "fees": "0.05",
+      "security": "multisig_oracle"
+    },
+    {
+      "bridge": "wormhole",
+      "chains": ["ethereum", "polygon", "avalanche", "fantom"],
+      "fees": "0.08",
+      "security": "guardian_network"
+    },
+    {
+      "bridge": "cbridge",
+      "chains": ["ethereum", "polygon", "arbitrum", "bsc"],
+      "fees": "0.03",
+      "security": "sgn_pos"
+    }
+  ],
+  
+  "institutionalFeatures": {
+    "whitelabelInterface": true,
+    "customBranding": true,
+    "apiAccess": true,
+    "bulkOperations": true,
+    "reportingDashboard": true,
+    "complianceReporting": true,
+    "auditTrail": true,
+    "multiSigIntegration": true
+  },
+  
+  "securityFeatures": {
+    "pauseGuardian": "0xabcdef1234567890123456789012345678901234",
+    "emergencyWithdraw": true,
+    "upgradePause": true,
+    "contractVerification": true,
+    "auditReports": [
+      {
+        "auditor": "OpenZeppelin",
+        "date": "2024-01-15",
+        "score": "95"
+      },
+      {
+        "auditor": "Consensys Diligence",
+        "date": "2024-02-01",
+        "score": "93"
+      }
+    ],
+    "bugBountyProgram": {
+      "enabled": true,
+      "platform": "Immunefi",
+      "maxReward": "1000000"
+    }
+  },
+  
+  "metadata": {
+    "underlyingAsset": "Blackstone Private Credit Fund II",
+    "assetClass": "private_credit",
+    "strategy": "diversified_credit",
+    "geography": "global",
+    "vintage": "2024",
+    "targetReturn": "SOFR+750",
+    "fundSize": "3000000000",
+    "managementFee": "1.5",
+    "performanceFee": "20",
+    "hurdleRate": "8.0",
+    "distributionFrequency": "quarterly",
+    "redemptionFrequency": "quarterly",
+    "noticePeriod": "45",
+    "lockupPeriod": "12",
+    "fundLife": "7",
+    "extensionOptions": "2x1year"
+  }
+}

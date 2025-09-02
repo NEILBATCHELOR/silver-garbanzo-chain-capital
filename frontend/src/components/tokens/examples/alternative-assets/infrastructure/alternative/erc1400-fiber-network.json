@@ -1,0 +1,227 @@
+{
+  "name": "Pacific Fiber Network Infrastructure Token",
+  "symbol": "PFNIT",
+  "description": "Security token representing ownership in a trans-Pacific submarine fiber optic cable network connecting North America to Asia with 25-year revenue contracts.",
+  "decimals": 18,
+  "initialSupply": "15000000",
+  "cap": "15000000",
+  "tokenDetails": "Infrastructure investment in submarine fiber optic cable with guaranteed bandwidth revenue from major telecommunications companies",
+  "securityType": "infrastructure_asset",
+  "regulationType": "reg-d",
+  "issuingEntityName": "Pacific Fiber Networks LLC",
+  "issuingJurisdiction": "Delaware, USA",
+  "issuingEntityLei": "5493001567890123456",
+  
+  "isMintable": true,
+  "isBurnable": false,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "automated",
+  "complianceModule": "telecom-compliance",
+  
+  "holdingPeriod": "36",
+  "maxInvestorCount": "999",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": false,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": false,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "ipfs://QmFiberNetworkDocuments",
+  "documentHash": "0xfiberhash987654",
+  "legalTerms": "Infrastructure asset backed by 25-year fiber capacity agreements with major telecommunications providers",
+  "prospectus": "ipfs://QmFiberProspectusHash",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": false,
+  "settlementIntegration": "standard",
+  "clearingHouseIntegration": false,
+  "centralSecuritiesDepositoryIntegration": false,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  
+  "transferRestrictions": {
+    "holdingPeriod": 1095,
+    "maxTransferAmount": "500000",
+    "requiresApproval": true,
+    "restrictedJurisdictions": ["CN", "RU", "IR", "KP"],
+    "minimumHolding": "5000"
+  },
+  
+  "kycSettings": {
+    "provider": "onfido",
+    "verificationLevel": "enhanced", 
+    "requiredDocuments": ["government_id", "proof_of_address", "proof_of_income"],
+    "riskTolerance": "medium"
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": true,
+    "pepScreening": true,
+    "amlThreshold": "25000",
+    "reportingCurrency": "USD",
+    "taxReporting": true,
+    "telecomCompliance": true,
+    "exportControlCompliance": true
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "restrictions": "accredited_investors_only"
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "restrictions": "qualified_investors_only"
+    },
+    {
+      "country": "JP",
+      "allowed": true,
+      "restrictions": "qualified_institutional_investors"
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "restrictions": "national_security_concerns"
+    },
+    {
+      "country": "RU",
+      "allowed": false,
+      "restrictions": "sanctions_compliance"
+    }
+  ],
+  
+  "investorLimits": {
+    "maxIndividualHolding": "3000000",
+    "maxInstitutionalHolding": "7500000",
+    "maxTotalInvestors": 999
+  },
+  
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "issuer",
+      "permissions": ["mint", "transfer_approval", "compliance_enforcement"],
+      "description": "Pacific Fiber Networks LLC - Project Owner"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "operator",
+      "permissions": ["network_management", "capacity_allocation"],
+      "description": "NTT Communications - Network Operator"
+    },
+    {
+      "address": "0x3456789012345678901234567890123456789012",
+      "role": "compliance_officer",
+      "permissions": ["kyc_approval", "sanctions_screening", "reporting"],
+      "description": "Compliance oversight and regulatory reporting"
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "ipfs://QmFiberPPMHash",
+      "documentType": "offering_document",
+      "documentHash": "0xfiberpprhash123"
+    },
+    {
+      "name": "Submarine Cable System Specification",
+      "documentUri": "ipfs://QmCableSpecHash",
+      "documentType": "technical_specification",
+      "documentHash": "0xcablespechash456"
+    },
+    {
+      "name": "Capacity Service Agreements",
+      "documentUri": "ipfs://QmCapacityAgreementsHash",
+      "documentType": "contract",
+      "documentHash": "0xcapacityhash789"
+    },
+    {
+      "name": "Environmental Impact Assessment",
+      "documentUri": "ipfs://QmEnvironmentalHash",
+      "documentType": "environmental_report",
+      "documentHash": "0xenvironmentalhash012"
+    }
+  ],
+  
+  "customFeatures": {
+    "infrastructureType": "submarine_fiber_optic",
+    "cableLength": "8400_km",
+    "route": "Los_Angeles_to_Tokyo_Singapore",
+    "capacity": "144_terabits_per_second",
+    "designLife": "25_years",
+    "operationalDate": "2025-03-01",
+    "majorCustomers": [
+      "NTT Communications",
+      "Verizon Business",
+      "AT&T",
+      "SoftBank",
+      "China Telecom Global"
+    ],
+    "revenueModel": {
+      "capacityLeasing": "80%",
+      "wavelengthServices": "15%",
+      "maintenanceServices": "5%"
+    },
+    "financialProjections": {
+      "totalProjectCost": "1500000000",
+      "annualRevenue": "185000000",
+      "operatingExpenses": "35000000",
+      "netOperatingIncome": "150000000",
+      "cashDistributionYield": "10.0%"
+    },
+    "technicalSpecifications": {
+      "fiberPairs": 16,
+      "repeatersCount": 156,
+      "landingStations": ["Los_Angeles", "Guam", "Tokyo", "Singapore"],
+      "redundancy": "full_path_protection",
+      "latencyMs": 145
+    },
+    "riskFactors": [
+      "cable_breaks",
+      "geopolitical_tensions",
+      "technology_obsolescence",
+      "customer_concentration",
+      "regulatory_changes"
+    ],
+    "insuranceCoverage": {
+      "marineInsurance": "500000000",
+      "operationalInsurance": "100000000",
+      "businessInterruption": "200000000"
+    }
+  }
+}

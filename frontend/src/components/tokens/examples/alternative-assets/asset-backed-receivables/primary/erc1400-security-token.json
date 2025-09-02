@@ -1,0 +1,274 @@
+{
+  "name": "Corporate Invoice Receivables Fund",
+  "symbol": "CIRF",
+  "decimals": 18,
+  "description": "A tokenized fund backed by high-grade corporate invoice receivables with 30-90 day payment terms",
+  "initialSupply": "50000000",
+  "cap": "100000000",
+  "tokenDetails": "Security token representing fractional ownership in a portfolio of investment-grade corporate invoice receivables with weighted average maturity of 45 days",
+  "securityType": "debt",
+  "regulationType": "reg-d",
+  "issuingEntityName": "Chain Capital Receivables SPV LLC",
+  "issuingJurisdiction": "Delaware",
+  "issuingEntityLei": "5493000QVFGP2T1A7T23",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "fully-automated",
+  "complianceModule": "chain-capital-compliance-v2",
+  
+  "holdingPeriod": "0",
+  "maxInvestorCount": "499",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  "geographicRestrictions": ["CN", "IR", "KP", "SY"],
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://ipfs.io/ipfs/QmXRZ8hGvFJK2kN3PvQq7L8M9wBxYzK1pV",
+  "documentHash": "0x8f9a2b4c6d8e1f3a5b7c9d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a",
+  "legalTerms": "https://docs.chaincapital.com/receivables-fund/legal-terms",
+  "prospectus": "https://docs.chaincapital.com/receivables-fund/prospectus",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": true,
+  "settlementIntegration": "DTC",
+  "clearingHouseIntegration": true,
+  "centralSecuritiesDepositoryIntegration": true,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": false,
+  
+  "traditionalFinanceIntegration": true,
+  "swiftIntegrationEnabled": true,
+  "iso20022MessagingSupport": true,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": false,
+  "layer2ScalingSupport": true,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": true,
+  "marginRequirementsDynamic": false,
+  "collateralManagementEnabled": true,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingAmount": "10000",
+    "transferCooldownPeriod": "0",
+    "maximumTransferAmount": "1000000",
+    "requiresApproval": false,
+    "restrictedHours": []
+  },
+  
+  "kycSettings": {
+    "requiresCertifiedInvestor": true,
+    "minimumInvestmentAmount": "250000",
+    "maximumInvestmentAmount": "10000000",
+    "requiresAccreditation": true,
+    "accreditationTypes": ["income", "net-worth", "sophistication"]
+  },
+  
+  "complianceSettings": {
+    "regulatoryFramework": "SEC Rule 506(c)",
+    "investorLimits": {
+      "maxAccredited": 499,
+      "maxNonAccredited": 0
+    },
+    "reportingRequirements": {
+      "quarterly": true,
+      "annual": true,
+      "realTime": true
+    }
+  },
+  
+  "customFeatures": {
+    "receivablesType": "corporate-invoices",
+    "averageMaturity": "45-days",
+    "creditRatingMinimum": "BBB-",
+    "concentrationLimit": "5%",
+    "paymentTerms": "30-90 days",
+    "factorAdvanceRate": "85%",
+    "expectedYield": "8-12%",
+    "liquidityFeature": "daily-nav",
+    "underlying": {
+      "assetClass": "trade-receivables",
+      "geography": "US-UK-EU",
+      "currency": "USD",
+      "averageTicketSize": "150000"
+    }
+  },
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "autoApproval": false,
+    "requiresManualReview": true,
+    "kycRequirement": "institutional-grade"
+  },
+  
+  "investorLimits": {
+    "minimumInvestment": "250000",
+    "maximumInvestment": "10000000",
+    "accreditationRequired": true,
+    "institutionalOnly": false
+  },
+  
+  "transactionMonitoringRules": {
+    "largeTransactionThreshold": "1000000",
+    "velocityLimits": {
+      "daily": "5000000",
+      "monthly": "20000000"
+    },
+    "amlScreening": true,
+    "sanctionsChecking": true
+  },
+  
+  "jurisdictionRestrictions": [
+    {
+      "jurisdiction": "US",
+      "allowed": true,
+      "requirements": ["accredited-investor", "kyc-aml"]
+    },
+    {
+      "jurisdiction": "EU",
+      "allowed": true,
+      "requirements": ["mifid-ii", "kyc-aml"]
+    },
+    {
+      "jurisdiction": "UK",
+      "allowed": true,
+      "requirements": ["fca-approved", "kyc-aml"]
+    }
+  ],
+  
+  "thirdPartyCustodyAddresses": [
+    "0x742d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9D",
+    "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0B"
+  ],
+  
+  "partitions": [
+    {
+      "name": "Senior Tranche",
+      "symbol": "CIRF-A",
+      "amount": "40000000",
+      "description": "Senior tranche with first priority on cash flows and lowest risk profile",
+      "riskLevel": "low",
+      "targetYield": "8.5%",
+      "subordination": "0%",
+      "transferRestrictions": {
+        "lockupPeriod": "0",
+        "minimumTransfer": "50000",
+        "requiresApproval": false
+      }
+    },
+    {
+      "name": "Mezzanine Tranche",
+      "symbol": "CIRF-B",
+      "amount": "7500000",
+      "description": "Mezzanine tranche with moderate risk and higher expected returns",
+      "riskLevel": "medium",
+      "targetYield": "11.5%",
+      "subordination": "15%",
+      "transferRestrictions": {
+        "lockupPeriod": "90",
+        "minimumTransfer": "100000",
+        "requiresApproval": true
+      }
+    },
+    {
+      "name": "Equity Tranche",
+      "symbol": "CIRF-E",
+      "amount": "2500000",
+      "description": "First-loss equity tranche providing credit enhancement",
+      "riskLevel": "high",
+      "targetYield": "15-20%",
+      "subordination": "95%",
+      "transferRestrictions": {
+        "lockupPeriod": "365",
+        "minimumTransfer": "250000",
+        "requiresApproval": true
+      }
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x8a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+      "name": "Fund Manager",
+      "permissions": ["issue", "redeem", "force-transfer", "partition-management"],
+      "isActive": true,
+      "canDelegate": false
+    },
+    {
+      "address": "0x3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c",
+      "name": "Compliance Officer",
+      "permissions": ["whitelist-management", "sanctions-screening", "force-transfer"],
+      "isActive": true,
+      "canDelegate": false
+    },
+    {
+      "address": "0x5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d",
+      "name": "Custody Provider",
+      "permissions": ["custody-operations", "settlement"],
+      "isActive": true,
+      "canDelegate": true
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "https://ipfs.io/ipfs/QmPPM789xyz",
+      "documentType": "prospectus",
+      "documentHash": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b"
+    },
+    {
+      "name": "Subscription Agreement",
+      "documentUri": "https://ipfs.io/ipfs/QmSUB456def",
+      "documentType": "legal-agreement",
+      "documentHash": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+    },
+    {
+      "name": "Fund Administration Agreement",
+      "documentUri": "https://ipfs.io/ipfs/QmFAA123ghi",
+      "documentType": "service-agreement",
+      "documentHash": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d"
+    }
+  ]
+}

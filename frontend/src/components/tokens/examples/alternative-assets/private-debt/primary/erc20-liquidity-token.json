@@ -1,0 +1,170 @@
+{
+  "name": "Apollo Direct Lending Fund III Liquidity Token",
+  "symbol": "LADLF3",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "initialSupply": "100000000",
+  "cap": "500000000",
+  "tokenDetails": "ERC-20 liquidity token representing fractional ownership in Apollo Direct Lending Fund III. Enables secondary market trading and DeFi integrations while maintaining compliance with underlying security token.",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasVoting": false,
+  
+  "taxWithholding": true,
+  "taxRate": "0",
+  "dividendDistribution": true,
+  "maxTransactionLimit": "1000000",
+  "maxWalletLimit": "10000000",
+  
+  "useBlacklist": true,
+  "useWhitelist": true,
+  "complianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  
+  "useTransferRestrictions": true,
+  "useHoldingPeriod": true,
+  "holdingPeriodDays": "90",
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  
+  "bridgeEnabled": true,
+  "crossChainSupport": true,
+  "supportedChains": ["ethereum", "polygon", "arbitrum"],
+  
+  "liquidityProvisionEnabled": true,
+  "dexIntegrationEnabled": true,
+  "yieldFarmingEnabled": true,
+  "stakingEnabled": true,
+  "stakingRewardRate": "4.5",
+  "stakingLockupPeriod": "30",
+  
+  "flashLoanEnabled": false,
+  "collateralFactor": "0.75",
+  "liquidationThreshold": "0.85",
+  
+  "upgradeability": "transparent_proxy",
+  "adminMultisig": true,
+  "timelockDelay": "172800",
+  
+  "complianceSettings": {
+    "requireKyc": true,
+    "kycProviders": ["Jumio", "Onfido"],
+    "sanctionsScreening": true,
+    "amlMonitoring": true,
+    "transactionLimits": {
+      "daily": "500000",
+      "monthly": "2000000"
+    }
+  },
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 90,
+    "qualifiedInvestorOnly": true,
+    "transferApprovalRequired": false,
+    "automaticCompliance": true
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor"]
+    },
+    {
+      "country": "CN",
+      "allowed": false
+    },
+    {
+      "country": "IR",
+      "allowed": false
+    }
+  ],
+  
+  "dexIntegration": {
+    "uniswapV3": {
+      "enabled": true,
+      "poolFee": "3000",
+      "initialLiquidity": "1000000"
+    },
+    "curve": {
+      "enabled": true,
+      "poolType": "stable",
+      "amplificationCoefficient": "200"
+    },
+    "balancer": {
+      "enabled": true,
+      "poolType": "weighted",
+      "weights": ["80", "20"]
+    }
+  },
+  
+  "yieldStrategies": [
+    {
+      "strategy": "compound_lending",
+      "allocation": "40",
+      "targetApy": "3.5",
+      "riskLevel": "low"
+    },
+    {
+      "strategy": "aave_lending",
+      "allocation": "35",
+      "targetApy": "4.2",
+      "riskLevel": "low"
+    },
+    {
+      "strategy": "curve_lp",
+      "allocation": "25",
+      "targetApy": "6.8",
+      "riskLevel": "medium"
+    }
+  ],
+  
+  "liquidityMining": {
+    "enabled": true,
+    "rewardToken": "ADLF3",
+    "emissionRate": "1000000",
+    "duration": "365",
+    "boostMultiplier": "2.5"
+  },
+  
+  "governance": {
+    "votingEnabled": false,
+    "proposalThreshold": "1000000",
+    "quorumRequirement": "10",
+    "votingDelay": "1",
+    "votingPeriod": "7"
+  },
+  
+  "integrationAPIs": {
+    "chainlink": {
+      "priceFeed": true,
+      "proofOfReserve": true,
+      "automation": true
+    },
+    "defipulse": {
+      "yieldTracking": true,
+      "riskMetrics": true
+    },
+    "metamask": {
+      "walletIntegration": true,
+      "swapIntegration": true
+    }
+  },
+  
+  "metadata": {
+    "underlyingAsset": "Apollo Direct Lending Fund III",
+    "assetClass": "private_debt",
+    "strategy": "direct_lending",
+    "geography": "north_america",
+    "vintage": "2024",
+    "targetReturn": "SOFR+650",
+    "fundSize": "2000000000",
+    "managementFee": "1.5",
+    "performanceFee": "20"
+  }
+}

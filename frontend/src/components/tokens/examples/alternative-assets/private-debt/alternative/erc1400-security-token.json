@@ -1,0 +1,334 @@
+{
+  "name": "Blackstone Private Credit Fund II",
+  "symbol": "BPCF2",
+  "decimals": 6,
+  "standard": "ERC-1400",
+  "initialSupply": "750000000",
+  "cap": "3000000000",
+  "securityType": "debt_instrument",
+  "regulationType": "reg-d",
+  "tokenDetails": "Tokenized private credit fund with semi-fungible value tranches. Focuses on direct lending, distressed debt, and mezzanine financing across multiple sectors with enhanced liquidity features.",
+  "issuingEntityName": "Blackstone Credit Holdings II, LLC",
+  "issuingJurisdiction": "Delaware, USA",
+  "issuingEntityLei": "549300BLACKSTONECR456",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "fully-automated",
+  "complianceModule": "institutional-grade-screening",
+  
+  "holdingPeriod": "12",
+  "maxInvestorCount": "2000",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": true,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://blackstone-credit.com/docs/fund-ii/",
+  "documentHash": "0x9876543210fedcba",
+  "legalTerms": "https://blackstone-credit.com/legal/fund-ii-terms.pdf",
+  "prospectus": "https://blackstone-credit.com/prospectus/fund-ii-prospectus.pdf",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": true,
+  "settlementIntegration": "dtcc",
+  "clearingHouseIntegration": true,
+  "centralSecuritiesDepositoryIntegration": true,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": true,
+  
+  "traditionalFinanceIntegration": true,
+  "swiftIntegrationEnabled": true,
+  "iso20022MessagingSupport": true,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": true,
+  "layer2ScalingSupport": true,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": true,
+  "marginRequirementsDynamic": true,
+  "collateralManagementEnabled": true,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 365,
+    "qualifiedInvestorOnly": true,
+    "maximumInvestorsPerJurisdiction": 500,
+    "transferApprovalRequired": false,
+    "automaticCompliance": true,
+    "fractionalTransfersEnabled": true,
+    "lockupPeriods": [
+      {
+        "investorType": "institutional",
+        "lockupDays": 180
+      },
+      {
+        "investorType": "qualified",
+        "lockupDays": 365
+      }
+    ]
+  },
+  
+  "kycSettings": {
+    "kycProviders": ["Chainalysis", "Elliptic", "Jumio"],
+    "verificationLevels": ["basic", "enhanced", "institutional"],
+    "documentRequirements": ["passport", "utility_bill", "bank_statement", "investment_experience"],
+    "biometricVerification": true,
+    "continuousMonitoring": true,
+    "institutionalDueDiligence": true
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": {
+      "enabled": true,
+      "databases": ["OFAC", "EU", "UN", "HMT", "AUSTRAC"],
+      "realTimeChecking": true,
+      "extendedScreening": true
+    },
+    "amlCompliance": {
+      "enabled": true,
+      "transactionMonitoring": true,
+      "behavioralAnalysis": true,
+      "suspiciousActivityThresholds": {
+        "singleTransaction": "250000",
+        "dailyAggregate": "1000000",
+        "monthlyAggregate": "5000000"
+      }
+    },
+    "pepScreening": {
+      "enabled": true,
+      "extendedFamily": true,
+      "associateScreening": true,
+      "riskScoring": true
+    },
+    "fatcaCompliance": {
+      "enabled": true,
+      "automaticReporting": true
+    }
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor", "kyc_verified"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor", "kyc_verified"]
+    },
+    {
+      "country": "GB",
+      "allowed": true,
+      "conditions": ["sophisticated_investor", "kyc_verified"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "regulatory_restrictions"
+    },
+    {
+      "country": "IR",
+      "allowed": false,
+      "reason": "sanctions"
+    }
+  ],
+  
+  "investorLimits": {
+    "maximumInvestors": 2000,
+    "minimumInvestment": "100000",
+    "maximumInvestment": "100000000",
+    "accreditationRequired": true,
+    "institutionalMinimum": "2500000",
+    "retailMinimum": "100000"
+  },
+  
+  "partitions": [
+    {
+      "id": "direct-lending-tranche",
+      "name": "Direct Lending Tranche",
+      "description": "Senior secured direct loans to mid-market companies",
+      "amount": "450000000",
+      "percentage": "60",
+      "riskRating": "A+",
+      "targetReturn": "SOFR+500",
+      "transferable": true,
+      "votingRights": false,
+      "redemptionRights": true,
+      "liquidityScore": "high"
+    },
+    {
+      "id": "distressed-debt-tranche",
+      "name": "Distressed Debt Tranche",
+      "description": "Distressed and special situations debt investments",
+      "amount": "225000000",
+      "percentage": "30",
+      "riskRating": "B+",
+      "targetReturn": "SOFR+1200",
+      "transferable": true,
+      "votingRights": false,
+      "redemptionRights": false,
+      "liquidityScore": "medium"
+    },
+    {
+      "id": "mezzanine-tranche",
+      "name": "Mezzanine Financing Tranche",
+      "description": "Subordinated debt and mezzanine financing",
+      "amount": "75000000",
+      "percentage": "10",
+      "riskRating": "BB",
+      "targetReturn": "15-18%",
+      "transferable": false,
+      "votingRights": true,
+      "redemptionRights": false,
+      "liquidityScore": "low"
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0xabcdef1234567890123456789012345678901234",
+      "name": "Blackstone Credit Management",
+      "role": "fund_manager",
+      "permissions": ["mint", "burn", "transfer_control", "compliance_override", "partition_management"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "credit-ops@blackstone.com",
+        "phone": "+1-212-583-5000"
+      }
+    },
+    {
+      "address": "0xbcdef12345678901234567890123456789012345",
+      "name": "State Street Trust",
+      "role": "administrative_agent",
+      "permissions": ["custody", "settlement", "reporting", "investor_services"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "admin@statestreet.com",
+        "phone": "+1-617-786-3000"
+      }
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "https://blackstone-credit.com/docs/ppm-fund-ii.pdf",
+      "documentType": "prospectus",
+      "documentHash": "0xfedcba0987654321",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "2.0"
+    },
+    {
+      "name": "Credit Agreement",
+      "documentUri": "https://blackstone-credit.com/docs/credit-agreement.pdf",
+      "documentType": "legal_agreement",
+      "documentHash": "0xedcba09876543210",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "ESG Policy Statement",
+      "documentUri": "https://blackstone-credit.com/docs/esg-policy.pdf",
+      "documentType": "policy",
+      "documentHash": "0xdcba098765432109",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    }
+  ],
+  
+  "corporateActions": [
+    {
+      "actionType": "distribution",
+      "announcementDate": "2024-03-01",
+      "recordDate": "2024-03-15",
+      "effectiveDate": "2024-03-31",
+      "paymentDate": "2024-04-15",
+      "actionDetails": {
+        "distributionType": "quarterly_distribution",
+        "amountPerToken": "0.0875",
+        "currency": "USD",
+        "taxWithholding": true,
+        "reinvestmentOption": true
+      },
+      "status": "completed"
+    }
+  ],
+  
+  "custodyProviders": [
+    {
+      "providerName": "State Street Corporation",
+      "providerType": "global_custodian",
+      "providerLei": "571474TGEMMWANRLN572",
+      "custodyAgreementHash": "0x1a2b3c4d5e6f7890",
+      "isActive": true,
+      "certificationLevel": "tier_1",
+      "jurisdiction": "United States",
+      "regulatoryApprovals": ["SEC", "OCC", "FINRA", "CFTC"],
+      "integrationStatus": "live",
+      "services": ["custody", "fund_administration", "transfer_agency"]
+    }
+  ],
+  
+  "regulatoryFilings": [
+    {
+      "filingType": "Form D",
+      "filingDate": "2024-01-30",
+      "filingJurisdiction": "SEC",
+      "filingReference": "021-405789",
+      "regulatoryBody": "Securities and Exchange Commission",
+      "complianceStatus": "filed",
+      "autoGenerated": false
+    },
+    {
+      "filingType": "Form ADV",
+      "filingDate": "2024-02-15",
+      "filingJurisdiction": "SEC",
+      "filingReference": "801-999999",
+      "regulatoryBody": "Securities and Exchange Commission",
+      "complianceStatus": "filed",
+      "autoGenerated": true
+    }
+  ]
+}

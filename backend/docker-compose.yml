@@ -1,0 +1,133 @@
+# Chain Capital Backend - Docker Compose for Development
+version: '3.8'
+
+services:
+  # Chain Capital Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: chain-capital-backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      # Server Configuration
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+      
+      # Database Configuration (uses existing Supabase)
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL}
+      
+      # JWT Configuration
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      
+      # CORS Configuration
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      
+      # Rate Limiting
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
+      - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-60000}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      
+      # Security
+      - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
+      
+      # External Services
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # Blockchain Configuration
+      - DEFAULT_BLOCKCHAIN=${DEFAULT_BLOCKCHAIN:-ethereum}
+      - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL}
+      - POLYGON_RPC_URL=${POLYGON_RPC_URL}
+      - BSC_RPC_URL=${BSC_RPC_URL}
+      
+      # External API Services
+      - MOONPAY_API_URL=${MOONPAY_API_URL:-https://api.moonpay.com}
+      - MOONPAY_API_KEY=${MOONPAY_API_KEY}
+      - RIPPLE_API_URL=${RIPPLE_API_URL:-https://s1.ripple.com:51234}
+      - DFNS_API_URL=${DFNS_API_URL:-https://api.dfns.ninja}
+      - DFNS_APP_ID=${DFNS_APP_ID}
+      - DFNS_AUTH_TOKEN=${DFNS_AUTH_TOKEN}
+      - GUARDIAN_API_URL=${GUARDIAN_API_URL}
+      - GUARDIAN_API_KEY=${GUARDIAN_API_KEY}
+      
+      # File Upload
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-10485760}
+      - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES:-.pdf,.doc,.docx,.jpg,.png,.jpeg}
+      
+      # Swagger Documentation
+      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-true}
+      - SWAGGER_HOST=${SWAGGER_HOST:-localhost:3001}
+      - SWAGGER_SCHEMES=${SWAGGER_SCHEMES:-http}
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const options = { host: 'localhost', port: 3001, path: '/health', timeout: 2000 }; const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Networks
+    networks:
+      - chain-capital-network
+
+  # Optional: Redis for caching and session management
+  # Uncomment if you want to add Redis support
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: chain-capital-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   command: redis-server --appendonly yes
+  #   networks:
+  #     - chain-capital-network
+
+  # Optional: nginx reverse proxy for production
+  # Uncomment for production deployment with nginx
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: chain-capital-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - chain-capital-network
+
+# Networks
+networks:
+  chain-capital-network:
+    driver: bridge
+    name: chain-capital-network
+
+# Volumes for persistent data
+volumes:
+  # redis_data:
+  #   driver: local
+  backend_uploads:
+    driver: local

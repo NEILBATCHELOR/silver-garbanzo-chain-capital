@@ -1,0 +1,140 @@
+{
+  "name": "Fractional Gold Securities Token",
+  "symbol": "FGST",
+  "decimals": 18,
+  "description": "A compliance-focused, gold-backed security token with ERC-1400 regulatory features enabling fractional ownership and sophisticated investor management for institutional gold exposure.",
+  "standard": "ERC-1400",
+  "total_supply": "5000000000",
+  "initial_supply": "500000000",
+  "cap": "25000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "commodity_security",
+  "regulation_type": "reg-d",
+  "issuing_entity_name": "Fractional Gold Investments Ltd.",
+  "issuing_jurisdiction": "British Virgin Islands",
+  "issuing_entity_lei": "549300FGI123456789012",
+  "commodity_type": "investment_grade_gold",
+  "commodity_grade": "LBMA Good Delivery",
+  "backing_ratio": "0.02",
+  "backing_unit": "fine_troy_ounce",
+  "fractional_ownership": true,
+  "minimum_fraction": "0.001",
+  "vault_locations": ["London", "Zurich", "New York"],
+  "custodian": "JP Morgan Chase Bank",
+  "sub_custodian": "HSBC Bank plc",
+  "assayer": "Johnson Matthey",
+  "insurance_provider": "Zurich Insurance Group",
+  "insurance_coverage": "1000000000",
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": true,
+  "controllers": ["0x6789012345678901234567890123456789012345"],
+  "operators": ["0x7890123456789012345678901234567890123456"],
+  "default_partitions": ["accredited", "institutional", "qualified"],
+  "partitions": [
+    {
+      "name": "accredited",
+      "flag": "0x01",
+      "is_default": true,
+      "transferable": true,
+      "controllable": true,
+      "description": "Accredited investor partition with standard features"
+    },
+    {
+      "name": "institutional",
+      "flag": "0x02",
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Institutional investor partition with enhanced services"
+    },
+    {
+      "name": "qualified",
+      "flag": "0x03",
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Qualified purchaser partition for large investors"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "uri": "https://fractionalgold.com/docs/ppm.pdf",
+      "document_hash": "0xabc123456789012abc123456789012abc123456789"
+    },
+    {
+      "name": "Gold Custody Agreement",
+      "uri": "https://fractionalgold.com/docs/custody-agreement.pdf",
+      "document_hash": "0xbcd234567890123bcd234567890123bcd234567890"
+    },
+    {
+      "name": "Subscription Agreement",
+      "uri": "https://fractionalgold.com/docs/subscription-agreement.pdf",
+      "document_hash": "0xcde345678901234cde345678901234cde345678901"
+    }
+  ],
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "blocked",
+  "geographic_restrictions": ["US", "CN", "RU", "IR", "KP"],
+  "whitelist_enabled": true,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": true,
+    "maximum_investors": 499,
+    "minimum_investment": "25000",
+    "maximum_investment": "50000000",
+    "lock_up_period": "365",
+    "transfer_restrictions": {
+      "cooling_off_period": "2592000",
+      "requires_approval": true,
+      "whitelist_only": true
+    }
+  },
+  "investor_management": {
+    "investor_registry": true,
+    "cap_table_management": true,
+    "distribution_tracking": true,
+    "tax_reporting": true,
+    "investor_communications": true,
+    "voting_rights": false
+  },
+  "commodity_governance": {
+    "gold_committee": true,
+    "custody_oversight": true,
+    "audit_committee": true,
+    "valuation_committee": true,
+    "quarterly_reporting": true,
+    "annual_meeting": true
+  },
+  "vault_security": {
+    "multi_location_storage": true,
+    "segregated_accounts": true,
+    "armed_security": true,
+    "biometric_access": true,
+    "24_7_monitoring": true,
+    "earthquake_resistant": true
+  },
+  "fees": {
+    "management_fee": "0.75",
+    "custody_fee": "0.25",
+    "insurance_fee": "0.15",
+    "audit_fee": "0.1",
+    "administration_fee": "0.2"
+  },
+  "metadata": {
+    "security_type": "commodity_backed_security",
+    "investment_strategy": "physical_gold_exposure",
+    "target_investors": "accredited_and_institutional",
+    "regulatory_framework": "private_placement",
+    "custody_model": "institutional_grade",
+    "fractional_benefits": ["lower_minimum_investment", "enhanced_liquidity", "professional_management"],
+    "risk_factors": ["gold_price_volatility", "custody_risk", "regulatory_changes"]
+  }
+}

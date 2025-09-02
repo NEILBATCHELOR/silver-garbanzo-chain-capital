@@ -1,0 +1,117 @@
+{
+  "name": "Decentralized Asset-Backed USD",
+  "symbol": "DABUSD",
+  "decimals": 18,
+  "description": "A decentralized, crypto-collateralized stablecoin backed by a diversified portfolio of digital assets with ERC-1400 compliance features and overcollateralization mechanisms.",
+  "standard": "ERC-1400",
+  "total_supply": "2000000000",
+  "initial_supply": "200000000",
+  "cap": "10000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "crypto_backed_stablecoin",
+  "regulation_type": "utility",
+  "issuing_entity_name": "Decentralized Asset Backing DAO",
+  "issuing_jurisdiction": "Cayman Islands",
+  "issuing_entity_lei": "",
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": false,
+  "controllers": [],
+  "operators": ["0x3456789012345678901234567890123456789012"],
+  "default_partitions": ["standard", "institutional"],
+  "partitions": [
+    {
+      "name": "standard",
+      "flag": "0x01",
+      "is_default": true,
+      "transferable": true,
+      "controllable": false,
+      "description": "Standard crypto-backed stablecoin partition"
+    },
+    {
+      "name": "institutional",
+      "flag": "0x02",
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Institutional partition with enhanced features"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Collateral Management Policy",
+      "uri": "https://dabusd.finance/docs/collateral-policy.pdf",
+      "document_hash": "0xdef456789012def456789012def456789012def4"
+    },
+    {
+      "name": "Liquidation Procedures",
+      "uri": "https://dabusd.finance/docs/liquidation-procedures.pdf",
+      "document_hash": "0xef4567890123ef4567890123ef4567890123ef45"
+    }
+  ],
+  "use_geographic_restrictions": false,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": [],
+  "whitelist_enabled": false,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": false,
+    "kyc_required": false,
+    "aml_required": false,
+    "accredited_investors_only": false,
+    "maximum_investors": 0,
+    "minimum_investment": "1",
+    "maximum_investment": "0",
+    "lock_up_period": "0",
+    "transfer_restrictions": {
+      "cooling_off_period": "0",
+      "requires_approval": false,
+      "whitelist_only": false
+    }
+  },
+  "collateral_management": {
+    "accepted_collateral": ["ETH", "WBTC", "stETH", "USDC", "USDT"],
+    "minimum_collateralization_ratio": "150",
+    "liquidation_threshold": "125",
+    "liquidation_penalty": "10",
+    "stability_fee": "2.5",
+    "debt_ceiling": "1000000000"
+  },
+  "governance_structure": {
+    "dao_governance": true,
+    "proposal_threshold": "100000",
+    "voting_period": "72",
+    "timelock_delay": "48",
+    "governance_token": "DABG",
+    "multisig_required": true
+  },
+  "risk_parameters": {
+    "collateral_diversification": true,
+    "maximum_single_collateral": "40",
+    "oracle_system": "chainlink_band",
+    "price_feed_timeout": "3600",
+    "emergency_shutdown": true,
+    "circuit_breakers": true
+  },
+  "fees": {
+    "stability_fee": "2.5",
+    "liquidation_penalty": "10.0",
+    "governance_fee": "0.0",
+    "oracle_fee": "0.0"
+  },
+  "metadata": {
+    "stablecoin_type": "crypto_collateralized",
+    "collateral_model": "multi_asset_overcollateralized",
+    "governance_model": "dao_controlled",
+    "liquidation_model": "automated_auction",
+    "oracle_model": "decentralized_feeds",
+    "emergency_controls": "dao_multisig",
+    "target_collateralization": "200_percent",
+    "supported_defi_protocols": ["MakerDAO", "Aave", "Compound"],
+    "cross_chain_support": false,
+    "algorithmic_components": false
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "name": "California Solar Farm I Security Token",
+  "symbol": "CASF1",
+  "decimals": 18,
+  "initialSupply": "10000000",
+  "cap": "10000000",
+  "tokenDetails": "Security token representing fractional ownership in a 150MW solar farm in Fresno County, California. Token holders receive dividends from power purchase agreements and benefit from renewable energy credits.",
+  "securityType": "equity",
+  "regulationType": "reg-d",
+  "issuingEntityName": "California Solar Partners LLC",
+  "issuingJurisdiction": "Delaware",
+  "issuingEntityLei": "254900CJWM2WGNHQNG89",
+  
+  "isMintable": true,
+  "isBurnable": false,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "fully-automated",
+  "complianceModule": "0x742d35Cc6634C0532925a3b8D1b9E6BF9E8B0A86",
+  
+  "holdingPeriod": "365",
+  "maxInvestorCount": "499",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": false,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://ipfs.io/ipfs/QmSolarFarmDocs123456789",
+  "documentHash": "0x123456789abcdef",
+  "legalTerms": "Private placement memorandum for solar farm investment",
+  "prospectus": "California Solar Farm I - Offering Memorandum",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": false,
+  "settlementIntegration": "dvp",
+  "clearingHouseIntegration": false,
+  "centralSecuritiesDepositoryIntegration": false,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "advancedCorporateActions": false,
+  "stockSplitsEnabled": false,
+  "stockDividendsEnabled": true,
+  "rightsOfferingsEnabled": false,
+  "spinOffsEnabled": false,
+  "mergersAcquisitionsSupport": false,
+  "treasuryManagementEnabled": true,
+  "buybackProgramsEnabled": false,
+  "shareRepurchaseAutomation": false,
+  
+  "advancedGovernanceEnabled": false,
+  "proxyVotingEnabled": false,
+  "cumulativeVotingEnabled": false,
+  "weightedVotingByClass": false,
+  "votingDelegationEnabled": false,
+  "institutionalVotingServices": false,
+  "boardElectionSupport": false,
+  
+  "crossBorderTradingEnabled": false,
+  "multiJurisdictionCompliance": false,
+  "passportRegimeSupport": false,
+  "treatyBenefitsEnabled": false,
+  "withholdingTaxAutomation": false,
+  "currencyHedgingEnabled": false,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": true,
+  
+  "traditionalFinanceIntegration": false,
+  "swiftIntegrationEnabled": false,
+  "iso20022MessagingSupport": false,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": false,
+  "layer2ScalingSupport": false,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": false,
+  "marginRequirementsDynamic": false,
+  "collateralManagementEnabled": false,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 365,
+    "maximumInvestors": 499,
+    "accreditationRequired": true,
+    "resaleRestrictions": "2-year holding period for secondary sales"
+  },
+  "kycSettings": {
+    "provider": "Jumio",
+    "automatedVerification": true,
+    "documentsRequired": ["passport", "proof_of_address", "accreditation_letter"],
+    "refreshInterval": 365
+  },
+  "complianceSettings": {
+    "regDCompliance": true,
+    "blueSkyExemptions": ["CA", "NY", "TX"],
+    "sanctionsScreening": true,
+    "amlChecks": true
+  },
+  "geographicRestrictions": ["CN", "RU", "IR", "KP"],
+  "investorLimits": {
+    "maxPerInvestor": "5%",
+    "aggregateLimit": "100%",
+    "institutionalMinimum": "$100000"
+  },
+  "customFeatures": {
+    "renewableEnergyCredits": true,
+    "carbonOffsetTracking": true,
+    "realTimeEnergyProduction": true,
+    "weatherDataIntegration": true
+  },
+  
+  "partitions": [
+    {
+      "name": "Common Shares",
+      "amount": "10000000",
+      "transferable": true,
+      "dividendRights": true,
+      "votingRights": false,
+      "liquidationPreference": 1.0
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "name": "California Solar Partners",
+      "controllerType": "issuer",
+      "permissions": ["issue", "redeem", "forcedTransfer", "pause"],
+      "isActive": true
+    },
+    {
+      "address": "0xAbCdEf1234567890123456789012345678901234",
+      "name": "Compliance Officer",
+      "controllerType": "compliance",
+      "permissions": ["whitelist", "sanctions", "reporting"],
+      "isActive": true
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "https://ipfs.io/ipfs/QmPPM123456789",
+      "documentType": "offering_memorandum",
+      "documentHash": "0xabc123def456",
+      "createdAt": "2025-01-01T00:00:00Z"
+    },
+    {
+      "name": "Power Purchase Agreement",
+      "documentUri": "https://ipfs.io/ipfs/QmPPA123456789",
+      "documentType": "material_agreement",
+      "documentHash": "0xdef456abc123",
+      "createdAt": "2025-01-01T00:00:00Z"
+    },
+    {
+      "name": "Environmental Impact Assessment",
+      "documentUri": "https://ipfs.io/ipfs/QmEIA123456789",
+      "documentType": "regulatory_filing",
+      "documentHash": "0x456789abc123",
+      "createdAt": "2025-01-01T00:00:00Z"
+    }
+  ],
+  
+  "corporateActions": [
+    {
+      "actionType": "dividend",
+      "announcementDate": "2025-03-15",
+      "recordDate": "2025-03-31",
+      "paymentDate": "2025-04-15",
+      "actionDetails": {
+        "dividendPerShare": "0.25",
+        "currency": "USD",
+        "paymentMethod": "USDC"
+      },
+      "status": "scheduled"
+    }
+  ],
+  
+  "custodyProviders": [
+    {
+      "providerName": "Fireblocks",
+      "providerType": "digital_custody",
+      "providerAddress": "0xFireblocks123456789012345678901234567890",
+      "custodyAgreementHash": "0xfireblocks123",
+      "isActive": true,
+      "certificationLevel": "SOC2",
+      "jurisdiction": "New York",
+      "regulatoryApprovals": ["NYDFS"],
+      "integrationStatus": "active"
+    }
+  ],
+  
+  "regulatoryFilings": [
+    {
+      "filingType": "form_d",
+      "filingDate": "2025-01-15",
+      "filingJurisdiction": "SEC",
+      "filingReference": "021-123456",
+      "regulatoryBody": "SEC",
+      "complianceStatus": "filed",
+      "autoGenerated": true
+    }
+  ]
+}

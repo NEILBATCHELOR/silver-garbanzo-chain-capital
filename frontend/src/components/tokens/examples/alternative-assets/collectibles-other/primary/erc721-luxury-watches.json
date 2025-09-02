@@ -1,0 +1,289 @@
+{
+  "name": "Luxury Watch Collection NFT",
+  "symbol": "LUXWATCH",
+  "description": "Premium NFT collection representing ownership of authenticated luxury timepieces from renowned manufacturers including Patek Philippe, Rolex, and Audemars Piguet.",
+  "decimals": 0,
+  "total_supply": "5000",
+  "max_supply": "5000",
+  
+  "standard": "ERC-721",
+  "asset_type": "luxury_collectibles",
+  "collection_type": "curated_luxury",
+  
+  "metadata_storage": "ipfs",
+  "base_uri": "ipfs://QmLuxuryWatchCollection/",
+  "metadata_updatable": false,
+  "revealed": true,
+  
+  "minting_type": "curated",
+  "auto_increment_ids": true,
+  "start_token_id": "1",
+  "minting_enabled": true,
+  "burning_enabled": false,
+  
+  "has_royalty": true,
+  "royalty_percentage": "7.5",
+  "royalty_receiver": "0x1234567890123456789012345678901234567890",
+  "resale_royalty_enabled": true,
+  
+  "transferable": true,
+  "tradeable": true,
+  "fractional_enabled": true,
+  "rental_enabled": true,
+  
+  "access_control": "ownable",
+  "pausable": true,
+  "upgradeable": false,
+  
+  "whitelist_enabled": true,
+  "public_minting_enabled": false,
+  "presale_enabled": true,
+  
+  "provenance_tracking": true,
+  "authenticity_verification": true,
+  "physical_backing": true,
+  "custodial_storage": true,
+  
+  "insurance_enabled": true,
+  "appraisal_required": true,
+  "condition_monitoring": true,
+  
+  "marketplace_integration": true,
+  "auction_enabled": true,
+  "fixed_price_enabled": true,
+  "offer_system_enabled": true,
+  
+  "staking_enabled": true,
+  "rewards_enabled": true,
+  "governance_enabled": false,
+  
+  "cross_chain_enabled": true,
+  "bridgeable": true,
+  "layer2_support": true,
+  
+  "token_attributes": [
+    {
+      "trait_type": "Brand",
+      "values": [
+        "Patek Philippe",
+        "Rolex", 
+        "Audemars Piguet",
+        "Vacheron Constantin",
+        "A. Lange & Söhne",
+        "Jaeger-LeCoultre",
+        "Richard Mille",
+        "F.P. Journe"
+      ]
+    },
+    {
+      "trait_type": "Model",
+      "values": [
+        "Nautilus 5711A",
+        "Daytona 116500LN",
+        "Royal Oak 15400ST",
+        "Overseas 4500V",
+        "Lange 1 191.032",
+        "Reverso Classic",
+        "RM 11-03",
+        "Chronomètre Souverain"
+      ]
+    },
+    {
+      "trait_type": "Condition",
+      "values": ["Mint", "Excellent", "Very Good", "Good"]
+    },
+    {
+      "trait_type": "Year",
+      "values": ["2024", "2023", "2022", "2021", "2020", "2019", "2018", "Vintage"]
+    },
+    {
+      "trait_type": "Material",
+      "values": ["Stainless Steel", "Yellow Gold", "White Gold", "Rose Gold", "Platinum", "Titanium", "Carbon Fiber"]
+    },
+    {
+      "trait_type": "Movement",
+      "values": ["Automatic", "Manual", "Quartz", "Tourbillon", "Perpetual Calendar", "Minute Repeater"]
+    },
+    {
+      "trait_type": "Rarity",
+      "values": ["Common", "Uncommon", "Rare", "Very Rare", "Ultra Rare", "One of a Kind"]
+    },
+    {
+      "trait_type": "Complications",
+      "values": ["Time Only", "Date", "GMT", "Chronograph", "Moon Phase", "Annual Calendar", "Perpetual Calendar"]
+    }
+  ],
+  
+  "mint_phases": [
+    {
+      "phase_name": "Private Preview",
+      "start_time": "2024-06-01T00:00:00Z",
+      "end_time": "2024-06-07T23:59:59Z",
+      "price": "5.0",
+      "currency": "ETH",
+      "max_per_wallet": "3",
+      "max_supply": "500",
+      "whitelist_only": true,
+      "tier": "ultra_premium"
+    },
+    {
+      "phase_name": "Collector Presale",
+      "start_time": "2024-06-08T00:00:00Z", 
+      "end_time": "2024-06-14T23:59:59Z",
+      "price": "3.5",
+      "currency": "ETH",
+      "max_per_wallet": "5",
+      "max_supply": "1500",
+      "whitelist_only": true,
+      "tier": "premium"
+    },
+    {
+      "phase_name": "Public Auction",
+      "start_time": "2024-06-15T00:00:00Z",
+      "end_time": "2024-06-30T23:59:59Z",
+      "price": "2.0",
+      "currency": "ETH",
+      "max_per_wallet": "10",
+      "max_supply": "3000",
+      "whitelist_only": false,
+      "tier": "standard"
+    }
+  ],
+  
+  "trait_definitions": [
+    {
+      "trait_name": "Investment Grade",
+      "trait_type": "quality_rating",
+      "possible_values": [
+        {
+          "value": "Blue Chip",
+          "rarity_weight": 5,
+          "description": "Highest tier luxury watches from top-tier brands"
+        },
+        {
+          "value": "Investment Grade",
+          "rarity_weight": 15,
+          "description": "Premium watches with strong appreciation potential"
+        },
+        {
+          "value": "Collector Grade",
+          "rarity_weight": 40,
+          "description": "Quality timepieces popular among collectors"
+        },
+        {
+          "value": "Entry Luxury",
+          "rarity_weight": 40,
+          "description": "Accessible luxury watches from established brands"
+        }
+      ]
+    },
+    {
+      "trait_name": "Provenance",
+      "trait_type": "ownership_history",
+      "possible_values": [
+        {
+          "value": "Celebrity Owned",
+          "rarity_weight": 2,
+          "description": "Previously owned by notable public figures"
+        },
+        {
+          "value": "Boutique Fresh",
+          "rarity_weight": 10,
+          "description": "Direct from authorized dealer"
+        },
+        {
+          "value": "Collector Estate",
+          "rarity_weight": 20,
+          "description": "From distinguished private collection"
+        },
+        {
+          "value": "Verified Authentic",
+          "rarity_weight": 68,
+          "description": "Authenticated through standard verification"
+        }
+      ]
+    }
+  ],
+  
+  "custody_details": {
+    "custodian": "Brink's Global Services",
+    "storage_locations": ["New York", "London", "Geneva", "Hong Kong"],
+    "insurance_provider": "Lloyd's of London",
+    "insurance_coverage": "full_replacement_value",
+    "security_features": ["biometric_access", "24_7_monitoring", "climate_controlled"],
+    "retrieval_process": "token_burn_mechanism"
+  },
+  
+  "authentication": {
+    "verification_partner": "Hodinkee Authentication",
+    "authentication_process": [
+      "physical_inspection",
+      "movement_verification", 
+      "serial_number_check",
+      "provenance_research",
+      "market_valuation"
+    ],
+    "certification_standard": "COSC_certified",
+    "blockchain_attestation": true
+  },
+  
+  "marketplace_features": {
+    "primary_marketplace": "OpenSea",
+    "secondary_marketplaces": ["Foundation", "SuperRare", "Christie's 3.0"],
+    "auction_house_partnerships": ["Sotheby's", "Christie's", "Phillips"],
+    "price_discovery": "dutch_auction",
+    "reserve_pricing": true,
+    "buy_now_option": true
+  },
+  
+  "fractional_ownership": {
+    "enabled": true,
+    "minimum_fraction": "0.01",
+    "maximum_fractions": "100",
+    "governance_rights": "proportional",
+    "exit_mechanism": "buyout_option",
+    "liquidity_pool": "Uniswap_V3"
+  },
+  
+  "utility_features": {
+    "exclusive_events": [
+      "Baselworld_VIP_Access",
+      "SIHH_Private_Tours",
+      "Master_Watchmaker_Workshops"
+    ],
+    "physical_benefits": [
+      "Concierge_Services",
+      "Watch_Servicing_Discounts",
+      "Insurance_Discounts"
+    ],
+    "digital_perks": [
+      "Metaverse_Display_Rights",
+      "AR_Try_On_Features",
+      "Virtual_Collection_Gallery"
+    ]
+  },
+  
+  "investment_metrics": {
+    "average_appreciation": "12.5%_annually",
+    "liquidity_score": "high",
+    "market_volatility": "moderate",
+    "correlation_to_traditional_assets": "low",
+    "alternative_investment_classification": true
+  },
+  
+  "legal_framework": {
+    "ownership_structure": "beneficial_ownership",
+    "jurisdiction": "Switzerland",
+    "regulatory_compliance": ["MiCA", "Swiss_Financial_Market_Law"],
+    "tax_considerations": "collectibles_tax_treatment",
+    "inheritance_provisions": "NFT_will_integration"
+  },
+  
+  "technology_stack": {
+    "blockchain": "Ethereum",
+    "layer2_support": ["Polygon", "Arbitrum"],
+    "metadata_standard": "ERC-721_compatible",
+    "storage_protocol": "IPFS",
+    "oracle_integration": "Chainlink_price_feeds"
+  }
+}

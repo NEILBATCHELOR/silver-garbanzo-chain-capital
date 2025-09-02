@@ -1,0 +1,205 @@
+{
+  "name": "Golden Gate Bridge Infrastructure Token",
+  "symbol": "GGBIT",
+  "description": "ERC-20 liquidity token providing tradeable exposure to Golden Gate Bridge modernization project. Enables secondary market trading and institutional DeFi access.",
+  "decimals": 18,
+  "initialSupply": "21000000",
+  "maxSupply": "21000000",
+  "totalSupply": "21000000",
+  
+  "tokenDetails": "Institutional-grade liquidity token backed by Golden Gate Bridge infrastructure bonds and project phases",
+  "tokenType": "asset_backed",
+  "useCase": "infrastructure_liquidity",
+  
+  "isMintable": false,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasCap": true,
+  
+  "transfer_restrictions_enabled": true,
+  "kyc_required": true,
+  "whitelist_enabled": true,
+  "pausable_transfers": true,
+  
+  "has_fees": true,
+  "transfer_fee_percentage": "0.15",
+  "fee_recipient": "0x1234567890123456789012345678901234567890",
+  "fee_exemptions": [
+    "0x1234567890123456789012345678901234567890",
+    "0x2345678901234567890123456789012345678901"
+  ],
+  
+  "has_rewards": true,
+  "rewards_token": "0x0000000000000000000000000000000000000000",
+  "rewards_rate": "4.25",
+  "staking_enabled": true,
+  "staking_rewards_rate": "5.0",
+  
+  "deflationary": false,
+  "buyback_enabled": true,
+  "buyback_percentage": "1.0",
+  "tax_on_transactions": true,
+  "tax_percentage": "0.1",
+  
+  "governance_enabled": true,
+  "voting_power": 1,
+  "proposal_threshold": "100000",
+  "voting_delay": "7_days",
+  "voting_period": "14_days",
+  
+  "liquidity_provision": {
+    "automated_market_maker": true,
+    "supported_dexes": ["Curve Finance", "Balancer", "1inch"],
+    "stable_pools_enabled": true,
+    "initial_liquidity_pairs": [
+      {
+        "token_a": "GGBIT",
+        "token_b": "USDC",
+        "initial_ratio": "1:100",
+        "liquidity_amount": "1000000",
+        "pool_type": "stable_swap"
+      },
+      {
+        "token_a": "GGBIT",
+        "token_b": "DAI", 
+        "initial_ratio": "1:100",
+        "liquidity_amount": "500000",
+        "pool_type": "stable_swap"
+      }
+    ]
+  },
+  
+  "institutional_features": {
+    "qualified_investors_only": true,
+    "minimum_investment": "100000",
+    "lock_up_periods": {
+      "retail": "24_months",
+      "institutional": "12_months"
+    },
+    "custody_integration": ["BitGo", "Coinbase Custody", "Fireblocks"],
+    "prime_brokerage": ["Genesis", "Cumberland", "Wintermute"]
+  },
+  
+  "defi_integration": {
+    "lending_protocols": ["Compound", "Aave", "MakerDAO"],
+    "yield_strategies": ["Convex Finance", "Yearn Finance"],
+    "collateral_factor": "0.80",
+    "liquidation_threshold": "0.85",
+    "stability_mechanisms": ["emergency_pause", "circuit_breakers"]
+  },
+  
+  "oracle_integration": {
+    "price_feeds": ["Chainlink", "Band Protocol", "API3"],
+    "nav_calculation": "real_time",
+    "price_update_frequency": "300",
+    "backup_oracles": ["Tellor", "DIA"],
+    "price_deviation_threshold": "2%"
+  },
+  
+  "bridge_support": {
+    "cross_chain_enabled": true,
+    "supported_chains": ["Polygon", "Arbitrum", "Optimism", "Base"],
+    "bridge_protocols": ["LayerZero", "Wormhole", "Connext"],
+    "multi_chain_governance": true
+  },
+  
+  "regulatory_compliance": {
+    "security_classification": "municipal_bond_token", 
+    "registration_status": "reg_d_506c",
+    "tax_advantages": ["municipal_bond_exemption"],
+    "reporting_requirements": ["form_8949", "schedule_d"],
+    "legal_structure": "delaware_statutory_trust"
+  },
+  
+  "metadata": {
+    "website": "https://ggbridgetoken.com",
+    "whitepaper": "https://docs.ggbridgetoken.com/whitepaper.pdf",
+    "prospectus": "https://docs.ggbridgetoken.com/prospectus.pdf",
+    "social_media": {
+      "twitter": "@GGBridgeToken",
+      "linkedin": "company/gg-bridge-infrastructure",
+      "medium": "@ggbridgeinfra"
+    },
+    "legal_documentation": {
+      "offering_memorandum": "ipfs://QmOfferingMemoHash",
+      "trust_agreement": "ipfs://QmTrustAgreementHash",
+      "custody_agreement": "ipfs://QmCustodyAgreementHash"
+    }
+  },
+  
+  "tokenomics": {
+    "initial_distribution": {
+      "institutional_sale": "60%",
+      "public_offering": "25%",
+      "liquidity_provision": "10%",
+      "treasury_reserve": "3%",
+      "team_allocation": "2%"
+    },
+    "revenue_distribution": {
+      "toll_revenue_share": "85%",
+      "operational_reserve": "10%",
+      "maintenance_fund": "3%",
+      "management_fee": "2%"
+    },
+    "vesting_schedules": {
+      "team_allocation": {
+        "cliff_period": "24_months",
+        "vesting_period": "48_months",
+        "release_schedule": "quarterly"
+      },
+      "treasury_reserve": {
+        "cliff_period": "12_months",
+        "vesting_period": "60_months",
+        "release_schedule": "monthly"
+      }
+    }
+  },
+  
+  "risk_management": {
+    "concentration_limits": {
+      "max_single_holder": "5%",
+      "max_institutional_holder": "15%"
+    },
+    "circuit_breakers": {
+      "daily_price_limit": "10%",
+      "trading_halt_triggers": ["extreme_volatility", "oracle_failure"]
+    },
+    "insurance_coverage": {
+      "coverage_amount": "50000000",
+      "provider": "Lloyd's of London",
+      "coverage_type": ["construction_risk", "operational_risk"]
+    }
+  },
+  
+  "performance_metrics": {
+    "net_asset_value": "100.00",
+    "expense_ratio": "0.75%",
+    "yield_to_maturity": "4.25%",
+    "duration": "12.5_years",
+    "credit_rating": {
+      "moodys": "Aa2",
+      "sp": "AA",
+      "fitch": "AA"
+    }
+  },
+  
+  "audit": {
+    "audited": true,
+    "audit_firms": ["PwC", "EY Blockchain"],
+    "audit_reports": [
+      "ipfs://QmAuditReport1Hash",
+      "ipfs://QmAuditReport2Hash"
+    ],
+    "last_audit_date": "2024-05-20",
+    "continuous_monitoring": true
+  },
+  
+  "operational_details": {
+    "asset_manager": "BlackRock Infrastructure",
+    "custodian": "State Street Digital",
+    "transfer_agent": "Computershare",
+    "paying_agent": "Wells Fargo Bank",
+    "administrator": "SS&C Technologies"
+  }
+}

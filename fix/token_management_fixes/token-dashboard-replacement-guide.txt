@@ -1,0 +1,9 @@
+// Example of full replacement (DON'T RUN YET - TEST FIRST!)
+
+// Replace these lines in App.tsx:
+// <Route path="tokens" element={<TokenDashboardPage />} />
+// <Route path="projects/:projectId/tokens" element={<TokenDashboardPage />}/>
+
+// With:
+// <Route path="tokens" element={<OptimizedTokenDashboardPage />} />
+// <Route path="projects/:projectId/tokens" element={<OptimizedTokenDashboardPage />}/>

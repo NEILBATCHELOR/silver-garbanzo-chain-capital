@@ -1,0 +1,147 @@
+{
+  "name": "CIRF Liquidity Token",
+  "symbol": "lCIRF",
+  "decimals": 18,
+  "description": "Liquid ERC-20 representation of Corporate Invoice Receivables Fund tokens for DeFi integration and enhanced tradability",
+  "initialSupply": "50000000",
+  "maxSupply": "100000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": true,
+  "hasVotes": false,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": false,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "wrappedToken": {
+    "enabled": true,
+    "underlyingToken": "CIRF",
+    "underlyingStandard": "ERC-1400",
+    "conversionRate": "1:1",
+    "wrappingMechanism": "custody-bridge",
+    "unwrappingEnabled": true
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": true,
+    "balancerVaultSupport": true,
+    "sushiswapCompatible": true,
+    "liquidityIncentives": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "75%",
+    "flashLoanEnabled": false
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": true,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    }
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "navOracle": "0x742d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9D",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "lCIRF/USD",
+        "address": "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0B"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "5000000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "lCIRF/USDC",
+        "fee": "0.3%",
+        "allocation": "40%"
+      },
+      {
+        "dex": "curve",
+        "pair": "lCIRF/DAI/USDC",
+        "fee": "0.04%",
+        "allocation": "35%"
+      },
+      {
+        "dex": "balancer",
+        "pair": "lCIRF/WETH/USDC",
+        "fee": "0.25%",
+        "allocation": "25%"
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": ["ethereum", "polygon", "arbitrum", "base"],
+    "bridgeProtocols": ["layer-zero", "wormhole"],
+    "bridgeFees": "0.05%"
+  },
+  
+  "governance": {
+    "governanceEnabled": false,
+    "votingRights": false,
+    "proposalRights": false
+  },
+  
+  "metadata": {
+    "website": "https://chaincapital.com/funds/receivables",
+    "documentation": "https://docs.chaincapital.com/tokens/lcirf",
+    "logo": "https://assets.chaincapital.com/tokens/lcirf/logo.svg",
+    "tags": ["asset-backed", "receivables", "institutional", "liquidity"],
+    "category": "structured-product"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits", "consensys-diligence"],
+    "auditReports": [
+      "https://audits.chaincapital.com/lcirf-trail-of-bits-2024.pdf",
+      "https://audits.chaincapital.com/lcirf-consensys-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "multisigRequired": true,
+    "timelock": "48h"
+  },
+  
+  "fees": {
+    "managementFee": "1.5%",
+    "performanceFee": "15%",
+    "redemptionFee": "0%",
+    "transferFee": "0%"
+  },
+  
+  "supply": {
+    "totalSupply": "50000000",
+    "circulatingSupply": "48500000",
+    "treasuryReserve": "1500000",
+    "lockedSupply": "0",
+    "burnedSupply": "0"
+  }
+}

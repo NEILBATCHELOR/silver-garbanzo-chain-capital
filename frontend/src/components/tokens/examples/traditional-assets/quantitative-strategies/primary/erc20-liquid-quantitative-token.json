@@ -1,0 +1,265 @@
+{
+  "name": "AQR Liquid Quantitative Token",
+  "symbol": "lAQRQT",
+  "description": "Liquid ERC-20 wrapper token for AQR Quantitative Yield Vault (AQRQYV). Provides enhanced DeFi liquidity and trading capabilities while maintaining exposure to systematic multi-factor quantitative strategies. Fully redeemable for underlying vault shares.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "liquidity_wrapper",
+    "underlyingAsset": "AQRQYV",
+    "wrapperType": "quantitative_strategy_liquidity_token",
+    "liquidityProvider": "automated_market_maker",
+    "tradingPairs": ["lAQRQT/USDC", "lAQRQT/ETH", "lAQRQT/WBTC"],
+    "exchangeCompatibility": ["uniswap_v3", "curve", "balancer", "1inch"],
+    "yieldBearing": true,
+    "redeemable": true,
+    "leverageAvailable": false,
+    "hedgedExposure": false
+  },
+  "erc20Properties": {
+    "name": "AQR Liquid Quantitative Token",
+    "symbol": "lAQRQT",
+    "decimals": 18,
+    "initialSupply": "500000000000000000000000000",
+    "maxSupply": "2000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "isFreezable": false,
+    
+    "permitEnabled": true,
+    "permit2Enabled": true,
+    "gaslessTransactionSupport": true,
+    "metaTransactionSupport": true,
+    
+    "reflectionMechanism": false,
+    "taxOnTransfer": false,
+    "maxTransactionAmount": "25000000000000000000000000",
+    "maxWalletAmount": "100000000000000000000000000",
+    "transferCooldown": 0,
+    
+    "liquidityProvisionEnabled": true,
+    "liquidityLockEnabled": false,
+    "liquidityBurnEnabled": false,
+    "liquidityFeeEnabled": true,
+    
+    "stakingEnabled": true,
+    "stakingRewardsEnabled": true,
+    "governanceEnabled": true,
+    "votingEnabled": true,
+    
+    "whitelistEnabled": false,
+    "blacklistEnabled": true,
+    "pauseByOwnerEnabled": true,
+    "burnByOwnerEnabled": false,
+    "mintByOwnerEnabled": true,
+    
+    "complianceModuleEnabled": true,
+    "taxComplianceEnabled": true,
+    "kycRequired": false,
+    "amlEnabled": true,
+    "sanctionsScreeningEnabled": true,
+    
+    "crossChainEnabled": true,
+    "bridgeProtocols": ["layerzero", "axelar", "wormhole", "cctp"],
+    "multiChainDeployment": true,
+    "chainIds": [1, 137, 42161, 10, 8453],
+    
+    "dexIntegrationEnabled": true,
+    "automaticLiquidityEnabled": true,
+    "priceOracleEnabled": true,
+    "priceOracleAddress": "0x5555555555555555555555555555555555555555",
+    
+    "yieldDistributionEnabled": true,
+    "yieldDistributionFrequency": "weekly",
+    "compoundingEnabled": true,
+    "reinvestmentEnabled": true,
+    
+    "flashLoanEnabled": true,
+    "collateralEnabled": true,
+    "borrowingEnabled": true,
+    "lendingEnabled": true,
+    
+    "emergencyWithdrawalEnabled": true,
+    "emergencyPauseEnabled": true,
+    "recoveryModeEnabled": true,
+    "safeModeEnabled": true,
+    
+    "feeStructure": {
+      "transferFee": "0.00",
+      "mintFee": "0.10", 
+      "burnFee": "0.25",
+      "liquidityFee": "0.05"
+    },
+    
+    "antiMEVEnabled": true,
+    "frontRunningProtection": true,
+    "slippageProtection": true,
+    "maxSlippage": "0.5",
+    
+    "auditReports": [
+      {
+        "auditor": "OpenZeppelin",
+        "date": "2025-06-17",
+        "score": "96/100",
+        "reportUri": "https://audits.openzeppelin.com/lAQRQT-2025-06.pdf"
+      },
+      {
+        "auditor": "Consensys Diligence",
+        "date": "2025-06-10",
+        "score": "94/100", 
+        "reportUri": "https://audits.consensys.net/lAQRQT-2025-06.pdf"
+      },
+      {
+        "auditor": "Trail of Bits",
+        "date": "2025-06-03",
+        "score": "92/100", 
+        "reportUri": "https://audits.trailofbits.com/lAQRQT-2025-06.pdf"
+      }
+    ],
+    
+    "insuranceEnabled": true,
+    "insuranceProvider": "Nexus Mutual",
+    "insuranceCoverage": "smart_contract_risk",
+    "insuredAmount": "50000000000000000000000000",
+    
+    "socialRecoveryEnabled": false,
+    "multisigRequired": true,
+    "timelockEnabled": true,
+    "timelockDelay": 172800,
+    
+    "analyticsEnabled": true,
+    "metricsTracking": true,
+    "performanceMonitoring": true,
+    "realTimeDataEnabled": true,
+    
+    "integrations": {
+      "defi_protocols": ["aave", "compound", "uniswap", "curve", "balancer", "yearn"],
+      "portfolio_trackers": ["debank", "zapper", "zerion", "defi_pulse"],
+      "tax_reporting": ["koinly", "cointracker", "accointing", "cryptotaxcalculator"],
+      "custody_solutions": ["fireblocks", "copper", "anchorage", "coinbase_custody"],
+      "institutional_platforms": ["bakkt", "fidelity_digital", "goldman_sachs_digital"]
+    }
+  },
+  "liquidityConfig": {
+    "wrapperContract": "0x6666666666666666666666666666666666666666",
+    "underlyingTokenAddress": "0x4444444444444444444444444444444444444444",
+    "conversionRatio": "1:1",
+    "instantRedemption": false,
+    "redemptionDelay": 7200,
+    "redemptionFee": "0.25",
+    "wrappingFee": "0.10",
+    "minimumLiquidity": "10000000000000000000000000",
+    "liquidityIncentives": true,
+    "stakingAPY": "8.5",
+    "liquidityMiningRewards": true,
+    "boostMultiplier": "2.5"
+  },
+  "dexListings": [
+    {
+      "exchange": "Uniswap V3",
+      "pair": "lAQRQT/USDC",
+      "liquidityPool": "0x7777777777777777777777777777777777777777",
+      "feeTier": "0.30",
+      "initialLiquidity": "25000000000000000000000000"
+    },
+    {
+      "exchange": "Curve Finance", 
+      "pair": "lAQRQT/USDC/DAI/USDT",
+      "liquidityPool": "0x8888888888888888888888888888888888888888",
+      "feeTier": "0.04",
+      "initialLiquidity": "50000000000000000000000000"
+    },
+    {
+      "exchange": "Balancer",
+      "pair": "lAQRQT/WETH/WBTC",
+      "liquidityPool": "0x9999999999999999999999999999999999999999",
+      "feeTier": "0.25",
+      "initialLiquidity": "15000000000000000000000000"
+    },
+    {
+      "exchange": "1inch Limit Order Protocol",
+      "pair": "lAQRQT/USDC",
+      "liquidityPool": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "feeTier": "0.10",
+      "initialLiquidity": "10000000000000000000000000"
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "weekly",
+    "distributor": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "yieldSource": "underlying_vault_performance",
+    "autoCompound": true,
+    "distributionToken": "USDC",
+    "claimPeriod": 7,
+    "vestingPeriod": 0,
+    "boostEligible": true
+  },
+  "defiIntegrations": [
+    {
+      "protocol": "Aave V3",
+      "functionality": "collateral_borrowing",
+      "ltv": "75%",
+      "liquidationThreshold": "80%",
+      "liquidationPenalty": "5%"
+    },
+    {
+      "protocol": "Compound V3",
+      "functionality": "lending_borrowing",
+      "supplyAPY": "3.2%",
+      "borrowAPY": "5.8%",
+      "collateralFactor": "70%"
+    },
+    {
+      "protocol": "Yearn Finance",
+      "functionality": "yield_optimization",
+      "vaultAPY": "12.5%",
+      "managementFee": "2.0%",
+      "performanceFee": "20.0%"
+    },
+    {
+      "protocol": "Balancer",
+      "functionality": "liquidity_provision",
+      "poolType": "weighted_pool",
+      "swapFee": "0.25%",
+      "liquidityMiningAPR": "15.2%"
+    }
+  ],
+  "governanceFeatures": {
+    "votingPower": "balance_based",
+    "proposalThreshold": "1000000000000000000000000",
+    "quorumRequired": "4%",
+    "votingDelay": 1,
+    "votingPeriod": 7,
+    "timelockDelay": 2,
+    "delegationEnabled": true,
+    "snapshotIntegration": true
+  },
+  "riskManagement": {
+    "protocolRisk": "Medium",
+    "smartContractRisk": "Low",
+    "liquidityRisk": "Low",
+    "counterpartyRisk": "Medium",
+    "operationalRisk": "Low",
+    "regulatoryRisk": "Medium",
+    "emergencyActions": [
+      "pause_transfers",
+      "halt_minting",
+      "emergency_withdraw",
+      "circuit_breaker"
+    ]
+  },
+  "taxOptimization": {
+    "taxEfficiencyEnabled": true,
+    "harvestingStrategy": "tax_loss_harvesting",
+    "distributionTiming": "tax_optimized",
+    "reportingAutomation": true,
+    "jurisdictionCompliance": ["US", "EU", "UK", "CA"],
+    "taxDocumentGeneration": true
+  }
+}

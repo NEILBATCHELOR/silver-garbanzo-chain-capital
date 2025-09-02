@@ -1,0 +1,189 @@
+{
+  "id": "1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
+  "project_id": "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a",
+  "name": "Swiss Auto-Callable Note Liquidity Token",
+  "symbol": "SPACBL",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "description": "ERC-20 liquidity wrapper for Swiss Auto-Callable Barrier Note (SPACB24) enabling DEX trading and DeFi integration",
+  "total_supply": "10000000000000000000000000",
+  "config_mode": "max",
+  "metadata": {
+    "tokenType": "liquidity_wrapper",
+    "wrappedToken": "SPACB24",
+    "wrappedTokenAddress": "0x742d35Cc6734C0532925a3b8D4321072C31A24",
+    "wrappedStandard": "ERC-1400",
+    "exchangeRate": "1:1",
+    "liquidityProvider": "Credit Suisse DeFi Bridge"
+  },
+  "blocks": {
+    "initial_supply": "10000000000000000000000000",
+    "cap": "10000000000000000000000000",
+    "is_mintable": true,
+    "is_burnable": true,
+    "is_pausable": true,
+    "token_type": "wrapper",
+    "access_control": "managed",
+    "allow_management": true,
+    "permit": true,
+    "snapshot": false,
+    
+    "fee_on_transfer": {
+      "enabled": false,
+      "buy_fee": 0,
+      "sell_fee": 0,
+      "transfer_fee": 0,
+      "fee_recipient": "0x0000000000000000000000000000000000000000"
+    },
+    
+    "rebasing": {
+      "enabled": false,
+      "rebase_frequency": 0,
+      "rebase_percentage": 0
+    },
+    
+    "governance_features": {
+      "voting_enabled": false,
+      "proposal_threshold": 0,
+      "voting_delay": 0,
+      "voting_period": 0
+    },
+    
+    "transfer_config": {
+      "transfer_restrictions": {
+        "whitelist_required": false,
+        "blacklist_enabled": true,
+        "max_transfer_amount": null,
+        "cooldown_period": 0
+      },
+      "transfer_fees": {
+        "enabled": false,
+        "fee_percentage": 0,
+        "fee_recipient": "0x0000000000000000000000000000000000000000"
+      }
+    },
+    
+    "gas_config": {
+      "gas_optimization": true,
+      "batch_operations": true,
+      "gas_efficient_transfers": true
+    },
+    
+    "compliance_config": {
+      "compliance_required": false,
+      "kyc_required": false,
+      "accredited_only": false,
+      "geographic_restrictions": []
+    },
+    
+    "wrapper_config": {
+      "wrapped_token_address": "0x742d35Cc6734C0532925a3b8D4321072C31A24",
+      "auto_wrap": true,
+      "auto_unwrap": true,
+      "wrap_fee": 0,
+      "unwrap_fee": 0,
+      "minimum_wrap_amount": "1000000000000000000",
+      "maximum_wrap_amount": null
+    },
+    
+    "liquidity_config": {
+      "dex_integration": true,
+      "amm_pools": ["uniswap_v3", "sushiswap"],
+      "liquidity_incentives": false,
+      "price_oracle": "chainlink"
+    },
+    
+    "bridge_config": {
+      "cross_chain_enabled": false,
+      "supported_chains": [],
+      "bridge_fees": 0
+    },
+    
+    "defi_integration": {
+      "lending_protocols": ["aave", "compound"],
+      "yield_farming": true,
+      "staking_rewards": false
+    },
+    
+    "security_features": {
+      "multi_sig_required": true,
+      "time_lock": 86400,
+      "emergency_pause": true,
+      "upgrade_proxy": false
+    },
+    
+    "metadata_config": {
+      "token_logo": "https://assets.credit-suisse.com/spacbl-logo.png",
+      "website": "https://credit-suisse.com/digital-assets/spacbl",
+      "whitepaper": "https://credit-suisse.com/spacbl-whitepaper.pdf",
+      "social_links": {
+        "twitter": "@CreditSuisse",
+        "telegram": "https://t.me/CreditSuisseDigital"
+      }
+    },
+    
+    "tax_features": {
+      "tax_reporting": false,
+      "jurisdiction_specific": false,
+      "withholding_tax": false
+    },
+    
+    "regulatory_compliance": {
+      "swiss_dlt_act": true,
+      "mifid_compliance": false,
+      "fatca_compliance": false
+    },
+    
+    "performance_tracking": {
+      "nav_updates": true,
+      "performance_fees": false,
+      "benchmark_tracking": false
+    },
+    
+    "risk_management": {
+      "position_limits": false,
+      "concentration_limits": false,
+      "stop_loss": false
+    },
+    
+    "settlement_config": {
+      "dvp_settlement": false,
+      "instant_settlement": true,
+      "settlement_currency": "ETH"
+    },
+    
+    "oracle_config": {
+      "price_feed": "chainlink",
+      "update_frequency": 3600,
+      "fallback_oracle": "band_protocol"
+    },
+    
+    "vault_features": {
+      "deposit_enabled": true,
+      "withdrawal_enabled": true,
+      "strategy_enabled": false,
+      "auto_compound": false
+    },
+    
+    "flash_loan": {
+      "enabled": false,
+      "fee_percentage": 0,
+      "max_flash_amount": 0
+    },
+    
+    "insurance_config": {
+      "insurance_enabled": false,
+      "coverage_amount": 0,
+      "premium_rate": 0
+    },
+    
+    "analytics_config": {
+      "tracking_enabled": true,
+      "metrics_collection": true,
+      "reporting_frequency": "daily"
+    }
+  },
+  "created_at": "2025-06-17T10:35:00Z",
+  "updated_at": "2025-06-17T10:35:00Z"
+}

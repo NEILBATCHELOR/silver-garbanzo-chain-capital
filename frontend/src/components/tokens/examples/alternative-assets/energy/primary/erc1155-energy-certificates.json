@@ -1,0 +1,223 @@
+{
+  "base_uri": "https://api.californiasolar.com/metadata/",
+  "metadata_storage": "ipfs",
+  "has_royalty": true,
+  "royalty_percentage": "2.5",
+  "royalty_receiver": "0x1234567890123456789012345678901234567890",
+  "is_burnable": false,
+  "is_pausable": true,
+  "access_control": "role_based",
+  "updatable_uris": true,
+  "supply_tracking": true,
+  "enable_approval_for_all": true,
+  "batch_minting_enabled": true,
+  "container_enabled": false,
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "dynamic_uris": true,
+  "updatable_metadata": true,
+  "supply_tracking_advanced": true,
+  "max_supply_per_type": "1000000",
+  "burning_enabled": false,
+  "mint_roles": ["MINTER_ROLE", "ISSUER_ROLE"],
+  "burn_roles": ["BURNER_ROLE"],
+  "metadata_update_roles": ["METADATA_UPDATER_ROLE"],
+  
+  "pricing_model": "dynamic",
+  "base_price": "100",
+  "bulk_discount_enabled": true,
+  "referral_rewards_enabled": false,
+  "referral_percentage": "0",
+  "lazy_minting_enabled": true,
+  "airdrop_enabled": false,
+  "claim_period_enabled": false,
+  "marketplace_fees_enabled": true,
+  "marketplace_fee_percentage": "2.5",
+  "marketplace_fee_recipient": "0x1234567890123456789012345678901234567890",
+  "bundle_trading_enabled": true,
+  "atomic_swaps_enabled": true,
+  "cross_collection_trading": false,
+  
+  "crafting_enabled": false,
+  "fusion_enabled": false,
+  "experience_points_enabled": false,
+  "leveling_enabled": false,
+  "consumable_tokens": true,
+  "voting_power_enabled": false,
+  "community_treasury_enabled": false,
+  "bridge_enabled": false,
+  "layer2_support_enabled": true,
+  "supported_layer2_networks": ["polygon", "arbitrum"],
+  
+  "tokenTypes": [
+    {
+      "tokenId": "1",
+      "name": "Solar Energy Certificate",
+      "description": "Represents 1 MWh of solar energy production from California Solar Farm I",
+      "image": "https://ipfs.io/ipfs/QmSolarCert123456789",
+      "attributes": [
+        {
+          "trait_type": "Energy Source",
+          "value": "Solar Photovoltaic"
+        },
+        {
+          "trait_type": "Energy Output",
+          "value": "1 MWh"
+        },
+        {
+          "trait_type": "Location",
+          "value": "Fresno County, CA"
+        },
+        {
+          "trait_type": "Carbon Offset",
+          "value": "0.5 metric tons CO2"
+        },
+        {
+          "trait_type": "Production Period",
+          "value": "Q1 2025"
+        }
+      ],
+      "supply": "150000",
+      "transferable": true,
+      "burnable": true
+    },
+    {
+      "tokenId": "2",
+      "name": "Renewable Energy Credit (REC)",
+      "description": "California REC token representing environmental attributes of renewable energy",
+      "image": "https://ipfs.io/ipfs/QmRECToken123456789",
+      "attributes": [
+        {
+          "trait_type": "REC Type",
+          "value": "Solar"
+        },
+        {
+          "trait_type": "Vintage Year",
+          "value": "2025"
+        },
+        {
+          "trait_type": "Certification",
+          "value": "Green-e Certified"
+        },
+        {
+          "trait_type": "Eligibility",
+          "value": "California RPS"
+        },
+        {
+          "trait_type": "Project ID",
+          "value": "CEC-RPS-0123"
+        }
+      ],
+      "supply": "150000",
+      "transferable": true,
+      "burnable": true
+    },
+    {
+      "tokenId": "3",
+      "name": "Carbon Credit Token",
+      "description": "Verified carbon offset credit from renewable energy production",
+      "image": "https://ipfs.io/ipfs/QmCarbonCredit123456789",
+      "attributes": [
+        {
+          "trait_type": "Credit Type",
+          "value": "Renewable Energy"
+        },
+        {
+          "trait_type": "Standard",
+          "value": "Verra VCS"
+        },
+        {
+          "trait_type": "Project Type",
+          "value": "Solar Grid Connection"
+        },
+        {
+          "trait_type": "CO2 Reduction",
+          "value": "1 metric ton"
+        },
+        {
+          "trait_type": "Verification",
+          "value": "Third-party verified"
+        }
+      ],
+      "supply": "75000",
+      "transferable": true,
+      "burnable": true
+    }
+  ],
+  
+  "discountTiers": [
+    {
+      "tier": "Bronze",
+      "minimumQuantity": "100",
+      "discountPercentage": "5",
+      "description": "5% discount for purchases of 100+ tokens"
+    },
+    {
+      "tier": "Silver",
+      "minimumQuantity": "500",
+      "discountPercentage": "10",
+      "description": "10% discount for purchases of 500+ tokens"
+    },
+    {
+      "tier": "Gold",
+      "minimumQuantity": "1000",
+      "discountPercentage": "15",
+      "description": "15% discount for purchases of 1000+ tokens"
+    }
+  ],
+  
+  "uriMappings": [
+    {
+      "tokenId": "1",
+      "uri": "https://api.californiasolar.com/metadata/solar-cert/1.json"
+    },
+    {
+      "tokenId": "2",
+      "uri": "https://api.californiasolar.com/metadata/rec/2.json"
+    },
+    {
+      "tokenId": "3",
+      "uri": "https://api.californiasolar.com/metadata/carbon-credit/3.json"
+    }
+  ],
+  
+  "typeConfigs": [
+    {
+      "tokenId": "1",
+      "transferRestrictions": {
+        "minimumHoldingPeriod": 0,
+        "geographicRestrictions": false
+      },
+      "utilityFeatures": {
+        "redeemableForEnergy": true,
+        "energyValue": "1 MWh",
+        "expirationDate": "2026-12-31"
+      }
+    },
+    {
+      "tokenId": "2",
+      "transferRestrictions": {
+        "minimumHoldingPeriod": 30,
+        "geographicRestrictions": true,
+        "allowedJurisdictions": ["CA", "NY", "MA"]
+      },
+      "utilityFeatures": {
+        "complianceValue": true,
+        "rpsEligible": true,
+        "vintage": "2025"
+      }
+    },
+    {
+      "tokenId": "3",
+      "transferRestrictions": {
+        "minimumHoldingPeriod": 0,
+        "geographicRestrictions": false
+      },
+      "utilityFeatures": {
+        "carbonReduction": "1 metric ton",
+        "verificationStandard": "VCS",
+        "additionality": true
+      }
+    }
+  ]
+}

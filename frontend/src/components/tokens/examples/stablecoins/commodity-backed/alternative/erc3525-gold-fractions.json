@@ -1,0 +1,164 @@
+{
+  "name": "Gold Fraction NFT",
+  "symbol": "GFNFT",
+  "decimals": 18,
+  "description": "ERC-3525 semi-fungible token representing specific fractions of identified gold bars with unique serial numbers, enabling precise ownership tracking and flexible value transfers.",
+  "standard": "ERC-3525",
+  "total_supply": "2500000000",
+  "initial_supply": "250000000",
+  "cap": "12500000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "semi_fungible",
+  "value_decimals": 18,
+  "slot_based": true,
+  "metadata_descriptor": "https://fractionalgold.com/metadata/",
+  "contracturi": "https://fractionalgold.com/contract-metadata.json",
+  "slots": [
+    {
+      "slot_id": "1",
+      "name": "London Vault Gold Bars",
+      "description": "Gold bars stored in London LBMA-approved vaults",
+      "properties": {
+        "vault_location": "London",
+        "bar_standard": "LBMA Good Delivery",
+        "purity": "99.5",
+        "vault_operator": "Brink's"
+      }
+    },
+    {
+      "slot_id": "2", 
+      "name": "Zurich Vault Gold Bars",
+      "description": "Gold bars stored in Zurich secure vaults",
+      "properties": {
+        "vault_location": "Zurich",
+        "bar_standard": "LBMA Good Delivery", 
+        "purity": "99.5",
+        "vault_operator": "Malca-Amit"
+      }
+    },
+    {
+      "slot_id": "3",
+      "name": "Singapore Vault Gold Bars", 
+      "description": "Gold bars stored in Singapore freeport vaults",
+      "properties": {
+        "vault_location": "Singapore",
+        "bar_standard": "LBMA Good Delivery",
+        "purity": "99.5", 
+        "vault_operator": "Silver Bullion"
+      }
+    }
+  ],
+  "slot_configs": [
+    {
+      "slot_id": "1",
+      "transferable": true,
+      "splittable": true,
+      "mergeable": true,
+      "minimum_value": "0.001",
+      "maximum_value": "1000.0",
+      "value_step": "0.001"
+    },
+    {
+      "slot_id": "2",
+      "transferable": true, 
+      "splittable": true,
+      "mergeable": true,
+      "minimum_value": "0.001",
+      "maximum_value": "1000.0",
+      "value_step": "0.001"
+    },
+    {
+      "slot_id": "3",
+      "transferable": true,
+      "splittable": true, 
+      "mergeable": true,
+      "minimum_value": "0.001",
+      "maximum_value": "1000.0",
+      "value_step": "0.001"
+    }
+  ],
+  "allocations": [
+    {
+      "slot_id": "1",
+      "allocated_value": "1000000.0",
+      "available_value": "950000.0",
+      "reserved_value": "50000.0",
+      "gold_bars_count": "1000",
+      "total_ounces": "400000.0"
+    },
+    {
+      "slot_id": "2", 
+      "allocated_value": "750000.0",
+      "available_value": "720000.0",
+      "reserved_value": "30000.0",
+      "gold_bars_count": "750",
+      "total_ounces": "300000.0"
+    },
+    {
+      "slot_id": "3",
+      "allocated_value": "500000.0",
+      "available_value": "485000.0", 
+      "reserved_value": "15000.0",
+      "gold_bars_count": "500",
+      "total_ounces": "200000.0"
+    }
+  ],
+  "value_adjustments": [
+    {
+      "adjustment_type": "price_update",
+      "frequency": "twice_daily",
+      "source": "LBMA_AM_PM_fixing",
+      "automatic": true,
+      "tolerance": "1.0"
+    },
+    {
+      "adjustment_type": "storage_fee",
+      "frequency": "monthly", 
+      "rate": "0.04167",
+      "automatic": true,
+      "deduction_method": "value_reduction"
+    },
+    {
+      "adjustment_type": "insurance_premium",
+      "frequency": "quarterly",
+      "rate": "0.025", 
+      "automatic": true,
+      "deduction_method": "value_reduction"
+    }
+  ],
+  "gold_bar_tracking": {
+    "serial_number_mapping": true,
+    "bar_weight_tracking": true,
+    "assay_certificate_links": true,
+    "chain_of_custody": true,
+    "vault_location_tracking": true,
+    "insurance_coverage_per_bar": true
+  },
+  "fractional_features": {
+    "minimum_fraction": "0.001",
+    "maximum_aggregation": "1000.0", 
+    "cross_slot_transfers": false,
+    "value_merging": true,
+    "value_splitting": true,
+    "partial_redemption": true
+  },
+  "redemption_mechanics": {
+    "physical_redemption": true,
+    "minimum_physical_redemption": "1.0",
+    "cash_settlement": true,
+    "redemption_fee": "1.5",
+    "processing_time": "7_business_days",
+    "delivery_options": ["vault_pickup", "armored_transport"]
+  },
+  "metadata": {
+    "token_type": "semi_fungible_commodity",
+    "commodity_representation": "fractional_gold_ownership",
+    "unique_features": ["slot_based_vault_separation", "value_transfers", "precise_tracking"],
+    "operational_model": "allocated_fractional_ownership",
+    "custody_model": "multi_vault_segregated",
+    "target_users": ["fractional_gold_investors", "portfolio_managers", "family_offices"],
+    "advantages": ["precise_ownership", "flexible_value_transfers", "vault_diversification"]
+  }
+}

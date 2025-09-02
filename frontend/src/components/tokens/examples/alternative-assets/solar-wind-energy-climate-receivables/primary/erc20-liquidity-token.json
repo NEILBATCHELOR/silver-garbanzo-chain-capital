@@ -1,0 +1,254 @@
+{
+  "name": "Green Energy Credits Liquidity Token",
+  "symbol": "lGREC",
+  "decimals": 18,
+  "description": "Liquid ERC-20 representation of renewable energy credits portfolio enabling DeFi participation while maintaining environmental integrity",
+  "initialSupply": "25000000",
+  "maxSupply": "50000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": true,
+  "hasVotes": true,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": false,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "wrappedTokens": {
+    "securityToken": {
+      "enabled": true,
+      "underlyingToken": "RECS",
+      "underlyingStandard": "ERC-1400",
+      "conversionRate": "1:1",
+      "wrappingMechanism": "compliance-bridge"
+    },
+    "multiToken": {
+      "enabled": true,
+      "underlyingToken": "RECS-MULTI",
+      "underlyingStandard": "ERC-1155",
+      "conversionRate": "weighted-basket",
+      "wrappingMechanism": "batch-aggregation-bridge"
+    },
+    "basketComposition": {
+      "solarREC": "60%",
+      "windREC": "32%",
+      "carbonCredits": "8%"
+    }
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": true,
+    "balancerVaultSupport": true,
+    "sushiswapCompatible": true,
+    "liquidityIncentives": true,
+    "environmentalPools": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "70%",
+    "flashLoanEnabled": false,
+    "environmentalYield": true,
+    "carbonOffsetRewards": true
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": false,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "environmentalCompliance": {
+      "enabled": true,
+      "retirementTracking": true,
+      "doubleCountingPrevention": true,
+      "registryIntegration": true
+    }
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "environmentalOracle": true,
+    "navOracle": "0x851d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9E",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "lGREC/USD",
+        "address": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c"
+      },
+      {
+        "source": "environmental-oracle",
+        "pair": "lGREC/REC-INDEX",
+        "address": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "2500000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "lGREC/USDC",
+        "fee": "0.3%",
+        "allocation": "40%",
+        "environmentalIncentives": true
+      },
+      {
+        "dex": "curve",
+        "pair": "lGREC/DAI/USDC",
+        "fee": "0.04%",
+        "allocation": "35%",
+        "greenBonds": true
+      },
+      {
+        "dex": "balancer",
+        "pair": "lGREC/WETH/USDC",
+        "fee": "0.25%",
+        "allocation": "25%",
+        "esgWeighted": true
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": ["ethereum", "polygon", "arbitrum", "celo", "energy-web-chain"],
+    "bridgeProtocols": ["layer-zero", "energy-web-bridge"],
+    "bridgeFees": "0.05%",
+    "carbonNeutralBridging": true
+  },
+  
+  "environmentalFeatures": {
+    "carbonFootprintTracking": true,
+    "renewableEnergyVerification": true,
+    "addionalityConfirmation": true,
+    "automaticRetirement": {
+      "enabled": true,
+      "retirementPercentage": "2%",
+      "beneficiary": "protocol-treasury"
+    },
+    "impactReporting": {
+      "enabled": true,
+      "metrics": ["mwh-represented", "co2-avoided", "projects-supported"],
+      "frequency": "monthly"
+    }
+  },
+  
+  "governance": {
+    "governanceEnabled": true,
+    "votingRights": true,
+    "proposalRights": true,
+    "environmentalGovernance": true,
+    "votingPower": "token-weighted",
+    "proposalThreshold": "10000",
+    "quorum": "3%",
+    "votingDelay": "24h",
+    "votingPeriod": "5d",
+    "timelock": "24h"
+  },
+  
+  "stakingRewards": {
+    "enabled": true,
+    "rewardTokens": ["lGREC", "carbon-credits"],
+    "stakingPools": [
+      {
+        "name": "Environmental Impact Pool",
+        "apy": "8-12%",
+        "rewardType": "additional-credits",
+        "lockupPeriod": "90d"
+      },
+      {
+        "name": "Governance Pool",
+        "apy": "5-8%",
+        "rewardType": "voting-power",
+        "lockupPeriod": "30d"
+      }
+    ]
+  },
+  
+  "metadata": {
+    "website": "https://greencapital.com/funds/energy-credits",
+    "documentation": "https://docs.greencapital.com/tokens/lgrec",
+    "logo": "https://assets.greencapital.com/tokens/lgrec/logo.svg",
+    "tags": ["renewable-energy", "carbon-credits", "environmental", "liquidity", "defi"],
+    "category": "environmental-commodity",
+    "sdgAlignment": ["SDG-7", "SDG-13", "SDG-15"]
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits", "environmental-audit-partners"],
+    "auditReports": [
+      "https://audits.greencapital.com/lgrec-trail-of-bits-2024.pdf",
+      "https://audits.greencapital.com/lgrec-environmental-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "multisigRequired": true,
+    "timelock": "24h",
+    "environmentalVerification": {
+      "enabled": true,
+      "verificationOracles": 2,
+      "verificationFrequency": "daily"
+    }
+  },
+  
+  "fees": {
+    "managementFee": "0.75%",
+    "performanceFee": "10%",
+    "redemptionFee": "0%",
+    "transferFee": "0%",
+    "environmentalImpactFee": "0.25%",
+    "registryFee": "0.1%"
+  },
+  
+  "supply": {
+    "totalSupply": "25000000",
+    "circulatingSupply": "24000000",
+    "treasuryReserve": "750000",
+    "environmentalReserve": "250000",
+    "lockedSupply": "0",
+    "burnedSupply": "0"
+  },
+  
+  "environmentalMetrics": {
+    "totalMWhBacked": "25000000",
+    "totalCO2Avoided": "12500000",
+    "renewableProjectsSupported": "250",
+    "geographicDiversification": {
+      "northAmerica": "70%",
+      "europe": "25%",
+      "other": "5%"
+    },
+    "energyTypeDiversification": {
+      "solar": "60%",
+      "wind": "32%",
+      "other": "8%"
+    }
+  },
+  
+  "verification": {
+    "thirdPartyVerification": true,
+    "verificationBodies": ["SCS Global Services", "DNV", "TUV SUD"],
+    "verificationStandards": ["VCS", "ACR", "M-RETS"],
+    "auditFrequency": "quarterly",
+    "transparencyScore": "AAA"
+  }
+}

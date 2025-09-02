@@ -1,0 +1,306 @@
+{
+  "name": "Two Sigma ML Alpha Vault",
+  "symbol": "TSMLAV",
+  "description": "Machine learning-driven quantitative vault employing Two Sigma's advanced AI and systematic trading strategies. Minimal compliance approach with focus on algorithmic alpha generation and automated portfolio optimization across global markets.",
+  "decimals": 18,
+  "standard": "ERC-4626",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "250000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "vault_token",
+    "strategyType": "machine_learning_alpha",
+    "vaultType": "algorithmic_trading_vault",
+    "yieldSource": "systematic_alpha_generation",
+    "managementCompany": "Two_Sigma_Investments",
+    "benchmarkIndex": "Risk_Free_Rate_Plus_Alpha",
+    "targetAPY": "12-18%",
+    "riskRating": "Medium-High",
+    "liquidityProvider": "algorithmic_market_making",
+    "rebalancingFrequency": "real_time",
+    "yieldCompounding": "continuous"
+  },
+  "erc4626Properties": {
+    "asset": "0x7777777777777777777777777777777777777777",
+    "name": "Two Sigma ML Alpha Vault",
+    "symbol": "TSMLAV",
+    "decimals": 18,
+    "initialSupply": "250000000000000000000000000",
+    "maxSupply": "1000000000000000000000000000",
+    "vaultAsset": "USDC",
+    "assetAddress": "0xa0b86a33e6432ca45ba4e30b86c9cff6b7c6b7a1",
+    
+    "depositLimit": "500000000000000000000000000",
+    "withdrawalLimit": "100000000000000000000000000",
+    "minimumDeposit": "10000000000000000000000",
+    "minimumWithdrawal": "1000000000000000000000",
+    "depositFee": "0.00",
+    "withdrawalFee": "0.50",
+    "managementFee": "1.00",
+    "performanceFee": "20.00",
+    
+    "yieldOptimizationEnabled": true,
+    "automatedRebalancing": true,
+    "performanceTracking": true,
+    "apyTrackingEnabled": true,
+    "benchmarkTrackingEnabled": false,
+    "multiAssetEnabled": true,
+    "rebalancingEnabled": true,
+    "autoCompoundingEnabled": true,
+    "riskManagementEnabled": true,
+    "diversificationEnabled": true,
+    
+    "dynamicFeesEnabled": true,
+    "feeRebateEnabled": false,
+    "gasFeeOptimization": true,
+    "liquivityMiningEnabled": true,
+    "marketMakingEnabled": true,
+    "arbitrageEnabled": true,
+    "crossDexOptimization": true,
+    "impermanentLossProtection": true,
+    
+    "lendingProtocolEnabled": true,
+    "borrowingEnabled": true,
+    "leverageEnabled": true,
+    "crossChainYieldEnabled": true,
+    
+    "portfolioAnalyticsEnabled": true,
+    "realTimePnlTracking": true,
+    "taxReportingEnabled": false,
+    "automatedReporting": false,
+    "notificationSystemEnabled": true,
+    "mobileAppIntegration": false,
+    "socialTradingEnabled": false,
+    
+    "institutionalGrade": false,
+    "custodyIntegration": false,
+    "auditTrailComprehensive": false,
+    "complianceReportingEnabled": false,
+    "fundAdministrationEnabled": false,
+    "thirdPartyAuditsEnabled": true,
+    
+    "emergencyPauseEnabled": true,
+    "emergencyWithdrawalEnabled": true,
+    "guardianMultisig": "0x8888888888888888888888888888888888888888",
+    "timelockDelay": 43200,
+    
+    "slippageProtection": true,
+    "maxSlippage": "1.0",
+    "frontRunningProtection": true,
+    "antiMEVEnabled": true,
+    
+    "sharePriceCalculation": "real_time_mark_to_market",
+    "shareTokenStandard": "ERC4626",
+    "underlyingTokenStandard": "ERC20",
+    "crossProtocolCompatibility": true,
+    
+    "yieldCalculationMethod": "geometric_mean_return",
+    "rebalancingStrategy": "ml_signal_based",
+    "riskManagementFramework": "machine_learning_risk_model",
+    "benchmarkIndex": "None",
+    "performanceHistoryRetention": 365,
+    
+    "investorClassifications": ["retail", "accredited_investor"],
+    "kycRequired": false,
+    "amlEnabled": false,
+    "sanctionsScreeningEnabled": false,
+    "geographicRestrictions": false,
+    
+    "liquidityProvisionEnabled": true,
+    "flashLoanEnabled": true,
+    "collateralEnabled": true,
+    "stakingEnabled": true,
+    "governanceEnabled": false,
+    "votingEnabled": false
+  },
+  "vaultStrategies": [
+    {
+      "strategyId": "ml_equity_long_short",
+      "strategyName": "ML Equity Long/Short",
+      "allocationPercent": "60",
+      "strategyType": "equity_long_short",
+      "targetReturn": "15",
+      "maxDrawdown": "20",
+      "volatilityTarget": "18",
+      "rebalanceFrequency": "intraday",
+      "description": "Machine learning models for equity selection with dynamic long/short allocation"
+    },
+    {
+      "strategyId": "crypto_arbitrage",
+      "strategyName": "Cross-Exchange Crypto Arbitrage",
+      "allocationPercent": "25",
+      "strategyType": "arbitrage",
+      "targetReturn": "18",
+      "maxDrawdown": "15",
+      "volatilityTarget": "25",
+      "rebalanceFrequency": "real_time",
+      "description": "High-frequency arbitrage across cryptocurrency exchanges using latency advantages"
+    },
+    {
+      "strategyId": "defi_yield_farming",
+      "strategyName": "Automated DeFi Yield Farming",
+      "allocationPercent": "15",
+      "strategyType": "defi_farming",
+      "targetReturn": "20",
+      "maxDrawdown": "30",
+      "volatilityTarget": "35",
+      "rebalanceFrequency": "daily",
+      "description": "Automated yield farming across DeFi protocols with risk-adjusted optimization"
+    }
+  ],
+  "assetAllocations": [
+    {
+      "assetClass": "equity_long_short",
+      "targetAllocation": "50",
+      "minAllocation": "30",
+      "maxAllocation": "70",
+      "currentAllocation": "52",
+      "benchmark": "Market_Neutral"
+    },
+    {
+      "assetClass": "cryptocurrency",
+      "targetAllocation": "30",
+      "minAllocation": "20",
+      "maxAllocation": "50",
+      "currentAllocation": "28",
+      "benchmark": "Bitcoin_Ethereum_Weighted"
+    },
+    {
+      "assetClass": "defi_protocols",
+      "targetAllocation": "15",
+      "minAllocation": "5",
+      "maxAllocation": "25",
+      "currentAllocation": "16",
+      "benchmark": "DeFi_Pulse_Index"
+    },
+    {
+      "assetClass": "cash_and_stablecoins",
+      "targetAllocation": "5",
+      "minAllocation": "0",
+      "maxAllocation": "20",
+      "currentAllocation": "4",
+      "benchmark": "USD_Stablecoin_Yield"
+    }
+  ],
+  "feeTiers": [
+    {
+      "tierName": "Standard",
+      "minimumBalance": "10000000000000000000000",
+      "managementFee": "1.00",
+      "performanceFee": "20.00",
+      "withdrawalFee": "0.50",
+      "description": "Standard fee tier for retail and accredited investors"
+    },
+    {
+      "tierName": "High Volume",
+      "minimumBalance": "1000000000000000000000000",
+      "managementFee": "0.75",
+      "performanceFee": "15.00",
+      "withdrawalFee": "0.25",
+      "description": "Reduced fees for high-volume traders and large allocations"
+    }
+  ],
+  "performanceMetrics": [
+    {
+      "metricName": "Total Return",
+      "currentValue": "16.85",
+      "benchmarkValue": "4.50",
+      "period": "YTD",
+      "unit": "percent"
+    },
+    {
+      "metricName": "Sharpe Ratio",
+      "currentValue": "1.45",
+      "benchmarkValue": "0.25",
+      "period": "1_year",
+      "unit": "ratio"
+    },
+    {
+      "metricName": "Maximum Drawdown",
+      "currentValue": "12.8",
+      "benchmarkValue": "N/A",
+      "period": "1_year",
+      "unit": "percent"
+    },
+    {
+      "metricName": "Win Rate",
+      "currentValue": "68.5",
+      "benchmarkValue": "N/A",
+      "period": "6_months",
+      "unit": "percent"
+    },
+    {
+      "metricName": "Alpha Generation",
+      "currentValue": "12.35",
+      "benchmarkValue": "0.00",
+      "period": "1_year",
+      "unit": "percent"
+    }
+  ],
+  "strategyParams": [
+    {
+      "paramName": "ML Model Confidence Threshold",
+      "currentValue": "0.65",
+      "minValue": "0.50",
+      "maxValue": "0.85",
+      "description": "Minimum confidence level for ML model signals to trigger trades"
+    },
+    {
+      "paramName": "Maximum Position Size",
+      "currentValue": "5.0",
+      "minValue": "1.0",
+      "maxValue": "10.0",
+      "description": "Maximum allocation to any single position"
+    },
+    {
+      "paramName": "Leverage Ratio",
+      "currentValue": "2.5",
+      "minValue": "1.0",
+      "maxValue": "5.0",
+      "description": "Maximum leverage ratio for leveraged strategies"
+    },
+    {
+      "paramName": "Rebalancing Frequency Hours",
+      "currentValue": "4.0",
+      "minValue": "1.0",
+      "maxValue": "24.0",
+      "description": "Hours between automated rebalancing cycles"
+    },
+    {
+      "paramName": "Stop Loss Threshold",
+      "currentValue": "8.0",
+      "minValue": "3.0",
+      "maxValue": "15.0",
+      "description": "Automatic stop loss threshold for individual positions"
+    }
+  ],
+  "algorithmicTrading": {
+    "mlModels": [
+      "neural_networks",
+      "random_forests",
+      "gradient_boosting",
+      "deep_reinforcement_learning"
+    ],
+    "dataSourcesCount": 1250,
+    "tradingFrequency": "milliseconds",
+    "backtestingPeriod": "10_years",
+    "modelUpdateFrequency": "weekly",
+    "featureEngineering": "automated",
+    "alternativeDataUsage": true
+  },
+  "riskManagement": {
+    "realTimeRiskMonitoring": true,
+    "volatilityTargeting": true,
+    "dynamicHedging": true,
+    "correlationLimits": {
+      "maxCorrelationToMarket": "0.30",
+      "maxSectorConcentration": "15.0%"
+    },
+    "drawdownLimits": {
+      "dailyDrawdownLimit": "5.0%",
+      "weeklyDrawdownLimit": "10.0%",
+      "monthlyDrawdownLimit": "20.0%"
+    }
+  }
+}

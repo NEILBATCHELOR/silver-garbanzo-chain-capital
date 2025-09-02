@@ -1,0 +1,43 @@
+diff --git a/node_modules/@solana/buffer-layout-utils/lib/esm/bigint.mjs b/node_modules/@solana/buffer-layout-utils/lib/esm/bigint.mjs
+index original..patched 100644
+--- a/node_modules/@solana/buffer-layout-utils/lib/esm/bigint.mjs
++++ b/node_modules/@solana/buffer-layout-utils/lib/esm/bigint.mjs
+@@ -1,5 +1,31 @@
+ import { blob } from '@solana/buffer-layout';
+-import { toBigIntBE, toBigIntLE, toBufferBE, toBufferLE } from 'bigint-buffer';
+ import { encodeDecode } from './base.mjs';
++
++// Inline bigint-buffer utilities to avoid CommonJS/ESM conflicts
++function toBigIntLE(buf) {
++  const reversed = Buffer.from(buf);
++  reversed.reverse();
++  const hex = reversed.toString('hex');
++  if (hex.length === 0) {
++    return BigInt(0);
++  }
++  return BigInt(`0x${hex}`);
++}
++
++function toBigIntBE(buf) {
++  const hex = buf.toString('hex');
++  if (hex.length === 0) {
++    return BigInt(0);
++  }
++  return BigInt(`0x${hex}`);
++}
++
++function toBufferLE(num, width) {
++  const hex = num.toString(16);
++  const buffer = Buffer.from(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
++  buffer.reverse();
++  return buffer;
++}
++
++function toBufferBE(num, width) {
++  const hex = num.toString(16);
++  return Buffer.from(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
++}
++
+ export const bigInt = (length) => (property) => {
+     const layout = blob(length, property);
+     const { encode, decode } = encodeDecode(layout);

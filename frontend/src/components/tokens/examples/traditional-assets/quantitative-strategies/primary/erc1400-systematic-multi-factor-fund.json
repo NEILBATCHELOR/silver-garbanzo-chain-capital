@@ -1,0 +1,363 @@
+{
+  "name": "AQR Systematic Multi-Factor Equity Fund",
+  "symbol": "AQRSMF",
+  "description": "Institutional-grade tokenized quantitative investment strategy employing systematic multi-factor approach across global equities. Based on AQR's proven methodology combining value, momentum, quality, and low volatility factors with rigorous risk management and 15+ year track record.",
+  "decimals": 18,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "quantitative_equity_strategy",
+    "regulatoryFramework": "SEC_Investment_Company_Act_1940",
+    "investmentObjective": "long_term_capital_appreciation_with_risk_management",
+    "benchmarkIndex": "MSCI_World_Index",
+    "strategyType": "systematic_multi_factor",
+    "riskRating": "Medium",
+    "liquidityProfile": "Daily_NAV_calculation_T+2_settlement",
+    "managementCompany": "AQR_Capital_Management",
+    "sector": "quantitative_investment_management",
+    "inceptionDate": "2025-06-17",
+    "minimumInvestment": "$1,000,000",
+    "targetAnnualReturn": "8-12%",
+    "maximumDrawdown": "15%",
+    "sharpeRatio": "1.2",
+    "informationRatio": "0.8",
+    "volatility": "12-16%"
+  },
+  "erc1400Properties": {
+    "initialSupply": "500000000000000000000000000",
+    "cap": "2000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "decimals": 18,
+    
+    "documentUri": "https://aqr.com/funds/systematic-multi-factor/prospectus",
+    "documentHash": "0xa1b2c3d4e5f6789012345678901234567890abcdef123456789012345678901",
+    "tokenDetails": "Systematic multi-factor equity strategy with quantitative risk management and global diversification",
+    "legalTerms": "https://aqr.com/funds/systematic-multi-factor/terms-conditions",
+    "prospectus": "https://aqr.com/funds/systematic-multi-factor/prospectus",
+    
+    "controllerAddress": "0x1234567890123456789012345678901234567890",
+    "requireKyc": true,
+    "enforceKyc": true,
+    "securityType": "investment_fund_shares",
+    
+    "issuingJurisdiction": "United States",
+    "issuingEntityName": "AQR Capital Management, LLC",
+    "issuingEntityLei": "549300AQR123456789012",
+    "regulationType": "investment_company_act_1940",
+    
+    "isMultiClass": true,
+    "trancheTransferability": true,
+    
+    "forcedTransfers": false,
+    "forcedRedemptionEnabled": true,
+    "isIssuable": true,
+    
+    "autoCompliance": true,
+    "manualApprovals": false,
+    "complianceModule": "automated",
+    "complianceAutomationLevel": "fully_automated",
+    
+    "whitelistEnabled": true,
+    "investorWhitelistEnabled": true,
+    "accreditedInvestorOnly": true,
+    "investorAccreditation": true,
+    "holdingPeriod": 90,
+    "maxInvestorCount": 2000,
+    
+    "issuanceModules": true,
+    "documentManagement": true,
+    "recoveryMechanism": true,
+    "granularControl": true,
+    "dividendDistribution": true,
+    "corporateActions": true,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "allow",
+    "geographicRestrictions": [
+      {
+        "country": "US",
+        "restriction": "allowed"
+      },
+      {
+        "country": "EU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "GB",
+        "restriction": "allowed"
+      },
+      {
+        "country": "JP",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CA",
+        "restriction": "allowed"
+      },
+      {
+        "country": "AU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CN",
+        "restriction": "restricted"
+      },
+      {
+        "country": "RU",
+        "restriction": "blocked"
+      },
+      {
+        "country": "IR",
+        "restriction": "blocked"
+      },
+      {
+        "country": "KP",
+        "restriction": "blocked"
+      }
+    ],
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "institutional_settlement_network",
+    "clearingHouseIntegration": true,
+    "centralSecuritiesDepositoryIntegration": true,
+    "thirdPartyCustodyAddresses": [
+      "0x1111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "transactionMonitoringRules": {
+      "maxTransactionSize": "100000000000000000000000000",
+      "flagThreshold": "50000000000000000000000000",
+      "reportingThreshold": "10000000000000000000000000"
+    },
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": true,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": true,
+    "rightsOfferingsEnabled": false,
+    "spinOffsEnabled": false,
+    "mergersAcquisitionsSupport": false,
+    "treasuryManagementEnabled": true,
+    "buybackProgramsEnabled": true,
+    "shareRepurchaseAutomation": true,
+    
+    "advancedGovernanceEnabled": true,
+    "proxyVotingEnabled": true,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": true,
+    "quorumRequirements": {
+      "minimumQuorum": "50%",
+      "supermajorityThreshold": "66.67%"
+    },
+    "votingDelegationEnabled": true,
+    "institutionalVotingServices": true,
+    "boardElectionSupport": true,
+    
+    "crossBorderTradingEnabled": true,
+    "multiJurisdictionCompliance": true,
+    "passportRegimeSupport": true,
+    "treatyBenefitsEnabled": true,
+    "withholdingTaxAutomation": true,
+    "currencyHedgingEnabled": true,
+    "foreignOwnershipRestrictions": {
+      "maxForeignOwnership": "49%",
+      "restrictedCountries": ["CN", "RU", "IR", "KP"]
+    },
+    "regulatoryEquivalenceMapping": {
+      "US": "Investment_Company_Act_1940",
+      "EU": "UCITS_Directive",
+      "UK": "FCA_COLL",
+      "JP": "FIEA_Investment_Trust_Act"
+    },
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": true,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": true,
+    "priceDiscoveryMechanisms": ["nav_calculation", "market_making", "institutional_crossing"],
+    
+    "crossChainBridgeSupport": true,
+    "layer2ScalingSupport": true,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "concentrationLimits": {
+      "maxSingleIssuerExposure": "5%",
+      "maxSectorExposure": "20%",
+      "maxCountryExposure": "30%",
+      "maxPositionSize": "2%"
+    },
+    "stressTestingEnabled": true,
+    "marginRequirementsDynamic": true,
+    "collateralManagementEnabled": true,
+    "insuranceCoverageEnabled": true,
+    "disasterRecoveryEnabled": true
+  },
+  "quantitativeStrategyProperties": {
+    "strategyName": "Systematic Multi-Factor Equity",
+    "factorExposures": [
+      {
+        "factor": "value",
+        "targetWeight": "25%",
+        "description": "Price-to-book, earnings yield, cash flow yield"
+      },
+      {
+        "factor": "momentum",
+        "targetWeight": "25%",
+        "description": "Price momentum, earnings revision momentum"
+      },
+      {
+        "factor": "quality",
+        "targetWeight": "25%",
+        "description": "ROE, debt-to-equity, earnings stability"
+      },
+      {
+        "factor": "low_volatility",
+        "targetWeight": "25%",
+        "description": "Minimum variance, low beta, quality minus junk"
+      }
+    ],
+    "rebalancingFrequency": "monthly",
+    "portfolioConstruction": "optimization_based",
+    "riskModel": "barra_aegis",
+    "backtestPeriod": "20_years",
+    "targetVolatility": "14%",
+    "maxTurnover": "100%",
+    "transactionCostModel": "institutional_cost_model",
+    "universeDefinition": "developed_markets_large_mid_cap",
+    "excludeNonESG": false,
+    "factorTimingEnabled": false,
+    "regimeAwareness": true
+  },
+  "partitions": [
+    {
+      "name": "Institutional Investors",
+      "symbol": "AQRSMF-INST",
+      "totalSupply": "400000000000000000000000000",
+      "minInvestment": "1000000000000000000000000",
+      "managementFee": "0.50",
+      "performanceFee": "0.00",
+      "investorType": "institutional_qualified",
+      "transferRestrictions": {
+        "holdingPeriod": 90,
+        "maxTransferSize": "50000000000000000000000000",
+        "approvalRequired": false
+      }
+    },
+    {
+      "name": "Qualified Purchasers",
+      "symbol": "AQRSMF-QP",
+      "totalSupply": "100000000000000000000000000",
+      "minInvestment": "5000000000000000000000000",
+      "managementFee": "0.75",
+      "performanceFee": "0.00",
+      "investorType": "qualified_purchaser",
+      "transferRestrictions": {
+        "holdingPeriod": 90,
+        "maxTransferSize": "25000000000000000000000000",
+        "approvalRequired": true
+      }
+    }
+  ],
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "fund_administrator",
+      "permissions": ["nav_calculation", "distribution_management", "compliance_monitoring", "corporate_actions"],
+      "description": "AQR fund administrator with full portfolio management rights"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "risk_manager",
+      "permissions": ["risk_monitoring", "position_limits", "stress_testing"],
+      "description": "Risk management controller for portfolio risk oversight"
+    },
+    {
+      "address": "0x3456789012345678901234567890123456789012",
+      "role": "compliance_officer",
+      "permissions": ["compliance_check", "sanctions_screening", "regulatory_reporting"],
+      "description": "Compliance officer for regulatory and AML oversight"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Fund Prospectus",
+      "uri": "https://aqr.com/funds/systematic-multi-factor/prospectus.pdf",
+      "hash": "0xa1b2c3d4e5f6789012345678901234567890abcdef123456789012345678901",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Investment Strategy Document",
+      "uri": "https://aqr.com/funds/systematic-multi-factor/strategy-document.pdf",
+      "hash": "0xb2c3d4e5f6789012345678901234567890abcdef123456789012345678901a",
+      "category": "strategy",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Risk Management Framework",
+      "uri": "https://aqr.com/funds/systematic-multi-factor/risk-framework.pdf",
+      "hash": "0xc3d4e5f6789012345678901234567890abcdef123456789012345678901ab",
+      "category": "risk",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Performance Attribution Report",
+      "uri": "https://aqr.com/funds/systematic-multi-factor/performance-attribution.pdf",
+      "hash": "0xd4e5f6789012345678901234567890abcdef123456789012345678901abc",
+      "category": "performance",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    }
+  ],
+  "transferRestrictions": {
+    "enabled": true,
+    "rules": [
+      {
+        "ruleType": "qualified_investor_only",
+        "description": "Only qualified institutional buyers and accredited investors",
+        "active": true
+      },
+      {
+        "ruleType": "minimum_holding_period",
+        "description": "90-day minimum holding period for institutional stability",
+        "active": true
+      },
+      {
+        "ruleType": "maximum_position_size",
+        "description": "No single investor may hold more than 10% of outstanding shares",
+        "active": true
+      },
+      {
+        "ruleType": "sanctions_screening",
+        "description": "Automated sanctions and AML screening on all transfers",
+        "active": true
+      }
+    ]
+  }
+}

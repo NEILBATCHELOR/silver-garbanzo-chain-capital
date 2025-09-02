@@ -1,0 +1,245 @@
+{
+  "name": "Institutional Digital Treasury Fund",
+  "symbol": "IDTF",
+  "description": "A tokenized institutional treasury fund providing institutional-grade exposure to US Treasury bills, repo agreements, and cash equivalents. Inspired by BlackRock's BUIDL and Franklin Templeton's FOBXX tokenized funds.",
+  "decimals": 18,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "treasury_fund",
+    "regulatoryFramework": "SEC_40_Act",
+    "investmentObjective": "preservation_of_capital_and_liquidity",
+    "benchmarkIndex": "ICE_BofA_US_3M_Treasury_Bill_Index",
+    "fundType": "institutional_money_market",
+    "riskRating": "low",
+    "liquidityProfile": "T+1_settlement"
+  },
+  "erc1400Properties": {
+    "initialSupply": "500000000000000000000000000",
+    "cap": "10000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "decimals": 18,
+    
+    "documentUri": "https://fund.example.com/legal/prospectus",
+    "documentHash": "0x7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+    "tokenDetails": "Security token representing beneficial interests in an institutional digital treasury fund",
+    "legalTerms": "https://fund.example.com/legal/terms",
+    "prospectus": "https://fund.example.com/legal/prospectus",
+    
+    "controllerAddress": "0x1234567890123456789012345678901234567890",
+    "requireKyc": true,
+    "enforceKyc": true,
+    "securityType": "fund_units",
+    
+    "issuingJurisdiction": "Delaware, USA",
+    "issuingEntityName": "Digital Asset Management LLC",
+    "issuingEntityLei": "549300ABCDEF1234567890",
+    "regulationType": "40_act_fund",
+    
+    "isMultiClass": false,
+    "trancheTransferability": true,
+    
+    "forcedTransfers": true,
+    "forcedRedemptionEnabled": true,
+    "isIssuable": true,
+    
+    "autoCompliance": true,
+    "manualApprovals": false,
+    "complianceModule": "automated",
+    "complianceAutomationLevel": "fully_automated",
+    
+    "whitelistEnabled": true,
+    "investorWhitelistEnabled": true,
+    "accreditedInvestorOnly": true,
+    "investorAccreditation": true,
+    "holdingPeriod": 0,
+    "maxInvestorCount": 2000,
+    
+    "issuanceModules": true,
+    "documentManagement": true,
+    "recoveryMechanism": true,
+    "granularControl": true,
+    "dividendDistribution": true,
+    "corporateActions": false,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "deny",
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "dtc",
+    "clearingHouseIntegration": true,
+    "centralSecuritiesDepositoryIntegration": true,
+    "thirdPartyCustodyAddresses": [
+      "0x1111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222"
+    ],
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "transactionMonitoringRules": {
+      "maxTransactionSize": "10000000000000000000000000",
+      "flagThreshold": "1000000000000000000000000",
+      "reportingThreshold": "100000000000000000000000"
+    },
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": false,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": false,
+    "rightsOfferingsEnabled": false,
+    "spinOffsEnabled": false,
+    "mergersAcquisitionsSupport": false,
+    "treasuryManagementEnabled": true,
+    "buybackProgramsEnabled": false,
+    "shareRepurchaseAutomation": false,
+    
+    "advancedGovernanceEnabled": false,
+    "proxyVotingEnabled": false,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": false,
+    "quorumRequirements": {},
+    "votingDelegationEnabled": false,
+    "institutionalVotingServices": false,
+    "boardElectionSupport": false,
+    
+    "crossBorderTradingEnabled": true,
+    "multiJurisdictionCompliance": true,
+    "passportRegimeSupport": false,
+    "treatyBenefitsEnabled": false,
+    "withholdingTaxAutomation": true,
+    "currencyHedgingEnabled": false,
+    "foreignOwnershipRestrictions": {
+      "maxForeignOwnership": "25%",
+      "restrictedCountries": ["CN", "RU", "IR", "KP"]
+    },
+    "regulatoryEquivalenceMapping": {
+      "US": "SEC_40_Act",
+      "EU": "UCITS_V",
+      "UK": "OEIC"
+    },
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": false,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": true,
+    "priceDiscoveryMechanisms": ["nav_pricing", "market_pricing"],
+    
+    "crossChainBridgeSupport": false,
+    "layer2ScalingSupport": true,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "concentrationLimits": {
+      "maxSingleIssuerExposure": "5%",
+      "maxCreditRating": "AA",
+      "maxMaturity": "397_days"
+    },
+    "stressTestingEnabled": true,
+    "marginRequirementsDynamic": false,
+    "collateralManagementEnabled": true,
+    "insuranceCoverageEnabled": true,
+    "disasterRecoveryEnabled": true
+  },
+  "partitions": [
+    {
+      "name": "Class A Institutional",
+      "symbol": "IDTF-A",
+      "totalSupply": "400000000000000000000000000",
+      "minInvestment": "1000000000000000000000000",
+      "managementFee": "0.15",
+      "redemptionFee": "0.00",
+      "investorType": "institutional_qualified",
+      "transferRestrictions": {
+        "holdingPeriod": 0,
+        "maxTransferSize": "50000000000000000000000000",
+        "approvalRequired": false
+      }
+    },
+    {
+      "name": "Class I High Net Worth",
+      "symbol": "IDTF-I",
+      "totalSupply": "100000000000000000000000000",
+      "minInvestment": "100000000000000000000000",
+      "managementFee": "0.25",
+      "redemptionFee": "0.00",
+      "investorType": "accredited_individual",
+      "transferRestrictions": {
+        "holdingPeriod": 0,
+        "maxTransferSize": "10000000000000000000000000",
+        "approvalRequired": true
+      }
+    }
+  ],
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "fund_controller",
+      "permissions": ["force_transfer", "freeze_tokens", "compliance_check"],
+      "description": "Primary fund controller with full administrative rights"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "compliance_controller",
+      "permissions": ["compliance_check", "sanctions_screening"],
+      "description": "Compliance-specific controller for AML/KYC operations"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Fund Prospectus",
+      "uri": "https://fund.example.com/legal/prospectus.pdf",
+      "hash": "0x7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+      "category": "legal",
+      "lastUpdated": "2024-06-01T00:00:00Z"
+    },
+    {
+      "name": "Annual Report",
+      "uri": "https://fund.example.com/reports/annual-2024.pdf",
+      "hash": "0x8e976f060b3577829d76804c99bbf4d0cb90e8dac1c00cebgd3850615efe88841",
+      "category": "financial",
+      "lastUpdated": "2024-12-31T00:00:00Z"
+    }
+  ],
+  "transferRestrictions": {
+    "enabled": true,
+    "rules": [
+      {
+        "ruleType": "kyc_verification",
+        "description": "All transfers require KYC verification",
+        "active": true
+      },
+      {
+        "ruleType": "sanctions_screening",
+        "description": "Automated sanctions screening on all transfers",
+        "active": true
+      },
+      {
+        "ruleType": "accredited_investor",
+        "description": "Transfers only permitted to accredited investors",
+        "active": true
+      }
+    ]
+  }
+}

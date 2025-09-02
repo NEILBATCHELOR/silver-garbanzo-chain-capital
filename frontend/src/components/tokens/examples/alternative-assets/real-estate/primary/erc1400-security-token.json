@@ -1,0 +1,400 @@
+{
+  "name": "Manhattan Commercial REIT Series A",
+  "symbol": "MCRS-A",
+  "decimals": 6,
+  "standard": "ERC-1400",
+  "initialSupply": "250000000",
+  "cap": "1000000000",
+  "securityType": "real_estate_investment_trust",
+  "regulationType": "reg-d",
+  "tokenDetails": "Tokenized commercial real estate investment trust focused on prime Manhattan office and retail properties. Features fractional ownership, quarterly distributions, and liquidity through tokenized value units.",
+  "issuingEntityName": "Manhattan Commercial Properties REIT, LLC",
+  "issuingJurisdiction": "Delaware, USA",
+  "issuingEntityLei": "549300MANHATTANREIT789",
+  
+  "isMintable": true,
+  "isBurnable": false,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "semi-automated",
+  "complianceModule": "real-estate-compliance-module",
+  
+  "holdingPeriod": "12",
+  "maxInvestorCount": "2000",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": false,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": true,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://manhattan-reit.com/docs/series-a/",
+  "documentHash": "0xabcd1234efgh5678",
+  "legalTerms": "https://manhattan-reit.com/legal/series-a-terms.pdf",
+  "prospectus": "https://manhattan-reit.com/prospectus/series-a-prospectus.pdf",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": false,
+  "settlementIntegration": "property_records_chain",
+  "clearingHouseIntegration": false,
+  "centralSecuritiesDepositoryIntegration": false,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": true,
+  
+  "traditionalFinanceIntegration": false,
+  "swiftIntegrationEnabled": false,
+  "iso20022MessagingSupport": false,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": true,
+  "layer2ScalingSupport": true,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": true,
+  "marginRequirementsDynamic": false,
+  "collateralManagementEnabled": false,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 365,
+    "qualifiedInvestorOnly": true,
+    "maximumInvestorsPerJurisdiction": 500,
+    "transferApprovalRequired": false,
+    "automaticCompliance": true,
+    "fractionalTransfersEnabled": true,
+    "propertySpecificRestrictions": true,
+    "lockupPeriods": [
+      {
+        "investorType": "institutional",
+        "lockupDays": 180
+      },
+      {
+        "investorType": "qualified",
+        "lockupDays": 365
+      }
+    ]
+  },
+  
+  "kycSettings": {
+    "kycProviders": ["Jumio", "Onfido", "Shufti Pro"],
+    "verificationLevels": ["basic", "enhanced", "property_owner"],
+    "documentRequirements": ["passport", "utility_bill", "bank_statement", "property_ownership_verification"],
+    "biometricVerification": true,
+    "continuousMonitoring": true,
+    "propertyOwnershipVerification": true
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": {
+      "enabled": true,
+      "databases": ["OFAC", "EU", "UN", "HMT"],
+      "realTimeChecking": true,
+      "propertyOwnerScreening": true
+    },
+    "amlCompliance": {
+      "enabled": true,
+      "transactionMonitoring": true,
+      "sourceOfFundsVerification": true,
+      "suspiciousActivityThresholds": {
+        "singleTransaction": "500000",
+        "dailyAggregate": "1000000",
+        "monthlyAggregate": "5000000"
+      }
+    },
+    "pepScreening": {
+      "enabled": true,
+      "extendedFamily": true,
+      "associateScreening": true,
+      "realEstateSpecific": true
+    },
+    "propertyCompliance": {
+      "titleVerification": true,
+      "lienChecks": true,
+      "zoningCompliance": true,
+      "environmentalCompliance": true
+    }
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor", "kyc_verified", "no_foreign_person_restrictions"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor", "kyc_verified", "foreign_investment_approval"]
+    },
+    {
+      "country": "GB",
+      "allowed": true,
+      "conditions": ["sophisticated_investor", "kyc_verified"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "foreign_real_estate_restrictions"
+    },
+    {
+      "country": "IR",
+      "allowed": false,
+      "reason": "sanctions"
+    }
+  ],
+  
+  "investorLimits": {
+    "maximumInvestors": 2000,
+    "minimumInvestment": "50000",
+    "maximumInvestment": "25000000",
+    "accreditationRequired": true,
+    "institutionalMinimum": "1000000",
+    "foreignInvestorLimits": {
+      "maximumPercentage": "25",
+      "requiresApproval": true
+    }
+  },
+  
+  "partitions": [
+    {
+      "id": "office-properties",
+      "name": "Premium Office Properties",
+      "description": "Class A office buildings in Manhattan CBD",
+      "amount": "600000000",
+      "percentage": "60",
+      "riskRating": "A",
+      "targetReturn": "6-8%",
+      "transferable": true,
+      "votingRights": true,
+      "propertyDetails": {
+        "type": "office",
+        "class": "A",
+        "averageOccupancy": "95",
+        "averageLease": "7.5_years"
+      }
+    },
+    {
+      "id": "retail-properties",
+      "name": "High-Street Retail Properties",
+      "description": "Premium retail spaces on Fifth Avenue and Madison Avenue",
+      "amount": "300000000",
+      "percentage": "30",
+      "riskRating": "A-",
+      "targetReturn": "7-9%",
+      "transferable": true,
+      "votingRights": true,
+      "propertyDetails": {
+        "type": "retail",
+        "class": "A",
+        "averageOccupancy": "92",
+        "averageLease": "10_years"
+      }
+    },
+    {
+      "id": "mixed-use-properties",
+      "name": "Mixed-Use Development",
+      "description": "Mixed-use properties combining office, retail, and residential",
+      "amount": "100000000",
+      "percentage": "10",
+      "riskRating": "B+",
+      "targetReturn": "8-12%",
+      "transferable": false,
+      "votingRights": true,
+      "propertyDetails": {
+        "type": "mixed_use",
+        "class": "A-",
+        "averageOccupancy": "88",
+        "developmentStage": "stabilized"
+      }
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x1a2b3c4d5e6f7890123456789012345678901234",
+      "name": "Manhattan Properties Management",
+      "role": "property_manager",
+      "permissions": ["property_operations", "tenant_management", "capital_improvements", "distributions"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "operations@manhattan-reit.com",
+        "phone": "+1-212-555-0789"
+      }
+    },
+    {
+      "address": "0x2b3c4d5e6f7890123456789012345678901234ab",
+      "name": "CBRE Global Investors",
+      "role": "asset_manager",
+      "permissions": ["asset_management", "property_acquisition", "disposition", "strategic_planning"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "asset-management@cbre.com",
+        "phone": "+1-212-984-6000"
+      }
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Property Portfolio Summary",
+      "documentUri": "https://manhattan-reit.com/docs/portfolio-summary.pdf",
+      "documentType": "prospectus",
+      "documentHash": "0x1234abcd5678efgh",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Property Appraisal Reports",
+      "documentUri": "https://manhattan-reit.com/docs/appraisal-reports.pdf",
+      "documentType": "valuation",
+      "documentHash": "0x5678efgh9012ijkl",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Environmental Compliance Certificates",
+      "documentUri": "https://manhattan-reit.com/docs/environmental-compliance.pdf",
+      "documentType": "compliance",
+      "documentHash": "0x9012ijkl3456mnop",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Property Insurance Policies",
+      "documentUri": "https://manhattan-reit.com/docs/insurance-policies.pdf",
+      "documentType": "insurance",
+      "documentHash": "0x3456mnop7890qrst",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    }
+  ],
+  
+  "corporateActions": [
+    {
+      "actionType": "distribution",
+      "announcementDate": "2024-03-01",
+      "recordDate": "2024-03-15",
+      "effectiveDate": "2024-03-31",
+      "paymentDate": "2024-04-15",
+      "actionDetails": {
+        "distributionType": "quarterly_rental_income",
+        "amountPerToken": "0.125",
+        "currency": "USD",
+        "taxWithholding": true,
+        "reinvestmentOption": true,
+        "sourceOfFunds": "rental_income"
+      },
+      "status": "completed"
+    },
+    {
+      "actionType": "capital_improvement",
+      "announcementDate": "2024-05-01",
+      "recordDate": "2024-05-15",
+      "effectiveDate": "2024-06-01",
+      "actionDetails": {
+        "improvementType": "lobby_renovation",
+        "propertyAddress": "123 Park Avenue",
+        "estimatedCost": "2500000",
+        "expectedCompletion": "2024-12-31",
+        "impactOnValue": "increase"
+      },
+      "status": "in_progress"
+    }
+  ],
+  
+  "custodyProviders": [
+    {
+      "providerName": "JPMorgan Chase Bank",
+      "providerType": "property_custodian",
+      "providerLei": "7H6GLXDRUGQFU57RNE97",
+      "custodyAgreementHash": "0xabcd1234efgh5678",
+      "isActive": true,
+      "certificationLevel": "tier_1",
+      "jurisdiction": "United States",
+      "regulatoryApprovals": ["OCC", "FDIC", "Federal Reserve"],
+      "integrationStatus": "live",
+      "services": ["property_custody", "title_holding", "escrow_services"]
+    }
+  ],
+  
+  "regulatoryFilings": [
+    {
+      "filingType": "Form D",
+      "filingDate": "2024-01-30",
+      "filingJurisdiction": "SEC",
+      "filingReference": "021-406123",
+      "regulatoryBody": "Securities and Exchange Commission",
+      "complianceStatus": "filed",
+      "autoGenerated": false
+    },
+    {
+      "filingType": "FIRPTA Withholding Statement",
+      "filingDate": "2024-02-15",
+      "filingJurisdiction": "IRS",
+      "filingReference": "FIRPTA-2024-001",
+      "regulatoryBody": "Internal Revenue Service",
+      "complianceStatus": "filed",
+      "autoGenerated": true
+    }
+  ],
+  
+  "propertySpecificData": {
+    "totalProperties": 15,
+    "totalSquareFeet": "2500000",
+    "averageOccupancyRate": "93.5",
+    "averageLeaseLength": "8.2",
+    "geographicConcentration": {
+      "manhattan_cbd": "70",
+      "manhattan_midtown": "25",
+      "manhattan_uptown": "5"
+    },
+    "tenantDiversification": {
+      "financial_services": "35",
+      "technology": "25",
+      "legal": "20",
+      "consulting": "15",
+      "other": "5"
+    },
+    "propertyManagement": {
+      "inHouseTeam": true,
+      "thirdPartyPartners": ["CBRE", "JLL", "Cushman & Wakefield"],
+      "maintenanceContracts": "comprehensive",
+      "securityLevel": "institutional_grade"
+    }
+  }
+}

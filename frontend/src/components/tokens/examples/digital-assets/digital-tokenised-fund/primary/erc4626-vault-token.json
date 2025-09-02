@@ -1,0 +1,408 @@
+{
+  "name": "Digital Multi-Asset Yield Vault",
+  "symbol": "vDMYF",
+  "standard": "ERC-4626",
+  "decimals": 18,
+  "description": "ERC-4626 vault token providing automated yield optimization and asset management for the Digital Multi-Asset Yield Fund",
+  "asset": "0x652d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9A",
+  "assetName": "USDC",
+  "assetSymbol": "USDC",
+  "assetDecimals": 6,
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "accessControl": "role-based",
+  "maxSupply": "500000000",
+  "maxDeposit": "50000000",
+  "maxMint": "50000000",
+  "minDeposit": "500000",
+  "minMint": "500000",
+  
+  "feeStructure": {
+    "managementFee": "200",
+    "performanceFee": "2000", 
+    "depositFee": "0",
+    "withdrawalFee": "50",
+    "feeRecipient": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b"
+  },
+  
+  "yieldStrategies": [
+    {
+      "name": "Compound V3 USDC Lending",
+      "protocol": "compound-v3",
+      "allocation": "25%",
+      "targetAPY": "8-12%",
+      "riskLevel": "low",
+      "address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3"
+    },
+    {
+      "name": "Aave V3 USDC Lending",
+      "protocol": "aave-v3",
+      "allocation": "20%",
+      "targetAPY": "6-10%",
+      "riskLevel": "low",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+    },
+    {
+      "name": "Uniswap V3 USDC/ETH LP",
+      "protocol": "uniswap-v3",
+      "allocation": "20%",
+      "targetAPY": "15-25%",
+      "riskLevel": "medium",
+      "address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
+    },
+    {
+      "name": "Curve 3Pool LP",
+      "protocol": "curve",
+      "allocation": "15%",
+      "targetAPY": "5-8%",
+      "riskLevel": "low",
+      "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7"
+    },
+    {
+      "name": "Convex 3Pool Staking",
+      "protocol": "convex",
+      "allocation": "15%",
+      "targetAPY": "8-15%",
+      "riskLevel": "medium",
+      "address": "0x689440f2Ff927E1f24c72F1087E1FAF471eCe1c8"
+    },
+    {
+      "name": "Yearn USDC Vault",
+      "protocol": "yearn",
+      "allocation": "5%",
+      "targetAPY": "6-12%",
+      "riskLevel": "medium",
+      "address": "0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE"
+    }
+  ],
+  
+  "vaultStrategies": [
+    {
+      "id": "1",
+      "name": "Conservative Yield Strategy",
+      "description": "Low-risk lending and stablecoin farming with capital preservation focus",
+      "targetAllocation": "40%",
+      "riskLevel": "low",
+      "expectedAPY": "6-10%",
+      "protocols": ["compound", "aave", "maker"],
+      "assets": ["USDC", "DAI", "USDT"],
+      "maxLeverage": "1.5x",
+      "isActive": true
+    },
+    {
+      "id": "2", 
+      "name": "Balanced Liquidity Strategy",
+      "description": "Medium-risk liquidity provision and yield farming across top DEXs",
+      "targetAllocation": "35%",
+      "riskLevel": "medium",
+      "expectedAPY": "12-20%",
+      "protocols": ["uniswap-v3", "curve", "balancer"],
+      "assets": ["ETH", "USDC", "WBTC"],
+      "maxLeverage": "2x",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "name": "Aggressive Yield Strategy", 
+      "description": "Higher-risk strategies including leveraged farming and newer protocols",
+      "targetAllocation": "20%",
+      "riskLevel": "high",
+      "expectedAPY": "20-40%",
+      "protocols": ["convex", "frax", "gmx"],
+      "assets": ["CVX", "CRV", "FXS"],
+      "maxLeverage": "3x",
+      "isActive": true
+    },
+    {
+      "id": "4",
+      "name": "Cash Management Strategy",
+      "description": "Ultra-safe cash equivalent positions for liquidity management",
+      "targetAllocation": "5%", 
+      "riskLevel": "minimal",
+      "expectedAPY": "2-5%",
+      "protocols": ["treasury", "coinbase-custody"],
+      "assets": ["USDC", "Treasury-Bills"],
+      "maxLeverage": "1x",
+      "isActive": true
+    }
+  ],
+  
+  "assetAllocations": [
+    {
+      "id": "1",
+      "assetAddress": "0xA0b86a33E6441446D49c4a4b36a5e8C85c6aD3b5",
+      "assetName": "USDC",
+      "targetAllocation": "40%",
+      "currentAllocation": "38.5%",
+      "minAllocation": "30%",
+      "maxAllocation": "50%",
+      "rebalanceThreshold": "5%"
+    },
+    {
+      "id": "2",
+      "assetAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "assetName": "WETH", 
+      "targetAllocation": "25%",
+      "currentAllocation": "26.2%",
+      "minAllocation": "15%",
+      "maxAllocation": "35%",
+      "rebalanceThreshold": "5%"
+    },
+    {
+      "id": "3",
+      "assetAddress": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "assetName": "DAI",
+      "targetAllocation": "15%",
+      "currentAllocation": "14.8%",
+      "minAllocation": "10%", 
+      "maxAllocation": "25%",
+      "rebalanceThreshold": "3%"
+    },
+    {
+      "id": "4",
+      "assetAddress": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "assetName": "WBTC",
+      "targetAllocation": "10%",
+      "currentAllocation": "9.8%",
+      "minAllocation": "5%",
+      "maxAllocation": "20%",
+      "rebalanceThreshold": "3%"
+    },
+    {
+      "id": "5",
+      "assetAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "assetName": "USDT",
+      "targetAllocation": "10%",
+      "currentAllocation": "10.7%",
+      "minAllocation": "5%",
+      "maxAllocation": "20%",
+      "rebalanceThreshold": "3%"
+    }
+  ],
+  
+  "feeTiers": [
+    {
+      "id": "1",
+      "tierName": "Institutional",
+      "minDeposit": "10000000",
+      "managementFee": "150",
+      "performanceFee": "1500",
+      "withdrawalFee": "0",
+      "priorityAccess": true
+    },
+    {
+      "id": "2", 
+      "tierName": "Qualified",
+      "minDeposit": "1000000",
+      "managementFee": "175",
+      "performanceFee": "1750",
+      "withdrawalFee": "25",
+      "priorityAccess": true
+    },
+    {
+      "id": "3",
+      "tierName": "Standard",
+      "minDeposit": "500000",
+      "managementFee": "200",
+      "performanceFee": "2000",
+      "withdrawalFee": "50",
+      "priorityAccess": false
+    }
+  ],
+  
+  "performanceMetrics": [
+    {
+      "id": "1",
+      "metricName": "Total Value Locked",
+      "currentValue": "285000000",
+      "previousValue": "270000000",
+      "changePercent": "5.56%",
+      "period": "30d"
+    },
+    {
+      "id": "2",
+      "metricName": "APY (30d)",
+      "currentValue": "18.45%",
+      "previousValue": "16.20%",
+      "changePercent": "13.89%",
+      "period": "30d"
+    },
+    {
+      "id": "3",
+      "metricName": "Sharpe Ratio",
+      "currentValue": "1.28",
+      "previousValue": "1.15",
+      "changePercent": "11.30%",
+      "period": "90d"
+    },
+    {
+      "id": "4",
+      "metricName": "Maximum Drawdown",
+      "currentValue": "8.2%",
+      "previousValue": "12.5%",
+      "changePercent": "-34.40%",
+      "period": "365d"
+    },
+    {
+      "id": "5",
+      "metricName": "Assets Under Management",
+      "currentValue": "285000000",
+      "previousValue": "250000000",
+      "changePercent": "14.00%",
+      "period": "90d"
+    }
+  ],
+  
+  "strategyParams": [
+    {
+      "id": "1",
+      "strategyId": "1",
+      "paramName": "maxLeverage",
+      "paramValue": "1.5",
+      "paramType": "number",
+      "description": "Maximum leverage ratio for conservative strategy"
+    },
+    {
+      "id": "2",
+      "strategyId": "1", 
+      "paramName": "rebalanceThreshold",
+      "paramValue": "0.05",
+      "paramType": "number",
+      "description": "Percentage threshold for triggering rebalancing"
+    },
+    {
+      "id": "3",
+      "strategyId": "2",
+      "paramName": "slippageTolerance",
+      "paramValue": "0.01",
+      "paramType": "number",
+      "description": "Maximum slippage tolerance for trades"
+    },
+    {
+      "id": "4",
+      "strategyId": "2",
+      "paramName": "minLiquidity",
+      "paramValue": "1000000",
+      "paramType": "number",
+      "description": "Minimum liquidity requirement for LP positions"
+    },
+    {
+      "id": "5",
+      "strategyId": "3",
+      "paramName": "riskBudget",
+      "paramValue": "0.15",
+      "paramType": "number",
+      "description": "Maximum risk budget allocation for aggressive strategies"
+    }
+  ],
+  
+  "riskManagement": {
+    "enabled": true,
+    "maxDrawdown": "15%",
+    "var95": "5%",
+    "stressTestFrequency": "weekly",
+    "riskLimits": {
+      "singleAsset": "15%",
+      "singleProtocol": "25%",
+      "leverageMax": "3x",
+      "correlationMax": "0.7"
+    },
+    "emergencyControls": {
+      "pauseEnabled": true,
+      "emergencyWithdraw": true,
+      "circuitBreakers": true,
+      "autoDeleverage": true
+    }
+  },
+  
+  "complianceFeatures": {
+    "accreditedInvestorOnly": true,
+    "kycRequired": true,
+    "amlMonitoring": true,
+    "reportingRequirements": {
+      "nav": "daily",
+      "performance": "monthly",
+      "holdings": "weekly",
+      "risk": "weekly"
+    },
+    "auditRequirements": {
+      "internal": "monthly",
+      "external": "quarterly",
+      "smartContract": "continuous"
+    }
+  },
+  
+  "liquidityManagement": {
+    "withdrawalGate": "10%",
+    "noticePeriod": "7d", 
+    "redemptionFrequency": "weekly",
+    "cashReserve": "5%",
+    "emergencyLiquidity": "15%",
+    "liquidityProviders": [
+      "compound",
+      "aave", 
+      "uniswap-v3",
+      "curve"
+    ]
+  },
+  
+  "governance": {
+    "governanceToken": "DMYF",
+    "votingRights": true,
+    "proposalRights": true,
+    "quorumRequirement": "10%",
+    "votingDelay": "48h",
+    "votingPeriod": "7d",
+    "timelock": "48h",
+    "emergencyPowers": true
+  },
+  
+  "integrations": {
+    "priceOracles": [
+      "chainlink",
+      "uniswap-v3-twap",
+      "curve-oracle"
+    ],
+    "yieldAggregators": [
+      "yearn",
+      "harvest",
+      "idle"
+    ],
+    "dexAggregators": [
+      "1inch",
+      "paraswap",
+      "matcha"
+    ],
+    "riskProviders": [
+      "gauntlet",
+      "chaos-labs",
+      "risk-harbor"
+    ]
+  },
+  
+  "metadata": {
+    "website": "https://chaincapital.com/vaults/digital-yield",
+    "documentation": "https://docs.chaincapital.com/vaults/vdmyf", 
+    "logo": "https://assets.chaincapital.com/vaults/vdmyf/logo.svg",
+    "tags": ["yield", "vault", "institutional", "automated", "multi-strategy"],
+    "category": "digital-asset-vault"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits", "consensys-diligence", "spearbit"],
+    "auditReports": [
+      "https://audits.chaincapital.com/vdmyf-trail-of-bits-2024.pdf",
+      "https://audits.chaincapital.com/vdmyf-consensys-2024.pdf", 
+      "https://audits.chaincapital.com/vdmyf-spearbit-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "maxBounty": "1000000",
+    "multisigRequired": true,
+    "timelock": "48h",
+    "upgradeDelay": "7d"
+  }
+}

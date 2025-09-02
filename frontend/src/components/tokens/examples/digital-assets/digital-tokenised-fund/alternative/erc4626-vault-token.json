@@ -1,0 +1,318 @@
+{
+  "name": "Simple Digital Yield Vault",
+  "symbol": "sDYV",
+  "decimals": 18,
+  "description": "Simplified ERC-4626 vault token providing automated yield optimization for retail and institutional DeFi participation",
+  "asset": "0xA0b86a33E6441446D49c4a4b36a5e8C85c6aD3b5",
+  "assetName": "USDC",
+  "assetSymbol": "USDC", 
+  "assetDecimals": 6,
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "accessControl": "minimal",
+  "maxSupply": "1000000000",
+  "maxDeposit": "100000000",
+  "maxMint": "100000000",
+  "minDeposit": "1000",
+  "minMint": "1000",
+  
+  "feeStructure": {
+    "managementFee": "100",
+    "performanceFee": "1000",
+    "depositFee": "0",
+    "withdrawalFee": "0",
+    "feeRecipient": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b"
+  },
+  
+  "yieldStrategies": [
+    {
+      "name": "Aave V3 USDC Lending",
+      "protocol": "aave-v3",
+      "allocation": "35%",
+      "targetAPY": "6-12%",
+      "riskLevel": "low",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+    },
+    {
+      "name": "Compound V3 USDC Lending",
+      "protocol": "compound-v3",
+      "allocation": "30%",
+      "targetAPY": "8-15%",
+      "riskLevel": "low",
+      "address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3"
+    },
+    {
+      "name": "Curve 3Pool LP",
+      "protocol": "curve",
+      "allocation": "25%",
+      "targetAPY": "5-10%",
+      "riskLevel": "low",
+      "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7"
+    },
+    {
+      "name": "Yearn USDC Vault",
+      "protocol": "yearn",
+      "allocation": "10%",
+      "targetAPY": "8-18%",
+      "riskLevel": "medium",
+      "address": "0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE"
+    }
+  ],
+  
+  "vaultStrategies": [
+    {
+      "id": "1",
+      "name": "Conservative Lending Strategy",
+      "description": "Low-risk lending across blue-chip protocols with stable yields",
+      "targetAllocation": "65%",
+      "riskLevel": "low",
+      "expectedAPY": "8-15%",
+      "protocols": ["aave", "compound"],
+      "assets": ["USDC", "DAI"],
+      "maxLeverage": "1x",
+      "isActive": true
+    },
+    {
+      "id": "2",
+      "name": "Stable Yield Strategy",
+      "description": "Stablecoin yield farming and liquidity provision",
+      "targetAllocation": "25%",
+      "riskLevel": "low-medium",
+      "expectedAPY": "6-12%",
+      "protocols": ["curve", "convex"],
+      "assets": ["USDC", "DAI", "USDT"],
+      "maxLeverage": "1x",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "name": "Optimized Yield Strategy",
+      "description": "Yield optimization through established aggregators",
+      "targetAllocation": "10%",
+      "riskLevel": "medium",
+      "expectedAPY": "10-20%",
+      "protocols": ["yearn", "harvest"],
+      "assets": ["USDC"],
+      "maxLeverage": "1.2x",
+      "isActive": true
+    }
+  ],
+  
+  "assetAllocations": [
+    {
+      "id": "1",
+      "assetAddress": "0xA0b86a33E6441446D49c4a4b36a5e8C85c6aD3b5",
+      "assetName": "USDC",
+      "targetAllocation": "80%",
+      "currentAllocation": "78.5%",
+      "minAllocation": "70%",
+      "maxAllocation": "90%",
+      "rebalanceThreshold": "5%"
+    },
+    {
+      "id": "2",
+      "assetAddress": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "assetName": "DAI",
+      "targetAllocation": "15%",
+      "currentAllocation": "16.2%",
+      "minAllocation": "5%",
+      "maxAllocation": "25%",
+      "rebalanceThreshold": "5%"
+    },
+    {
+      "id": "3",
+      "assetAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "assetName": "USDT",
+      "targetAllocation": "5%",
+      "currentAllocation": "5.3%",
+      "minAllocation": "0%",
+      "maxAllocation": "15%",
+      "rebalanceThreshold": "3%"
+    }
+  ],
+  
+  "feeTiers": [
+    {
+      "id": "1",
+      "tierName": "Large Depositor",
+      "minDeposit": "1000000",
+      "managementFee": "75",
+      "performanceFee": "750",
+      "withdrawalFee": "0",
+      "priorityAccess": false
+    },
+    {
+      "id": "2",
+      "tierName": "Standard",
+      "minDeposit": "1000",
+      "managementFee": "100",
+      "performanceFee": "1000",
+      "withdrawalFee": "0",
+      "priorityAccess": false
+    }
+  ],
+  
+  "performanceMetrics": [
+    {
+      "id": "1",
+      "metricName": "Total Value Locked",
+      "currentValue": "45000000",
+      "previousValue": "40000000",
+      "changePercent": "12.50%",
+      "period": "30d"
+    },
+    {
+      "id": "2",
+      "metricName": "APY (30d)",
+      "currentValue": "12.35%",
+      "previousValue": "11.80%",
+      "changePercent": "4.66%",
+      "period": "30d"
+    },
+    {
+      "id": "3",
+      "metricName": "Depositors",
+      "currentValue": "2850",
+      "previousValue": "2420",
+      "changePercent": "17.77%",
+      "period": "30d"
+    },
+    {
+      "id": "4",
+      "metricName": "Average Deposit Size",
+      "currentValue": "15789",
+      "previousValue": "16529",
+      "changePercent": "-4.48%",
+      "period": "30d"
+    }
+  ],
+  
+  "strategyParams": [
+    {
+      "id": "1",
+      "strategyId": "1",
+      "paramName": "maxAllocation",
+      "paramValue": "0.65",
+      "paramType": "number",
+      "description": "Maximum allocation to conservative strategies"
+    },
+    {
+      "id": "2",
+      "strategyId": "1",
+      "paramName": "minYield",
+      "paramValue": "0.05",
+      "paramType": "number",
+      "description": "Minimum acceptable yield for strategy activation"
+    },
+    {
+      "id": "3",
+      "strategyId": "2",
+      "paramName": "rebalanceFrequency",
+      "paramValue": "86400",
+      "paramType": "number",
+      "description": "Rebalancing frequency in seconds (24h)"
+    },
+    {
+      "id": "4",
+      "strategyId": "3",
+      "paramName": "riskBudget",
+      "paramValue": "0.10",
+      "paramType": "number",
+      "description": "Maximum risk budget for optimized strategies"
+    }
+  ],
+  
+  "riskManagement": {
+    "enabled": true,
+    "maxDrawdown": "10%",
+    "var95": "3%",
+    "stressTestFrequency": "monthly",
+    "riskLimits": {
+      "singleProtocol": "40%",
+      "leverageMax": "1.2x",
+      "concentrationMax": "90%"
+    },
+    "emergencyControls": {
+      "pauseEnabled": true,
+      "emergencyWithdraw": true,
+      "circuitBreakers": false
+    }
+  },
+  
+  "complianceFeatures": {
+    "accreditedInvestorOnly": false,
+    "kycRequired": false,
+    "amlMonitoring": false,
+    "reportingRequirements": {
+      "nav": "daily",
+      "performance": "weekly"
+    },
+    "auditRequirements": {
+      "internal": "quarterly",
+      "external": "annual",
+      "smartContract": "as-needed"
+    }
+  },
+  
+  "liquidityManagement": {
+    "withdrawalGate": "20%",
+    "noticePeriod": "0d",
+    "redemptionFrequency": "instant",
+    "cashReserve": "3%",
+    "emergencyLiquidity": "10%",
+    "liquidityProviders": [
+      "aave",
+      "compound",
+      "curve"
+    ]
+  },
+  
+  "governance": {
+    "governanceToken": "sDYV",
+    "votingRights": false,
+    "proposalRights": false,
+    "quorumRequirement": "0%",
+    "timelock": "24h",
+    "emergencyPowers": true,
+    "adminMultisig": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b"
+  },
+  
+  "integrations": {
+    "priceOracles": [
+      "chainlink",
+      "uniswap-v3-twap"
+    ],
+    "yieldAggregators": [
+      "yearn",
+      "harvest"
+    ],
+    "dexAggregators": [
+      "1inch",
+      "paraswap"
+    ]
+  },
+  
+  "metadata": {
+    "website": "https://chaincapital.com/vaults/simple-yield",
+    "documentation": "https://docs.chaincapital.com/vaults/sdyv",
+    "logo": "https://assets.chaincapital.com/vaults/sdyv/logo.svg",
+    "tags": ["yield", "vault", "simple", "automated", "retail"],
+    "category": "simple-yield-vault"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits", "consensys-diligence"],
+    "auditReports": [
+      "https://audits.chaincapital.com/sdyv-trail-of-bits-2024.pdf",
+      "https://audits.chaincapital.com/sdyv-consensys-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "maxBounty": "250000",
+    "multisigRequired": true,
+    "timelock": "24h"
+  }
+}

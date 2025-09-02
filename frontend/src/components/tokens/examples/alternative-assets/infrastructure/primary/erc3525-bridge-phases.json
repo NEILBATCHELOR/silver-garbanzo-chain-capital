@@ -1,0 +1,320 @@
+{
+  "name": "Golden Gate Bridge Project Phases Token",
+  "symbol": "GGBPT",
+  "description": "ERC-3525 semi-fungible token representing different phases and components of the Golden Gate Bridge modernization project with value-based fractional ownership.",
+  "valueDecimals": 18,
+  
+  "baseUri": "https://api.goldengatebridgeproject.com/metadata/",
+  "metadataStorage": "ipfs",
+  "dynamicMetadata": true,
+  "updatableUris": true,
+  
+  "slotType": "infrastructure_phases",
+  "allowsSlotEnumeration": true,
+  "slotTransferValidation": {
+    "requiresApproval": true,
+    "minimumHolding": "1000",
+    "accreditedOnly": true
+  },
+  
+  "accessControl": "multi_sig",
+  
+  "isBurnable": false,
+  "isPausable": true,
+  "hasRoyalty": false,
+  
+  "slotApprovals": true,
+  "valueApprovals": true,
+  "valueTransfersEnabled": true,
+  "updatableSlots": false,
+  "updatableValues": true,
+  
+  "mergable": true,
+  "splittable": true,
+  "valueAggregation": true,
+  "fractionalOwnershipEnabled": true,
+  "autoUnitCalculation": true,
+  
+  "permissioningEnabled": true,
+  "permissioningAdvanced": true,
+  
+  "supplyTracking": true,
+  "slotEnumerationEnabled": true,
+  "valueAggregationEnabled": true,
+  
+  "slotTransferRestrictions": {
+    "requiresKyc": true,
+    "accreditedOnly": true,
+    "holdingPeriod": 730,
+    "geographicRestrictions": false
+  },
+  
+  "valueTransferRestrictions": {
+    "minimumTransfer": "10000",
+    "maximumTransfer": "1000000",
+    "requiresApproval": true
+  },
+  
+  "financialInstrumentType": "infrastructure_bond",
+  "principalAmount": "2100000000",
+  "interestRate": "4.25",
+  "maturityDate": "2054-07-01",
+  "couponFrequency": "semi-annual",
+  "paymentSchedule": {
+    "frequency": "semi-annual",
+    "dayCount": "30/360",
+    "businessDayConvention": "modified_following"
+  },
+  "earlyRedemptionEnabled": false,
+  
+  "slotCreationEnabled": false,
+  "dynamicSlotCreation": false,
+  "slotAdminRoles": ["0x1234567890123456789012345678901234567890"],
+  "slotFreezeEnabled": true,
+  "slotMergeEnabled": false,
+  "slotSplitEnabled": false,
+  "crossSlotTransfers": true,
+  
+  "valueComputationMethod": "construction_progress",
+  "valueOracleAddress": "0x4567890123456789012345678901234567890123",
+  "valueCalculationFormula": "completed_work_percentage * allocated_budget",
+  "accrualEnabled": true,
+  "accrualRate": "4.25",
+  "accrualFrequency": "daily",
+  "valueAdjustmentEnabled": true,
+  
+  "slotMarketplaceEnabled": false,
+  "valueMarketplaceEnabled": true,
+  "partialValueTrading": true,
+  "minimumTradeValue": "10000",
+  "tradingFeesEnabled": true,
+  "tradingFeePercentage": "0.25",
+  "marketMakerEnabled": false,
+  
+  "regulatoryComplianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  "holdingPeriodRestrictions": "730",
+  "transferLimits": {
+    "dailyLimit": "500000",
+    "monthlyLimit": "2000000"
+  },
+  "reportingRequirements": {
+    "monthly": true,
+    "quarterly": true,
+    "annual": true
+  },
+  
+  "multiSignatureRequired": true,
+  "approvalWorkflowEnabled": true,
+  "institutionalCustodySupport": true,
+  "auditTrailEnhanced": true,
+  "batchOperationsEnabled": true,
+  "emergencyPauseEnabled": true,
+  "recoveryMechanisms": {
+    "multiSigRecovery": true,
+    "timelockRecovery": true,
+    "governanceRecovery": false
+  },
+  
+  "useGeographicRestrictions": false,
+  "defaultRestrictionPolicy": "allowed",
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "autoApproval": false,
+    "kycRequired": true,
+    "accreditationRequired": true
+  },
+  
+  "customExtensions": "infrastructure_monitoring",
+  "customSlotProperties": {
+    "projectPhase": true,
+    "budgetAllocation": true,
+    "completionPercentage": true,
+    "riskRating": true
+  },
+  
+  "metadata": {
+    "projectName": "Golden Gate Bridge Modernization",
+    "projectType": "Infrastructure Upgrade",
+    "jurisdiction": "California, USA",
+    "contractor": "Bechtel Corporation",
+    "engineer": "AECOM",
+    "expectedCompletion": "2027-12-31"
+  },
+  
+  "slots": [
+    {
+      "slotId": "1",
+      "slotName": "Seismic Retrofit Phase",
+      "slotDescription": "Seismic reinforcement of bridge structure including tower strengthening and deck replacement",
+      "valueUnits": "USD",
+      "slotType": "construction_phase",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "850000000",
+      "valuePrecision": 2,
+      "slotProperties": {
+        "phaseNumber": 1,
+        "budgetAllocation": "850000000",
+        "duration": "24_months",
+        "riskLevel": "high",
+        "contractorResponsible": "Bechtel Corporation"
+      }
+    },
+    {
+      "slotId": "2", 
+      "slotName": "Smart Infrastructure Systems",
+      "slotDescription": "Installation of smart traffic management, IoT sensors, and digital monitoring systems",
+      "valueUnits": "USD",
+      "slotType": "technology_phase",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "420000000",
+      "valuePrecision": 2,
+      "slotProperties": {
+        "phaseNumber": 2,
+        "budgetAllocation": "420000000",
+        "duration": "18_months",
+        "riskLevel": "medium",
+        "contractorResponsible": "Cisco Systems"
+      }
+    },
+    {
+      "slotId": "3",
+      "slotName": "Environmental Upgrades",
+      "slotDescription": "LED lighting, sustainable materials, and environmental monitoring systems",
+      "valueUnits": "USD", 
+      "slotType": "environmental_phase",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "315000000",
+      "valuePrecision": 2,
+      "slotProperties": {
+        "phaseNumber": 3,
+        "budgetAllocation": "315000000",
+        "duration": "12_months",
+        "riskLevel": "low",
+        "contractorResponsible": "Siemens"
+      }
+    },
+    {
+      "slotId": "4",
+      "slotName": "Project Management & Contingency",
+      "slotDescription": "Project oversight, quality assurance, and contingency reserves",
+      "valueUnits": "USD",
+      "slotType": "management_phase", 
+      "transferable": false,
+      "tradeable": false,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "515000000",
+      "valuePrecision": 2,
+      "slotProperties": {
+        "phaseNumber": 4,
+        "budgetAllocation": "515000000",
+        "duration": "36_months",
+        "riskLevel": "low",
+        "contractorResponsible": "Golden Gate Bridge District"
+      }
+    }
+  ],
+  
+  "allocations": [
+    {
+      "tokenIdWithinSlot": "1001",
+      "slotId": "1",
+      "recipient": "0x1111222233334444555566667777888899990000",
+      "value": "85000000",
+      "linkedTokenId": "seismic_phase_senior"
+    },
+    {
+      "tokenIdWithinSlot": "2001",
+      "slotId": "2", 
+      "recipient": "0x2222333344445555666677778888999900001111",
+      "value": "42000000",
+      "linkedTokenId": "smart_systems_institutional"
+    },
+    {
+      "tokenIdWithinSlot": "3001",
+      "slotId": "3",
+      "recipient": "0x3333444455556666777788889999000011112222",
+      "value": "31500000",
+      "linkedTokenId": "environmental_green_bond"
+    }
+  ],
+  
+  "paymentSchedules": [
+    {
+      "slotId": "1",
+      "paymentDate": "2024-07-01",
+      "paymentAmount": "18062500",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "2",
+      "paymentDate": "2024-07-01", 
+      "paymentAmount": "8925000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "1",
+      "paymentDate": "2025-01-01",
+      "paymentAmount": "18062500", 
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    }
+  ],
+  
+  "valueAdjustments": [
+    {
+      "slotId": "1",
+      "adjustmentDate": "2024-06-15",
+      "adjustmentType": "progress_valuation",
+      "adjustmentAmount": "4250000",
+      "adjustmentReason": "15% construction completion milestone achieved",
+      "oraclePrice": "127500000",
+      "oracleSource": "construction_monitoring_oracle",
+      "approvedBy": "0x1234567890123456789012345678901234567890"
+    }
+  ],
+  
+  "slotConfigs": [
+    {
+      "slotId": "1",
+      "name": "Seismic Retrofit Configuration",
+      "description": "Configuration parameters for seismic retrofit phase tracking",
+      "metadata": {
+        "milestones": ["foundation_work", "tower_retrofit", "deck_replacement"],
+        "qualityMetrics": ["seismic_resistance", "material_quality", "timeline_adherence"],
+        "reportingFrequency": "monthly"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "2",
+      "name": "Smart Systems Configuration", 
+      "description": "Configuration for smart infrastructure deployment tracking",
+      "metadata": {
+        "milestones": ["sensor_installation", "software_deployment", "system_integration"],
+        "qualityMetrics": ["system_uptime", "data_accuracy", "user_adoption"],
+        "reportingFrequency": "weekly"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    }
+  ]
+}

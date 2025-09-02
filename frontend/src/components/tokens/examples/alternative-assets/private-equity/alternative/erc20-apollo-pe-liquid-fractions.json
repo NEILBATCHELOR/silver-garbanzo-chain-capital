@@ -1,0 +1,334 @@
+{
+  "name": "Apollo PE Liquid Fractions Token",
+  "symbol": "lAPOLLOPE",
+  "description": "Liquid ERC-20 wrapper for Apollo PE Strategy Fractions (APOLLOSF). Provides enhanced liquidity for fractional private equity exposure through basket tokenization of multiple Apollo PE strategies. Enables liquid trading of illiquid PE interests with sophisticated risk management.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "25000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "liquidity_wrapper",
+    "underlyingAsset": "APOLLOSF",
+    "wrapperType": "pe_fractions_liquidity_token",
+    "liquidityProvider": "institutional_secondary_market",
+    "tradingPairs": ["lAPOLLOPE/USDC", "lAPOLLOPE/ETH"],
+    "exchangeCompatibility": ["institutional_exchanges", "qualified_dex"],
+    "yieldBearing": true,
+    "redeemable": false,
+    "leverageAvailable": false,
+    "hedgedExposure": false,
+    "accreditedInvestorOnly": true,
+    "basketComposition": "diversified_apollo_pe_strategies"
+  },
+  "erc20Properties": {
+    "name": "Apollo PE Liquid Fractions Token",
+    "symbol": "lAPOLLOPE",
+    "decimals": 18,
+    "initialSupply": "25000000000000000000000000000",
+    "maxSupply": "35000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "isFreezable": true,
+    
+    "permitEnabled": true,
+    "permit2Enabled": true,
+    "gaslessTransactionSupport": false,
+    "metaTransactionSupport": false,
+    
+    "reflectionMechanism": false,
+    "taxOnTransfer": false,
+    "maxTransactionAmount": "1000000000000000000000000000",
+    "maxWalletAmount": "2000000000000000000000000000",
+    "transferCooldown": 43200,
+    
+    "liquidityProvisionEnabled": true,
+    "liquidityLockEnabled": true,
+    "liquidityBurnEnabled": false,
+    "liquidityFeeEnabled": true,
+    
+    "stakingEnabled": false,
+    "stakingRewardsEnabled": false,
+    "governanceEnabled": true,
+    "votingEnabled": true,
+    
+    "whitelistEnabled": true,
+    "blacklistEnabled": true,
+    "pauseByOwnerEnabled": true,
+    "burnByOwnerEnabled": false,
+    "mintByOwnerEnabled": true,
+    
+    "complianceModuleEnabled": true,
+    "taxComplianceEnabled": true,
+    "kycRequired": true,
+    "amlEnabled": true,
+    "sanctionsScreeningEnabled": true,
+    
+    "crossChainEnabled": false,
+    "bridgeProtocols": [],
+    "multiChainDeployment": false,
+    "chainIds": [1],
+    
+    "dexIntegrationEnabled": true,
+    "automaticLiquidityEnabled": false,
+    "priceOracleEnabled": true,
+    "priceOracleAddress": "0xdddddddddddddddddddddddddddddddddddddddd",
+    
+    "yieldDistributionEnabled": true,
+    "yieldDistributionFrequency": "quarterly",
+    "compoundingEnabled": false,
+    "reinvestmentEnabled": true,
+    
+    "flashLoanEnabled": false,
+    "collateralEnabled": true,
+    "borrowingEnabled": false,
+    "lendingEnabled": false,
+    
+    "emergencyWithdrawalEnabled": false,
+    "emergencyPauseEnabled": true,
+    "recoveryModeEnabled": true,
+    "safeModeEnabled": true,
+    
+    "feeStructure": {
+      "transferFee": "0.50",
+      "mintFee": "0.00", 
+      "burnFee": "0.00",
+      "liquidityFee": "1.00"
+    },
+    
+    "antiMEVEnabled": true,
+    "frontRunningProtection": true,
+    "slippageProtection": true,
+    "maxSlippage": "10.0",
+    
+    "auditReports": [
+      {
+        "auditor": "PwC Blockchain",
+        "date": "2025-06-17",
+        "score": "97/100",
+        "reportUri": "https://audits.pwc.com/lAPOLLOPE-2025-06.pdf"
+      },
+      {
+        "auditor": "KPMG Digital Assets",
+        "date": "2025-06-12",
+        "score": "96/100", 
+        "reportUri": "https://audits.kpmg.com/lAPOLLOPE-2025-06.pdf"
+      }
+    ],
+    
+    "insuranceEnabled": true,
+    "insuranceProvider": "AON Cyber Solutions",
+    "insuranceCoverage": "custody_operational_technology",
+    "insuredAmount": "2000000000000000000000000000",
+    
+    "socialRecoveryEnabled": false,
+    "multisigRequired": true,
+    "timelockEnabled": true,
+    "timelockDelay": 1209600,
+    
+    "analyticsEnabled": true,
+    "metricsTracking": true,
+    "performanceMonitoring": true,
+    "realTimeDataEnabled": false,
+    
+    "integrations": {
+      "institutional_platforms": ["blackrock_aladdin", "apollo_athene_platform", "institutional_custody"],
+      "portfolio_trackers": ["institutional_reporting_platforms"],
+      "tax_reporting": ["apollo_tax_platform", "institutional_tax_services"],
+      "custody_solutions": ["apollo_custody", "institutional_custodians"],
+      "trading_platforms": ["institutional_crossing_networks", "private_market_exchanges"]
+    }
+  },
+  "basketConfiguration": {
+    "basketContract": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "underlyingTokenAddress": "0x4444444444444444444444444444444444444444",
+    "basketComposition": [
+      {
+        "slotId": "1",
+        "strategy": "LBO North America 2025",
+        "allocation": "40%",
+        "value": "10000000000000000000000000000"
+      },
+      {
+        "slotId": "2", 
+        "strategy": "Growth Equity Global 2025",
+        "allocation": "25%",
+        "value": "6250000000000000000000000000"
+      },
+      {
+        "slotId": "3",
+        "strategy": "Distressed Credit 2025", 
+        "allocation": "20%",
+        "value": "5000000000000000000000000000"
+      },
+      {
+        "slotId": "4",
+        "strategy": "Infrastructure Equity 2025",
+        "allocation": "15%",
+        "value": "3750000000000000000000000000"
+      }
+    ],
+    "rebalancingFrequency": "semi_annual",
+    "rebalancingThreshold": "5%",
+    "minimumLiquidity": "500000000000000000000000000",
+    "basketManagementFee": "0.75%",
+    "performanceFee": "10.00%"
+  },
+  "liquidityManagement": {
+    "secondaryMarketMaking": true,
+    "institutionalCrossing": true,
+    "reserveLiquidity": "10%",
+    "emergencyLiquidityFacility": true,
+    "navBasedPricing": true,
+    "discountPremiumRange": "10-30%",
+    "minimumTradingUnit": "1000000000000000000000000",
+    "tradingHours": "business_days_extended_hours",
+    "settlementPeriod": "T+5"
+  },
+  "institutionalListings": [
+    {
+      "exchange": "Apollo Private Exchange",
+      "pair": "lAPOLLOPE/USD",
+      "liquidityPool": "0xffffffffffffffffffffffffffffffffffffffff",
+      "feeTier": "0.75",
+      "initialLiquidity": "5000000000000000000000000000",
+      "minimumTradeSize": "10000000000000000000000000"
+    },
+    {
+      "exchange": "Private Market Partners",
+      "pair": "lAPOLLOPE/USDC",
+      "liquidityPool": "0x1010101010101010101010101010101010101010",
+      "feeTier": "1.00",
+      "initialLiquidity": "2500000000000000000000000000",
+      "minimumTradeSize": "25000000000000000000000000"
+    },
+    {
+      "exchange": "Institutional DeFi Protocol",
+      "pair": "lAPOLLOPE/ETH",
+      "liquidityPool": "0x2020202020202020202020202020202020202020",
+      "feeTier": "1.25",
+      "initialLiquidity": "1000000000000000000000000000",
+      "minimumTradeSize": "5000000000000000000000000"
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "quarterly",
+    "distributor": "0x3030303030303030303030303030303030303030",
+    "yieldSource": "underlying_pe_distributions_and_nav_appreciation",
+    "autoCompound": false,
+    "distributionToken": "USDC",
+    "claimPeriod": 90,
+    "vestingPeriod": 0,
+    "boostEligible": false,
+    "distributionHistory": [
+      {
+        "date": "2025-03-31",
+        "amount": "0",
+        "yieldRate": "0.0%",
+        "source": "initial_period"
+      }
+    ]
+  },
+  "riskManagement": {
+    "concentrationLimits": {
+      "maxSingleStrategy": "45%",
+      "maxVintageYear": "30%",
+      "maxSectorExposure": "40%",
+      "maxGeographicExposure": "80%"
+    },
+    "liquidityRiskManagement": {
+      "liquidityBuffer": "10%",
+      "stressTestScenarios": ["market_crisis", "fund_gating", "redemption_spike"],
+      "contingencyPlans": ["emergency_liquidity", "asset_fire_sale", "suspension_of_redemptions"]
+    },
+    "operationalRisk": {
+      "custodyRisk": "mitigated_through_insurance",
+      "technologyRisk": "comprehensive_auditing",
+      "counterpartyRisk": "diversified_counterparties"
+    },
+    "marketRisk": {
+      "illiquidityRisk": "very_high",
+      "volatilityRisk": "high", 
+      "correlationRisk": "medium",
+      "durationRisk": "high"
+    }
+  },
+  "valuationFramework": {
+    "valuationMethodology": "basket_nav_with_liquidity_adjustment",
+    "independentValuation": true,
+    "valuationFrequency": "quarterly",
+    "pricingSource": "apollo_valuation_committee",
+    "liquidityDiscount": "20-35%",
+    "complexityPremium": "5-10%",
+    "marketConditionAdjustment": "dynamic",
+    "transparencyLevel": "institutional_grade"
+  },
+  "complianceFramework": {
+    "investorEligibility": {
+      "accreditedInvestorRequired": true,
+      "qualifiedPurchaserRequired": false,
+      "institutionalInvestorPreferred": true,
+      "minimumInvestment": "$10,000,000",
+      "maximumInvestors": 100
+    },
+    "regulatoryCompliance": {
+      "sec3c7": true,
+      "erisa": "plan_asset_compliant",
+      "foreignInvestors": "limited_with_approval",
+      "antiMoneyLaundering": "enhanced_procedures"
+    },
+    "reportingRequirements": {
+      "quarterlyReports": true,
+      "annualAuditedFinancials": true,
+      "formPF": true,
+      "investorMeetings": "semi_annual"
+    }
+  },
+  "governanceStructure": {
+    "tokenHolderRights": {
+      "informationRights": "comprehensive_quarterly_reporting",
+      "votingRights": "major_decisions_only",
+      "transferRights": "restricted_to_qualified_investors",
+      "liquidationRights": "pro_rata_participation"
+    },
+    "managementStructure": {
+      "investmentManager": "Apollo_Global_Management",
+      "administrativeAgent": "Apollo_Fund_Services",
+      "custodian": "Apollo_Institutional_Custody",
+      "auditor": "Ernst_Young_LLP"
+    },
+    "advisoryCommittee": {
+      "composition": "largest_token_holders",
+      "responsibilities": ["strategy_oversight", "conflict_resolution", "fee_negotiation"],
+      "meetingFrequency": "quarterly"
+    }
+  },
+  "taxStructure": {
+    "entityType": "delaware_limited_partnership",
+    "taxPassThrough": true,
+    "k1Distribution": true,
+    "ubiCompliance": true,
+    "foreignTaxWithholding": "applicable_rates",
+    "taxBlocKerEntity": false,
+    "taxOptimization": "institutional_strategies"
+  },
+  "liquidityFeatures": {
+    "secondaryMarketAccess": true,
+    "crossTrading": "institutional_networks",
+    "blockTrading": "available_for_large_orders",
+    "algorithmicTrading": "limited_institutional_access",
+    "marketMaking": "apollo_sponsored_liquidity",
+    "priceImprovement": "midpoint_crossing"
+  },
+  "institutionalServices": {
+    "primeServices": true,
+    "securities_lending": false,
+    "riskAnalytics": "comprehensive_suite",
+    "performanceAttribution": "detailed_quarterly",
+    "operationalSupport": "dedicated_apollo_team",
+    "customReporting": "available_for_large_investors"
+  }
+}

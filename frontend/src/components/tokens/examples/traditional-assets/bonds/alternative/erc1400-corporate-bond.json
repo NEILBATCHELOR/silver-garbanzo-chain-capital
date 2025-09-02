@@ -1,0 +1,381 @@
+{
+  "name": "Corporate Bond Series 2025-A",
+  "symbol": "CBND25A",
+  "description": "High-grade corporate bond issued by Apple Inc. with 5.25% fixed coupon, maturing in 2030. Enhanced with semi-fungible token features for flexible fractional ownership and trading.",
+  "decimals": 18,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "corporate_bond",
+    "regulatoryFramework": "SEC_Corporate_Securities_Act",
+    "investmentObjective": "fixed_income_yield",
+    "benchmarkIndex": "Bloomberg_Corporate_Bond_Index",
+    "bondType": "corporate_debt",
+    "riskRating": "AA",
+    "liquidityProfile": "T+2_settlement",
+    "creditRating": "AA+",
+    "sector": "technology",
+    "maturityDate": "2030-06-17",
+    "issueDate": "2025-06-17",
+    "couponRate": "5.25%",
+    "paymentFrequency": "semi_annual",
+    "issuerName": "Apple Inc.",
+    "issuerTicker": "AAPL",
+    "cusip": "037833AE9",
+    "isin": "US037833AE92"
+  },
+  "erc1400Properties": {
+    "initialSupply": "500000000000000000000000000",
+    "cap": "2000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "decimals": 18,
+    
+    "documentUri": "https://apple.com/investor/bonds/series-2025a/prospectus",
+    "documentHash": "0x7f087g393f5b1be5889f1bee7g3fd23fe13h1gdf4f33feg6081747h48hgh118",
+    "tokenDetails": "Corporate bond representing debt obligation of Apple Inc. with 5.25% annual coupon",
+    "legalTerms": "https://apple.com/investor/bonds/terms-conditions",
+    "prospectus": "https://apple.com/investor/bonds/series-2025a/prospectus",
+    
+    "controllerAddress": "0x2345678901234567890123456789012345678901",
+    "requireKyc": true,
+    "enforceKyc": true,
+    "securityType": "corporate_bond",
+    
+    "issuingJurisdiction": "Delaware, USA",
+    "issuingEntityName": "Apple Inc.",
+    "issuingEntityLei": "HWUPKR0MPOU8FGXBT394",
+    "regulationType": "corporate_securities",
+    
+    "isMultiClass": true,
+    "trancheTransferability": true,
+    
+    "forcedTransfers": false,
+    "forcedRedemptionEnabled": true,
+    "isIssuable": true,
+    
+    "autoCompliance": true,
+    "manualApprovals": false,
+    "complianceModule": "automated",
+    "complianceAutomationLevel": "fully_automated",
+    
+    "whitelistEnabled": true,
+    "investorWhitelistEnabled": true,
+    "accreditedInvestorOnly": false,
+    "investorAccreditation": false,
+    "holdingPeriod": 0,
+    "maxInvestorCount": 5000,
+    
+    "issuanceModules": true,
+    "documentManagement": true,
+    "recoveryMechanism": true,
+    "granularControl": true,
+    "dividendDistribution": true,
+    "corporateActions": true,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "allow",
+    "geographicRestrictions": [
+      {
+        "country": "US",
+        "restriction": "allowed"
+      },
+      {
+        "country": "EU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "GB",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CA",
+        "restriction": "allowed"
+      },
+      {
+        "country": "JP",
+        "restriction": "allowed"
+      },
+      {
+        "country": "AU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CN",
+        "restriction": "restricted"
+      },
+      {
+        "country": "RU",
+        "restriction": "blocked"
+      }
+    ],
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "dtc",
+    "clearingHouseIntegration": true,
+    "centralSecuritiesDepositoryIntegration": true,
+    "thirdPartyCustodyAddresses": [
+      "0x1111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333",
+      "0x4444444444444444444444444444444444444444"
+    ],
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "transactionMonitoringRules": {
+      "maxTransactionSize": "50000000000000000000000000",
+      "flagThreshold": "25000000000000000000000000",
+      "reportingThreshold": "5000000000000000000000000"
+    },
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": true,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": false,
+    "rightsOfferingsEnabled": false,
+    "spinOffsEnabled": false,
+    "mergersAcquisitionsSupport": true,
+    "treasuryManagementEnabled": true,
+    "buybackProgramsEnabled": true,
+    "shareRepurchaseAutomation": false,
+    
+    "advancedGovernanceEnabled": false,
+    "proxyVotingEnabled": false,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": false,
+    "quorumRequirements": {},
+    "votingDelegationEnabled": false,
+    "institutionalVotingServices": false,
+    "boardElectionSupport": false,
+    
+    "crossBorderTradingEnabled": true,
+    "multiJurisdictionCompliance": true,
+    "passportRegimeSupport": false,
+    "treatyBenefitsEnabled": true,
+    "withholdingTaxAutomation": true,
+    "currencyHedgingEnabled": false,
+    "foreignOwnershipRestrictions": {
+      "maxForeignOwnership": "100%",
+      "restrictedCountries": ["CN", "RU", "IR", "KP"]
+    },
+    "regulatoryEquivalenceMapping": {
+      "US": "SEC_Corporate_Securities",
+      "EU": "MiFID_II",
+      "UK": "FCA_COBS",
+      "CA": "CSA_Regulations"
+    },
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": true,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": true,
+    "priceDiscoveryMechanisms": ["primary_issuance", "secondary_market", "otc_trading"],
+    
+    "crossChainBridgeSupport": false,
+    "layer2ScalingSupport": true,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "concentrationLimits": {
+      "maxSingleIssuerExposure": "100%",
+      "maxCreditRating": "AA+",
+      "maxMaturity": "5_years"
+    },
+    "stressTestingEnabled": true,
+    "marginRequirementsDynamic": false,
+    "collateralManagementEnabled": true,
+    "insuranceCoverageEnabled": true,
+    "disasterRecoveryEnabled": true
+  },
+  "bondSpecificProperties": {
+    "principalAmount": "500000000000000000000000000",
+    "maturityDate": "2030-06-17T00:00:00Z",
+    "couponRate": "5.25",
+    "couponFrequency": "semi_annual",
+    "dayCountConvention": "30_360",
+    "businessDayConvention": "modified_following",
+    "callableDate": "2027-06-17T00:00:00Z",
+    "callPrice": "102.0",
+    "puttableDate": null,
+    "convertible": false,
+    "floatingRate": false,
+    "indexLinked": false,
+    "creditEnhancement": "corporate_guarantee",
+    "sinkingFund": false,
+    "paymentDates": [
+      "2025-12-17T00:00:00Z",
+      "2026-06-17T00:00:00Z",
+      "2026-12-17T00:00:00Z",
+      "2027-06-17T00:00:00Z",
+      "2027-12-17T00:00:00Z",
+      "2028-06-17T00:00:00Z",
+      "2028-12-17T00:00:00Z",
+      "2029-06-17T00:00:00Z",
+      "2029-12-17T00:00:00Z",
+      "2030-06-17T00:00:00Z"
+    ],
+    "currentYield": "5.25",
+    "yieldToMaturity": "5.15",
+    "yieldToCall": "4.95",
+    "duration": "4.2",
+    "convexity": "18.5",
+    "priceVolatility": "moderate",
+    "creditRisk": "low",
+    "issuerFinancials": {
+      "totalAssets": "365700000000",
+      "totalDebt": "109280000000",
+      "debtToEquity": "1.73",
+      "interestCoverage": "28.5",
+      "currentRatio": "1.07",
+      "quickRatio": "0.88"
+    }
+  },
+  "partitions": [
+    {
+      "name": "Series A - Institutional",
+      "symbol": "CBND25A-INST",
+      "totalSupply": "400000000000000000000000000",
+      "minInvestment": "1000000000000000000000000",
+      "managementFee": "0.00",
+      "redemptionFee": "0.00",
+      "investorType": "institutional_qualified",
+      "transferRestrictions": {
+        "holdingPeriod": 0,
+        "maxTransferSize": "50000000000000000000000000",
+        "approvalRequired": false
+      }
+    },
+    {
+      "name": "Series A - Retail",
+      "symbol": "CBND25A-RETAIL", 
+      "totalSupply": "100000000000000000000000000",
+      "minInvestment": "1000000000000000000000",
+      "managementFee": "0.00",
+      "redemptionFee": "0.00",
+      "investorType": "retail_qualified",
+      "transferRestrictions": {
+        "holdingPeriod": 0,
+        "maxTransferSize": "10000000000000000000000000",
+        "approvalRequired": false
+      }
+    }
+  ],
+  "controllers": [
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "bond_controller",
+      "permissions": ["force_transfer", "freeze_tokens", "compliance_check", "coupon_payment", "corporate_actions"],
+      "description": "Primary bond controller with full administrative rights"
+    },
+    {
+      "address": "0x3456789012345678901234567890123456789012",
+      "role": "compliance_controller",
+      "permissions": ["compliance_check", "sanctions_screening", "reporting"],
+      "description": "Compliance-specific controller for regulatory operations"
+    },
+    {
+      "address": "0x4567890123456789012345678901234567890123",
+      "role": "issuer_controller",
+      "permissions": ["corporate_actions", "document_management", "investor_communications"],
+      "description": "Apple Inc. issuer controller for corporate actions"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Bond Indenture Agreement",
+      "uri": "https://apple.com/investor/bonds/series-2025a/indenture.pdf",
+      "hash": "0x7f087g393f5b1be5889f1bee7g3fd23fe13h1gdf4f33feg6081747h48hgh118",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Offering Circular",
+      "uri": "https://apple.com/investor/bonds/series-2025a/offering-circular.pdf",
+      "hash": "0x8g198h494g6b2cf6990g2cfg8h4ge34gf24i2heg5g44gfh7192858i59ihi229",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Credit Rating Report - Moody's",
+      "uri": "https://apple.com/investor/bonds/credit-rating-moodys.pdf",
+      "hash": "0x9h209i505h7c3dg7aa1h3dgh9i5hf45hg35j3ifh6h55hgi8203969j60jij330",
+      "category": "financial",
+      "lastUpdated": "2025-06-15T00:00:00Z"
+    },
+    {
+      "name": "Credit Rating Report - S&P",
+      "uri": "https://apple.com/investor/bonds/credit-rating-sp.pdf",
+      "hash": "0xai30aj616i8d4eh8bb2i4ehi0j6ig56ih46k4jgi7i66ihj9314a7ak71kjk441",
+      "category": "financial",
+      "lastUpdated": "2025-06-15T00:00:00Z"
+    }
+  ],
+  "corporateActions": [
+    {
+      "actionType": "coupon_payment",
+      "announcementDate": "2025-12-01T00:00:00Z",
+      "recordDate": "2025-12-10T00:00:00Z",
+      "effectiveDate": "2025-12-17T00:00:00Z",
+      "paymentDate": "2025-12-17T00:00:00Z",
+      "actionDetails": {
+        "couponRate": "5.25%",
+        "paymentAmount": "2.625%",
+        "paymentCurrency": "USD",
+        "taxWithholding": "0%"
+      },
+      "impactOnSupply": "none",
+      "impactOnPrice": "minimal",
+      "shareholderApprovalRequired": false,
+      "votingDeadline": null,
+      "regulatoryApprovalRequired": false,
+      "status": "scheduled"
+    }
+  ],
+  "transferRestrictions": {
+    "enabled": true,
+    "rules": [
+      {
+        "ruleType": "sanctions_screening",
+        "description": "Automated sanctions screening on all transfers",
+        "active": true
+      },
+      {
+        "ruleType": "settlement_period",
+        "description": "T+2 settlement for all bond transfers",
+        "active": true
+      },
+      {
+        "ruleType": "minimum_denomination",
+        "description": "Minimum transfer amount $1,000 equivalent",
+        "active": true
+      },
+      {
+        "ruleType": "credit_risk_assessment",
+        "description": "Automated credit risk screening for large transactions",
+        "active": true
+      }
+    ]
+  }
+}

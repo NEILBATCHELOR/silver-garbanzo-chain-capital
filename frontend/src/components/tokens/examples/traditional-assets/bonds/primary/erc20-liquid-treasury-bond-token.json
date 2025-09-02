@@ -1,0 +1,184 @@
+{
+  "name": "US Treasury 10Y Liquid Token",
+  "symbol": "lUSTB10Y",
+  "description": "Liquid ERC-20 wrapper token for US Treasury 10-Year Digital Bond (USTB10Y). Provides enhanced liquidity and DeFi compatibility while maintaining underlying bond exposure.",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "1000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "liquidity_wrapper",
+    "underlyingAsset": "USTB10Y",
+    "wrapperType": "bond_liquidity_token",
+    "liquidityProvider": "automated_market_maker",
+    "tradingPairs": ["lUSTB10Y/USDC", "lUSTB10Y/ETH"],
+    "exchangeCompatibility": ["uniswap_v3", "curve", "balancer"],
+    "yieldBearing": true,
+    "redeemable": true
+  },
+  "erc20Properties": {
+    "name": "US Treasury 10Y Liquid Token",
+    "symbol": "lUSTB10Y",
+    "decimals": 18,
+    "initialSupply": "1000000000000000000000000000",
+    "maxSupply": "5000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "isFreezable": false,
+    
+    "permitEnabled": true,
+    "permit2Enabled": true,
+    "gaslessTransactionSupport": true,
+    "metaTransactionSupport": true,
+    
+    "reflectionMechanism": false,
+    "taxOnTransfer": false,
+    "maxTransactionAmount": "50000000000000000000000000",
+    "maxWalletAmount": "100000000000000000000000000",
+    "transferCooldown": 0,
+    
+    "liquidityProvisionEnabled": true,
+    "liquidityLockEnabled": false,
+    "liquidityBurnEnabled": false,
+    "liquidityFeeEnabled": false,
+    
+    "stakingEnabled": true,
+    "stakingRewardsEnabled": true,
+    "governanceEnabled": false,
+    "votingEnabled": false,
+    
+    "whitelistEnabled": false,
+    "blacklistEnabled": true,
+    "pauseByOwnerEnabled": true,
+    "burnByOwnerEnabled": false,
+    "mintByOwnerEnabled": true,
+    
+    "complianceModuleEnabled": true,
+    "taxComplianceEnabled": true,
+    "kycRequired": false,
+    "amlEnabled": true,
+    "sanctionsScreeningEnabled": true,
+    
+    "crossChainEnabled": true,
+    "bridgeProtocols": ["layerzero", "axelar", "wormhole"],
+    "multiChainDeployment": true,
+    "chainIds": [1, 137, 42161, 10],
+    
+    "dexIntegrationEnabled": true,
+    "automaticLiquidityEnabled": true,
+    "priceOracleEnabled": true,
+    "priceOracleAddress": "0x5555555555555555555555555555555555555555",
+    
+    "yieldDistributionEnabled": true,
+    "yieldDistributionFrequency": "daily",
+    "compoundingEnabled": true,
+    "reinvestmentEnabled": true,
+    
+    "flashLoanEnabled": false,
+    "collateralEnabled": true,
+    "borrowingEnabled": false,
+    "lendingEnabled": true,
+    
+    "emergencyWithdrawalEnabled": true,
+    "emergencyPauseEnabled": true,
+    "recoveryModeEnabled": true,
+    "safeModeEnabled": true,
+    
+    "feeStructure": {
+      "transferFee": "0.00",
+      "mintFee": "0.00", 
+      "burnFee": "0.00",
+      "liquidityFee": "0.00"
+    },
+    
+    "antiMEVEnabled": true,
+    "frontRunningProtection": true,
+    "slippageProtection": true,
+    "maxSlippage": "1.0",
+    
+    "auditReports": [
+      {
+        "auditor": "OpenZeppelin",
+        "date": "2025-06-17",
+        "score": "95/100",
+        "reportUri": "https://audits.openzeppelin.com/lUSTB10Y-2025-06.pdf"
+      },
+      {
+        "auditor": "Trail of Bits",
+        "date": "2025-06-10",
+        "score": "93/100", 
+        "reportUri": "https://audits.trailofbits.com/lUSTB10Y-2025-06.pdf"
+      }
+    ],
+    
+    "insuranceEnabled": true,
+    "insuranceProvider": "Nexus Mutual",
+    "insuranceCoverage": "smart_contract_risk",
+    "insuredAmount": "10000000000000000000000000",
+    
+    "socialRecoveryEnabled": false,
+    "multisigRequired": false,
+    "timelockEnabled": true,
+    "timelockDelay": 86400,
+    
+    "analyticsEnabled": true,
+    "metricsTracking": true,
+    "performanceMonitoring": true,
+    "realTimeDataEnabled": true,
+    
+    "integrations": {
+      "defi_protocols": ["aave", "compound", "uniswap", "curve"],
+      "portfolio_trackers": ["debank", "zapper", "zerion"],
+      "tax_reporting": ["koinly", "cointracker", "accointing"],
+      "custody_solutions": ["fireblocks", "copper", "anchorage"]
+    }
+  },
+  "liquidityConfig": {
+    "wrapperContract": "0x4444444444444444444444444444444444444444",
+    "underlyingTokenAddress": "0x3333333333333333333333333333333333333333",
+    "conversionRatio": "1:1",
+    "instantRedemption": true,
+    "redemptionFee": "0.00",
+    "wrappingFee": "0.00",
+    "minimumLiquidity": "1000000000000000000000000",
+    "liquidityIncentives": true,
+    "stakingAPY": "4.46",
+    "liquidityMiningRewards": true
+  },
+  "dexListings": [
+    {
+      "exchange": "Uniswap V3",
+      "pair": "lUSTB10Y/USDC",
+      "liquidityPool": "0x6666666666666666666666666666666666666666",
+      "feeTier": "0.05",
+      "initialLiquidity": "5000000000000000000000000"
+    },
+    {
+      "exchange": "Curve Finance", 
+      "pair": "lUSTB10Y/DAI/USDC",
+      "liquidityPool": "0x7777777777777777777777777777777777777777",
+      "feeTier": "0.04",
+      "initialLiquidity": "10000000000000000000000000"
+    },
+    {
+      "exchange": "Balancer",
+      "pair": "lUSTB10Y/WETH",
+      "liquidityPool": "0x8888888888888888888888888888888888888888",
+      "feeTier": "0.30",
+      "initialLiquidity": "2000000000000000000000000"
+    }
+  ],
+  "yieldDistribution": {
+    "enabled": true,
+    "frequency": "daily",
+    "distributor": "0x9999999999999999999999999999999999999999",
+    "yieldSource": "underlying_bond_coupon",
+    "autoCompound": true,
+    "distributionToken": "USDC",
+    "claimPeriod": 30,
+    "vestingPeriod": 0
+  }
+}

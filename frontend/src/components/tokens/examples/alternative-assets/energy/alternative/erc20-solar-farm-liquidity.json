@@ -1,0 +1,130 @@
+{
+  "name": "Aurora Solar Farm Liquidity Token",
+  "symbol": "ASFLT",
+  "description": "ERC-20 liquidity token providing tradeable exposure to Aurora Solar Farm Investment Token. Enables secondary market trading and DeFi integration.",
+  "decimals": 18,
+  "initialSupply": "10000000",
+  "maxSupply": "10000000",
+  "totalSupply": "10000000",
+  
+  "tokenDetails": "Liquidity wrapper for Aurora Solar Farm Investment Token (ASFIT) enabling DEX trading and DeFi utility",
+  "tokenType": "utility",
+  "useCase": "liquidity_provision",
+  
+  "isMintable": false,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasCap": true,
+  
+  "transfer_restrictions_enabled": false,
+  "kyc_required": false,
+  "whitelist_enabled": false,
+  "pausable_transfers": true,
+  
+  "has_fees": true,
+  "transfer_fee_percentage": "0.25",
+  "fee_recipient": "0x1234567890123456789012345678901234567890",
+  "fee_exemptions": ["0x1234567890123456789012345678901234567890"],
+  
+  "has_rewards": true,
+  "rewards_token": "0x0000000000000000000000000000000000000000",
+  "rewards_rate": "2.5",
+  "staking_enabled": true,
+  "staking_rewards_rate": "4.0",
+  
+  "deflationary": false,
+  "buyback_enabled": false,
+  "tax_on_transactions": false,
+  
+  "governance_enabled": false,
+  "voting_power": 0,
+  "proposal_threshold": "0",
+  
+  "liquidity_provision": {
+    "automated_market_maker": true,
+    "supported_dexes": ["Uniswap V3", "SushiSwap", "Balancer"],
+    "initial_liquidity_pairs": [
+      {
+        "token_a": "ASFLT",
+        "token_b": "USDC",
+        "initial_ratio": "1:45.50",
+        "liquidity_amount": "100000"
+      },
+      {
+        "token_a": "ASFLT", 
+        "token_b": "WETH",
+        "initial_ratio": "1:0.015",
+        "liquidity_amount": "50000"
+      }
+    ]
+  },
+  
+  "defi_integration": {
+    "lending_protocols": ["Compound", "Aave"],
+    "yield_farming": true,
+    "staking_protocols": ["Lido", "RocketPool"],
+    "collateral_factor": "0.75"
+  },
+  
+  "oracle_integration": {
+    "price_feeds": ["Chainlink", "Band Protocol"],
+    "price_update_frequency": "300",
+    "backup_oracles": ["API3", "Tellor"]
+  },
+  
+  "bridge_support": {
+    "cross_chain_enabled": true,
+    "supported_chains": ["Polygon", "Arbitrum", "Optimism"],
+    "bridge_protocols": ["LayerZero", "Wormhole"]
+  },
+  
+  "metadata": {
+    "website": "https://aurorasolarfarm.com",
+    "whitepaper": "https://docs.aurorasolarfarm.com/whitepaper.pdf",
+    "social_media": {
+      "twitter": "@AuroraSolarFarm",
+      "discord": "https://discord.gg/aurorasolar",
+      "telegram": "https://t.me/aurorasolarfarm"
+    }
+  },
+  
+  "tokenomics": {
+    "initial_distribution": {
+      "public_sale": "70%",
+      "liquidity_provision": "15%", 
+      "team_treasury": "10%",
+      "marketing": "3%",
+      "advisors": "2%"
+    },
+    "vesting_schedules": {
+      "team_treasury": {
+        "cliff_period": "12_months",
+        "vesting_period": "36_months",
+        "release_schedule": "linear"
+      },
+      "advisors": {
+        "cliff_period": "6_months",
+        "vesting_period": "24_months", 
+        "release_schedule": "linear"
+      }
+    }
+  },
+  
+  "compliance": {
+    "regulatory_framework": "utility_token",
+    "legal_opinion": "ipfs://QmLegalOpinionHash",
+    "jurisdiction": "Cayman Islands",
+    "tax_classification": "utility_token"
+  },
+  
+  "audit": {
+    "audited": true,
+    "audit_firms": ["OpenZeppelin", "ConsenSys Diligence"],
+    "audit_reports": [
+      "ipfs://QmAuditReport1Hash",
+      "ipfs://QmAuditReport2Hash"
+    ],
+    "last_audit_date": "2024-05-15"
+  }
+}

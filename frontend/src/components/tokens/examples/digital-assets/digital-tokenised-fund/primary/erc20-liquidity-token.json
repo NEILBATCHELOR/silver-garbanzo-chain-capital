@@ -1,0 +1,392 @@
+{
+  "name": "Digital Yield Fund Liquidity Token",
+  "symbol": "lDYF",
+  "standard": "ERC-20",
+  "decimals": 18,
+  "description": "Liquid ERC-20 representation combining institutional-grade digital fund compliance with DeFi-native yield optimization for maximum accessibility",
+  "initialSupply": "100000000",
+  "maxSupply": "500000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": true,
+  "hasVotes": true,
+  "hasFlashMint": true,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": false,
+  "hasReflection": true,
+  "hasLiquidity": true,
+  
+  "wrappedTokens": {
+    "securityToken": {
+      "enabled": true,
+      "underlyingToken": "DMYF",
+      "underlyingStandard": "ERC-1400",
+      "conversionRate": "1:1",
+      "wrappingMechanism": "compliance-bridge",
+      "requiresApproval": true
+    },
+    "vaultToken": {
+      "enabled": true,
+      "underlyingToken": "vDMYF",
+      "underlyingStandard": "ERC-4626",
+      "conversionRate": "dynamic-nav",
+      "wrappingMechanism": "yield-aggregation-bridge",
+      "autoCompounding": true
+    },
+    "conversionLogic": {
+      "bidirectional": true,
+      "autoOptimization": true,
+      "slippageProtection": "0.3%",
+      "gasOptimization": true,
+      "yieldPreservation": true
+    }
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": true,
+    "balancerVaultSupport": true,
+    "sushiswapCompatible": true,
+    "1inchCompatible": true,
+    "liquidityIncentives": true,
+    "concentrated": true,
+    "stableswapOptimized": false,
+    "yieldBearing": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "85%",
+    "flashLoanEnabled": true,
+    "synthAssetsSupport": true,
+    "crossChainYield": true,
+    "autoCompounding": true,
+    "yieldRedirection": true
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": true,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "complianceBypass": {
+      "enabled": true,
+      "mechanism": "liquidity-wrapper-exemption",
+      "jurisdiction": "DeFi-native"
+    },
+    "institutionalCompliance": {
+      "available": true,
+      "optIn": true,
+      "reversible": true
+    }
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "multiOracleSupport": true,
+    "navOracle": "0x652d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9A",
+    "yieldOracle": "0x4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "lDYF/USD",
+        "address": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b"
+      },
+      {
+        "source": "uniswap-v3-twap",
+        "pair": "lDYF/USDC",
+        "address": "0x8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d"
+      },
+      {
+        "source": "vault-nav-oracle",
+        "pair": "lDYF/NAV",
+        "address": "0x0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f"
+      },
+      {
+        "source": "yield-oracle",
+        "pair": "lDYF/APY",
+        "address": "0x2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "15000000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "lDYF/USDC",
+        "fee": "0.3%",
+        "allocation": "30%",
+        "concentrated": true,
+        "range": "±3%",
+        "yieldBearing": true
+      },
+      {
+        "dex": "curve",
+        "pair": "lDYF/DAI/USDC/USDT",
+        "fee": "0.04%",
+        "allocation": "25%",
+        "metapool": true,
+        "basePool": "3pool"
+      },
+      {
+        "dex": "balancer",
+        "pair": "lDYF/WETH/USDC",
+        "fee": "0.25%",
+        "allocation": "20%",
+        "weighted": "50/25/25",
+        "yieldBearing": true
+      },
+      {
+        "dex": "sushiswap",
+        "pair": "lDYF/WETH",
+        "fee": "0.25%",
+        "allocation": "15%",
+        "onsen": true
+      },
+      {
+        "dex": "maverick",
+        "pair": "lDYF/FRAX",
+        "fee": "0.05%",
+        "allocation": "10%",
+        "adaptive": true,
+        "boosted": true
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": [
+      "ethereum", 
+      "polygon", 
+      "arbitrum", 
+      "optimism", 
+      "base", 
+      "avalanche",
+      "fantom",
+      "binance-smart-chain"
+    ],
+    "bridgeProtocols": ["layer-zero", "wormhole", "axelar", "connext"],
+    "bridgeFees": "0.02%",
+    "instantBridging": true,
+    "yieldPreservation": true,
+    "crossChainYield": true
+  },
+  
+  "yieldStrategies": {
+    "autoCompoundingEnabled": true,
+    "yieldOptimization": true,
+    "crossProtocolArbitrage": true,
+    "strategies": [
+      {
+        "name": "Multi-Protocol Yield",
+        "description": "Automated yield optimization across multiple DeFi protocols",
+        "apy": "18-28%",
+        "riskLevel": "medium",
+        "allocation": "40%"
+      },
+      {
+        "name": "Institutional Bridge",
+        "description": "Yield from underlying institutional-grade fund exposure",
+        "apy": "15-22%",
+        "riskLevel": "low-medium",
+        "allocation": "35%"
+      },
+      {
+        "name": "Liquidity Mining Plus",
+        "description": "Enhanced yield through liquidity provision and governance tokens",
+        "apy": "20-35%",
+        "riskLevel": "medium-high",
+        "allocation": "20%"
+      },
+      {
+        "name": "Arbitrage & MEV",
+        "description": "Yield from arbitrage opportunities and MEV capture",
+        "apy": "10-50%",
+        "riskLevel": "high",
+        "allocation": "5%"
+      }
+    ]
+  },
+  
+  "reflection": {
+    "enabled": true,
+    "reflectionAsset": "USDC",
+    "reflectionRate": "0.1%",
+    "distributionFrequency": "weekly",
+    "automaticDistribution": true,
+    "minimumForReflection": "1000",
+    "reflectionSource": "vault-yield"
+  },
+  
+  "governance": {
+    "governanceEnabled": true,
+    "votingRights": true,
+    "proposalRights": true,
+    "hybridGovernance": true,
+    "votingPower": "yield-weighted",
+    "proposalThreshold": "200000",
+    "quorum": "5%",
+    "votingDelay": "24h",
+    "votingPeriod": "5d",
+    "timelock": "24h",
+    "crossChainGovernance": true
+  },
+  
+  "flashLoan": {
+    "enabled": true,
+    "maxFlashLoan": "50000000",
+    "flashLoanFee": "0.09%",
+    "feeRecipient": "treasury",
+    "supportedAssets": ["lDYF", "USDC", "DAI", "WETH"],
+    "integrations": ["aave", "dydx", "euler"]
+  },
+  
+  "stakingPrograms": {
+    "enabled": true,
+    "stakingPools": [
+      {
+        "name": "Yield Optimization Staking",
+        "apy": "25-40%",
+        "lockupPeriod": "90d",
+        "rewards": ["lDYF", "bonus-yield"],
+        "yieldMultiplier": "1.5x",
+        "autoCompound": true
+      },
+      {
+        "name": "Governance Power Staking",
+        "apy": "15-25%",
+        "lockupPeriod": "180d",
+        "rewards": ["lDYF", "governance-tokens"],
+        "votingMultiplier": "2x",
+        "proposalRights": true
+      },
+      {
+        "name": "Liquidity Provider Staking",
+        "apy": "30-50%",
+        "lockupPeriod": "30d",
+        "rewards": ["lDYF", "LP-tokens", "trading-fees"],
+        "liquidityIncentives": true,
+        "impermanentLossProtection": "partial"
+      }
+    ]
+  },
+  
+  "metadata": {
+    "website": "https://chaincapital.com/funds/digital-yield-liquidity",
+    "documentation": "https://docs.chaincapital.com/tokens/ldyf",
+    "logo": "https://assets.chaincapital.com/tokens/ldyf/logo.svg",
+    "tags": ["digital-fund", "yield", "liquidity", "defi", "institutional", "automated"],
+    "category": "hybrid-institutional-defi-fund"
+  },
+  
+  "security": {
+    "auditedBy": [
+      "trail-of-bits", 
+      "consensys-diligence", 
+      "openzeppelin", 
+      "spearbit",
+      "code4arena"
+    ],
+    "auditReports": [
+      "https://audits.chaincapital.com/ldyf-trail-of-bits-2024.pdf",
+      "https://audits.chaincapital.com/ldyf-consensys-2024.pdf",
+      "https://audits.chaincapital.com/ldyf-openzeppelin-2024.pdf",
+      "https://audits.chaincapital.com/ldyf-spearbit-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "maxBounty": "2000000",
+    "multisigRequired": true,
+    "timelock": "24h",
+    "upgradeability": {
+      "enabled": true,
+      "pattern": "transparent-proxy",
+      "upgradeDelay": "7d"
+    },
+    "insurance": {
+      "enabled": true,
+      "coverage": "smart-contract-risk",
+      "provider": "nexus-mutual",
+      "amount": "10000000"
+    }
+  },
+  
+  "fees": {
+    "transferFee": "0%",
+    "wrappingFee": "0.05%",
+    "unwrappingFee": "0.05%",
+    "rebalancingFee": "0.02%",
+    "yieldManagementFee": "10%",
+    "performanceFee": "5%",
+    "flashLoanFee": "0.09%"
+  },
+  
+  "supply": {
+    "totalSupply": "100000000",
+    "circulatingSupply": "92000000",
+    "stakingReserve": "5000000",
+    "treasuryReserve": "2000000",
+    "teamReserve": "1000000",
+    "lockedSupply": "8000000",
+    "burnedSupply": "0"
+  },
+  
+  "performance": {
+    "inceptionDate": "2024-01-01",
+    "currentAPY": "24.8%",
+    "averageAPY": "22.3%",
+    "maxAPY": "45.2%",
+    "minAPY": "8.7%",
+    "volatility": "18.5%",
+    "sharpeRatio": "1.34",
+    "maxDrawdown": "12.3%",
+    "totalValueLocked": "285000000",
+    "averageTradingVolume": "15000000"
+  },
+  
+  "analytics": {
+    "trackingEnabled": true,
+    "metricsCollection": [
+      "trading-volume",
+      "liquidity-depth",
+      "yield-performance",
+      "nav-tracking",
+      "volatility",
+      "correlation",
+      "risk-metrics",
+      "user-behavior",
+      "cross-chain-flows"
+    ],
+    "dashboardUrl": "https://analytics.chaincapital.com/ldyf",
+    "publicAPI": "https://api.chaincapital.com/v1/ldyf",
+    "realTimeData": true
+  },
+  
+  "integrations": {
+    "wallets": ["metamask", "coinbase-wallet", "walletconnect", "gnosis-safe"],
+    "dexAggregators": ["1inch", "paraswap", "matcha", "openocean"],
+    "yieldOptimizers": ["yearn", "harvest", "idle", "pickle"],
+    "lendingProtocols": ["aave", "compound", "euler", "radiant"],
+    "bridgeProtocols": ["layer-zero", "wormhole", "axelar", "connext"],
+    "analytics": ["dune", "nansen", "defipulse", "debank"]
+  }
+}

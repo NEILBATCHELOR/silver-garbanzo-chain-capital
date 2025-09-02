@@ -1,0 +1,154 @@
+{
+  "name": "California Solar Farm Liquidity Token",
+  "symbol": "CASFL",
+  "decimals": 18,
+  "initialSupply": "50000000",
+  "cap": "100000000",
+  "description": "ERC-20 liquidity token backed by California Solar Farm I security tokens and energy certificates, enabling trading on DEXs and DeFi protocols",
+  
+  "mintable": true,
+  "burnable": true,
+  "pausable": true,
+  "permit": true,
+  "votes": false,
+  "flashmint": false,
+  "snapshots": true,
+  "mintingFinished": false,
+  "transfersPaused": false,
+  
+  "accessControl": "ownable",
+  "upgradeability": "transparent",
+  "gasslessApprovals": true,
+  "forceTransfer": false,
+  "recoverableFunds": true,
+  "contractURI": "https://api.californiasolar.com/metadata/contract.json",
+  
+  "taxFeature": false,
+  "deflationaryFeature": false,
+  "rebaseFeature": false,
+  "dividendFeature": true,
+  "stakingFeature": false,
+  "vestingFeature": false,
+  "whitelistFeature": false,
+  "blacklistFeature": true,
+  
+  "maxTransactionAmount": "1000000000000000000000000",
+  "maxWalletAmount": "5000000000000000000000000",
+  "tradingEnabledFromStart": false,
+  "maxTotalSupply": "100000000000000000000000000",
+  
+  "liquidityProvision": {
+    "enabled": true,
+    "dexRouters": ["uniswap-v3", "sushiswap"],
+    "initialLiquidity": "25000000000000000000000000",
+    "liquidityLockPeriod": 31536000,
+    "slippageProtection": true
+  },
+  
+  "bridgeSupport": {
+    "enabled": true,
+    "supportedChains": ["polygon", "arbitrum", "avalanche"],
+    "bridgeProtocol": "layerzero",
+    "bridgeLimits": {
+      "daily": "10000000000000000000000000",
+      "monthly": "100000000000000000000000000"
+    }
+  },
+  
+  "complianceFeatures": {
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferLimits": false,
+    "regulatoryReporting": false
+  },
+  
+  "tokenomics": {
+    "distribution": {
+      "liquidityPool": "50%",
+      "treasury": "20%",
+      "stakingRewards": "15%",
+      "teamAndAdvisors": "10%",
+      "marketing": "5%"
+    },
+    "vestingSchedule": {
+      "teamTokens": {
+        "cliff": 31536000,
+        "duration": 94608000,
+        "revocable": true
+      }
+    }
+  },
+  
+  "fees": {
+    "transferFee": "0",
+    "buyFee": "0",
+    "sellFee": "0",
+    "liquidityFee": "0",
+    "marketingFee": "0",
+    "burnFee": "0"
+  },
+  
+  "dividendDistribution": {
+    "enabled": true,
+    "frequency": "quarterly",
+    "paymentToken": "USDC",
+    "minimumHolding": "1000000000000000000000",
+    "distributionThreshold": "100000000000000000000000",
+    "gasOptimized": true
+  },
+  
+  "stakingMechanisms": {
+    "enabled": false
+  },
+  
+  "governanceIntegration": {
+    "enabled": false
+  },
+  
+  "antiWhaleProtection": {
+    "enabled": true,
+    "maxTransactionPercent": "1",
+    "maxWalletPercent": "5",
+    "cooldownPeriod": 300
+  },
+  
+  "marketMakingSupport": {
+    "enabled": true,
+    "authorizedMMs": [
+      "0x1234567890123456789012345678901234567890",
+      "0xAbCdEf1234567890123456789012345678901234"
+    ],
+    "mmIncentives": true
+  },
+  
+  "metadataURIs": {
+    "contractURI": "https://api.californiasolar.com/metadata/erc20-contract.json",
+    "logoURI": "https://api.californiasolar.com/images/casfl-logo.png",
+    "websiteURI": "https://californiasolar.com"
+  },
+  
+  "integrationAPIs": {
+    "priceOracle": "0x987654321098765432109876543210987654321",
+    "backingAssetOracle": "0x123456789012345678901234567890123456789A",
+    "conversionRate": "dynamic",
+    "realTimeData": true
+  },
+  
+  "liquidityMining": {
+    "enabled": true,
+    "supportedPools": [
+      "CASFL/USDC",
+      "CASFL/WETH",
+      "CASFL/CASF1"
+    ],
+    "rewardDistribution": "proportional",
+    "lockupPeriods": [30, 90, 180, 365]
+  },
+  
+  "emergencyFeatures": {
+    "pauseContract": true,
+    "emergencyWithdraw": true,
+    "upgradeGovernance": "timelock",
+    "multisigRequirement": 3
+  }
+}

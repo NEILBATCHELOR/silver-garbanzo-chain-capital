@@ -1,0 +1,450 @@
+{
+  "name": "Universal Carbon Credit Token",
+  "symbol": "CARB",
+  "decimals": 18,
+  "description": "Pure fungible carbon credit token representing high-quality verified carbon credits with simplified structure for maximum liquidity and accessibility",
+  "initialSupply": "50000000",
+  "maxSupply": "200000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": true,
+  "hasVotes": true,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": true,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "carbonBacking": {
+    "enabled": true,
+    "backingMechanism": "aggregated-credits",
+    "qualityThreshold": "high-grade",
+    "registryRequirement": ["VCS", "GS", "ACR"],
+    "minimumVintage": "2022",
+    "additionalityRequired": true,
+    "permanenceMinimum": "20-years",
+    "creditRatio": "1:1",
+    "qualityScore": "95+"
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": true,
+    "balancerVaultSupport": true,
+    "sushiswapCompatible": true,
+    "1inchCompatible": true,
+    "liquidityIncentives": true,
+    "carbonMarketplaces": true,
+    "klimaCompatible": true,
+    "mossCompatible": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "70%",
+    "flashLoanEnabled": true,
+    "synthAssetsSupport": true,
+    "derivativesSupport": true,
+    "futuresTrading": true,
+    "optionsTrading": true
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": false,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "environmentalCompliance": {
+      "enabled": true,
+      "retirementTracking": true,
+      "doubleCountingPrevention": true,
+      "registryIntegration": true,
+      "realTimeVerification": true
+    }
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "multiOracleSupport": true,
+    "carbonPriceIndex": true,
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "CARB/USD",
+        "address": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F"
+      },
+      {
+        "source": "carbon-market-oracle",
+        "pair": "CARB/VCM-INDEX",
+        "address": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d"
+      },
+      {
+        "source": "clima-oracle",
+        "pair": "CARB/CARBON-PRICE",
+        "address": "0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f"
+      },
+      {
+        "source": "retirement-oracle",
+        "pair": "CARB/RETIREMENT-RATE",
+        "address": "0x7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "10000000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "CARB/USDC",
+        "fee": "0.3%",
+        "allocation": "25%",
+        "concentrated": true,
+        "range": "±10%"
+      },
+      {
+        "dex": "curve",
+        "pair": "CARB/DAI/USDC/USDT",
+        "fee": "0.04%",
+        "allocation": "20%",
+        "stablePool": true
+      },
+      {
+        "dex": "balancer",
+        "pair": "CARB/WETH/USDC",
+        "fee": "0.25%",
+        "allocation": "20%",
+        "weighted": "50/25/25"
+      },
+      {
+        "dex": "sushiswap",
+        "pair": "CARB/KLIMA",
+        "fee": "0.25%",
+        "allocation": "15%",
+        "climatePool": true
+      },
+      {
+        "dex": "quickswap",
+        "pair": "CARB/MATIC",
+        "fee": "0.05%",
+        "allocation": "10%",
+        "polygon": true
+      },
+      {
+        "dex": "pancakeswap",
+        "pair": "CARB/BNB",
+        "fee": "0.25%",
+        "allocation": "10%",
+        "bsc": true
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": [
+      "ethereum", 
+      "polygon", 
+      "arbitrum", 
+      "optimism", 
+      "base", 
+      "bsc", 
+      "celo", 
+      "energy-web-chain",
+      "klaytn",
+      "avalanche"
+    ],
+    "bridgeProtocols": ["layer-zero", "wormhole", "synapse", "multichain"],
+    "bridgeFees": "0.02%",
+    "carbonNeutralBridging": true,
+    "instantBridging": true
+  },
+  
+  "carbonMechanics": {
+    "retirement": {
+      "enabled": true,
+      "retirementBurning": true,
+      "beneficiarySelection": true,
+      "retirementCertificates": true,
+      "bulkRetirement": true,
+      "automaticRetirement": false
+    },
+    "offset": {
+      "enabled": true,
+      "offsetOnTransfer": true,
+      "offsetPercentage": "0.1%",
+      "offsetBeneficiary": "global-carbon-sink",
+      "offsetVerification": true
+    },
+    "qualityMaintenance": {
+      "enabled": true,
+      "qualityRebalancing": "quarterly",
+      "qualityUpgrade": true,
+      "lowQualityRemoval": true,
+      "qualityThreshold": "90"
+    }
+  },
+  
+  "governance": {
+    "governanceEnabled": true,
+    "votingRights": true,
+    "proposalRights": true,
+    "daoStructure": "carbon-dao",
+    "votingPower": "token-weighted",
+    "proposalThreshold": "100000",
+    "quorum": "4%",
+    "votingDelay": "24h",
+    "votingPeriod": "5d",
+    "timelock": "24h",
+    "governanceScope": ["carbon-policy", "quality-standards", "fund-allocation"]
+  },
+  
+  "yieldGeneration": {
+    "enabled": true,
+    "yieldSources": [
+      {
+        "source": "carbon-price-appreciation",
+        "mechanism": "market-forces",
+        "expectedAPY": "5-15%"
+      },
+      {
+        "source": "carbon-farming-rewards",
+        "mechanism": "project-dividends",
+        "expectedAPY": "3-8%"
+      },
+      {
+        "source": "trading-fees",
+        "mechanism": "protocol-revenue",
+        "expectedAPY": "2-5%"
+      },
+      {
+        "source": "defi-yield",
+        "mechanism": "liquidity-provision",
+        "expectedAPY": "8-20%"
+      }
+    ],
+    "compoundingEnabled": true,
+    "yieldDistribution": "automatic"
+  },
+  
+  "stakingPrograms": {
+    "enabled": true,
+    "stakingPools": [
+      {
+        "name": "Climate Action Staking",
+        "apy": "12-20%",
+        "lockupPeriod": "365d",
+        "rewards": ["CARB", "carbon-credits"],
+        "impactMultiplier": "3x",
+        "slashingRisk": false
+      },
+      {
+        "name": "Liquidity Provider Staking",
+        "apy": "15-30%",
+        "lockupPeriod": "90d",
+        "rewards": ["CARB", "trading-fees"],
+        "liquidityIncentives": true,
+        "slashingRisk": false
+      },
+      {
+        "name": "Governance Staking",
+        "apy": "8-15%",
+        "lockupPeriod": "180d",
+        "rewards": ["CARB", "voting-power"],
+        "governanceMultiplier": "2x",
+        "slashingRisk": false
+      }
+    ]
+  },
+  
+  "deflationaryMechanics": {
+    "enabled": true,
+    "burnMechanisms": [
+      {
+        "trigger": "retirement",
+        "rate": "1:1",
+        "automatic": true
+      },
+      {
+        "trigger": "quarterly-burn",
+        "rate": "2%",
+        "automatic": true,
+        "maxBurn": "2000000"
+      },
+      {
+        "trigger": "fee-burn",
+        "rate": "50%",
+        "source": "protocol-fees",
+        "automatic": true
+      }
+    ],
+    "totalBurnedToDate": "5000000",
+    "projectedAnnualBurn": "8000000"
+  },
+  
+  "metadata": {
+    "website": "https://carboncapital.com/tokens/universal-carbon",
+    "documentation": "https://docs.carboncapital.com/tokens/carb",
+    "logo": "https://assets.carboncapital.com/tokens/carb/logo.svg",
+    "tags": ["carbon", "climate", "fungible", "defi", "universal"],
+    "category": "fungible-carbon-commodity",
+    "sdgAlignment": ["SDG-13"],
+    "climateCommitment": "carbon-negative",
+    "transparency": "full-on-chain"
+  },
+  
+  "security": {
+    "auditedBy": [
+      "trail-of-bits", 
+      "consensys-diligence", 
+      "openzeppelin", 
+      "carbon-audit-collective"
+    ],
+    "auditReports": [
+      "https://audits.carboncapital.com/carb-trail-of-bits-2024.pdf",
+      "https://audits.carboncapital.com/carb-consensys-2024.pdf",
+      "https://audits.carboncapital.com/carb-openzeppelin-2024.pdf",
+      "https://audits.carboncapital.com/carb-carbon-collective-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "maxBounty": "2000000",
+    "multisigRequired": true,
+    "timelock": "24h",
+    "emergencyPause": true,
+    "upgradeDelay": "7d"
+  },
+  
+  "fees": {
+    "transferFee": "0%",
+    "retirementFee": "0.1%",
+    "stakingFee": "0%",
+    "unstakingFee": "0%",
+    "protocolFee": "0.05%",
+    "bridgeFee": "0.02%",
+    "flashLoanFee": "0.09%"
+  },
+  
+  "supply": {
+    "totalSupply": "50000000",
+    "circulatingSupply": "45000000",
+    "stakingReserve": "3000000",
+    "treasuryReserve": "1500000",
+    "ecosystemReserve": "500000",
+    "lockedSupply": "0",
+    "burnedSupply": "5000000",
+    "retiredCredits": "12000000"
+  },
+  
+  "carbonPortfolio": {
+    "totalCO2Represented": "50000000",
+    "qualityDistribution": {
+      "AAA": "40%",
+      "AA": "35%", 
+      "A": "20%",
+      "BBB": "5%"
+    },
+    "methodologyDistribution": {
+      "nature-based-solutions": "50%",
+      "renewable-energy": "25%",
+      "energy-efficiency": "15%",
+      "technology-based": "10%"
+    },
+    "geographicDistribution": {
+      "africa": "30%",
+      "asia": "25%",
+      "latin-america": "25%",
+      "north-america": "15%",
+      "europe": "5%"
+    },
+    "vintageDistribution": {
+      "2024": "50%",
+      "2023": "30%",
+      "2022": "20%"
+    },
+    "registryDistribution": {
+      "vcs": "45%",
+      "gold-standard": "30%",
+      "acr": "15%",
+      "car": "10%"
+    }
+  },
+  
+  "marketIntegration": {
+    "centralizedExchanges": [
+      "binance",
+      "coinbase",
+      "kraken",
+      "huobi",
+      "okx"
+    ],
+    "decentralizedExchanges": [
+      "uniswap",
+      "sushiswap",
+      "curve",
+      "balancer",
+      "1inch",
+      "paraswap"
+    ],
+    "carbonMarketplaces": [
+      "klimadao",
+      "toucan",
+      "moss",
+      "nori",
+      "regen"
+    ],
+    "tradingPairs": [
+      "CARB/USD",
+      "CARB/USDC",
+      "CARB/DAI",
+      "CARB/WETH",
+      "CARB/BTC",
+      "CARB/KLIMA"
+    ]
+  },
+  
+  "partnerships": {
+    "registries": ["Verra", "Gold Standard", "ACR", "CAR"],
+    "protocols": ["KlimaDAO", "Toucan", "Moss", "Regen"],
+    "exchanges": ["Uniswap", "Curve", "Balancer"],
+    "auditors": ["Pachama", "Dovu", "Climate TRACE"],
+    "marketplaces": ["Carbon Direct", "Patch", "Cloverly"]
+  },
+  
+  "verification": {
+    "realTimeVerification": true,
+    "multiRegistrySupport": true,
+    "blockchainVerification": true,
+    "thirdPartyAudits": "continuous",
+    "transparencyScore": "AAA",
+    "verificationOracles": 5,
+    "updateFrequency": "real-time"
+  },
+  
+  "impact": {
+    "co2Avoided": "50000000",
+    "co2Retired": "12000000",
+    "projectsSupported": "500+",
+    "communitiesImpacted": "1000+",
+    "biodiversityBenefit": "verified",
+    "sdgContributions": "quantified",
+    "additionality": "100%",
+    "permanence": "guaranteed"
+  }
+}

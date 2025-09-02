@@ -1,0 +1,23 @@
+diff --git a/node_modules/bip174/package.json b/node_modules/bip174/package.json
+index a1b2c3d..e4f5a6b 100644
+--- a/node_modules/bip174/package.json
++++ b/node_modules/bip174/package.json
+@@ -7,6 +7,16 @@
+   "exports": {
+     ".": {
+       "types": "./src/esm/lib/psbt.d.ts",
+       "import": "./src/esm/lib/psbt.js",
+       "require": "./src/cjs/lib/psbt.cjs"
++    },
++    "./src/lib/utils": {
++      "types": "./src/esm/lib/utils.d.ts",
++      "import": "./src/esm/lib/utils.js",
++      "require": "./src/cjs/lib/utils.cjs"
++    },
++    "./src/lib/converter/varint": {
++      "types": "./src/esm/lib/converter/tools.d.ts",
++      "import": "./src/esm/lib/converter/tools.js",
++      "require": "./src/cjs/lib/converter/tools.cjs"
+     }
+   },
+   "type": "module",

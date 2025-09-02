@@ -1,0 +1,357 @@
+{
+  "name": "Blackstone Credit Value Units",
+  "symbol": "BCVU",
+  "description": "Semi-fungible value units representing fractional interests in diverse private credit instruments with varying terms, maturities, and risk profiles",
+  "valueDecimals": 6,
+  "standard": "ERC-3525",
+  
+  "baseUri": "https://blackstone-credit.com/metadata/",
+  "metadataStorage": "ipfs",
+  "dynamicMetadata": true,
+  "updatableUris": true,
+  
+  "slotType": "financial_instrument",
+  "allowsSlotEnumeration": true,
+  "slotTransferValidation": {
+    "requireSameTerms": false,
+    "allowCrossSlotTransfers": true,
+    "requireApproval": true
+  },
+  
+  "accessControl": "role_based",
+  
+  "isBurnable": true,
+  "isPausable": true,
+  "hasRoyalty": true,
+  "royaltyPercentage": "0.5",
+  "royaltyReceiver": "0xabcdef1234567890123456789012345678901234",
+  
+  "slotApprovals": true,
+  "valueApprovals": true,
+  "valueTransfersEnabled": true,
+  "updatableSlots": true,
+  "updatableValues": true,
+  
+  "mergable": true,
+  "splittable": true,
+  "valueAggregation": true,
+  "fractionalOwnershipEnabled": true,
+  "autoUnitCalculation": true,
+  
+  "permissioningEnabled": true,
+  "permissioningAdvanced": true,
+  
+  "supplyTracking": true,
+  "slotEnumerationEnabled": true,
+  "valueAggregationEnabled": true,
+  
+  "slotTransferRestrictions": {
+    "requireKyc": true,
+    "accreditedInvestorOnly": true,
+    "holdingPeriodDays": 90,
+    "geographicRestrictions": true
+  },
+  
+  "valueTransferRestrictions": {
+    "minimumTransferValue": "1000",
+    "maximumTransferValue": "10000000",
+    "transferLimits": {
+      "daily": "500000",
+      "monthly": "2000000"
+    }
+  },
+  
+  "financialInstrumentType": "private_credit_portfolio",
+  "principalAmount": "2000000000",
+  "interestRate": "floating",
+  "maturityDate": "2030-12-31",
+  "couponFrequency": "quarterly",
+  "paymentSchedule": {
+    "type": "amortizing",
+    "frequency": "quarterly",
+    "firstPaymentDate": "2024-06-30"
+  },
+  "earlyRedemptionEnabled": true,
+  "redemptionPenaltyRate": "1.0",
+  
+  "slotCreationEnabled": true,
+  "dynamicSlotCreation": true,
+  "slotAdminRoles": ["SLOT_MANAGER", "FUND_ADMIN"],
+  "slotFreezeEnabled": true,
+  "slotMergeEnabled": true,
+  "slotSplitEnabled": true,
+  "crossSlotTransfers": true,
+  
+  "valueComputationMethod": "nav_based",
+  "valueOracleAddress": "0x1234567890123456789012345678901234567890",
+  "valueCalculationFormula": "nav * units / total_units",
+  "accrualEnabled": true,
+  "accrualRate": "SOFR+500",
+  "accrualFrequency": "daily",
+  "valueAdjustmentEnabled": true,
+  
+  "slotMarketplaceEnabled": true,
+  "valueMarketplaceEnabled": true,
+  "partialValueTrading": true,
+  "minimumTradeValue": "1000",
+  "tradingFeesEnabled": true,
+  "tradingFeePercentage": "0.25",
+  "marketMakerEnabled": true,
+  
+  "slotVotingEnabled": false,
+  "valueWeightedVoting": false,
+  "votingPowerCalculation": "none",
+  "quorumCalculationMethod": "none",
+  "proposalValueThreshold": "0",
+  "delegateEnabled": false,
+  
+  "yieldFarmingEnabled": true,
+  "liquidityProvisionEnabled": true,
+  "stakingYieldRate": "3.5",
+  "compoundInterestEnabled": true,
+  "flashLoanEnabled": false,
+  "collateralFactor": "0.70",
+  "liquidationThreshold": "0.80",
+  
+  "regulatoryComplianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  "holdingPeriodRestrictions": 90,
+  "transferLimits": {
+    "daily": "500000",
+    "monthly": "2000000",
+    "annual": "20000000"
+  },
+  "reportingRequirements": {
+    "quarterly": true,
+    "annual": true,
+    "regulatory": true
+  },
+  
+  "multiSignatureRequired": true,
+  "approvalWorkflowEnabled": true,
+  "institutionalCustodySupport": true,
+  "auditTrailEnhanced": true,
+  "batchOperationsEnabled": true,
+  "emergencyPauseEnabled": true,
+  "recoveryMechanisms": {
+    "keyRecovery": true,
+    "socialRecovery": false,
+    "guardianRecovery": true
+  },
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor"]
+    },
+    {
+      "country": "CN",
+      "allowed": false
+    }
+  ],
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "automaticApproval": false,
+    "kycRequired": true,
+    "accreditationRequired": true
+  },
+  
+  "salesConfig": {
+    "publicSale": false,
+    "privateSale": true,
+    "minimumPurchase": "100000",
+    "maximumPurchase": "50000000"
+  },
+  
+  "customExtensions": "credit_rating_oracle,default_protection,liquidity_backstop",
+  "customSlotProperties": {
+    "creditRating": "string",
+    "sectorExposure": "string",
+    "geographicExposure": "string",
+    "defaultRate": "uint256",
+    "recoveryRate": "uint256"
+  },
+  
+  "metadata": {
+    "fundStrategy": "diversified_private_credit",
+    "targetSectors": ["healthcare", "technology", "industrials", "consumer"],
+    "geographicFocus": "north_america_europe",
+    "fundSize": "2000000000",
+    "managementFee": "1.5",
+    "performanceFee": "20",
+    "hurdle_rate": "8.0"
+  },
+  
+  "slots": [
+    {
+      "slotId": "1",
+      "slotName": "Senior Direct Loans",
+      "slotDescription": "Senior secured direct loans to mid-market companies",
+      "valueUnits": "USD",
+      "slotType": "senior_debt",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "1000",
+      "maxValue": "50000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "creditRating": "A+",
+        "averageMaturity": "5.2",
+        "weightedCoupon": "SOFR+525",
+        "sectorDiversification": "high"
+      }
+    },
+    {
+      "slotId": "2",
+      "slotName": "Distressed Debt Positions",
+      "slotDescription": "Distressed and special situations credit investments",
+      "valueUnits": "USD",
+      "slotType": "distressed_debt",
+      "transferable": true,
+      "tradeable": true,
+      "divisible": true,
+      "minValue": "5000",
+      "maxValue": "25000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "creditRating": "B+",
+        "averageMaturity": "3.8",
+        "weightedCoupon": "SOFR+1200",
+        "recoveryExpectation": "70"
+      }
+    },
+    {
+      "slotId": "3",
+      "slotName": "Mezzanine Financing",
+      "slotDescription": "Subordinated debt and mezzanine capital",
+      "valueUnits": "USD",
+      "slotType": "mezzanine",
+      "transferable": false,
+      "tradeable": false,
+      "divisible": true,
+      "minValue": "25000",
+      "maxValue": "10000000",
+      "valuePrecision": 6,
+      "slotProperties": {
+        "creditRating": "BB",
+        "averageMaturity": "7.0",
+        "weightedCoupon": "15-18%",
+        "equityKicker": "true"
+      }
+    }
+  ],
+  
+  "allocations": [
+    {
+      "tokenIdWithinSlot": "1001",
+      "slotId": "1",
+      "recipient": "0x1111111111111111111111111111111111111111",
+      "value": "5000000",
+      "linkedTokenId": ""
+    },
+    {
+      "tokenIdWithinSlot": "2001",
+      "slotId": "2",
+      "recipient": "0x2222222222222222222222222222222222222222",
+      "value": "2500000",
+      "linkedTokenId": ""
+    },
+    {
+      "tokenIdWithinSlot": "3001",
+      "slotId": "3",
+      "recipient": "0x3333333333333333333333333333333333333333",
+      "value": "1000000",
+      "linkedTokenId": ""
+    }
+  ],
+  
+  "paymentSchedules": [
+    {
+      "slotId": "1",
+      "paymentDate": "2024-06-30",
+      "paymentAmount": "31250000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "1",
+      "paymentDate": "2024-09-30",
+      "paymentAmount": "31250000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    },
+    {
+      "slotId": "2",
+      "paymentDate": "2024-06-30",
+      "paymentAmount": "18750000",
+      "paymentType": "interest",
+      "currency": "USD",
+      "isCompleted": false
+    }
+  ],
+  
+  "valueAdjustments": [
+    {
+      "slotId": "1",
+      "adjustmentDate": "2024-05-15",
+      "adjustmentType": "mark_to_market",
+      "adjustmentAmount": "2500000",
+      "adjustmentReason": "quarterly_valuation",
+      "oraclePrice": "1.025",
+      "oracleSource": "Refinitiv",
+      "approvedBy": "0xabcdef1234567890123456789012345678901234"
+    }
+  ],
+  
+  "slotConfigs": [
+    {
+      "slotId": "1",
+      "name": "Senior Direct Loans Configuration",
+      "description": "Configuration for senior secured lending slot",
+      "metadata": {
+        "riskWeight": "50",
+        "capitalRequirement": "8",
+        "liquidityRequirement": "high"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "2",
+      "name": "Distressed Debt Configuration",
+      "description": "Configuration for distressed debt investments",
+      "metadata": {
+        "riskWeight": "150",
+        "capitalRequirement": "20",
+        "liquidityRequirement": "medium"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": true
+    },
+    {
+      "slotId": "3",
+      "name": "Mezzanine Configuration",
+      "description": "Configuration for mezzanine financing",
+      "metadata": {
+        "riskWeight": "250",
+        "capitalRequirement": "35",
+        "liquidityRequirement": "low"
+      },
+      "valueUnits": "USD",
+      "slotTransferable": false
+    }
+  ]
+}

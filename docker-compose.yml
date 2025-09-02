@@ -1,0 +1,213 @@
+# =============================================================================
+# Chain Capital - Docker Compose Configuration
+# Full-stack development environment orchestration
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Frontend Service (React + Vite)
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: chaincapital-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_BACKEND_URL=http://backend:3002
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+    depends_on:
+      - backend
+    networks:
+      - chaincapital-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # Backend Service (Fastify + Prisma)
+  # =============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: chaincapital-backend
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - HOST=0.0.0.0
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=http://localhost:5173,http://frontend:5173
+      - LOG_LEVEL=info
+      - ENABLE_SWAGGER=true
+    depends_on:
+      - db
+    networks:
+      - chaincapital-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # Database Service (PostgreSQL) - Optional local DB
+  # =============================================================================
+  db:
+    image: postgres:15-alpine
+    container_name: chaincapital-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=chaincapital
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/prisma/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - chaincapital-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis Cache (Optional)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: chaincapital-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - chaincapital-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # =============================================================================
+  # Prisma Studio (Database Management UI)
+  # =============================================================================
+  prisma-studio:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prisma-studio
+    container_name: chaincapital-prisma-studio
+    ports:
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - db
+    networks:
+      - chaincapital-network
+    profiles:
+      - tools
+    restart: unless-stopped
+
+  # =============================================================================
+  # MinIO (S3-compatible object storage) - Optional
+  # =============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: chaincapital-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - chaincapital-network
+    profiles:
+      - storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # =============================================================================
+  # NGINX (Reverse Proxy) - Production-like setup
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: chaincapital-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - chaincapital-network
+    profiles:
+      - production
+    restart: unless-stopped
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  chaincapital-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local  
+  minio_data:
+    driver: local
+
+# =============================================================================
+# Development Profiles
+# =============================================================================
+# Usage:
+# docker-compose up                          # Core services only
+# docker-compose --profile tools up          # Core + development tools
+# docker-compose --profile storage up        # Core + file storage
+# docker-compose --profile production up     # Production-like setup

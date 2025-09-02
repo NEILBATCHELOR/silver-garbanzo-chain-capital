@@ -1,0 +1,252 @@
+{
+  "name": "Fractional Algorithmic Dollar",
+  "symbol": "FRAD",
+  "decimals": 18,
+  "description": "A fractional-algorithmic stablecoin that combines collateral backing with algorithmic mechanisms, using a dynamic collateral ratio that adjusts based on market confidence and stability requirements.",
+  "standard": "ERC-4626",
+  "total_supply": "2000000000",
+  "initial_supply": "200000000",
+  "cap": "10000000000",
+  "is_mintable": true,
+  "is_burnable": true,
+  "is_pausable": true,
+  "token_type": "vault",
+  "vault_type": "fractional_algorithmic_stablecoin",
+  "underlying_asset": "Mixed Collateral Portfolio",
+  "underlying_asset_address": "",
+  "access_control": "ownable",
+  "vault_strategy": "fractional_reserve_algorithmic",
+  "management_fee": "0.0",
+  "performance_fee": "0.0",
+  "withdrawal_fee": "0.0",
+  "deposit_fee": "0.0",
+  "minimum_deposit": "1",
+  "maximum_deposit": "1000000",
+  "withdrawal_delay": "0",
+  "emergency_withdrawal": true,
+  "auto_compounding": false,
+  "yield_distribution": "none",
+  "rebalancing_frequency": "daily",
+  "risk_level": "high",
+  "target_apy": "0.0",
+  "maximum_drawdown": "15.0",
+  "liquidity_reserve": "20.0",
+  "collateral_ratio": "85.0",
+  "target_collateral_ratio": "85.0",
+  "minimum_collateral_ratio": "50.0",
+  "maximum_collateral_ratio": "100.0",
+  "algorithmic_portion": "15.0",
+  "collateral_currencies": ["USDC", "DAI", "FRAX"],
+  "share_token": "FRAX_SHARE",
+  "oracle_system": "chainlink_band",
+  "price_target": "1.0",
+  "recollateralization_enabled": true,
+  "buyback_enabled": true,
+  "strategy_allocation": {
+    "usdc_collateral": "50.0",
+    "dai_collateral": "25.0",
+    "frax_collateral": "10.0",
+    "algorithmic_mechanism": "15.0"
+  },
+  "vault_features": {
+    "yield_optimization_enabled": false,
+    "automated_rebalancing": true,
+    "performance_tracking": true,
+    "apy_tracking_enabled": false,
+    "benchmark_tracking_enabled": false,
+    "multi_asset_enabled": true,
+    "rebalancing_enabled": true,
+    "auto_compounding_enabled": false,
+    "risk_management_enabled": true,
+    "diversification_enabled": true,
+    "dynamic_fees_enabled": false,
+    "fee_rebate_enabled": false,
+    "gas_fee_optimization": true,
+    "liquivity_mining_enabled": true,
+    "market_making_enabled": true,
+    "arbitrage_enabled": true,
+    "cross_dex_optimization": true,
+    "impermanent_loss_protection": false,
+    "lending_protocol_enabled": false,
+    "borrowing_enabled": false,
+    "leverage_enabled": false,
+    "cross_chain_yield_enabled": false,
+    "portfolio_analytics_enabled": true,
+    "real_time_pnl_tracking": true,
+    "tax_reporting_enabled": false,
+    "automated_reporting": true,
+    "notification_system_enabled": false,
+    "mobile_app_integration": false,
+    "social_trading_enabled": false,
+    "institutional_grade": false,
+    "custody_integration": false,
+    "audit_trail_comprehensive": true,
+    "compliance_reporting_enabled": false,
+    "fund_administration_enabled": false,
+    "third_party_audits_enabled": true
+  },
+  "vault_strategies": [
+    {
+      "strategy_name": "USDC Collateral Reserve",
+      "allocation_percentage": "50.0",
+      "target_apy": "0.0",
+      "risk_score": "1",
+      "protocol": "Internal Reserve",
+      "underlying_asset": "USDC",
+      "strategy_type": "collateral_backing"
+    },
+    {
+      "strategy_name": "DAI Collateral Reserve",
+      "allocation_percentage": "25.0",
+      "target_apy": "0.0",
+      "risk_score": "2",
+      "protocol": "Internal Reserve",
+      "underlying_asset": "DAI",
+      "strategy_type": "collateral_backing"
+    },
+    {
+      "strategy_name": "FRAX Collateral Reserve",
+      "allocation_percentage": "10.0",
+      "target_apy": "0.0",
+      "risk_score": "3",
+      "protocol": "Internal Reserve",
+      "underlying_asset": "FRAX",
+      "strategy_type": "collateral_backing"
+    },
+    {
+      "strategy_name": "Algorithmic Stabilization",
+      "allocation_percentage": "15.0",
+      "target_apy": "0.0",
+      "risk_score": "8",
+      "protocol": "Share Token System",
+      "underlying_asset": "FRAX_SHARE",
+      "strategy_type": "algorithmic_mechanism"
+    }
+  ],
+  "asset_allocations": [
+    {
+      "asset_name": "USDC",
+      "allocation_percentage": "50.0",
+      "target_allocation": "50.0",
+      "current_allocation": "49.2",
+      "rebalance_threshold": "5.0",
+      "minimum_allocation": "30.0",
+      "maximum_allocation": "70.0"
+    },
+    {
+      "asset_name": "DAI",
+      "allocation_percentage": "25.0",
+      "target_allocation": "25.0",
+      "current_allocation": "26.1",
+      "rebalance_threshold": "5.0",
+      "minimum_allocation": "15.0",
+      "maximum_allocation": "40.0"
+    },
+    {
+      "asset_name": "FRAX",
+      "allocation_percentage": "10.0",
+      "target_allocation": "10.0",
+      "current_allocation": "9.7",
+      "rebalance_threshold": "3.0",
+      "minimum_allocation": "5.0",
+      "maximum_allocation": "20.0"
+    },
+    {
+      "asset_name": "FRAX_SHARE",
+      "allocation_percentage": "15.0",
+      "target_allocation": "15.0",
+      "current_allocation": "15.0",
+      "rebalance_threshold": "2.0",
+      "minimum_allocation": "10.0",
+      "maximum_allocation": "25.0"
+    }
+  ],
+  "fee_tiers": [
+    {
+      "tier_name": "Standard",
+      "minimum_deposit": "1",
+      "maximum_deposit": "1000000",
+      "management_fee": "0.0",
+      "performance_fee": "0.0",
+      "withdrawal_fee": "0.0"
+    }
+  ],
+  "performance_metrics": [
+    {
+      "metric_name": "Collateral Ratio",
+      "current_value": "85.0",
+      "target_value": "85.0",
+      "measurement_unit": "percentage",
+      "tracking_frequency": "real_time"
+    },
+    {
+      "metric_name": "Price Stability",
+      "current_value": "0.998",
+      "target_value": "1.000",
+      "measurement_unit": "USD",
+      "tracking_frequency": "continuous"
+    },
+    {
+      "metric_name": "Total Collateral Value",
+      "current_value": "170000000",
+      "target_value": "170000000",
+      "measurement_unit": "USD",
+      "tracking_frequency": "real_time"
+    }
+  ],
+  "strategy_params": [
+    {
+      "param_name": "Target Collateral Ratio",
+      "param_value": "85.0",
+      "param_type": "percentage",
+      "param_description": "Target ratio of collateral backing"
+    },
+    {
+      "param_name": "Rebalance Threshold",
+      "param_value": "2.0",
+      "param_type": "percentage",
+      "param_description": "Threshold for triggering rebalancing"
+    },
+    {
+      "param_name": "Price Tolerance",
+      "param_value": "0.5",
+      "param_type": "percentage",
+      "param_description": "Acceptable price deviation from peg"
+    }
+  ],
+  "fractional_algorithmic_features": {
+    "dynamic_collateral_ratio": true,
+    "market_confidence_tracking": true,
+    "automatic_recollateralization": true,
+    "share_token_buybacks": true,
+    "hybrid_stability_mechanism": true,
+    "capital_efficiency": "high"
+  },
+  "stability_mechanisms": {
+    "collateral_adjustment": "automatic",
+    "share_token_mechanics": "mint_burn",
+    "price_stabilization": "hybrid_approach",
+    "arbitrage_opportunities": true,
+    "market_operations": "algorithmic",
+    "confidence_tracking": "market_based"
+  },
+  "algorithmic_components": {
+    "share_token_system": true,
+    "dynamic_collateralization": true,
+    "market_confidence_oracle": true,
+    "automated_recollateralization": true,
+    "buyback_mechanism": true,
+    "emergency_collateralization": true
+  },
+  "metadata": {
+    "vault_type": "fractional_algorithmic_stablecoin",
+    "stability_model": "hybrid_collateral_algorithmic",
+    "target_market": "defi_stability_seekers",
+    "risk_profile": "moderate_to_high",
+    "automated_management": true,
+    "transparency_level": "high",
+    "audit_status": "regularly_audited",
+    "governance_model": "dao_controlled",
+    "innovation_focus": "capital_efficient_stability"
+  }
+}

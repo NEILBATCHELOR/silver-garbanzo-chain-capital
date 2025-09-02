@@ -1,0 +1,182 @@
+{
+  "name": "Aurora Solar Farm Investment Token",
+  "symbol": "ASFIT",
+  "description": "Security token representing fractional ownership in a 150MW solar farm located in Nevada, USA. The facility generates clean energy for the California grid and provides steady dividend payments to token holders.",
+  "decimals": 18,
+  "initialSupply": "10000000",
+  "cap": "10000000",
+  "tokenDetails": "Tokenized investment in Aurora Solar Farm - a utility-scale photovoltaic facility with 25-year power purchase agreements",
+  "securityType": "investment_fund",
+  "regulationType": "reg-d",
+  "issuingEntityName": "Aurora Clean Energy Partners LLC",
+  "issuingJurisdiction": "Delaware, USA",
+  "issuingEntityLei": "5493001234567890123",
+  
+  "isMintable": true,
+  "isBurnable": false,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "automated",
+  "complianceModule": "chainalysis-kyc",
+  
+  "holdingPeriod": "12",
+  "maxInvestorCount": "499",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "ipfs://QmSolarFarmProspectusHash",
+  "documentHash": "0x1234567890abcdef",
+  "legalTerms": "Token holders receive quarterly dividend distributions based on solar farm revenue",
+  "prospectus": "ipfs://QmProspectusDocumentHash",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": false,
+  "settlementIntegration": "dtcc-integration",
+  "clearingHouseIntegration": false,
+  "centralSecuritiesDepositoryIntegration": false,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "transferRestrictions": {
+    "holdingPeriod": 365,
+    "maxTransferAmount": "100000",
+    "requiresApproval": true,
+    "restrictedJurisdictions": ["CN", "KP", "IR"],
+    "minimumHolding": "1000"
+  },
+  
+  "kycSettings": {
+    "provider": "chainalysis",
+    "verificationLevel": "enhanced",
+    "requiredDocuments": ["government_id", "proof_of_address", "proof_of_income"],
+    "riskTolerance": "medium"
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": true,
+    "pepScreening": true,
+    "amlThreshold": "10000",
+    "reportingCurrency": "USD",
+    "taxReporting": true
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "restrictions": "accredited_investors_only"
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "restrictions": "qualified_investors_only"
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "restrictions": "prohibited"
+    }
+  ],
+  
+  "investorLimits": {
+    "maxIndividualHolding": "5000000",
+    "maxInstitutionalHolding": "20000000",
+    "maxTotalInvestors": 499
+  },
+  
+  "partitions": [
+    {
+      "name": "Class A - Priority Distribution",
+      "amount": "7000000",
+      "description": "Priority claim on distributions, 8% annual target return",
+      "rights": ["voting", "priority_distribution", "information_rights"],
+      "restrictions": ["12_month_lockup", "accredited_only"]
+    },
+    {
+      "name": "Class B - Growth Participation",
+      "amount": "3000000", 
+      "description": "Participation in upside beyond 8% threshold",
+      "rights": ["voting", "excess_distribution", "information_rights"],
+      "restrictions": ["12_month_lockup", "accredited_only"]
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "issuer",
+      "permissions": ["mint", "transfer_approval", "compliance_enforcement"],
+      "description": "Aurora Clean Energy Partners - Primary Issuer"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "compliance_officer", 
+      "permissions": ["kyc_approval", "sanctions_screening", "reporting"],
+      "description": "Compliance oversight and regulatory reporting"
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "ipfs://QmPPMDocumentHash",
+      "documentType": "offering_document",
+      "documentHash": "0xppmhash123"
+    },
+    {
+      "name": "Solar Farm Engineering Report",
+      "documentUri": "ipfs://QmEngineeringReportHash", 
+      "documentType": "technical_report",
+      "documentHash": "0xengineeringhash456"
+    },
+    {
+      "name": "Power Purchase Agreement",
+      "documentUri": "ipfs://QmPPADocumentHash",
+      "documentType": "contract",
+      "documentHash": "0xppahash789"
+    }
+  ],
+
+  "customFeatures": {
+    "energyType": "solar_photovoltaic",
+    "capacity": "150MW",
+    "location": "Nevada, USA",
+    "operationalDate": "2024-06-01",
+    "powerPurchaseAgreement": {
+      "buyer": "Pacific Gas & Electric",
+      "duration": 25,
+      "pricePerMWh": 45.50
+    },
+    "expectedAnnualGeneration": "320000MWh",
+    "expectedAnnualRevenue": "14600000",
+    "operatingExpenses": "2200000",
+    "netCashFlow": "12400000",
+    "distributionSchedule": "quarterly"
+  }
+}

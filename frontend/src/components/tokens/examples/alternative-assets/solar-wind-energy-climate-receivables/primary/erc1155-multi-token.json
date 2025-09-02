@@ -1,0 +1,413 @@
+{
+  "base_uri": "https://metadata.greencapital.com/energy-credits/",
+  "metadata_storage": "ipfs",
+  "has_royalty": false,
+  "is_burnable": true,
+  "is_pausable": true,
+  "access_control": "role-based",
+  "updatable_uris": true,
+  "supply_tracking": true,
+  "enable_approval_for_all": true,
+  "batch_minting_enabled": true,
+  "container_enabled": false,
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "dynamic_uris": true,
+  "updatable_metadata": true,
+  "supply_tracking_advanced": true,
+  "max_supply_per_type": "10000000",
+  "burning_enabled": true,
+  "mint_roles": ["portfolio-manager", "registry-oracle"],
+  "burn_roles": ["portfolio-manager", "compliance-officer"],
+  "metadata_update_roles": ["registry-oracle", "verification-service"],
+  
+  "pricing_model": "dynamic",
+  "base_price": "25",
+  "bulk_discount_enabled": true,
+  "referral_rewards_enabled": false,
+  "referral_percentage": "0",
+  "lazy_minting_enabled": true,
+  "airdrop_enabled": false,
+  "claim_period_enabled": true,
+  "claim_start_time": "2024-01-01T00:00:00Z",
+  "claim_end_time": "2025-12-31T23:59:59Z",
+  "marketplace_fees_enabled": true,
+  "marketplace_fee_percentage": "2.5",
+  "marketplace_fee_recipient": "0x851d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9E",
+  "bundle_trading_enabled": true,
+  "atomic_swaps_enabled": true,
+  "cross_collection_trading": true,
+  
+  "crafting_enabled": false,
+  "fusion_enabled": false,
+  "experience_points_enabled": false,
+  "leveling_enabled": false,
+  "consumable_tokens": true,
+  "voting_power_enabled": false,
+  "community_treasury_enabled": false,
+  "bridge_enabled": true,
+  "bridgeable_token_types": ["1", "2", "3", "4", "5"],
+  "wrapped_versions": {
+    "ethereum": "0x851d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9E",
+    "polygon": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c"
+  },
+  "layer2_support_enabled": true,
+  "supported_layer2_networks": ["polygon", "arbitrum", "optimism"],
+  
+  "tokenTypes": [
+    {
+      "id": "1",
+      "name": "Solar REC - Residential",
+      "symbol": "SREC-R",
+      "description": "Solar Renewable Energy Credits from residential rooftop installations",
+      "maxSupply": "5000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "energyType": "solar",
+        "scale": "residential",
+        "averageSize": "8kW",
+        "geography": "US-Distributed",
+        "vintage": "2024",
+        "verificationStandard": "M-RETS",
+        "additionalityConfirmed": true,
+        "co2AvoidancePerMWh": "0.5",
+        "properties": {
+          "renewable": true,
+          "baseload": false,
+          "intermittent": true,
+          "carbonNeutral": true
+        }
+      }
+    },
+    {
+      "id": "2",
+      "name": "Solar REC - Utility Scale",
+      "symbol": "SREC-U",
+      "description": "Solar Renewable Energy Credits from utility-scale solar farms",
+      "maxSupply": "8000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "energyType": "solar",
+        "scale": "utility",
+        "averageSize": "100MW",
+        "geography": "US-Southwest",
+        "vintage": "2024",
+        "verificationStandard": "PJM-GATS",
+        "additionalityConfirmed": true,
+        "co2AvoidancePerMWh": "0.5",
+        "properties": {
+          "renewable": true,
+          "baseload": false,
+          "intermittent": true,
+          "carbonNeutral": true
+        }
+      }
+    },
+    {
+      "id": "3",
+      "name": "Wind REC - Onshore",
+      "symbol": "WREC-ON",
+      "description": "Wind Renewable Energy Credits from onshore wind farms",
+      "maxSupply": "6000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "energyType": "wind",
+        "scale": "onshore",
+        "averageSize": "150MW",
+        "geography": "US-Midwest",
+        "vintage": "2024",
+        "verificationStandard": "MRETS",
+        "additionalityConfirmed": true,
+        "co2AvoidancePerMWh": "0.45",
+        "properties": {
+          "renewable": true,
+          "baseload": false,
+          "intermittent": true,
+          "carbonNeutral": true
+        }
+      }
+    },
+    {
+      "id": "4",
+      "name": "Wind REC - Offshore",
+      "symbol": "WREC-OFF",
+      "description": "Wind Renewable Energy Credits from offshore wind farms",
+      "maxSupply": "2000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "energyType": "wind",
+        "scale": "offshore",
+        "averageSize": "400MW",
+        "geography": "US-Atlantic",
+        "vintage": "2024",
+        "verificationStandard": "NEPOOL-GIS",
+        "additionalityConfirmed": true,
+        "co2AvoidancePerMWh": "0.45",
+        "properties": {
+          "renewable": true,
+          "baseload": false,
+          "intermittent": true,
+          "carbonNeutral": true
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Verified Carbon Credits",
+      "symbol": "VCC",
+      "description": "High-quality verified carbon credits from nature-based solutions",
+      "maxSupply": "1000000",
+      "isTransferable": true,
+      "isTradeable": true,
+      "royalty": "0",
+      "metadata": {
+        "energyType": "carbon-offset",
+        "projectType": "nature-based-solutions",
+        "geography": "Global",
+        "vintage": "2024",
+        "verificationStandard": "VCS",
+        "additionalityConfirmed": true,
+        "co2RemovalPerCredit": "1.0",
+        "properties": {
+          "carbonNegative": true,
+          "permanence": "100-years",
+          "cobenefits": ["biodiversity", "water-quality", "soil-health"]
+        }
+      }
+    }
+  ],
+  
+  "discountTiers": [
+    {
+      "id": "1",
+      "tierName": "Retail",
+      "minQuantity": "1",
+      "maxQuantity": "999",
+      "discountPercentage": "0",
+      "isActive": true
+    },
+    {
+      "id": "2",
+      "tierName": "Bulk",
+      "minQuantity": "1000",
+      "maxQuantity": "9999",
+      "discountPercentage": "5",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "tierName": "Wholesale",
+      "minQuantity": "10000",
+      "maxQuantity": "99999",
+      "discountPercentage": "10",
+      "isActive": true
+    },
+    {
+      "id": "4",
+      "tierName": "Institutional",
+      "minQuantity": "100000",
+      "maxQuantity": "1000000",
+      "discountPercentage": "15",
+      "isActive": true
+    }
+  ],
+  
+  "typeConfigs": [
+    {
+      "id": "1",
+      "tokenTypeId": "1",
+      "name": "Residential Solar Configuration",
+      "description": "Configuration for residential solar REC tokens with automated verification",
+      "config": {
+        "autoRetire": true,
+        "retirementDelay": "90d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "M-RETS"
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "compliance"],
+        "qualityScore": "95",
+        "riskRating": "Low"
+      }
+    },
+    {
+      "id": "2",
+      "tokenTypeId": "2",
+      "name": "Utility Solar Configuration", 
+      "description": "Configuration for utility-scale solar REC tokens with enhanced verification",
+      "config": {
+        "autoRetire": true,
+        "retirementDelay": "30d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "PJM-GATS"
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "compliance", "cap-and-trade"],
+        "qualityScore": "98",
+        "riskRating": "Very Low"
+      }
+    },
+    {
+      "id": "3",
+      "tokenTypeId": "3",
+      "name": "Onshore Wind Configuration",
+      "description": "Configuration for onshore wind REC tokens with real-time generation tracking",
+      "config": {
+        "autoRetire": true,
+        "retirementDelay": "60d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "MRETS"
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "compliance"],
+        "qualityScore": "96",
+        "riskRating": "Low"
+      }
+    },
+    {
+      "id": "4",
+      "tokenTypeId": "4",
+      "name": "Offshore Wind Configuration",
+      "description": "Configuration for offshore wind REC tokens with premium verification",
+      "config": {
+        "autoRetire": true,
+        "retirementDelay": "30d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "NEPOOL-GIS"
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary", "compliance", "premium"],
+        "qualityScore": "99",
+        "riskRating": "Very Low"
+      }
+    },
+    {
+      "id": "5",
+      "tokenTypeId": "5",
+      "name": "Carbon Credits Configuration",
+      "description": "Configuration for verified carbon credits with strict additionality requirements",
+      "config": {
+        "autoRetire": false,
+        "retirementDelay": "0d",
+        "verificationRequired": true,
+        "additionalityCheck": true,
+        "doubleCountingPrevention": true,
+        "registryIntegration": "VCS"
+      },
+      "metadata": {
+        "eligibleMarkets": ["voluntary"],
+        "qualityScore": "97",
+        "riskRating": "Low"
+      }
+    }
+  ],
+  
+  "uriMappings": [
+    {
+      "id": "1",
+      "tokenTypeId": "1",
+      "tokenId": "1",
+      "uri": "https://metadata.greencapital.com/energy-credits/solar-residential/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "2",
+      "tokenTypeId": "2",
+      "tokenId": "2",
+      "uri": "https://metadata.greencapital.com/energy-credits/solar-utility/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "tokenTypeId": "3",
+      "tokenId": "3",
+      "uri": "https://metadata.greencapital.com/energy-credits/wind-onshore/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "4",
+      "tokenTypeId": "4",
+      "tokenId": "4",
+      "uri": "https://metadata.greencapital.com/energy-credits/wind-offshore/{id}.json",
+      "isActive": true
+    },
+    {
+      "id": "5",
+      "tokenTypeId": "5",
+      "tokenId": "5",
+      "uri": "https://metadata.greencapital.com/energy-credits/carbon-credits/{id}.json",
+      "isActive": true
+    }
+  ],
+  
+  "registryIntegration": {
+    "enabled": true,
+    "registries": [
+      {
+        "name": "Verra",
+        "type": "VCS",
+        "apiEndpoint": "https://registry.verra.org/api/v1",
+        "credentialHash": "0x7f8a1b3c5d7e0f2a4b6c8d9e1f3a5b7c9d0e2f4a",
+        "autoSync": true,
+        "retirementTracking": true
+      },
+      {
+        "name": "American Carbon Registry",
+        "type": "ACR",
+        "apiEndpoint": "https://acr2.apx.com/api/v1",
+        "credentialHash": "0x8a1b3c5d7e0f2a4b6c8d9e1f3a5b7c9d0e2f4a6b",
+        "autoSync": true,
+        "retirementTracking": true
+      },
+      {
+        "name": "M-RETS",
+        "type": "REC",
+        "apiEndpoint": "https://www.mrets.org/api/v1",
+        "credentialHash": "0x1b3c5d7e0f2a4b6c8d9e1f3a5b7c9d0e2f4a6b8c",
+        "autoSync": true,
+        "retirementTracking": true
+      }
+    ]
+  },
+  
+  "verificationOracles": [
+    {
+      "name": "Climate TRACE",
+      "address": "0x851d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9E",
+      "verificationScope": ["emissions-tracking", "generation-verification"],
+      "updateFrequency": "hourly"
+    },
+    {
+      "name": "Satellite Verification Service",
+      "address": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c",
+      "verificationScope": ["project-existence", "capacity-verification"],
+      "updateFrequency": "daily"
+    }
+  ],
+  
+  "environmentalImpact": {
+    "totalCreditsIssued": "22000000",
+    "totalMWhRepresented": "22000000",
+    "totalCO2Avoided": "11000000",
+    "renewableEnergyTypes": ["solar", "wind", "hydro"],
+    "geographicCoverage": ["US", "EU", "CA"],
+    "vintageRange": ["2022", "2023", "2024"],
+    "verificationStandards": ["VCS", "ACR", "M-RETS", "PJM-GATS", "NEPOOL-GIS"]
+  }
+}

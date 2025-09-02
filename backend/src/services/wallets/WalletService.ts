@@ -1,0 +1,495 @@
+import { BaseService } from '../BaseService'
+import { HDWalletService } from './HDWalletService'
+import { KeyManagementService } from './KeyManagementService'
+import { ServiceResult, PaginatedResponse } from '../../types/index'
+import { 
+  CreateWalletRequest, 
+  WalletResponse, 
+  WalletBalance,
+  WalletStatistics,
+  WalletType,
+  BlockchainNetwork,
+  WalletStatus
+} from './types'
+
+export class WalletService extends BaseService {
+  private hdWalletService: HDWalletService
+  private keyManagementService: KeyManagementService
+
+  constructor() {
+    super('Wallet')
+    this.hdWalletService = new HDWalletService()
+    this.keyManagementService = new KeyManagementService()
+  }
+
+  /**
+   * Create a new HD wallet with multi-chain addresses
+   */
+  async createWallet(request: CreateWalletRequest): Promise<ServiceResult<WalletResponse>> {
+    try {
+      const { investor_id, wallet_type, blockchains, name } = request
+
+      // Validate input
+      const validation = this.validateCreateWalletRequest(request)
+      if (!validation.isValid) {
+        return this.error(validation.errors.join(', '), 'VALIDATION_ERROR', 400)
+      }
+
+      // Generate HD wallet
+      const hdWalletResult = await this.hdWalletService.generateHDWallet()
+      if (!hdWalletResult.success) {
+        return this.error('Failed to generate HD wallet', 'HD_WALLET_FAILED')
+      }
+
+      const hdWallet = hdWalletResult.data!
+
+      // Create master key for address derivation
+      const masterKeyResult = await this.hdWalletService.createMasterKeyFromEncryptedSeed(hdWallet.encryptedSeed)
+      if (!masterKeyResult.success) {
+        return this.error('Failed to create master key', 'MASTER_KEY_FAILED')
+      }
+
+      const masterKey = masterKeyResult.data!
+
+      // Derive addresses for each requested blockchain
+      const addressResult = await this.hdWalletService.deriveMultiChainAddresses(masterKey, blockchains)
+      if (!addressResult.success) {
+        return this.error('Failed to derive addresses', 'ADDRESS_DERIVATION_FAILED')
+      }
+
+      const addresses = addressResult.data!
+
+      // Store wallet in database
+      const primaryBlockchain = blockchains[0];
+      if (!primaryBlockchain) {
+        return this.error('At least one blockchain is required', 'VALIDATION_ERROR', 400);
+      }
+      
+      const wallet = await this.db.wallets.create({
+        data: {
+          investor_id,
+          wallet_type,  
+          blockchain: primaryBlockchain, // Primary blockchain
+          wallet_address: addresses[primaryBlockchain] || '',
+          status: 'active',
+          guardian_policy: {},
+          signatories: []
+        }
+      })
+
+      // Store HD wallet keys securely
+      const keyStorageResult = await this.keyManagementService.storeWalletKeys({
+        walletId: wallet.id,
+        encryptedSeed: hdWallet.encryptedSeed,
+        masterPublicKey: hdWallet.masterPublicKey,
+        addresses,
+        derivationPaths: hdWallet.derivationPaths
+      })
+
+      if (!keyStorageResult.success) {
+        // Rollback wallet creation if key storage fails
+        await this.db.wallets.delete({ where: { id: wallet.id } })
+        return this.error('Failed to store wallet keys', 'KEY_STORAGE_FAILED')
+      }
+
+      const response: WalletResponse = {
+        id: wallet.id,
+        investor_id: wallet.investor_id,
+        name: name || `Wallet ${wallet.id.slice(0, 8)}`,
+        primary_address: addresses[primaryBlockchain] || '',
+        addresses,
+        wallet_type: wallet.wallet_type as WalletType,
+        blockchains,
+        status: wallet.status,
+        is_multi_sig_enabled: wallet.is_multi_sig_enabled,
+        guardian_policy: wallet.guardian_policy,
+        created_at: wallet.created_at.toISOString(),
+        updated_at: wallet.updated_at.toISOString()
+      }
+
+      this.logger.info({ walletId: wallet.id, investorId: investor_id }, 'Wallet created successfully')
+      return this.success(response)
+
+    } catch (error) {
+      this.logger.error({ error, request }, 'Failed to create wallet')
+      return this.error('Failed to create wallet', 'WALLET_CREATION_FAILED')
+    }
+  }
+
+  /**
+   * Get wallet by ID with all addresses and metadata
+   */
+  async getWallet(walletId: string): Promise<ServiceResult<WalletResponse>> {
+    try {
+      const wallet = await this.db.wallets.findUnique({
+        where: { id: walletId },
+        include: {
+          investors: {
+            select: { investor_id: true, name: true }
+          }
+        }
+      })
+
+      if (!wallet) {
+        return this.error('Wallet not found', 'NOT_FOUND', 404)
+      }
+
+      // Get HD wallet addresses from key management
+      const addresses = await this.keyManagementService.getWalletAddresses(walletId)
+      if (!addresses) {
+        this.logger.warn({ walletId }, 'No stored addresses found for wallet')
+      }
+
+      const response: WalletResponse = {
+        id: wallet.id,
+        investor_id: wallet.investor_id,
+        name: this.generateWalletName(wallet),
+        primary_address: wallet.wallet_address || '',
+        addresses: addresses || { [wallet.blockchain]: wallet.wallet_address || '' },
+        wallet_type: wallet.wallet_type as WalletType,
+        blockchains: addresses ? Object.keys(addresses) : [wallet.blockchain],
+        status: wallet.status,
+        is_multi_sig_enabled: wallet.is_multi_sig_enabled,
+        guardian_policy: wallet.guardian_policy,
+        created_at: wallet.created_at.toISOString(),
+        updated_at: wallet.updated_at.toISOString()
+      }
+
+      return this.success(response)
+
+    } catch (error) {
+      this.logger.error({ error, walletId }, 'Failed to get wallet')
+      return this.error('Failed to retrieve wallet', 'WALLET_RETRIEVAL_FAILED')
+    }
+  }
+
+  /**
+   * List wallets for an investor with pagination and filtering
+   */
+  async listWallets(
+    investorId: string,
+    options: { 
+      page?: number
+      limit?: number
+      wallet_type?: WalletType
+      status?: WalletStatus
+      blockchain?: BlockchainNetwork
+    } = {}
+  ): Promise<ServiceResult<PaginatedResponse<WalletResponse>>> {
+    try {
+      const { page = 1, limit = 20, wallet_type, status, blockchain } = options
+      const offset = (page - 1) * limit
+
+      const where: any = {
+        investor_id: investorId
+      }
+
+      if (wallet_type) {
+        where.wallet_type = wallet_type
+      }
+
+      if (status) {
+        where.status = status
+      }
+
+      if (blockchain) {
+        where.blockchain = blockchain
+      }
+
+      const [wallets, total] = await Promise.all([
+        this.db.wallets.findMany({
+          where,
+          include: {
+            investors: {
+              select: { investor_id: true, name: true }
+            }
+          },
+          skip: offset,
+          take: limit,
+          orderBy: { created_at: 'desc' }
+        }),
+        this.db.wallets.count({ where })
+      ])
+
+      const walletsWithAddresses = await Promise.all(
+        wallets.map(async (wallet) => {
+          const addresses = await this.keyManagementService.getWalletAddresses(wallet.id)
+          
+          return {
+            id: wallet.id,
+            investor_id: wallet.investor_id,
+            name: this.generateWalletName(wallet),
+            primary_address: wallet.wallet_address || '',
+            addresses: addresses || { [wallet.blockchain]: wallet.wallet_address || '' },
+            wallet_type: wallet.wallet_type as WalletType,
+            blockchains: addresses ? Object.keys(addresses) : [wallet.blockchain],
+            status: wallet.status,
+            is_multi_sig_enabled: wallet.is_multi_sig_enabled,
+            created_at: wallet.created_at.toISOString(),
+            updated_at: wallet.updated_at.toISOString()
+          }
+        })
+      )
+
+      return this.success(this.paginatedResponse(walletsWithAddresses, total, page, limit))
+
+    } catch (error) {
+      this.logger.error({ error, investorId, options }, 'Failed to list wallets')
+      return this.error('Failed to list wallets', 'WALLET_LIST_FAILED')
+    }
+  }
+
+  /**
+   * Update wallet information
+   */
+  async updateWallet(
+    walletId: string, 
+    updates: {
+      status?: WalletStatus
+      guardian_policy?: any
+      signatories?: any[]
+    }
+  ): Promise<ServiceResult<WalletResponse>> {
+    try {
+      const wallet = await this.db.wallets.update({
+        where: { id: walletId },
+        data: {
+          ...updates,
+          updated_at: new Date()
+        },
+        include: {
+          investors: {
+            select: { investor_id: true, name: true }
+          }
+        }
+      })
+
+      const addresses = await this.keyManagementService.getWalletAddresses(walletId)
+
+      const response: WalletResponse = {
+        id: wallet.id,
+        investor_id: wallet.investor_id,
+        name: this.generateWalletName(wallet),
+        primary_address: wallet.wallet_address || '',
+        addresses: addresses || { [wallet.blockchain]: wallet.wallet_address || '' },
+        wallet_type: wallet.wallet_type as WalletType,
+        blockchains: addresses ? Object.keys(addresses) : [wallet.blockchain],
+        status: wallet.status,
+        is_multi_sig_enabled: wallet.is_multi_sig_enabled,
+        guardian_policy: wallet.guardian_policy,
+        created_at: wallet.created_at.toISOString(),
+        updated_at: wallet.updated_at.toISOString()
+      }
+
+      this.logger.info({ walletId, updates }, 'Wallet updated successfully')
+      return this.success(response)
+
+    } catch (error) {
+      this.logger.error({ error, walletId, updates }, 'Failed to update wallet')
+      
+      if ((error as any).code === 'P2025') {
+        return this.error('Wallet not found', 'NOT_FOUND', 404)
+      }
+      
+      return this.error('Failed to update wallet', 'WALLET_UPDATE_FAILED')
+    }
+  }
+
+  /**
+   * Delete wallet (soft delete - mark as archived)
+   */
+  async deleteWallet(walletId: string): Promise<ServiceResult<boolean>> {
+    try {
+      // Soft delete by updating status
+      await this.db.wallets.update({
+        where: { id: walletId },
+        data: {
+          status: 'archived',
+          updated_at: new Date()
+        }
+      })
+
+      this.logger.info({ walletId }, 'Wallet archived successfully')
+      return this.success(true)
+
+    } catch (error) {
+      this.logger.error({ error, walletId }, 'Failed to delete wallet')
+      
+      if ((error as any).code === 'P2025') {
+        return this.error('Wallet not found', 'NOT_FOUND', 404)
+      }
+      
+      return this.error('Failed to delete wallet', 'WALLET_DELETE_FAILED')
+    }
+  }
+
+  /**
+   * Add blockchain support to existing wallet
+   */
+  async addBlockchainSupport(
+    walletId: string, 
+    blockchain: BlockchainNetwork
+  ): Promise<ServiceResult<WalletResponse>> {
+    try {
+      // Get existing wallet
+      const wallet = await this.db.wallets.findUnique({
+        where: { id: walletId }
+      })
+
+      if (!wallet) {
+        return this.error('Wallet not found', 'NOT_FOUND', 404)
+      }
+
+      // Get stored keys
+      const keyData = await this.keyManagementService.getWalletKeys(walletId)
+      if (!keyData) {
+        return this.error('Wallet keys not found', 'KEYS_NOT_FOUND', 404)
+      }
+
+      // Create master key
+      const masterKeyResult = await this.hdWalletService.createMasterKeyFromEncryptedSeed(keyData.encrypted_seed)
+      if (!masterKeyResult.success) {
+        return this.error('Failed to create master key', 'MASTER_KEY_FAILED')
+      }
+
+      // Derive new address for the blockchain
+      const addressResult = await this.hdWalletService.deriveAddress(masterKeyResult.data!, blockchain)
+      if (!addressResult.success) {
+        return this.error('Failed to derive address', 'ADDRESS_DERIVATION_FAILED')
+      }
+
+      // Update stored addresses
+      const newAddresses = { [blockchain]: addressResult.data! }
+      const updateResult = await this.keyManagementService.updateWalletAddresses(walletId, newAddresses)
+      if (!updateResult.success) {
+        return this.error('Failed to update addresses', 'ADDRESS_UPDATE_FAILED')
+      }
+
+      // Return updated wallet
+      return await this.getWallet(walletId)
+
+    } catch (error) {
+      this.logger.error({ error, walletId, blockchain }, 'Failed to add blockchain support')
+      return this.error('Failed to add blockchain support', 'BLOCKCHAIN_ADD_FAILED')
+    }
+  }
+
+  /**
+   * Get wallet balance across all chains (placeholder implementation)
+   */
+  async getWalletBalance(walletId: string): Promise<ServiceResult<WalletBalance>> {
+    try {
+      const walletResult = await this.getWallet(walletId)
+      if (!walletResult.success) {
+        return this.error(walletResult.error || 'Wallet not found', walletResult.code || 'NOT_FOUND', walletResult.statusCode)
+      }
+
+      const wallet = walletResult.data!
+      const balances: Record<string, any> = {}
+      
+      // Get balances for each blockchain address
+      // This would integrate with blockchain RPC providers or services like Moralis, Alchemy
+      for (const [blockchain, address] of Object.entries(wallet.addresses)) {
+        balances[blockchain] = {
+          address,
+          native_balance: "0", // Would be fetched from RPC
+          tokens: [] // Would be fetched from token contracts/APIs
+        }
+      }
+
+      const walletBalance: WalletBalance = {
+        wallet_id: walletId,
+        balances,
+        total_usd_value: "0", // Would be calculated from prices
+        last_updated: new Date().toISOString()
+      }
+
+      return this.success(walletBalance)
+
+    } catch (error) {
+      this.logger.error({ error, walletId }, 'Failed to get wallet balance')
+      return this.error('Failed to get wallet balance', 'BALANCE_RETRIEVAL_FAILED')
+    }
+  }
+
+  /**
+   * Get wallet statistics for analytics
+   */
+  async getWalletStatistics(): Promise<ServiceResult<WalletStatistics>> {
+    try {
+      const [totalWallets, activeWallets, multiSigWallets] = await Promise.all([
+        this.db.wallets.count(),
+        this.db.wallets.count({ where: { status: 'active' } }),
+        this.db.wallets.count({ where: { is_multi_sig_enabled: true } })
+      ])
+
+      // Get blockchain distribution
+      const blockchainStats = await this.db.wallets.groupBy({
+        by: ['blockchain'],
+        _count: {
+          id: true
+        }
+      })
+
+      const blockchainDistribution: Record<string, number> = {}
+      blockchainStats.forEach(stat => {
+        blockchainDistribution[stat.blockchain] = stat._count.id
+      })
+
+      const statistics: WalletStatistics = {
+        total_wallets: totalWallets,
+        active_wallets: activeWallets,
+        total_value_usd: "0", // Would be calculated from balances
+        transaction_count: 0, // Would be fetched from transaction service
+        multi_sig_wallets: multiSigWallets,
+        blockchain_distribution: blockchainDistribution
+      }
+
+      return this.success(statistics)
+
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to get wallet statistics')
+      return this.error('Failed to get wallet statistics', 'STATISTICS_FAILED')
+    }
+  }
+
+  /**
+   * Private helper methods
+   */
+
+  private validateCreateWalletRequest(request: CreateWalletRequest): { isValid: boolean; errors: string[] } {
+    const errors: string[] = []
+
+    if (!request.investor_id) {
+      errors.push('Investor ID is required')
+    }
+
+    if (!request.wallet_type) {
+      errors.push('Wallet type is required')
+    }
+
+    if (!request.blockchains || request.blockchains.length === 0) {
+      errors.push('At least one blockchain is required')
+    }
+
+    // Validate supported blockchains
+    const supportedBlockchains = this.hdWalletService.getSupportedBlockchains()
+    const unsupportedBlockchains = request.blockchains?.filter(
+      blockchain => !supportedBlockchains.includes(blockchain)
+    ) || []
+
+    if (unsupportedBlockchains.length > 0) {
+      errors.push(`Unsupported blockchains: ${unsupportedBlockchains.join(', ')}`)
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    }
+  }
+
+  private generateWalletName(wallet: any): string {
+    const investorName = wallet.investors?.name || 'Unknown'
+    return `${investorName} Wallet`
+  }
+}

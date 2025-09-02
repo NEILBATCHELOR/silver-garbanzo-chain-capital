@@ -1,0 +1,312 @@
+{
+  "name": "Manhattan REIT Liquidity Token",
+  "symbol": "LMCRS",
+  "decimals": 18,
+  "standard": "ERC-20",
+  "initialSupply": "50000000",
+  "cap": "250000000",
+  "tokenDetails": "ERC-20 liquidity token enabling secondary market trading of Manhattan Commercial REIT Series A. Provides enhanced liquidity for fractional real estate ownership with DeFi integrations and institutional-grade compliance.",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasVoting": true,
+  
+  "taxWithholding": true,
+  "taxRate": "0",
+  "dividendDistribution": true,
+  "maxTransactionLimit": "500000",
+  "maxWalletLimit": "5000000",
+  
+  "useBlacklist": true,
+  "useWhitelist": true,
+  "complianceEnabled": true,
+  "kycRequired": true,
+  "accreditedInvestorOnly": true,
+  
+  "useTransferRestrictions": true,
+  "useHoldingPeriod": true,
+  "holdingPeriodDays": "180",
+  
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "blocked",
+  
+  "bridgeEnabled": true,
+  "crossChainSupport": true,
+  "supportedChains": ["ethereum", "polygon", "arbitrum"],
+  
+  "liquidityProvisionEnabled": true,
+  "dexIntegrationEnabled": true,
+  "yieldFarmingEnabled": true,
+  "stakingEnabled": true,
+  "stakingRewardRate": "3.5",
+  "stakingLockupPeriod": "90",
+  
+  "flashLoanEnabled": false,
+  "collateralFactor": "0.70",
+  "liquidationThreshold": "0.80",
+  
+  "upgradeability": "transparent_proxy",
+  "adminMultisig": true,
+  "timelockDelay": "432000",
+  
+  "complianceSettings": {
+    "requireKyc": true,
+    "kycProviders": ["Jumio", "Onfido", "Shufti Pro"],
+    "sanctionsScreening": true,
+    "amlMonitoring": true,
+    "pepScreening": true,
+    "transactionLimits": {
+      "daily": "250000",
+      "weekly": "1000000",
+      "monthly": "3000000"
+    },
+    "sourceOfFundsVerification": true,
+    "foreignInvestorCompliance": true
+  },
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 180,
+    "qualifiedInvestorOnly": true,
+    "transferApprovalRequired": false,
+    "automaticCompliance": true,
+    "fractionalTransfersEnabled": true,
+    "foreignOwnershipLimits": {
+      "enabled": true,
+      "maximumPercentage": "25",
+      "requiresApproval": true
+    }
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor", "no_foreign_person_restrictions"]
+    },
+    {
+      "country": "CA",
+      "allowed": true,
+      "conditions": ["eligible_investor", "foreign_investment_approval"]
+    },
+    {
+      "country": "GB",
+      "allowed": true,
+      "conditions": ["sophisticated_investor"]
+    },
+    {
+      "country": "AU",
+      "allowed": true,
+      "conditions": ["wholesale_investor"]
+    },
+    {
+      "country": "SG",
+      "allowed": true,
+      "conditions": ["accredited_investor"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "foreign_real_estate_restrictions"
+    },
+    {
+      "country": "IR",
+      "allowed": false,
+      "reason": "sanctions"
+    }
+  ],
+  
+  "dexIntegration": {
+    "uniswapV3": {
+      "enabled": true,
+      "poolFee": "3000",
+      "initialLiquidity": "500000",
+      "concentratedLiquidity": false
+    },
+    "curve": {
+      "enabled": true,
+      "poolType": "stable",
+      "amplificationCoefficient": "100",
+      "adminFee": "50"
+    },
+    "balancer": {
+      "enabled": true,
+      "poolType": "weighted",
+      "weights": ["80", "20"],
+      "swapFee": "50"
+    }
+  },
+  
+  "yieldStrategies": [
+    {
+      "strategy": "real_estate_yield",
+      "allocation": "60",
+      "targetApy": "6.5",
+      "riskLevel": "medium",
+      "protocol": "Native"
+    },
+    {
+      "strategy": "compound_lending",
+      "allocation": "20",
+      "targetApy": "3.8",
+      "riskLevel": "low",
+      "protocol": "Compound"
+    },
+    {
+      "strategy": "aave_lending",
+      "allocation": "20",
+      "targetApy": "4.2",
+      "riskLevel": "low",
+      "protocol": "Aave"
+    }
+  ],
+  
+  "liquidityMining": {
+    "enabled": true,
+    "rewardToken": "MCRS-A",
+    "emissionRate": "500000",
+    "duration": "365",
+    "boostMultiplier": "2.0",
+    "vestingPeriod": "180",
+    "cliffPeriod": "30"
+  },
+  
+  "governance": {
+    "votingEnabled": true,
+    "proposalThreshold": "1000000",
+    "quorumRequirement": "20",
+    "votingDelay": "3",
+    "votingPeriod": "14",
+    "executionDelay": "7",
+    "vetoEnabled": true,
+    "propertySpecificVoting": true
+  },
+  
+  "integrationAPIs": {
+    "chainlink": {
+      "priceFeed": true,
+      "proofOfReserve": true,
+      "automation": true,
+      "realEstateOracles": true
+    },
+    "realEstateData": {
+      "costar": true,
+      "loopnet": true,
+      "reiNetwork": true
+    },
+    "complianceProviders": {
+      "chainalysis": true,
+      "elliptic": true,
+      "scorechain": true
+    },
+    "propertyValuation": {
+      "cbre": true,
+      "jll": true,
+      "cushmanWakefield": true
+    }
+  },
+  
+  "realEstateSpecificFeatures": {
+    "propertyVoting": {
+      "enabled": true,
+      "majorDecisionThreshold": "67",
+      "capitalImprovementVoting": true,
+      "tenantApprovalVoting": false
+    },
+    "distributionMechanism": {
+      "frequency": "quarterly",
+      "source": "rental_income",
+      "reinvestmentOption": true,
+      "taxOptimization": true
+    },
+    "propertyReporting": {
+      "monthlyOperatingReports": true,
+      "quarterlyFinancialReports": true,
+      "annualAppraisals": true,
+      "tenantReports": true,
+      "maintenanceReports": true
+    },
+    "liquidityMechanisms": {
+      "redemptionProgram": {
+        "enabled": true,
+        "frequency": "quarterly",
+        "capacityLimit": "5",
+        "noticePeriod": "90"
+      },
+      "secondaryMarket": {
+        "enabled": true,
+        "matchingService": true,
+        "pricingOracle": true
+      }
+    }
+  },
+  
+  "institutionalFeatures": {
+    "bulkTransactions": true,
+    "institutionalDashboard": true,
+    "complianceReporting": true,
+    "customReporting": true,
+    "dedicatedSupport": true,
+    "whitelabelInterface": true
+  },
+  
+  "securityFeatures": {
+    "pauseGuardian": "0x1a2b3c4d5e6f7890123456789012345678901234",
+    "emergencyWithdraw": false,
+    "upgradePause": true,
+    "contractVerification": true,
+    "auditReports": [
+      {
+        "auditor": "CertiK",
+        "date": "2024-01-10",
+        "score": "92",
+        "focus": "real_estate_tokenization"
+      },
+      {
+        "auditor": "Quantstamp",
+        "date": "2024-02-01",
+        "score": "89",
+        "focus": "compliance_mechanisms"
+      }
+    ],
+    "insuranceCoverage": {
+      "smartContractInsurance": true,
+      "propertyInsurance": true,
+      "liabilityInsurance": true,
+      "amount": "50000000"
+    }
+  },
+  
+  "metadata": {
+    "underlyingAsset": "Manhattan Commercial REIT Series A",
+    "assetClass": "commercial_real_estate",
+    "strategy": "income_focused",
+    "geography": "manhattan_nyc",
+    "vintage": "2024",
+    "targetReturn": "6-8%",
+    "portfolioValue": "1000000000",
+    "managementFee": "1.0",
+    "performanceFee": "0",
+    "distributionFrequency": "quarterly",
+    "redemptionFrequency": "quarterly",
+    "noticePeriod": "90",
+    "lockupPeriod": "12",
+    "averageOccupancy": "93.5",
+    "averageLeaseLength": "8.2",
+    "propertyCount": "15",
+    "totalSquareFootage": "2500000",
+    "propertyTypes": {
+      "office": "60",
+      "retail": "30",
+      "mixed_use": "10"
+    },
+    "tenantDiversification": {
+      "financial_services": "35",
+      "technology": "25",
+      "legal": "20",
+      "consulting": "15",
+      "other": "5"
+    }
+  }
+}

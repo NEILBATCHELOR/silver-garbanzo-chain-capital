@@ -1,0 +1,342 @@
+{
+  "name": "Digital Multi-Asset Yield Fund",
+  "symbol": "DMYF",
+  "standard": "ERC-1400",
+  "decimals": 18,
+  "description": "Institutional-grade digital tokenised fund combining compliance oversight with automated yield optimization across DeFi and TradFi assets",
+  "initialSupply": "100000000",
+  "cap": "500000000",
+  "tokenDetails": "ERC-1400 security token representing shares in a digital fund with automated yield generation and regulatory compliance",
+  "securityType": "fund-share",
+  "regulationType": "reg-d",
+  "issuingEntityName": "Chain Capital Digital Fund LLC",
+  "issuingJurisdiction": "Delaware",
+  "issuingEntityLei": "5493000DMYF3T1A7T28",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "fully-automated",
+  "complianceModule": "digital-fund-compliance-v3",
+  
+  "holdingPeriod": "90",
+  "maxInvestorCount": "499",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  "geographicRestrictions": ["CN", "IR", "KP", "SY", "RU"],
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://ipfs.io/ipfs/QmDMYF8hGvFJK2kN3PvQq7L8M9wBxYzK1pV",
+  "documentHash": "0x5f6a0b1c3d5e7f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a",
+  "legalTerms": "https://docs.chaincapital.com/digital-fund/legal-terms",
+  "prospectus": "https://docs.chaincapital.com/digital-fund/prospectus",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": true,
+  "settlementIntegration": "DTC-Digital",
+  "clearingHouseIntegration": true,
+  "centralSecuritiesDepositoryIntegration": true,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": true,
+  
+  "traditionalFinanceIntegration": true,
+  "swiftIntegrationEnabled": true,
+  "iso20022MessagingSupport": true,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": true,
+  "layer2ScalingSupport": true,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": true,
+  "marginRequirementsDynamic": true,
+  "collateralManagementEnabled": true,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingAmount": "50000",
+    "transferCooldownPeriod": "24",
+    "maximumTransferAmount": "5000000",
+    "requiresApproval": true,
+    "restrictedHours": ["2200-0600"]
+  },
+  
+  "kycSettings": {
+    "requiresCertifiedInvestor": true,
+    "minimumInvestmentAmount": "500000",
+    "maximumInvestmentAmount": "25000000",
+    "requiresAccreditation": true,
+    "accreditationTypes": ["income", "net-worth", "sophistication", "institutional"]
+  },
+  
+  "complianceSettings": {
+    "regulatoryFramework": "SEC Rule 506(c) + Investment Company Act",
+    "investorLimits": {
+      "maxAccredited": 499,
+      "maxNonAccredited": 0
+    },
+    "reportingRequirements": {
+      "quarterly": true,
+      "annual": true,
+      "realTime": true,
+      "performance": true,
+      "riskMetrics": true
+    }
+  },
+  
+  "customFeatures": {
+    "fundType": "digital-multi-strategy",
+    "assetClasses": ["crypto", "defi", "tradfi", "digital-assets"],
+    "yieldOptimization": "automated",
+    "rebalancingFrequency": "daily",
+    "riskManagement": "dynamic",
+    "leverageTarget": "2x",
+    "maxDrawdown": "15%",
+    "targetAPY": "18-25%",
+    "feeStructure": "2-and-20",
+    "liquidityTerms": "quarterly-redemption",
+    "strategies": {
+      "yieldFarming": "40%",
+      "arbitrage": "25%",
+      "lending": "20%",
+      "staking": "15%"
+    }
+  },
+  
+  "whitelistConfig": {
+    "enabled": true,
+    "autoApproval": false,
+    "requiresManualReview": true,
+    "kycRequirement": "institutional-grade",
+    "backgroundCheck": true
+  },
+  
+  "investorLimits": {
+    "minimumInvestment": "500000",
+    "maximumInvestment": "25000000",
+    "accreditationRequired": true,
+    "institutionalOnly": false,
+    "suitabilityAssessment": true
+  },
+  
+  "transactionMonitoringRules": {
+    "largeTransactionThreshold": "2500000",
+    "velocityLimits": {
+      "daily": "10000000",
+      "monthly": "50000000"
+    },
+    "amlScreening": true,
+    "sanctionsChecking": true,
+    "patternAnalysis": true
+  },
+  
+  "jurisdictionRestrictions": [
+    {
+      "jurisdiction": "US",
+      "allowed": true,
+      "requirements": ["accredited-investor", "kyc-aml", "cftc-compliance"]
+    },
+    {
+      "jurisdiction": "EU",
+      "allowed": true,
+      "requirements": ["mifid-ii", "aifmd", "kyc-aml"]
+    },
+    {
+      "jurisdiction": "UK",
+      "allowed": true,
+      "requirements": ["fca-approved", "kyc-aml", "professional-investor"]
+    },
+    {
+      "jurisdiction": "SG",
+      "allowed": true,
+      "requirements": ["mas-approved", "kyc-aml", "qualified-investor"]
+    }
+  ],
+  
+  "thirdPartyCustodyAddresses": [
+    "0x652d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9A",
+    "0x4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+  ],
+  
+  "partitions": [
+    {
+      "name": "Institutional Shares",
+      "symbol": "DMYF-I",
+      "amount": "70000000",
+      "description": "Institutional share class with reduced fees and enhanced services",
+      "feeStructure": "1.5-and-15",
+      "minimumInvestment": "2500000",
+      "lockupPeriod": "365",
+      "transferRestrictions": {
+        "lockupPeriod": "365",
+        "minimumTransfer": "500000",
+        "requiresApproval": true
+      }
+    },
+    {
+      "name": "Qualified Investor Shares",
+      "symbol": "DMYF-Q",
+      "amount": "25000000",
+      "description": "Standard share class for qualified accredited investors",
+      "feeStructure": "2-and-20",
+      "minimumInvestment": "500000",
+      "lockupPeriod": "180",
+      "transferRestrictions": {
+        "lockupPeriod": "180",
+        "minimumTransfer": "100000",
+        "requiresApproval": true
+      }
+    },
+    {
+      "name": "Founder Shares",
+      "symbol": "DMYF-F",
+      "amount": "5000000",
+      "description": "Founder and management share class with extended lockup",
+      "feeStructure": "0-and-0",
+      "minimumInvestment": "0",
+      "lockupPeriod": "1095",
+      "transferRestrictions": {
+        "lockupPeriod": "1095",
+        "minimumTransfer": "50000",
+        "requiresApproval": true
+      }
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b",
+      "name": "Fund Manager",
+      "permissions": ["issue", "redeem", "force-transfer", "partition-management", "strategy-execution"],
+      "isActive": true,
+      "canDelegate": false
+    },
+    {
+      "address": "0x8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d",
+      "name": "Compliance Officer",
+      "permissions": ["whitelist-management", "sanctions-screening", "force-transfer", "regulatory-reporting"],
+      "isActive": true,
+      "canDelegate": false
+    },
+    {
+      "address": "0x0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f",
+      "name": "Risk Manager",
+      "permissions": ["risk-monitoring", "position-limits", "emergency-pause"],
+      "isActive": true,
+      "canDelegate": true
+    },
+    {
+      "address": "0x2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b",
+      "name": "Custodian",
+      "permissions": ["custody-operations", "settlement", "asset-safekeeping"],
+      "isActive": true,
+      "canDelegate": true
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "https://ipfs.io/ipfs/QmPPMDMYF789xyz",
+      "documentType": "prospectus",
+      "documentHash": "0x6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b"
+    },
+    {
+      "name": "Investment Management Agreement",
+      "documentUri": "https://ipfs.io/ipfs/QmIMADMYF456def",
+      "documentType": "management-agreement",
+      "documentHash": "0x7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c"
+    },
+    {
+      "name": "Risk Management Framework",
+      "documentUri": "https://ipfs.io/ipfs/QmRMFDMYF123ghi",
+      "documentType": "risk-framework",
+      "documentHash": "0x8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d"
+    },
+    {
+      "name": "Digital Asset Custody Agreement",
+      "documentUri": "https://ipfs.io/ipfs/QmDACDMYF890jkl",
+      "documentType": "custody-agreement",
+      "documentHash": "0x9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e"
+    }
+  ],
+  
+  "digitalFundFeatures": {
+    "automatedRebalancing": {
+      "enabled": true,
+      "frequency": "daily",
+      "triggers": ["volatility", "yield-optimization", "risk-limits"],
+      "algorithm": "mean-reversion-momentum"
+    },
+    "yieldOptimization": {
+      "enabled": true,
+      "strategies": ["compound-farming", "arbitrage", "lending-optimization"],
+      "targetYield": "20%",
+      "riskAdjustedTarget": true
+    },
+    "riskManagement": {
+      "enabled": true,
+      "var95": "5%",
+      "maxDrawdown": "15%",
+      "stopLoss": "12%",
+      "leverageLimit": "3x",
+      "concentrationLimit": "15%"
+    },
+    "portfolioAllocation": {
+      "defiProtocols": "45%",
+      "centralizedLending": "25%",
+      "staking": "20%",
+      "cash": "10%"
+    }
+  },
+  
+  "performanceMetrics": {
+    "inceptionDate": "2024-01-01",
+    "navPerShare": "1.285",
+    "totalReturn": "28.5%",
+    "annualizedReturn": "28.5%",
+    "volatility": "22.3%",
+    "sharpeRatio": "1.28",
+    "maxDrawdown": "8.2%",
+    "calmarRatio": "3.48",
+    "alpha": "18.2%",
+    "beta": "0.65"
+  }
+}

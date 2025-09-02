@@ -1,0 +1,336 @@
+{
+  "name": "US Treasury 10-Year Digital Bond",
+  "symbol": "USTB10Y",
+  "description": "Tokenized US Treasury 10-Year Bond providing secure, government-backed fixed income with 4.46% yield. Digital representation of traditional Treasury securities with institutional-grade compliance and liquidity features.",
+  "decimals": 18,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "1000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "government_bond",
+    "regulatoryFramework": "US_Treasury_Securities_Act",
+    "investmentObjective": "capital_preservation_and_fixed_income",
+    "benchmarkIndex": "US_Treasury_10Y_Index",
+    "bondType": "sovereign_debt",
+    "riskRating": "AAA",
+    "liquidityProfile": "T+1_settlement",
+    "creditRating": "AAA",
+    "sector": "government",
+    "maturityDate": "2035-06-17",
+    "issueDate": "2025-06-17",
+    "couponRate": "4.46%",
+    "paymentFrequency": "semi_annual"
+  },
+  "erc1400Properties": {
+    "initialSupply": "1000000000000000000000000000",
+    "cap": "5000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "decimals": 18,
+    
+    "documentUri": "https://treasury.gov/securities/10year-bonds/prospectus",
+    "documentHash": "0x8f976e171c4788b2556c99bbf4d1cb90e8dac2c11cbc3860625efe88942fda85",
+    "tokenDetails": "Digital representation of US Treasury 10-Year Bond with 4.46% annual coupon",
+    "legalTerms": "https://treasury.gov/securities/terms-conditions",
+    "prospectus": "https://treasury.gov/securities/10year-bonds/prospectus",
+    
+    "controllerAddress": "0x1234567890123456789012345678901234567890",
+    "requireKyc": true,
+    "enforceKyc": true,
+    "securityType": "government_bond",
+    
+    "issuingJurisdiction": "United States",
+    "issuingEntityName": "US Department of Treasury",
+    "issuingEntityLei": "549300US123456789012",
+    "regulationType": "treasury_securities",
+    
+    "isMultiClass": false,
+    "trancheTransferability": true,
+    
+    "forcedTransfers": false,
+    "forcedRedemptionEnabled": true,
+    "isIssuable": true,
+    
+    "autoCompliance": true,
+    "manualApprovals": false,
+    "complianceModule": "automated",
+    "complianceAutomationLevel": "fully_automated",
+    
+    "whitelistEnabled": true,
+    "investorWhitelistEnabled": true,
+    "accreditedInvestorOnly": false,
+    "investorAccreditation": false,
+    "holdingPeriod": 0,
+    "maxInvestorCount": 10000,
+    
+    "issuanceModules": true,
+    "documentManagement": true,
+    "recoveryMechanism": true,
+    "granularControl": true,
+    "dividendDistribution": true,
+    "corporateActions": false,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "allow",
+    "geographicRestrictions": [
+      {
+        "country": "US",
+        "restriction": "allowed"
+      },
+      {
+        "country": "EU",
+        "restriction": "allowed"
+      },
+      {
+        "country": "GB",
+        "restriction": "allowed"
+      },
+      {
+        "country": "JP",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CN",
+        "restriction": "restricted"
+      },
+      {
+        "country": "RU",
+        "restriction": "blocked"
+      },
+      {
+        "country": "IR",
+        "restriction": "blocked"
+      },
+      {
+        "country": "KP",
+        "restriction": "blocked"
+      }
+    ],
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "dtc",
+    "clearingHouseIntegration": true,
+    "centralSecuritiesDepositoryIntegration": true,
+    "thirdPartyCustodyAddresses": [
+      "0x1111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "transactionMonitoringRules": {
+      "maxTransactionSize": "100000000000000000000000000",
+      "flagThreshold": "50000000000000000000000000",
+      "reportingThreshold": "10000000000000000000000000"
+    },
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": false,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": false,
+    "rightsOfferingsEnabled": false,
+    "spinOffsEnabled": false,
+    "mergersAcquisitionsSupport": false,
+    "treasuryManagementEnabled": true,
+    "buybackProgramsEnabled": false,
+    "shareRepurchaseAutomation": false,
+    
+    "advancedGovernanceEnabled": false,
+    "proxyVotingEnabled": false,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": false,
+    "quorumRequirements": {},
+    "votingDelegationEnabled": false,
+    "institutionalVotingServices": false,
+    "boardElectionSupport": false,
+    
+    "crossBorderTradingEnabled": true,
+    "multiJurisdictionCompliance": true,
+    "passportRegimeSupport": false,
+    "treatyBenefitsEnabled": true,
+    "withholdingTaxAutomation": true,
+    "currencyHedgingEnabled": false,
+    "foreignOwnershipRestrictions": {
+      "maxForeignOwnership": "100%",
+      "restrictedCountries": ["CN", "RU", "IR", "KP"]
+    },
+    "regulatoryEquivalenceMapping": {
+      "US": "Treasury_Securities_Act",
+      "EU": "MiFID_II",
+      "UK": "FCA_COBS",
+      "JP": "FIEA"
+    },
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": false,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": true,
+    "priceDiscoveryMechanisms": ["treasury_auction", "secondary_market"],
+    
+    "crossChainBridgeSupport": false,
+    "layer2ScalingSupport": true,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "concentrationLimits": {
+      "maxSingleIssuerExposure": "100%",
+      "maxCreditRating": "AAA",
+      "maxMaturity": "10_years"
+    },
+    "stressTestingEnabled": true,
+    "marginRequirementsDynamic": false,
+    "collateralManagementEnabled": true,
+    "insuranceCoverageEnabled": true,
+    "disasterRecoveryEnabled": true
+  },
+  "bondSpecificProperties": {
+    "principalAmount": "1000000000000000000000000000",
+    "maturityDate": "2035-06-17T00:00:00Z",
+    "couponRate": "4.46",
+    "couponFrequency": "semi_annual",
+    "dayCountConvention": "30_360",
+    "businessDayConvention": "modified_following",
+    "callableDate": null,
+    "puttableDate": null,
+    "convertible": false,
+    "floatingRate": false,
+    "indexLinked": false,
+    "creditEnhancement": "full_faith_credit_us",
+    "paymentDates": [
+      "2025-12-17T00:00:00Z",
+      "2026-06-17T00:00:00Z",
+      "2026-12-17T00:00:00Z",
+      "2027-06-17T00:00:00Z",
+      "2027-12-17T00:00:00Z",
+      "2028-06-17T00:00:00Z",
+      "2028-12-17T00:00:00Z",
+      "2029-06-17T00:00:00Z",
+      "2029-12-17T00:00:00Z",
+      "2030-06-17T00:00:00Z",
+      "2030-12-17T00:00:00Z",
+      "2031-06-17T00:00:00Z",
+      "2031-12-17T00:00:00Z",
+      "2032-06-17T00:00:00Z",
+      "2032-12-17T00:00:00Z",
+      "2033-06-17T00:00:00Z",
+      "2033-12-17T00:00:00Z",
+      "2034-06-17T00:00:00Z",
+      "2034-12-17T00:00:00Z",
+      "2035-06-17T00:00:00Z"
+    ],
+    "currentYield": "4.46",
+    "yieldToMaturity": "4.46",
+    "duration": "8.2",
+    "convexity": "71.5",
+    "priceVolatility": "medium",
+    "creditRisk": "minimal"
+  },
+  "partitions": [
+    {
+      "name": "Institutional Investors",
+      "symbol": "USTB10Y-INST",
+      "totalSupply": "800000000000000000000000000",
+      "minInvestment": "1000000000000000000000000",
+      "managementFee": "0.00",
+      "redemptionFee": "0.00",
+      "investorType": "institutional_qualified",
+      "transferRestrictions": {
+        "holdingPeriod": 0,
+        "maxTransferSize": "100000000000000000000000000",
+        "approvalRequired": false
+      }
+    },
+    {
+      "name": "Retail Investors",
+      "symbol": "USTB10Y-RETAIL",
+      "totalSupply": "200000000000000000000000000",
+      "minInvestment": "1000000000000000000000",
+      "managementFee": "0.00",
+      "redemptionFee": "0.00",
+      "investorType": "retail_qualified",
+      "transferRestrictions": {
+        "holdingPeriod": 0,
+        "maxTransferSize": "10000000000000000000000000",
+        "approvalRequired": false
+      }
+    }
+  ],
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "treasury_controller",
+      "permissions": ["force_transfer", "freeze_tokens", "compliance_check", "coupon_payment"],
+      "description": "US Treasury bond controller with full administrative rights"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "compliance_controller",
+      "permissions": ["compliance_check", "sanctions_screening"],
+      "description": "Compliance-specific controller for AML/KYC operations"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Bond Offering Memorandum",
+      "uri": "https://treasury.gov/securities/10year-bonds/offering-memorandum.pdf",
+      "hash": "0x8f976e171c4788b2556c99bbf4d1cb90e8dac2c11cbc3860625efe88942fda85",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Terms and Conditions",
+      "uri": "https://treasury.gov/securities/terms-conditions.pdf",
+      "hash": "0x9e087f282d5899c3667d99cce5e1db01dc91f9ebd2d11dfc4971736f26fef996",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Credit Rating Report",
+      "uri": "https://treasury.gov/securities/credit-rating-aaa.pdf",
+      "hash": "0xae198g393e5a0ad4778e0add6f2ec12ed02g0fce3e22edf5970626g37gfg007",
+      "category": "financial",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    }
+  ],
+  "transferRestrictions": {
+    "enabled": true,
+    "rules": [
+      {
+        "ruleType": "sanctions_screening",
+        "description": "Automated sanctions screening on all transfers",
+        "active": true
+      },
+      {
+        "ruleType": "settlement_period",
+        "description": "T+1 settlement for all bond transfers",
+        "active": true
+      },
+      {
+        "ruleType": "minimum_denomination",
+        "description": "Minimum transfer amount $1,000 equivalent",
+        "active": true
+      }
+    ]
+  }
+}

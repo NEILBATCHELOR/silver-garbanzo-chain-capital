@@ -1,0 +1,21 @@
+SELECT
+  audit_logs.id,
+  audit_logs.action,
+  audit_logs.action_type AS source,
+  audit_logs.category,
+  audit_logs.severity,
+  audit_logs."timestamp",
+  audit_logs.user_id,
+  audit_logs.user_email,
+  audit_logs.entity_type,
+  audit_logs.entity_id,
+  audit_logs.status,
+  audit_logs.duration,
+  audit_logs.system_process_id,
+  audit_logs.batch_operation_id,
+  audit_logs.project_id,
+  audit_logs.correlation_id,
+  audit_logs.ip_address,
+  audit_logs.session_id
+FROM
+  audit_logs;

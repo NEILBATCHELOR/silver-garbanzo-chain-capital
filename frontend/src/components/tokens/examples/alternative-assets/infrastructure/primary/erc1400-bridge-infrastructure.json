@@ -1,0 +1,232 @@
+{
+  "name": "Golden Gate Bridge Modernization Security Token",
+  "symbol": "GGBMT",
+  "description": "Security token representing investment in the Golden Gate Bridge seismic retrofit and smart infrastructure upgrade project valued at $2.1 billion.",
+  "decimals": 18,
+  "initialSupply": "21000000",
+  "cap": "21000000",
+  "tokenDetails": "Tokenized infrastructure debt financing for Golden Gate Bridge modernization with 30-year revenue backed by toll collections",
+  "securityType": "infrastructure_bond",
+  "regulationType": "municipal_bond",
+  "issuingEntityName": "Golden Gate Bridge Highway and Transportation District",
+  "issuingJurisdiction": "California, USA",
+  "issuingEntityLei": "5493001234567890987",
+  
+  "isMintable": true,
+  "isBurnable": false,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": true,
+  "complianceAutomationLevel": "semi-automated",
+  "complianceModule": "municipal-compliance",
+  
+  "holdingPeriod": "24",
+  "maxInvestorCount": "2000",
+  "useGeographicRestrictions": false,
+  "defaultRestrictionPolicy": "allow",
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": true,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "ipfs://QmBridgeProjectDocuments",
+  "documentHash": "0xbridgehash123456",
+  "legalTerms": "Municipal infrastructure bond backed by toll revenue with 30-year maturity",
+  "prospectus": "ipfs://QmBridgeProspectusHash",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": true,
+  "settlementIntegration": "fedwire-integration",
+  "clearingHouseIntegration": true,
+  "centralSecuritiesDepositoryIntegration": true,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "advancedCorporateActions": true,
+  "stockSplitsEnabled": false,
+  "stockDividendsEnabled": false,
+  "rightsOfferingsEnabled": false,
+  "spinOffsEnabled": false,
+  "mergersAcquisitionsSupport": false,
+  "treasuryManagementEnabled": true,
+  "buybackProgramsEnabled": true,
+  "shareRepurchaseAutomation": false,
+  
+  "crossBorderTradingEnabled": false,
+  "multiJurisdictionCompliance": false,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  
+  "traditionalFinanceIntegration": true,
+  "swiftIntegrationEnabled": true,
+  "iso20022MessagingSupport": true,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  
+  "transferRestrictions": {
+    "holdingPeriod": 730,
+    "maxTransferAmount": "1000000",
+    "requiresApproval": true,
+    "minimumHolding": "10000",
+    "transferWindows": ["quarterly"]
+  },
+  
+  "kycSettings": {
+    "provider": "jumio",
+    "verificationLevel": "institutional",
+    "requiredDocuments": ["government_id", "proof_of_address", "institutional_verification"],
+    "riskTolerance": "low"
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": true,
+    "pepScreening": true,
+    "amlThreshold": "50000",
+    "reportingCurrency": "USD",
+    "taxReporting": true,
+    "municipalCompliance": true
+  },
+  
+  "investorLimits": {
+    "maxIndividualHolding": "5000000",
+    "maxInstitutionalHolding": "50000000",
+    "maxTotalInvestors": 2000
+  },
+  
+  "partitions": [
+    {
+      "name": "Senior Secured Tranche",
+      "amount": "14700000",
+      "description": "Senior secured debt with first lien on toll revenues, AAA rating",
+      "rights": ["priority_payment", "security_interest", "voting"],
+      "restrictions": ["institutional_only", "24_month_lockup"]
+    },
+    {
+      "name": "Subordinated Tranche", 
+      "amount": "6300000",
+      "description": "Subordinated debt with higher yield, A+ rating",
+      "rights": ["subordinated_payment", "voting", "conversion_rights"],
+      "restrictions": ["qualified_investors", "24_month_lockup"]
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "issuer",
+      "permissions": ["mint", "transfer_approval", "corporate_actions"],
+      "description": "Golden Gate Bridge District - Bond Issuer"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "trustee",
+      "permissions": ["payment_distribution", "compliance_monitoring"],
+      "description": "Bank of New York Mellon - Bond Trustee"
+    },
+    {
+      "address": "0x3456789012345678901234567890123456789012",
+      "role": "paying_agent",
+      "permissions": ["interest_payment", "principal_payment"],
+      "description": "Wells Fargo - Paying Agent"
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Official Statement",
+      "documentUri": "ipfs://QmOfficialStatementHash",
+      "documentType": "offering_document",
+      "documentHash": "0xofficialhash123"
+    },
+    {
+      "name": "Engineering Assessment Report",
+      "documentUri": "ipfs://QmEngineeringAssessmentHash",
+      "documentType": "technical_report", 
+      "documentHash": "0xengineeringhash456"
+    },
+    {
+      "name": "Environmental Impact Study",
+      "documentUri": "ipfs://QmEnvironmentalStudyHash",
+      "documentType": "environmental_report",
+      "documentHash": "0xenvironmentalhash789"
+    },
+    {
+      "name": "Financial Feasibility Study",
+      "documentUri": "ipfs://QmFinancialStudyHash",
+      "documentType": "financial_report",
+      "documentHash": "0xfinancialhash012"
+    }
+  ],
+  
+  "corporateActions": [
+    {
+      "actionType": "interest_payment",
+      "announcementDate": "2024-06-15",
+      "paymentDate": "2024-07-01",
+      "actionDetails": {
+        "interestRate": "4.25%",
+        "paymentAmount": "891250",
+        "currency": "USD"
+      },
+      "status": "scheduled"
+    }
+  ],
+  
+  "customFeatures": {
+    "infrastructureType": "transportation_bridge",
+    "projectValue": "2100000000",
+    "location": "San Francisco Bay Area, California",
+    "constructionPeriod": "2024-2027",
+    "operationalPeriod": "30_years",
+    "tollRevenue": {
+      "currentAnnual": "140000000",
+      "projectedAnnual": "165000000",
+      "growthRate": "2.5%"
+    },
+    "bondDetails": {
+      "couponRate": "4.25%",
+      "maturityDate": "2054-07-01",
+      "paymentFrequency": "semi-annual",
+      "callProvision": "10_year_no_call"
+    },
+    "creditRating": {
+      "moodys": "Aa2",
+      "sp": "AA",
+      "fitch": "AA"
+    },
+    "projectScope": [
+      "seismic_retrofit",
+      "smart_traffic_systems",
+      "led_lighting_upgrade",
+      "structural_reinforcement",
+      "digital_toll_collection"
+    ]
+  }
+}

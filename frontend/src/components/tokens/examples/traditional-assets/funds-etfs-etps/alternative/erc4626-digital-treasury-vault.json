@@ -1,0 +1,361 @@
+{
+  "name": "Digital Treasury Yield Vault",
+  "symbol": "DTYV",
+  "description": "Simplified ERC-4626 vault providing direct access to diversified treasury yield strategies. Alternative implementation focusing on DeFi-native accessibility while maintaining institutional-grade asset management.",
+  "decimals": 18,
+  "standard": "ERC-4626",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "1000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "vaultType": "public_treasury_vault",
+    "investmentStrategy": "optimized_yield_farming",
+    "accessLevel": "public_permissionless",
+    "riskProfile": "low_moderate",
+    "performanceBenchmark": "Fed_Funds_Rate_Plus_200bps",
+    "rebalanceFrequency": "weekly",
+    "yieldDistribution": "continuous_accrual"
+  },
+  "assetAddress": "0xA0b86a33E6441c41De00b4fA8A2b24e97F7E5f92",
+  "assetName": "USD Coin",
+  "assetSymbol": "USDC",
+  "assetDecimals": 6,
+  "vaultType": "yield_optimization",
+  "vaultStrategy": "diversified_treasury",
+  "customStrategy": true,
+  "strategyController": "0x3456789012345678901234567890123456789012",
+  "flashLoans": true,
+  "emergencyShutdown": true,
+  "performanceMetrics": true,
+  "erc4626Properties": {
+    "accessControl": "public",
+    "permit": true,
+    
+    "yieldSource": "treasury_defi_strategies",
+    "strategyDocumentation": "https://vault.example.com/docs/defi-treasury-strategy",
+    "strategyComplexity": "medium",
+    "rebalanceThreshold": "5.0",
+    "liquidityReserve": "10.0",
+    "maxSlippage": "0.25",
+    
+    "depositLimit": "0",
+    "withdrawalLimit": "0",
+    "minDeposit": "1000000",
+    "maxDeposit": "0",
+    "minWithdrawal": "1000000",
+    "maxWithdrawal": "0",
+    
+    "performanceTracking": {
+      "enabled": true,
+      "metricsRetention": "3_years",
+      "benchmarkComparison": true,
+      "riskAdjustedReturns": true
+    },
+    
+    "depositFee": "0.00",
+    "withdrawalFee": "0.10",
+    "managementFee": "0.50",
+    "performanceFee": "10.00",
+    "feeRecipient": "0x4567890123456789012345678901234567890123",
+    
+    "yieldOptimizationEnabled": true,
+    "automatedRebalancing": true,
+    "multiAssetEnabled": true,
+    "rebalancingEnabled": true,
+    "autoCompoundingEnabled": true,
+    "yieldOptimizationStrategy": "cross_protocol_arbitrage",
+    
+    "riskManagementEnabled": true,
+    "riskTolerance": "moderate",
+    "diversificationEnabled": true,
+    
+    "apyTrackingEnabled": true,
+    "benchmarkTrackingEnabled": true,
+    "benchmarkIndex": "DeFi_Treasury_Composite_Index",
+    "performanceHistoryRetention": "5_years",
+    
+    "yieldSources": [
+      {
+        "source": "compound_v3_usdc",
+        "allocation": "30%",
+        "apr_target": "4.5%",
+        "risk_level": "low"
+      },
+      {
+        "source": "aave_v3_usdc",
+        "allocation": "25%",
+        "apr_target": "4.2%",
+        "risk_level": "low"
+      },
+      {
+        "source": "makerdao_dsr",
+        "allocation": "20%",
+        "apr_target": "3.8%",
+        "risk_level": "very_low"
+      },
+      {
+        "source": "curve_3pool_farming",
+        "allocation": "15%",
+        "apr_target": "6.5%",
+        "risk_level": "moderate"
+      },
+      {
+        "source": "cash_reserve",
+        "allocation": "10%",
+        "purpose": "liquidity_buffer"
+      }
+    ],
+    "yieldDistributionSchedule": "continuous",
+    "compoundFrequency": "block_by_block",
+    
+    "insuranceEnabled": false,
+    "insuranceProvider": "",
+    "insuranceCoverageAmount": "0",
+    "emergencyExitEnabled": true,
+    "circuitBreakerEnabled": true,
+    "maxDrawdownThreshold": "2.0",
+    "stopLossEnabled": true,
+    "stopLossThreshold": "5.0",
+    
+    "governanceTokenEnabled": true,
+    "governanceTokenAddress": "0x9012345678901234567890123456789012345678",
+    "votingPowerPerShare": "1000000000000000000",
+    "strategyVotingEnabled": true,
+    "feeVotingEnabled": true,
+    "managerPerformanceThreshold": "90",
+    "managerReplacementEnabled": true,
+    
+    "dynamicFeesEnabled": true,
+    "performanceFeeHighWaterMark": true,
+    "feeTierSystemEnabled": true,
+    "earlyWithdrawalPenalty": "0.25",
+    "lateWithdrawalPenalty": "0.00",
+    "gasFeeOptimization": true,
+    "feeRebateEnabled": true,
+    
+    "liquidityMiningEnabled": true,
+    "liquidityIncentivesRate": "2.5",
+    "marketMakingEnabled": false,
+    "arbitrageEnabled": true,
+    "crossDexOptimization": true,
+    "liquidityProviderRewards": "1.5",
+    "impermanentLossProtection": false,
+    
+    "defiProtocolIntegrations": [
+      {
+        "protocol": "compound_v3",
+        "purpose": "primary_lending",
+        "maxAllocation": "40%"
+      },
+      {
+        "protocol": "aave_v3",
+        "purpose": "secondary_lending",
+        "maxAllocation": "30%"
+      },
+      {
+        "protocol": "makerdao_dsr",
+        "purpose": "stable_base_yield",
+        "maxAllocation": "25%"
+      },
+      {
+        "protocol": "curve_finance",
+        "purpose": "yield_farming",
+        "maxAllocation": "20%"
+      }
+    ],
+    "lendingProtocolEnabled": true,
+    "borrowingEnabled": false,
+    "leverageEnabled": false,
+    "maxLeverageRatio": "1.0",
+    "crossChainYieldEnabled": true,
+    "bridgeProtocols": ["layer_zero", "axelar"],
+    
+    "portfolioAnalyticsEnabled": true,
+    "realTimePnlTracking": true,
+    "taxReportingEnabled": true,
+    "automatedReporting": true,
+    "notificationSystemEnabled": true,
+    "mobileAppIntegration": true,
+    "socialTradingEnabled": false,
+    
+    "institutionalGrade": false,
+    "custodyIntegration": "",
+    "auditTrailComprehensive": true,
+    "complianceReportingEnabled": false,
+    "regulatoryFramework": "defi_self_regulation",
+    "fundAdministrationEnabled": false,
+    "thirdPartyAuditsEnabled": true,
+    
+    "useGeographicRestrictions": false,
+    "defaultRestrictionPolicy": "allow"
+  },
+  "fee": {
+    "structure": "performance_based",
+    "managementFee": "0.50",
+    "performanceFee": "10.00",
+    "depositFee": "0.00",
+    "withdrawalFee": "0.10",
+    "highWaterMark": true,
+    "tiers": [
+      {
+        "minBalance": "0",
+        "maxBalance": "100000000000",
+        "managementFee": "0.75",
+        "performanceFee": "15.00"
+      },
+      {
+        "minBalance": "100000000000",
+        "maxBalance": "1000000000000",
+        "managementFee": "0.50",
+        "performanceFee": "10.00"
+      },
+      {
+        "minBalance": "1000000000000",
+        "maxBalance": "10000000000000",
+        "managementFee": "0.25",
+        "performanceFee": "8.00"
+      }
+    ]
+  },
+  "assetAllocation": [
+    {
+      "assetType": "Compound_V3_USDC",
+      "allocation": "30.0",
+      "targetAPR": "4.5",
+      "riskLevel": "low",
+      "rebalanceThreshold": "5.0"
+    },
+    {
+      "assetType": "Aave_V3_USDC",
+      "allocation": "25.0",
+      "targetAPR": "4.2",
+      "riskLevel": "low",
+      "rebalanceThreshold": "5.0"
+    },
+    {
+      "assetType": "MakerDAO_DSR",
+      "allocation": "20.0",
+      "targetAPR": "3.8",
+      "riskLevel": "very_low",
+      "rebalanceThreshold": "3.0"
+    },
+    {
+      "assetType": "Curve_3Pool_LP",
+      "allocation": "15.0",
+      "targetAPR": "6.5",
+      "riskLevel": "moderate",
+      "rebalanceThreshold": "7.0"
+    },
+    {
+      "assetType": "Cash_Reserve",
+      "allocation": "10.0",
+      "purpose": "Liquidity_Buffer",
+      "rebalanceThreshold": "2.0"
+    }
+  ],
+  "vaultStrategies": [
+    {
+      "strategyId": "cross_protocol_lending",
+      "strategyName": "Cross-Protocol Lending Optimization",
+      "allocation": "55.0",
+      "parameters": {
+        "protocols": ["compound_v3", "aave_v3"],
+        "rebalanceFrequency": "weekly",
+        "maxAllocationPerProtocol": "40%"
+      },
+      "active": true
+    },
+    {
+      "strategyId": "stable_base_yield",
+      "strategyName": "Stable Base Yield via DSR",
+      "allocation": "20.0",
+      "parameters": {
+        "protocol": "makerdao_dsr",
+        "targetAllocation": "20%",
+        "minimumAPR": "3.0%"
+      },
+      "active": true
+    },
+    {
+      "strategyId": "yield_farming",
+      "strategyName": "Curve Pool Yield Farming",
+      "allocation": "15.0",
+      "parameters": {
+        "pool": "curve_3pool",
+        "maxSlippage": "0.5%",
+        "harvestFrequency": "daily"
+      },
+      "active": true
+    }
+  ],
+  "strategyParams": [
+    {
+      "paramName": "rebalance_frequency",
+      "paramValue": "weekly",
+      "paramType": "string",
+      "description": "How often the portfolio is rebalanced across protocols"
+    },
+    {
+      "paramName": "max_protocol_allocation",
+      "paramValue": "40",
+      "paramType": "number",
+      "description": "Maximum allocation to any single protocol as percentage"
+    },
+    {
+      "paramName": "min_yield_threshold",
+      "paramValue": "3.0",
+      "paramType": "number",
+      "description": "Minimum acceptable yield before rebalancing"
+    }
+  ],
+  "performanceMetrics": [
+    {
+      "metricName": "7_day_apy",
+      "targetValue": "5.2",
+      "currentValue": "5.8",
+      "unit": "percentage",
+      "lastUpdated": "2024-06-17T00:00:00Z"
+    },
+    {
+      "metricName": "total_value_locked",
+      "targetValue": "50000000000000",
+      "currentValue": "75000000000000",
+      "unit": "wei",
+      "lastUpdated": "2024-06-17T00:00:00Z"
+    },
+    {
+      "metricName": "sharpe_ratio",
+      "targetValue": "2.5",
+      "currentValue": "3.1",
+      "unit": "ratio",
+      "lastUpdated": "2024-06-17T00:00:00Z"
+    }
+  ],
+  "feeTiers": [
+    {
+      "tierId": "retail",
+      "minBalance": "1000000",
+      "maxBalance": "100000000000",
+      "managementFee": "0.75",
+      "performanceFee": "15.00",
+      "description": "Retail investor tier"
+    },
+    {
+      "tierId": "premium",
+      "minBalance": "100000000000",
+      "maxBalance": "1000000000000",
+      "managementFee": "0.50",
+      "performanceFee": "10.00",
+      "description": "Premium investor tier"
+    },
+    {
+      "tierId": "institutional",
+      "minBalance": "1000000000000",
+      "maxBalance": "0",
+      "managementFee": "0.25",
+      "performanceFee": "8.00",
+      "description": "Institutional investor tier"
+    }
+  ]
+}

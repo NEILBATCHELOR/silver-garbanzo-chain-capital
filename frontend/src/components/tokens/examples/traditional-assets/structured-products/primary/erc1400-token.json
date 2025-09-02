@@ -1,0 +1,129 @@
+{
+  "name": "Euro Stoxx 50 Principal Protected Note Series 2025-A",
+  "symbol": "ESP25A",
+  "decimals": 18,
+  "description": "A 5-year principal protected structured note linked to the performance of the Euro Stoxx 50 index. Offers 100% capital protection at maturity with upside participation of 80% of the index performance, capped at 15% annual return.",
+  "standard": "ERC-1400",
+  "total_supply": "10000000",
+  "initial_supply": "10000000",
+  "cap": "10000000",
+  "is_mintable": false,
+  "is_burnable": false,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "structured_product",
+  "regulation_type": "reg-d",
+  "issuing_entity_name": "Goldman Sachs International",
+  "issuing_jurisdiction": "London, United Kingdom",
+  "issuing_entity_lei": "W22LROWP2IHZNBB6K528",
+  "maturity_date": "2030-06-15T00:00:00Z",
+  "issue_date": "2025-06-15T00:00:00Z",
+  "face_value": "1000",
+  "minimum_denomination": "1000",
+  "currency": "EUR",
+  "underlying_asset": "Euro Stoxx 50 Index",
+  "underlying_asset_type": "equity_index",
+  "underlying_ticker": "SX5E",
+  "protection_level": "100",
+  "participation_rate": "80",
+  "cap_rate": "15",
+  "observation_dates": [
+    "2025-12-15T00:00:00Z",
+    "2026-06-15T00:00:00Z",
+    "2026-12-15T00:00:00Z",
+    "2027-06-15T00:00:00Z",
+    "2027-12-15T00:00:00Z",
+    "2028-06-15T00:00:00Z",
+    "2028-12-15T00:00:00Z",
+    "2029-06-15T00:00:00Z",
+    "2029-12-15T00:00:00Z",
+    "2030-06-15T00:00:00Z"
+  ],
+  "coupon_frequency": "none",
+  "coupon_rate": "0",
+  "payment_schedule": "bullet",
+  "credit_rating": "A+",
+  "rating_agency": "S&P",
+  "prospectus_url": "https://www.gs.com/structured-products/esp25a-prospectus.pdf",
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": ["US", "CA"],
+  "whitelist_enabled": true,
+  "whitelist_addresses": [],
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": true,
+  "controllers": [],
+  "operators": [],
+  "default_partitions": ["primary"],
+  "partitions": [
+    {
+      "name": "primary",
+      "flag": "0x00",
+      "is_default": true,
+      "transferable": true,
+      "controllable": true
+    }
+  ],
+  "documents": [
+    {
+      "name": "Prospectus",
+      "uri": "https://www.gs.com/structured-products/esp25a-prospectus.pdf",
+      "document_hash": "0x1234567890abcdef"
+    },
+    {
+      "name": "Terms and Conditions", 
+      "uri": "https://www.gs.com/structured-products/esp25a-terms.pdf",
+      "document_hash": "0xabcdef1234567890"
+    }
+  ],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": true,
+    "maximum_investors": 99,
+    "minimum_investment": "1000",
+    "maximum_investment": "5000000",
+    "lock_up_period": "0",
+    "transfer_restrictions": {
+      "cooling_off_period": "0",
+      "requires_approval": true,
+      "whitelist_only": true
+    }
+  },
+  "risk_factors": [
+    "Market risk related to Euro Stoxx 50 performance",
+    "Credit risk of Goldman Sachs International",
+    "Liquidity risk - limited secondary market",
+    "Interest rate risk",
+    "Currency risk for non-EUR investors",
+    "Early redemption risk",
+    "Complexity risk"
+  ],
+  "fees": {
+    "management_fee": "0.75",
+    "performance_fee": "0",
+    "early_redemption_fee": "2.0",
+    "transfer_fee": "25"
+  },
+  "metadata": {
+    "product_category": "principal_protected_note",
+    "complexity_level": "medium",
+    "target_investors": "institutional_and_qualified_retail",
+    "liquidity_provider": "Goldman Sachs International",
+    "market_maker": "Goldman Sachs International",
+    "isin": "XS2845612345",
+    "cusip": "",
+    "sedol": "BKT7G82",
+    "valor": "129834567",
+    "wkn": "GS24PP",
+    "distributor": "Goldman Sachs International",
+    "calculation_agent": "Goldman Sachs International",
+    "paying_agent": "Clearstream Banking S.A.",
+    "listing_exchange": "Luxembourg Stock Exchange",
+    "trading_venues": ["Luxembourg Stock Exchange", "OTC"],
+    "settlement_type": "physical",
+    "settlement_currency": "EUR"
+  }
+}

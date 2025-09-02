@@ -1,0 +1,274 @@
+{
+  "name": "Premium Collectibles Liquidity Token",
+  "symbol": "PCLT",
+  "description": "ERC-20 liquidity token providing tradeable exposure to a diversified portfolio of premium collectibles including luxury watches, art, wine, handbags, and classic cars.",
+  "decimals": 18,
+  "initialSupply": "100000000",
+  "maxSupply": "100000000",
+  "totalSupply": "100000000",
+  
+  "tokenDetails": "Diversified collectibles investment token backed by authenticated luxury goods and alternative assets",
+  "tokenType": "collectibles_index",
+  "useCase": "alternative_investment_exposure",
+  
+  "isMintable": false,
+  "isBurnable": true,
+  "isPausable": true,
+  "hasSnapshot": true,
+  "hasCap": true,
+  
+  "transfer_restrictions_enabled": false,
+  "kyc_required": false,
+  "whitelist_enabled": false,
+  "pausable_transfers": true,
+  
+  "has_fees": true,
+  "transfer_fee_percentage": "0.50",
+  "fee_recipient": "0x1234567890123456789012345678901234567890",
+  "fee_exemptions": [
+    "0x1234567890123456789012345678901234567890",
+    "0x2345678901234567890123456789012345678901"
+  ],
+  
+  "has_rewards": true,
+  "rewards_token": "0x0000000000000000000000000000000000000000",
+  "rewards_rate": "6.5",
+  "staking_enabled": true,
+  "staking_rewards_rate": "8.0",
+  
+  "deflationary": true,
+  "burn_rate": "0.1",
+  "buyback_enabled": true,
+  "buyback_percentage": "3.0",
+  "tax_on_transactions": false,
+  
+  "governance_enabled": true,
+  "voting_power": 1,
+  "proposal_threshold": "50000",
+  "voting_delay": "2_days",
+  "voting_period": "7_days",
+  
+  "liquidity_provision": {
+    "automated_market_maker": true,
+    "supported_dexes": ["Uniswap V3", "SushiSwap", "Balancer", "Curve"],
+    "initial_liquidity_pairs": [
+      {
+        "token_a": "PCLT",
+        "token_b": "WETH",
+        "initial_ratio": "1:0.0012",
+        "liquidity_amount": "5000000",
+        "pool_type": "weighted_pool"
+      },
+      {
+        "token_a": "PCLT",
+        "token_b": "USDC",
+        "initial_ratio": "1:3.50",
+        "liquidity_amount": "3000000",
+        "pool_type": "stable_pool"
+      },
+      {
+        "token_a": "PCLT",
+        "token_b": "DAI",
+        "initial_ratio": "1:3.50", 
+        "liquidity_amount": "2000000",
+        "pool_type": "stable_pool"
+      }
+    ]
+  },
+  
+  "collectibles_backing": {
+    "asset_categories": {
+      "luxury_watches": "25%",
+      "fine_art": "20%",
+      "vintage_wines": "15%",
+      "luxury_handbags": "15%",
+      "classic_cars": "15%",
+      "rare_collectibles": "10%"
+    },
+    "total_backing_value": "350000000",
+    "nav_calculation": "daily",
+    "rebalancing_frequency": "quarterly"
+  },
+  
+  "defi_integration": {
+    "lending_protocols": ["Aave", "Compound"],
+    "yield_strategies": ["Convex Finance", "Yearn Finance", "Beefy Finance"],
+    "collateral_factor": "0.60",
+    "liquidation_threshold": "0.75",
+    "flash_loan_enabled": true
+  },
+  
+  "oracle_integration": {
+    "price_feeds": ["Chainlink", "Band Protocol"],
+    "appraisal_oracles": [
+      "MyArtBroker",
+      "WorthPoint",
+      "Heritage_Auctions",
+      "Sothebys_Price_Database"
+    ],
+    "price_update_frequency": "3600",
+    "backup_oracles": ["API3", "DIA"],
+    "volatility_tracking": true
+  },
+  
+  "bridge_support": {
+    "cross_chain_enabled": true,
+    "supported_chains": ["Polygon", "Arbitrum", "Optimism", "BSC", "Avalanche"],
+    "bridge_protocols": ["LayerZero", "Wormhole", "Multichain"],
+    "cross_chain_yield_farming": true
+  },
+  
+  "marketplace_integration": {
+    "nft_marketplaces": ["OpenSea", "Foundation", "SuperRare"],
+    "auction_houses": ["Sotheby's", "Christie's", "Phillips"],
+    "collectibles_platforms": ["Rally", "Masterworks", "Otis"],
+    "price_discovery_mechanisms": ["dutch_auctions", "english_auctions", "fixed_price"]
+  },
+  
+  "metadata": {
+    "website": "https://premiumcollectiblestoken.com",
+    "whitepaper": "https://docs.premiumcollectiblestoken.com/whitepaper.pdf",
+    "investment_thesis": "https://docs.premiumcollectiblestoken.com/investment-thesis.pdf",
+    "social_media": {
+      "twitter": "@PremiumCollectiblesToken",
+      "discord": "https://discord.gg/pclt",
+      "telegram": "https://t.me/premiumcollectibles",
+      "reddit": "r/PremiumCollectibles"
+    },
+    "analytics_dashboard": "https://analytics.premiumcollectiblestoken.com",
+    "mobile_app": {
+      "ios": "https://apps.apple.com/app/pclt",
+      "android": "https://play.google.com/store/apps/pclt"
+    }
+  },
+  
+  "tokenomics": {
+    "initial_distribution": {
+      "public_sale": "40%",
+      "institutional_investors": "25%",
+      "liquidity_provision": "15%",
+      "team_allocation": "8%",
+      "marketing_partnerships": "5%",
+      "treasury_reserve": "4%",
+      "advisor_allocation": "3%"
+    },
+    "revenue_sources": {
+      "appreciation_of_backing_assets": "60%",
+      "trading_fees": "20%",
+      "lending_revenue": "10%",
+      "marketplace_commissions": "5%",
+      "authentication_services": "3%",
+      "storage_fees": "2%"
+    },
+    "vesting_schedules": {
+      "team_allocation": {
+        "cliff_period": "12_months",
+        "vesting_period": "36_months",
+        "release_schedule": "linear"
+      },
+      "advisor_allocation": {
+        "cliff_period": "6_months",
+        "vesting_period": "24_months",
+        "release_schedule": "quarterly"
+      }
+    }
+  },
+  
+  "fractional_ownership": {
+    "enabled": true,
+    "minimum_investment": "100",
+    "fractional_nft_protocol": "NFTX",
+    "voting_rights": "proportional_to_holdings",
+    "exit_liquidity": "immediate_via_dex"
+  },
+  
+  "insurance_coverage": {
+    "total_coverage": "400000000",
+    "providers": ["Lloyd's of London", "AIG", "Zurich"],
+    "coverage_types": [
+      "theft_protection",
+      "damage_coverage",
+      "market_value_protection",
+      "authenticity_guarantee"
+    ],
+    "deductible": "50000"
+  },
+  
+  "authentication_partners": {
+    "art": ["Masterworks", "Arthena"],
+    "watches": ["Hodinkee", "Crown & Caliber"],
+    "wine": ["Cult Wine Investment", "Vinovest"],
+    "handbags": ["Fashionphile", "The RealReal"],
+    "cars": ["Hagerty", "Barrett-Jackson"]
+  },
+  
+  "risk_management": {
+    "diversification_requirements": {
+      "max_single_asset": "2%",
+      "max_single_category": "30%",
+      "max_single_artist_or_brand": "5%"
+    },
+    "liquidity_management": {
+      "emergency_liquidity_fund": "10000000",
+      "auction_partnerships": true,
+      "quick_sale_mechanisms": true
+    },
+    "market_risk": {
+      "volatility_caps": "20%_monthly",
+      "correlation_monitoring": true,
+      "hedging_strategies": ["put_options", "inverse_positions"]
+    }
+  },
+  
+  "performance_metrics": {
+    "nav_per_token": "3.50",
+    "total_return_ytd": "15.2%",
+    "expense_ratio": "1.85%",
+    "sharpe_ratio": "1.42",
+    "maximum_drawdown": "-8.3%",
+    "correlation_to_sp500": "0.12",
+    "correlation_to_gold": "0.34"
+  },
+  
+  "governance_features": {
+    "asset_acquisition_voting": true,
+    "disposal_voting": true,
+    "fee_structure_changes": true,
+    "strategic_partnerships": true,
+    "rebalancing_strategy": true
+  },
+  
+  "technology_integration": {
+    "ar_vr_showcases": true,
+    "ai_price_prediction": true,
+    "blockchain_provenance": true,
+    "iot_monitoring": "environmental_sensors",
+    "mobile_app_features": [
+      "portfolio_tracking",
+      "ar_visualization",
+      "market_insights",
+      "social_trading"
+    ]
+  },
+  
+  "audit": {
+    "audited": true,
+    "audit_firms": ["OpenZeppelin", "ConsenSys Diligence", "Trail of Bits"],
+    "audit_reports": [
+      "ipfs://QmCollectiblesAuditHash1",
+      "ipfs://QmCollectiblesAuditHash2",
+      "ipfs://QmCollectiblesAuditHash3"
+    ],
+    "last_audit_date": "2024-05-25",
+    "continuous_monitoring": true,
+    "bug_bounty_program": true
+  },
+  
+  "regulatory_compliance": {
+    "securities_classification": "utility_token",
+    "jurisdiction": "Singapore",
+    "legal_structure": "variable_capital_company",
+    "regulatory_advisors": ["Dentons", "Allen & Overy"],
+    "compliance_framework": "MiCA_compliant"
+  }
+}

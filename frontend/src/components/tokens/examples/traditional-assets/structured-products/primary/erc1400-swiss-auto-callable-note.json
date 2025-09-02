@@ -1,0 +1,253 @@
+{
+  "id": "8f2a9c1e-4b67-4d89-a8f3-1c5e7b9d3a2f",
+  "project_id": "3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a",
+  "name": "Swiss Auto-Callable Barrier Note on S&P 500",
+  "symbol": "SPACB24",
+  "decimals": 2,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "description": "Memory Barrier Auto-Callable Note linked to S&P 500 index performance with principal protection and quarterly coupon opportunity",
+  "total_supply": "10000000",
+  "config_mode": "max",
+  "metadata": {
+    "tokenType": "structured_product",
+    "assetClass": "equity_derivative",
+    "underlyingAsset": "S&P 500 Index",
+    "productType": "auto_callable_note",
+    "currency": "CHF",
+    "issuePrice": "100.00",
+    "notional": "1000000000"
+  },
+  "blocks": {
+    "name": "Swiss Auto-Callable Barrier Note on S&P 500",
+    "symbol": "SPACB24",
+    "decimals": 2,
+    "initialSupply": "10000000",
+    "cap": "10000000",
+    "tokenDetails": "Quarterly auto-callable structured note with 85% barrier protection and memory coupon feature. Provides exposure to S&P 500 upside with downside protection below 85% barrier level.",
+    "securityType": "derivative",
+    "regulationType": "swiss_finma",
+    "issuingEntityName": "Credit Suisse (Schweiz) AG",
+    "issuingJurisdiction": "Switzerland",
+    "issuingEntityLei": "549300E9PC51EN656011",
+    
+    "isMintable": false,
+    "isBurnable": true,
+    "isPausable": true,
+    "isIssuable": false,
+    
+    "requireKyc": true,
+    "whitelistEnabled": true,
+    "investorAccreditation": false,
+    "autoCompliance": true,
+    "manualApprovals": false,
+    "complianceAutomationLevel": "fully-automated",
+    "complianceModule": "CMTA_v2.1",
+    
+    "holdingPeriod": "0",
+    "maxInvestorCount": "500",
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "allow",
+    
+    "forcedTransfers": false,
+    "forcedRedemptionEnabled": true,
+    "granularControl": true,
+    "recoveryMechanism": true,
+    
+    "isMultiClass": false,
+    "trancheTransferability": false,
+    
+    "corporateActions": false,
+    "dividendDistribution": false,
+    
+    "documentManagement": true,
+    "documentUri": "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+    "documentHash": "0x1234567890abcdef1234567890abcdef12345678",
+    "legalTerms": "https://documents.credit-suisse.com/spacb24-terms",
+    "prospectus": "https://documents.credit-suisse.com/spacb24-prospectus",
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "SIX_SIS",
+    "clearingHouseIntegration": true,
+    "centralSecuritiesDepositoryIntegration": true,
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": false,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": false,
+    "rightsOfferingsEnabled": false,
+    "spinOffsEnabled": false,
+    "mergersAcquisitionsSupport": false,
+    "treasuryManagementEnabled": false,
+    "buybackProgramsEnabled": false,
+    "shareRepurchaseAutomation": false,
+    
+    "advancedGovernanceEnabled": false,
+    "proxyVotingEnabled": false,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": false,
+    "votingDelegationEnabled": false,
+    "institutionalVotingServices": false,
+    "boardElectionSupport": false,
+    
+    "crossBorderTradingEnabled": false,
+    "multiJurisdictionCompliance": false,
+    "passportRegimeSupport": false,
+    "treatyBenefitsEnabled": false,
+    "withholdingTaxAutomation": false,
+    "currencyHedgingEnabled": false,
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": false,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": true,
+    "crossChainBridgeSupport": false,
+    "layer2ScalingSupport": false,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "stressTestingEnabled": false,
+    "marginRequirementsDynamic": false,
+    "collateralManagementEnabled": false,
+    "insuranceCoverageEnabled": false,
+    "disasterRecoveryEnabled": true,
+    
+    "transferRestrictions": {
+      "restrictedJurisdictions": ["US", "CA"],
+      "minimumHoldingPeriod": 0,
+      "transferCooldown": 0,
+      "maxTransferAmount": null,
+      "requireApprovalAbove": null
+    },
+    "kycSettings": {
+      "requiredDocuments": ["passport", "proof_of_address"],
+      "verificationLevel": "enhanced",
+      "recurringVerification": false,
+      "automatedScreening": true
+    },
+    "complianceSettings": {
+      "sanctionsScreening": true,
+      "pepScreening": true,
+      "amlMonitoring": true,
+      "transactionLimits": {
+        "daily": 1000000,
+        "monthly": 10000000
+      }
+    },
+    "customFeatures": {
+      "autoCallable": true,
+      "barrierLevel": 0.85,
+      "couponRate": 0.08,
+      "observationFrequency": "quarterly",
+      "memoryFeature": true,
+      "knockInBarrier": 0.85,
+      "maturityDate": "2027-12-15",
+      "underlyingTicker": "SPX"
+    },
+    "geographicRestrictions": ["US", "CA", "IR", "KP"],
+    "whitelistConfig": {
+      "enabled": true,
+      "autoApproval": false,
+      "requiredVerification": "enhanced_kyc"
+    },
+    "jurisdictionRestrictions": [
+      {
+        "jurisdiction": "US",
+        "restriction": "blocked",
+        "reason": "regulatory_compliance"
+      }
+    ],
+    "investorLimits": {
+      "maxInvestors": 500,
+      "maxInvestmentPerInvestor": 10000000,
+      "accreditationRequired": false
+    },
+    "transactionMonitoringRules": {
+      "largeTransactionThreshold": 100000,
+      "suspiciousPatternDetection": true,
+      "realTimeMonitoring": true
+    },
+    "quorumRequirements": {},
+    "foreignOwnershipRestrictions": {},
+    "regulatoryEquivalenceMapping": {
+      "swiss_finma": "primary",
+      "eu_mifid": "equivalent"
+    },
+    "priceDiscoveryMechanisms": {
+      "dailyValuation": true,
+      "markToMarket": true,
+      "thirdPartyValuation": false
+    },
+    "concentrationLimits": {},
+    
+    "thirdPartyCustodyAddresses": [],
+    
+    "issuanceModules": false,
+    "investorWhitelistEnabled": true,
+    
+    "partitions": [],
+    "controllers": [
+      {
+        "id": "ctrl-001",
+        "address": "0x742d35Cc6734C0532925a3b8D4321072C31A24",
+        "name": "Credit Suisse Controller",
+        "permissions": ["issue", "redeem", "force_transfer", "pause"],
+        "isActive": true,
+        "description": "Primary issuer controller"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-001",
+        "name": "Final Terms",
+        "documentUri": "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+        "documentType": "final_terms",
+        "documentHash": "0x1234567890abcdef1234567890abcdef12345678"
+      },
+      {
+        "id": "doc-002", 
+        "name": "Base Prospectus",
+        "documentUri": "ipfs://QmZrAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdH",
+        "documentType": "prospectus",
+        "documentHash": "0x9876543210fedcba9876543210fedcba98765432"
+      }
+    ],
+    "corporateActions": [],
+    "custodyProviders": [
+      {
+        "id": "custody-001",
+        "providerName": "SIX SIS AG",
+        "providerType": "central_securities_depository",
+        "providerLei": "549300DTUYXVMJXZNY12",
+        "isActive": true,
+        "jurisdiction": "Switzerland",
+        "regulatoryApprovals": ["FINMA"],
+        "integrationStatus": "active"
+      }
+    ],
+    "regulatoryFilings": [],
+    "partitionOperators": []
+  },
+  "created_at": "2025-06-17T10:30:00Z",
+  "updated_at": "2025-06-17T10:30:00Z"
+}

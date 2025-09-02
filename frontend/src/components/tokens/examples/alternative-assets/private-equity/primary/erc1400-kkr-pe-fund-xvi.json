@@ -1,0 +1,394 @@
+{
+  "name": "KKR North America Private Equity Fund XVI",
+  "symbol": "KKRPE16",
+  "description": "Institutional-grade tokenized private equity fund focused on North American leveraged buyouts, growth equity, and special situations. Based on KKR's proven investment strategy with 40+ year track record, targeting mature companies with EBITDA >$75M and established market positions.",
+  "decimals": 18,
+  "standard": "ERC-1400",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "15000000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "private_equity_fund",
+    "regulatoryFramework": "Investment_Company_Act_1940_Section_3c7",
+    "investmentObjective": "long_term_capital_appreciation_through_buyouts",
+    "benchmarkIndex": "S&P_500_Plus_300bp",
+    "fundType": "leveraged_buyout_fund",
+    "riskRating": "High",
+    "liquidityProfile": "Illiquid_10_year_commitment",
+    "managementCompany": "Kohlberg_Kravis_Roberts",
+    "sector": "diversified_private_equity",
+    "fundInception": "2025-06-17",
+    "fundSize": "$15,000,000,000",
+    "minimumCommitment": "$25,000,000",
+    "targetNetIRR": "15-20%",
+    "expectedJ_Curve": "3-4_years",
+    "targetFundLife": "10_years",
+    "distributionPolicy": "as_realized"
+  },
+  "erc1400Properties": {
+    "initialSupply": "15000000000000000000000000000",
+    "cap": "20000000000000000000000000000",
+    "isMintable": true,
+    "isBurnable": true,
+    "isPausable": true,
+    "decimals": 18,
+    
+    "documentUri": "https://kkr.com/funds/north-america-pe-xvi/private-placement-memorandum",
+    "documentHash": "0xkkr1e2f3a4b5c6d7e8f9012345678901234567890abcdef123456789012345",
+    "tokenDetails": "Digital representation of limited partnership interests in KKR North America Fund XVI",
+    "legalTerms": "https://kkr.com/funds/north-america-pe-xvi/limited-partnership-agreement",
+    "prospectus": "https://kkr.com/funds/north-america-pe-xvi/private-placement-memorandum",
+    
+    "controllerAddress": "0x1234567890123456789012345678901234567890",
+    "requireKyc": true,
+    "enforceKyc": true,
+    "securityType": "limited_partnership_interests",
+    
+    "issuingJurisdiction": "United States",
+    "issuingEntityName": "KKR North America Fund XVI, L.P.",
+    "issuingEntityLei": "549300KKR123456789012",
+    "regulationType": "private_investment_fund",
+    
+    "isMultiClass": true,
+    "trancheTransferability": false,
+    
+    "forcedTransfers": true,
+    "forcedRedemptionEnabled": false,
+    "isIssuable": true,
+    
+    "autoCompliance": true,
+    "manualApprovals": true,
+    "complianceModule": "manual_approval_required",
+    "complianceAutomationLevel": "semi_automated",
+    
+    "whitelistEnabled": true,
+    "investorWhitelistEnabled": true,
+    "accreditedInvestorOnly": true,
+    "investorAccreditation": true,
+    "holdingPeriod": 3650,
+    "maxInvestorCount": 500,
+    
+    "issuanceModules": true,
+    "documentManagement": true,
+    "recoveryMechanism": true,
+    "granularControl": true,
+    "dividendDistribution": true,
+    "corporateActions": true,
+    
+    "useGeographicRestrictions": true,
+    "defaultRestrictionPolicy": "blocked",
+    "geographicRestrictions": [
+      {
+        "country": "US",
+        "restriction": "allowed"
+      },
+      {
+        "country": "CA",
+        "restriction": "allowed"
+      },
+      {
+        "country": "EU",
+        "restriction": "restricted"
+      },
+      {
+        "country": "GB",
+        "restriction": "restricted"
+      },
+      {
+        "country": "JP",
+        "restriction": "restricted"
+      },
+      {
+        "country": "CN",
+        "restriction": "blocked"
+      },
+      {
+        "country": "RU",
+        "restriction": "blocked"
+      },
+      {
+        "country": "ALL_OTHERS",
+        "restriction": "blocked"
+      }
+    ],
+    
+    "institutionalGrade": true,
+    "custodyIntegrationEnabled": true,
+    "primeBrokerageSupport": true,
+    "settlementIntegration": "institutional_private_settlement",
+    "clearingHouseIntegration": false,
+    "centralSecuritiesDepositoryIntegration": false,
+    "thirdPartyCustodyAddresses": [
+      "0x1111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222"
+    ],
+    "institutionalWalletSupport": true,
+    
+    "realTimeComplianceMonitoring": true,
+    "automatedSanctionsScreening": true,
+    "pepScreeningEnabled": true,
+    "amlMonitoringEnabled": true,
+    "transactionMonitoringRules": {
+      "maxTransactionSize": "1000000000000000000000000000",
+      "flagThreshold": "100000000000000000000000000",
+      "reportingThreshold": "250000000000000000000000000"
+    },
+    "suspiciousActivityReporting": true,
+    "complianceOfficerNotifications": true,
+    "regulatoryReportingAutomation": true,
+    
+    "advancedCorporateActions": true,
+    "stockSplitsEnabled": false,
+    "stockDividendsEnabled": false,
+    "rightsOfferingsEnabled": true,
+    "spinOffsEnabled": true,
+    "mergersAcquisitionsSupport": true,
+    "treasuryManagementEnabled": true,
+    "buybackProgramsEnabled": false,
+    "shareRepurchaseAutomation": false,
+    
+    "advancedGovernanceEnabled": true,
+    "proxyVotingEnabled": true,
+    "cumulativeVotingEnabled": false,
+    "weightedVotingByClass": true,
+    "quorumRequirements": {
+      "minimumQuorum": "66.67%",
+      "supermajorityThreshold": "75%"
+    },
+    "votingDelegationEnabled": true,
+    "institutionalVotingServices": true,
+    "boardElectionSupport": true,
+    
+    "crossBorderTradingEnabled": false,
+    "multiJurisdictionCompliance": true,
+    "passportRegimeSupport": false,
+    "treatyBenefitsEnabled": true,
+    "withholdingTaxAutomation": true,
+    "currencyHedgingEnabled": true,
+    "foreignOwnershipRestrictions": {
+      "maxForeignOwnership": "35%",
+      "restrictedCountries": ["CN", "RU", "IR", "KP", "BY"]
+    },
+    "regulatoryEquivalenceMapping": {
+      "US": "Investment_Advisers_Act_1940",
+      "EU": "AIFMD",
+      "UK": "FCA_FUND",
+      "CA": "NI_31_103"
+    },
+    
+    "enhancedReportingEnabled": true,
+    "realTimeShareholderRegistry": true,
+    "beneficialOwnershipTracking": true,
+    "positionReconciliationEnabled": true,
+    "regulatoryFilingAutomation": true,
+    "auditTrailComprehensive": true,
+    "performanceAnalyticsEnabled": true,
+    "esgReportingEnabled": true,
+    
+    "traditionalFinanceIntegration": true,
+    "swiftIntegrationEnabled": true,
+    "iso20022MessagingSupport": true,
+    "financialDataVendorIntegration": true,
+    "marketDataFeedsEnabled": false,
+    "priceDiscoveryMechanisms": ["independent_valuation", "mark_to_model"],
+    
+    "crossChainBridgeSupport": false,
+    "layer2ScalingSupport": false,
+    
+    "advancedRiskManagement": true,
+    "positionLimitsEnabled": true,
+    "concentrationLimits": {
+      "maxSingleInvestment": "15%",
+      "maxSectorExposure": "35%",
+      "maxGeographicExposure": "100%",
+      "maxVintageYear": "25%"
+    },
+    "stressTestingEnabled": true,
+    "marginRequirementsDynamic": false,
+    "collateralManagementEnabled": false,
+    "insuranceCoverageEnabled": true,
+    "disasterRecoveryEnabled": true
+  },
+  "privateEquityProperties": {
+    "fundStrategy": "leveraged_buyouts_growth_equity",
+    "targetSectorFocus": [
+      "technology_software",
+      "healthcare_services",
+      "consumer_discretionary",
+      "industrial_services",
+      "financial_services"
+    ],
+    "geographicFocus": "north_america",
+    "targetCompanySize": "large_cap_middle_market",
+    "averageDealSize": "$1,500,000,000",
+    "targetEBITDA": ">$75,000,000",
+    "leverageRange": "4.0x-6.5x",
+    "holdingPeriod": "4-7_years",
+    "exitStrategies": ["strategic_sale", "ipo", "secondary_buyout"],
+    "valueCreationFocus": [
+      "operational_improvements",
+      "revenue_growth",
+      "margin_expansion",
+      "strategic_acquisitions",
+      "technology_modernization"
+    ],
+    "coinvestmentOpportunity": true,
+    "coinvestmentMinimum": "$5,000,000",
+    "managementFeeStructure": "2.0%_declining_to_1.5%",
+    "carriedInterest": "20%",
+    "hurdleRate": "8%",
+    "distributionPolicy": "as_realized_with_recycling",
+    "callSchedule": "as_needed_for_investments_and_expenses",
+    "keyPersonProvision": true,
+    "noFaultDivorce": false
+  },
+  "partitions": [
+    {
+      "name": "Institutional Limited Partners",
+      "symbol": "KKRPE16-INST",
+      "totalSupply": "12000000000000000000000000000",
+      "minInvestment": "25000000000000000000000000",
+      "managementFee": "2.00",
+      "carriedInterest": "20.00",
+      "investorType": "institutional_limited_partner",
+      "transferRestrictions": {
+        "holdingPeriod": 3650,
+        "maxTransferSize": "500000000000000000000000000",
+        "approvalRequired": true,
+        "generalPartnerConsent": true
+      }
+    },
+    {
+      "name": "Strategic Partners",
+      "symbol": "KKRPE16-STRAT",
+      "totalSupply": "2000000000000000000000000000",
+      "minInvestment": "100000000000000000000000000",
+      "managementFee": "1.50",
+      "carriedInterest": "15.00",
+      "investorType": "strategic_limited_partner",
+      "transferRestrictions": {
+        "holdingPeriod": 3650,
+        "maxTransferSize": "200000000000000000000000000",
+        "approvalRequired": true,
+        "generalPartnerConsent": true
+      }
+    },
+    {
+      "name": "General Partner",
+      "symbol": "KKRPE16-GP",
+      "totalSupply": "1000000000000000000000000000",
+      "minInvestment": "0",
+      "managementFee": "0.00",
+      "carriedInterest": "0.00",
+      "investorType": "general_partner",
+      "transferRestrictions": {
+        "holdingPeriod": 3650,
+        "maxTransferSize": "0",
+        "approvalRequired": true,
+        "generalPartnerConsent": false
+      }
+    }
+  ],
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "role": "general_partner",
+      "permissions": ["capital_calls", "distributions", "investment_decisions", "fund_management"],
+      "description": "KKR & Co. Inc. as General Partner with full fund management authority"
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "role": "fund_administrator",
+      "permissions": ["nav_calculation", "investor_reporting", "compliance_monitoring"],
+      "description": "Third-party fund administrator for operational oversight"
+    },
+    {
+      "address": "0x3456789012345678901234567890123456789012",
+      "role": "compliance_officer",
+      "permissions": ["kyc_verification", "sanctions_screening", "regulatory_filing"],
+      "description": "Compliance officer for regulatory and investor screening"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "uri": "https://kkr.com/funds/north-america-pe-xvi/private-placement-memorandum.pdf",
+      "hash": "0xkkr1e2f3a4b5c6d7e8f9012345678901234567890abcdef123456789012345",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Limited Partnership Agreement",
+      "uri": "https://kkr.com/funds/north-america-pe-xvi/limited-partnership-agreement.pdf",
+      "hash": "0xkkr2f3a4b5c6d7e8f9012345678901234567890abcdef123456789012345e",
+      "category": "legal",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Investment Strategy Document",
+      "uri": "https://kkr.com/funds/north-america-pe-xvi/investment-strategy.pdf",
+      "hash": "0xkkr3a4b5c6d7e8f9012345678901234567890abcdef123456789012345ef1",
+      "category": "strategy",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "ESG Policy Framework",
+      "uri": "https://kkr.com/funds/north-america-pe-xvi/esg-framework.pdf",
+      "hash": "0xkkr4b5c6d7e8f9012345678901234567890abcdef123456789012345ef12",
+      "category": "esg",
+      "lastUpdated": "2025-06-17T00:00:00Z"
+    },
+    {
+      "name": "Annual Audited Financial Statements",
+      "uri": "https://kkr.com/funds/north-america-pe-xvi/financial-statements-2024.pdf",
+      "hash": "0xkkr5c6d7e8f9012345678901234567890abcdef123456789012345ef123",
+      "category": "financial",
+      "lastUpdated": "2025-03-31T00:00:00Z"
+    }
+  ],
+  "transferRestrictions": {
+    "enabled": true,
+    "rules": [
+      {
+        "ruleType": "general_partner_consent",
+        "description": "All transfers require written consent from General Partner",
+        "active": true
+      },
+      {
+        "ruleType": "qualified_institutional_buyer",
+        "description": "Transfers only to qualified institutional buyers or accredited investors",
+        "active": true
+      },
+      {
+        "ruleType": "minimum_holding_period",
+        "description": "10-year minimum holding period aligned with fund life",
+        "active": true
+      },
+      {
+        "ruleType": "right_of_first_refusal",
+        "description": "General Partner has right of first refusal on all transfers",
+        "active": true
+      },
+      {
+        "ruleType": "prohibited_investors",
+        "description": "No transfers to competitors, prohibited investors, or sanctioned entities",
+        "active": true
+      }
+    ]
+  },
+  "investmentPortfolio": {
+    "currentPortfolioCompanies": 0,
+    "targetPortfolioSize": "25-30_companies",
+    "deploymentPeriod": "5_years",
+    "averageInvestmentSize": "$500,000,000",
+    "sectorAllocation": {
+      "technology": "30%",
+      "healthcare": "25%",
+      "consumer": "20%",
+      "industrials": "15%",
+      "financial_services": "10%"
+    },
+    "currentDeploymentStatus": "fundraising_phase"
+  }
+}

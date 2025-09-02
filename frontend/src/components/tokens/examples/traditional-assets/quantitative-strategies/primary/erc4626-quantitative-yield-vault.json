@@ -1,0 +1,325 @@
+{
+  "name": "AQR Quantitative Yield Vault",
+  "symbol": "AQRQYV",
+  "description": "ERC-4626 vault token implementing AQR's systematic multi-factor strategy with automated yield optimization, rebalancing, and risk management. Provides tokenized access to institutional-grade quantitative strategies with enhanced liquidity and DeFi integration.",
+  "decimals": 18,
+  "standard": "ERC-4626",
+  "status": "DRAFT",
+  "configMode": "max",
+  "totalSupply": "500000000000000000000000000",
+  "metadata": {
+    "version": "1.0",
+    "assetClass": "vault_token",
+    "underlyingStrategy": "AQR_Systematic_Multi_Factor",
+    "vaultType": "quantitative_yield_vault",
+    "yieldSource": "factor_premiums_and_alpha_generation",
+    "managementCompany": "AQR_Capital_Management",
+    "benchmarkIndex": "MSCI_World_Index",
+    "targetAPY": "8-12%",
+    "riskRating": "Medium",
+    "liquidityProvider": "institutional_market_makers",
+    "rebalancingFrequency": "daily",
+    "yieldCompounding": "automatic"
+  },
+  "erc4626Properties": {
+    "asset": "0x4444444444444444444444444444444444444444",
+    "name": "AQR Quantitative Yield Vault",
+    "symbol": "AQRQYV",
+    "decimals": 18,
+    "initialSupply": "500000000000000000000000000",
+    "maxSupply": "2000000000000000000000000000",
+    "vaultAsset": "AQRSMF",
+    "assetAddress": "0x3333333333333333333333333333333333333333",
+    
+    "depositLimit": "100000000000000000000000000",
+    "withdrawalLimit": "50000000000000000000000000",
+    "minimumDeposit": "1000000000000000000000000",
+    "minimumWithdrawal": "1000000000000000000000",
+    "depositFee": "0.00",
+    "withdrawalFee": "0.25",
+    "managementFee": "0.50",
+    "performanceFee": "10.00",
+    
+    "yieldOptimizationEnabled": true,
+    "automatedRebalancing": true,
+    "performanceTracking": true,
+    "apyTrackingEnabled": true,
+    "benchmarkTrackingEnabled": true,
+    "multiAssetEnabled": true,
+    "rebalancingEnabled": true,
+    "autoCompoundingEnabled": true,
+    "riskManagementEnabled": true,
+    "diversificationEnabled": true,
+    
+    "dynamicFeesEnabled": true,
+    "feeRebateEnabled": true,
+    "gasFeeOptimization": true,
+    "liquivityMiningEnabled": true,
+    "marketMakingEnabled": true,
+    "arbitrageEnabled": true,
+    "crossDexOptimization": true,
+    "impermanentLossProtection": false,
+    
+    "lendingProtocolEnabled": false,
+    "borrowingEnabled": false,
+    "leverageEnabled": false,
+    "crossChainYieldEnabled": true,
+    
+    "portfolioAnalyticsEnabled": true,
+    "realTimePnlTracking": true,
+    "taxReportingEnabled": true,
+    "automatedReporting": true,
+    "notificationSystemEnabled": true,
+    "mobileAppIntegration": true,
+    "socialTradingEnabled": false,
+    
+    "institutionalGrade": true,
+    "custodyIntegration": true,
+    "auditTrailComprehensive": true,
+    "complianceReportingEnabled": true,
+    "fundAdministrationEnabled": true,
+    "thirdPartyAuditsEnabled": true,
+    
+    "emergencyPauseEnabled": true,
+    "emergencyWithdrawalEnabled": true,
+    "guardianMultisig": "0x5555555555555555555555555555555555555555",
+    "timelockDelay": 86400,
+    
+    "slippageProtection": true,
+    "maxSlippage": "0.5",
+    "frontRunningProtection": true,
+    "antiMEVEnabled": true,
+    
+    "sharePriceCalculation": "nav_based",
+    "shareTokenStandard": "ERC4626",
+    "underlyingTokenStandard": "ERC1400",
+    "crossProtocolCompatibility": true,
+    
+    "yieldCalculationMethod": "time_weighted_return",
+    "rebalancingStrategy": "factor_momentum_based",
+    "riskManagementFramework": "value_at_risk_dynamic",
+    "benchmarkIndex": "MSCI_World_Index",
+    "performanceHistoryRetention": 1095,
+    
+    "investorClassifications": ["institutional", "qualified_purchaser", "accredited_investor"],
+    "kycRequired": true,
+    "amlEnabled": true,
+    "sanctionsScreeningEnabled": true,
+    "geographicRestrictions": true,
+    
+    "liquidityProvisionEnabled": true,
+    "flashLoanEnabled": false,
+    "collateralEnabled": false,
+    "stakingEnabled": true,
+    "governanceEnabled": true,
+    "votingEnabled": true
+  },
+  "vaultStrategies": [
+    {
+      "strategyId": "systematic_multi_factor",
+      "strategyName": "Systematic Multi-Factor Equity",
+      "allocationPercent": "70",
+      "strategyType": "equity_long_short",
+      "targetReturn": "10",
+      "maxDrawdown": "15",
+      "volatilityTarget": "12",
+      "rebalanceFrequency": "monthly",
+      "description": "Core systematic factor strategy with value, momentum, quality, and low volatility factors"
+    },
+    {
+      "strategyId": "risk_parity",
+      "strategyName": "Risk Parity Allocation",
+      "allocationPercent": "20",
+      "strategyType": "multi_asset",
+      "targetReturn": "6",
+      "maxDrawdown": "8",
+      "volatilityTarget": "8",
+      "rebalanceFrequency": "weekly",
+      "description": "Diversified risk parity allocation across asset classes for stability"
+    },
+    {
+      "strategyId": "cash_management",
+      "strategyName": "Enhanced Cash Management",
+      "allocationPercent": "10",
+      "strategyType": "money_market",
+      "targetReturn": "4",
+      "maxDrawdown": "1",
+      "volatilityTarget": "2",
+      "rebalanceFrequency": "daily",
+      "description": "High-quality short-term instruments for liquidity and capital preservation"
+    }
+  ],
+  "assetAllocations": [
+    {
+      "assetClass": "global_developed_equities",
+      "targetAllocation": "60",
+      "minAllocation": "50",
+      "maxAllocation": "70",
+      "currentAllocation": "62",
+      "benchmark": "MSCI_World_Index"
+    },
+    {
+      "assetClass": "emerging_market_equities",
+      "targetAllocation": "15",
+      "minAllocation": "10",
+      "maxAllocation": "20",
+      "currentAllocation": "14",
+      "benchmark": "MSCI_Emerging_Markets_Index"
+    },
+    {
+      "assetClass": "government_bonds",
+      "targetAllocation": "15",
+      "minAllocation": "10",
+      "maxAllocation": "25",
+      "currentAllocation": "16",
+      "benchmark": "Bloomberg_Global_Aggregate_Index"
+    },
+    {
+      "assetClass": "cash_equivalents",
+      "targetAllocation": "10",
+      "minAllocation": "5",
+      "maxAllocation": "15",
+      "currentAllocation": "8",
+      "benchmark": "3_Month_Treasury_Rate"
+    }
+  ],
+  "feeTiers": [
+    {
+      "tierName": "Standard",
+      "minimumBalance": "1000000000000000000000000",
+      "managementFee": "0.50",
+      "performanceFee": "10.00",
+      "withdrawalFee": "0.25",
+      "description": "Standard fee tier for institutional investors"
+    },
+    {
+      "tierName": "Premium",
+      "minimumBalance": "10000000000000000000000000",
+      "managementFee": "0.40",
+      "performanceFee": "8.00",
+      "withdrawalFee": "0.15",
+      "description": "Reduced fees for large institutional allocations"
+    },
+    {
+      "tierName": "Ultra",
+      "minimumBalance": "100000000000000000000000000",
+      "managementFee": "0.30",
+      "performanceFee": "6.00",
+      "withdrawalFee": "0.10",
+      "description": "Lowest fees for strategic institutional partnerships"
+    }
+  ],
+  "performanceMetrics": [
+    {
+      "metricName": "Total Return",
+      "currentValue": "11.24",
+      "benchmarkValue": "8.50",
+      "period": "YTD",
+      "unit": "percent"
+    },
+    {
+      "metricName": "Sharpe Ratio",
+      "currentValue": "1.18",
+      "benchmarkValue": "0.85",
+      "period": "1_year",
+      "unit": "ratio"
+    },
+    {
+      "metricName": "Maximum Drawdown",
+      "currentValue": "8.2",
+      "benchmarkValue": "12.5",
+      "period": "1_year",
+      "unit": "percent"
+    },
+    {
+      "metricName": "Volatility",
+      "currentValue": "13.8",
+      "benchmarkValue": "16.2",
+      "period": "1_year",
+      "unit": "percent"
+    },
+    {
+      "metricName": "Information Ratio",
+      "currentValue": "0.82",
+      "benchmarkValue": "0.00",
+      "period": "3_years",
+      "unit": "ratio"
+    }
+  ],
+  "strategyParams": [
+    {
+      "paramName": "Value Factor Weight",
+      "currentValue": "0.25",
+      "minValue": "0.15",
+      "maxValue": "0.35",
+      "description": "Allocation to value factor in multi-factor model"
+    },
+    {
+      "paramName": "Momentum Factor Weight",
+      "currentValue": "0.25",
+      "minValue": "0.15",
+      "maxValue": "0.35",
+      "description": "Allocation to momentum factor in multi-factor model"
+    },
+    {
+      "paramName": "Quality Factor Weight",
+      "currentValue": "0.25",
+      "minValue": "0.15",
+      "maxValue": "0.35",
+      "description": "Allocation to quality factor in multi-factor model"
+    },
+    {
+      "paramName": "Low Volatility Factor Weight",
+      "currentValue": "0.25",
+      "minValue": "0.15",
+      "maxValue": "0.35",
+      "description": "Allocation to low volatility factor in multi-factor model"
+    },
+    {
+      "paramName": "Target Volatility",
+      "currentValue": "14.0",
+      "minValue": "10.0",
+      "maxValue": "18.0",
+      "description": "Target portfolio volatility for risk scaling"
+    },
+    {
+      "paramName": "Maximum Position Size",
+      "currentValue": "2.0",
+      "minValue": "1.0",
+      "maxValue": "3.0",
+      "description": "Maximum weight for any single position"
+    }
+  ],
+  "riskManagement": {
+    "valueAtRisk": {
+      "daily95": "2.1%",
+      "weekly95": "4.8%",
+      "monthly95": "8.2%"
+    },
+    "stressTests": {
+      "market_crash_scenario": "-12.5%",
+      "interest_rate_shock": "-6.2%",
+      "liquidity_crisis": "-8.9%"
+    },
+    "exposureLimits": {
+      "maxSingleName": "2.0%",
+      "maxSector": "20.0%",
+      "maxCountry": "30.0%",
+      "maxCurrency": "25.0%"
+    },
+    "correlationLimits": {
+      "maxCorrelationToMarket": "0.85",
+      "maxFactorConcentration": "0.40"
+    }
+  },
+  "liquidityManagement": {
+    "dailyLiquidityTarget": "10%",
+    "weeklyLiquidityTarget": "25%",
+    "emergencyLiquidityBuffer": "5%",
+    "liquidityProviders": [
+      "Primary_Market_Makers",
+      "Institutional_Crossing_Networks",
+      "Alternative_Trading_Systems"
+    ]
+  }
+}

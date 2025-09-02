@@ -1,0 +1,89 @@
+{
+  "name": "chain-capital-platform",
+  "version": "1.0.0",
+  "description": "Chain Capital Investment Tokenization Platform - Frontend + Backend",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm:dev:frontend\" \"pnpm:dev:backend\"",
+    "dev:frontend": "cd frontend && pnpm dev",
+    "dev:backend": "cd backend && pnpm dev",
+    "build": "pnpm run build:frontend && pnpm run build:backend",
+    "build:frontend": "cd frontend && pnpm build",
+    "build:backend": "cd backend && pnpm build",
+    "test": "pnpm run test:frontend && pnpm run test:backend",
+    "test:frontend": "cd frontend && pnpm test --run",
+    "test:backend": "cd backend && pnpm test",
+    "type-check": "pnpm run type-check:frontend && pnpm run type-check:backend",
+    "type-check:frontend": "cd frontend && pnpm type-check",
+    "type-check:backend": "cd backend && pnpm type-check",
+    "lint": "pnpm run lint:frontend && pnpm run lint:backend",
+    "lint:frontend": "cd frontend && pnpm lint",
+    "lint:backend": "cd backend && pnpm lint",
+    "format": "pnpm run format:frontend && pnpm run format:backend",
+    "format:frontend": "cd frontend && pnpm format",
+    "format:backend": "cd backend && pnpm format",
+    "clean": "pnpm run clean:frontend && pnpm run clean:backend",
+    "clean:frontend": "cd frontend && rm -rf node_modules dist",
+    "clean:backend": "cd backend && rm -rf node_modules dist",
+    "db:generate": "cd backend && pnpm db:generate",
+    "db:migrate": "cd backend && pnpm db:migrate",
+    "db:studio": "cd backend && pnpm db:studio",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "install:all": "pnpm install",
+    "start:prod": "concurrently \"pnpm:start:frontend\" \"pnpm:start:backend\"",
+    "start:frontend": "cd frontend && pnpm preview",
+    "start:backend": "cd backend && pnpm start",
+    "health": "curl -s http://localhost:3002/health | jq",
+    "logs:frontend": "cd frontend && pnpm dev 2>&1 | grep -v node_modules",
+    "logs:backend": "cd backend && pnpm dev 2>&1 | grep -v node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "keywords": [
+    "investment",
+    "tokenization",
+    "blockchain",
+    "fintech",
+    "react",
+    "typescript",
+    "fastify",
+    "prisma",
+    "web3",
+    "ethereum",
+    "compliance",
+    "kyc",
+    "defi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chaincapital/production-platform.git"
+  },
+  "author": "Chain Capital Team",
+  "license": "MIT",
+  "homepage": "https://chaincapital.io",
+  "bugs": {
+    "url": "https://github.com/chaincapital/production-platform/issues"
+  },
+  "funding": {
+    "type": "company",
+    "url": "https://chaincapital.io/funding"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "dependencies": {
+    "recharts": "^2.15.2"
+  }
+}

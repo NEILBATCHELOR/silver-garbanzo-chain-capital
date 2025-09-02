@@ -1,0 +1,187 @@
+{
+  "name": "Simple Green Energy Liquidity Token",
+  "symbol": "sGREC",
+  "decimals": 18,
+  "description": "Simplified liquid ERC-20 representation of renewable energy credits with streamlined compliance and enhanced DeFi compatibility",
+  "initialSupply": "25000000",
+  "maxSupply": "50000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": false,
+  "hasVotes": false,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": false,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "wrappedToken": {
+    "enabled": true,
+    "underlyingToken": "sRECS",
+    "underlyingStandard": "ERC-1400",
+    "conversionRate": "1:1",
+    "wrappingMechanism": "simplified-bridge",
+    "unwrappingEnabled": true
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": false,
+    "balancerVaultSupport": false,
+    "sushiswapCompatible": true,
+    "liquidityIncentives": true,
+    "simplifiedPools": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": false,
+    "collateralFactor": "60%",
+    "flashLoanEnabled": false,
+    "basicYield": true
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": false,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "simplifiedCompliance": true
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "navOracle": "0x851d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9E",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "sGREC/USD",
+        "address": "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "1000000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "sGREC/USDC",
+        "fee": "0.3%",
+        "allocation": "70%"
+      },
+      {
+        "dex": "sushiswap",
+        "pair": "sGREC/WETH",
+        "fee": "0.25%",
+        "allocation": "30%"
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": ["ethereum", "polygon"],
+    "bridgeProtocols": ["layer-zero"],
+    "bridgeFees": "0.1%"
+  },
+  
+  "environmentalFeatures": {
+    "carbonFootprintTracking": false,
+    "renewableEnergyVerification": true,
+    "addionalityConfirmation": true,
+    "automaticRetirement": {
+      "enabled": false
+    },
+    "impactReporting": {
+      "enabled": true,
+      "metrics": ["mwh-represented", "co2-avoided"],
+      "frequency": "quarterly"
+    }
+  },
+  
+  "governance": {
+    "governanceEnabled": false,
+    "votingRights": false,
+    "proposalRights": false
+  },
+  
+  "stakingRewards": {
+    "enabled": true,
+    "rewardTokens": ["sGREC"],
+    "stakingPools": [
+      {
+        "name": "Basic Staking Pool",
+        "apy": "5-8%",
+        "rewardType": "token-rewards",
+        "lockupPeriod": "30d"
+      }
+    ]
+  },
+  
+  "metadata": {
+    "website": "https://greencapital.com/funds/simple-energy-credits",
+    "documentation": "https://docs.greencapital.com/tokens/sgrec",
+    "logo": "https://assets.greencapital.com/tokens/sgrec/logo.svg",
+    "tags": ["renewable-energy", "simplified", "liquidity", "defi"],
+    "category": "simplified-environmental-commodity"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits"],
+    "auditReports": [
+      "https://audits.greencapital.com/sgrec-trail-of-bits-2024.pdf"
+    ],
+    "bugBountyProgram": false,
+    "multisigRequired": false,
+    "timelock": "24h"
+  },
+  
+  "fees": {
+    "managementFee": "0.5%",
+    "performanceFee": "5%",
+    "redemptionFee": "0%",
+    "transferFee": "0%"
+  },
+  
+  "supply": {
+    "totalSupply": "25000000",
+    "circulatingSupply": "24500000",
+    "treasuryReserve": "500000",
+    "lockedSupply": "0",
+    "burnedSupply": "0"
+  },
+  
+  "environmentalMetrics": {
+    "totalMWhBacked": "25000000",
+    "totalCO2Avoided": "12500000",
+    "renewableProjectsSupported": "50",
+    "geographicFocus": "US",
+    "energyTypes": ["solar", "wind"]
+  },
+  
+  "simplificationBenefits": {
+    "lowerFees": true,
+    "fasterTransactions": true,
+    "reducedComplexity": true,
+    "enhancedLiquidity": true,
+    "easierOnboarding": true,
+    "broadAccessibility": true
+  }
+}

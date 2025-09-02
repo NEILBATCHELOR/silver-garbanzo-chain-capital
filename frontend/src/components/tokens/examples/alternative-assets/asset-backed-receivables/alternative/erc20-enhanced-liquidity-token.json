@@ -1,0 +1,250 @@
+{
+  "name": "CIRF Enhanced Liquidity Token",
+  "symbol": "eCIRF",
+  "decimals": 18,
+  "description": "Enhanced liquid ERC-20 representation combining ERC-1400 compliance with ERC-3525 fractional ownership for maximum DeFi compatibility",
+  "initialSupply": "50000000",
+  "maxSupply": "100000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": true,
+  "hasVotes": false,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": false,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "wrappedTokens": {
+    "primaryToken": {
+      "enabled": true,
+      "underlyingToken": "CIRF",
+      "underlyingStandard": "ERC-1400",
+      "conversionRate": "1:1",
+      "wrappingMechanism": "compliance-bridge"
+    },
+    "fractionalToken": {
+      "enabled": true,
+      "underlyingToken": "CIRF-SFT",
+      "underlyingStandard": "ERC-3525",
+      "conversionRate": "dynamic",
+      "wrappingMechanism": "value-aggregation-bridge"
+    },
+    "conversionLogic": {
+      "bidirectional": true,
+      "autoRebalancing": true,
+      "slippageProtection": "0.5%",
+      "arbitrageProtection": true
+    }
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": true,
+    "balancerVaultSupport": true,
+    "sushiswapCompatible": true,
+    "liquidityIncentives": true,
+    "concentrated": true,
+    "stableswapOptimized": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "80%",
+    "flashLoanEnabled": true,
+    "synthAssetsSupport": true,
+    "crossChainYield": true
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": true,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "complianceBypass": {
+      "enabled": true,
+      "mechanism": "wrapper-exemption",
+      "jurisdiction": "DeFi-compatible"
+    }
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "multiOracleSupport": true,
+    "navOracle": "0x742d35Cc7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9D",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "eCIRF/USD",
+        "address": "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0B"
+      },
+      {
+        "source": "uniswap-v3-twap",
+        "pair": "eCIRF/USDC",
+        "address": "0x3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"
+      },
+      {
+        "source": "internal-nav",
+        "pair": "eCIRF/NAV",
+        "address": "0x5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "7500000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "eCIRF/USDC",
+        "fee": "0.3%",
+        "allocation": "35%",
+        "concentrated": true,
+        "range": "±5%"
+      },
+      {
+        "dex": "curve",
+        "pair": "eCIRF/DAI/USDC/USDT",
+        "fee": "0.04%",
+        "allocation": "30%",
+        "stableswap": true
+      },
+      {
+        "dex": "balancer",
+        "pair": "eCIRF/WETH/USDC",
+        "fee": "0.25%",
+        "allocation": "20%",
+        "weighted": "60/20/20"
+      },
+      {
+        "dex": "maverick",
+        "pair": "eCIRF/FRAX",
+        "fee": "0.05%",
+        "allocation": "15%",
+        "adaptive": true
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": ["ethereum", "polygon", "arbitrum", "optimism", "base", "bsc"],
+    "bridgeProtocols": ["layer-zero", "wormhole", "axelar"],
+    "bridgeFees": "0.03%",
+    "instantBridging": true
+  },
+  
+  "yieldStrategies": {
+    "autoCompoundingEnabled": true,
+    "yieldOptimization": true,
+    "strategies": [
+      {
+        "name": "NAV-Plus Yield",
+        "description": "Enhanced yield through NAV appreciation plus DeFi yield farming",
+        "apy": "12-18%",
+        "riskLevel": "medium"
+      },
+      {
+        "name": "Stable Income",
+        "description": "Consistent income from underlying receivables",
+        "apy": "8-10%",
+        "riskLevel": "low"
+      },
+      {
+        "name": "Leveraged Returns",
+        "description": "Leveraged exposure to receivables yield through DeFi protocols",
+        "apy": "15-25%",
+        "riskLevel": "high"
+      }
+    ]
+  },
+  
+  "governance": {
+    "governanceEnabled": true,
+    "votingRights": true,
+    "proposalRights": true,
+    "quadraticVoting": true,
+    "votingPower": "token-weighted",
+    "proposalThreshold": "100000",
+    "quorum": "4%",
+    "votingDelay": "24h",
+    "votingPeriod": "7d",
+    "timelock": "48h"
+  },
+  
+  "metadata": {
+    "website": "https://chaincapital.com/funds/enhanced-receivables",
+    "documentation": "https://docs.chaincapital.com/tokens/ecirf",
+    "logo": "https://assets.chaincapital.com/tokens/ecirf/logo.svg",
+    "tags": ["asset-backed", "receivables", "institutional", "enhanced-liquidity", "defi"],
+    "category": "enhanced-structured-product"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits", "consensys-diligence", "openzeppelin"],
+    "auditReports": [
+      "https://audits.chaincapital.com/ecirf-trail-of-bits-2024.pdf",
+      "https://audits.chaincapital.com/ecirf-consensys-2024.pdf",
+      "https://audits.chaincapital.com/ecirf-openzeppelin-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "maxBounty": "500000",
+    "multisigRequired": true,
+    "timelock": "48h",
+    "upgradeability": {
+      "enabled": true,
+      "pattern": "transparent-proxy",
+      "upgradeDelay": "72h"
+    }
+  },
+  
+  "fees": {
+    "managementFee": "1.25%",
+    "performanceFee": "12.5%",
+    "redemptionFee": "0%",
+    "transferFee": "0%",
+    "wrappingFee": "0.1%",
+    "unwrappingFee": "0.1%",
+    "rebalancingFee": "0.05%"
+  },
+  
+  "supply": {
+    "totalSupply": "50000000",
+    "circulatingSupply": "47000000",
+    "treasuryReserve": "2000000",
+    "daoReserve": "1000000",
+    "lockedSupply": "0",
+    "burnedSupply": "0"
+  },
+  
+  "analytics": {
+    "trackingEnabled": true,
+    "metricsCollection": [
+      "trading-volume",
+      "liquidity-depth",
+      "yield-performance",
+      "nav-tracking",
+      "volatility",
+      "correlation",
+      "risk-metrics"
+    ],
+    "dashboardUrl": "https://analytics.chaincapital.com/ecirf"
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "name": "Apollo Direct Lending Fund III",
+  "symbol": "ADLF3",
+  "decimals": 6,
+  "standard": "ERC-1400",
+  "initialSupply": "500000000",
+  "cap": "2000000000",
+  "securityType": "debt_instrument",
+  "regulationType": "reg-d",
+  "tokenDetails": "Tokenized private debt fund focused on direct lending to mid-market companies with EBITDA between $10M-$100M. Target return of SOFR + 6-8% with 4-6 year investment horizon.",
+  "issuingEntityName": "Apollo Capital Management III, LLC",
+  "issuingJurisdiction": "Delaware, USA",
+  "issuingEntityLei": "549300APOLLOCAPITAL123",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isIssuable": true,
+  
+  "requireKyc": true,
+  "whitelistEnabled": true,
+  "investorAccreditation": true,
+  "autoCompliance": true,
+  "manualApprovals": false,
+  "complianceAutomationLevel": "semi-automated",
+  "complianceModule": "aml-sanctions-screening",
+  
+  "holdingPeriod": "24",
+  "maxInvestorCount": "499",
+  "useGeographicRestrictions": true,
+  "defaultRestrictionPolicy": "reject",
+  
+  "forcedTransfers": true,
+  "forcedRedemptionEnabled": true,
+  "granularControl": true,
+  "recoveryMechanism": true,
+  
+  "isMultiClass": true,
+  "trancheTransferability": false,
+  
+  "corporateActions": true,
+  "dividendDistribution": true,
+  
+  "documentManagement": true,
+  "documentUri": "https://apollo-fund.com/docs/fund-iii/",
+  "documentHash": "0x1234567890abcdef",
+  "legalTerms": "https://apollo-fund.com/legal/fund-iii-terms.pdf",
+  "prospectus": "https://apollo-fund.com/prospectus/fund-iii-prospectus.pdf",
+  
+  "institutionalGrade": true,
+  "custodyIntegrationEnabled": true,
+  "primeBrokerageSupport": true,
+  "settlementIntegration": "dtcc",
+  "clearingHouseIntegration": true,
+  "centralSecuritiesDepositoryIntegration": true,
+  "institutionalWalletSupport": true,
+  
+  "realTimeComplianceMonitoring": true,
+  "automatedSanctionsScreening": true,
+  "pepScreeningEnabled": true,
+  "amlMonitoringEnabled": true,
+  "suspiciousActivityReporting": true,
+  "complianceOfficerNotifications": true,
+  "regulatoryReportingAutomation": true,
+  
+  "enhancedReportingEnabled": true,
+  "realTimeShareholderRegistry": true,
+  "beneficialOwnershipTracking": true,
+  "positionReconciliationEnabled": true,
+  "regulatoryFilingAutomation": true,
+  "auditTrailComprehensive": true,
+  "performanceAnalyticsEnabled": true,
+  "esgReportingEnabled": false,
+  
+  "traditionalFinanceIntegration": true,
+  "swiftIntegrationEnabled": true,
+  "iso20022MessagingSupport": true,
+  "financialDataVendorIntegration": true,
+  "marketDataFeedsEnabled": true,
+  "crossChainBridgeSupport": false,
+  "layer2ScalingSupport": false,
+  
+  "advancedRiskManagement": true,
+  "positionLimitsEnabled": true,
+  "stressTestingEnabled": true,
+  "marginRequirementsDynamic": false,
+  "collateralManagementEnabled": true,
+  "insuranceCoverageEnabled": true,
+  "disasterRecoveryEnabled": true,
+  
+  "transferRestrictions": {
+    "minimumHoldingPeriod": 730,
+    "qualifiedInvestorOnly": true,
+    "maximumInvestorsPerJurisdiction": 99,
+    "transferApprovalRequired": true,
+    "lockupPeriods": [
+      {
+        "investorType": "institutional",
+        "lockupDays": 365
+      },
+      {
+        "investorType": "qualified",
+        "lockupDays": 730
+      }
+    ]
+  },
+  
+  "kycSettings": {
+    "kycProviders": ["Jumio", "Onfido"],
+    "verificationLevels": ["basic", "enhanced"],
+    "documentRequirements": ["passport", "utility_bill", "bank_statement"],
+    "biometricVerification": true,
+    "continuousMonitoring": true
+  },
+  
+  "complianceSettings": {
+    "sanctionsScreening": {
+      "enabled": true,
+      "databases": ["OFAC", "EU", "UN", "HMT"],
+      "realTimeChecking": true
+    },
+    "amlCompliance": {
+      "enabled": true,
+      "transactionMonitoring": true,
+      "suspiciousActivityThresholds": {
+        "singleTransaction": "100000",
+        "dailyAggregate": "500000"
+      }
+    },
+    "pepScreening": {
+      "enabled": true,
+      "extendedFamily": true,
+      "associateScreening": true
+    }
+  },
+  
+  "geographicRestrictions": [
+    {
+      "country": "US",
+      "allowed": true,
+      "conditions": ["accredited_investor", "kyc_verified"]
+    },
+    {
+      "country": "CN",
+      "allowed": false,
+      "reason": "regulatory_restrictions"
+    },
+    {
+      "country": "IR",
+      "allowed": false,
+      "reason": "sanctions"
+    }
+  ],
+  
+  "investorLimits": {
+    "maximumInvestors": 499,
+    "minimumInvestment": "250000",
+    "maximumInvestment": "50000000",
+    "accreditationRequired": true,
+    "institutionalMinimum": "5000000"
+  },
+  
+  "transactionMonitoringRules": {
+    "largeTransactionThreshold": "1000000",
+    "velocityChecks": true,
+    "patternAnalysis": true,
+    "crossBorderReporting": true,
+    "automatedReporting": true
+  },
+  
+  "partitions": [
+    {
+      "id": "senior-tranche",
+      "name": "Senior Secured Debt Tranche",
+      "description": "Senior secured loans with first lien position",
+      "amount": "300000000",
+      "percentage": "60",
+      "riskRating": "AAA",
+      "targetReturn": "SOFR+550",
+      "transferable": true,
+      "votingRights": false
+    },
+    {
+      "id": "subordinate-tranche",
+      "name": "Subordinated Debt Tranche",
+      "description": "Subordinated and mezzanine debt positions",
+      "amount": "150000000",
+      "percentage": "30",
+      "riskRating": "BBB",
+      "targetReturn": "SOFR+850",
+      "transferable": true,
+      "votingRights": false
+    },
+    {
+      "id": "equity-tranche",
+      "name": "Equity Participation Tranche",
+      "description": "Equity kickers and warrants",
+      "amount": "50000000",
+      "percentage": "10",
+      "riskRating": "BB",
+      "targetReturn": "15-20%",
+      "transferable": false,
+      "votingRights": true
+    }
+  ],
+  
+  "controllers": [
+    {
+      "address": "0x1234567890123456789012345678901234567890",
+      "name": "Apollo Capital Management",
+      "role": "fund_manager",
+      "permissions": ["mint", "burn", "transfer_control", "compliance_override"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "compliance@apollo-capital.com",
+        "phone": "+1-212-555-0123"
+      }
+    },
+    {
+      "address": "0x2345678901234567890123456789012345678901",
+      "name": "BNY Mellon Trust",
+      "role": "trustee",
+      "permissions": ["custody", "settlement", "reporting"],
+      "isActive": true,
+      "appointedDate": "2024-01-01",
+      "contactInfo": {
+        "email": "trust@bnymellon.com",
+        "phone": "+1-212-555-0456"
+      }
+    }
+  ],
+  
+  "documents": [
+    {
+      "name": "Private Placement Memorandum",
+      "documentUri": "https://apollo-fund.com/docs/ppm-fund-iii.pdf",
+      "documentType": "prospectus",
+      "documentHash": "0xabcdef1234567890",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Subscription Agreement",
+      "documentUri": "https://apollo-fund.com/docs/subscription-agreement.pdf",
+      "documentType": "legal_agreement",
+      "documentHash": "0xbcdef12345678901",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    },
+    {
+      "name": "Fund Operating Agreement",
+      "documentUri": "https://apollo-fund.com/docs/operating-agreement.pdf",
+      "documentType": "governance",
+      "documentHash": "0xcdef123456789012",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "version": "1.0"
+    }
+  ],
+  
+  "corporateActions": [
+    {
+      "actionType": "distribution",
+      "announcementDate": "2024-06-01",
+      "recordDate": "2024-06-15",
+      "effectiveDate": "2024-06-30",
+      "paymentDate": "2024-07-15",
+      "actionDetails": {
+        "distributionType": "interest_payment",
+        "amountPerToken": "0.125",
+        "currency": "USD",
+        "taxWithholding": true
+      },
+      "status": "announced"
+    }
+  ],
+  
+  "custodyProviders": [
+    {
+      "providerName": "BNY Mellon",
+      "providerType": "institutional_custodian",
+      "providerLei": "HPFHU0OQ28E4N0NFVK49",
+      "custodyAgreementHash": "0xdef1234567890123",
+      "isActive": true,
+      "certificationLevel": "tier_1",
+      "jurisdiction": "United States",
+      "regulatoryApprovals": ["SEC", "OCC", "FINRA"],
+      "integrationStatus": "live"
+    }
+  ],
+  
+  "regulatoryFilings": [
+    {
+      "filingType": "Form D",
+      "filingDate": "2024-01-30",
+      "filingJurisdiction": "SEC",
+      "filingReference": "021-405123",
+      "regulatoryBody": "Securities and Exchange Commission",
+      "complianceStatus": "filed",
+      "autoGenerated": false
+    }
+  ]
+}

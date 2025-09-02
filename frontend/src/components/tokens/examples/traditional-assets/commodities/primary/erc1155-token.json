@@ -1,0 +1,286 @@
+{
+  "name": "Tokenized Gold Vault Holdings",
+  "symbol": "TGOLD",
+  "decimals": 18,
+  "description": "Multi-type tokenized gold holdings representing different forms of physical gold stored in secure vaults, including bars, coins, and allocated storage.",
+  "standard": "ERC-1155",
+  "base_uri": "https://api.goldvault.com/metadata/",
+  "metadata_storage": "ipfs",
+  "max_supply": "",
+  "has_royalty": false,
+  "royalty_percentage": "",
+  "royalty_receiver": "",
+  "is_burnable": true,
+  "is_pausable": true,
+  "asset_type": "commodity",
+  "minting_method": "controlled",
+  "auto_increment_ids": true,
+  "enumerable": true,
+  "uri_storage": "centralized",
+  "access_control": "roles",
+  "updatable_uris": true,
+  "token_types": [
+    {
+      "id": 1,
+      "name": "London Good Delivery Gold Bars",
+      "symbol": "LGDB",
+      "description": "400oz London Good Delivery gold bars stored in LBMA-approved vaults",
+      "total_supply": "25000",
+      "decimals": 6,
+      "unit_weight": "400",
+      "weight_unit": "troy_ounces",
+      "purity": "99.5",
+      "vault_location": "London, UK",
+      "custodian": "HSBC Bank plc",
+      "assayer": "Johnson Matthey",
+      "lbma_approved": true,
+      "allocated_storage": true,
+      "insurance_value": "32000000",
+      "minimum_transfer": "0.1"
+    },
+    {
+      "id": 2,
+      "name": "American Eagle Gold Coins",
+      "symbol": "AEGC",
+      "description": "1oz American Eagle gold coins stored in secure vault facilities",
+      "total_supply": "100000",
+      "decimals": 6,
+      "unit_weight": "1",
+      "weight_unit": "troy_ounces",
+      "purity": "91.67",
+      "vault_location": "Delaware, USA",
+      "custodian": "Delaware Depository Service Company",
+      "mint": "US Mint",
+      "coin_year": "2024",
+      "allocated_storage": true,
+      "insurance_value": "210000000",
+      "minimum_transfer": "1"
+    },
+    {
+      "id": 3,
+      "name": "Swiss Gold Bars",
+      "symbol": "SGB",
+      "description": "1kg Swiss gold bars from LBMA-certified refineries",
+      "total_supply": "50000",
+      "decimals": 6,
+      "unit_weight": "32.15",
+      "weight_unit": "troy_ounces",
+      "purity": "99.99",
+      "vault_location": "Zurich, Switzerland",
+      "custodian": "Malca-Amit",
+      "refinery": "Argor-Heraeus",
+      "lbma_approved": true,
+      "allocated_storage": true,
+      "insurance_value": "80000000",
+      "minimum_transfer": "0.01"
+    },
+    {
+      "id": 4,
+      "name": "Gold Pool Allocation",
+      "symbol": "GPA",
+      "description": "Fractional ownership in unallocated gold pool with daily pricing",
+      "total_supply": "1000000",
+      "decimals": 18,
+      "unit_weight": "1",
+      "weight_unit": "troy_ounces",
+      "purity": "99.5",
+      "vault_location": "Multi-jurisdiction",
+      "custodian": "Multiple LBMA Members",
+      "pool_type": "unallocated",
+      "allocated_storage": false,
+      "insurance_value": "2000000000",
+      "minimum_transfer": "0.001"
+    }
+  ],
+  "type_configs": [
+    {
+      "id": 1,
+      "fungible": true,
+      "transferable": true,
+      "tradable": true,
+      "redeemable": true,
+      "burnable": true,
+      "vault_audited": true,
+      "audit_frequency": "monthly",
+      "storage_fee_annual": "0.5",
+      "redemption_fee": "1.0",
+      "minimum_redemption": "400"
+    },
+    {
+      "id": 2,
+      "fungible": true,
+      "transferable": true,
+      "tradable": true,
+      "redeemable": true,
+      "burnable": true,
+      "vault_audited": true,
+      "audit_frequency": "monthly",
+      "storage_fee_annual": "0.75",
+      "redemption_fee": "2.0",
+      "minimum_redemption": "10"
+    },
+    {
+      "id": 3,
+      "fungible": true,
+      "transferable": true,
+      "tradable": true,
+      "redeemable": true,
+      "burnable": true,
+      "vault_audited": true,
+      "audit_frequency": "monthly",
+      "storage_fee_annual": "0.6",
+      "redemption_fee": "1.5",
+      "minimum_redemption": "1"
+    },
+    {
+      "id": 4,
+      "fungible": true,
+      "transferable": true,
+      "tradable": true,
+      "redeemable": false,
+      "burnable": true,
+      "vault_audited": true,
+      "audit_frequency": "weekly",
+      "storage_fee_annual": "0.25",
+      "redemption_fee": "0",
+      "minimum_redemption": "0"
+    }
+  ],
+  "uri_mappings": [
+    {
+      "id": 1,
+      "uri": "https://api.goldvault.com/metadata/lgdb/{id}.json",
+      "properties": {
+        "image": "https://images.goldvault.com/bars/lgdb.png",
+        "animation_url": "",
+        "external_url": "https://goldvault.com/gold-bars/lgdb",
+        "background_color": "FFD700"
+      }
+    },
+    {
+      "id": 2,
+      "uri": "https://api.goldvault.com/metadata/aegc/{id}.json",
+      "properties": {
+        "image": "https://images.goldvault.com/coins/american-eagle.png",
+        "animation_url": "",
+        "external_url": "https://goldvault.com/gold-coins/american-eagle",
+        "background_color": "FFA500"
+      }
+    },
+    {
+      "id": 3,
+      "uri": "https://api.goldvault.com/metadata/sgb/{id}.json",
+      "properties": {
+        "image": "https://images.goldvault.com/bars/swiss-1kg.png",
+        "animation_url": "",
+        "external_url": "https://goldvault.com/gold-bars/swiss",
+        "background_color": "DAA520"
+      }
+    },
+    {
+      "id": 4,
+      "uri": "https://api.goldvault.com/metadata/gpa/{id}.json",
+      "properties": {
+        "image": "https://images.goldvault.com/pool/gold-pool.png",
+        "animation_url": "",
+        "external_url": "https://goldvault.com/gold-pool",
+        "background_color": "B8860B"
+      }
+    }
+  ],
+  "pricing": [
+    {
+      "id": 1,
+      "price_feed": "XAU/USD",
+      "oracle_address": "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6",
+      "price_multiplier": "400",
+      "fee_structure": "flat_rate",
+      "storage_fee": "0.5",
+      "management_fee": "0.25"
+    },
+    {
+      "id": 2,
+      "price_feed": "XAU/USD",
+      "oracle_address": "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6",
+      "price_multiplier": "1",
+      "fee_structure": "percentage",
+      "storage_fee": "0.75",
+      "management_fee": "0.5"
+    },
+    {
+      "id": 3,
+      "price_feed": "XAU/USD",
+      "oracle_address": "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6",
+      "price_multiplier": "32.15",
+      "fee_structure": "tiered",
+      "storage_fee": "0.6",
+      "management_fee": "0.3"
+    },
+    {
+      "id": 4,
+      "price_feed": "XAU/USD",
+      "oracle_address": "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6",
+      "price_multiplier": "1",
+      "fee_structure": "dynamic",
+      "storage_fee": "0.25",
+      "management_fee": "0.15"
+    }
+  ],
+  "gaming": {
+    "enabled": false
+  },
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "allowed",
+  "geographic_restrictions": ["AF", "BY", "CF", "CU", "IR", "IQ", "KP", "LB", "LY", "ML", "MM", "NI", "SO", "SD", "SY", "VE", "YE", "ZW"],
+  "whitelist_enabled": false,
+  "whitelist_addresses": [],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": false,
+    "precious_metals_dealer_license": true,
+    "anti_money_laundering": true,
+    "suspicious_activity_reporting": true,
+    "large_transaction_reporting": true,
+    "record_keeping_requirements": true
+  },
+  "physical_backing": {
+    "backing_ratio": "1:1",
+    "audit_frequency": "monthly",
+    "audit_firm": "BDO LLP",
+    "insurance_provider": "Lloyd's of London",
+    "insurance_coverage": "2500000000",
+    "vault_security": "Class III",
+    "segregated_storage": true,
+    "allocated_vs_unallocated": "mixed"
+  },
+  "redemption_process": {
+    "physical_delivery": true,
+    "cash_settlement": true,
+    "minimum_physical_delivery": {
+      "type_1": "400",
+      "type_2": "10", 
+      "type_3": "1",
+      "type_4": "0"
+    },
+    "delivery_locations": ["London", "Zurich", "New York", "Hong Kong"],
+    "delivery_time": "5-10 business days",
+    "delivery_fees": {
+      "domestic": "50",
+      "international": "150"
+    }
+  },
+  "metadata": {
+    "asset_class": "precious_metals",
+    "underlying_commodity": "gold",
+    "total_gold_ounces": "3212500",
+    "vault_network": "global",
+    "regulatory_compliance": "LBMA_standards",
+    "chain_of_custody": "verified",
+    "environmental_impact": "responsible_sourcing",
+    "lbma_membership": true,
+    "conflict_free": true,
+    "sustainability_certified": true
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "name": "Multi-Asset Autocallable Note Series 2025-B",
+  "symbol": "MAN25B",
+  "decimals": 18,
+  "description": "A 3-year autocallable structured note with multiple underlying assets and tranches. Features quarterly observation dates with potential early redemption and coupon payments.",
+  "standard": "ERC-1400",
+  "total_supply": "5000000",
+  "initial_supply": "5000000",
+  "cap": "5000000",
+  "is_mintable": false,
+  "is_burnable": false,
+  "is_pausable": true,
+  "token_type": "security",
+  "security_type": "structured_product",
+  "regulation_type": "reg-s",
+  "issuing_entity_name": "UBS AG",
+  "issuing_jurisdiction": "Zurich, Switzerland",
+  "issuing_entity_lei": "BFM8T61CT2L1QCEMIK50",
+  "maturity_date": "2028-09-15T00:00:00Z",
+  "issue_date": "2025-09-15T00:00:00Z",
+  "face_value": "1000",
+  "minimum_denomination": "1000",
+  "currency": "USD",
+  "underlying_assets": [
+    {
+      "name": "S&P 500 Index",
+      "ticker": "SPX",
+      "weight": "40",
+      "asset_type": "equity_index"
+    },
+    {
+      "name": "NASDAQ 100 Index",
+      "ticker": "NDX", 
+      "weight": "30",
+      "asset_type": "equity_index"
+    },
+    {
+      "name": "Russell 2000 Index",
+      "ticker": "RTY",
+      "weight": "30",
+      "asset_type": "equity_index"
+    }
+  ],
+  "autocall_feature": true,
+  "autocall_trigger": "105",
+  "autocall_dates": [
+    "2026-03-15T00:00:00Z",
+    "2026-06-15T00:00:00Z", 
+    "2026-09-15T00:00:00Z",
+    "2026-12-15T00:00:00Z",
+    "2027-03-15T00:00:00Z",
+    "2027-06-15T00:00:00Z",
+    "2027-09-15T00:00:00Z",
+    "2027-12-15T00:00:00Z",
+    "2028-03-15T00:00:00Z",
+    "2028-06-15T00:00:00Z"
+  ],
+  "coupon_rate": "8.5",
+  "coupon_frequency": "quarterly",
+  "barrier_level": "65",
+  "barrier_type": "american",
+  "protection_level": "65",
+  "participation_rate": "100",
+  "cap_rate": "",
+  "observation_frequency": "daily",
+  "credit_rating": "AA-",
+  "rating_agency": "Moody's",
+  "prospectus_url": "https://www.ubs.com/structured-products/man25b-prospectus.pdf",
+  "use_geographic_restrictions": true,
+  "default_restriction_policy": "blocked",
+  "geographic_restrictions": ["US"],
+  "whitelist_enabled": true,
+  "whitelist_addresses": [],
+  "is_transferable": true,
+  "is_controllable": true,
+  "force_transfer_enabled": true,
+  "controllers": [],
+  "operators": [],
+  "default_partitions": ["tranche_a", "tranche_b", "tranche_c"],
+  "partitions": [
+    {
+      "name": "tranche_a",
+      "flag": "0x01",
+      "is_default": true,
+      "transferable": true,
+      "controllable": true,
+      "description": "Senior Tranche - First Loss Protection"
+    },
+    {
+      "name": "tranche_b", 
+      "flag": "0x02",
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Mezzanine Tranche - Enhanced Yield"
+    },
+    {
+      "name": "tranche_c",
+      "flag": "0x03", 
+      "is_default": false,
+      "transferable": true,
+      "controllable": true,
+      "description": "Equity Tranche - Maximum Upside"
+    }
+  ],
+  "documents": [
+    {
+      "name": "Prospectus",
+      "uri": "https://www.ubs.com/structured-products/man25b-prospectus.pdf",
+      "document_hash": "0x2345678901bcdefg"
+    },
+    {
+      "name": "Risk Disclosure Statement",
+      "uri": "https://www.ubs.com/structured-products/man25b-risks.pdf", 
+      "document_hash": "0xbcdefg2345678901"
+    }
+  ],
+  "compliance_config": {
+    "enabled": true,
+    "kyc_required": true,
+    "aml_required": true,
+    "accredited_investors_only": true,
+    "maximum_investors": 199,
+    "minimum_investment": "5000",
+    "maximum_investment": "10000000",
+    "lock_up_period": "90",
+    "transfer_restrictions": {
+      "cooling_off_period": "7",
+      "requires_approval": true,
+      "whitelist_only": true
+    }
+  },
+  "risk_factors": [
+    "Market risk related to underlying equity indices",
+    "Credit risk of UBS AG",
+    "Liquidity risk - limited secondary market",
+    "Barrier risk - potential loss of capital",
+    "Early redemption risk via autocall feature",
+    "Correlation risk between underlying assets",
+    "Volatility risk affecting barrier monitoring"
+  ],
+  "fees": {
+    "management_fee": "1.25",
+    "performance_fee": "0",
+    "early_redemption_fee": "3.0",
+    "transfer_fee": "50"
+  },
+  "metadata": {
+    "product_category": "autocallable_note",
+    "complexity_level": "high", 
+    "target_investors": "institutional_and_sophisticated",
+    "liquidity_provider": "UBS AG",
+    "market_maker": "UBS AG",
+    "isin": "CH1234567890",
+    "cusip": "",
+    "sedol": "BKT8H92",
+    "valor": "129845678",
+    "wkn": "UB25AC",
+    "distributor": "UBS AG",
+    "calculation_agent": "UBS AG",
+    "paying_agent": "UBS AG",
+    "listing_exchange": "SIX Swiss Exchange",
+    "trading_venues": ["SIX Swiss Exchange", "OTC"],
+    "settlement_type": "cash",
+    "settlement_currency": "USD"
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "name": "Carbon Credits Liquidity Token",
+  "symbol": "lCARB",
+  "decimals": 18,
+  "description": "Liquid ERC-20 representation of diversified carbon credits portfolio enabling efficient trading and DeFi integration while maintaining environmental integrity",
+  "initialSupply": "44000000",
+  "maxSupply": "100000000",
+  
+  "isMintable": true,
+  "isBurnable": true,
+  "isPausable": true,
+  "isUpgradeable": true,
+  
+  "hasPermit": true,
+  "hasSnapshot": true,
+  "hasVotes": true,
+  "hasFlashMint": false,
+  
+  "burnFrom": true,
+  "permitAllowance": true,
+  "recoverable": true,
+  "isBlacklisted": false,
+  
+  "taxOnTransfer": false,
+  "deflationary": true,
+  "hasReflection": false,
+  "hasLiquidity": true,
+  
+  "wrappedToken": {
+    "enabled": true,
+    "underlyingToken": "CARB-MULTI",
+    "underlyingStandard": "ERC-1155",
+    "conversionRate": "weighted-basket",
+    "wrappingMechanism": "quality-weighted-bridge",
+    "unwrappingEnabled": true,
+    "basketWeights": {
+      "vcs": "35%",
+      "goldStandard": "25%",
+      "acr": "20%",
+      "car": "15%",
+      "dac": "3%",
+      "erw": "2%"
+    }
+  },
+  
+  "dexIntegration": {
+    "uniswapV3Compatible": true,
+    "curvePoolEnabled": true,
+    "balancerVaultSupport": true,
+    "sushiswapCompatible": true,
+    "liquidityIncentives": true,
+    "carbonSpecificPools": true,
+    "klima_integration": true
+  },
+  
+  "defiFeatures": {
+    "stakingEnabled": true,
+    "yieldFarmingCompatible": true,
+    "lendingProtocolSupport": true,
+    "collateralFactor": "65%",
+    "flashLoanEnabled": false,
+    "carbonYield": true,
+    "offsetRewards": true,
+    "klimaDAOCompatible": true
+  },
+  
+  "compliance": {
+    "inheritFromUnderlying": false,
+    "kycRequired": false,
+    "geographicRestrictions": [],
+    "transferRestrictions": {
+      "enabled": false,
+      "whitelist": false,
+      "cooldown": "0"
+    },
+    "environmentalCompliance": {
+      "enabled": true,
+      "retirementTracking": true,
+      "doubleCountingPrevention": true,
+      "registryIntegration": true,
+      "addionalityVerification": true
+    }
+  },
+  
+  "oracle": {
+    "priceOracleEnabled": true,
+    "carbonPriceOracle": true,
+    "qualityOracle": true,
+    "navOracle": "0x961f24C7c6C72B8E3D7D1a8b5BfE5c5aB3C8f9F",
+    "priceFeeds": [
+      {
+        "source": "chainlink",
+        "pair": "lCARB/USD",
+        "address": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d"
+      },
+      {
+        "source": "carbon-price-oracle",
+        "pair": "lCARB/CARBON-INDEX",
+        "address": "0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f"
+      },
+      {
+        "source": "klima-oracle",
+        "pair": "lCARB/BCT",
+        "address": "0x7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b"
+      }
+    ]
+  },
+  
+  "liquidity": {
+    "initialLiquidityUSD": "5000000",
+    "liquidityPools": [
+      {
+        "dex": "uniswap-v3",
+        "pair": "lCARB/USDC",
+        "fee": "0.3%",
+        "allocation": "30%",
+        "carbonNeutral": true
+      },
+      {
+        "dex": "curve",
+        "pair": "lCARB/BCT/NCT",
+        "fee": "0.04%",
+        "allocation": "25%",
+        "carbonPool": true
+      },
+      {
+        "dex": "balancer",
+        "pair": "lCARB/WETH/USDC",
+        "fee": "0.25%",
+        "allocation": "20%",
+        "esgWeighted": true
+      },
+      {
+        "dex": "sushiswap",
+        "pair": "lCARB/KLIMA",
+        "fee": "0.25%",
+        "allocation": "15%",
+        "climateIncentives": true
+      },
+      {
+        "dex": "1inch",
+        "pair": "lCARB/DAI",
+        "fee": "0.1%",
+        "allocation": "10%",
+        "aggregatorIntegration": true
+      }
+    ]
+  },
+  
+  "bridging": {
+    "multiChainSupport": true,
+    "supportedChains": ["ethereum", "polygon", "arbitrum", "celo", "energy-web-chain", "klaytn"],
+    "bridgeProtocols": ["layer-zero", "energy-web-bridge", "celo-bridge"],
+    "bridgeFees": "0.03%",
+    "carbonNeutralBridging": true,
+    "offsetOnBridge": true
+  },
+  
+  "carbonFeatures": {
+    "automaticRetirement": {
+      "enabled": true,
+      "retirementPercentage": "1%",
+      "retirementTrigger": "transfer",
+      "beneficiary": "protocol-carbon-sink"
+    },
+    "qualityScoring": {
+      "enabled": true,
+      "scoringMechanism": "composite-index",
+      "factors": ["additionality", "permanence", "leakage", "verification"]
+    },
+    "offsetting": {
+      "enabled": true,
+      "offsetOnMint": true,
+      "offsetOnBurn": false,
+      "offsetOnTransfer": true,
+      "offsetPercentage": "0.5%"
+    },
+    "retirementServices": {
+      "enabled": true,
+      "customBeneficiary": true,
+      "retirementCertificates": true,
+      "bulkRetirement": true
+    }
+  },
+  
+  "governance": {
+    "governanceEnabled": true,
+    "votingRights": true,
+    "proposalRights": true,
+    "carbonGovernance": true,
+    "votingPower": "carbon-weighted",
+    "proposalThreshold": "50000",
+    "quorum": "5%",
+    "votingDelay": "48h",
+    "votingPeriod": "7d",
+    "timelock": "48h",
+    "climateFocus": true
+  },
+  
+  "stakingRewards": {
+    "enabled": true,
+    "rewardTokens": ["lCARB", "verified-carbon-credits"],
+    "stakingPools": [
+      {
+        "name": "Carbon Impact Pool",
+        "apy": "12-18%",
+        "rewardType": "additional-credits",
+        "lockupPeriod": "180d",
+        "impactMultiplier": "2x"
+      },
+      {
+        "name": "Climate Governance Pool",
+        "apy": "8-12%",
+        "rewardType": "governance-power",
+        "lockupPeriod": "90d",
+        "votingMultiplier": "1.5x"
+      },
+      {
+        "name": "Liquidity Mining Pool",
+        "apy": "15-25%",
+        "rewardType": "yield-farming",
+        "lockupPeriod": "30d",
+        "liquidityIncentives": true
+      }
+    ]
+  },
+  
+  "deflationaryMechanics": {
+    "enabled": true,
+    "burnOnRetirement": true,
+    "burnOnOffset": true,
+    "burnRate": "0.5%",
+    "burnTrigger": "quarterly",
+    "maxBurnPerEpoch": "1000000",
+    "burnBeneficiary": "carbon-sink"
+  },
+  
+  "metadata": {
+    "website": "https://carboncapital.com/tokens/carbon-credits",
+    "documentation": "https://docs.carboncapital.com/tokens/lcarb",
+    "logo": "https://assets.carboncapital.com/tokens/lcarb/logo.svg",
+    "tags": ["carbon-credits", "climate", "environmental", "defi", "offset"],
+    "category": "carbon-commodity",
+    "sdgAlignment": ["SDG-13", "SDG-15", "SDG-7", "SDG-17"],
+    "climateCommitment": "net-negative"
+  },
+  
+  "security": {
+    "auditedBy": ["trail-of-bits", "consensys-diligence", "carbon-audit-specialists"],
+    "auditReports": [
+      "https://audits.carboncapital.com/lcarb-trail-of-bits-2024.pdf",
+      "https://audits.carboncapital.com/lcarb-consensys-2024.pdf",
+      "https://audits.carboncapital.com/lcarb-carbon-specialists-2024.pdf"
+    ],
+    "bugBountyProgram": true,
+    "maxBounty": "1000000",
+    "multisigRequired": true,
+    "timelock": "48h",
+    "carbonVerification": {
+      "enabled": true,
+      "verificationOracles": 3,
+      "verificationFrequency": "real-time"
+    }
+  },
+  
+  "fees": {
+    "managementFee": "0.5%",
+    "performanceFee": "8%",
+    "redemptionFee": "0%",
+    "transferFee": "0%",
+    "retirementFee": "0.25%",
+    "verificationFee": "0.1%",
+    "offsetFee": "included"
+  },
+  
+  "supply": {
+    "totalSupply": "44000000",
+    "circulatingSupply": "42000000",
+    "treasuryReserve": "1500000",
+    "climateReserve": "500000",
+    "lockedSupply": "0",
+    "burnedSupply": "2200000",
+    "retiredCredits": "8800000"
+  },
+  
+  "carbonMetrics": {
+    "totalCO2Represented": "44000000",
+    "retiredCO2": "8800000",
+    "netCarbonImpact": "-44000000",
+    "qualityScore": "96.5",
+    "projectsSupported": "350",
+    "geographicDiversification": {
+      "africa": "25%",
+      "asia": "30%",
+      "latinAmerica": "25%",
+      "northAmerica": "15%",
+      "europe": "5%"
+    },
+    "methodologyDiversification": {
+      "forestry": "45%",
+      "renewable-energy": "25%",
+      "waste-management": "15%",
+      "direct-air-capture": "10%",
+      "other": "5%"
+    },
+    "vintageDistribution": {
+      "2024": "40%",
+      "2023": "30%",
+      "2022": "20%",
+      "2021": "7%",
+      "2020": "3%"
+    }
+  },
+  
+  "partnerships": {
+    "klimaDAO": {
+      "integration": true,
+      "liquiditySharing": true,
+      "governanceAlignment": true
+    },
+    "toucanProtocol": {
+      "bridgeIntegration": true,
+      "registryAccess": true
+    },
+    "mossCarbonCredit": {
+      "crossCompatibility": true,
+      "liquiditySharing": false
+    },
+    "regen": {
+      "ecosystemIntegration": true,
+      "dataSharing": true
+    }
+  },
+  
+  "verification": {
+    "thirdPartyVerification": true,
+    "verificationBodies": ["Verra", "Gold Standard", "ACR", "CAR", "Pachama", "Dovu"],
+    "verificationStandards": ["VCS", "GS", "ACR", "CAR"],
+    "auditFrequency": "continuous",
+    "transparencyScore": "AAA+",
+    "realTimeMonitoring": true
+  },
+  
+  "impactReporting": {
+    "enabled": true,
+    "reportingFrequency": "monthly",
+    "metrics": [
+      "co2-avoided",
+      "co2-removed", 
+      "projects-supported",
+      "communities-impacted",
+      "sdg-contributions",
+      "biodiversity-impact"
+    ],
+    "publicDashboard": "https://impact.carboncapital.com/lcarb",
+    "certifiedReporting": true
+  }
+}
