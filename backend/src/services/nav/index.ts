@@ -17,6 +17,9 @@ export { NavService } from './NavService'
 // Export utility classes
 export * from './ProductTypeUtilities'
 
+// Export calculator infrastructure (Phase 5)
+export * from './calculators'
+
 // Export types
 export * from './types'
 
