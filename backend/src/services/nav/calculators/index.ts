@@ -43,9 +43,27 @@ export type { EquityCalculationInput, EquityPriceData } from './EquityCalculator
 export { BondCalculator } from './BondCalculator'
 export type { BondCalculationInput, BondPriceData, YieldCurvePoint } from './BondCalculator'
 
+// Phase 7 Implementation - Additional priority calculators
+export { MmfCalculator } from './MmfCalculator'
+export type { 
+  MmfCalculationInput, 
+  MmfHolding, 
+  MmfPriceData, 
+  MmfRiskMetrics, 
+  StressTestScenario 
+} from './MmfCalculator'
+
+export { StablecoinFiatCalculator } from './StablecoinFiatCalculator'
+export type { 
+  StablecoinFiatCalculationInput, 
+  FiatReserve, 
+  StablecoinPriceData, 
+  ReserveAttestation, 
+  DepegRiskMetrics, 
+  StablecoinComplianceMetrics 
+} from './StablecoinFiatCalculator'
+
 // TODO: Export remaining priority calculators as they are implemented
-// export { MmfCalculator } from './MmfCalculator'
-// export { StablecoinFiatCalculator } from './StablecoinFiatCalculator'
 // export { StablecoinCryptoCalculator } from './StablecoinCryptoCalculator'
 // export { CommoditiesCalculator } from './CommoditiesCalculator'
 // export { AssetBackedCalculator } from './AssetBackedCalculator'
@@ -83,7 +101,14 @@ export const CALCULATOR_FOUNDATION_IMPLEMENTED = true
 
 /**
  * Indicates specific asset calculators are partially implemented
- * Phase 6 in progress: 2/7 priority calculators completed
+ * Phase 7 in progress: 4/7 priority calculators completed
+ * - EquityCalculator ✅
+ * - BondCalculator ✅  
+ * - MmfCalculator ✅
+ * - StablecoinFiatCalculator ✅
+ * - StablecoinCryptoCalculator ⏳
+ * - CommoditiesCalculator ⏳
+ * - AssetBackedCalculator ⏳
  */
 export const ASSET_CALCULATORS_IMPLEMENTED = false // Will be true when all 7 priority calculators are done
 
