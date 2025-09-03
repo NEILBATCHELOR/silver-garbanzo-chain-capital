@@ -60,7 +60,7 @@ export class CapTableService extends BaseService {
     userId?: string
   ): Promise<ServiceResult<CapTableWithStats>> {
     try {
-      this.logger.info('Creating cap table', { data, userId })
+      this.logInfo('Creating cap table', { data, userId })
 
       // Check if project exists
       const project = await this.db.projects.findUnique({
@@ -92,11 +92,11 @@ export class CapTableService extends BaseService {
       // Enhance with statistics
       const enhancedCapTable = await this.enhanceCapTableWithStats(capTable)
 
-      this.logger.info('Cap table created successfully', { capTableId: capTable.id })
+      this.logInfo('Cap table created successfully', { capTableId: capTable.id })
       return this.success(enhancedCapTable, 'Cap table created successfully')
 
     } catch (error) {
-      this.logger.error('Error creating cap table', { error, data })
+      this.logError('Error creating cap table', { error, data })
       return this.error('Failed to create cap table', 'CREATE_FAILED')
     }
   }
@@ -109,7 +109,7 @@ export class CapTableService extends BaseService {
     options: { includeStats?: boolean; includeRelated?: boolean } = {}
   ): Promise<ServiceResult<CapTableWithStats>> {
     try {
-      this.logger.info('Getting cap table', { id, options })
+      this.logInfo('Getting cap table', { id, options })
 
       const capTable = await this.db.cap_tables.findUnique({
         where: { id }
@@ -127,7 +127,7 @@ export class CapTableService extends BaseService {
       return this.success(enhancedCapTable)
 
     } catch (error) {
-      this.logger.error('Error getting cap table', { error, id })
+      this.logError('Error getting cap table', { error, id })
       return this.error('Failed to get cap table', 'GET_FAILED')
     }
   }
@@ -140,7 +140,7 @@ export class CapTableService extends BaseService {
     options: { includeStats?: boolean; includeRelated?: boolean } = {}
   ): Promise<ServiceResult<CapTableWithStats>> {
     try {
-      this.logger.info('Getting cap table by project', { projectId, options })
+      this.logInfo('Getting cap table by project', { projectId, options })
 
       const capTable = await this.db.cap_tables.findFirst({
         where: { project_id: projectId }
@@ -169,7 +169,7 @@ export class CapTableService extends BaseService {
       return this.success(enhancedCapTable)
 
     } catch (error) {
-      this.logger.error('Error getting cap table by project', { error, projectId })
+      this.logError('Error getting cap table by project', { error, projectId })
       return this.error('Failed to get cap table', 'GET_FAILED')
     }
   }
@@ -183,7 +183,7 @@ export class CapTableService extends BaseService {
     userId?: string
   ): Promise<ServiceResult<CapTableWithStats>> {
     try {
-      this.logger.info('Updating cap table', { id, data, userId })
+      this.logInfo('Updating cap table', { id, data, userId })
 
       const capTable = await this.db.cap_tables.update({
         where: { id },
@@ -192,14 +192,14 @@ export class CapTableService extends BaseService {
 
       const enhancedCapTable = await this.enhanceCapTableWithStats(capTable)
 
-      this.logger.info('Cap table updated successfully', { capTableId: id })
+      this.logInfo('Cap table updated successfully', { capTableId: id })
       return this.success(enhancedCapTable, 'Cap table updated successfully')
 
     } catch (error: any) {
       if (error.code === 'P2025') {
         return this.error('Cap table not found', 'CAP_TABLE_NOT_FOUND', 404)
       }
-      this.logger.error('Error updating cap table', { error, id, data })
+      this.logError('Error updating cap table', { error, id, data })
       return this.error('Failed to update cap table', 'UPDATE_FAILED')
     }
   }
@@ -209,7 +209,7 @@ export class CapTableService extends BaseService {
    */
   async deleteCapTable(id: string, userId?: string): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Deleting cap table', { id, userId })
+      this.logInfo('Deleting cap table', { id, userId })
 
       // Check if cap table exists
       const capTable = await this.db.cap_tables.findUnique({
@@ -224,11 +224,11 @@ export class CapTableService extends BaseService {
         where: { id }
       })
 
-      this.logger.info('Cap table deleted successfully', { capTableId: id })
+      this.logInfo('Cap table deleted successfully', { capTableId: id })
       return this.success(true, 'Cap table deleted successfully')
 
     } catch (error) {
-      this.logger.error('Error deleting cap table', { error, id })
+      this.logError('Error deleting cap table', { error, id })
       return this.error('Failed to delete cap table', 'DELETE_FAILED')
     }
   }
@@ -245,7 +245,7 @@ export class CapTableService extends BaseService {
     userId?: string
   ): Promise<ServiceResult<InvestorWithSubscription>> {
     try {
-      this.logger.info('Creating investor', { data: { ...data, email: '[REDACTED]' }, userId })
+      this.logInfo('Creating investor', { data: { ...data, email: '[REDACTED]' }, userId })
 
       // Check if investor already exists
       const existingInvestor = await this.db.investors.findFirst({
@@ -293,11 +293,11 @@ export class CapTableService extends BaseService {
 
       const enhancedInvestor = await this.enhanceInvestorWithSubscriptions(investor)
 
-      this.logger.info('Investor created successfully', { investorId: investor.investor_id })
+      this.logInfo('Investor created successfully', { investorId: investor.investor_id })
       return this.success(enhancedInvestor, 'Investor created successfully')
 
     } catch (error) {
-      this.logger.error('Error creating investor', { error, data: { ...data, email: '[REDACTED]' } })
+      this.logError('Error creating investor', { error, data: { ...data, email: '[REDACTED]' } })
       return this.error('Failed to create investor', 'CREATE_FAILED')
     }
   }
@@ -307,7 +307,7 @@ export class CapTableService extends BaseService {
    */
   async getInvestors(options: InvestorQueryOptions = {}): Promise<ServiceResult<PaginatedResponse<InvestorWithSubscription>>> {
     try {
-      this.logger.info('Getting investors', { options })
+      this.logInfo('Getting investors', { options })
 
       const {
         page = 1,
@@ -381,7 +381,7 @@ export class CapTableService extends BaseService {
       return this.success(paginatedResponse)
 
     } catch (error) {
-      this.logger.error('Error getting investors', { error, options })
+      this.logError('Error getting investors', { error, options })
       return this.error('Failed to get investors', 'GET_FAILED')
     }
   }
@@ -399,7 +399,7 @@ export class CapTableService extends BaseService {
     } = {}
   ): Promise<ServiceResult<InvestorWithSubscription>> {
     try {
-      this.logger.info('Getting investor', { id, options })
+      this.logInfo('Getting investor', { id, options })
 
       const investor = await this.db.investors.findUnique({
         where: { investor_id: id }
@@ -413,7 +413,7 @@ export class CapTableService extends BaseService {
       return this.success(enhancedInvestor)
 
     } catch (error) {
-      this.logger.error('Error getting investor', { error, id })
+      this.logError('Error getting investor', { error, id })
       return this.error('Failed to get investor', 'GET_FAILED')
     }
   }
@@ -427,7 +427,7 @@ export class CapTableService extends BaseService {
     userId?: string
   ): Promise<ServiceResult<InvestorWithSubscription>> {
     try {
-      this.logger.info('Updating investor', { id, data: { ...data, email: '[REDACTED]' }, userId })
+      this.logInfo('Updating investor', { id, data: { ...data, email: '[REDACTED]' }, userId })
 
       const updateData: any = {}
       
@@ -467,14 +467,14 @@ export class CapTableService extends BaseService {
 
       const enhancedInvestor = await this.enhanceInvestorWithSubscriptions(investor)
 
-      this.logger.info('Investor updated successfully', { investorId: id })
+      this.logInfo('Investor updated successfully', { investorId: id })
       return this.success(enhancedInvestor, 'Investor updated successfully')
 
     } catch (error: any) {
       if (error.code === 'P2025') {
         return this.error('Investor not found', 'INVESTOR_NOT_FOUND', 404)
       }
-      this.logger.error('Error updating investor', { error, id, data })
+      this.logError('Error updating investor', { error, id, data })
       return this.error('Failed to update investor', 'UPDATE_FAILED')
     }
   }
@@ -484,20 +484,20 @@ export class CapTableService extends BaseService {
    */
   async deleteInvestor(id: string, userId?: string): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Deleting investor', { id, userId })
+      this.logInfo('Deleting investor', { id, userId })
 
       await this.db.investors.delete({
         where: { investor_id: id }
       })
 
-      this.logger.info('Investor deleted successfully', { investorId: id })
+      this.logInfo('Investor deleted successfully', { investorId: id })
       return this.success(true, 'Investor deleted successfully')
 
     } catch (error: any) {
       if (error.code === 'P2025') {
         return this.error('Investor not found', 'INVESTOR_NOT_FOUND', 404)
       }
-      this.logger.error('Error deleting investor', { error, id })
+      this.logError('Error deleting investor', { error, id })
       return this.error('Failed to delete investor', 'DELETE_FAILED')
     }
   }
@@ -514,7 +514,7 @@ export class CapTableService extends BaseService {
     userId?: string
   ): Promise<ServiceResult<SubscriptionWithDetails>> {
     try {
-      this.logger.info('Creating subscription', { data, userId })
+      this.logInfo('Creating subscription', { data, userId })
 
       // Validate project exists
       const project = await this.db.projects.findUnique({
@@ -548,11 +548,11 @@ export class CapTableService extends BaseService {
 
       const enhancedSubscription = await this.enhanceSubscriptionWithDetails(subscription)
 
-      this.logger.info('Subscription created successfully', { subscriptionId: subscription.id })
+      this.logInfo('Subscription created successfully', { subscriptionId: subscription.id })
       return this.success(enhancedSubscription, 'Subscription created successfully')
 
     } catch (error) {
-      this.logger.error('Error creating subscription', { error, data })
+      this.logError('Error creating subscription', { error, data })
       return this.error('Failed to create subscription', 'CREATE_FAILED')
     }
   }
@@ -598,7 +598,7 @@ export class CapTableService extends BaseService {
         completionPercentage
       }
     } catch (error) {
-      this.logger.error('Error enhancing cap table with stats', { error, capTableId: capTable.id })
+      this.logError('Error enhancing cap table with stats', { error, capTableId: capTable.id })
       return {
         ...capTable,
         totalInvestors: 0,
@@ -641,7 +641,7 @@ export class CapTableService extends BaseService {
         distributionCount: distributions.length
       }
     } catch (error) {
-      this.logger.error('Error enhancing investor with subscriptions', { error, investorId: investor.investor_id })
+      this.logError('Error enhancing investor with subscriptions', { error, investorId: investor.investor_id })
       return {
         ...investor,
         totalSubscribed: new Prisma.Decimal(0),
@@ -677,7 +677,7 @@ export class CapTableService extends BaseService {
         isFullyAllocated
       }
     } catch (error) {
-      this.logger.error('Error enhancing subscription with details', { error, subscriptionId: subscription.id })
+      this.logError('Error enhancing subscription with details', { error, subscriptionId: subscription.id })
       return {
         ...subscription,
         allocationPercentage: 0,

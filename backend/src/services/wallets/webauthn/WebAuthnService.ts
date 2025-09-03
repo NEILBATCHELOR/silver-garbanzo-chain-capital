@@ -126,11 +126,11 @@ export class WebAuthnService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId, userId }, 'Generated WebAuthn registration options')
+      this.logInfo('Generated WebAuthn registration options', { walletId, userId })
       return this.success(options)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to generate registration options')
+      this.logError('Failed to generate registration options', { error, walletId })
       return this.error('Failed to generate registration options', 'REGISTRATION_OPTIONS_ERROR')
     }
   }
@@ -189,15 +189,15 @@ export class WebAuthnService extends BaseService {
         updated_at: new Date()
       }
 
-      this.logger.info({ 
+      this.logInfo('WebAuthn credential registered (placeholder)', { 
         walletId, 
         credentialId: registrationResponse.id 
-      }, 'WebAuthn credential registered (placeholder)')
+      })
 
       return this.success(this.mapToWebAuthnCredential(credential))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to verify registration')
+      this.logError('Failed to verify registration', { error, walletId })
       return this.error('Failed to verify registration', 'REGISTRATION_VERIFICATION_ERROR')
     }
   }
@@ -229,11 +229,11 @@ export class WebAuthnService extends BaseService {
         userVerification: 'required'
       }
 
-      this.logger.info({ walletId }, 'Generated WebAuthn authentication options')
+      this.logInfo('Generated WebAuthn authentication options', { walletId })
       return this.success(options)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to generate authentication options')
+      this.logError('Failed to generate authentication options', { error, walletId })
       return this.error('Failed to generate authentication options', 'AUTHENTICATION_OPTIONS_ERROR')
     }
   }
@@ -290,10 +290,10 @@ export class WebAuthnService extends BaseService {
         return this.error('Invalid signature', 'INVALID_SIGNATURE')
       }
 
-      this.logger.info({ 
+      this.logInfo('WebAuthn authentication verified', { 
         walletId, 
         credentialId: authenticationResponse.id 
-      }, 'WebAuthn authentication verified')
+      })
 
       return this.success({
         verified: true,
@@ -301,7 +301,7 @@ export class WebAuthnService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to verify authentication')
+      this.logError('Failed to verify authentication', { error, walletId })
       return this.error('Failed to verify authentication', 'AUTHENTICATION_VERIFICATION_ERROR')
     }
   }
@@ -355,7 +355,7 @@ export class WebAuthnService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId, credentialId }, 'Failed to sign message')
+      this.logError('Failed to sign message', { error, walletId, credentialId })
       return this.error('Failed to sign message', 'MESSAGE_SIGNING_ERROR')
     }
   }
@@ -372,7 +372,7 @@ export class WebAuthnService extends BaseService {
       return this.success(webAuthnCredentials)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet credentials')
+      this.logError('Failed to get wallet credentials', { error, walletId })
       return this.error('Failed to get wallet credentials', 'CREDENTIAL_LIST_ERROR')
     }
   }
@@ -392,7 +392,7 @@ export class WebAuthnService extends BaseService {
       return this.success(this.mapToWebAuthnCredential(credential))
 
     } catch (error) {
-      this.logger.error({ error, walletId, credentialId }, 'Failed to get credential')
+      this.logError('Failed to get credential', { error, walletId, credentialId })
       return this.error('Failed to get credential', 'CREDENTIAL_RETRIEVAL_ERROR')
     }
   }
@@ -403,16 +403,16 @@ export class WebAuthnService extends BaseService {
   async removeCredential(walletId: string, credentialId: string): Promise<ServiceResult<boolean>> {
     try {
       // Remove credential from database (placeholder)
-      this.logger.info('Would remove credential (placeholder)')
+      this.logInfo('Would remove credential (placeholder)')
 
       // If this was the primary credential, set another as primary
       await this.ensurePrimaryCredential(walletId)
 
-      this.logger.info({ walletId, credentialId }, 'WebAuthn credential removed (placeholder)')
+      this.logInfo('WebAuthn credential removed (placeholder)', { walletId, credentialId })
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId, credentialId }, 'Failed to remove credential')
+      this.logError('Failed to remove credential', { error, walletId, credentialId })
       return this.error('Failed to remove credential', 'CREDENTIAL_REMOVAL_ERROR')
     }
   }
@@ -423,13 +423,13 @@ export class WebAuthnService extends BaseService {
   async setPrimaryCredential(walletId: string, credentialId: string): Promise<ServiceResult<boolean>> {
     try {
       // Update credentials in database (placeholder)
-      this.logger.info('Would update primary credential (placeholder)')
+      this.logInfo('Would update primary credential (placeholder)')
 
-      this.logger.info({ walletId, credentialId }, 'Primary credential updated (placeholder)')
+      this.logInfo('Primary credential updated (placeholder)', { walletId, credentialId })
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId, credentialId }, 'Failed to set primary credential')
+      this.logError('Failed to set primary credential', { error, walletId, credentialId })
       return this.error('Failed to set primary credential', 'PRIMARY_CREDENTIAL_ERROR')
     }
   }
@@ -448,7 +448,7 @@ export class WebAuthnService extends BaseService {
       return await this.generateRegistrationOptions(walletId, userId, userName, userDisplayName)
       
     } catch (error) {
-      this.logger.error({ error, walletId, userId }, 'Failed to generate passkey credential')
+      this.logError('Failed to generate passkey credential', { error, walletId, userId })
       return this.error('Failed to generate passkey credential', 'PASSKEY_GENERATION_ERROR')
     }
   }
@@ -485,11 +485,11 @@ export class WebAuthnService extends BaseService {
         signedData
       )
 
-      this.logger.info({
+      this.logInfo('Passkey signature verified', {
         walletId,
         credentialId,
         verified: isValid
-      }, 'Passkey signature verified')
+      })
 
       return this.success({
         verified: isValid,
@@ -497,7 +497,7 @@ export class WebAuthnService extends BaseService {
       })
       
     } catch (error) {
-      this.logger.error({ error, walletId, credentialId }, 'Failed to verify passkey signature')
+      this.logError('Failed to verify passkey signature', { error, walletId, credentialId })
       return this.error('Failed to verify passkey signature', 'PASSKEY_VERIFICATION_ERROR')
     }
   }
@@ -523,7 +523,7 @@ export class WebAuthnService extends BaseService {
       )
       
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to register passkey')
+      this.logError('Failed to register passkey', { error, walletId })
       return this.error('Failed to register passkey', 'PASSKEY_REGISTRATION_ERROR')
     }
   }
@@ -537,16 +537,16 @@ export class WebAuthnService extends BaseService {
   ): Promise<ServiceResult<boolean>> {
     try {
       // Store credential data for migration process
-      this.logger.info({
+      this.logInfo('Storing credential for migration (placeholder)', {
         walletId,
         credentialId: migrationData.credentialId,
         migrationId: migrationData.migrationId
-      }, 'Storing credential for migration (placeholder)')
+      })
       
       return this.success(true)
       
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to store credential for migration')
+      this.logError('Failed to store credential for migration', { error, walletId })
       return this.error('Failed to store credential for migration', 'MIGRATION_STORE_ERROR')
     }
   }
@@ -562,12 +562,12 @@ export class WebAuthnService extends BaseService {
       }
       
       // Additional P-256 validation could be added here
-      this.logger.debug({ publicKey: publicKey.substring(0, 10) + '...' }, 'Public key validated')
+      this.logDebug('Public key validated', { publicKey: publicKey.substring(0, 10) + '...' })
       
       return this.success(true)
       
     } catch (error) {
-      this.logger.error({ error }, 'Failed to validate public key')
+      this.logError('Failed to validate public key', { error })
       return this.error('Failed to validate public key', 'PUBLIC_KEY_VALIDATION_ERROR')
     }
   }
@@ -598,15 +598,15 @@ export class WebAuthnService extends BaseService {
         updated_at: new Date()
       }
       
-      this.logger.info({
+      this.logInfo('Credential registered (placeholder)', {
         walletId,
         credentialId: credentialData.credentialId
-      }, 'Credential registered (placeholder)')
+      })
       
       return this.success(this.mapToWebAuthnCredential(credential))
       
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to register credential')
+      this.logError('Failed to register credential', { error, walletId })
       return this.error('Failed to register credential', 'CREDENTIAL_REGISTRATION_ERROR')
     }
   }
@@ -620,7 +620,7 @@ export class WebAuthnService extends BaseService {
       return await this.getWalletCredentials(walletId)
       
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to list credentials')
+      this.logError('Failed to list credentials', { error, walletId })
       return this.error('Failed to list credentials', 'CREDENTIAL_LIST_ERROR')
     }
   }
@@ -642,7 +642,7 @@ export class WebAuthnService extends BaseService {
     type: 'registration' | 'authentication'
   ): Promise<void> {
     // Store challenge in database with expiry (placeholder)
-    this.logger.debug({ walletId, challenge, type }, 'Storing challenge (placeholder)')
+    this.logDebug('Storing challenge (placeholder)', { walletId, challenge, type })
   }
 
   private async verifyChallenge(
@@ -651,7 +651,7 @@ export class WebAuthnService extends BaseService {
     type: 'registration' | 'authentication'
   ): Promise<boolean> {
     // Verify challenge exists and hasn't expired (placeholder)
-    this.logger.debug({ walletId, challenge, type }, 'Verifying challenge (placeholder)')
+    this.logDebug('Verifying challenge (placeholder)', { walletId, challenge, type })
     return true // Placeholder - always return true
   }
 
@@ -672,7 +672,7 @@ export class WebAuthnService extends BaseService {
         y: '0x' + crypto.randomBytes(32).toString('hex')
       }
     } catch (error) {
-      this.logger.error({ error }, 'Failed to extract public key from attestation')
+      this.logError('Failed to extract public key from attestation', { error })
       return null
     }
   }
@@ -706,7 +706,7 @@ export class WebAuthnService extends BaseService {
       return verifier.verify(keyObject, signature)
       
     } catch (error) {
-      this.logger.error({ error, publicKey }, 'Failed to verify secp256r1 signature')
+      this.logError('Failed to verify secp256r1 signature', { error, publicKey })
       return false
     }
   }
@@ -752,7 +752,7 @@ export class WebAuthnService extends BaseService {
       return { r, s }
       
     } catch (error) {
-      this.logger.error({ error }, 'Failed to parse DER signature')
+      this.logError('Failed to parse DER signature', { error })
       throw error
     }
   }
@@ -802,7 +802,7 @@ export class WebAuthnService extends BaseService {
 
   private async ensurePrimaryCredential(walletId: string): Promise<void> {
     // Ensure there's always a primary credential (placeholder)
-    this.logger.debug({ walletId }, 'Ensuring primary credential (placeholder)')
+    this.logDebug('Ensuring primary credential (placeholder)', { walletId })
   }
 
   private mapToWebAuthnCredential(credential: any): WebAuthnCredential {

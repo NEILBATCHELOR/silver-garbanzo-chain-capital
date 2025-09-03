@@ -59,7 +59,7 @@ export class SubscriptionAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, filters, timeframe }, 'Failed to get subscription analytics')
+      this.logError('Failed to get subscription analytics', { error, filters, timeframe })
       return this.error('Failed to get subscription analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -91,7 +91,7 @@ export class SubscriptionAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, filters, timeframe }, 'Failed to get redemption analytics')
+      this.logError('Failed to get redemption analytics', { error, filters, timeframe })
       return this.error('Failed to get redemption analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -169,7 +169,7 @@ export class SubscriptionAnalyticsService extends BaseService {
         totalRecords: subscriptions.length
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export subscription data')
+      this.logError('Failed to export subscription data', { error, options })
       return this.error('Failed to export subscription data', 'EXPORT_ERROR')
     }
   }
@@ -240,7 +240,7 @@ export class SubscriptionAnalyticsService extends BaseService {
         totalRecords: redemptions.length
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export redemption data')
+      this.logError('Failed to export redemption data', { error, options })
       return this.error('Failed to export redemption data', 'EXPORT_ERROR')
     }
   }

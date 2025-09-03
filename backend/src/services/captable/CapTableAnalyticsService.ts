@@ -29,7 +29,7 @@ export class CapTableAnalyticsService extends BaseService {
    */
   async getCapTableAnalytics(projectId: string): Promise<ServiceResult<CapTableAnalytics>> {
     try {
-      this.logger.info('Getting comprehensive cap table analytics', { projectId })
+      this.logInfo('Getting comprehensive cap table analytics', { projectId })
 
       const [
         summary,
@@ -65,7 +65,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(analytics, 'Analytics retrieved successfully')
 
     } catch (error) {
-      this.logger.error('Error getting cap table analytics', { error, projectId })
+      this.logError('Error getting cap table analytics', { error, projectId })
       return this.error('Failed to get analytics', 'ANALYTICS_FAILED')
     }
   }
@@ -162,7 +162,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error('Error getting cap table statistics', { error, projectId })
+      this.logError('Error getting cap table statistics', { error, projectId })
       return this.error('Failed to get statistics', 'STATISTICS_FAILED')
     }
   }
@@ -232,7 +232,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error('Error getting investor statistics', { error, projectId })
+      this.logError('Error getting investor statistics', { error, projectId })
       return this.error('Failed to get investor statistics', 'STATISTICS_FAILED')
     }
   }
@@ -296,7 +296,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error('Error getting subscription statistics', { error, projectId })
+      this.logError('Error getting subscription statistics', { error, projectId })
       return this.error('Failed to get subscription statistics', 'STATISTICS_FAILED')
     }
   }
@@ -360,7 +360,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error('Error getting token allocation statistics', { error, projectId })
+      this.logError('Error getting token allocation statistics', { error, projectId })
       return this.error('Failed to get allocation statistics', 'STATISTICS_FAILED')
     }
   }
@@ -410,7 +410,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error('Error getting distribution statistics', { error, projectId })
+      this.logError('Error getting distribution statistics', { error, projectId })
       return this.error('Failed to get distribution statistics', 'STATISTICS_FAILED')
     }
   }
@@ -545,7 +545,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(timeline)
 
     } catch (error) {
-      this.logger.error('Error getting timeline analytics', { error, projectId })
+      this.logError('Error getting timeline analytics', { error, projectId })
       return this.error('Failed to get timeline analytics', 'ANALYTICS_FAILED')
     }
   }
@@ -609,7 +609,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(geography)
 
     } catch (error) {
-      this.logger.error('Error getting geography analytics', { error, projectId })
+      this.logError('Error getting geography analytics', { error, projectId })
       return this.error('Failed to get geography analytics', 'ANALYTICS_FAILED')
     }
   }
@@ -661,7 +661,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(demographics)
 
     } catch (error) {
-      this.logger.error('Error getting demographics analytics', { error, projectId })
+      this.logError('Error getting demographics analytics', { error, projectId })
       return this.error('Failed to get demographics analytics', 'ANALYTICS_FAILED')
     }
   }
@@ -797,7 +797,7 @@ export class CapTableAnalyticsService extends BaseService {
     options: CapTableExportOptions
   ): Promise<ServiceResult<any>> {
     try {
-      this.logger.info('Exporting cap table data', { projectId, options })
+      this.logInfo('Exporting cap table data', { projectId, options })
 
       // Get data based on options
       const data: any = {}
@@ -838,7 +838,7 @@ export class CapTableAnalyticsService extends BaseService {
       return this.success(data, 'Data exported successfully')
 
     } catch (error) {
-      this.logger.error('Error exporting cap table data', { error, projectId, options })
+      this.logError('Error exporting cap table data', { error, projectId, options })
       return this.error('Failed to export data', 'EXPORT_FAILED')
     }
   }

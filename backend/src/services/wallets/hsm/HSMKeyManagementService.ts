@@ -62,10 +62,10 @@ export class HSMKeyManagementService extends BaseService {
     this.hsmConfig = hsmConfig || { provider: 'memory' }
     this.hsmEnabled = this.hsmConfig.provider !== 'memory' && process.env.NODE_ENV === 'production'
     
-    this.logger.info({ 
+    this.logInfo('HSM Key Management Service initialized', { 
       hsmEnabled: this.hsmEnabled, 
       provider: this.hsmConfig.provider 
-    }, 'HSM Key Management Service initialized')
+    })
   }
 
   /**
@@ -74,12 +74,12 @@ export class HSMKeyManagementService extends BaseService {
    */
   async storeWalletKeys(keyData: WalletKeyData): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info({ walletId: keyData.walletId }, 'Starting dual key storage operation')
+      this.logInfo('Starting dual key storage operation', { walletId: keyData.walletId })
 
       // Always store in legacy system first (for backward compatibility)
       const legacyResult = await this.legacyKeyService.storeWalletKeys(keyData)
       if (!legacyResult.success) {
-        this.logger.error({ walletId: keyData.walletId }, 'Legacy key storage failed')
+        this.logError('Legacy key storage failed', { walletId: keyData.walletId })
         return legacyResult
       }
 
@@ -87,23 +87,23 @@ export class HSMKeyManagementService extends BaseService {
       if (this.hsmEnabled) {
         const hsmResult = await this.storeKeysInHSM(keyData)
         if (!hsmResult.success) {
-          this.logger.warn({ 
+          this.logWarn('HSM storage failed, continuing with legacy storage only', { 
             walletId: keyData.walletId, 
             error: hsmResult.error 
-          }, 'HSM storage failed, continuing with legacy storage only')
+          })
           
           // HSM failure doesn't fail the operation, legacy storage succeeded
           return this.success(true, 'Keys stored in legacy system, HSM storage failed')
         }
         
-        this.logger.info({ walletId: keyData.walletId }, 'Keys stored successfully in both legacy and HSM systems')
+        this.logInfo('Keys stored successfully in both legacy and HSM systems', { walletId: keyData.walletId })
         return this.success(true, 'Keys stored in both legacy and HSM systems')
       }
 
       return this.success(true, 'Keys stored in legacy system')
 
     } catch (error) {
-      this.logger.error({ error, walletId: keyData.walletId }, 'Dual key storage operation failed')
+      this.logError('Dual key storage operation failed', { error, walletId: keyData.walletId })
       return this.error('Failed to store wallet keys', 'DUAL_STORAGE_FAILED')
     }
   }
@@ -114,33 +114,33 @@ export class HSMKeyManagementService extends BaseService {
    */
   async getWalletKeys(walletId: string): Promise<StoredKeyData | null> {
     try {
-      this.logger.debug({ walletId }, 'Starting dual key retrieval operation')
+      this.logDebug('Starting dual key retrieval operation', { walletId })
 
       // If HSM is enabled, try HSM first
       if (this.hsmEnabled) {
         try {
           const hsmData = await this.getKeysFromHSM(walletId)
           if (hsmData) {
-            this.logger.info({ walletId }, 'Keys retrieved from HSM')
+            this.logInfo('Keys retrieved from HSM', { walletId })
             return hsmData
           }
         } catch (error) {
-          this.logger.warn({ walletId, error }, 'HSM key retrieval failed, falling back to legacy')
+          this.logWarn('HSM key retrieval failed, falling back to legacy', { walletId, error })
         }
       }
 
       // Fallback to legacy system
       const legacyData = await this.legacyKeyService.getWalletKeys(walletId)
       if (legacyData) {
-        this.logger.info({ walletId }, 'Keys retrieved from legacy system')
+        this.logInfo('Keys retrieved from legacy system', { walletId })
         return legacyData
       }
 
-      this.logger.warn({ walletId }, 'Keys not found in any system')
+      this.logWarn('Keys not found in any system', { walletId })
       return null
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Dual key retrieval operation failed')
+      this.logError('Dual key retrieval operation failed', { error, walletId })
       return null
     }
   }
@@ -158,13 +158,13 @@ export class HSMKeyManagementService extends BaseService {
     hsmGenerated: boolean
   }>> {
     try {
-      this.logger.info({ walletId, keyType }, 'Starting secure key generation')
+      this.logInfo('Starting secure key generation', { walletId, keyType })
 
       // Try HSM key generation first
       if (this.hsmEnabled) {
         const hsmResult = await this.generateKeysInHSM(walletId, keyType)
         if (hsmResult.success) {
-          this.logger.info({ walletId, keyType }, 'Keys generated using HSM')
+          this.logInfo('Keys generated using HSM', { walletId, keyType })
           return this.success({
             privateKey: hsmResult.data.privateKey,
             publicKey: hsmResult.data.publicKey,
@@ -173,13 +173,13 @@ export class HSMKeyManagementService extends BaseService {
           })
         }
         
-        this.logger.warn({ walletId }, 'HSM key generation failed, falling back to secure memory generation')
+        this.logWarn('HSM key generation failed, falling back to secure memory generation', { walletId })
       }
 
       // Fallback to secure memory-based generation
       const memoryKeys = await this.generateSecureMemoryKeys(keyType)
       
-      this.logger.info({ walletId, keyType }, 'Keys generated using secure memory fallback')
+      this.logInfo('Keys generated using secure memory fallback', { walletId, keyType })
       return this.success({
         privateKey: memoryKeys.privateKey,
         publicKey: memoryKeys.publicKey,
@@ -187,7 +187,7 @@ export class HSMKeyManagementService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId, keyType }, 'Secure key generation failed')
+      this.logError('Secure key generation failed', { error, walletId, keyType })
       return this.error('Failed to generate secure keys', 'KEY_GENERATION_FAILED')
     }
   }
@@ -205,13 +205,13 @@ export class HSMKeyManagementService extends BaseService {
     hsmSigned: boolean
   }>> {
     try {
-      this.logger.info({ keyId, algorithm }, 'Starting secure signing operation')
+      this.logInfo('Starting secure signing operation', { keyId, algorithm })
 
       // Try HSM signing first
       if (this.hsmEnabled) {
         const hsmResult = await this.signWithHSM(keyId, data, algorithm)
         if (hsmResult.success) {
-          this.logger.info({ keyId, algorithm }, 'Data signed using HSM')
+          this.logInfo('Data signed using HSM', { keyId, algorithm })
           return this.success({
             signature: hsmResult.data.signature,
             algorithm: hsmResult.data.algorithm,
@@ -219,13 +219,13 @@ export class HSMKeyManagementService extends BaseService {
           })
         }
         
-        this.logger.warn({ keyId }, 'HSM signing failed, falling back to memory signing')
+        this.logWarn('HSM signing failed, falling back to memory signing', { keyId })
       }
 
       // Fallback to memory-based signing
       const memorySignature = await this.signWithMemoryKey(keyId, data, algorithm)
       
-      this.logger.info({ keyId, algorithm }, 'Data signed using memory fallback')
+      this.logInfo('Data signed using memory fallback', { keyId, algorithm })
       return this.success({
         signature: memorySignature.signature,
         algorithm: memorySignature.algorithm,
@@ -233,7 +233,7 @@ export class HSMKeyManagementService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, keyId, algorithm }, 'Secure signing operation failed')
+      this.logError('Secure signing operation failed', { error, keyId, algorithm })
       return this.error('Failed to sign data', 'SIGNING_FAILED')
     }
   }
@@ -247,7 +247,7 @@ export class HSMKeyManagementService extends BaseService {
     rotationTime: Date
   }>> {
     try {
-      this.logger.info({ walletId }, 'Starting key rotation')
+      this.logInfo('Starting key rotation', { walletId })
 
       // Get current keys
       const currentKeys = await this.getWalletKeys(walletId)
@@ -282,11 +282,11 @@ export class HSMKeyManagementService extends BaseService {
         rotationTime: new Date()
       }
 
-      this.logger.info({ walletId, rotationResult }, 'Key rotation completed successfully')
+      this.logInfo('Key rotation completed successfully', { walletId, rotationResult })
       return this.success(rotationResult)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Key rotation failed')
+      this.logError('Key rotation failed', { error, walletId })
       return this.error('Failed to rotate wallet keys', 'KEY_ROTATION_FAILED')
     }
   }
@@ -302,7 +302,7 @@ export class HSMKeyManagementService extends BaseService {
     configuration: any
   }>> {
     try {
-      this.logger.info({ provider: this.hsmConfig.provider }, 'Validating HSM configuration')
+      this.logInfo('Validating HSM configuration', { provider: this.hsmConfig.provider })
 
       if (!this.hsmEnabled) {
         return this.success({
@@ -354,11 +354,11 @@ export class HSMKeyManagementService extends BaseService {
         }
       }
 
-      this.logger.info({ result }, 'HSM configuration validation successful')
+      this.logInfo('HSM configuration validation successful', { result })
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, provider: this.hsmConfig.provider }, 'HSM configuration validation failed')
+      this.logError('HSM configuration validation failed', { error, provider: this.hsmConfig.provider })
       return this.error('HSM configuration validation failed', 'HSM_VALIDATION_FAILED')
     }
   }
@@ -395,14 +395,14 @@ export class HSMKeyManagementService extends BaseService {
           return null
       }
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to retrieve keys from HSM')
+      this.logError('Failed to retrieve keys from HSM', { error, walletId })
       return null
     }
   }
 
   private async generateKeysInHSM(walletId: string, keyType: string): Promise<HSMOperationResult> {
     // Placeholder implementation - would integrate with actual HSM SDKs
-    this.logger.info({ walletId, keyType }, 'HSM key generation (placeholder implementation)')
+    this.logInfo('HSM key generation (placeholder implementation)', { walletId, keyType })
     
     return {
       success: true,
@@ -418,7 +418,7 @@ export class HSMKeyManagementService extends BaseService {
 
   private async signWithHSM(keyId: string, data: Buffer, algorithm: string): Promise<HSMOperationResult> {
     // Placeholder implementation - would integrate with actual HSM SDKs
-    this.logger.info({ keyId, algorithm }, 'HSM signing (placeholder implementation)')
+    this.logInfo('HSM signing (placeholder implementation)', { keyId, algorithm })
     
     const signature = crypto.createHash('sha256').update(data).digest('hex')
     
@@ -470,60 +470,60 @@ export class HSMKeyManagementService extends BaseService {
 
   private async getAWSCloudHSMClient(): Promise<any> {
     // Placeholder - would initialize AWS CloudHSM SDK
-    this.logger.info('Initializing AWS CloudHSM client (placeholder)')
+    this.logInfo('Initializing AWS CloudHSM client (placeholder)')
     return { provider: 'aws-cloudhsm' }
   }
 
   private async getAzureKeyVaultClient(): Promise<any> {
     // Placeholder - would initialize Azure Key Vault SDK
-    this.logger.info('Initializing Azure Key Vault client (placeholder)')
+    this.logInfo('Initializing Azure Key Vault client (placeholder)')
     return { provider: 'azure-keyvault' }
   }
 
   private async getGoogleCloudKMSClient(): Promise<any> {
     // Placeholder - would initialize Google Cloud KMS SDK
-    this.logger.info('Initializing Google Cloud KMS client (placeholder)')
+    this.logInfo('Initializing Google Cloud KMS client (placeholder)')
     return { provider: 'google-cloud-kms' }
   }
 
   private async testHSMConnectivity(client: any): Promise<void> {
     // Placeholder - would test actual HSM connectivity
-    this.logger.info({ provider: client.provider }, 'Testing HSM connectivity (placeholder)')
+    this.logInfo('Testing HSM connectivity (placeholder)', { provider: client.provider })
   }
 
   private async storeKeysInAWSCloudHSM(keyData: WalletKeyData): Promise<HSMOperationResult> {
     // Placeholder - would use AWS CloudHSM SDK
-    this.logger.info({ walletId: keyData.walletId }, 'Storing keys in AWS CloudHSM (placeholder)')
+    this.logInfo('Storing keys in AWS CloudHSM (placeholder)', { walletId: keyData.walletId })
     return { success: true, hsmProvider: 'aws-cloudhsm' }
   }
 
   private async storeKeysInAzureKeyVault(keyData: WalletKeyData): Promise<HSMOperationResult> {
     // Placeholder - would use Azure Key Vault SDK
-    this.logger.info({ walletId: keyData.walletId }, 'Storing keys in Azure Key Vault (placeholder)')
+    this.logInfo('Storing keys in Azure Key Vault (placeholder)', { walletId: keyData.walletId })
     return { success: true, hsmProvider: 'azure-keyvault' }
   }
 
   private async storeKeysInGoogleCloudKMS(keyData: WalletKeyData): Promise<HSMOperationResult> {
     // Placeholder - would use Google Cloud KMS SDK
-    this.logger.info({ walletId: keyData.walletId }, 'Storing keys in Google Cloud KMS (placeholder)')
+    this.logInfo('Storing keys in Google Cloud KMS (placeholder)', { walletId: keyData.walletId })
     return { success: true, hsmProvider: 'google-cloud-kms' }
   }
 
   private async getKeysFromAWSCloudHSM(walletId: string): Promise<StoredKeyData | null> {
     // Placeholder - would retrieve from AWS CloudHSM
-    this.logger.info({ walletId }, 'Retrieving keys from AWS CloudHSM (placeholder)')
+    this.logInfo('Retrieving keys from AWS CloudHSM (placeholder)', { walletId })
     return null
   }
 
   private async getKeysFromAzureKeyVault(walletId: string): Promise<StoredKeyData | null> {
     // Placeholder - would retrieve from Azure Key Vault
-    this.logger.info({ walletId }, 'Retrieving keys from Azure Key Vault (placeholder)')
+    this.logInfo('Retrieving keys from Azure Key Vault (placeholder)', { walletId })
     return null
   }
 
   private async getKeysFromGoogleCloudKMS(walletId: string): Promise<StoredKeyData | null> {
     // Placeholder - would retrieve from Google Cloud KMS
-    this.logger.info({ walletId }, 'Retrieving keys from Google Cloud KMS (placeholder)')
+    this.logInfo('Retrieving keys from Google Cloud KMS (placeholder)', { walletId })
     return null
   }
 
@@ -540,7 +540,7 @@ export class HSMKeyManagementService extends BaseService {
       try {
         await this.deleteKeysFromHSM(walletId)
       } catch (error) {
-        this.logger.warn({ walletId, error }, 'HSM key deletion failed')
+        this.logWarn('HSM key deletion failed', { walletId, error })
       }
     }
     
@@ -549,7 +549,7 @@ export class HSMKeyManagementService extends BaseService {
 
   private async deleteKeysFromHSM(walletId: string): Promise<void> {
     // Placeholder - would delete from HSM based on provider
-    this.logger.info({ walletId, provider: this.hsmConfig.provider }, 'Deleting keys from HSM (placeholder)')
+    this.logInfo('Deleting keys from HSM (placeholder)', { walletId, provider: this.hsmConfig.provider })
   }
 
   async createKeyBackup(walletId: string, encryptionPassword: string): Promise<ServiceResult<string>> {

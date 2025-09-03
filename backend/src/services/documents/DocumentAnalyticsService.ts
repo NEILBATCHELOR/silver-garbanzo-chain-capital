@@ -149,7 +149,7 @@ export class DocumentAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error({ error, filters }, 'Failed to get document statistics')
+      this.logError('Failed to get document statistics', { error, filters })
       return this.error('Failed to get document statistics', 'STATS_ERROR')
     }
   }
@@ -196,7 +196,7 @@ export class DocumentAnalyticsService extends BaseService {
       return this.success(analytics)
 
     } catch (error) {
-      this.logger.error({ error, filters }, 'Failed to get document analytics')
+      this.logError('Failed to get document analytics', { error, filters })
       return this.error('Failed to get document analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -269,7 +269,7 @@ export class DocumentAnalyticsService extends BaseService {
       return this.success(metrics)
 
     } catch (error) {
-      this.logger.error({ error, entityType, entityId }, 'Failed to get completion metrics')
+      this.logError('Failed to get completion metrics', { error, entityType, entityId })
       return this.error('Failed to get completion metrics', 'METRICS_ERROR')
     }
   }
@@ -337,7 +337,7 @@ export class DocumentAnalyticsService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export documents')
+      this.logError('Failed to export documents', { error, options })
       return this.error('Failed to export documents', 'EXPORT_ERROR')
     }
   }
@@ -386,7 +386,7 @@ export class DocumentAnalyticsService extends BaseService {
       return this.success(formattedEntries)
 
     } catch (error) {
-      this.logger.error({ error, documentId }, 'Failed to get audit trail')
+      this.logError('Failed to get audit trail', { error, documentId })
       return this.error('Failed to get audit trail', 'AUDIT_ERROR')
     }
   }
@@ -462,7 +462,7 @@ export class DocumentAnalyticsService extends BaseService {
       return Math.round(average / (1000 * 60 * 60)) // Convert to hours
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to calculate average approval time')
+      this.logError('Failed to calculate average approval time', { error })
       return 0
     }
   }
@@ -492,7 +492,7 @@ export class DocumentAnalyticsService extends BaseService {
       return Object.entries(monthlyUploads).map(([month, count]) => ({ month, count }))
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get upload trends')
+      this.logError('Failed to get upload trends', { error })
       return []
     }
   }
@@ -522,7 +522,7 @@ export class DocumentAnalyticsService extends BaseService {
       return Object.entries(monthlyApprovals).map(([month, count]) => ({ month, count }))
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get approval trends')
+      this.logError('Failed to get approval trends', { error })
       return []
     }
   }
@@ -552,7 +552,7 @@ export class DocumentAnalyticsService extends BaseService {
       return Object.entries(monthlyRejections).map(([month, count]) => ({ month, count }))
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get rejection trends')
+      this.logError('Failed to get rejection trends', { error })
       return []
     }
   }
@@ -604,7 +604,7 @@ export class DocumentAnalyticsService extends BaseService {
       return breakdown
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get entity breakdown')
+      this.logError('Failed to get entity breakdown', { error })
       return []
     }
   }
@@ -664,7 +664,7 @@ export class DocumentAnalyticsService extends BaseService {
       }))
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get user activity')
+      this.logError('Failed to get user activity', { error })
       return []
     }
   }

@@ -74,10 +74,10 @@ export class UserService extends BaseService {
         }
       )
 
-      this.logger.info({ count: result.data.length }, 'Users retrieved successfully')
+      this.logInfo('Users retrieved successfully', { count: result.data.length })
       return result
     } catch (error) {
-      this.logger.error({ error }, 'Failed to retrieve users')
+      this.logError('Failed to retrieve users', { error })
       throw new Error('Failed to retrieve users')
     }
   }
@@ -143,7 +143,7 @@ export class UserService extends BaseService {
 
       return this.success(user)
     } catch (error) {
-      this.logger.error({ error, email }, 'Failed to find user by email')
+      this.logError('Failed to find user by email', { error, email })
       return this.error('Failed to find user', 'DATABASE_ERROR')
     }
   }
@@ -216,12 +216,12 @@ export class UserService extends BaseService {
       })
 
       if (result.success) {
-        this.logger.info({ userId: result.data.id, email: data.email }, 'User created successfully')
+        this.logInfo('User created successfully', { userId: result.data.id, email: data.email })
       }
 
       return result
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create user')
+      this.logError('Failed to create user', { error, data })
       return this.error('Failed to create user', 'DATABASE_ERROR')
     }
   }
@@ -291,13 +291,13 @@ export class UserService extends BaseService {
       })
 
       if (result.success) {
-        this.logger.info({ userId: id, email: user.email }, 'User permanently deleted')
+        this.logInfo('User permanently deleted', { userId: id, email: user.email })
         return this.success(true)
       }
 
       return result
     } catch (error) {
-      this.logger.error({ error, userId: id }, 'Failed to permanently delete user')
+      this.logError('Failed to permanently delete user', { error, userId: id })
       return this.error('Failed to permanently delete user', 'DATABASE_ERROR')
     }
   }
@@ -362,10 +362,10 @@ export class UserService extends BaseService {
         })
       }
 
-      this.logger.info({ userId, roleName }, 'Role assigned to user successfully')
+      this.logInfo('Role assigned to user successfully', { userId, roleName })
       return this.success(userRole)
     } catch (error) {
-      this.logger.error({ error, userId, roleName }, 'Failed to assign role to user')
+      this.logError('Failed to assign role to user', { error, userId, roleName })
       return this.error('Failed to assign role', 'DATABASE_ERROR')
     }
   }
@@ -399,10 +399,10 @@ export class UserService extends BaseService {
         return this.error('User does not have this role', 'NOT_FOUND', 404)
       }
 
-      this.logger.info({ userId, roleName }, 'Role removed from user successfully')
+      this.logInfo('Role removed from user successfully', { userId, roleName })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, userId, roleName }, 'Failed to remove role from user')
+      this.logError('Failed to remove role from user', { error, userId, roleName })
       
       if ((error as any).code === 'P2025') {
         return this.error('User does not have this role', 'NOT_FOUND', 404)
@@ -449,7 +449,7 @@ export class UserService extends BaseService {
 
       return this.success(uniquePermissions)
     } catch (error) {
-      this.logger.error({ error, userId }, 'Failed to get user permissions')
+      this.logError('Failed to get user permissions', { error, userId })
       return this.error('Failed to get user permissions', 'DATABASE_ERROR')
     }
   }
@@ -519,10 +519,10 @@ export class UserService extends BaseService {
         expiresIn: process.env.JWT_EXPIRES_IN || '24h'
       }
 
-      this.logger.info({ user_id: user.id, email }, 'User authenticated successfully')
+      this.logInfo('User authenticated successfully', { user_id: user.id, email })
       return this.success(response)
     } catch (error) {
-      this.logger.error({ error, email: credentials.email }, 'Authentication failed')
+      this.logError('Authentication failed', { error, email: credentials.email })
       return this.error('Authentication failed', 'AUTHENTICATION_ERROR', 401)
     }
   }
@@ -566,10 +566,10 @@ export class UserService extends BaseService {
         } as jwt.SignOptions
       )
 
-      this.logger.info({ userId }, 'Token refreshed successfully')
+      this.logInfo('Token refreshed successfully', { userId })
       return this.success({ token })
     } catch (error) {
-      this.logger.error({ error, userId }, 'Failed to refresh token')
+      this.logError('Failed to refresh token', { error, userId })
       return this.error('Failed to refresh token', 'TOKEN_ERROR', 401)
     }
   }
@@ -580,7 +580,7 @@ export class UserService extends BaseService {
   async verifyEmail(userId: string): Promise<ServiceResult<boolean>> {
     // Email verification field doesn't exist in current schema
     // This would need to be implemented if email verification is added to the database
-    this.logger.info({ userId }, 'Email verification requested but field not available in schema')
+    this.logInfo('Email verification requested but field not available in schema', { userId })
     return this.success(true)
   }
 
@@ -630,7 +630,7 @@ export class UserService extends BaseService {
 
       return this.success(stats)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get user statistics')
+      this.logError('Failed to get user statistics', { error })
       return this.error('Failed to get user statistics', 'DATABASE_ERROR')
     }
   }

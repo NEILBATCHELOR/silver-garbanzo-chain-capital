@@ -25,11 +25,11 @@ export class AzureKeyVaultService extends BaseService {
   constructor(config: AzureKeyVaultConfig) {
     super('AzureKeyVault')
     this.config = config
-    this.logger.info({ 
+    this.logInfo('Azure Key Vault Service initialized', { 
       vaultUrl: config.vaultUrl,
       region: config.region,
       managedIdentity: config.managedIdentity 
-    }, 'Azure Key Vault Service initialized')
+    })
   }
 
   /**
@@ -37,7 +37,7 @@ export class AzureKeyVaultService extends BaseService {
    */
   async initialize(): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Initializing Azure Key Vault client')
+      this.logInfo('Initializing Azure Key Vault client')
 
       // Initialize Azure Key Vault SDK
       // In production, this would be:
@@ -74,12 +74,12 @@ export class AzureKeyVaultService extends BaseService {
       await this.testConnection()
       
       this.isInitialized = true
-      this.logger.info('Azure Key Vault client initialized successfully')
+      this.logInfo('Azure Key Vault client initialized successfully')
       
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to initialize Azure Key Vault client')
+      this.logError('Failed to initialize Azure Key Vault client', { error })
       return this.error('Failed to initialize Azure Key Vault client', 'KEYVAULT_INIT_FAILED')
     }
   }
@@ -100,7 +100,7 @@ export class AzureKeyVaultService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId, keyType, keyName }, 'Generating key in Azure Key Vault HSM')
+      this.logInfo('Generating key in Azure Key Vault HSM', { walletId, keyType, keyName })
 
       // Map keyType to Azure Key Vault specifications
       const keySpec = this.mapKeyTypeToKeyVaultSpec(keyType)
@@ -139,16 +139,16 @@ export class AzureKeyVaultService extends BaseService {
         metadata: { keyType, keyName, keySize: keySpec.keySize }
       })
 
-      this.logger.info({ 
+      this.logInfo('Key generated successfully in Azure Key Vault HSM', { 
         walletId, 
         keyId: azureKey.keyId,
         keyType 
-      }, 'Key generated successfully in Azure Key Vault HSM')
+      })
 
       return this.success(azureKey)
 
     } catch (error) {
-      this.logger.error({ error, walletId, keyType }, 'Failed to generate key in Azure Key Vault HSM')
+      this.logError('Failed to generate key in Azure Key Vault HSM', { error, walletId, keyType })
       
       await this.logAuditEvent({
         walletId,
@@ -174,7 +174,7 @@ export class AzureKeyVaultService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId: keyData.walletId }, 'Storing wallet keys in Azure Key Vault HSM')
+      this.logInfo('Storing wallet keys in Azure Key Vault HSM', { walletId: keyData.walletId })
 
       // Generate or import key material to Key Vault HSM
       const keyResult = await this.generateKey(keyData.walletId, 'secp256k1')
@@ -218,10 +218,10 @@ export class AzureKeyVaultService extends BaseService {
         metadata: { addresses: Object.keys(keyData.addresses) }
       })
 
-      this.logger.info({ 
+      this.logInfo('Wallet keys stored successfully in Azure Key Vault HSM', { 
         walletId: keyData.walletId,
         keyId: keyResult.data!.keyId 
-      }, 'Wallet keys stored successfully in Azure Key Vault HSM')
+      })
 
       return {
         success: true,
@@ -231,7 +231,7 @@ export class AzureKeyVaultService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, walletId: keyData.walletId }, 'Failed to store wallet keys in Azure Key Vault HSM')
+      this.logError('Failed to store wallet keys in Azure Key Vault HSM', { error, walletId: keyData.walletId })
       
       await this.logAuditEvent({
         walletId: keyData.walletId,
@@ -261,12 +261,12 @@ export class AzureKeyVaultService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId }, 'Retrieving wallet keys from Azure Key Vault HSM')
+      this.logInfo('Retrieving wallet keys from Azure Key Vault HSM', { walletId })
 
       // Get Key Vault key metadata from database
       const hsmKeyData = await this.getKeyVaultKeyMetadata(walletId)
       if (!hsmKeyData) {
-        this.logger.warn({ walletId }, 'Key Vault key metadata not found')
+        this.logWarn('Key Vault key metadata not found', { walletId })
         return null
       }
 
@@ -281,11 +281,11 @@ export class AzureKeyVaultService extends BaseService {
         created_at: hsmKeyData.createdAt
       }
 
-      this.logger.info({ walletId }, 'Wallet keys retrieved successfully from Azure Key Vault HSM')
+      this.logInfo('Wallet keys retrieved successfully from Azure Key Vault HSM', { walletId })
       return storedKeyData
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to retrieve wallet keys from Azure Key Vault HSM')
+      this.logError('Failed to retrieve wallet keys from Azure Key Vault HSM', { error, walletId })
       return null
     }
   }
@@ -302,10 +302,10 @@ export class AzureKeyVaultService extends BaseService {
         }
       }
 
-      this.logger.info({ 
+      this.logInfo('Signing data with Azure Key Vault HSM', { 
         keyId: request.keyId, 
         algorithm: request.algorithm 
-      }, 'Signing data with Azure Key Vault HSM')
+      })
 
       // In production, this would use Key Vault SDK:
       // const signResult = await this.keyVaultClient.sign(
@@ -336,15 +336,15 @@ export class AzureKeyVaultService extends BaseService {
         metadata: { algorithm: request.algorithm, dataSize: request.data.length }
       })
 
-      this.logger.info({ 
+      this.logInfo('Data signed successfully with Azure Key Vault HSM', { 
         keyId: request.keyId, 
         algorithm: request.algorithm 
-      }, 'Data signed successfully with Azure Key Vault HSM')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, keyId: request.keyId }, 'Failed to sign data with Azure Key Vault HSM')
+      this.logError('Failed to sign data with Azure Key Vault HSM', { error, keyId: request.keyId })
       
       await this.logAuditEvent({
         walletId: 'unknown',
@@ -368,7 +368,7 @@ export class AzureKeyVaultService extends BaseService {
     capabilities: string[]
   }>> {
     try {
-      this.logger.info('Testing Azure Key Vault connection')
+      this.logInfo('Testing Azure Key Vault connection')
 
       const startTime = Date.now()
       
@@ -396,11 +396,11 @@ export class AzureKeyVaultService extends BaseService {
         ]
       }
 
-      this.logger.info({ result }, 'Azure Key Vault connection test successful')
+      this.logInfo('Azure Key Vault connection test successful', { result })
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error }, 'Azure Key Vault connection test failed')
+      this.logError('Azure Key Vault connection test failed', { error })
       return this.error('Key Vault connection test failed', 'CONNECTION_TEST_FAILED')
     }
   }
@@ -414,7 +414,7 @@ export class AzureKeyVaultService extends BaseService {
     keyVersion: string
   }>> {
     try {
-      this.logger.info({ keyId }, 'Creating Azure Key Vault key backup')
+      this.logInfo('Creating Azure Key Vault key backup', { keyId })
 
       // In production: const backup = await this.keyVaultClient.backupKey(keyId)
       
@@ -433,11 +433,11 @@ export class AzureKeyVaultService extends BaseService {
         metadata: { backupSize: backup.backupData.length }
       })
 
-      this.logger.info({ keyId, backupTime: backup.backupTime }, 'Key backup created successfully')
+      this.logInfo('Key backup created successfully', { keyId, backupTime: backup.backupTime })
       return this.success(backup)
 
     } catch (error) {
-      this.logger.error({ error, keyId }, 'Failed to create key backup')
+      this.logError('Failed to create key backup', { error, keyId })
       return this.error('Failed to create key backup', 'BACKUP_FAILED')
     }
   }
@@ -472,7 +472,7 @@ export class AzureKeyVaultService extends BaseService {
 
   private async encryptWithKeyVault(data: string, keyId: string): Promise<string> {
     // Placeholder implementation - would use Key Vault encryption
-    this.logger.info({ keyId }, 'Encrypting data with Key Vault HSM (placeholder)')
+    this.logInfo('Encrypting data with Key Vault HSM (placeholder)', { keyId })
     
     // In production: return await this.keyVaultClient.encrypt(keyId, 'RSA-OAEP', Buffer.from(data))
     return Buffer.from(data).toString('base64')
@@ -480,7 +480,7 @@ export class AzureKeyVaultService extends BaseService {
 
   private async decryptWithKeyVault(encryptedData: string, keyId: string): Promise<string> {
     // Placeholder implementation - would use Key Vault decryption
-    this.logger.info({ keyId }, 'Decrypting data with Key Vault HSM (placeholder)')
+    this.logInfo('Decrypting data with Key Vault HSM (placeholder)', { keyId })
     
     // In production: return await this.keyVaultClient.decrypt(keyId, 'RSA-OAEP', Buffer.from(encryptedData, 'base64'))
     return Buffer.from(encryptedData, 'base64').toString('utf8')
@@ -574,9 +574,9 @@ export class AzureKeyVaultService extends BaseService {
         metadata: event.metadata
       }
     }).catch(error => {
-      this.logger.warn({ error }, 'Failed to store Key Vault audit log')
+      this.logWarn('Failed to store Key Vault audit log', { error })
     })
 
-    this.logger.info({ auditLog }, 'Key Vault audit event logged')
+    this.logInfo('Key Vault audit event logged', { auditLog })
   }
 }

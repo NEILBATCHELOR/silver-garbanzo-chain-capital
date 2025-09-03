@@ -62,7 +62,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(analytics)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get factoring analytics')
+      this.logError('Failed to get factoring analytics', { error })
       return this.error('Failed to get analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -102,7 +102,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get invoice statistics')
+      this.logError('Failed to get invoice statistics', { error })
       return this.error('Failed to get invoice statistics', 'STATS_ERROR')
     }
   }
@@ -137,7 +137,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(breakdown)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get status breakdown')
+      this.logError('Failed to get status breakdown', { error })
       return this.error('Failed to get status breakdown')
     }
   }
@@ -193,7 +193,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(ageRanges)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get age distribution')
+      this.logError('Failed to get age distribution', { error })
       return this.error('Failed to get age distribution')
     }
   }
@@ -219,7 +219,7 @@ export class FactoringAnalyticsService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get discount rate statistics')
+      this.logError('Failed to get discount rate statistics', { error })
       return this.error('Failed to get discount rate statistics')
     }
   }
@@ -252,7 +252,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(distribution)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get pool distribution')
+      this.logError('Failed to get pool distribution', { error })
       return this.error('Failed to get pool distribution')
     }
   }
@@ -310,7 +310,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(poolStats)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get pool statistics')
+      this.logError('Failed to get pool statistics', { error })
       return this.error('Failed to get pool statistics')
     }
   }
@@ -354,7 +354,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(performance)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get provider performance')
+      this.logError('Failed to get provider performance', { error })
       return this.error('Failed to get provider performance')
     }
   }
@@ -385,7 +385,7 @@ export class FactoringAnalyticsService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get provider statistics')
+      this.logError('Failed to get provider statistics', { error })
       return this.error('Failed to get provider statistics')
     }
   }
@@ -443,7 +443,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(trends)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get monthly trends')
+      this.logError('Failed to get monthly trends', { error })
       return this.error('Failed to get monthly trends')
     }
   }
@@ -497,7 +497,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(trends)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get daily trends')
+      this.logError('Failed to get daily trends', { error })
       return this.error('Failed to get daily trends')
     }
   }
@@ -548,7 +548,7 @@ export class FactoringAnalyticsService extends BaseService {
       return this.success(exportData)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to generate analytics export')
+      this.logError('Failed to generate analytics export', { error })
       return this.error('Failed to generate analytics export')
     }
   }

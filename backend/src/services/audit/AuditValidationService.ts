@@ -94,7 +94,7 @@ export class AuditValidationService extends BaseService {
         suggestions
       })
     } catch (error) {
-      this.logger.error({ error, eventData }, 'Failed to validate audit event')
+      this.logError('Failed to validate audit event', { error, eventData })
       return this.error('Failed to validate audit event', 'VALIDATION_ERROR')
     }
   }
@@ -222,7 +222,7 @@ export class AuditValidationService extends BaseService {
 
       return this.success(complianceReport)
     } catch (error) {
-      this.logger.error({ error, standard }, 'Failed to check compliance')
+      this.logError('Failed to check compliance', { error, standard })
       return this.error('Failed to check compliance', 'COMPLIANCE_CHECK_ERROR')
     }
   }
@@ -279,7 +279,7 @@ export class AuditValidationService extends BaseService {
         recommendations
       })
     } catch (error) {
-      this.logger.error({ error }, 'Failed to validate retention compliance')
+      this.logError('Failed to validate retention compliance', { error })
       return this.error('Failed to validate retention compliance', 'RETENTION_VALIDATION_ERROR')
     }
   }
@@ -350,7 +350,7 @@ export class AuditValidationService extends BaseService {
         trail_length: auditTrail.length
       })
     } catch (error) {
-      this.logger.error({ error, entityType, entityId }, 'Failed to validate audit integrity')
+      this.logError('Failed to validate audit integrity', { error, entityType, entityId })
       return this.error('Failed to validate audit integrity', 'INTEGRITY_VALIDATION_ERROR')
     }
   }

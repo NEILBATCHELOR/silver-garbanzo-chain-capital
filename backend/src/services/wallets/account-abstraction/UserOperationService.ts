@@ -148,11 +148,11 @@ export class UserOperationService extends BaseService {
         return this.error('Failed to get UserOperation hash', 'USEROP_HASH_FAILED')
       }
 
-      this.logger.info({ 
+      this.logInfo('UserOperation built successfully', { 
         walletAddress, 
         userOpHash: userOpHash.data,
         operationsCount: operations.length 
-      }, 'UserOperation built successfully')
+      })
 
       return this.success({
         userOpHash: userOpHash.data,
@@ -163,7 +163,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to build UserOperation')
+      this.logError('Failed to build UserOperation', { error, request })
       return this.error('Failed to build UserOperation', 'USEROP_BUILD_FAILED')
     }
   }
@@ -196,10 +196,10 @@ export class UserOperationService extends BaseService {
         return this.error('Failed to submit to EntryPoint', 'ENTRYPOINT_SUBMIT_FAILED')
       }
 
-      this.logger.info({ 
+      this.logInfo('UserOperation submitted successfully', { 
         userOpHash: stored.data.user_op_hash,
         transactionHash: submission.data.transactionHash 
-      }, 'UserOperation submitted successfully')
+      })
 
       return this.success({
         userOpHash: stored.data.user_op_hash,
@@ -209,7 +209,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to send UserOperation')
+      this.logError('Failed to send UserOperation', { error, userOp })
       return this.error('Failed to send UserOperation', 'USEROP_SEND_FAILED')
     }
   }
@@ -264,7 +264,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOpHash }, 'Failed to get UserOperation status')
+      this.logError('Failed to get UserOperation status', { error, userOpHash })
       return this.error('Failed to get UserOperation status', 'USEROP_STATUS_FAILED')
     }
   }
@@ -320,7 +320,7 @@ export class UserOperationService extends BaseService {
       return this.success(userOpReceipt)
 
     } catch (error) {
-      this.logger.error({ error, userOpHash }, 'Failed to get UserOperation receipt')
+      this.logError('Failed to get UserOperation receipt', { error, userOpHash })
       return this.error('Failed to get UserOperation receipt', 'USEROP_RECEIPT_FAILED')
     }
   }
@@ -381,7 +381,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get UserOperation analytics')
+      this.logError('Failed to get UserOperation analytics', { error, walletId })
       return this.error('Failed to get UserOperation analytics', 'USEROP_ANALYTICS_FAILED')
     }
   }
@@ -403,7 +403,7 @@ export class UserOperationService extends BaseService {
       const nonce = await entryPoint.getNonce!(walletAddress, nonceKey)
       return this.success(nonce.toString())
     } catch (error) {
-      this.logger.error({ error, walletAddress, nonceKey }, 'Failed to get nonce')
+      this.logError('Failed to get nonce', { error, walletAddress, nonceKey })
       return this.error('Failed to get nonce', 'NONCE_FAILED')
     }
   }
@@ -443,7 +443,7 @@ export class UserOperationService extends BaseService {
       return this.success(callData)
 
     } catch (error) {
-      this.logger.error({ error, operations }, 'Failed to build call data')
+      this.logError('Failed to build call data', { error, operations })
       return this.error('Failed to build call data', 'CALLDATA_BUILD_FAILED')
     }
   }
@@ -463,7 +463,7 @@ export class UserOperationService extends BaseService {
       return this.success(estimate)
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to estimate gas')
+      this.logError('Failed to estimate gas', { error, userOp })
       return this.error('Failed to estimate gas', 'GAS_ESTIMATION_FAILED')
     }
   }
@@ -495,7 +495,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, gasPolicy }, 'Failed to calculate gas fees')
+      this.logError('Failed to calculate gas fees', { error, gasPolicy })
       return this.error('Failed to calculate gas fees', 'GAS_FEES_FAILED')
     }
   }
@@ -509,7 +509,7 @@ export class UserOperationService extends BaseService {
         validUntil: Math.floor(Date.now() / 1000) + 3600 // 1 hour
       })
     } catch (error) {
-      this.logger.error({ error, userOp, policy }, 'Failed to get paymaster data')
+      this.logError('Failed to get paymaster data', { error, userOp, policy })
       return this.error('Failed to get paymaster data', 'PAYMASTER_FAILED')
     }
   }
@@ -547,7 +547,7 @@ export class UserOperationService extends BaseService {
       return this.success(hash)
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to get UserOperation hash')
+      this.logError('Failed to get UserOperation hash', { error, userOp })
       return this.error('Failed to get UserOperation hash', 'USEROP_HASH_FAILED')
     }
   }
@@ -573,7 +573,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to validate UserOperation')
+      this.logError('Failed to validate UserOperation', { error, userOp })
       return this.error('Failed to validate UserOperation', 'USEROP_VALIDATION_FAILED')
     }
   }
@@ -643,7 +643,7 @@ export class UserOperationService extends BaseService {
       return this.success(userOpRecord)
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to store UserOperation')
+      this.logError('Failed to store UserOperation', { error, userOp })
       return this.error('Failed to store UserOperation', 'USEROP_STORE_FAILED')
     }
   }
@@ -659,7 +659,7 @@ export class UserOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to submit to EntryPoint')
+      this.logError('Failed to submit to EntryPoint', { error, userOp })
       return this.error('Failed to submit to EntryPoint', 'ENTRYPOINT_SUBMIT_FAILED')
     }
   }
@@ -679,7 +679,7 @@ export class UserOperationService extends BaseService {
         }
       })
     } catch (error) {
-      this.logger.error({ error, userOpHash, status }, 'Failed to update UserOperation status')
+      this.logError('Failed to update UserOperation status', { error, userOpHash, status })
     }
   }
 

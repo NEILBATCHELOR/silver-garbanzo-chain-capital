@@ -106,7 +106,7 @@ export class UserRoleService extends BaseService {
         }
       })
     } catch (error) {
-      this.logger.error({ error, params }, 'Failed to get users')
+      this.logError('Failed to get users', { error, params })
       return this.error('Failed to retrieve users', 'DATABASE_ERROR')
     }
   }
@@ -141,7 +141,7 @@ export class UserRoleService extends BaseService {
 
       return this.success(this.transformUserToResponse(user))
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get user')
+      this.logError('Failed to get user', { error, id })
       return this.error('Failed to retrieve user', 'DATABASE_ERROR')
     }
   }
@@ -221,7 +221,7 @@ export class UserRoleService extends BaseService {
         throw new Error('Failed to retrieve created user')
       }
 
-      this.logger.info({ userId: result.id }, 'User created successfully')
+      this.logInfo('User created successfully', { userId: result.id })
       
       return this.success({
         user: completeUser.data!,
@@ -230,7 +230,7 @@ export class UserRoleService extends BaseService {
         generatedPassword: generatedPassword
       })
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create user')
+      this.logError('Failed to create user', { error, data })
       return this.error('Failed to create user', 'DATABASE_ERROR')
     }
   }
@@ -291,10 +291,10 @@ export class UserRoleService extends BaseService {
         throw new Error('Failed to retrieve updated user')
       }
 
-      this.logger.info({ userId: id }, 'User updated successfully')
+      this.logInfo('User updated successfully', { userId: id })
       return this.success(completeUser.data!)
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update user')
+      this.logError('Failed to update user', { error, id, data })
       return this.error('Failed to update user', 'DATABASE_ERROR')
     }
   }
@@ -326,10 +326,10 @@ export class UserRoleService extends BaseService {
         })
       })
 
-      this.logger.info({ userId: id }, 'User deleted successfully')
+      this.logInfo('User deleted successfully', { userId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete user')
+      this.logError('Failed to delete user', { error, id })
       return this.error('Failed to delete user', 'DATABASE_ERROR')
     }
   }
@@ -369,10 +369,10 @@ export class UserRoleService extends BaseService {
         })
       })
 
-      this.logger.info({ userId: id }, 'User password reset successfully')
+      this.logInfo('User password reset successfully', { userId: id })
       return this.success({ password: autoGenerate ? newPassword : undefined })
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to reset user password')
+      this.logError('Failed to reset user password', { error, id })
       return this.error('Failed to reset password', 'DATABASE_ERROR')
     }
   }
@@ -450,7 +450,7 @@ export class UserRoleService extends BaseService {
         }
       })
     } catch (error) {
-      this.logger.error({ error, params }, 'Failed to get roles')
+      this.logError('Failed to get roles', { error, params })
       return this.error('Failed to retrieve roles', 'DATABASE_ERROR')
     }
   }
@@ -493,7 +493,7 @@ export class UserRoleService extends BaseService {
 
       return this.success(transformedRole)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get role')
+      this.logError('Failed to get role', { error, id })
       return this.error('Failed to retrieve role', 'DATABASE_ERROR')
     }
   }
@@ -534,10 +534,10 @@ export class UserRoleService extends BaseService {
         throw new Error('Failed to retrieve created role')
       }
 
-      this.logger.info({ roleId: role.id }, 'Role created successfully')
+      this.logInfo('Role created successfully', { roleId: role.id })
       return result
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create role')
+      this.logError('Failed to create role', { error, data })
       return this.error('Failed to create role', 'DATABASE_ERROR')
     }
   }
@@ -577,10 +577,10 @@ export class UserRoleService extends BaseService {
         throw new Error('Failed to retrieve updated role')
       }
 
-      this.logger.info({ roleId: id }, 'Role updated successfully')
+      this.logInfo('Role updated successfully', { roleId: id })
       return result
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update role')
+      this.logError('Failed to update role', { error, id, data })
       return this.error('Failed to update role', 'DATABASE_ERROR')
     }
   }
@@ -621,10 +621,10 @@ export class UserRoleService extends BaseService {
         })
       })
 
-      this.logger.info({ roleId: id }, 'Role deleted successfully')
+      this.logInfo('Role deleted successfully', { roleId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete role')
+      this.logError('Failed to delete role', { error, id })
       return this.error('Failed to delete role', 'DATABASE_ERROR')
     }
   }
@@ -649,7 +649,7 @@ export class UserRoleService extends BaseService {
         updatedAt: p.updated_at
       })))
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get permissions')
+      this.logError('Failed to get permissions', { error })
       return this.error('Failed to retrieve permissions', 'DATABASE_ERROR')
     }
   }
@@ -715,10 +715,10 @@ export class UserRoleService extends BaseService {
         affectedUsers
       }
 
-      this.logger.info({ roleId, result }, 'Permissions assigned to role successfully')
+      this.logInfo('Permissions assigned to role successfully', { roleId, result })
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to assign permissions to role')
+      this.logError('Failed to assign permissions to role', { error, data })
       return this.error('Failed to assign permissions', 'DATABASE_ERROR')
     }
   }
@@ -771,7 +771,7 @@ export class UserRoleService extends BaseService {
 
       return this.success(permissions.sort((a, b) => a.name.localeCompare(b.name)))
     } catch (error) {
-      this.logger.error({ error, userId }, 'Failed to get user permissions')
+      this.logError('Failed to get user permissions', { error, userId })
       return this.error('Failed to retrieve user permissions', 'DATABASE_ERROR')
     }
   }

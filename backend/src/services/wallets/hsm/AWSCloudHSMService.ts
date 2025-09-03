@@ -24,10 +24,10 @@ export class AWSCloudHSMService extends BaseService {
   constructor(config: AWSCloudHSMConfig) {
     super('AWSCloudHSM')
     this.config = config
-    this.logger.info({ 
+    this.logInfo('AWS CloudHSM Service initialized', { 
       region: config.region,
       clusterEndpoint: config.clusterEndpoint 
-    }, 'AWS CloudHSM Service initialized')
+    })
   }
 
   /**
@@ -35,7 +35,7 @@ export class AWSCloudHSMService extends BaseService {
    */
   async initialize(): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Initializing AWS CloudHSM client')
+      this.logInfo('Initializing AWS CloudHSM client')
 
       // Initialize AWS CloudHSM SDK
       // In production, this would be:
@@ -54,12 +54,12 @@ export class AWSCloudHSMService extends BaseService {
       await this.testConnection()
       
       this.isInitialized = true
-      this.logger.info('AWS CloudHSM client initialized successfully')
+      this.logInfo('AWS CloudHSM client initialized successfully')
       
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to initialize AWS CloudHSM client')
+      this.logError('Failed to initialize AWS CloudHSM client', { error })
       return this.error('Failed to initialize AWS CloudHSM client', 'CLOUDHSM_INIT_FAILED')
     }
   }
@@ -80,7 +80,7 @@ export class AWSCloudHSMService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId, keyType, keyLabel }, 'Generating key in AWS CloudHSM')
+      this.logInfo('Generating key in AWS CloudHSM', { walletId, keyType, keyLabel })
 
       // Map keyType to CloudHSM key specifications
       const keySpec = this.mapKeyTypeToCloudHSMSpec(keyType)
@@ -115,16 +115,16 @@ export class AWSCloudHSMService extends BaseService {
         metadata: { keyType, keyLabel }
       })
 
-      this.logger.info({ 
+      this.logInfo('Key generated successfully in AWS CloudHSM', { 
         walletId, 
         keyHandle: hsmKey.keyHandle,
         keyType 
-      }, 'Key generated successfully in AWS CloudHSM')
+      })
 
       return this.success(hsmKey)
 
     } catch (error) {
-      this.logger.error({ error, walletId, keyType }, 'Failed to generate key in AWS CloudHSM')
+      this.logError('Failed to generate key in AWS CloudHSM', { error, walletId, keyType })
       
       await this.logAuditEvent({
         walletId,
@@ -150,7 +150,7 @@ export class AWSCloudHSMService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId: keyData.walletId }, 'Storing wallet keys in AWS CloudHSM')
+      this.logInfo('Storing wallet keys in AWS CloudHSM', { walletId: keyData.walletId })
 
       // Generate or import key material to HSM
       const keyResult = await this.generateKey(keyData.walletId, 'secp256k1')
@@ -193,10 +193,10 @@ export class AWSCloudHSMService extends BaseService {
         metadata: { addresses: Object.keys(keyData.addresses) }
       })
 
-      this.logger.info({ 
+      this.logInfo('Wallet keys stored successfully in AWS CloudHSM', { 
         walletId: keyData.walletId,
         hsmKeyId: keyResult.data!.keyHandle 
-      }, 'Wallet keys stored successfully in AWS CloudHSM')
+      })
 
       return {
         success: true,
@@ -206,7 +206,7 @@ export class AWSCloudHSMService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, walletId: keyData.walletId }, 'Failed to store wallet keys in AWS CloudHSM')
+      this.logError('Failed to store wallet keys in AWS CloudHSM', { error, walletId: keyData.walletId })
       
       await this.logAuditEvent({
         walletId: keyData.walletId,
@@ -236,12 +236,12 @@ export class AWSCloudHSMService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId }, 'Retrieving wallet keys from AWS CloudHSM')
+      this.logInfo('Retrieving wallet keys from AWS CloudHSM', { walletId })
 
       // Get HSM key metadata from database
       const hsmKeyData = await this.getHSMKeyMetadata(walletId)
       if (!hsmKeyData) {
-        this.logger.warn({ walletId }, 'HSM key metadata not found')
+        this.logWarn('HSM key metadata not found', { walletId })
         return null
       }
 
@@ -256,11 +256,11 @@ export class AWSCloudHSMService extends BaseService {
         created_at: hsmKeyData.createdAt
       }
 
-      this.logger.info({ walletId }, 'Wallet keys retrieved successfully from AWS CloudHSM')
+      this.logInfo('Wallet keys retrieved successfully from AWS CloudHSM', { walletId })
       return storedKeyData
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to retrieve wallet keys from AWS CloudHSM')
+      this.logError('Failed to retrieve wallet keys from AWS CloudHSM', { error, walletId })
       return null
     }
   }
@@ -277,10 +277,10 @@ export class AWSCloudHSMService extends BaseService {
         }
       }
 
-      this.logger.info({ 
+      this.logInfo('Signing data with AWS CloudHSM', { 
         keyId: request.keyId, 
         algorithm: request.algorithm 
-      }, 'Signing data with AWS CloudHSM')
+      })
 
       // In production, this would use CloudHSM PKCS#11 library:
       // const signature = await this.cloudhsmClient.sign({
@@ -311,15 +311,15 @@ export class AWSCloudHSMService extends BaseService {
         metadata: { algorithm: request.algorithm, dataSize: request.data.length }
       })
 
-      this.logger.info({ 
+      this.logInfo('Data signed successfully with AWS CloudHSM', { 
         keyId: request.keyId, 
         algorithm: request.algorithm 
-      }, 'Data signed successfully with AWS CloudHSM')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, keyId: request.keyId }, 'Failed to sign data with AWS CloudHSM')
+      this.logError('Failed to sign data with AWS CloudHSM', { error, keyId: request.keyId })
       
       await this.logAuditEvent({
         walletId: 'unknown',
@@ -341,7 +341,7 @@ export class AWSCloudHSMService extends BaseService {
     rotationTime: Date
   }>> {
     try {
-      this.logger.info({ walletId, currentKeyId }, 'Starting key rotation in AWS CloudHSM')
+      this.logInfo('Starting key rotation in AWS CloudHSM', { walletId, currentKeyId })
 
       // Generate new key
       const newKeyResult = await this.generateKey(walletId, 'secp256k1')
@@ -365,11 +365,11 @@ export class AWSCloudHSMService extends BaseService {
         rotationTime: new Date()
       }
 
-      this.logger.info({ walletId, result }, 'Key rotation completed successfully in AWS CloudHSM')
+      this.logInfo('Key rotation completed successfully in AWS CloudHSM', { walletId, result })
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, walletId, currentKeyId }, 'Failed to rotate key in AWS CloudHSM')
+      this.logError('Failed to rotate key in AWS CloudHSM', { error, walletId, currentKeyId })
       
       await this.logAuditEvent({
         walletId,
@@ -393,7 +393,7 @@ export class AWSCloudHSMService extends BaseService {
     capabilities: string[]
   }>> {
     try {
-      this.logger.info('Testing AWS CloudHSM connection')
+      this.logInfo('Testing AWS CloudHSM connection')
 
       const startTime = Date.now()
       
@@ -419,11 +419,11 @@ export class AWSCloudHSMService extends BaseService {
         ]
       }
 
-      this.logger.info({ result }, 'AWS CloudHSM connection test successful')
+      this.logInfo('AWS CloudHSM connection test successful', { result })
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error }, 'AWS CloudHSM connection test failed')
+      this.logError('AWS CloudHSM connection test failed', { error })
       return this.error('CloudHSM connection test failed', 'CONNECTION_TEST_FAILED')
     }
   }
@@ -445,7 +445,7 @@ export class AWSCloudHSMService extends BaseService {
 
   private async encryptWithHSM(data: string, keyHandle: string): Promise<string> {
     // Placeholder implementation - would use HSM encryption
-    this.logger.info({ keyHandle }, 'Encrypting data with HSM (placeholder)')
+    this.logInfo('Encrypting data with HSM (placeholder)', { keyHandle })
     
     // In production: return await this.cloudhsmClient.encrypt({ keyHandle, data })
     return Buffer.from(data).toString('base64')
@@ -453,7 +453,7 @@ export class AWSCloudHSMService extends BaseService {
 
   private async decryptWithHSM(encryptedData: string, keyHandle: string): Promise<string> {
     // Placeholder implementation - would use HSM decryption
-    this.logger.info({ keyHandle }, 'Decrypting data with HSM (placeholder)')
+    this.logInfo('Decrypting data with HSM (placeholder)', { keyHandle })
     
     // In production: return await this.cloudhsmClient.decrypt({ keyHandle, encryptedData })
     return Buffer.from(encryptedData, 'base64').toString('utf8')
@@ -567,9 +567,9 @@ export class AWSCloudHSMService extends BaseService {
         metadata: event.metadata
       }
     }).catch(error => {
-      this.logger.warn({ error }, 'Failed to store HSM audit log')
+      this.logWarn('Failed to store HSM audit log', { error })
     })
 
-    this.logger.info({ auditLog }, 'HSM audit event logged')
+    this.logInfo('HSM audit event logged', { auditLog })
   }
 }

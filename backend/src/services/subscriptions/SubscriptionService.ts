@@ -193,7 +193,7 @@ export class SubscriptionService extends BaseService {
 
       return this.paginatedResponse(enhancedSubscriptions, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get subscriptions')
+      this.logError('Failed to get subscriptions', { error, options })
       throw error
     }
   }
@@ -255,7 +255,7 @@ export class SubscriptionService extends BaseService {
 
       return this.success(enhancedSubscription)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get subscription by ID')
+      this.logError('Failed to get subscription by ID', { error, id })
       return this.error('Failed to get subscription', 'DATABASE_ERROR')
     }
   }
@@ -370,14 +370,14 @@ export class SubscriptionService extends BaseService {
         next_steps: this.generateNextSteps(subscription, complianceStatus)
       }
 
-      this.logger.info(
-        { subscriptionId: subscription.id, investorId: data.investor_id },
-        'Subscription created successfully'
+      this.logInfo(
+        'Subscription created successfully',
+        { subscriptionId: subscription.id, investorId: data.investor_id }
       )
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create subscription')
+      this.logError('Failed to create subscription', { error, data })
       return this.error('Failed to create subscription', 'DATABASE_ERROR')
     }
   }
@@ -434,10 +434,10 @@ export class SubscriptionService extends BaseService {
       // Enhance with statistics and details
       const enhancedSubscription = await this.enhanceSubscriptionWithDetails(updatedSubscription)
 
-      this.logger.info({ subscriptionId: id }, 'Subscription updated successfully')
+      this.logInfo('Subscription updated successfully', { subscriptionId: id })
       return this.success(enhancedSubscription)
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update subscription')
+      this.logError('Failed to update subscription', { error, id, data })
       return this.error('Failed to update subscription', 'DATABASE_ERROR')
     }
   }
@@ -470,10 +470,10 @@ export class SubscriptionService extends BaseService {
         where: { id }
       })
 
-      this.logger.info({ subscriptionId: id }, 'Subscription deleted successfully')
+      this.logInfo('Subscription deleted successfully', { subscriptionId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete subscription')
+      this.logError('Failed to delete subscription', { error, id })
       return this.error('Failed to delete subscription', 'DATABASE_ERROR')
     }
   }
@@ -494,7 +494,7 @@ export class SubscriptionService extends BaseService {
       const statistics = await this.calculateSubscriptionStatistics(id)
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get subscription statistics')
+      this.logError('Failed to get subscription statistics', { error, id })
       return this.error('Failed to get subscription statistics', 'DATABASE_ERROR')
     }
   }

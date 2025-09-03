@@ -20,10 +20,10 @@ export class KeyManagementService extends BaseService {
 
       // For compatibility, we'll store this as a simple key-value pair
       // This is a basic implementation - in production, use proper key storage
-      this.logger.info({ keyId }, 'Key stored successfully (compatibility method)')
+      this.logInfo('Key stored successfully (compatibility method)', { keyId })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, keyId }, 'Failed to store key')
+      this.logError('Failed to store key', { error, keyId })
       return this.error('Failed to store key', 'KEY_STORAGE_FAILED')
     }
   }
@@ -55,11 +55,11 @@ export class KeyManagementService extends BaseService {
         }
       })
 
-      this.logger.info({ walletId }, 'Wallet keys stored successfully')
+      this.logInfo('Wallet keys stored successfully', { walletId })
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId: keyData.walletId }, 'Failed to store wallet keys')
+      this.logError('Failed to store wallet keys', { error, walletId: keyData.walletId })
       return this.error('Failed to store wallet keys', 'KEY_STORAGE_FAILED')
     }
   }
@@ -80,7 +80,7 @@ export class KeyManagementService extends BaseService {
       })
 
       if (!keyRecord || !keyRecord.blockchain_specific_data) {
-        this.logger.warn({ walletId }, 'Wallet keys not found')
+        this.logWarn('Wallet keys not found', { walletId })
         return null
       }
 
@@ -95,7 +95,7 @@ export class KeyManagementService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to retrieve wallet keys')
+      this.logError('Failed to retrieve wallet keys', { error, walletId })
       return null
     }
   }
@@ -132,11 +132,11 @@ export class KeyManagementService extends BaseService {
         }
       })
 
-      this.logger.info({ walletId, newAddresses }, 'Wallet addresses updated')
+      this.logInfo('Wallet addresses updated', { walletId, newAddresses })
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to update wallet addresses')
+      this.logError('Failed to update wallet addresses', { error, walletId })
       return this.error('Failed to update wallet addresses', 'UPDATE_FAILED')
     }
   }
@@ -156,11 +156,11 @@ export class KeyManagementService extends BaseService {
         }
       })
 
-      this.logger.info({ walletId }, 'Wallet keys deleted')
+      this.logInfo('Wallet keys deleted', { walletId })
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to delete wallet keys')
+      this.logError('Failed to delete wallet keys', { error, walletId })
       return this.error('Failed to delete wallet keys', 'DELETE_FAILED')
     }
   }
@@ -240,11 +240,11 @@ export class KeyManagementService extends BaseService {
       const encrypted = this.encrypt(backupJson, encryptionPassword)
       const backupString = JSON.stringify(encrypted)
 
-      this.logger.info({ walletId }, 'Key backup created')
+      this.logInfo('Key backup created', { walletId })
       return this.success(backupString)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to create key backup')
+      this.logError('Failed to create key backup', { error, walletId })
       return this.error('Failed to create key backup', 'BACKUP_FAILED')
     }
   }
@@ -279,11 +279,11 @@ export class KeyManagementService extends BaseService {
         return this.error(result.error || 'Failed to store restored keys', result.code || 'STORE_FAILED')
       }
 
-      this.logger.info({ walletId: backup.wallet_id }, 'Wallet keys restored from backup')
+      this.logInfo('Wallet keys restored from backup', { walletId: backup.wallet_id })
       return this.success(backup.wallet_id)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to restore from backup')
+      this.logError('Failed to restore from backup', { error })
       return this.error('Failed to restore from backup', 'RESTORE_FAILED')
     }
   }
@@ -296,7 +296,7 @@ export class KeyManagementService extends BaseService {
       const keyData = await this.getWalletKeys(walletId)
       return keyData !== null
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to check stored keys')
+      this.logError('Failed to check stored keys', { error, walletId })
       return false
     }
   }
@@ -309,7 +309,7 @@ export class KeyManagementService extends BaseService {
       const keyData = await this.getWalletKeys(walletId)
       return keyData ? keyData.addresses : null
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet addresses')
+      this.logError('Failed to get wallet addresses', { error, walletId })
       return null
     }
   }

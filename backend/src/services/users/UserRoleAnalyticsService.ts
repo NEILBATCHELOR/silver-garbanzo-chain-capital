@@ -50,7 +50,7 @@ export class UserRoleAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, dateRange }, 'Failed to get user analytics')
+      this.logError('Failed to get user analytics', { error, dateRange })
       return this.error('Failed to retrieve user analytics', 'DATABASE_ERROR')
     }
   }
@@ -98,7 +98,7 @@ export class UserRoleAnalyticsService extends BaseService {
 
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get user statistics')
+      this.logError('Failed to get user statistics', { error })
       return this.error('Failed to retrieve user statistics', 'DATABASE_ERROR')
     }
   }
@@ -153,7 +153,7 @@ export class UserRoleAnalyticsService extends BaseService {
 
       return timeline
     } catch (error) {
-      this.logger.error({ error, dateRange }, 'Failed to get user timeline')
+      this.logError('Failed to get user timeline', { error, dateRange })
       return []
     }
   }
@@ -176,7 +176,7 @@ export class UserRoleAnalyticsService extends BaseService {
         byRole: roleDistribution
       }
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get user demographics')
+      this.logError('Failed to get user demographics', { error })
       return { 
         statusDistribution: {},
         roleDistribution: {},
@@ -214,7 +214,7 @@ export class UserRoleAnalyticsService extends BaseService {
         accountsAtRisk
       }
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get security metrics')
+      this.logError('Failed to get security metrics', { error })
       return {
         mfaAdoption: 0,
         passwordStrength: {},
@@ -268,7 +268,7 @@ export class UserRoleAnalyticsService extends BaseService {
 
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get role statistics')
+      this.logError('Failed to get role statistics', { error })
       return this.error('Failed to retrieve role statistics', 'DATABASE_ERROR')
     }
   }
@@ -316,7 +316,7 @@ export class UserRoleAnalyticsService extends BaseService {
 
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get permission statistics')
+      this.logError('Failed to get permission statistics', { error })
       return this.error('Failed to retrieve permission statistics', 'DATABASE_ERROR')
     }
   }

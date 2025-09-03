@@ -7,6 +7,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { RedemptionCalendarService } from '../services/calendar/RedemptionCalendarService';
+import { logError } from '../utils/loggerAdapter';
 
 // Route schemas
 const CalendarQuerySchema = Type.Object({
@@ -60,7 +61,7 @@ const calendarRoutes: FastifyPluginAsync = async (fastify) => {
         .send(rssContent);
 
     } catch (error) {
-      fastify.log.error('Error generating RSS feed:', error);
+      logError(fastify.log, 'Error generating RSS feed:', error);
       reply.code(500).send({ 
         error: 'Internal Server Error', 
         message: 'Failed to generate RSS feed' 
@@ -95,7 +96,7 @@ const calendarRoutes: FastifyPluginAsync = async (fastify) => {
         .send(icalContent);
 
     } catch (error) {
-      fastify.log.error('Error generating iCal feed:', error);
+      logError(fastify.log, 'Error generating iCal feed:', error);
       reply.code(500).send({ 
         error: 'Internal Server Error', 
         message: 'Failed to generate iCal feed' 
@@ -143,7 +144,7 @@ const calendarRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
     } catch (error) {
-      fastify.log.error('Error fetching calendar events:', error);
+      logError(fastify.log, 'Error fetching calendar events:', error);
       reply.code(500).send({ 
         success: false,
         error: 'Internal Server Error', 
@@ -208,7 +209,7 @@ const calendarRoutes: FastifyPluginAsync = async (fastify) => {
         .send(icalContent);
 
     } catch (error) {
-      fastify.log.error('Error exporting calendar:', error);
+      logError(fastify.log, 'Error exporting calendar:', error);
       reply.code(500).send({ 
         error: 'Internal Server Error', 
         message: 'Failed to export calendar' 

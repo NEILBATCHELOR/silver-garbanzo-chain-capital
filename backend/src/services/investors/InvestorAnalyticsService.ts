@@ -53,7 +53,7 @@ export class InvestorAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, investorId }, 'Failed to get investor analytics')
+      this.logError('Failed to get investor analytics', { error, investorId })
       return this.error('Failed to get investor analytics', 'DATABASE_ERROR')
     }
   }
@@ -94,7 +94,7 @@ export class InvestorAnalyticsService extends BaseService {
 
       return this.paginatedResponse(data, total, Math.floor(offset / limit) + 1, limit)
     } catch (error) {
-      this.logger.error({ error, investorId }, 'Failed to get investor audit trail')
+      this.logError('Failed to get investor audit trail', { error, investorId })
       throw error
     }
   }
@@ -187,7 +187,7 @@ export class InvestorAnalyticsService extends BaseService {
       
       return this.success(exportBuffer)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export investors')
+      this.logError('Failed to export investors', { error, options })
       return this.error('Failed to export investors', 'EXPORT_ERROR')
     }
   }
@@ -232,7 +232,7 @@ export class InvestorAnalyticsService extends BaseService {
         errors
       })
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to import investors')
+      this.logError('Failed to import investors', { error, data })
       return this.error('Failed to import investors', 'IMPORT_ERROR')
     }
   }
@@ -363,7 +363,7 @@ export class InvestorAnalyticsService extends BaseService {
         investorTypeDistribution
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get investor overview')
+      this.logError('Failed to get investor overview', { error, options })
       return this.error('Failed to get investor overview', 'DATABASE_ERROR')
     }
   }

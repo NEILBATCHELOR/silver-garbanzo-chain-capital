@@ -255,7 +255,7 @@ export class OrganizationComplianceService extends BaseService {
 
       return this.success(complianceProfile)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create compliance profile')
+      this.logError('Failed to create compliance profile', { error, data })
       return this.error('Failed to create compliance profile', 'DATABASE_ERROR')
     }
   }
@@ -405,7 +405,7 @@ export class OrganizationComplianceService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to initiate KYB verification')
+      this.logError('Failed to initiate KYB verification', { error, request })
       return this.error('Failed to initiate KYB verification', 'VERIFICATION_ERROR')
     }
   }
@@ -474,7 +474,7 @@ export class OrganizationComplianceService extends BaseService {
 
       return this.success(workflow)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create onboarding workflow')
+      this.logError('Failed to create onboarding workflow', { error, data })
       return this.error('Failed to create onboarding workflow', 'DATABASE_ERROR')
     }
   }
@@ -581,7 +581,7 @@ export class OrganizationComplianceService extends BaseService {
 
       return this.success(assessment)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to perform regulatory assessment')
+      this.logError('Failed to perform regulatory assessment', { error, data })
       return this.error('Failed to perform regulatory assessment', 'ASSESSMENT_ERROR')
     }
   }
@@ -595,7 +595,7 @@ export class OrganizationComplianceService extends BaseService {
       // For now, return error to indicate not found
       return this.error('Compliance profile not found', 'NOT_FOUND', 404)
     } catch (error) {
-      this.logger.error({ error, organization_id }, 'Failed to get compliance profile')
+      this.logError('Failed to get compliance profile', { error, organization_id })
       return this.error('Failed to get compliance profile', 'DATABASE_ERROR')
     }
   }

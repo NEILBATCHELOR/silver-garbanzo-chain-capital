@@ -41,7 +41,7 @@ export class SigningService extends BaseService {
    */
   async signTransaction(request: SigningRequest): Promise<ServiceResult<SigningResponse>> {
     try {
-      this.logger.info('Signing transaction', {
+      this.logInfo('Signing transaction', {
         walletId: request.wallet_id,
         blockchain: request.blockchain
       })
@@ -111,7 +111,7 @@ export class SigningService extends BaseService {
         recovery_id: recoveryId
       }
 
-      this.logger.info('Transaction signed successfully', {
+      this.logInfo('Transaction signed successfully', {
         walletId: request.wallet_id,
         blockchain: request.blockchain
       })
@@ -119,7 +119,7 @@ export class SigningService extends BaseService {
       return this.success(response)
 
     } catch (error) {
-      this.logger.error('Failed to sign transaction:', error)
+      this.logError('Failed to sign transaction:', error)
       return this.error('Failed to sign transaction', 'SIGNING_FAILED')
     }
   }
@@ -133,7 +133,7 @@ export class SigningService extends BaseService {
     blockchain: BlockchainNetwork
   ): Promise<ServiceResult<SigningResponse>> {
     try {
-      this.logger.info('Signing message', { walletId, blockchain })
+      this.logInfo('Signing message', { walletId, blockchain })
 
       // Create message hash
       const messageHash = this.createMessageHash(message, blockchain)
@@ -147,7 +147,7 @@ export class SigningService extends BaseService {
       return await this.signTransaction(request)
 
     } catch (error) {
-      this.logger.error('Failed to sign message:', error)
+      this.logError('Failed to sign message:', error)
       return this.error('Failed to sign message', 'MESSAGE_SIGNING_FAILED')
     }
   }
@@ -162,7 +162,7 @@ export class SigningService extends BaseService {
     blockchain: BlockchainNetwork
   ): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Verifying signature', { blockchain })
+      this.logInfo('Verifying signature', { blockchain })
 
       let isValid = false
 
@@ -190,7 +190,7 @@ export class SigningService extends BaseService {
       return this.success(isValid)
 
     } catch (error) {
-      this.logger.error('Failed to verify signature:', error)
+      this.logError('Failed to verify signature:', error)
       return this.error('Failed to verify signature', 'VERIFICATION_FAILED')
     }
   }
@@ -246,7 +246,7 @@ export class SigningService extends BaseService {
       return this.success({ privateKey, publicKey })
 
     } catch (error) {
-      this.logger.error('Failed to derive private key:', error)
+      this.logError('Failed to derive private key:', error)
       return this.error('Failed to derive private key', 'KEY_DERIVATION_FAILED')
     }
   }
@@ -275,7 +275,7 @@ export class SigningService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to sign EVM transaction:', error)
+      this.logError('Failed to sign EVM transaction:', error)
       return this.error('Failed to sign EVM transaction', 'EVM_SIGNING_FAILED')
     }
   }
@@ -301,7 +301,7 @@ export class SigningService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to sign Solana transaction:', error)
+      this.logError('Failed to sign Solana transaction:', error)
       return this.error('Failed to sign Solana transaction', 'SOLANA_SIGNING_FAILED')
     }
   }
@@ -326,7 +326,7 @@ export class SigningService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to sign Bitcoin transaction:', error)
+      this.logError('Failed to sign Bitcoin transaction:', error)
       return this.error('Failed to sign Bitcoin transaction', 'BITCOIN_SIGNING_FAILED')
     }
   }
@@ -420,7 +420,7 @@ export class SigningService extends BaseService {
     blockchain: BlockchainNetwork
   ): Promise<ServiceResult<{ signature: string; recoveryId?: number }>> {
     try {
-      this.logger.info('Signing hash', { blockchain })
+      this.logInfo('Signing hash', { blockchain })
 
       let signature: string
       let recoveryId: number | undefined
@@ -465,7 +465,7 @@ export class SigningService extends BaseService {
       return this.success({ signature, recoveryId })
 
     } catch (error) {
-      this.logger.error('Failed to sign hash:', error)
+      this.logError('Failed to sign hash:', error)
       return this.error('Failed to sign hash', 'HASH_SIGNING_FAILED')
     }
   }
@@ -516,7 +516,7 @@ export class SigningService extends BaseService {
       return this.success({ privateKey, publicKey, address })
 
     } catch (error) {
-      this.logger.error('Failed to generate test key pair:', error)
+      this.logError('Failed to generate test key pair:', error)
       return this.error('Failed to generate test key pair', 'KEY_GENERATION_FAILED')
     }
   }

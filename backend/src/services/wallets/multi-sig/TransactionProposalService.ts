@@ -69,11 +69,11 @@ export class TransactionProposalService extends BaseService {
       this.providers.set('bitcoin', { network: process.env.BITCOIN_NETWORK || 'mainnet' })
       this.providers.set('near', { rpcUrl: process.env.NEAR_RPC_URL || 'https://rpc.mainnet.near.org' })
 
-      this.logger.info('Transaction proposal providers initialized', {
+      this.logInfo('Transaction proposal providers initialized', {
         providersCount: this.providers.size
       })
     } catch (error) {
-      this.logger.warn('Failed to initialize some proposal providers:', error)
+      this.logWarn('Failed to initialize some proposal providers:', error)
     }
   }
 
@@ -141,7 +141,7 @@ export class TransactionProposalService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Transaction proposal created', {
+      this.logInfo('Transaction proposal created', {
         id: proposal.id,
         walletId: proposal.wallet_id,
         blockchain: proposal.blockchain,
@@ -151,7 +151,7 @@ export class TransactionProposalService extends BaseService {
 
       return this.success(await this.formatProposal(proposal))
     } catch (error) {
-      this.logger.error('Create proposal error:', error)
+      this.logError('Create proposal error:', error)
       return this.error('Failed to create transaction proposal')
     }
   }
@@ -174,7 +174,7 @@ export class TransactionProposalService extends BaseService {
 
       return this.success(await this.formatProposal(proposal))
     } catch (error) {
-      this.logger.error('Get proposal error:', error)
+      this.logError('Get proposal error:', error)
       return this.error('Failed to get transaction proposal')
     }
   }
@@ -229,7 +229,7 @@ export class TransactionProposalService extends BaseService {
         }
       )
 
-      this.logger.info('Transaction proposal updated', {
+      this.logInfo('Transaction proposal updated', {
         id: proposal.id,
         changes: Object.keys(updateData),
         statusChange: existing.status !== proposal.status
@@ -237,7 +237,7 @@ export class TransactionProposalService extends BaseService {
 
       return this.success(await this.formatProposal(proposal))
     } catch (error) {
-      this.logger.error('Update proposal error:', error)
+      this.logError('Update proposal error:', error)
       return this.error('Failed to update transaction proposal')
     }
   }
@@ -287,7 +287,7 @@ export class TransactionProposalService extends BaseService {
         }
       )
 
-      this.logger.info('Transaction proposal cancelled', {
+      this.logInfo('Transaction proposal cancelled', {
         id,
         reason: reason || 'No reason provided',
         previousStatus: proposal.status
@@ -295,7 +295,7 @@ export class TransactionProposalService extends BaseService {
 
       return this.success(await this.formatProposal(cancelledProposal))
     } catch (error) {
-      this.logger.error('Cancel proposal error:', error)
+      this.logError('Cancel proposal error:', error)
       return this.error('Failed to cancel transaction proposal')
     }
   }
@@ -349,7 +349,7 @@ export class TransactionProposalService extends BaseService {
         prevPage: page > 1 ? page - 1 : undefined
       })
     } catch (error) {
-      this.logger.error('List proposals error:', error)
+      this.logError('List proposals error:', error)
       return this.error('Failed to list transaction proposals')
     }
   }
@@ -408,7 +408,7 @@ export class TransactionProposalService extends BaseService {
         prevPage: page > 1 ? page - 1 : undefined
       })
     } catch (error) {
-      this.logger.error('Get wallet proposals error:', error)
+      this.logError('Get wallet proposals error:', error)
       return this.error('Failed to get wallet proposals')
     }
   }
@@ -517,7 +517,7 @@ export class TransactionProposalService extends BaseService {
         }
       )
 
-      this.logger.info('Transaction proposal executed', {
+      this.logInfo('Transaction proposal executed', {
         id,
         transactionHash: executionResult.data?.hash,
         blockchain: proposal.blockchain,
@@ -526,7 +526,7 @@ export class TransactionProposalService extends BaseService {
 
       return this.success(await this.formatProposal(executedProposal))
     } catch (error) {
-      this.logger.error('Execute proposal error:', error)
+      this.logError('Execute proposal error:', error)
       return this.error('Failed to execute transaction proposal')
     }
   }
@@ -582,7 +582,7 @@ export class TransactionProposalService extends BaseService {
 
       return this.success(status)
     } catch (error) {
-      this.logger.error('Get proposal status error:', error)
+      this.logError('Get proposal status error:', error)
       return this.error('Failed to get proposal status')
     }
   }
@@ -638,7 +638,7 @@ export class TransactionProposalService extends BaseService {
 
       return (lastProposal?.nonce || 0) + 1
     } catch (error) {
-      this.logger.error('Get next nonce error:', error)
+      this.logError('Get next nonce error:', error)
       return Math.floor(Date.now() / 1000) // Timestamp fallback
     }
   }
@@ -650,7 +650,7 @@ export class TransactionProposalService extends BaseService {
     try {
       const provider = this.providers.get(proposal.blockchain)
       
-      this.logger.info('Executing transaction on blockchain', {
+      this.logInfo('Executing transaction on blockchain', {
         proposalId: proposal.id,
         blockchain: proposal.blockchain,
         walletAddress: wallet.address,
@@ -778,7 +778,7 @@ export class TransactionProposalService extends BaseService {
           return this.error(`Blockchain ${proposal.blockchain} not supported for execution`)
       }
     } catch (error) {
-      this.logger.error('Blockchain execution error:', error)
+      this.logError('Blockchain execution error:', error)
       return this.error('Failed to execute transaction on blockchain')
     }
   }

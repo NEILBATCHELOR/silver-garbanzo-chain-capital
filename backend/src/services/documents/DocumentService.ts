@@ -76,7 +76,7 @@ export class DocumentService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create document')
+      this.logError('Failed to create document', { error, data })
       return this.error('Failed to create document', 'DOCUMENT_CREATE_ERROR')
     }
   }
@@ -182,7 +182,7 @@ export class DocumentService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get document')
+      this.logError('Failed to get document', { error, id })
       return this.error('Failed to get document', 'DOCUMENT_GET_ERROR')
     }
   }
@@ -204,7 +204,7 @@ export class DocumentService extends BaseService {
       )
 
       if (result.success) {
-        this.logger.info({ documentId: id }, 'Document updated successfully')
+        this.logInfo('Document updated successfully', { documentId: id })
         return this.success({
           document: result.data!,
           versions: [],
@@ -216,7 +216,7 @@ export class DocumentService extends BaseService {
       return this.error('Failed to update document', 'DOCUMENT_UPDATE_ERROR')
 
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update document')
+      this.logError('Failed to update document', { error, id, data })
       return this.error('Failed to update document', 'DOCUMENT_UPDATE_ERROR')
     }
   }
@@ -244,15 +244,15 @@ export class DocumentService extends BaseService {
           await tx.documents.delete({ where: { id } })
         })
         
-        this.logger.info({ documentId: id }, 'Document deleted successfully')
+        this.logInfo('Document deleted successfully', { documentId: id })
         return this.success(true)
       } catch (transactionError) {
-        this.logger.error({ error: transactionError, id }, 'Failed to delete document in transaction')
+        this.logError('Failed to delete document in transaction', { error: transactionError, id })
         return this.error('Failed to delete document', 'DOCUMENT_DELETE_ERROR')
       }
 
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete document')
+      this.logError('Failed to delete document', { error, id })
       return this.error('Failed to delete document', 'DOCUMENT_DELETE_ERROR')
     }
   }
@@ -348,7 +348,7 @@ export class DocumentService extends BaseService {
       return result
 
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to list documents')
+      this.logError('Failed to list documents', { error, options })
       return {
         data: [],
         pagination: {
@@ -416,15 +416,15 @@ export class DocumentService extends BaseService {
         }
       })
 
-      this.logger.info({ 
+      this.logInfo('Document version created', { 
         documentId: data.document_id, 
         version: nextVersionNumber 
-      }, 'Document version created')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create document version')
+      this.logError('Failed to create document version', { error, data })
       return this.error('Failed to create document version', 'VERSION_CREATE_ERROR')
     }
   }
@@ -454,7 +454,7 @@ export class DocumentService extends BaseService {
       return this.success(documentVersions)
 
     } catch (error) {
-      this.logger.error({ error, documentId }, 'Failed to get document versions')
+      this.logError('Failed to get document versions', { error, documentId })
       return this.error('Failed to get document versions', 'VERSION_GET_ERROR')
     }
   }
@@ -510,7 +510,7 @@ export class DocumentService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create document approval')
+      this.logError('Failed to create document approval', { error, data })
       return this.error('Failed to create document approval', 'APPROVAL_CREATE_ERROR')
     }
   }
@@ -549,10 +549,10 @@ export class DocumentService extends BaseService {
         }
       })
 
-      this.logger.info({ 
+      this.logInfo('Bulk document update completed', { 
         documentIds: data.document_ids, 
         updated: results.count 
-      }, 'Bulk document update completed')
+      })
 
       return this.success({
         updated: results.count,
@@ -560,7 +560,7 @@ export class DocumentService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to bulk update documents')
+      this.logError('Failed to bulk update documents', { error, data })
       return this.error('Failed to bulk update documents', 'BULK_UPDATE_ERROR')
     }
   }

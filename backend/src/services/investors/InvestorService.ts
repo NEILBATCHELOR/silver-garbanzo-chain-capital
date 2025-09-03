@@ -177,7 +177,7 @@ export class InvestorService extends BaseService {
 
       return this.paginatedResponse(filteredInvestors, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get investors')
+      this.logError('Failed to get investors', { error, options })
       throw error
     }
   }
@@ -228,7 +228,7 @@ export class InvestorService extends BaseService {
 
       return this.success(enhancedInvestor)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get investor by ID')
+      this.logError('Failed to get investor by ID', { error, id })
       return this.error('Failed to get investor', 'DATABASE_ERROR')
     }
   }
@@ -364,14 +364,14 @@ export class InvestorService extends BaseService {
         }
       }
 
-      this.logger.info(
-        { investorId: investor.investor_id, groups: assignedGroups.length },
-        'Investor created successfully'
+      this.logInfo(
+        'Investor created successfully',
+        { investorId: investor.investor_id, groups: assignedGroups.length }
       )
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create investor')
+      this.logError('Failed to create investor', { error, data })
       return this.error('Failed to create investor', 'DATABASE_ERROR')
     }
   }
@@ -432,10 +432,10 @@ export class InvestorService extends BaseService {
       // Enhance with statistics
       const enhancedInvestor = await this.enhanceInvestorWithStats(updatedInvestor)
 
-      this.logger.info({ investorId: id }, 'Investor updated successfully')
+      this.logInfo('Investor updated successfully', { investorId: id })
       return this.success(enhancedInvestor)
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update investor')
+      this.logError('Failed to update investor', { error, id, data })
       return this.error('Failed to update investor', 'DATABASE_ERROR')
     }
   }
@@ -500,10 +500,10 @@ export class InvestorService extends BaseService {
         deleted_investor: investor
       })
 
-      this.logger.info({ investorId: id }, 'Investor deleted successfully')
+      this.logInfo('Investor deleted successfully', { investorId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete investor')
+      this.logError('Failed to delete investor', { error, id })
       return this.error('Failed to delete investor', 'DATABASE_ERROR')
     }
   }
@@ -566,7 +566,7 @@ export class InvestorService extends BaseService {
         failed: failed.length
       }
 
-      this.logger.info(summary, 'Bulk investor update completed')
+      this.logInfo('Bulk investor update completed', summary)
 
       return this.success({
         successful,
@@ -574,7 +574,7 @@ export class InvestorService extends BaseService {
         summary
       })
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to bulk update investors')
+      this.logError('Failed to bulk update investors', { error, request })
       return this.error('Failed to bulk update investors', 'DATABASE_ERROR')
     }
   }
@@ -595,7 +595,7 @@ export class InvestorService extends BaseService {
       const statistics = await this.calculateInvestorStatistics(id)
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get investor statistics')
+      this.logError('Failed to get investor statistics', { error, id })
       return this.error('Failed to get investor statistics', 'DATABASE_ERROR')
     }
   }
@@ -812,15 +812,15 @@ export class InvestorService extends BaseService {
     try {
       // This would typically use an audit service or table
       // For now, just log the action
-      this.logger.info({
+      this.logInfo('Investor audit entry created', {
         investorId,
         action,
         userId,
         details,
         timestamp: new Date()
-      }, 'Investor audit entry created')
+      })
     } catch (error) {
-      this.logger.error({ error, investorId, action }, 'Failed to create audit entry')
+      this.logError('Failed to create audit entry', { error, investorId, action })
       // Don't throw error as this shouldn't break the main operation
     }
   }

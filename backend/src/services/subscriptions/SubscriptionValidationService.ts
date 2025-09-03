@@ -176,7 +176,7 @@ export class SubscriptionValidationService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate subscription creation')
+      this.logError('Failed to validate subscription creation', { error, data })
       return this.error('Failed to validate subscription', 'VALIDATION_ERROR')
     }
   }
@@ -281,7 +281,7 @@ export class SubscriptionValidationService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate subscription update')
+      this.logError('Failed to validate subscription update', { error, data })
       return this.error('Failed to validate subscription update', 'VALIDATION_ERROR')
     }
   }
@@ -402,7 +402,7 @@ export class SubscriptionValidationService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate redemption request')
+      this.logError('Failed to validate redemption request', { error, data })
       return this.error('Failed to validate redemption', 'VALIDATION_ERROR')
     }
   }

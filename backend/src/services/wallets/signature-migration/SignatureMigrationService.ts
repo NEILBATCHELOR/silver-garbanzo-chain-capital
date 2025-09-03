@@ -150,19 +150,19 @@ export class SignatureMigrationService extends BaseService {
         data: { current_approvals: currentApprovals }
       })
 
-      this.logger.info({
+      this.logInfo('Signature migration initiated', {
         walletId,
         migrationId: migration.id,
         fromScheme,
         toScheme,
         requiredApprovals,
         currentApprovals
-      }, 'Signature migration initiated')
+      })
 
       return this.success(this.mapToMigrationStatus(updatedMigration))
 
     } catch (error) {
-      this.logger.error({ error, walletId: request.walletId }, 'Failed to initiate signature migration')
+      this.logError('Failed to initiate signature migration', { error, walletId: request.walletId })
       return this.error('Failed to initiate signature migration', 'MIGRATION_INITIATE_ERROR')
     }
   }
@@ -237,18 +237,18 @@ export class SignatureMigrationService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Migration approval recorded', {
         migrationId,
         approverAddress,
         currentApprovals,
         requiredApprovals: migration.required_approvals,
         status
-      }, 'Migration approval recorded')
+      })
 
       return this.success(this.mapToMigrationStatus(updatedMigration))
 
     } catch (error) {
-      this.logger.error({ error, migrationId }, 'Failed to approve migration')
+      this.logError('Failed to approve migration', { error, migrationId })
       return this.error('Failed to approve migration', 'MIGRATION_APPROVE_ERROR')
     }
   }
@@ -293,18 +293,18 @@ export class SignatureMigrationService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Signature migration finalized', {
         migrationId,
         walletId: migration.wallet_id,
         transactionHash: migrationResult.data!.transactionHash
-      }, 'Signature migration finalized')
+      })
 
       return this.success({
         transactionHash: migrationResult.data!.transactionHash
       })
 
     } catch (error) {
-      this.logger.error({ error, migrationId }, 'Failed to finalize migration')
+      this.logError('Failed to finalize migration', { error, migrationId })
       return this.error('Failed to finalize migration', 'MIGRATION_FINALIZE_ERROR')
     }
   }
@@ -360,16 +360,16 @@ export class SignatureMigrationService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Signature migration cancelled', {
         migrationId,
         walletId: migration.wallet_id,
         approvedCancellations
-      }, 'Signature migration cancelled')
+      })
 
       return this.success(this.mapToMigrationStatus(cancelledMigration))
 
     } catch (error) {
-      this.logger.error({ error, migrationId }, 'Failed to cancel migration')
+      this.logError('Failed to cancel migration', { error, migrationId })
       return this.error('Failed to cancel migration', 'MIGRATION_CANCEL_ERROR')
     }
   }
@@ -398,7 +398,7 @@ export class SignatureMigrationService extends BaseService {
       return this.success(this.mapToMigrationStatus(migration))
 
     } catch (error) {
-      this.logger.error({ error, migrationId }, 'Failed to get migration status')
+      this.logError('Failed to get migration status', { error, migrationId })
       return this.error('Failed to get migration status', 'MIGRATION_STATUS_ERROR')
     }
   }
@@ -428,7 +428,7 @@ export class SignatureMigrationService extends BaseService {
       return this.success(migrations.map(m => this.mapToMigrationStatus(m)))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to list migrations')
+      this.logError('Failed to list migrations', { error, walletId })
       return this.error('Failed to list migrations', 'MIGRATION_LIST_ERROR')
     }
   }
@@ -468,11 +468,11 @@ export class SignatureMigrationService extends BaseService {
 
   private async executeSignatureMigration(migration: any): Promise<ServiceResult<{ transactionHash: string }>> {
     // This would execute the actual diamond cut operation to replace verification facets
-    this.logger.info({
+    this.logInfo('Executing signature migration (placeholder)', {
       migrationId: migration.id,
       fromScheme: migration.from_scheme,
       toScheme: migration.to_scheme
-    }, 'Executing signature migration (placeholder)')
+    })
 
     // Remove old verification facet and add new one
     const diamondCutResult = await this.smartContractWallet.diamondCut(migration.wallet_id, {
@@ -535,11 +535,11 @@ export class SignatureMigrationService extends BaseService {
   ): Promise<boolean> {
     // This would verify the signature using the appropriate cryptographic method
     // Placeholder implementation
-    this.logger.debug({
+    this.logDebug('Verifying approval signature (placeholder)', {
       hash,
       approverAddress,
       signature: signature.substring(0, 10) + '...'
-    }, 'Verifying approval signature (placeholder)')
+    })
     
     return true // Placeholder
   }
@@ -590,10 +590,10 @@ export class SignatureMigrationService extends BaseService {
           approvedCount++
         } catch (error) {
           // Ignore duplicate approvals
-          this.logger.warn({
+          this.logWarn('Duplicate approval ignored', {
             migrationId,
             approver: approval.guardianAddress
-          }, 'Duplicate approval ignored')
+          })
         }
       }
     }

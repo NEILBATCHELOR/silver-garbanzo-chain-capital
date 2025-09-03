@@ -201,12 +201,67 @@ export abstract class BaseService {
   /**
    * Create an API response
    */
-  protected apiResponse<T>(data: T, message?: string): ApiResponse<T> {
+  public apiResponse<T>(data: T, message?: string): ApiResponse<T> {
     return {
       data,
       message,
       timestamp: new Date().toISOString()
     }
+  }
+
+  /**
+   * Convert unknown input to safe log string
+   */
+  private toLogString(input: unknown): string {
+    if (input === null) return 'null'
+    if (input === undefined) return 'undefined'
+    
+    if (input instanceof Error) {
+      return `${input.name}: ${input.message}${input.stack ? '\n' + input.stack : ''}`
+    }
+    
+    if (typeof input === 'string') return input
+    if (typeof input === 'number' || typeof input === 'boolean') return String(input)
+    
+    try {
+      const jsonString = JSON.stringify(input, null, 2)
+      // Truncate very large objects for log safety
+      return jsonString.length > 1000 ? jsonString.substring(0, 1000) + '...[truncated]' : jsonString
+    } catch {
+      return '[Circular/Unserializable Object]'
+    }
+  }
+
+  /**
+   * Log error with safe string formatting
+   */
+  protected logError(context: string, data?: unknown): void {
+    const message = data ? `${context}: ${this.toLogString(data)}` : context
+    this.logger.error(message)
+  }
+
+  /**
+   * Log warning with safe string formatting
+   */
+  protected logWarn(context: string, data?: unknown): void {
+    const message = data ? `${context}: ${this.toLogString(data)}` : context
+    this.logger.warn(message)
+  }
+
+  /**
+   * Log info with safe string formatting
+   */
+  protected logInfo(context: string, data?: unknown): void {
+    const message = data ? `${context}: ${this.toLogString(data)}` : context
+    this.logger.info(message)
+  }
+
+  /**
+   * Log debug with safe string formatting
+   */
+  protected logDebug(context: string, data?: unknown): void {
+    const message = data ? `${context}: ${this.toLogString(data)}` : context
+    this.logger.debug(message)
   }
 
   /**
@@ -348,7 +403,7 @@ export abstract class BaseService {
 
       return this.success(entity)
     } catch (error) {
-      this.logger.error({ error, id }, `Failed to find ${this.serviceName} by ID`)
+      this.logError(`Failed to find ${this.serviceName} by ID`, { error, id })
       return this.error(`Failed to find ${this.serviceName}`, 'DATABASE_ERROR')
     }
   }
@@ -372,10 +427,10 @@ export abstract class BaseService {
         include
       })
 
-      this.logger.info({ entityId: entity.id }, `${this.serviceName} created successfully`)
+      this.logInfo(`${this.serviceName} created successfully`, { entityId: entity.id })
       return this.success(entity)
     } catch (error) {
-      this.logger.error({ error, data }, `Failed to create ${this.serviceName}`)
+      this.logError(`Failed to create ${this.serviceName}`, { error, data })
       
       if ((error as any).code === 'P2002') {
         return this.error('Resource already exists', 'CONFLICT', 409)
@@ -404,10 +459,10 @@ export abstract class BaseService {
         include
       })
 
-      this.logger.info({ entityId: id }, `${this.serviceName} updated successfully`)
+      this.logInfo(`${this.serviceName} updated successfully`, { entityId: id })
       return this.success(entity)
     } catch (error) {
-      this.logger.error({ error, id, data }, `Failed to update ${this.serviceName}`)
+      this.logError(`Failed to update ${this.serviceName}`, { error, id, data })
       
       if ((error as any).code === 'P2025') {
         return this.error(`${this.serviceName} not found`, 'NOT_FOUND', 404)
@@ -429,10 +484,10 @@ export abstract class BaseService {
         where: { id }
       })
 
-      this.logger.info({ entityId: id }, `${this.serviceName} deleted successfully`)
+      this.logInfo(`${this.serviceName} deleted successfully`, { entityId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, `Failed to delete ${this.serviceName}`)
+      this.logError(`Failed to delete ${this.serviceName}`, { error, id })
       
       if ((error as any).code === 'P2025') {
         return this.error(`${this.serviceName} not found`, 'NOT_FOUND', 404)
@@ -458,10 +513,10 @@ export abstract class BaseService {
         }
       })
 
-      this.logger.info({ entityId: id }, `${this.serviceName} soft deleted successfully`)
+      this.logInfo(`${this.serviceName} soft deleted successfully`, { entityId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, `Failed to soft delete ${this.serviceName}`)
+      this.logError(`Failed to soft delete ${this.serviceName}`, { error, id })
       
       if ((error as any).code === 'P2025') {
         return this.error(`${this.serviceName} not found`, 'NOT_FOUND', 404)
@@ -493,7 +548,7 @@ export abstract class BaseService {
           error: error instanceof Error ? error.message : 'Unknown error',
           index: i
         })
-        this.logger.error({ error, item: items[i], index: i }, 'Batch operation failed for item')
+        this.logError('Batch operation failed for item', { error, item: items[i], index: i })
       }
     }
 
@@ -544,7 +599,7 @@ export abstract class BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error }, 'Transaction failed')
+      this.logError('Transaction failed', { error })
       return this.error('Transaction failed', 'TRANSACTION_ERROR')
     }
   }
@@ -583,7 +638,7 @@ export abstract class BaseService {
         }
       )
     } catch (error) {
-      this.logger.warn('Quick audit failed', { error: this.formatError(error) })
+      this.logWarn('Quick audit failed', error)
     }
   }
 
@@ -607,7 +662,7 @@ export abstract class BaseService {
     const errorMessage = error ? this.formatError(error) : 'Unknown error'
     const fullMessage = `${context}: ${errorMessage}`
     
-    this.logger.error({ error, context }, fullMessage)
+    this.logError(fullMessage, { error, context })
     
     // Check for common Prisma errors
     if (error && typeof error === 'object') {
@@ -658,7 +713,7 @@ export abstract class BaseService {
         }
       })
       
-      this.logger.info('Enhanced activity logged', {
+      this.logInfo('Enhanced activity logged', {
         action,
         entityType,
         entityId,
@@ -666,7 +721,7 @@ export abstract class BaseService {
         service: this.serviceName
       })
     } catch (error) {
-      this.logger.warn('Failed to log enhanced activity', { error: this.formatError(error) })
+      this.logWarn('Failed to log enhanced activity', error)
       
       // Fallback to basic logging
       try {
@@ -682,7 +737,7 @@ export abstract class BaseService {
           }
         })
       } catch (fallbackError) {
-        this.logger.error('Fallback audit logging failed', { error: this.formatError(fallbackError) })
+        this.logError('Fallback audit logging failed', fallbackError)
       }
     }
   }

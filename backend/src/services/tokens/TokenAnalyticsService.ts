@@ -82,10 +82,10 @@ export class TokenAnalyticsService extends BaseService {
         lastActivity: token.token_operations?.[0]?.timestamp?.toISOString() || null
       }
 
-      this.logger.info({ tokenId }, 'Token analytics retrieved successfully')
+      this.logInfo('Token analytics retrieved successfully', { tokenId })
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, tokenId }, 'Failed to get token analytics')
+      this.logError('Failed to get token analytics', { error, tokenId })
       return this.error('Failed to get token analytics', 'DATABASE_ERROR')
     }
   }
@@ -160,10 +160,10 @@ export class TokenAnalyticsService extends BaseService {
         }
       }
 
-      this.logger.info('Token statistics retrieved successfully')
+      this.logInfo('Token statistics retrieved successfully')
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get token statistics')
+      this.logError('Failed to get token statistics', { error })
       return this.error('Failed to get token statistics', 'DATABASE_ERROR')
     }
   }
@@ -214,10 +214,10 @@ export class TokenAnalyticsService extends BaseService {
         ...(standard && { standard })
       }))
 
-      this.logger.info({ days, standard }, 'Token trends retrieved successfully')
+      this.logInfo('Token trends retrieved successfully', { days, standard })
       return this.success(trends)
     } catch (error) {
-      this.logger.error({ error, days, standard }, 'Failed to get token trends')
+      this.logError('Failed to get token trends', { error, days, standard })
       return this.error('Failed to get token trends', 'DATABASE_ERROR')
     }
   }
@@ -287,10 +287,10 @@ export class TokenAnalyticsService extends BaseService {
         }))
       }
 
-      this.logger.info({ criteria }, 'Token distribution retrieved successfully')
+      this.logInfo('Token distribution retrieved successfully', { criteria })
       return this.success(distribution)
     } catch (error) {
-      this.logger.error({ error, criteria }, 'Failed to get token distribution')
+      this.logError('Failed to get token distribution', { error, criteria })
       return this.error('Failed to get token distribution', 'DATABASE_ERROR')
     }
   }
@@ -346,10 +346,10 @@ export class TokenAnalyticsService extends BaseService {
         growthRate: recentGrowth
       }
 
-      this.logger.info('Performance metrics retrieved successfully')
+      this.logInfo('Performance metrics retrieved successfully')
       return this.success(metrics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get performance metrics')
+      this.logError('Failed to get performance metrics', { error })
       return this.error('Failed to get performance metrics', 'DATABASE_ERROR')
     }
   }
@@ -405,10 +405,10 @@ export class TokenAnalyticsService extends BaseService {
         trends: trends.success ? trends.data || [] : []
       }
 
-      this.logger.info({ standard }, 'Standard analytics retrieved successfully')
+      this.logInfo('Standard analytics retrieved successfully', { standard })
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, standard }, 'Failed to get standard analytics')
+      this.logError('Failed to get standard analytics', { error, standard })
       return this.error('Failed to get standard analytics', 'DATABASE_ERROR')
     }
   }
@@ -442,7 +442,7 @@ export class TokenAnalyticsService extends BaseService {
       // Return average time in hours
       return Math.round((totalTime / deployedTokens.length) / (1000 * 60 * 60))
     } catch (error) {
-      this.logger.error({ error }, 'Failed to calculate average deployment time')
+      this.logError('Failed to calculate average deployment time', { error })
       return 0
     }
   }
@@ -479,7 +479,7 @@ export class TokenAnalyticsService extends BaseService {
       const growthRate = ((recentTokens - previousTokens) / previousTokens) * 100
       return Math.round(growthRate * 100) / 100
     } catch (error) {
-      this.logger.error({ error }, 'Failed to calculate growth rate')
+      this.logError('Failed to calculate growth rate', { error })
       return 0
     }
   }
@@ -535,7 +535,7 @@ export class TokenAnalyticsService extends BaseService {
 
       return features
     } catch (error) {
-      this.logger.error({ error, standard }, 'Failed to get popular features')
+      this.logError('Failed to get popular features', { error, standard })
       return {}
     }
   }
@@ -593,7 +593,7 @@ export class TokenAnalyticsService extends BaseService {
           return this.error('Unsupported export format', 'VALIDATION_ERROR', 400)
       }
     } catch (error) {
-      this.logger.error({ error, format }, 'Failed to export analytics data')
+      this.logError('Failed to export analytics data', { error, format })
       return this.error('Failed to export analytics data', 'DATABASE_ERROR')
     }
   }

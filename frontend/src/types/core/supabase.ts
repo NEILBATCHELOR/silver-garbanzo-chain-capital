@@ -410,7 +410,9 @@ export type Database = {
           credit_rating: string | null
           holding_type: string
           id: string
+          last_oracle_update: string | null
           maturity_date: string | null
+          oracle_price: number | null
           quantity: number
           source: string
           updated_at: string | null
@@ -421,7 +423,9 @@ export type Database = {
           credit_rating?: string | null
           holding_type: string
           id?: string
+          last_oracle_update?: string | null
           maturity_date?: string | null
+          oracle_price?: number | null
           quantity: number
           source?: string
           updated_at?: string | null
@@ -432,7 +436,9 @@ export type Database = {
           credit_rating?: string | null
           holding_type?: string
           id?: string
+          last_oracle_update?: string | null
           maturity_date?: string | null
+          oracle_price?: number | null
           quantity?: number
           source?: string
           updated_at?: string | null
@@ -7196,6 +7202,146 @@ export type Database = {
         }
         Relationships: []
       }
+      nav_approvals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          comments: string | null
+          created_at: string | null
+          id: string
+          requested_by: string
+          run_id: string
+          status: string
+          validated_by: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          requested_by: string
+          run_id: string
+          status?: string
+          validated_by?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          requested_by?: string
+          run_id?: string
+          status?: string
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nav_approvals_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nav_calculation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nav_approvals_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nav_data_with_status"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      nav_calculation_runs: {
+        Row: {
+          asset_id: string
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          error_message: string | null
+          fx_rate_used: number | null
+          id: string
+          inputs_json: Json | null
+          nav_per_share: number | null
+          pricing_sources: Json | null
+          product_type: string
+          project_id: string | null
+          result_nav_value: number | null
+          started_at: string | null
+          status: string
+          valuation_date: string
+        }
+        Insert: {
+          asset_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          fx_rate_used?: number | null
+          id?: string
+          inputs_json?: Json | null
+          nav_per_share?: number | null
+          pricing_sources?: Json | null
+          product_type: string
+          project_id?: string | null
+          result_nav_value?: number | null
+          started_at?: string | null
+          status?: string
+          valuation_date: string
+        }
+        Update: {
+          asset_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          fx_rate_used?: number | null
+          id?: string
+          inputs_json?: Json | null
+          nav_per_share?: number | null
+          pricing_sources?: Json | null
+          product_type?: string
+          project_id?: string | null
+          result_nav_value?: number | null
+          started_at?: string | null
+          status?: string
+          valuation_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nav_calculation_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nav_fx_rates: {
+        Row: {
+          as_of: string
+          base_ccy: string
+          quote_ccy: string
+          rate: number
+          source: string
+        }
+        Insert: {
+          as_of: string
+          base_ccy: string
+          quote_ccy: string
+          rate: number
+          source?: string
+        }
+        Update: {
+          as_of?: string
+          base_ccy?: string
+          quote_ccy?: string
+          rate?: number
+          source?: string
+        }
+        Relationships: []
+      }
       nav_oracle_configs: {
         Row: {
           active: boolean | null
@@ -7261,6 +7407,108 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      nav_price_cache: {
+        Row: {
+          as_of: string
+          currency: string
+          instrument_key: string
+          price: number
+          source: string
+        }
+        Insert: {
+          as_of: string
+          currency?: string
+          instrument_key: string
+          price: number
+          source: string
+        }
+        Update: {
+          as_of?: string
+          currency?: string
+          instrument_key?: string
+          price?: number
+          source?: string
+        }
+        Relationships: []
+      }
+      nav_redemptions: {
+        Row: {
+          as_of_date: string
+          asset_id: string
+          created_at: string | null
+          id: string
+          product_type: string
+          redemption_rate: number
+          shares_redeemed: number
+          value_redeemed: number
+        }
+        Insert: {
+          as_of_date: string
+          asset_id: string
+          created_at?: string | null
+          id?: string
+          product_type: string
+          redemption_rate?: number
+          shares_redeemed?: number
+          value_redeemed?: number
+        }
+        Update: {
+          as_of_date?: string
+          asset_id?: string
+          created_at?: string | null
+          id?: string
+          product_type?: string
+          redemption_rate?: number
+          shares_redeemed?: number
+          value_redeemed?: number
+        }
+        Relationships: []
+      }
+      nav_validation_results: {
+        Row: {
+          created_at: string | null
+          details_json: Json | null
+          id: string
+          passed: boolean
+          rule_code: string
+          run_id: string
+          severity: string
+        }
+        Insert: {
+          created_at?: string | null
+          details_json?: Json | null
+          id?: string
+          passed: boolean
+          rule_code: string
+          run_id: string
+          severity: string
+        }
+        Update: {
+          created_at?: string | null
+          details_json?: Json | null
+          id?: string
+          passed?: boolean
+          rule_code?: string
+          run_id?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nav_validation_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nav_calculation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nav_validation_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "nav_data_with_status"
+            referencedColumns: ["run_id"]
+          },
+        ]
       }
       notification_settings: {
         Row: {
@@ -19533,6 +19781,55 @@ export type Database = {
         }
         Relationships: []
       }
+      nav_data_with_status: {
+        Row: {
+          approval_comments: string | null
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          asset_id: string | null
+          asset_name: string | null
+          calculated_nav: number | null
+          calculation_method: string | null
+          change_amount: number | null
+          change_percent: number | null
+          created_at: string | null
+          created_by: string | null
+          date: string | null
+          error_validations: number | null
+          failed_validations: number | null
+          id: string | null
+          market_conditions: string | null
+          nav: number | null
+          notes: string | null
+          outstanding_shares: number | null
+          previous_nav: number | null
+          product_type: string | null
+          project_id: string | null
+          run_completed_at: string | null
+          run_id: string | null
+          run_started_at: string | null
+          run_status: string | null
+          source: string | null
+          total_assets: number | null
+          total_liabilities: number | null
+          total_validations: number | null
+          updated_at: string | null
+          validated: boolean | null
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_nav_data_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_type_stats: {
         Row: {
           active_count: number | null
@@ -20501,6 +20798,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      calculate_project_weighted_nav: {
+        Args: { p_date: string; p_project_id: string }
+        Returns: number
+      }
       check_duplicate_wallet: {
         Args: {
           p_credential_type: string
@@ -20662,7 +20963,7 @@ export type Database = {
         Returns: string
       }
       get_product_table_name: {
-        Args: { p_project_type: string }
+        Args: { p_product_type: string }
         Returns: string
       }
       get_project_target_raise: {

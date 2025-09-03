@@ -107,11 +107,11 @@ export class WalletService extends BaseService {
         updated_at: wallet.updated_at.toISOString()
       }
 
-      this.logger.info({ walletId: wallet.id, investorId: investor_id }, 'Wallet created successfully')
+      this.logInfo('Wallet created successfully', { walletId: wallet.id, investorId: investor_id })
       return this.success(response)
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to create wallet')
+      this.logError('Failed to create wallet', { error, request })
       return this.error('Failed to create wallet', 'WALLET_CREATION_FAILED')
     }
   }
@@ -137,7 +137,7 @@ export class WalletService extends BaseService {
       // Get HD wallet addresses from key management
       const addresses = await this.keyManagementService.getWalletAddresses(walletId)
       if (!addresses) {
-        this.logger.warn({ walletId }, 'No stored addresses found for wallet')
+        this.logWarn('No stored addresses found for wallet', { walletId })
       }
 
       const response: WalletResponse = {
@@ -158,7 +158,7 @@ export class WalletService extends BaseService {
       return this.success(response)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet')
+      this.logError('Failed to get wallet', { error, walletId })
       return this.error('Failed to retrieve wallet', 'WALLET_RETRIEVAL_FAILED')
     }
   }
@@ -234,7 +234,7 @@ export class WalletService extends BaseService {
       return this.success(this.paginatedResponse(walletsWithAddresses, total, page, limit))
 
     } catch (error) {
-      this.logger.error({ error, investorId, options }, 'Failed to list wallets')
+      this.logError('Failed to list wallets', { error, investorId, options })
       return this.error('Failed to list wallets', 'WALLET_LIST_FAILED')
     }
   }
@@ -281,11 +281,11 @@ export class WalletService extends BaseService {
         updated_at: wallet.updated_at.toISOString()
       }
 
-      this.logger.info({ walletId, updates }, 'Wallet updated successfully')
+      this.logInfo('Wallet updated successfully', { walletId, updates })
       return this.success(response)
 
     } catch (error) {
-      this.logger.error({ error, walletId, updates }, 'Failed to update wallet')
+      this.logError('Failed to update wallet', { error, walletId, updates })
       
       if ((error as any).code === 'P2025') {
         return this.error('Wallet not found', 'NOT_FOUND', 404)
@@ -309,11 +309,11 @@ export class WalletService extends BaseService {
         }
       })
 
-      this.logger.info({ walletId }, 'Wallet archived successfully')
+      this.logInfo('Wallet archived successfully', { walletId })
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to delete wallet')
+      this.logError('Failed to delete wallet', { error, walletId })
       
       if ((error as any).code === 'P2025') {
         return this.error('Wallet not found', 'NOT_FOUND', 404)
@@ -369,7 +369,7 @@ export class WalletService extends BaseService {
       return await this.getWallet(walletId)
 
     } catch (error) {
-      this.logger.error({ error, walletId, blockchain }, 'Failed to add blockchain support')
+      this.logError('Failed to add blockchain support', { error, walletId, blockchain })
       return this.error('Failed to add blockchain support', 'BLOCKCHAIN_ADD_FAILED')
     }
   }
@@ -407,7 +407,7 @@ export class WalletService extends BaseService {
       return this.success(walletBalance)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet balance')
+      this.logError('Failed to get wallet balance', { error, walletId })
       return this.error('Failed to get wallet balance', 'BALANCE_RETRIEVAL_FAILED')
     }
   }
@@ -448,7 +448,7 @@ export class WalletService extends BaseService {
       return this.success(statistics)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get wallet statistics')
+      this.logError('Failed to get wallet statistics', { error })
       return this.error('Failed to get wallet statistics', 'STATISTICS_FAILED')
     }
   }

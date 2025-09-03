@@ -96,7 +96,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get policy analytics')
+      this.logError('Failed to get policy analytics', { error })
       return this.error('Failed to get policy analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -129,7 +129,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(metrics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get policy usage metrics')
+      this.logError('Failed to get policy usage metrics', { error })
       return this.error('Failed to get policy usage metrics', 'METRICS_ERROR')
     }
   }
@@ -164,7 +164,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get approval config analytics')
+      this.logError('Failed to get approval config analytics', { error })
       return this.error('Failed to get approval config analytics', 'APPROVAL_ANALYTICS_ERROR')
     }
   }
@@ -201,7 +201,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(formattedTrends)
     } catch (error) {
-      this.logger.error({ error, days }, 'Failed to get policy template trends')
+      this.logError('Failed to get policy template trends', { error, days })
       return this.error('Failed to get policy template trends', 'TRENDS_ERROR')
     }
   }
@@ -230,7 +230,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(formatted)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get templates by creator')
+      this.logError('Failed to get templates by creator', { error })
       return this.error('Failed to get templates by creator', 'CREATOR_ANALYTICS_ERROR')
     }
   }
@@ -295,7 +295,7 @@ export class PolicyAnalyticsService extends BaseService {
         format: options.format
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export policy data')
+      this.logError('Failed to export policy data', { error, options })
       return this.error('Failed to export policy data', 'EXPORT_ERROR')
     }
   }
@@ -327,7 +327,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(metrics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get policy compliance metrics')
+      this.logError('Failed to get policy compliance metrics', { error })
       return this.error('Failed to get policy compliance metrics', 'COMPLIANCE_METRICS_ERROR')
     }
   }
@@ -359,7 +359,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return this.success(formatted)
     } catch (error) {
-      this.logger.error({ error, days }, 'Failed to get template status trends')
+      this.logError('Failed to get template status trends', { error, days })
       return this.error('Failed to get template status trends', 'STATUS_TRENDS_ERROR')
     }
   }
@@ -384,7 +384,7 @@ export class PolicyAnalyticsService extends BaseService {
 
       return result
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get template counts by type')
+      this.logError('Failed to get template counts by type', { error })
       return {}
     }
   }
@@ -420,7 +420,7 @@ export class PolicyAnalyticsService extends BaseService {
         published
       }
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get recent template activity')
+      this.logError('Failed to get recent template activity', { error })
       return { created: 0, updated: 0, published: 0 }
     }
   }

@@ -192,7 +192,7 @@ export class ComplianceService extends BaseService {
         alerts
       })
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get compliance overview')
+      this.logError('Failed to get compliance overview', { error })
       return this.error('Failed to get compliance overview', 'DATABASE_ERROR')
     }
   }
@@ -288,7 +288,7 @@ export class ComplianceService extends BaseService {
 
       return this.success(this.mapComplianceCheck(complianceCheck))
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create compliance check')
+      this.logError('Failed to create compliance check', { error, data })
       return this.error('Failed to create compliance check', 'DATABASE_ERROR')
     }
   }
@@ -342,7 +342,7 @@ export class ComplianceService extends BaseService {
 
       return this.success(this.mapComplianceCheck(updatedCheck))
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update compliance check')
+      this.logError('Failed to update compliance check', { error, id, data })
       return this.error('Failed to update compliance check', 'DATABASE_ERROR')
     }
   }
@@ -415,7 +415,7 @@ export class ComplianceService extends BaseService {
 
       return this.paginatedResponse(mappedChecks, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get compliance checks')
+      this.logError('Failed to get compliance checks', { error, options })
       throw error
     }
   }
@@ -488,7 +488,7 @@ export class ComplianceService extends BaseService {
               errors++
             }
           } catch (error) {
-            this.logger.error({ error, investor_id: investor.investor_id }, 'Failed to screen investor')
+            this.logError('Failed to screen investor', { error, investor_id: investor.investor_id })
             errors++
           }
         }
@@ -534,7 +534,7 @@ export class ComplianceService extends BaseService {
               errors++
             }
           } catch (error) {
-            this.logger.error({ error, organization_id: org.id }, 'Failed to screen organization')
+            this.logError('Failed to screen organization', { error, organization_id: org.id })
             errors++
           }
         }
@@ -548,7 +548,7 @@ export class ComplianceService extends BaseService {
         errors
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to perform bulk compliance screening')
+      this.logError('Failed to perform bulk compliance screening', { error, options })
       return this.error('Failed to perform bulk compliance screening', 'DATABASE_ERROR')
     }
   }
@@ -628,7 +628,7 @@ export class ComplianceService extends BaseService {
 
       return this.success(mappedReport)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to generate compliance report')
+      this.logError('Failed to generate compliance report', { error, data })
       return this.error('Failed to generate compliance report', 'DATABASE_ERROR')
     }
   }

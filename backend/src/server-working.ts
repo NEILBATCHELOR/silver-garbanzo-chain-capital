@@ -10,6 +10,7 @@ config()
 import Fastify, { FastifyInstance } from 'fastify'
 import { initializeDatabase } from './infrastructure/database/client'
 import { createLogger } from './utils/logger'
+import { logError } from './utils/loggerAdapter'
 
 // Route imports
 import projectRoutes from './routes/projects'
@@ -102,7 +103,7 @@ async function buildApp(): Promise<FastifyInstance> {
     await app.register(import('./middleware/auth/jwt-auth.js'))
     logger.info('✅ JWT authentication middleware loaded')
   } catch (error) {
-    logger.warn('⚠️ JWT auth middleware failed, continuing:', error instanceof Error ? error.message : error)
+      logger.warn(`⚠️ JWT auth middleware failed, continuing: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   // Swagger documentation
@@ -130,7 +131,7 @@ async function buildApp(): Promise<FastifyInstance> {
     })
     logger.info('✅ Swagger documentation loaded')
   } catch (error) {
-    logger.warn('⚠️ Swagger failed, continuing without docs:', error instanceof Error ? error.message : error)
+      logger.warn(`⚠️ Swagger failed, continuing without docs: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   // Health check endpoint
@@ -195,7 +196,7 @@ async function buildApp(): Promise<FastifyInstance> {
       await app.register(route.routes, { prefix: apiPrefix })
       logger.info(`✅ ${route.name} routes registered`)
     } catch (error) {
-      logger.error(`❌ ${route.name} routes failed:`, error instanceof Error ? error.message : error)
+      logger.error(`❌ ${route.name} routes failed: ${String(error)}`)
     }
   }
 
@@ -224,10 +225,10 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Error handlers
   app.setErrorHandler((error, request, reply) => {
-    app.log.error({
+    logError(app.log, 'Request failed', {
       err: error,
       req: { method: request.method, url: request.url }
-    }, 'Request failed')
+    })
 
     reply.status(error.statusCode || 500).send({
       error: {
@@ -296,7 +297,7 @@ async function start() {
         console.log('👋 Shutdown complete!')
         process.exit(0)
       } catch (error) {
-        logger.error('❌ Shutdown error:', error)
+        logger.error(`❌ Shutdown error: ${error}`)
         process.exit(1)
       }
     }
@@ -305,10 +306,10 @@ async function start() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
     
   } catch (error) {
-    logger.error('❌ Failed to start server:', error)
+    logger.error(`❌ Failed to start server: ${error}`)
     if (error instanceof Error) {
-      logger.error('Details:', error.message)
-      if (error.stack) logger.error('Stack:', error.stack)
+      logger.error(`Details: ${error.message}`)
+      if (error.stack) logger.error(`Stack: ${error.stack}`)
     }
     process.exit(1)
   }

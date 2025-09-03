@@ -217,7 +217,7 @@ export class UnifiedWalletInterface extends BaseService {
       return this.success(unifiedWallet)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get unified wallet')
+      this.logError('Failed to get unified wallet', { error, walletId })
       return this.error('Failed to get unified wallet', 'UNIFIED_WALLET_ERROR')
     }
   }
@@ -265,17 +265,17 @@ export class UnifiedWalletInterface extends BaseService {
         return this.error(unifiedWalletResult.error!, unifiedWalletResult.code!)
       }
 
-      this.logger.info({
+      this.logInfo('Wallet upgraded to smart contract', {
         walletId,
         features,
         facetsCount: allFacets.length,
         contractAddress: createResult.data!.diamondProxyAddress
-      }, 'Wallet upgraded to smart contract')
+      })
 
       return this.success(unifiedWalletResult.data!)
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to upgrade wallet to smart contract')
+      this.logError('Failed to upgrade wallet to smart contract', { error, request })
       return this.error('Failed to upgrade wallet to smart contract', 'WALLET_UPGRADE_ERROR')
     }
   }
@@ -339,18 +339,18 @@ export class UnifiedWalletInterface extends BaseService {
         return this.error(transactionResult.error!, transactionResult.code!)
       }
 
-      this.logger.info({
+      this.logInfo('Unified transaction sent successfully', {
         walletId,
         transactionCount: transactions.length,
         walletType: wallet.walletType,
         useAccountAbstraction: options.useAccountAbstraction,
         transactionHash: transactionResult.data!.transactionHash
-      }, 'Unified transaction sent successfully')
+      })
 
       return this.success(transactionResult.data!)
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to send unified transaction')
+      this.logError('Failed to send unified transaction', { error, request })
       return this.error('Failed to send unified transaction', 'UNIFIED_TRANSACTION_ERROR')
     }
   }
@@ -400,15 +400,15 @@ export class UnifiedWalletInterface extends BaseService {
         return this.error(credentialResult.error!, credentialResult.code!)
       }
 
-      this.logger.info({
+      this.logInfo('WebAuthn enabled for wallet', {
         walletId,
         credentialId: credential.credentialId
-      }, 'WebAuthn enabled for wallet')
+      })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to enable WebAuthn')
+      this.logError('Failed to enable WebAuthn', { error, walletId })
       return this.error('Failed to enable WebAuthn', 'WEBAUTHN_ENABLE_ERROR')
     }
   }
@@ -460,7 +460,7 @@ export class UnifiedWalletInterface extends BaseService {
       return this.success(analytics)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet analytics')
+      this.logError('Failed to get wallet analytics', { error, walletId })
       return this.error('Failed to get wallet analytics', 'WALLET_ANALYTICS_ERROR')
     }
   }

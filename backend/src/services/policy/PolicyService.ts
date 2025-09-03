@@ -67,7 +67,7 @@ export class PolicyService extends BaseService {
 
       return result as ServiceResult<PolicyTemplateResponse>
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create policy template')
+      this.logError('Failed to create policy template', { error, data })
       return this.error('Failed to create policy template', 'CREATION_ERROR')
     }
   }
@@ -144,7 +144,7 @@ export class PolicyService extends BaseService {
         timestamp: new Date().toISOString(),
       }
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to list policy templates')
+      this.logError('Failed to list policy templates', { error, options })
       throw error
     }
   }
@@ -168,7 +168,7 @@ export class PolicyService extends BaseService {
         updateData
       )
     } catch (error) {
-      this.logger.error({ error, templateId, data }, 'Failed to update policy template')
+      this.logError('Failed to update policy template', { error, templateId, data })
       return this.error('Failed to update policy template', 'UPDATE_ERROR')
     }
   }
@@ -180,7 +180,7 @@ export class PolicyService extends BaseService {
     try {
       return this.deleteEntity(this.db.policy_templates, templateId)
     } catch (error) {
-      this.logger.error({ error, templateId }, 'Failed to delete policy template')
+      this.logError('Failed to delete policy template', { error, templateId })
       return this.error('Failed to delete policy template', 'DELETE_ERROR')
     }
   }
@@ -200,7 +200,7 @@ export class PolicyService extends BaseService {
 
       return this.success(templates.map(template => ({ ...template, template_data: (template.template_data && typeof template.template_data === 'object' && template.template_data !== null) ? template.template_data as Record<string, any> : {} })))
     } catch (error) {
-      this.logger.error({ error, templateType }, 'Failed to get policy templates by type')
+      this.logError('Failed to get policy templates by type', { error, templateType })
       return this.error('Failed to get policy templates by type', 'QUERY_ERROR')
     }
   }
@@ -227,7 +227,7 @@ export class PolicyService extends BaseService {
 
       return this.success(transformedTemplates)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get published policy templates')
+      this.logError('Failed to get published policy templates', { error })
       return this.error('Failed to get published policy templates', 'QUERY_ERROR')
     }
   }
@@ -284,7 +284,7 @@ export class PolicyService extends BaseService {
 
       return result as ServiceResult<ApprovalConfigResponse>
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create approval config')
+      this.logError('Failed to create approval config', { error, data })
       return this.error('Failed to create approval config', 'CREATION_ERROR')
     }
   }
@@ -322,7 +322,7 @@ export class PolicyService extends BaseService {
 
       return this.success(transformedConfigs)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to list approval configs')
+      this.logError('Failed to list approval configs', { error })
       return this.error('Failed to list approval configs', 'QUERY_ERROR')
     }
   }
@@ -348,7 +348,7 @@ export class PolicyService extends BaseService {
         updateData
       )
     } catch (error) {
-      this.logger.error({ error, configId, data }, 'Failed to update approval config')
+      this.logError('Failed to update approval config', { error, configId, data })
       return this.error('Failed to update approval config', 'UPDATE_ERROR')
     }
   }
@@ -360,7 +360,7 @@ export class PolicyService extends BaseService {
     try {
       return this.deleteEntity(this.db.approval_configs, configId)
     } catch (error) {
-      this.logger.error({ error, configId }, 'Failed to delete approval config')
+      this.logError('Failed to delete approval config', { error, configId })
       return this.error('Failed to delete approval config', 'DELETE_ERROR')
     }
   }
@@ -394,7 +394,7 @@ export class PolicyService extends BaseService {
 
       return this.success(transformedConfigs)
     } catch (error) {
-      this.logger.error({ error, permissionId }, 'Failed to get approval configs by permission')
+      this.logError('Failed to get approval configs by permission', { error, permissionId })
       return this.error('Failed to get approval configs by permission', 'QUERY_ERROR')
     }
   }

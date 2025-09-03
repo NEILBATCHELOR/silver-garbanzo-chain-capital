@@ -83,16 +83,16 @@ export class PaymasterService extends BaseService {
       // Store sponsorship record
       await this.recordSponsorship(userOp, result, policy)
 
-      this.logger.info({ 
+      this.logInfo('Paymaster data generated', { 
         sender: userOp.sender,
         paymaster: result.paymaster,
         policy: policy.type 
-      }, 'Paymaster data generated')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, userOp, policy }, 'Failed to get paymaster data')
+      this.logError('Failed to get paymaster data', { error, userOp, policy })
       return this.error('Failed to get paymaster data', 'PAYMASTER_DATA_FAILED')
     }
   }
@@ -150,7 +150,7 @@ export class PaymasterService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp, policy }, 'Failed to evaluate policy')
+      this.logError('Failed to evaluate policy', { error, userOp, policy })
       return this.error('Failed to evaluate policy', 'POLICY_EVALUATION_FAILED')
     }
   }
@@ -183,7 +183,7 @@ export class PaymasterService extends BaseService {
       return this.success({ valid: true })
 
     } catch (error) {
-      this.logger.error({ error, userOp, paymasterData }, 'Failed to validate paymaster signature')
+      this.logError('Failed to validate paymaster signature', { error, userOp, paymasterData })
       return this.error('Failed to validate paymaster signature', 'PAYMASTER_VALIDATION_FAILED')
     }
   }
@@ -298,7 +298,7 @@ export class PaymasterService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, timeframe, filters }, 'Failed to get sponsorship analytics')
+      this.logError('Failed to get sponsorship analytics', { error, timeframe, filters })
       return this.error('Failed to get sponsorship analytics', 'SPONSORSHIP_ANALYTICS_FAILED')
     }
   }
@@ -362,7 +362,7 @@ export class PaymasterService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp, policy }, 'Failed to select paymaster')
+      this.logError('Failed to select paymaster', { error, userOp, policy })
       return this.error('Failed to select paymaster', 'PAYMASTER_SELECTION_FAILED')
     }
   }
@@ -390,7 +390,7 @@ export class PaymasterService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp, paymasterAddress }, 'Failed to get paymaster signature')
+      this.logError('Failed to get paymaster signature', { error, userOp, paymasterAddress })
       return this.error('Failed to get paymaster signature', 'PAYMASTER_SIGNATURE_FAILED')
     }
   }
@@ -409,7 +409,7 @@ export class PaymasterService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp, paymasterAddress }, 'Failed to estimate paymaster gas')
+      this.logError('Failed to estimate paymaster gas', { error, userOp, paymasterAddress })
       return this.error('Failed to estimate paymaster gas', 'PAYMASTER_GAS_ESTIMATION_FAILED')
     }
   }
@@ -449,7 +449,7 @@ export class PaymasterService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, condition }, 'Failed to evaluate condition')
+      this.logError('Failed to evaluate condition', { error, condition })
       return this.success({ 
         met: false, 
         reason: 'Condition evaluation failed' 
@@ -472,7 +472,7 @@ export class PaymasterService extends BaseService {
       return this.success(totalCost.toString())
 
     } catch (error) {
-      this.logger.error({ error, userOp }, 'Failed to estimate operation cost')
+      this.logError('Failed to estimate operation cost', { error, userOp })
       return this.error('Failed to estimate operation cost', 'COST_ESTIMATION_FAILED')
     }
   }
@@ -517,7 +517,7 @@ export class PaymasterService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOp, paymasterData }, 'Failed to check sponsorship capability')
+      this.logError('Failed to check sponsorship capability', { error, userOp, paymasterData })
       return this.success({
         canSponsor: false,
         reason: 'Failed to verify sponsorship capability'
@@ -533,15 +533,15 @@ export class PaymasterService extends BaseService {
     try {
       // This would be called after UserOperation is stored
       // For now, just log the sponsorship
-      this.logger.info({
+      this.logInfo('Sponsorship recorded', {
         sender: userOp.sender,
         paymaster: paymasterData.paymaster,
         policy: policy.type,
         validUntil: paymasterData.validUntil
-      }, 'Sponsorship recorded')
+      })
 
     } catch (error) {
-      this.logger.error({ error, userOp, paymasterData, policy }, 'Failed to record sponsorship')
+      this.logError('Failed to record sponsorship', { error, userOp, paymasterData, policy })
     }
   }
 }

@@ -109,16 +109,16 @@ export class GuardianRecoveryService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Guardian addition requested', {
         walletId,
         guardianAddress,
         securityPeriodEnds
-      }, 'Guardian addition requested')
+      })
 
       return this.success(this.mapToGuardian(guardian))
 
     } catch (error) {
-      this.logger.error({ error, walletId, guardianAddress }, 'Failed to add guardian')
+      this.logError('Failed to add guardian', { error, walletId, guardianAddress })
       return this.error('Failed to add guardian', 'GUARDIAN_ADD_ERROR')
     }
   }
@@ -169,12 +169,12 @@ export class GuardianRecoveryService extends BaseService {
         }
       })
 
-      this.logger.info({ walletId, guardianAddress }, 'Guardian addition confirmed')
+      this.logInfo('Guardian addition confirmed', { walletId, guardianAddress })
 
       return this.success(this.mapToGuardian(confirmedGuardian))
 
     } catch (error) {
-      this.logger.error({ error, walletId, guardianAddress }, 'Failed to confirm guardian addition')
+      this.logError('Failed to confirm guardian addition', { error, walletId, guardianAddress })
       return this.error('Failed to confirm guardian addition', 'GUARDIAN_CONFIRM_ERROR')
     }
   }
@@ -214,16 +214,16 @@ export class GuardianRecoveryService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Guardian removal requested', {
         walletId,
         guardianAddress,
         securityPeriodEnds
-      }, 'Guardian removal requested')
+      })
 
       return this.success(this.mapToGuardian(updatedGuardian))
 
     } catch (error) {
-      this.logger.error({ error, walletId, guardianAddress }, 'Failed to remove guardian')
+      this.logError('Failed to remove guardian', { error, walletId, guardianAddress })
       return this.error('Failed to remove guardian', 'GUARDIAN_REMOVE_ERROR')
     }
   }
@@ -268,12 +268,12 @@ export class GuardianRecoveryService extends BaseService {
         where: { id: guardian.id }
       })
 
-      this.logger.info({ walletId, guardianAddress }, 'Guardian removal confirmed')
+      this.logInfo('Guardian removal confirmed', { walletId, guardianAddress })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId, guardianAddress }, 'Failed to confirm guardian removal')
+      this.logError('Failed to confirm guardian removal', { error, walletId, guardianAddress })
       return this.error('Failed to confirm guardian removal', 'GUARDIAN_REMOVAL_CONFIRM_ERROR')
     }
   }
@@ -346,12 +346,12 @@ export class GuardianRecoveryService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Recovery proposal initiated', {
         walletId,
         operationId,
         proposerAddress,
         requiredApprovals
-      }, 'Recovery proposal initiated')
+      })
 
       return this.success({
         operationId: recoveryOperation.operation_id!,
@@ -359,7 +359,7 @@ export class GuardianRecoveryService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId, proposerAddress }, 'Failed to initiate recovery')
+      this.logError('Failed to initiate recovery', { error, walletId, proposerAddress })
       return this.error('Failed to initiate recovery', 'RECOVERY_INITIATE_ERROR')
     }
   }
@@ -443,13 +443,13 @@ export class GuardianRecoveryService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Recovery proposal approval added', {
         operationId,
         guardianAddress,
         approved,
         currentApprovals,
         requiredApprovals: operationResult.required_approvals
-      }, 'Recovery proposal approval added')
+      })
 
       return this.success({
         approved,
@@ -458,7 +458,7 @@ export class GuardianRecoveryService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, operationId, guardianAddress }, 'Failed to approve recovery')
+      this.logError('Failed to approve recovery', { error, operationId, guardianAddress })
       return this.error('Failed to approve recovery', 'RECOVERY_APPROVE_ERROR')
     }
   }
@@ -515,18 +515,18 @@ export class GuardianRecoveryService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Recovery operation executed', {
         operationId,
         walletId: operation.guardian_wallet_id,
         transactionHash: executionResult.data!.transactionHash
-      }, 'Recovery operation executed')
+      })
 
       return this.success({
         transactionHash: executionResult.data!.transactionHash
       })
 
     } catch (error) {
-      this.logger.error({ error, operationId }, 'Failed to execute recovery')
+      this.logError('Failed to execute recovery', { error, operationId })
       return this.error('Failed to execute recovery', 'RECOVERY_EXECUTE_ERROR')
     }
   }
@@ -547,7 +547,7 @@ export class GuardianRecoveryService extends BaseService {
       return this.success(guardians.map(g => this.mapToGuardian(g)))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet guardians')
+      this.logError('Failed to get wallet guardians', { error, walletId })
       return this.error('Failed to get wallet guardians', 'GUARDIAN_LIST_ERROR')
     }
   }
@@ -584,7 +584,7 @@ export class GuardianRecoveryService extends BaseService {
       })))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get recovery operations')
+      this.logError('Failed to get recovery operations', { error, walletId })
       return this.error('Failed to get recovery operations', 'OPERATION_LIST_ERROR')
     }
   }
@@ -632,10 +632,10 @@ export class GuardianRecoveryService extends BaseService {
   ): Promise<ServiceResult<{ transactionHash: string }>> {
     // This would execute the recovery transaction on the smart contract
     // Placeholder implementation
-    this.logger.info({
+    this.logInfo('Executing recovery on chain (placeholder)', {
       walletId,
       newOwnerAddress
-    }, 'Executing recovery on chain (placeholder)')
+    })
 
     return this.success({
       transactionHash: '0x' + Math.random().toString(16).substring(2, 66)

@@ -267,7 +267,7 @@ export class PolicyValidationService extends BaseService {
       const existingTemplate = await this.db.policy_templates.findFirst({ where })
       return !existingTemplate
     } catch (error) {
-      this.logger.error({ error, templateName }, 'Failed to check template name uniqueness')
+      this.logError('Failed to check template name uniqueness', { error, templateName })
       return false
     }
   }

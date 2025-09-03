@@ -243,7 +243,7 @@ export class KycService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to initiate KYC verification')
+      this.logError('Failed to initiate KYC verification', { error, request })
       return this.error('Failed to initiate KYC verification', 'DATABASE_ERROR')
     }
   }
@@ -299,7 +299,7 @@ export class KycService extends BaseService {
 
       return this.success(mockResult)
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to verify document')
+      this.logError('Failed to verify document', { error, request })
       return this.error('Failed to verify document', 'VERIFICATION_ERROR')
     }
   }
@@ -340,7 +340,7 @@ export class KycService extends BaseService {
 
       return this.success(mockResult)
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to perform AML screening')
+      this.logError('Failed to perform AML screening', { error, request })
       return this.error('Failed to perform AML screening', 'SCREENING_ERROR')
     }
   }
@@ -414,7 +414,7 @@ export class KycService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, entity_id, entity_type }, 'Failed to get KYC status')
+      this.logError('Failed to get KYC status', { error, entity_id, entity_type })
       return this.error('Failed to get KYC status', 'DATABASE_ERROR')
     }
   }
@@ -459,7 +459,7 @@ export class KycService extends BaseService {
       
       return this.success(workflow)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create onboarding workflow')
+      this.logError('Failed to create onboarding workflow', { error, data })
       return this.error('Failed to create onboarding workflow', 'DATABASE_ERROR')
     }
   }
@@ -494,7 +494,7 @@ export class KycService extends BaseService {
 
       return this.success(mockWorkflow)
     } catch (error) {
-      this.logger.error({ error, workflow_id, step_name, status }, 'Failed to update workflow step')
+      this.logError('Failed to update workflow step', { error, workflow_id, step_name, status })
       return this.error('Failed to update workflow step', 'DATABASE_ERROR')
     }
   }

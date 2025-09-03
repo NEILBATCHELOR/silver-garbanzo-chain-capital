@@ -81,7 +81,7 @@ export class RuleAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get rule analytics')
+      this.logError('Failed to get rule analytics', { error })
       return this.error('Failed to get rule analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -114,7 +114,7 @@ export class RuleAnalyticsService extends BaseService {
 
       return this.success(metrics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get rule usage metrics')
+      this.logError('Failed to get rule usage metrics', { error })
       return this.error('Failed to get rule usage metrics', 'METRICS_ERROR')
     }
   }
@@ -151,7 +151,7 @@ export class RuleAnalyticsService extends BaseService {
 
       return this.success(formattedTrends)
     } catch (error) {
-      this.logger.error({ error, days }, 'Failed to get rule trends')
+      this.logError('Failed to get rule trends', { error, days })
       return this.error('Failed to get rule trends', 'TRENDS_ERROR')
     }
   }
@@ -180,7 +180,7 @@ export class RuleAnalyticsService extends BaseService {
 
       return this.success(formatted)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get rules by creator')
+      this.logError('Failed to get rules by creator', { error })
       return this.error('Failed to get rules by creator', 'CREATOR_ANALYTICS_ERROR')
     }
   }
@@ -234,7 +234,7 @@ export class RuleAnalyticsService extends BaseService {
         format: options.format
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export rules')
+      this.logError('Failed to export rules', { error, options })
       return this.error('Failed to export rules', 'EXPORT_ERROR')
     }
   }
@@ -259,7 +259,7 @@ export class RuleAnalyticsService extends BaseService {
 
       return this.success(metrics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get compliance metrics')
+      this.logError('Failed to get compliance metrics', { error })
       return this.error('Failed to get compliance metrics', 'COMPLIANCE_METRICS_ERROR')
     }
   }
@@ -283,7 +283,7 @@ export class RuleAnalyticsService extends BaseService {
 
       return result
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get rule counts by type')
+      this.logError('Failed to get rule counts by type', { error })
       return {}
     }
   }
@@ -313,7 +313,7 @@ export class RuleAnalyticsService extends BaseService {
         deleted: 0 // Would need audit table to track deletions
       }
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get recent activity')
+      this.logError('Failed to get recent activity', { error })
       return { created: 0, updated: 0, deleted: 0 }
     }
   }

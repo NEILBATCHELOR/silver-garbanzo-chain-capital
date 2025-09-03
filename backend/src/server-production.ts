@@ -9,6 +9,7 @@ import { initializeDatabase } from './infrastructure/database/client'
 import { swaggerOptions, swaggerUiOptions } from './config/swagger'
 import { jwtOptions } from './config/jwt'
 import { createLogger } from './utils/logger'
+import { logError } from './utils/loggerAdapter'
 import auditMiddleware from './middleware/audit/audit-middleware'
 import { initializeSystemAuditMonitor } from './middleware/audit/system-audit-monitor'
 
@@ -221,7 +222,7 @@ async function buildApp(): Promise<FastifyInstance> {
         timestamp: new Date().toISOString()
       })
     } catch (error) {
-      app.log.error('Ready check failed:', error)
+      logError(app.log, 'Ready check failed:', error)
       return reply.status(503).send({
         status: 'not_ready',
         timestamp: new Date().toISOString()
@@ -278,14 +279,14 @@ async function buildApp(): Promise<FastifyInstance> {
     const requestId = request.headers['x-request-id'] || 'unknown'
     
     // Log error with request context
-    app.log.error({
+    logError(app.log, 'Request failed', {
       err: error,
       requestId,
       method: request.method,
       url: request.url,
       ip: request.ip,
       userAgent: request.headers['user-agent']
-    }, 'Request failed')
+    })
 
     // Security: Don't leak internal error details
     const statusCode = error.statusCode || 500
@@ -391,7 +392,7 @@ async function start() {
         logger.info('👋 Shutdown complete')
         process.exit(0)
       } catch (error) {
-        logger.error('❌ Error during shutdown:', error)
+        logger.error(`❌ Error during shutdown: ${error}`)
         clearTimeout(shutdownTimeout)
         process.exit(1)
       }
@@ -409,14 +410,14 @@ async function start() {
     })
     
   } catch (error) {
-    logger.error('❌ Failed to start production server:', error)
+    logger.error(`❌ Failed to start production server: ${error}`)
     process.exit(1)
   }
 }
 
 // Production error handling
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  logger.error(`Unhandled Rejection at: ${promise} reason: ${reason}`)
   // Don't exit immediately in production, let monitoring systems handle it
   if (NODE_ENV !== 'production') {
     process.exit(1)
@@ -424,7 +425,7 @@ process.on('unhandledRejection', (reason, promise) => {
 })
 
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error)
+  logger.error(`Uncaught Exception: ${error}`)
   process.exit(1)
 })
 

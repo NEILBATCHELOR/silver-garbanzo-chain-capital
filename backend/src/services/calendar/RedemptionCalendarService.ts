@@ -62,7 +62,7 @@ export class RedemptionCalendarService extends BaseService {
       return events.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
       
     } catch (error) {
-      this.logger.error('Error fetching redemption events:', error);
+      this.logError('Error fetching redemption events:', error);
       return [];
     }
   }
@@ -91,19 +91,14 @@ export class RedemptionCalendarService extends BaseService {
 
       const windows = await this.prisma.$queryRawUnsafe(windowsQuery, ...params) as any[];
 
-      this.logger.debug(`Found ${windows.length} redemption windows for project ${projectId}`);
+      this.logDebug(`Found ${windows.length} redemption windows for project ${projectId}`);
 
       const events: RedemptionCalendarEvent[] = [];
 
       for (const window of windows) {
         const projectName = window.project_name || 'Unknown Project';
         
-        this.logger.debug(`Processing window: ${window.name || window.id}`, {
-          submission_start: window.submission_start_date,
-          submission_end: window.submission_end_date,
-          start_date: window.start_date,
-          end_date: window.end_date
-        });
+        this.logDebug(`Processing window: ${window.name || window.id} - submission_start: ${window.submission_start_date}, submission_end: ${window.submission_end_date}, start_date: ${window.start_date}, end_date: ${window.end_date}`);
         
         const baseMetadata = {
           windowName: window.name || 'Redemption Window',
@@ -203,11 +198,11 @@ export class RedemptionCalendarService extends BaseService {
         }
       }
 
-      this.logger.debug(`Generated ${events.length} window events`);
+      this.logDebug(`Generated ${events.length} window events`);
       return events;
       
     } catch (error) {
-      this.logger.error('Error fetching redemption windows:', error);
+      this.logError('Error fetching redemption windows:', error);
       return [];
     }
   }
@@ -231,19 +226,14 @@ export class RedemptionCalendarService extends BaseService {
 
       const rules = await this.prisma.$queryRawUnsafe(rulesQuery, ...params) as any[];
 
-      this.logger.debug(`Found ${rules.length} redemption rules for project ${projectId}`);
+      this.logDebug(`Found ${rules.length} redemption rules for project ${projectId}`);
 
       const events: RedemptionCalendarEvent[] = [];
 
       for (const rule of rules) {
         const projectName = rule.project_name || 'Unknown Project';
         
-        this.logger.debug(`Processing rule: ${rule.id}`, {
-          redemption_type: rule.redemption_type,
-          is_open: rule.is_redemption_open,
-          open_after_date: rule.open_after_date,
-          lockup_period: rule.lock_up_period
-        });
+        this.logDebug(`Processing rule: ${rule.id} - redemption_type: ${rule.redemption_type}, is_open: ${rule.is_redemption_open}, open_after_date: ${rule.open_after_date}, lockup_period: ${rule.lock_up_period}`);
         
         // Rule opens for redemptions
         if (rule.open_after_date && rule.is_redemption_open) {
@@ -309,11 +299,11 @@ export class RedemptionCalendarService extends BaseService {
         }
       }
 
-      this.logger.debug(`Generated ${events.length} rule events`);
+      this.logDebug(`Generated ${events.length} rule events`);
       return events;
       
     } catch (error) {
-      this.logger.error('Error fetching redemption rules:', error);
+      this.logError('Error fetching redemption rules:', error);
       return [];
     }
   }

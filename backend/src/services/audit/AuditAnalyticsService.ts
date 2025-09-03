@@ -98,7 +98,7 @@ export class AuditAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, dateFrom, dateTo }, 'Failed to get audit analytics')
+      this.logError('Failed to get audit analytics', { error, dateFrom, dateTo })
       return this.error('Failed to get audit analytics', 'ANALYTICS_ERROR')
     }
   }
@@ -156,7 +156,7 @@ export class AuditAnalyticsService extends BaseService {
         }))
       }
     } catch (error) {
-      this.logger.error({ error, startDate, endDate }, 'Failed to get activity trends')
+      this.logError('Failed to get activity trends', { error, startDate, endDate })
       return { hourly: [], daily: [], weekly: [] }
     }
   }
@@ -190,7 +190,7 @@ export class AuditAnalyticsService extends BaseService {
         most_common_actions: row.common_actions ? row.common_actions.split(', ').slice(0, 5) : []
       }))
     } catch (error) {
-      this.logger.error({ error, startDate, endDate }, 'Failed to get user activity analytics')
+      this.logError('Failed to get user activity analytics', { error, startDate, endDate })
       return []
     }
   }
@@ -235,7 +235,7 @@ export class AuditAnalyticsService extends BaseService {
         peak_usage_hours: (peakHours as any[]).map((row: any) => `${row.hour}:00`)
       }
     } catch (error) {
-      this.logger.error({ error, startDate, endDate }, 'Failed to get performance metrics')
+      this.logError('Failed to get performance metrics', { error, startDate, endDate })
       return {
         average_response_time: 0,
         total_api_calls: 0,
@@ -270,7 +270,7 @@ export class AuditAnalyticsService extends BaseService {
         compliance_rate: totalChecks > 0 ? (passedChecks / totalChecks) * 100 : 0
       }
     } catch (error) {
-      this.logger.error({ error, startDate, endDate }, 'Failed to get compliance metrics')
+      this.logError('Failed to get compliance metrics', { error, startDate, endDate })
       return {
         total_checks: 0,
         passed: 0,
@@ -367,7 +367,7 @@ export class AuditAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, dateFrom, dateTo }, 'Failed to get user behavior analytics')
+      this.logError('Failed to get user behavior analytics', { error, dateFrom, dateTo })
       return this.error('Failed to get user behavior analytics', 'USER_ANALYTICS_ERROR')
     }
   }
@@ -463,7 +463,7 @@ export class AuditAnalyticsService extends BaseService {
         data: exportData
       })
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export audit data')
+      this.logError('Failed to export audit data', { error, options })
       return this.error('Failed to export audit data', 'EXPORT_ERROR')
     }
   }

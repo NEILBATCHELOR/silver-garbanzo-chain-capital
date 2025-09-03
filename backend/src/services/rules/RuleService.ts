@@ -64,7 +64,7 @@ export class RuleService extends BaseService {
 
       return result as ServiceResult<RuleResponse>
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create rule')
+      this.logError('Failed to create rule', { error, data })
       return this.error('Failed to create rule', 'CREATION_ERROR')
     }
   }
@@ -128,7 +128,7 @@ export class RuleService extends BaseService {
         data: transformedData
       }
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to list rules')
+      this.logError('Failed to list rules', { error, options })
       throw error
     }
   }
@@ -152,7 +152,7 @@ export class RuleService extends BaseService {
         updateData
       )
     } catch (error) {
-      this.logger.error({ error, ruleId, data }, 'Failed to update rule')
+      this.logError('Failed to update rule', { error, ruleId, data })
       return this.error('Failed to update rule', 'UPDATE_ERROR')
     }
   }
@@ -164,7 +164,7 @@ export class RuleService extends BaseService {
     try {
       return this.deleteEntity(this.db.rules, ruleId)
     } catch (error) {
-      this.logger.error({ error, ruleId }, 'Failed to delete rule')
+      this.logError('Failed to delete rule', { error, ruleId })
       return this.error('Failed to delete rule', 'DELETE_ERROR')
     }
   }
@@ -192,7 +192,7 @@ export class RuleService extends BaseService {
 
       return this.success(transformedRules)
     } catch (error) {
-      this.logger.error({ error, ruleType }, 'Failed to get rules by type')
+      this.logError('Failed to get rules by type', { error, ruleType })
       return this.error('Failed to get rules by type', 'QUERY_ERROR')
     }
   }
@@ -220,7 +220,7 @@ export class RuleService extends BaseService {
 
       return this.success(transformedTemplates)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get rule templates')
+      this.logError('Failed to get rule templates', { error })
       return this.error('Failed to get rule templates', 'QUERY_ERROR')
     }
   }

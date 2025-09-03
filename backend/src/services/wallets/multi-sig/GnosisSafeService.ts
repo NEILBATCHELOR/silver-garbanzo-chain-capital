@@ -106,11 +106,11 @@ export class GnosisSafeService extends BaseService {
         this.providers.set('avalanche', new ethers.JsonRpcProvider(process.env.AVALANCHE_RPC_URL))
       }
 
-      this.logger.info('Gnosis Safe providers initialized', {
+      this.logInfo('Gnosis Safe providers initialized', {
         providersCount: this.providers.size
       })
     } catch (error) {
-      this.logger.warn('Failed to initialize some Gnosis Safe providers:', error)
+      this.logWarn('Failed to initialize some Gnosis Safe providers:', error)
     }
   }
 
@@ -173,7 +173,7 @@ export class GnosisSafeService extends BaseService {
         initData
       )
       
-      this.logger.info('Gnosis Safe deployment prepared', {
+      this.logInfo('Gnosis Safe deployment prepared', {
         blockchain,
         address: safeAddress,
         owners: request.owners.length,
@@ -186,7 +186,7 @@ export class GnosisSafeService extends BaseService {
         deploymentTx: deploymentTx
       })
     } catch (error) {
-      this.logger.error('Deploy Gnosis Safe error:', error)
+      this.logError('Deploy Gnosis Safe error:', error)
       return this.error(
         'Failed to deploy Gnosis Safe',
         'DEPLOYMENT_ERROR',
@@ -255,7 +255,7 @@ export class GnosisSafeService extends BaseService {
         safeTransaction.baseGas = gasEstimates.data!.baseGas
       }
 
-      this.logger.info('Safe transaction created', {
+      this.logInfo('Safe transaction created', {
         safeAddress,
         blockchain,
         to: transaction.to,
@@ -265,7 +265,7 @@ export class GnosisSafeService extends BaseService {
 
       return this.success(safeTransaction)
     } catch (error) {
-      this.logger.error('Create Safe transaction error:', error)
+      this.logError('Create Safe transaction error:', error)
       return this.error(
         'Failed to create Safe transaction',
         'TRANSACTION_CREATION_ERROR',
@@ -334,7 +334,7 @@ export class GnosisSafeService extends BaseService {
         guard: '0x0000000000000000000000000000000000000000' // Would be fetched
       }
 
-        this.logger.info('Safe info retrieved from blockchain', {
+        this.logInfo('Safe info retrieved from blockchain', {
           safeAddress,
           blockchain,
           owners: owners.length,
@@ -344,7 +344,7 @@ export class GnosisSafeService extends BaseService {
 
         return this.success(safeInfo)
       } catch (contractError) {
-        this.logger.error('Contract interaction error:', contractError)
+        this.logError('Contract interaction error:', contractError)
         return this.error(
           'Failed to fetch Safe information from contract',
           'CONTRACT_ERROR',
@@ -352,7 +352,7 @@ export class GnosisSafeService extends BaseService {
         )
       }
     } catch (error) {
-      this.logger.error('Get Safe info error:', error)
+      this.logError('Get Safe info error:', error)
       return this.error(
         'Failed to get Safe information from blockchain',
         'SAFE_INFO_ERROR',
@@ -417,7 +417,7 @@ export class GnosisSafeService extends BaseService {
       // Generate EIP-712 hash
       const txHash = ethers.TypedDataEncoder.hash(domain, types, txData)
       
-      this.logger.info('Safe transaction hash generated', {
+      this.logInfo('Safe transaction hash generated', {
         safeAddress,
         blockchain,
         txHash,
@@ -426,7 +426,7 @@ export class GnosisSafeService extends BaseService {
       
       return this.success(txHash)
     } catch (error) {
-      this.logger.error('Get Safe transaction hash error:', error)
+      this.logError('Get Safe transaction hash error:', error)
       return this.error(
         'Failed to generate Safe transaction hash',
         'HASH_GENERATION_ERROR',
@@ -521,7 +521,7 @@ export class GnosisSafeService extends BaseService {
         )
       )
 
-      this.logger.info('Safe transaction executed', {
+      this.logInfo('Safe transaction executed', {
         safeAddress,
         blockchain,
         txHash: simulatedTxHash,
@@ -533,7 +533,7 @@ export class GnosisSafeService extends BaseService {
         success: true
       })
     } catch (error) {
-      this.logger.error('Execute Safe transaction error:', error)
+      this.logError('Execute Safe transaction error:', error)
       return this.error(
         'Failed to execute Safe transaction',
         'EXECUTION_ERROR',
@@ -597,7 +597,7 @@ export class GnosisSafeService extends BaseService {
         nonce: safeInfo.data?.nonce || 0
       }
 
-      this.logger.info('Add owner transaction created', {
+      this.logInfo('Add owner transaction created', {
         safeAddress,
         blockchain,
         newOwner,
@@ -606,7 +606,7 @@ export class GnosisSafeService extends BaseService {
 
       return this.success(transaction)
     } catch (error) {
-      this.logger.error('Add owner to Safe error:', error)
+      this.logError('Add owner to Safe error:', error)
       return this.error(
         'Failed to add owner to Safe',
         'ADD_OWNER_ERROR',
@@ -672,7 +672,7 @@ export class GnosisSafeService extends BaseService {
         nonce: safeInfo.data?.nonce || 0
       }
 
-      this.logger.info('Remove owner transaction created', {
+      this.logInfo('Remove owner transaction created', {
         safeAddress,
         blockchain,
         ownerToRemove,
@@ -681,7 +681,7 @@ export class GnosisSafeService extends BaseService {
 
       return this.success(transaction)
     } catch (error) {
-      this.logger.error('Remove owner from Safe error:', error)
+      this.logError('Remove owner from Safe error:', error)
       return this.error(
         'Failed to remove owner from Safe',
         'REMOVE_OWNER_ERROR',
@@ -746,7 +746,7 @@ export class GnosisSafeService extends BaseService {
         nonce: safeInfo.data?.nonce || 0
       }
 
-      this.logger.info('Change threshold transaction created', {
+      this.logInfo('Change threshold transaction created', {
         safeAddress,
         blockchain,
         newThreshold
@@ -754,7 +754,7 @@ export class GnosisSafeService extends BaseService {
 
       return this.success(transaction)
     } catch (error) {
-      this.logger.error('Change threshold error:', error)
+      this.logError('Change threshold error:', error)
       return this.error(
         'Failed to change threshold',
         'CHANGE_THRESHOLD_ERROR',
@@ -850,7 +850,7 @@ export class GnosisSafeService extends BaseService {
       
       return create2Address
     } catch (error) {
-      this.logger.error('Calculate Safe address error:', error)
+      this.logError('Calculate Safe address error:', error)
       // Fallback to a deterministic address based on timestamp
       return ethers.getAddress(
         '0x' + ethers.keccak256(
@@ -884,7 +884,7 @@ export class GnosisSafeService extends BaseService {
 
       return setupData
     } catch (error) {
-      this.logger.error('Build Safe init data error:', error)
+      this.logError('Build Safe init data error:', error)
       return '0x'
     }
   }
@@ -930,7 +930,7 @@ export class GnosisSafeService extends BaseService {
 
       return deploymentTx
     } catch (error) {
-      this.logger.error('Build deployment transaction error:', error)
+      this.logError('Build deployment transaction error:', error)
       return {
         to: this.safeConfigs[blockchain]?.proxyFactoryAddress || '0x0000000000000000000000000000000000000000',
         data: '0x',
@@ -961,7 +961,7 @@ export class GnosisSafeService extends BaseService {
       const nonce = await safeContract.nonce()
       return Number(nonce)
     } catch (error) {
-      this.logger.error('Get Safe nonce error:', error)
+      this.logError('Get Safe nonce error:', error)
       return 0
     }
   }

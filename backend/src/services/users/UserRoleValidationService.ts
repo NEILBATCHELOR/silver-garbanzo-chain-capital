@@ -93,7 +93,7 @@ export class UserRoleValidationService extends BaseService {
 
       return result
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate user creation')
+      this.logError('Failed to validate user creation', { error, data })
       result.isValid = false
       result.errors.push('Validation failed due to system error')
       return result
@@ -166,7 +166,7 @@ export class UserRoleValidationService extends BaseService {
 
       return result
     } catch (error) {
-      this.logger.error({ error, userId, data }, 'Failed to validate user update')
+      this.logError('Failed to validate user update', { error, userId, data })
       result.isValid = false
       result.errors.push('Validation failed due to system error')
       return result
@@ -225,7 +225,7 @@ export class UserRoleValidationService extends BaseService {
 
       return result
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate role creation')
+      this.logError('Failed to validate role creation', { error, data })
       result.isValid = false
       result.errors.push('Validation failed due to system error')
       return result
@@ -292,7 +292,7 @@ export class UserRoleValidationService extends BaseService {
 
       return result
     } catch (error) {
-      this.logger.error({ error, roleId, data }, 'Failed to validate role update')
+      this.logError('Failed to validate role update', { error, roleId, data })
       result.isValid = false
       result.errors.push('Validation failed due to system error')
       return result
@@ -418,7 +418,7 @@ export class UserRoleValidationService extends BaseService {
         assignments
       }
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get permission matrix')
+      this.logError('Failed to get permission matrix', { error })
       return { roles: [], permissions: [], assignments: [] }
     }
   }

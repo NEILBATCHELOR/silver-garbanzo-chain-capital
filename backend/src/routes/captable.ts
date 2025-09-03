@@ -169,7 +169,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.code(201).send(result)
       } catch (error) {
-        logger.error('Error in POST /captable', { error, body: request.body })
+        logger.error({ error, body: request.body }, 'Error in POST /captable')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -247,7 +247,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in GET /captable/project/:projectId', { error, params: request.params })
+        logger.error({ error, params: request.params }, 'Error in GET /captable/project/:projectId')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -329,7 +329,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in PUT /captable/:id', { error, params: request.params, body: request.body })
+        logger.error({ error, params: request.params, body: request.body }, 'Error in PUT /captable/:id')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -390,7 +390,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in DELETE /captable/:id', { error, params: request.params })
+        logger.error({ error, params: request.params }, 'Error in DELETE /captable/:id')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -506,12 +506,12 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.code(201).send(result)
       } catch (error) {
-        logger.error('Error in POST /captable/investors', { 
+        logger.error({ 
           error, 
           body: request.body && typeof request.body === 'object' 
             ? { ...(request.body as Record<string, any>), email: '[REDACTED]' }
             : '[INVALID_BODY]'
-        })
+        }, 'Error in POST /captable/investors')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -614,7 +614,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in GET /captable/investors', { error, query: request.query })
+        logger.error({ error, query: request.query }, 'Error in GET /captable/investors')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -705,7 +705,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.code(201).send(result)
       } catch (error) {
-        logger.error('Error in POST /captable/subscriptions', { error, body: request.body })
+        logger.error({ error, body: request.body }, 'Error in POST /captable/subscriptions')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -770,7 +770,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in GET /captable/analytics/:projectId', { error, params: request.params })
+        logger.error({ error, params: request.params }, 'Error in GET /captable/analytics/:projectId')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -832,7 +832,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in GET /captable/statistics/:projectId', { error, params: request.params })
+        logger.error({ error, params: request.params }, 'Error in GET /captable/statistics/:projectId')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',
@@ -942,7 +942,7 @@ export default async function captableRoutes(fastify: FastifyInstance) {
 
         return reply.send(result)
       } catch (error) {
-        logger.error('Error in POST /captable/export/:projectId', { error, params: request.params, body: request.body })
+        logger.error({ error, params: request.params, body: request.body }, 'Error in POST /captable/export/:projectId')
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',

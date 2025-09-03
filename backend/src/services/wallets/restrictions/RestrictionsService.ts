@@ -129,15 +129,15 @@ export class RestrictionsService extends BaseService {
         }
       }
 
-      this.logger.info({
+      this.logInfo('Wallet restrictions initialized', {
         walletId,
         rulesCount: createdRules.length
-      }, 'Wallet restrictions initialized')
+      })
 
       return this.success(createdRules)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to initialize restrictions')
+      this.logError('Failed to initialize restrictions', { error, walletId })
       return this.error('Failed to initialize restrictions', 'RESTRICTIONS_INIT_ERROR')
     }
   }
@@ -171,16 +171,16 @@ export class RestrictionsService extends BaseService {
 
       const restrictionRule = this.mapToRestrictionRule(created)
 
-      this.logger.info({
+      this.logInfo('Restriction rule added', {
         walletId,
         ruleId: restrictionRule.id,
         ruleType: rule.ruleType
-      }, 'Restriction rule added')
+      })
 
       return this.success(restrictionRule)
 
     } catch (error) {
-      this.logger.error({ error, walletId, rule }, 'Failed to add restriction')
+      this.logError('Failed to add restriction', { error, walletId, rule })
       return this.error('Failed to add restriction', 'RESTRICTION_ADD_ERROR')
     }
   }
@@ -218,16 +218,16 @@ export class RestrictionsService extends BaseService {
         where: { id: ruleId }
       })
 
-      this.logger.info({
+      this.logInfo('Restriction rule removed', {
         walletId,
         ruleId,
         ruleType: rule.rule_type
-      }, 'Restriction rule removed')
+      })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId, ruleId }, 'Failed to remove restriction')
+      this.logError('Failed to remove restriction', { error, walletId, ruleId })
       return this.error('Failed to remove restriction', 'RESTRICTION_REMOVE_ERROR')
     }
   }
@@ -267,16 +267,16 @@ export class RestrictionsService extends BaseService {
 
       const updatedRule = this.mapToRestrictionRule(updated)
 
-      this.logger.info({
+      this.logInfo('Restriction rule updated', {
         walletId,
         ruleId,
         updates: Object.keys(updates)
-      }, 'Restriction rule updated')
+      })
 
       return this.success(updatedRule)
 
     } catch (error) {
-      this.logger.error({ error, walletId, ruleId, updates }, 'Failed to update restriction')
+      this.logError('Failed to update restriction', { error, walletId, ruleId, updates })
       return this.error('Failed to update restriction', 'RESTRICTION_UPDATE_ERROR')
     }
   }
@@ -304,7 +304,7 @@ export class RestrictionsService extends BaseService {
       return this.success(rules.map(r => this.mapToRestrictionRule(r)))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get restrictions')
+      this.logError('Failed to get restrictions', { error, walletId })
       return this.error('Failed to get restrictions', 'RESTRICTIONS_GET_ERROR')
     }
   }
@@ -345,19 +345,19 @@ export class RestrictionsService extends BaseService {
         warnings
       }
 
-      this.logger.debug({
+      this.logDebug('Transaction validation completed', {
         walletId,
         toAddress,
         value,
         rulesChecked: restrictions.length,
         failedRulesCount: failedRules.length,
         isValid: result.isValid
-      }, 'Transaction validation completed')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to validate transaction')
+      this.logError('Failed to validate transaction', { error, request })
       return this.error('Failed to validate transaction', 'TRANSACTION_VALIDATION_ERROR')
     }
   }
@@ -487,10 +487,10 @@ export class RestrictionsService extends BaseService {
   ): Promise<{ isValid: boolean; reason?: string }> {
     // This would integrate with transaction tracking to check daily limits
     // Placeholder implementation
-    this.logger.debug({
+    this.logDebug('Checking daily limit (placeholder)', {
       walletId,
       dailyLimitUSD: ruleData.dailyLimitUSD
-    }, 'Checking daily limit (placeholder)')
+    })
 
     return { isValid: true }
   }

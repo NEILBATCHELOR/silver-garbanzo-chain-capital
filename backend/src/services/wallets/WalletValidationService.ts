@@ -59,7 +59,7 @@ export class WalletValidationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, walletData }, 'Wallet data validation failed')
+      this.logError('Wallet data validation failed', { error, walletData })
       return {
         isValid: false,
         errors: [{
@@ -170,7 +170,7 @@ export class WalletValidationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Validation failed')
+      this.logError('Validation failed', { error, request })
       return {
         isValid: false,
         errors: [{
@@ -238,7 +238,7 @@ export class WalletValidationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error }, 'Mnemonic validation failed')
+      this.logError('Mnemonic validation failed', { error })
       return {
         isValid: false,
         errors: [{
@@ -284,7 +284,7 @@ export class WalletValidationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, address, blockchain }, 'Address validation failed')
+      this.logError('Address validation failed', { error, address, blockchain })
       return {
         isValid: false,
         errors: [{
@@ -339,7 +339,7 @@ export class WalletValidationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, updates }, 'Wallet update validation failed')
+      this.logError('Wallet update validation failed', { error, updates })
       return {
         isValid: false,
         errors: [{
@@ -383,7 +383,7 @@ export class WalletValidationService extends BaseService {
       })
       return investor !== null
     } catch (error) {
-      this.logger.error({ error, investorId }, 'Failed to check investor existence')
+      this.logError('Failed to check investor existence', { error, investorId })
       return false
     }
   }
@@ -471,7 +471,7 @@ export class WalletValidationService extends BaseService {
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, investorId }, 'Failed to check wallet creation eligibility')
+      this.logError('Failed to check wallet creation eligibility', { error, investorId })
       return this.error('Failed to validate wallet creation eligibility', 'VALIDATION_ERROR')
     }
   }
@@ -507,7 +507,7 @@ export class WalletValidationService extends BaseService {
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, blockchain, investorId }, 'Failed to check jurisdiction support')
+      this.logError('Failed to check jurisdiction support', { error, blockchain, investorId })
       return this.error('Failed to validate jurisdiction support', 'VALIDATION_ERROR')
     }
   }

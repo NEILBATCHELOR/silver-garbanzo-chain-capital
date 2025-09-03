@@ -134,18 +134,18 @@ export class LockService extends BaseService {
         return this.error(lockResult.error!, lockResult.code!)
       }
 
-      this.logger.info({
+      this.logInfo('Wallet locked successfully', {
         walletId,
         lockType,
         lockedBy,
         unlockTime: unlockTime.toISOString(),
         lockNonce
-      }, 'Wallet locked successfully')
+      })
 
       return this.success(this.mapToWalletLock(lock))
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to lock wallet')
+      this.logError('Failed to lock wallet', { error, request })
       return this.error('Failed to lock wallet', 'WALLET_LOCK_ERROR')
     }
   }
@@ -193,17 +193,17 @@ export class LockService extends BaseService {
         return this.error(unlockResult.error!, unlockResult.code!)
       }
 
-      this.logger.info({
+      this.logInfo('Wallet unlocked by guardian', {
         walletId,
         approverAddress,
         unlockReason,
         lockType: currentLock.lock_type
-      }, 'Wallet unlocked by guardian')
+      })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to unlock wallet')
+      this.logError('Failed to unlock wallet', { error, request })
       return this.error('Failed to unlock wallet', 'WALLET_UNLOCK_ERROR')
     }
   }
@@ -264,7 +264,7 @@ export class LockService extends BaseService {
       return this.success(status)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get lock status')
+      this.logError('Failed to get lock status', { error, walletId })
       return this.error('Failed to get lock status', 'LOCK_STATUS_ERROR')
     }
   }
@@ -289,7 +289,7 @@ export class LockService extends BaseService {
       return this.success(locks.map(l => this.mapToWalletLock(l)))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get lock history')
+      this.logError('Failed to get lock history', { error, walletId })
       return this.error('Failed to get lock history', 'LOCK_HISTORY_ERROR')
     }
   }
@@ -335,17 +335,17 @@ export class LockService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Lock extended', {
         walletId,
         extendedBy,
         additionalTime,
         newUnlockTime: newUnlockTime.toISOString()
-      }, 'Lock extended')
+      })
 
       return this.success(this.mapToWalletLock(updatedLock))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to extend lock')
+      this.logError('Failed to extend lock', { error, walletId })
       return this.error('Failed to extend lock', 'LOCK_EXTEND_ERROR')
     }
   }
@@ -392,7 +392,7 @@ export class LockService extends BaseService {
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to perform unlock')
+      this.logError('Failed to perform unlock', { error, walletId })
       return this.error('Failed to perform unlock', 'UNLOCK_EXECUTION_ERROR')
     }
   }
@@ -483,11 +483,11 @@ export class LockService extends BaseService {
   ): Promise<boolean> {
     // This would verify the signature using the appropriate cryptographic method
     // Placeholder implementation
-    this.logger.debug({
+    this.logDebug('Verifying unlock signature (placeholder)', {
       unlockHash,
       approverAddress,
       signature: signature.substring(0, 10) + '...'
-    }, 'Verifying unlock signature (placeholder)')
+    })
     
     return true // Placeholder
   }
@@ -499,11 +499,11 @@ export class LockService extends BaseService {
   ): Promise<ServiceResult<{ transactionHash: string }>> {
     // This would execute the lock function on the smart contract
     // Placeholder implementation
-    this.logger.info({
+    this.logInfo('Executing lock on contract (placeholder)', {
       walletId,
       unlockTime: unlockTime.toISOString(),
       lockNonce
-    }, 'Executing lock on contract (placeholder)')
+    })
 
     const transactionHash = '0x' + Math.random().toString(16).substring(2, 66)
 
@@ -513,7 +513,7 @@ export class LockService extends BaseService {
   private async executeUnlockOnContract(walletId: string): Promise<ServiceResult<{ transactionHash: string }>> {
     // This would execute the unlock function on the smart contract
     // Placeholder implementation
-    this.logger.info({ walletId }, 'Executing unlock on contract (placeholder)')
+    this.logInfo('Executing unlock on contract (placeholder)', { walletId })
 
     const transactionHash = '0x' + Math.random().toString(16).substring(2, 66)
 

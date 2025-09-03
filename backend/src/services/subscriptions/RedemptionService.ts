@@ -221,7 +221,7 @@ export class RedemptionService extends BaseService {
 
       return this.paginatedResponse(convertedRedemptions, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get redemption requests')
+      this.logError('Failed to get redemption requests', { error, options })
       throw error
     }
   }
@@ -259,7 +259,7 @@ export class RedemptionService extends BaseService {
 
       return this.success(convertedRedemption)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get redemption by ID')
+      this.logError('Failed to get redemption by ID', { error, id })
       return this.error('Failed to get redemption request', 'DATABASE_ERROR')
     }
   }
@@ -363,14 +363,14 @@ export class RedemptionService extends BaseService {
         estimated_completion: estimatedCompletion
       }
 
-      this.logger.info(
-        { redemptionId: redemption.id, tokenAmount: data.token_amount, tokenType: data.token_type },
-        'Redemption request created successfully'
+      this.logInfo(
+        'Redemption request created successfully',
+        { redemptionId: redemption.id, tokenAmount: data.token_amount, tokenType: data.token_type }
       )
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create redemption request')
+      this.logError('Failed to create redemption request', { error, data })
       return this.error('Failed to create redemption request', 'DATABASE_ERROR')
     }
   }
@@ -422,10 +422,10 @@ export class RedemptionService extends BaseService {
       // Convert database record to API response format
       const convertedRedemption = this.convertRedemptionRecord(updatedRedemption as any)
 
-      this.logger.info({ redemptionId: id }, 'Redemption request updated successfully')
+      this.logInfo('Redemption request updated successfully', { redemptionId: id })
       return this.success(convertedRedemption)
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update redemption request')
+      this.logError('Failed to update redemption request', { error, id, data })
       return this.error('Failed to update redemption request', 'DATABASE_ERROR')
     }
   }
@@ -512,14 +512,14 @@ export class RedemptionService extends BaseService {
         })
       }
 
-      this.logger.info(
+      this.logInfo(
+        'Redemption approval processed',
         { 
           redemptionId: redemption_request_id, 
           approverId: approver_user_id, 
           action, 
           newStatus 
-        },
-        'Redemption approval processed'
+        }
       )
 
       // Convert database record to API response format
@@ -527,7 +527,7 @@ export class RedemptionService extends BaseService {
 
       return this.success(convertedApproval)
     } catch (error) {
-      this.logger.error({ error, approvalData }, 'Failed to process redemption approval')
+      this.logError('Failed to process redemption approval', { error, approvalData })
       return this.error('Failed to process redemption approval', 'DATABASE_ERROR')
     }
   }
@@ -553,7 +553,7 @@ export class RedemptionService extends BaseService {
 
       return this.success(convertedWindows)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get active redemption windows')
+      this.logError('Failed to get active redemption windows', { error })
       return this.error('Failed to get redemption windows', 'DATABASE_ERROR')
     }
   }
@@ -606,7 +606,7 @@ export class RedemptionService extends BaseService {
         activeWindow: applicableWindow
       })
     } catch (error) {
-      this.logger.error({ error, tokenType, amount }, 'Failed to check redemption eligibility')
+      this.logError('Failed to check redemption eligibility', { error, tokenType, amount })
       return this.error('Failed to check redemption eligibility', 'DATABASE_ERROR')
     }
   }

@@ -72,10 +72,10 @@ export class TokenService extends BaseService {
         }
       )
 
-      this.logger.info({ count: result.data.length }, 'Tokens retrieved successfully')
+      this.logInfo('Tokens retrieved successfully', { count: result.data.length })
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to retrieve tokens')
+      this.logError('Failed to retrieve tokens', { error })
       return this.error('Failed to retrieve tokens', 'DATABASE_ERROR')
     }
   }
@@ -135,10 +135,10 @@ export class TokenService extends BaseService {
         }
       )
 
-      this.logger.info({ projectId, count: result.data.length }, 'Project tokens retrieved successfully')
+      this.logInfo('Project tokens retrieved successfully', { projectId, count: result.data.length })
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, projectId }, 'Failed to retrieve project tokens')
+      this.logError('Failed to retrieve project tokens', { error, projectId })
       return this.error('Failed to retrieve project tokens', 'DATABASE_ERROR')
     }
   }
@@ -195,10 +195,10 @@ export class TokenService extends BaseService {
         return this.error('Token not found', 'NOT_FOUND', 404)
       }
 
-      this.logger.info({ tokenId: id }, 'Token retrieved successfully')
+      this.logInfo('Token retrieved successfully', { tokenId: id })
       return this.success(token as Token)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to retrieve token')
+      this.logError('Failed to retrieve token', { error, id })
       return this.error('Failed to retrieve token', 'DATABASE_ERROR')
     }
   }
@@ -277,17 +277,17 @@ export class TokenService extends BaseService {
       })
 
       if (result.success && result.data) {
-        this.logger.info({ 
+        this.logInfo('Token created successfully', { 
           tokenId: result.data.id, 
           name: data.name, 
           standard: data.standard 
-        }, 'Token created successfully')
+        })
         return this.success(result.data as Token)
       }
 
       return this.error('Failed to create token', 'DATABASE_ERROR')
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create token')
+      this.logError('Failed to create token', { error, data })
       return this.error('Failed to create token', 'DATABASE_ERROR')
     }
   }
@@ -392,10 +392,10 @@ export class TokenService extends BaseService {
           break
 
         default:
-          this.logger.warn({ tokenId, standard }, 'Unknown token standard for properties creation')
+          this.logWarn('Unknown token standard for properties creation', { tokenId, standard })
       }
     } catch (error) {
-      this.logger.error({ error, tokenId, standard }, 'Failed to create standard properties')
+      this.logError('Failed to create standard properties', { error, tokenId, standard })
       throw error
     }
   }
@@ -460,13 +460,13 @@ export class TokenService extends BaseService {
       })
 
       if (result.success && result.data) {
-        this.logger.info({ tokenId: id }, 'Token updated successfully')
+        this.logInfo('Token updated successfully', { tokenId: id })
         return this.success(result.data as Token)
       }
 
       return this.error('Failed to update token', 'DATABASE_ERROR')
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update token')
+      this.logError('Failed to update token', { error, id, data })
       return this.error('Failed to update token', 'DATABASE_ERROR')
     }
   }
@@ -510,13 +510,13 @@ export class TokenService extends BaseService {
       )
 
       if (result.success) {
-        this.logger.info({ tokenId: id }, 'Token deleted successfully')
+        this.logInfo('Token deleted successfully', { tokenId: id })
         return this.success(true)
       }
 
       return this.error('Failed to delete token', 'DATABASE_ERROR')
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete token')
+      this.logError('Failed to delete token', { error, id })
       return this.error('Failed to delete token', 'DATABASE_ERROR')
     }
   }
@@ -557,7 +557,7 @@ export class TokenService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, tokenId }, 'Failed to get token analytics')
+      this.logError('Failed to get token analytics', { error, tokenId })
       return this.error('Failed to get token analytics', 'DATABASE_ERROR')
     }
   }
@@ -618,7 +618,7 @@ export class TokenService extends BaseService {
 
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get token statistics')
+      this.logError('Failed to get token statistics', { error })
       return this.error('Failed to get token statistics', 'DATABASE_ERROR')
     }
   }

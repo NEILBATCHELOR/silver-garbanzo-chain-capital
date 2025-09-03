@@ -13,6 +13,7 @@ import { swaggerOptions, swaggerUiOptions } from './config/swagger'
 import { createLogger } from './utils/logger'
 import auditMiddleware from './middleware/audit/audit-middleware'
 import { initializeSystemAuditMonitor } from './middleware/audit/system-audit-monitor'
+import { logError } from './utils/loggerAdapter'
 
 // Route imports
 import projectRoutes from './routes/projects'
@@ -187,7 +188,7 @@ async function buildApp(): Promise<FastifyInstance> {
         }
       })
     } catch (error) {
-      app.log.error('Health check failed:', error)
+      logError(app.log, 'Health check failed:', error)
       return reply.status(503).send({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
@@ -286,7 +287,7 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Global error handler
   app.setErrorHandler((error, request, reply) => {
-    app.log.error({
+    logError(app.log, 'Request failed', {
       err: error,
       req: {
         method: request.method,
@@ -294,7 +295,7 @@ async function buildApp(): Promise<FastifyInstance> {
         headers: request.headers,
         remoteAddress: request.ip
       }
-    }, 'Request failed')
+    })
 
     // Don't leak error details in production
     if (NODE_ENV === 'production') {
@@ -395,7 +396,7 @@ async function start() {
         logger.info('👋 Shutdown complete. Goodbye!')
         process.exit(0)
       } catch (error) {
-        logger.error('❌ Error during shutdown:', error)
+        logger.error(error, '❌ Error during shutdown:')
         process.exit(1)
       }
     }
@@ -404,19 +405,19 @@ async function start() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
     
   } catch (error) {
-    logger.error('❌ Failed to start development server:', error)
+    logger.error(error, '❌ Failed to start development server:')
     process.exit(1)
   }
 }
 
 // Handle unhandled errors
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  logger.error({ promise, reason }, 'Unhandled Rejection at')
   process.exit(1)
 })
 
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception thrown:', error)
+  logger.error(error, 'Uncaught Exception thrown:')
   process.exit(1)
 })
 

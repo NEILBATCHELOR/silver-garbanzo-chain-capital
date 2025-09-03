@@ -207,7 +207,7 @@ export class DocumentComplianceService extends BaseService {
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate document compliance')
+      this.logError('Failed to validate document compliance', { error, data })
       return this.error('Failed to validate document compliance', 'VALIDATION_ERROR')
     }
   }
@@ -235,7 +235,7 @@ export class DocumentComplianceService extends BaseService {
       let document: any = null
       if (entity_type === 'investor') {
         // TODO: investor_documents table not available in Prisma client - implement when available
-        this.logger.warn('investor_documents table not available in Prisma client')
+        this.logWarn('investor_documents table not available in Prisma client')
         return this.error('Investor document validation not available', 'NOT_IMPLEMENTED', 501)
       } else {
         document = await this.db.issuer_documents.findUnique({
@@ -342,7 +342,7 @@ export class DocumentComplianceService extends BaseService {
 
       return this.success(complianceCheck)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create document compliance check')
+      this.logError('Failed to create document compliance check', { error, data })
       return this.error('Failed to create document compliance check', 'DATABASE_ERROR')
     }
   }
@@ -442,7 +442,7 @@ export class DocumentComplianceService extends BaseService {
 
           bulkValidation.processed_documents++
         } catch (error) {
-          this.logger.error({ error, documentId }, 'Failed to validate document in bulk operation')
+          this.logError('Failed to validate document in bulk operation', { error, documentId })
           failedValidations++
           bulkValidation.processed_documents++
         }
@@ -458,7 +458,7 @@ export class DocumentComplianceService extends BaseService {
 
       return this.success(bulkValidation)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to perform bulk document validation')
+      this.logError('Failed to perform bulk document validation', { error, data })
       return this.error('Failed to perform bulk document validation', 'VALIDATION_ERROR')
     }
   }
@@ -538,7 +538,7 @@ export class DocumentComplianceService extends BaseService {
 
       return this.success(filteredTemplates)
     } catch (error) {
-      this.logger.error({ error, filters }, 'Failed to get compliance templates')
+      this.logError('Failed to get compliance templates', { error, filters })
       return this.error('Failed to get compliance templates', 'DATABASE_ERROR')
     }
   }

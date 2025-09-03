@@ -107,16 +107,16 @@ export class BatchOperationService extends BaseService {
         }
       }
 
-      this.logger.info({
+      this.logInfo('Batch operation created', {
         walletAddress,
         operationCount: operations.length,
         totalGas: result.estimatedGas
-      }, 'Batch operation created')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to create batch operation')
+      this.logError('Failed to create batch operation', { error, request })
       return this.error('Failed to create batch operation', 'BATCH_CREATE_FAILED')
     }
   }
@@ -163,10 +163,10 @@ export class BatchOperationService extends BaseService {
       
       const hasFailures = simulation.data.results.some(result => !result.success)
       if (hasFailures) {
-        this.logger.warn({
+        this.logWarn('Batch simulation detected failures', {
           walletAddress,
           failures: simulation.data.results.filter(r => !r.success)
-        }, 'Batch simulation detected failures')
+        })
       }
 
       if (!executionData.success || !executionData.data) {
@@ -188,18 +188,18 @@ export class BatchOperationService extends BaseService {
         await this.storeBatchResults(userOpHash, operations, execution.data.results)
       }
 
-      this.logger.info({
+      this.logInfo('Batch operation executed', {
         walletAddress,
         userOpHash,
         operationCount: operations.length,
         totalGasUsed: execution.data.totalGasUsed,
         successCount: execution.data.results.filter(r => r.success).length
-      }, 'Batch operation executed')
+      })
 
       return this.success(execution.data)
 
     } catch (error) {
-      this.logger.error({ error, walletAddress, operations }, 'Failed to execute batch operation')
+      this.logError('Failed to execute batch operation', { error, walletAddress, operations })
       return this.error('Failed to execute batch operation', 'BATCH_EXECUTION_FAILED')
     }
   }
@@ -283,7 +283,7 @@ export class BatchOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, userOpHash }, 'Failed to analyze batch performance')
+      this.logError('Failed to analyze batch performance', { error, userOpHash })
       return this.error('Failed to analyze batch performance', 'BATCH_ANALYSIS_FAILED')
     }
   }
@@ -386,7 +386,7 @@ export class BatchOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId, timeframe }, 'Failed to get batch operation history')
+      this.logError('Failed to get batch operation history', { error, walletId, timeframe })
       return this.error('Failed to get batch operation history', 'BATCH_HISTORY_FAILED')
     }
   }
@@ -424,7 +424,7 @@ export class BatchOperationService extends BaseService {
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, operations }, 'Failed to validate batch operations')
+      this.logError('Failed to validate batch operations', { error, operations })
       return this.error('Failed to validate batch operations', 'BATCH_VALIDATION_FAILED')
     }
   }
@@ -454,7 +454,7 @@ export class BatchOperationService extends BaseService {
       return this.success(dependencies)
 
     } catch (error) {
-      this.logger.error({ error, operations }, 'Failed to analyze dependencies')
+      this.logError('Failed to analyze dependencies', { error, operations })
       return this.error('Failed to analyze dependencies', 'DEPENDENCY_ANALYSIS_FAILED')
     }
   }
@@ -473,7 +473,7 @@ export class BatchOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, operations, dependencies }, 'Failed to optimize operation order')
+      this.logError('Failed to optimize operation order', { error, operations, dependencies })
       return this.error('Failed to optimize operation order', 'OPTIMIZATION_FAILED')
     }
   }
@@ -491,7 +491,7 @@ export class BatchOperationService extends BaseService {
       return this.success({ estimates })
 
     } catch (error) {
-      this.logger.error({ error, operations, walletAddress }, 'Failed to estimate batch gas')
+      this.logError('Failed to estimate batch gas', { error, operations, walletAddress })
       return this.error('Failed to estimate batch gas', 'GAS_ESTIMATION_FAILED')
     }
   }
@@ -533,7 +533,7 @@ export class BatchOperationService extends BaseService {
       return this.success(callData)
 
     } catch (error) {
-      this.logger.error({ error, operations }, 'Failed to build batch execution data')
+      this.logError('Failed to build batch execution data', { error, operations })
       return this.error('Failed to build batch execution data', 'BATCH_DATA_BUILD_FAILED')
     }
   }
@@ -562,7 +562,7 @@ export class BatchOperationService extends BaseService {
       return this.success({ results })
 
     } catch (error) {
-      this.logger.error({ error, walletAddress, operations }, 'Failed to simulate batch execution')
+      this.logError('Failed to simulate batch execution', { error, walletAddress, operations })
       return this.error('Failed to simulate batch execution', 'BATCH_SIMULATION_FAILED')
     }
   }
@@ -605,7 +605,7 @@ export class BatchOperationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletAddress, executionData }, 'Failed to perform batch execution')
+      this.logError('Failed to perform batch execution', { error, walletAddress, executionData })
       return this.error('Failed to perform batch execution', 'BATCH_EXECUTION_FAILED')
     }
   }
@@ -622,7 +622,7 @@ export class BatchOperationService extends BaseService {
       })
 
       if (!userOp) {
-        this.logger.error({ userOpHash }, 'UserOperation not found for batch results storage')
+        this.logError('UserOperation not found for batch results storage', { userOpHash })
         return
       }
 
@@ -648,13 +648,13 @@ export class BatchOperationService extends BaseService {
         data: batchRecords
       })
 
-      this.logger.info({ 
+      this.logInfo('Batch results stored', { 
         userOpHash, 
         operationCount: operations.length 
-      }, 'Batch results stored')
+      })
 
     } catch (error) {
-      this.logger.error({ error, userOpHash, operations }, 'Failed to store batch results')
+      this.logError('Failed to store batch results', { error, userOpHash, operations })
     }
   }
 

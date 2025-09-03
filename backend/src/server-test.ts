@@ -7,6 +7,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import { initializeDatabase } from './infrastructure/database/client'
 import { swaggerOptions, swaggerUiOptions } from './config/swagger'
 import { createLogger } from './utils/logger'
+import { logError } from './utils/loggerAdapter'
 import auditMiddleware from './middleware/audit/audit-middleware'
 import { initializeSystemAuditMonitor } from './middleware/audit/system-audit-monitor'
 
@@ -241,7 +242,7 @@ Or generate tokens via \`POST /api/v1/test/auth/generate\`
         }
       })
     } catch (error) {
-      app.log.error('Test health check failed:', error)
+      logError(app.log, 'Test health check failed:', error)
       return reply.status(503).send({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
@@ -464,14 +465,14 @@ Or generate tokens via \`POST /api/v1/test/auth/generate\`
   // Test-friendly error handler
   app.setErrorHandler((error, request, reply) => {
     if (enableLogs) {
-      app.log.error({
+      logError(app.log, 'Test request failed', {
         err: error,
         req: {
           method: request.method,
           url: request.url,
           headers: request.headers
         }
-      }, 'Test request failed')
+      })
     }
 
     // Include full error details in test mode
@@ -571,7 +572,7 @@ async function start(options: {
     
   } catch (error) {
     if (logger) {
-      logger.error('❌ Failed to start test server:', error)
+      logger.error(error, '❌ Failed to start test server:')
     } else {
       console.error('❌ Failed to start test server:', error)
     }

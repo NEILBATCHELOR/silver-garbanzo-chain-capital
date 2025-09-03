@@ -12,6 +12,7 @@ import {
   AuditSeverity
 } from '@/services/audit/index'
 import { normalizeAuditEvent, normalizeBulkAuditEvents, createSafeAuditEvent } from '../utils/audit-compatibility'
+import { logError } from '@/utils/loggerAdapter'
 
 /**
  * Fixed Audit API Routes with flexible validation
@@ -128,7 +129,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
       })
     } catch (error) {
       console.log('🔥 Error in audit event creation:', error)
-      fastify.log.error('Error creating audit event:', error)
+      logError(fastify.log, 'Error creating audit event', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error',
@@ -201,7 +202,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
 
       return reply.status(200).send(sanitizedResult)
     } catch (error) {
-      fastify.log.error('Error creating bulk audit events:', error)
+      logError(fastify.log, 'Error creating bulk audit events', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error',
@@ -255,7 +256,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
         data: normalizedData
       })
     } catch (error) {
-      fastify.log.error('Error getting audit event:', error)
+      logError(fastify.log, 'Error getting audit event', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error',
@@ -342,7 +343,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
         data: resultData
       })
     } catch (error) {
-      fastify.log.error('Error listing audit events:', error)
+      logError(fastify.log, 'Error listing audit events', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error',
@@ -427,7 +428,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
         data: analyticsData
       })
     } catch (error) {
-      fastify.log.error('Error getting audit analytics:', error)
+      logError(fastify.log, 'Error getting audit analytics', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error',
@@ -507,7 +508,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
         data: resultData
       })
     } catch (error) {
-      fastify.log.error('Error getting audit statistics:', error)
+      logError(fastify.log, 'Error getting audit statistics', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error',
@@ -617,7 +618,7 @@ export default async function auditRoutes(fastify: FastifyInstance) {
         }
       })
     } catch (error) {
-      fastify.log.error('Health check failed:', error)
+      logError(fastify.log, 'Health check failed', error)
       return reply.status(503).send({
         success: false,
         data: {

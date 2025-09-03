@@ -148,7 +148,7 @@ export class MultiSigSigningService extends BaseService {
         }
       )
 
-      this.logger.info('Proposal signed successfully', {
+      this.logInfo('Proposal signed successfully', {
         proposalId: proposal.id,
         signer: request.signer_address,
         signaturesCount: signatureCount,
@@ -158,7 +158,7 @@ export class MultiSigSigningService extends BaseService {
 
       return this.success(this.formatSignature(signatureRecord))
     } catch (error) {
-      this.logger.error('Sign proposal error:', error)
+      this.logError('Sign proposal error:', error)
       return this.error('Failed to sign proposal')
     }
   }
@@ -265,7 +265,7 @@ export class MultiSigSigningService extends BaseService {
         }
       )
 
-      this.logger.info('Manual signature created and verified', {
+      this.logInfo('Manual signature created and verified', {
         proposalId: proposal.id,
         signer: request.signer,
         signaturesCount: signatureCount,
@@ -274,7 +274,7 @@ export class MultiSigSigningService extends BaseService {
 
       return this.success(this.formatSignature(signatureRecord))
     } catch (error) {
-      this.logger.error('Create signature error:', error)
+      this.logError('Create signature error:', error)
       return this.error('Failed to create signature')
     }
   }
@@ -344,7 +344,7 @@ export class MultiSigSigningService extends BaseService {
         }
       )
 
-      this.logger.info('Signature removed', {
+      this.logInfo('Signature removed', {
         proposalId,
         signer: signerAddress,
         remainingSignatures
@@ -352,7 +352,7 @@ export class MultiSigSigningService extends BaseService {
 
       return this.success(true)
     } catch (error) {
-      this.logger.error('Remove signature error:', error)
+      this.logError('Remove signature error:', error)
       return this.error('Failed to remove signature')
     }
   }
@@ -370,7 +370,7 @@ export class MultiSigSigningService extends BaseService {
       const formattedSignatures = signatures.map(sig => this.formatSignature(sig))
       return this.success(formattedSignatures)
     } catch (error) {
-      this.logger.error('Get proposal signatures error:', error)
+      this.logError('Get proposal signatures error:', error)
       return this.error('Failed to get proposal signatures')
     }
   }
@@ -428,7 +428,7 @@ export class MultiSigSigningService extends BaseService {
         }
       }
 
-      this.logger.info('All signatures verified', {
+      this.logInfo('All signatures verified', {
         proposalId,
         validCount,
         invalidCount,
@@ -441,7 +441,7 @@ export class MultiSigSigningService extends BaseService {
         details: verificationResults
       })
     } catch (error) {
-      this.logger.error('Verify all signatures error:', error)
+      this.logError('Verify all signatures error:', error)
       return this.error('Failed to verify signatures')
     }
   }
@@ -535,7 +535,7 @@ export class MultiSigSigningService extends BaseService {
 
       return this.success(stats)
     } catch (error) {
-      this.logger.error('Get wallet signature stats error:', error)
+      this.logError('Get wallet signature stats error:', error)
       return this.error('Failed to get wallet signature statistics')
     }
   }
@@ -641,7 +641,7 @@ export class MultiSigSigningService extends BaseService {
         }
       }
     } catch (error) {
-      this.logger.error('Create transaction hash error:', error)
+      this.logError('Create transaction hash error:', error)
       return crypto.createHash('sha256')
         .update(JSON.stringify({ error: 'hash_generation_failed', timestamp: Date.now() }))
         .digest('hex')
@@ -674,7 +674,7 @@ export class MultiSigSigningService extends BaseService {
         signature: signingResult.data!.signature
       })
     } catch (error) {
-      this.logger.error('Generate cryptographic signature error:', error)
+      this.logError('Generate cryptographic signature error:', error)
       return this.error('Failed to generate signature')
     }
   }
@@ -727,7 +727,7 @@ export class MultiSigSigningService extends BaseService {
         }
       }
     } catch (error) {
-      this.logger.error('Verify cryptographic signature error:', error)
+      this.logError('Verify cryptographic signature error:', error)
       return false
     }
   }
@@ -848,7 +848,7 @@ export class MultiSigSigningService extends BaseService {
         completionRate: totalProposals > 0 ? (approvedProposals / totalProposals) * 100 : 0
       })
     } catch (error) {
-      this.logger.error('Get multi-sig analytics error:', error)
+      this.logError('Get multi-sig analytics error:', error)
       return this.error('Failed to get multi-sig analytics', 'ANALYTICS_ERROR', 500)
     }
   }

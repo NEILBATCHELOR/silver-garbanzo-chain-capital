@@ -10,6 +10,7 @@ config()
 import Fastify, { FastifyInstance } from 'fastify'
 import { initializeDatabase } from './infrastructure/database/client'
 import { createLogger } from './utils/logger'
+import { logError } from './utils/loggerAdapter'
 
 // Route imports
 import projectRoutes from './routes/projects'
@@ -79,7 +80,7 @@ async function buildApp(): Promise<FastifyInstance> {
     await app.register(import('./middleware/auth/jwt-auth.js'))
     logger.info('✅ JWT auth middleware registered')
   } catch (error) {
-    logger.warn('⚠️ JWT auth middleware failed, continuing without it:', error instanceof Error ? error.message : error)
+    logger.warn(`⚠️ JWT auth middleware failed, continuing without it: ${String(error)}`)
   }
 
   // Basic Swagger (simplified)
@@ -103,7 +104,7 @@ async function buildApp(): Promise<FastifyInstance> {
     })
     logger.info('✅ Swagger registered')
   } catch (error) {
-    logger.warn('⚠️ Swagger registration failed, continuing without it:', error instanceof Error ? error.message : error)
+    logger.warn(`⚠️ Swagger registration failed, continuing without it: ${String(error)}`)
   }
 
   // Health check endpoint
@@ -136,91 +137,91 @@ async function buildApp(): Promise<FastifyInstance> {
     await app.register(projectRoutes, { prefix: apiPrefix })
     logger.info('✅ Projects routes registered')
   } catch (error) {
-    logger.error('❌ Projects routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Projects routes failed:')
   }
 
   try {
     await app.register(investorRoutes, { prefix: apiPrefix })
     logger.info('✅ Investors routes registered')
   } catch (error) {
-    logger.error('❌ Investors routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Investors routes failed:')
   }
 
   try {
     await app.register(captableRoutes, { prefix: apiPrefix })
     logger.info('✅ Cap table routes registered')
   } catch (error) {
-    logger.error('❌ Cap table routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Cap table routes failed:')
   }
 
   try {
     await app.register(tokenRoutes, { prefix: apiPrefix })
     logger.info('✅ Tokens routes registered')
   } catch (error) {
-    logger.error('❌ Tokens routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Tokens routes failed:')
   }
 
   try {
     await app.register(subscriptionRoutes, { prefix: apiPrefix })
     logger.info('✅ Subscriptions routes registered')
   } catch (error) {
-    logger.error('❌ Subscriptions routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Subscriptions routes failed:')
   }
 
   try {
     await app.register(documentRoutes, { prefix: apiPrefix })
     logger.info('✅ Documents routes registered')
   } catch (error) {
-    logger.error('❌ Documents routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Documents routes failed:')
   }
 
   try {
     await app.register(walletRoutes, { prefix: apiPrefix })
     logger.info('✅ Wallets routes registered')
   } catch (error) {
-    logger.error('❌ Wallets routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Wallets routes failed:')
   }
 
   try {
     await app.register(auditRoutes, { prefix: apiPrefix })
     logger.info('✅ Audit routes registered')
   } catch (error) {
-    logger.error('❌ Audit routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Audit routes failed:')
   }
 
   try {
     await app.register(userRoutes, { prefix: apiPrefix })
     logger.info('✅ Users routes registered')
   } catch (error) {
-    logger.error('❌ Users routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Users routes failed:')
   }
 
   try {
     await app.register(authRoutes, { prefix: apiPrefix })
     logger.info('✅ Auth routes registered')
   } catch (error) {
-    logger.error('❌ Auth routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Auth routes failed:')
   }
 
   try {
     await app.register(policyRoutes, { prefix: apiPrefix })
     logger.info('✅ Policy routes registered')
   } catch (error) {
-    logger.error('❌ Policy routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Policy routes failed:')
   }
 
   try {
     await app.register(ruleRoutes, { prefix: apiPrefix })
     logger.info('✅ Rules routes registered')
   } catch (error) {
-    logger.error('❌ Rules routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Rules routes failed:')
   }
 
   try {
     await app.register(factoringRoutes, { prefix: apiPrefix })
     logger.info('✅ Factoring routes registered')
   } catch (error) {
-    logger.error('❌ Factoring routes failed:', error instanceof Error ? error.message : error)
+    logger.error(error instanceof Error ? error.message : error, '❌ Factoring routes failed:')
   }
 
   // Development debug routes
@@ -234,7 +235,7 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Simple error handler
   app.setErrorHandler((error, request, reply) => {
-    app.log.error(error)
+    logError(app.log, 'Request failed', error)
     reply.status(error.statusCode || 500).send({
       error: {
         message: error.message,
@@ -291,7 +292,7 @@ async function start() {
         logger.info('👋 Shutdown complete. Goodbye!')
         process.exit(0)
       } catch (error) {
-        logger.error('❌ Error during shutdown:', error)
+        logger.error(error, '❌ Error during shutdown:')
         process.exit(1)
       }
     }
@@ -300,10 +301,10 @@ async function start() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
     
   } catch (error) {
-    logger.error('❌ Failed to start fixed development server:', error)
+      logger.error(`❌ Failed to start fixed development server: ${error}`)
     if (error instanceof Error) {
-      logger.error('Error message:', error.message)
-      logger.error('Error stack:', error.stack)
+      logger.error(`Error message: ${error.message}`)
+      if (error.stack) logger.error(`Error stack: ${error.stack}`)
     }
     process.exit(1)
   }
@@ -311,12 +312,12 @@ async function start() {
 
 // Handle unhandled errors
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  logger.error(`Unhandled Rejection at: ${promise} reason: ${reason}`)
   process.exit(1)
 })
 
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception thrown:', error)
+  logger.error(`Uncaught Exception thrown: ${error}`)
   process.exit(1)
 })
 

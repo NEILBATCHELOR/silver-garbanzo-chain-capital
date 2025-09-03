@@ -67,11 +67,11 @@ export class FacetRegistryService extends BaseService {
         }
       })
 
-      this.logger.info({
+      this.logInfo('Facet registered in trusted registry', {
         facetName: facetInfo.name,
         facetAddress: facetInfo.address,
         registeredBy
-      }, 'Facet registered in trusted registry')
+      })
 
       return this.success({
         id: registeredFacet.id,
@@ -87,7 +87,7 @@ export class FacetRegistryService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, facetName: facetInfo.name }, 'Failed to register facet')
+      this.logError('Failed to register facet', { error, facetName: facetInfo.name })
       return this.error('Failed to register facet', 'FACET_REGISTER_ERROR')
     }
   }
@@ -118,7 +118,7 @@ export class FacetRegistryService extends BaseService {
       return this.success(registeredFacets)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get registered facets')
+      this.logError('Failed to get registered facets', { error })
       return this.error('Failed to get registered facets', 'FACET_LIST_ERROR')
     }
   }
@@ -151,7 +151,7 @@ export class FacetRegistryService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, name }, 'Failed to get facet by name')
+      this.logError('Failed to get facet by name', { error, name })
       return this.error('Failed to get facet by name', 'FACET_GET_ERROR')
     }
   }
@@ -208,12 +208,12 @@ export class FacetRegistryService extends BaseService {
         data: { is_active: false }
       })
 
-      this.logger.info({ facetId, facetName: facet.facet_name }, 'Facet deactivated')
+      this.logInfo('Facet deactivated', { facetId, facetName: facet.facet_name })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error, facetId }, 'Failed to deactivate facet')
+      this.logError('Failed to deactivate facet', { error, facetId })
       return this.error('Failed to deactivate facet', 'FACET_DEACTIVATE_ERROR')
     }
   }
@@ -268,7 +268,7 @@ export class FacetRegistryService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, facetIdOrAddress }, 'Failed to get facet info')
+      this.logError('Failed to get facet info', { error, facetIdOrAddress })
       return this.error('Failed to get facet info', 'FACET_INFO_ERROR')
     }
   }
@@ -289,7 +289,7 @@ export class FacetRegistryService extends BaseService {
       return this.success(!!facet)
 
     } catch (error) {
-      this.logger.error({ error, facetAddress }, 'Failed to check facet trust status')
+      this.logError('Failed to check facet trust status', { error, facetAddress })
       return this.error('Failed to check facet trust status', 'FACET_TRUST_CHECK_ERROR')
     }
   }

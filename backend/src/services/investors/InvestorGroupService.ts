@@ -75,7 +75,7 @@ export class InvestorGroupService extends BaseService {
       const mappedGroups = mapDatabaseResults(groups) as InvestorGroup[]
       return this.paginatedResponse(mappedGroups, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get investor groups')
+      this.logError('Failed to get investor groups', { error, options })
       throw error
     }
   }
@@ -115,7 +115,7 @@ export class InvestorGroupService extends BaseService {
       const mappedGroup = mapDatabaseResult(group) as InvestorGroup
       return this.success(mappedGroup)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to get investor group by ID')
+      this.logError('Failed to get investor group by ID', { error, id })
       return this.error('Failed to get investor group', 'DATABASE_ERROR')
     }
   }
@@ -160,11 +160,11 @@ export class InvestorGroupService extends BaseService {
         }
       })
 
-      this.logger.info({ groupId: group.id }, 'Investor group created successfully')
+      this.logInfo('Investor group created successfully', { groupId: group.id })
       const mappedGroup = mapDatabaseResult(group) as InvestorGroup
       return this.success(mappedGroup)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create investor group')
+      this.logError('Failed to create investor group', { error, data })
       return this.error('Failed to create investor group', 'DATABASE_ERROR')
     }
   }
@@ -197,11 +197,11 @@ export class InvestorGroupService extends BaseService {
         }
       })
 
-      this.logger.info({ groupId: id }, 'Investor group updated successfully')
+      this.logInfo('Investor group updated successfully', { groupId: id })
       const mappedGroup = mapDatabaseResult(group) as InvestorGroup
       return this.success(mappedGroup)
     } catch (error) {
-      this.logger.error({ error, id, data }, 'Failed to update investor group')
+      this.logError('Failed to update investor group', { error, id, data })
       return this.error('Failed to update investor group', 'DATABASE_ERROR')
     }
   }
@@ -229,10 +229,10 @@ export class InvestorGroupService extends BaseService {
         where: { id }
       })
 
-      this.logger.info({ groupId: id }, 'Investor group deleted successfully')
+      this.logInfo('Investor group deleted successfully', { groupId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, id }, 'Failed to delete investor group')
+      this.logError('Failed to delete investor group', { error, id })
       return this.error('Failed to delete investor group', 'DATABASE_ERROR')
     }
   }
@@ -287,10 +287,10 @@ export class InvestorGroupService extends BaseService {
         data: { member_count: { increment: 1 } }
       })
 
-      this.logger.info({ groupId, investorId }, 'Investor added to group successfully')
+      this.logInfo('Investor added to group successfully', { groupId, investorId })
       return this.success(membership)
     } catch (error) {
-      this.logger.error({ error, groupId, investorId }, 'Failed to add investor to group')
+      this.logError('Failed to add investor to group', { error, groupId, investorId })
       return this.error('Failed to add investor to group', 'DATABASE_ERROR')
     }
   }
@@ -328,10 +328,10 @@ export class InvestorGroupService extends BaseService {
         data: { member_count: { decrement: 1 } }
       })
 
-      this.logger.info({ groupId, investorId }, 'Investor removed from group successfully')
+      this.logInfo('Investor removed from group successfully', { groupId, investorId })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, groupId, investorId }, 'Failed to remove investor from group')
+      this.logError('Failed to remove investor from group', { error, groupId, investorId })
       return this.error('Failed to remove investor from group', 'DATABASE_ERROR')
     }
   }
@@ -388,7 +388,7 @@ export class InvestorGroupService extends BaseService {
 
       return this.paginatedResponse(formattedMembers, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, groupId, options }, 'Failed to get group members')
+      this.logError('Failed to get group members', { error, groupId, options })
       throw error
     }
   }
@@ -430,7 +430,7 @@ export class InvestorGroupService extends BaseService {
         failed: failed.length
       }
 
-      this.logger.info({ groupId, summary }, 'Bulk add investors to group completed')
+      this.logInfo('Bulk add investors to group completed', { groupId, summary })
 
       return this.success({
         successful,
@@ -438,7 +438,7 @@ export class InvestorGroupService extends BaseService {
         summary
       })
     } catch (error) {
-      this.logger.error({ error, groupId, investorIds }, 'Failed to bulk add investors to group')
+      this.logError('Failed to bulk add investors to group', { error, groupId, investorIds })
       return this.error('Failed to bulk add investors to group', 'DATABASE_ERROR')
     }
   }

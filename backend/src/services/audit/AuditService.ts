@@ -69,13 +69,13 @@ export class AuditService extends BaseService {
       // If queue is getting large, flush in background to avoid blocking
       if (this.auditQueue.length >= this.batchSize) {
         setImmediate(() => this.flushAuditQueue().catch(error => 
-          this.logger.error({ error }, 'Failed to flush audit queue in background')
+          this.logError('Failed to flush audit queue in background', { error })
         ))
       }
 
       return this.success(auditEvent)
     } catch (error) {
-      this.logger.error({ error, eventData }, 'Failed to create audit event')
+      this.logError('Failed to create audit event', { error, eventData })
       return this.error('Failed to create audit event', 'AUDIT_ERROR')
     }
   }
@@ -119,16 +119,16 @@ export class AuditService extends BaseService {
       if (this.auditQueue.length >= this.batchSize) {
         // Use setImmediate to avoid blocking the response
         setImmediate(() => this.flushAuditQueue().catch(error => 
-          this.logger.error({ error }, 'Failed to flush audit queue in background')
+          this.logError('Failed to flush audit queue in background', { error })
         ))
       }
 
-      this.logger.info({ batchId, count: events.length }, 'Bulk audit events created')
+      this.logInfo('Bulk audit events created', { batchId, count: events.length })
       
       // Return the events immediately without waiting for database flush
       return this.success(events)
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to create bulk audit events')
+      this.logError('Failed to create bulk audit events', { error, request })
       return this.error('Failed to create bulk audit events', 'BULK_AUDIT_ERROR')
     }
   }
@@ -246,7 +246,7 @@ export class AuditService extends BaseService {
 
       return this.success(paginatedResult) as AuditServiceResult<AuditPaginatedResponse<BaseAuditEvent>>
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get audit events')
+      this.logError('Failed to get audit events', { error, options })
       return this.error('Failed to get audit events', 'QUERY_ERROR')
     }
   }
@@ -294,7 +294,7 @@ export class AuditService extends BaseService {
 
       return this.success(auditTrail)
     } catch (error) {
-      this.logger.error({ error, entityType, entityId }, 'Failed to get audit trail')
+      this.logError('Failed to get audit trail', { error, entityType, entityId })
       return this.error('Failed to get audit trail', 'QUERY_ERROR')
     }
   }
@@ -403,7 +403,7 @@ export class AuditService extends BaseService {
 
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error, dateFrom, dateTo }, 'Failed to get audit statistics')
+      this.logError('Failed to get audit statistics', { error, dateFrom, dateTo })
       return this.error('Failed to get audit statistics', 'QUERY_ERROR')
     }
   }
@@ -494,7 +494,7 @@ export class AuditService extends BaseService {
 
       return this.success(events as BaseAuditEvent[])
     } catch (error) {
-      this.logger.error({ error, filters }, 'Failed to search audit events')
+      this.logError('Failed to search audit events', { error, filters })
       return this.error('Failed to search audit events', 'SEARCH_ERROR')
     }
   }
@@ -519,11 +519,11 @@ export class AuditService extends BaseService {
         }
       })
 
-      this.logger.info({ deletedCount: result.count, cutoffDate }, 'Old audit events deleted')
+      this.logInfo('Old audit events deleted', { deletedCount: result.count, cutoffDate })
       
       return this.success({ deletedCount: result.count })
     } catch (error) {
-      this.logger.error({ error, olderThanDays }, 'Failed to delete old audit events')
+      this.logError('Failed to delete old audit events', { error, olderThanDays })
       return this.error('Failed to delete old audit events', 'DELETE_ERROR')
     }
   }
@@ -637,7 +637,7 @@ export class AuditService extends BaseService {
     setInterval(() => {
       if (this.auditQueue.length > 0 && !this.isFlushingQueue) {
         this.flushAuditQueue().catch(error => 
-          this.logger.error({ error }, 'Failed to flush audit queue')
+          this.logError('Failed to flush audit queue', { error })
         )
       }
     }, this.flushInterval)
@@ -686,9 +686,9 @@ export class AuditService extends BaseService {
         skipDuplicates: true
       })
 
-      this.logger.debug(`Flushed ${eventsToFlush.length} audit events to database`)
+      this.logDebug(`Flushed ${eventsToFlush.length} audit events to database`)
     } catch (error) {
-      this.logger.error({ error, eventsCount: eventsToFlush.length }, 'Failed to flush audit events to database')
+      this.logError('Failed to flush audit events to database', { error, eventsCount: eventsToFlush.length })
       // Re-add events back to queue for retry (at the beginning)
       this.auditQueue.unshift(...eventsToFlush)
     } finally {

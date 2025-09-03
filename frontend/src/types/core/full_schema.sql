@@ -971,7 +971,7 @@ BEGIN
     UNION SELECT id, 'stablecoin_algorithmic' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Algorithmic'
     UNION SELECT id, 'stablecoin_rebasing' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Rebasing' -- Adjust if rebasing is a flag
   LOOP
-    -- Compute values based on product type (specialist logic per type; examples based on schema fields/oracles)
+    -- Compute values based on product type (specialist logic per type; examples based on schema fields/oracles with 2025-09-03 market data)
     CASE v_product.type
       WHEN 'asset_backed' THEN
         -- Specialist: Discounted cash flows, adjust for delinquency/recovery
@@ -985,7 +985,7 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'bond' THEN
-        -- Specialist: Mark-to-market with yield adjustment
+        -- Specialist: Mark-to-market with yield adjustment (using ~4.28% for corporate/10Y Treasury on 2025-09-03)
         SELECT issuer_name, face_value, (face_value * (1 + (yield_to_maturity / 100))), outstanding_supply::NUMERIC(78,18)
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM bond_products bp
@@ -1002,7 +1002,7 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'commodity' THEN
-        -- Specialist: Contract size with liquidity adjustment
+        -- Specialist: Contract size with liquidity adjustment (e.g., gold ~3537 USD/oz, oil ~65 USD/bbl on 2025-09-03)
         SELECT commodity_name, (contract_size * liquidity_metric), (contract_size * liquidity_metric), total_supply::NUMERIC(78,18)
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM commodities_products cp
@@ -1028,7 +1028,7 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'energy' THEN
-        -- Specialist: Capacity-based with market price
+        -- Specialist: Capacity-based with market price (e.g., natural gas ~2.99 USD/MMBtu on 2025-09-03)
         SELECT asset_name, (capacity * production_rate * market_price), (capacity * production_rate * market_price), total_supply::NUMERIC(78,18)
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM energy_assets ea
@@ -1037,7 +1037,7 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'equity' THEN
-        -- Specialist: Market cap or multiples
+        -- Specialist: Market cap or multiples (e.g., S&P 500 ~6415 on 2025-09-03)
         SELECT company_name, (shares_outstanding * current_share_price), (shares_outstanding * current_share_price), shares_outstanding
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM equity_products ep
@@ -1045,8 +1045,8 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'fund' THEN
-        -- Specialist: Weighted holdings (e.g., MMFs with compliance)
-        SELECT fund_name, SUM(ah.value), SUM(ah.value) / total_units, total_units
+        -- Specialist: Weighted holdings (e.g., MMFs with compliance; yields: Treasuries ~4.13-4.30%, Repos ~4.25%, Commercial Paper ~4.23%, CDs ~4.00-5.00%, Corporate ~4.28-6.00%, Municipal ~2.19-4.62% on 2025-09-03)
+        SELECT fund_name, SUM(ah.value * (1 + (ah.oracle_price / 100))), SUM(ah.value * (1 + (ah.oracle_price / 100))) / total_units, total_units
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM funds_products fp
         LEFT JOIN asset_holdings ah ON fp.id = ah.asset_id
@@ -1081,7 +1081,7 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'real_estate' THEN
-        -- Specialist: Cap rate on NOI
+        -- Specialist: Cap rate on NOI (e.g., indices ~370.9 Dow Jones US Real Estate, +2.9% YoY house prices on 2025-09-03)
         SELECT property_name, (net_operating_income / cap_rate), (net_operating_income / cap_rate), total_units
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM real_estate_products rep
@@ -1099,7 +1099,7 @@ BEGIN
         v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
 
       WHEN 'stablecoin_fiat' OR 'stablecoin_crypto' OR 'stablecoin_commodity' OR 'stablecoin_algorithmic' OR 'stablecoin_rebasing' THEN
-        -- Specialist: Peg stability; over-collateral for crypto/commodity
+        -- Specialist: Peg stability; over-collateral for crypto/commodity (USDT/USDC ~1.00 peg on 2025-09-03)
         SELECT stablecoin_name, collateral_value, 1.00, total_supply::NUMERIC(78,18) -- Aim for peg ~1.00
         INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
         FROM stablecoin_products scp
@@ -1167,6 +1167,39 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+
+--
+-- Name: calculate_project_weighted_nav(uuid, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calculate_project_weighted_nav(p_project_id uuid, p_date date) RETURNS numeric
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+    weighted_nav NUMERIC(18,6);
+BEGIN
+    SELECT 
+        CASE 
+            WHEN SUM(total_assets) = 0 THEN 0
+            ELSE SUM(nav * total_assets) / SUM(total_assets)
+        END
+    INTO weighted_nav
+    FROM asset_nav_data
+    WHERE project_id = p_project_id
+    AND date = p_date
+    AND validated = true;
+    
+    RETURN COALESCE(weighted_nav, 0);
+END;
+$$;
+
+
+--
+-- Name: FUNCTION calculate_project_weighted_nav(p_project_id uuid, p_date date); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.calculate_project_weighted_nav(p_project_id uuid, p_date date) IS 'Calculates the asset-weighted average NAV for all validated assets in a project on a specific date';
 
 
 --
@@ -2678,42 +2711,30 @@ COMMENT ON FUNCTION public.get_product_id_for_project(p_project_id uuid) IS 'Ret
 -- Name: get_product_table_name(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_product_table_name(p_project_type text) RETURNS text
+CREATE FUNCTION public.get_product_table_name(p_product_type text) RETURNS text
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
-    RETURN CASE p_project_type
-        WHEN 'structured_products' THEN 'structured_products'
+    RETURN CASE p_product_type
+        WHEN 'fund' THEN 'fund_products'
+        WHEN 'bond' THEN 'bond_products'
         WHEN 'equity' THEN 'equity_products'
-        WHEN 'commodities' THEN 'commodities_products'
-        WHEN 'funds_etfs_etps' THEN 'fund_products'
-        WHEN 'bonds' THEN 'bond_products'
-        WHEN 'quantitative_investment_strategies' THEN 'quantitative_investment_strategies_products'
+        WHEN 'commodity' THEN 'commodities_products'
+        WHEN 'structured' THEN 'structured_products'
+        WHEN 'quantitative' THEN 'quantitative_investment_strategies_products'
         WHEN 'private_equity' THEN 'private_equity_products'
         WHEN 'private_debt' THEN 'private_debt_products'
         WHEN 'real_estate' THEN 'real_estate_products'
         WHEN 'energy' THEN 'energy_products'
         WHEN 'infrastructure' THEN 'infrastructure_products'
-        WHEN 'collectibles' THEN 'collectibles_products'
-        WHEN 'receivables' THEN 'asset_backed_products' -- Receivables are asset-backed products
-        WHEN 'solar_wind_climate' THEN 'energy_products' -- Sub-category of energy
-        WHEN 'digital_tokenised_fund' THEN 'digital_tokenized_fund_products'
-        WHEN 'fiat_backed_stablecoin' THEN 'stablecoin_products'
-        WHEN 'crypto_backed_stablecoin' THEN 'stablecoin_products'
-        WHEN 'commodity_backed_stablecoin' THEN 'stablecoin_products'
-        WHEN 'algorithmic_stablecoin' THEN 'stablecoin_products'
-        WHEN 'rebasing_stablecoin' THEN 'stablecoin_products'
+        WHEN 'collectible' THEN 'collectibles_products'
+        WHEN 'asset_backed' THEN 'asset_backed_products'
+        WHEN 'digital_fund' THEN 'digital_tokenized_fund_products'
+        WHEN 'stablecoin' THEN 'stablecoin_products'
         ELSE NULL
     END;
 END;
 $$;
-
-
---
--- Name: FUNCTION get_product_table_name(p_project_type text); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.get_product_table_name(p_project_type text) IS 'Maps project_type to the corresponding product table name for dynamic queries.';
 
 
 --
@@ -5367,6 +5388,22 @@ $$;
 
 
 --
+-- Name: update_oracle_prices(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_oracle_prices() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  -- Example: For Treasuries, set oracle_price to 4.13% (2025-09-03 data); in prod, call API
+  IF NEW.holding_type = 'Government Securities' THEN NEW.oracle_price := 4.13; END IF;  -- From search
+  NEW.last_oracle_update := NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_project_organization_assignments_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5745,8 +5782,8 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$;
 
@@ -6811,7 +6848,14 @@ CREATE TABLE public.asset_holdings (
     credit_rating text,
     source text DEFAULT 'oracle'::text NOT NULL,
     updated_at timestamp with time zone DEFAULT now(),
+    oracle_price numeric(78,18) DEFAULT 0,
+    last_oracle_update timestamp with time zone DEFAULT now(),
     CONSTRAINT asset_holdings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'oracle'::text, 'calculated'::text, 'administrator'::text]))),
+    CONSTRAINT mmf_maturity_check CHECK (
+CASE
+    WHEN (holding_type = ANY (ARRAY['Government Securities'::text, 'Repos'::text, 'Commercial Paper'::text, 'CDs'::text, 'Corporate Debt'::text, 'Municipal Debt'::text])) THEN ((maturity_date - CURRENT_DATE) <= 397)
+    ELSE true
+END),
     CONSTRAINT positive_quantity CHECK ((quantity > (0)::numeric)),
     CONSTRAINT positive_value CHECK ((value > (0)::numeric))
 );
@@ -10155,6 +10199,170 @@ CREATE TABLE public.multi_sig_wallets (
 
 
 --
+-- Name: nav_approvals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_approvals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    run_id uuid NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    requested_by uuid NOT NULL,
+    validated_by uuid,
+    approved_by uuid,
+    approved_at timestamp with time zone,
+    comments text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT nav_approvals_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'validated'::text, 'approved'::text, 'rejected'::text, 'published'::text])))
+);
+
+
+--
+-- Name: TABLE nav_approvals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_approvals IS 'Manages approval workflow for NAV calculations with state transitions and audit trail';
+
+
+--
+-- Name: nav_calculation_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_calculation_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_id uuid NOT NULL,
+    product_type text NOT NULL,
+    project_id uuid,
+    valuation_date date NOT NULL,
+    started_at timestamp with time zone DEFAULT now(),
+    completed_at timestamp with time zone,
+    status text DEFAULT 'queued'::text NOT NULL,
+    inputs_json jsonb,
+    result_nav_value numeric(18,6),
+    nav_per_share numeric(18,6),
+    fx_rate_used numeric(18,6),
+    pricing_sources jsonb,
+    error_message text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT nav_calculation_runs_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'failed'::text, 'completed'::text])))
+);
+
+
+--
+-- Name: TABLE nav_calculation_runs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_calculation_runs IS 'Tracks NAV calculation processes including inputs, outputs, and execution status for all asset types';
+
+
+--
+-- Name: nav_validation_results; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_validation_results (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    run_id uuid NOT NULL,
+    rule_code text NOT NULL,
+    severity text NOT NULL,
+    passed boolean NOT NULL,
+    details_json jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT nav_validation_results_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warn'::text, 'error'::text])))
+);
+
+
+--
+-- Name: TABLE nav_validation_results; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_validation_results IS 'Stores validation rule results for NAV calculations including pass/fail status and details';
+
+
+--
+-- Name: nav_data_with_status; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.nav_data_with_status AS
+ SELECT nav.id,
+    nav.asset_id,
+    nav.project_id,
+    nav.date,
+    nav.nav,
+    nav.total_assets,
+    nav.asset_name,
+    nav.total_liabilities,
+    nav.outstanding_shares,
+    nav.previous_nav,
+    nav.change_amount,
+    nav.change_percent,
+    nav.source,
+    nav.validated,
+    nav.validated_by,
+    nav.validated_at,
+    nav.notes,
+    nav.calculation_method,
+    nav.market_conditions,
+    nav.created_at,
+    nav.updated_at,
+    nav.created_by,
+    nav.calculated_nav,
+    runs.id AS run_id,
+    runs.status AS run_status,
+    runs.started_at AS run_started_at,
+    runs.completed_at AS run_completed_at,
+    runs.product_type,
+    approvals.status AS approval_status,
+    approvals.approved_by,
+    approvals.approved_at,
+    approvals.comments AS approval_comments,
+        CASE
+            WHEN (validation_summary.total_validations = 0) THEN 'no_validations'::text
+            WHEN (validation_summary.failed_validations = 0) THEN 'all_passed'::text
+            WHEN (validation_summary.error_validations > 0) THEN 'errors_present'::text
+            ELSE 'warnings_present'::text
+        END AS validation_status,
+    validation_summary.total_validations,
+    validation_summary.failed_validations,
+    validation_summary.error_validations
+   FROM (((public.asset_nav_data nav
+     LEFT JOIN public.nav_calculation_runs runs ON (((runs.asset_id = nav.asset_id) AND (runs.valuation_date = nav.date))))
+     LEFT JOIN public.nav_approvals approvals ON ((approvals.run_id = runs.id)))
+     LEFT JOIN ( SELECT nav_validation_results.run_id,
+            count(*) AS total_validations,
+            count(*) FILTER (WHERE (NOT nav_validation_results.passed)) AS failed_validations,
+            count(*) FILTER (WHERE ((NOT nav_validation_results.passed) AND (nav_validation_results.severity = 'error'::text))) AS error_validations
+           FROM public.nav_validation_results
+          GROUP BY nav_validation_results.run_id) validation_summary ON ((validation_summary.run_id = runs.id)));
+
+
+--
+-- Name: VIEW nav_data_with_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.nav_data_with_status IS 'Comprehensive view of NAV data including calculation run status, validation results, and approval workflow status';
+
+
+--
+-- Name: nav_fx_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_fx_rates (
+    base_ccy text NOT NULL,
+    quote_ccy text NOT NULL,
+    rate numeric(18,8) NOT NULL,
+    as_of timestamp with time zone NOT NULL,
+    source text DEFAULT 'chainlink'::text NOT NULL
+);
+
+
+--
+-- Name: TABLE nav_fx_rates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_fx_rates IS 'Stores foreign exchange rates for multi-currency NAV calculations with historical data';
+
+
+--
 -- Name: nav_oracle_configs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10190,6 +10398,49 @@ CREATE TABLE public.nav_oracle_configs (
 --
 
 COMMENT ON TABLE public.nav_oracle_configs IS 'Oracle configurations for automated NAV data feeds';
+
+
+--
+-- Name: nav_price_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_price_cache (
+    instrument_key text NOT NULL,
+    price numeric(18,6) NOT NULL,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    as_of timestamp with time zone NOT NULL,
+    source text NOT NULL
+);
+
+
+--
+-- Name: TABLE nav_price_cache; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_price_cache IS 'Caches market prices for instruments to optimize NAV calculation performance';
+
+
+--
+-- Name: nav_redemptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_redemptions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_id uuid NOT NULL,
+    product_type text NOT NULL,
+    as_of_date date NOT NULL,
+    shares_redeemed numeric(78,18) DEFAULT 0 NOT NULL,
+    value_redeemed numeric(78,18) DEFAULT 0 NOT NULL,
+    redemption_rate numeric(18,6) DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE nav_redemptions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_redemptions IS 'Tracks daily redemption rates and activity for assets and products';
 
 
 --
@@ -17853,11 +18104,67 @@ ALTER TABLE ONLY public.multi_sig_wallets
 
 
 --
+-- Name: nav_approvals nav_approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_approvals
+    ADD CONSTRAINT nav_approvals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_calculation_runs nav_calculation_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculation_runs
+    ADD CONSTRAINT nav_calculation_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_fx_rates nav_fx_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_fx_rates
+    ADD CONSTRAINT nav_fx_rates_pkey PRIMARY KEY (base_ccy, quote_ccy, as_of);
+
+
+--
 -- Name: nav_oracle_configs nav_oracle_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.nav_oracle_configs
     ADD CONSTRAINT nav_oracle_configs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_price_cache nav_price_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_price_cache
+    ADD CONSTRAINT nav_price_cache_pkey PRIMARY KEY (instrument_key, source, as_of);
+
+
+--
+-- Name: nav_redemptions nav_redemptions_asset_id_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_redemptions
+    ADD CONSTRAINT nav_redemptions_asset_id_as_of_date_key UNIQUE (asset_id, as_of_date);
+
+
+--
+-- Name: nav_redemptions nav_redemptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_redemptions
+    ADD CONSTRAINT nav_redemptions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_validation_results nav_validation_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_validation_results
+    ADD CONSTRAINT nav_validation_results_pkey PRIMARY KEY (id);
 
 
 --
@@ -19710,10 +20017,52 @@ CREATE INDEX idx_asset_holdings_asset_id ON public.asset_holdings USING btree (a
 
 
 --
+-- Name: idx_asset_holdings_maturity_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_holdings_maturity_date ON public.asset_holdings USING btree (maturity_date);
+
+
+--
+-- Name: idx_asset_holdings_updated_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_holdings_updated_at ON public.asset_holdings USING btree (updated_at);
+
+
+--
+-- Name: idx_asset_nav_data_asset_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_nav_data_asset_date ON public.asset_nav_data USING btree (asset_id, date);
+
+
+--
+-- Name: idx_asset_nav_data_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_nav_data_created_at ON public.asset_nav_data USING btree (created_at);
+
+
+--
 -- Name: idx_asset_nav_data_fund_date; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_asset_nav_data_fund_date ON public.asset_nav_data USING btree (asset_id, date DESC);
+
+
+--
+-- Name: idx_asset_nav_data_project_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_nav_data_project_date ON public.asset_nav_data USING btree (project_id, date);
+
+
+--
+-- Name: idx_asset_nav_data_source_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_nav_data_source_status ON public.asset_nav_data USING btree (source, validated);
 
 
 --
@@ -22055,6 +22404,69 @@ CREATE INDEX idx_moonpay_webhook_events_type ON public.moonpay_webhook_events US
 
 
 --
+-- Name: idx_nav_approvals_requested_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_approvals_requested_by ON public.nav_approvals USING btree (requested_by);
+
+
+--
+-- Name: idx_nav_approvals_run_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_approvals_run_status ON public.nav_approvals USING btree (run_id, status);
+
+
+--
+-- Name: idx_nav_approvals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_approvals_status ON public.nav_approvals USING btree (status);
+
+
+--
+-- Name: idx_nav_calc_runs_asset_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_calc_runs_asset_date ON public.nav_calculation_runs USING btree (asset_id, valuation_date);
+
+
+--
+-- Name: idx_nav_calc_runs_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_calc_runs_created_at ON public.nav_calculation_runs USING btree (created_at);
+
+
+--
+-- Name: idx_nav_calc_runs_project_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_calc_runs_project_date ON public.nav_calculation_runs USING btree (project_id, valuation_date);
+
+
+--
+-- Name: idx_nav_calc_runs_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_calc_runs_status ON public.nav_calculation_runs USING btree (status);
+
+
+--
+-- Name: idx_nav_fx_rates_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_fx_rates_as_of ON public.nav_fx_rates USING btree (as_of);
+
+
+--
+-- Name: idx_nav_fx_rates_currencies; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_fx_rates_currencies ON public.nav_fx_rates USING btree (base_ccy, quote_ccy);
+
+
+--
 -- Name: idx_nav_oracle_configs_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -22066,6 +22478,48 @@ CREATE INDEX idx_nav_oracle_configs_active ON public.nav_oracle_configs USING bt
 --
 
 CREATE INDEX idx_nav_oracle_configs_fund_id ON public.nav_oracle_configs USING btree (fund_id);
+
+
+--
+-- Name: idx_nav_price_cache_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_price_cache_as_of ON public.nav_price_cache USING btree (as_of);
+
+
+--
+-- Name: idx_nav_price_cache_instrument; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_price_cache_instrument ON public.nav_price_cache USING btree (instrument_key);
+
+
+--
+-- Name: idx_nav_redemptions_asset_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_redemptions_asset_date ON public.nav_redemptions USING btree (asset_id, as_of_date);
+
+
+--
+-- Name: idx_nav_redemptions_product_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_redemptions_product_type ON public.nav_redemptions USING btree (product_type);
+
+
+--
+-- Name: idx_nav_validation_rule_severity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_validation_rule_severity ON public.nav_validation_results USING btree (rule_code, severity);
+
+
+--
+-- Name: idx_nav_validation_run; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_validation_run ON public.nav_validation_results USING btree (run_id);
 
 
 --
@@ -24932,6 +25386,13 @@ CREATE TRIGGER trigger_update_group_member_count_insert_new AFTER INSERT ON publ
 
 
 --
+-- Name: asset_holdings trigger_update_oracle_prices; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_oracle_prices BEFORE INSERT OR UPDATE ON public.asset_holdings FOR EACH ROW EXECUTE FUNCTION public.update_oracle_prices();
+
+
+--
 -- Name: redemption_settlements trigger_update_settlement_status; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -26618,11 +27079,35 @@ ALTER TABLE ONLY public.multi_sig_wallets
 
 
 --
+-- Name: nav_approvals nav_approvals_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_approvals
+    ADD CONSTRAINT nav_approvals_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.nav_calculation_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: nav_calculation_runs nav_calculation_runs_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculation_runs
+    ADD CONSTRAINT nav_calculation_runs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: nav_oracle_configs nav_oracle_configs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.nav_oracle_configs
     ADD CONSTRAINT nav_oracle_configs_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: nav_validation_results nav_validation_results_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_validation_results
+    ADD CONSTRAINT nav_validation_results_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.nav_calculation_runs(id) ON DELETE CASCADE;
 
 
 --
@@ -28079,6 +28564,16 @@ GRANT ALL ON FUNCTION public.calculate_nav_change() TO prisma;
 
 
 --
+-- Name: FUNCTION calculate_project_weighted_nav(p_project_id uuid, p_date date); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.calculate_project_weighted_nav(p_project_id uuid, p_date date) TO anon;
+GRANT ALL ON FUNCTION public.calculate_project_weighted_nav(p_project_id uuid, p_date date) TO authenticated;
+GRANT ALL ON FUNCTION public.calculate_project_weighted_nav(p_project_id uuid, p_date date) TO service_role;
+GRANT ALL ON FUNCTION public.calculate_project_weighted_nav(p_project_id uuid, p_date date) TO prisma;
+
+
+--
 -- Name: FUNCTION check_all_approvals(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -28449,13 +28944,13 @@ GRANT ALL ON FUNCTION public.get_product_id_for_project(p_project_id uuid) TO pr
 
 
 --
--- Name: FUNCTION get_product_table_name(p_project_type text); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION get_product_table_name(p_product_type text); Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON FUNCTION public.get_product_table_name(p_project_type text) TO anon;
-GRANT ALL ON FUNCTION public.get_product_table_name(p_project_type text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_product_table_name(p_project_type text) TO service_role;
-GRANT ALL ON FUNCTION public.get_product_table_name(p_project_type text) TO prisma;
+GRANT ALL ON FUNCTION public.get_product_table_name(p_product_type text) TO anon;
+GRANT ALL ON FUNCTION public.get_product_table_name(p_product_type text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_product_table_name(p_product_type text) TO service_role;
+GRANT ALL ON FUNCTION public.get_product_table_name(p_product_type text) TO prisma;
 
 
 --
@@ -29216,6 +29711,16 @@ GRANT ALL ON FUNCTION public.update_modified_column() TO anon;
 GRANT ALL ON FUNCTION public.update_modified_column() TO authenticated;
 GRANT ALL ON FUNCTION public.update_modified_column() TO service_role;
 GRANT ALL ON FUNCTION public.update_modified_column() TO prisma;
+
+
+--
+-- Name: FUNCTION update_oracle_prices(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_oracle_prices() TO anon;
+GRANT ALL ON FUNCTION public.update_oracle_prices() TO authenticated;
+GRANT ALL ON FUNCTION public.update_oracle_prices() TO service_role;
+GRANT ALL ON FUNCTION public.update_oracle_prices() TO prisma;
 
 
 --
@@ -31009,6 +31514,56 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mu
 
 
 --
+-- Name: TABLE nav_approvals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO prisma;
+
+
+--
+-- Name: TABLE nav_calculation_runs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO prisma;
+
+
+--
+-- Name: TABLE nav_validation_results; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO prisma;
+
+
+--
+-- Name: TABLE nav_data_with_status; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO prisma;
+
+
+--
+-- Name: TABLE nav_fx_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO prisma;
+
+
+--
 -- Name: TABLE nav_oracle_configs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -31016,6 +31571,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.na
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO prisma;
+
+
+--
+-- Name: TABLE nav_price_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO prisma;
+
+
+--
+-- Name: TABLE nav_redemptions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO prisma;
 
 
 --

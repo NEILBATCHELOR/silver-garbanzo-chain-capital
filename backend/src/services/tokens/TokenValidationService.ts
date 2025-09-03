@@ -89,7 +89,7 @@ export class TokenValidationService extends BaseService {
 
       return { success: true, warnings: warnings.length > 0 ? warnings : undefined }
     } catch (error) {
-      this.logger.error({ error }, 'Error during token creation validation')
+      this.logError('Error during token creation validation', { error })
       return { success: false, error: 'Validation failed due to internal error' }
     }
   }
@@ -155,7 +155,7 @@ export class TokenValidationService extends BaseService {
 
       return { success: true, warnings: warnings.length > 0 ? warnings : undefined }
     } catch (error) {
-      this.logger.error({ error, tokenId }, 'Error during token update validation')
+      this.logError('Error during token update validation', { error, tokenId })
       return { success: false, error: 'Validation failed due to internal error' }
     }
   }
@@ -320,7 +320,7 @@ export class TokenValidationService extends BaseService {
 
       return { success: true, warnings: warnings.length > 0 ? warnings : undefined }
     } catch (error) {
-      this.logger.error({ error, standard: data.standard }, 'Error during standard-specific validation')
+      this.logError('Error during standard-specific validation', { error, standard: data.standard })
       return { success: false, error: 'Standard validation failed' }
     }
   }
@@ -494,7 +494,7 @@ export class TokenValidationService extends BaseService {
 
       return { success: true }
     } catch (error) {
-      this.logger.error({ error, projectId }, 'Error validating project association')
+      this.logError('Error validating project association', { error, projectId })
       return { success: false, error: 'Failed to validate project association' }
     }
   }
@@ -518,7 +518,7 @@ export class TokenValidationService extends BaseService {
 
       return { success: true }
     } catch (error) {
-      this.logger.error({ error, symbol, projectId }, 'Error validating symbol uniqueness')
+      this.logError('Error validating symbol uniqueness', { error, symbol, projectId })
       return { success: false, error: 'Failed to validate symbol uniqueness' }
     }
   }

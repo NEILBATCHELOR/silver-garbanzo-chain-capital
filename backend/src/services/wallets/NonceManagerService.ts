@@ -49,7 +49,7 @@ export class NonceManagerService extends BaseService {
       // They have different anti-double-spending mechanisms
 
     } catch (error) {
-      this.logger.warn('Failed to initialize some nonce manager providers:', error)
+      this.logWarn('Failed to initialize some nonce manager providers:', error)
     }
   }
 
@@ -62,7 +62,7 @@ export class NonceManagerService extends BaseService {
     specificNonce?: number
   ): Promise<ServiceResult<{ nonce: number; expires_at: string }>> {
     try {
-      this.logger.info('Reserving nonce', { walletId, blockchain, specificNonce })
+      this.logInfo('Reserving nonce', { walletId, blockchain, specificNonce })
 
       // Check if blockchain uses nonces
       if (!this.blockchainUsesNonces(blockchain)) {
@@ -121,7 +121,7 @@ export class NonceManagerService extends BaseService {
 
       const expiresAt = new Date(Date.now() + this.NONCE_EXPIRY_MS).toISOString()
 
-      this.logger.info('Nonce reserved successfully', { 
+      this.logInfo('Nonce reserved successfully', { 
         walletId, 
         blockchain, 
         nonce,
@@ -131,7 +131,7 @@ export class NonceManagerService extends BaseService {
       return this.success({ nonce, expires_at: expiresAt })
 
     } catch (error) {
-      this.logger.error('Failed to reserve nonce:', error)
+      this.logError('Failed to reserve nonce:', error)
       return this.error('Failed to reserve nonce', 'NONCE_RESERVATION_FAILED')
     }
   }
@@ -145,7 +145,7 @@ export class NonceManagerService extends BaseService {
     nonce: number
   ): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Confirming nonce usage', { walletId, blockchain, nonce })
+      this.logInfo('Confirming nonce usage', { walletId, blockchain, nonce })
 
       // Check if blockchain uses nonces
       if (!this.blockchainUsesNonces(blockchain)) {
@@ -179,12 +179,12 @@ export class NonceManagerService extends BaseService {
       // Remove reservation from database
       await this.removeNonceReservation(walletId, blockchain, nonce)
 
-      this.logger.info('Nonce confirmed successfully', { walletId, blockchain, nonce })
+      this.logInfo('Nonce confirmed successfully', { walletId, blockchain, nonce })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error('Failed to confirm nonce:', error)
+      this.logError('Failed to confirm nonce:', error)
       return this.error('Failed to confirm nonce', 'NONCE_CONFIRMATION_FAILED')
     }
   }
@@ -198,7 +198,7 @@ export class NonceManagerService extends BaseService {
     nonce: number
   ): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Releasing nonce', { walletId, blockchain, nonce })
+      this.logInfo('Releasing nonce', { walletId, blockchain, nonce })
 
       // Check if blockchain uses nonces
       if (!this.blockchainUsesNonces(blockchain)) {
@@ -221,12 +221,12 @@ export class NonceManagerService extends BaseService {
       // Remove reservation from database
       await this.removeNonceReservation(walletId, blockchain, nonce)
 
-      this.logger.info('Nonce released successfully', { walletId, blockchain, nonce })
+      this.logInfo('Nonce released successfully', { walletId, blockchain, nonce })
 
       return this.success(true)
 
     } catch (error) {
-      this.logger.error('Failed to release nonce:', error)
+      this.logError('Failed to release nonce:', error)
       return this.error('Failed to release nonce', 'NONCE_RELEASE_FAILED')
     }
   }
@@ -236,7 +236,7 @@ export class NonceManagerService extends BaseService {
    */
   async getNonceInfo(walletId: string, blockchain: BlockchainNetwork): Promise<ServiceResult<NonceInfo>> {
     try {
-      this.logger.debug('Getting nonce info', { walletId, blockchain })
+      this.logDebug('Getting nonce info', { walletId, blockchain })
 
       // Check if blockchain uses nonces
       if (!this.blockchainUsesNonces(blockchain)) {
@@ -286,7 +286,7 @@ export class NonceManagerService extends BaseService {
       return this.success(nonceInfo)
 
     } catch (error) {
-      this.logger.error('Failed to get nonce info:', error)
+      this.logError('Failed to get nonce info:', error)
       return this.error('Failed to get nonce info', 'NONCE_INFO_FAILED')
     }
   }
@@ -344,7 +344,7 @@ export class NonceManagerService extends BaseService {
       // For now, we'll return a placeholder
       return `0x${'0'.repeat(40)}` // Placeholder address
     } catch (error) {
-      this.logger.error('Failed to get wallet address:', error)
+      this.logError('Failed to get wallet address:', error)
       return null
     }
   }
@@ -382,7 +382,7 @@ export class NonceManagerService extends BaseService {
   ): Promise<void> {
     try {
       // Store in nonce_reservations table
-      this.logger.debug('Storing nonce reservation', { walletId, blockchain, nonce })
+      this.logDebug('Storing nonce reservation', { walletId, blockchain, nonce })
       
       // Implementation would depend on your database schema
       // Example:
@@ -397,7 +397,7 @@ export class NonceManagerService extends BaseService {
       // })
       
     } catch (error) {
-      this.logger.error('Failed to store nonce reservation:', error)
+      this.logError('Failed to store nonce reservation:', error)
     }
   }
 
@@ -411,7 +411,7 @@ export class NonceManagerService extends BaseService {
   ): Promise<void> {
     try {
       // Remove from nonce_reservations table
-      this.logger.debug('Removing nonce reservation', { walletId, blockchain, nonce })
+      this.logDebug('Removing nonce reservation', { walletId, blockchain, nonce })
       
       // Implementation would depend on your database schema
       // Example:
@@ -424,7 +424,7 @@ export class NonceManagerService extends BaseService {
       // })
       
     } catch (error) {
-      this.logger.error('Failed to remove nonce reservation:', error)
+      this.logError('Failed to remove nonce reservation:', error)
     }
   }
 
@@ -442,7 +442,7 @@ export class NonceManagerService extends BaseService {
    */
   private async cleanupExpiredReservations(): Promise<void> {
     try {
-      this.logger.debug('Cleaning up expired nonce reservations')
+      this.logDebug('Cleaning up expired nonce reservations')
 
       // Clean up expired database reservations
       // Implementation would depend on your database schema
@@ -468,11 +468,11 @@ export class NonceManagerService extends BaseService {
       })
 
       if (expiredKeys.length > 0) {
-        this.logger.info('Cleaned up expired nonce reservations', { count: expiredKeys.length })
+        this.logInfo('Cleaned up expired nonce reservations', { count: expiredKeys.length })
       }
 
     } catch (error) {
-      this.logger.error('Failed to cleanup expired reservations:', error)
+      this.logError('Failed to cleanup expired reservations:', error)
     }
   }
 
@@ -491,6 +491,6 @@ export class NonceManagerService extends BaseService {
   clearCache(): void {
     this.nonceCache.clear()
     this.reservedNonces.clear()
-    this.logger.info('Nonce cache cleared')
+    this.logInfo('Nonce cache cleared')
   }
 }

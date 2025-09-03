@@ -24,12 +24,12 @@ export class GoogleCloudKMSService extends BaseService {
   constructor(config: GoogleCloudKMSConfig) {
     super('GoogleCloudKMS')
     this.config = config
-    this.logger.info({ 
+    this.logInfo('Google Cloud KMS Service initialized', { 
       projectId: config.projectId,
       location: config.location,
       keyRingId: config.keyRingId,
       protectionLevel: config.protectionLevel 
-    }, 'Google Cloud KMS Service initialized')
+    })
   }
 
   /**
@@ -37,7 +37,7 @@ export class GoogleCloudKMSService extends BaseService {
    */
   async initialize(): Promise<ServiceResult<boolean>> {
     try {
-      this.logger.info('Initializing Google Cloud KMS client')
+      this.logInfo('Initializing Google Cloud KMS client')
 
       // Initialize Google Cloud KMS SDK
       // In production, this would be:
@@ -61,12 +61,12 @@ export class GoogleCloudKMSService extends BaseService {
       await this.testConnection()
       
       this.isInitialized = true
-      this.logger.info('Google Cloud KMS client initialized successfully')
+      this.logInfo('Google Cloud KMS client initialized successfully')
       
       return this.success(true)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to initialize Google Cloud KMS client')
+      this.logError('Failed to initialize Google Cloud KMS client', { error })
       return this.error('Failed to initialize Google Cloud KMS client', 'CLOUDKMS_INIT_FAILED')
     }
   }
@@ -87,7 +87,7 @@ export class GoogleCloudKMSService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId, keyType, keyId }, 'Generating key in Google Cloud KMS HSM')
+      this.logInfo('Generating key in Google Cloud KMS HSM', { walletId, keyType, keyId })
 
       // Map keyType to Cloud KMS specifications
       const keySpec = this.mapKeyTypeToCloudKMSSpec(keyType)
@@ -127,17 +127,17 @@ export class GoogleCloudKMSService extends BaseService {
         metadata: { keyType, algorithm: keySpec.algorithm, protectionLevel: cloudKMSKey.protectionLevel }
       })
 
-      this.logger.info({ 
+      this.logInfo('Key generated successfully in Google Cloud KMS HSM', { 
         walletId, 
         keyName: cloudKMSKey.name,
         keyType,
         protectionLevel: cloudKMSKey.protectionLevel
-      }, 'Key generated successfully in Google Cloud KMS HSM')
+      })
 
       return this.success(cloudKMSKey)
 
     } catch (error) {
-      this.logger.error({ error, walletId, keyType }, 'Failed to generate key in Google Cloud KMS HSM')
+      this.logError('Failed to generate key in Google Cloud KMS HSM', { error, walletId, keyType })
       
       await this.logAuditEvent({
         walletId,
@@ -163,7 +163,7 @@ export class GoogleCloudKMSService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId: keyData.walletId }, 'Storing wallet keys in Google Cloud KMS HSM')
+      this.logInfo('Storing wallet keys in Google Cloud KMS HSM', { walletId: keyData.walletId })
 
       // Generate or import key material to Cloud KMS HSM
       const keyResult = await this.generateKey(keyData.walletId, 'secp256k1')
@@ -208,11 +208,11 @@ export class GoogleCloudKMSService extends BaseService {
         metadata: { addresses: Object.keys(keyData.addresses), protectionLevel: keyResult.data!.protectionLevel }
       })
 
-      this.logger.info({ 
+      this.logInfo('Wallet keys stored successfully in Google Cloud KMS HSM', { 
         walletId: keyData.walletId,
         keyName: keyResult.data!.name,
         protectionLevel: keyResult.data!.protectionLevel
-      }, 'Wallet keys stored successfully in Google Cloud KMS HSM')
+      })
 
       return {
         success: true,
@@ -222,7 +222,7 @@ export class GoogleCloudKMSService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error({ error, walletId: keyData.walletId }, 'Failed to store wallet keys in Google Cloud KMS HSM')
+      this.logError('Failed to store wallet keys in Google Cloud KMS HSM', { error, walletId: keyData.walletId })
       
       await this.logAuditEvent({
         walletId: keyData.walletId,
@@ -252,12 +252,12 @@ export class GoogleCloudKMSService extends BaseService {
         }
       }
 
-      this.logger.info({ walletId }, 'Retrieving wallet keys from Google Cloud KMS HSM')
+      this.logInfo('Retrieving wallet keys from Google Cloud KMS HSM', { walletId })
 
       // Get Cloud KMS key metadata from database
       const hsmKeyData = await this.getCloudKMSKeyMetadata(walletId)
       if (!hsmKeyData) {
-        this.logger.warn({ walletId }, 'Cloud KMS key metadata not found')
+        this.logWarn('Cloud KMS key metadata not found', { walletId })
         return null
       }
 
@@ -272,11 +272,11 @@ export class GoogleCloudKMSService extends BaseService {
         created_at: hsmKeyData.createdAt
       }
 
-      this.logger.info({ walletId }, 'Wallet keys retrieved successfully from Google Cloud KMS HSM')
+      this.logInfo('Wallet keys retrieved successfully from Google Cloud KMS HSM', { walletId })
       return storedKeyData
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to retrieve wallet keys from Google Cloud KMS HSM')
+      this.logError('Failed to retrieve wallet keys from Google Cloud KMS HSM', { error, walletId })
       return null
     }
   }
@@ -293,10 +293,10 @@ export class GoogleCloudKMSService extends BaseService {
         }
       }
 
-      this.logger.info({ 
+      this.logInfo('Signing data with Google Cloud KMS HSM', { 
         keyId: request.keyId, 
         algorithm: request.algorithm 
-      }, 'Signing data with Google Cloud KMS HSM')
+      })
 
       // Create the version name for signing
       const versionName = `${request.keyId}/cryptoKeyVersions/1`
@@ -335,16 +335,16 @@ export class GoogleCloudKMSService extends BaseService {
         }
       })
 
-      this.logger.info({ 
+      this.logInfo('Data signed successfully with Google Cloud KMS HSM', { 
         keyId: request.keyId, 
         algorithm: request.algorithm,
         versionName 
-      }, 'Data signed successfully with Google Cloud KMS HSM')
+      })
 
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, keyId: request.keyId }, 'Failed to sign data with Google Cloud KMS HSM')
+      this.logError('Failed to sign data with Google Cloud KMS HSM', { error, keyId: request.keyId })
       
       await this.logAuditEvent({
         walletId: 'unknown',
@@ -369,7 +369,7 @@ export class GoogleCloudKMSService extends BaseService {
     keyRingExists: boolean
   }>> {
     try {
-      this.logger.info('Testing Google Cloud KMS connection')
+      this.logInfo('Testing Google Cloud KMS connection')
 
       const startTime = Date.now()
       
@@ -400,11 +400,11 @@ export class GoogleCloudKMSService extends BaseService {
         ]
       }
 
-      this.logger.info({ result }, 'Google Cloud KMS connection test successful')
+      this.logInfo('Google Cloud KMS connection test successful', { result })
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error }, 'Google Cloud KMS connection test failed')
+      this.logError('Google Cloud KMS connection test failed', { error })
       return this.error('Cloud KMS connection test failed', 'CONNECTION_TEST_FAILED')
     }
   }
@@ -418,7 +418,7 @@ export class GoogleCloudKMSService extends BaseService {
     rotationPeriod: string
   }>> {
     try {
-      this.logger.info({ keyName, rotationPeriod }, 'Scheduling automatic key rotation in Google Cloud KMS')
+      this.logInfo('Scheduling automatic key rotation in Google Cloud KMS', { keyName, rotationPeriod })
 
       // In production: 
       // const [key] = await this.kmsClient.updateCryptoKey({
@@ -449,11 +449,11 @@ export class GoogleCloudKMSService extends BaseService {
         metadata: { rotationPeriod, nextRotationTime }
       })
 
-      this.logger.info({ keyName, result }, 'Automatic key rotation scheduled successfully')
+      this.logInfo('Automatic key rotation scheduled successfully', { keyName, result })
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, keyName }, 'Failed to schedule key rotation')
+      this.logError('Failed to schedule key rotation', { error, keyName })
       return this.error('Failed to schedule key rotation', 'ROTATION_SCHEDULE_FAILED')
     }
   }
@@ -498,7 +498,7 @@ export class GoogleCloudKMSService extends BaseService {
 
   private async encryptWithCloudKMS(data: string, keyName: string): Promise<string> {
     // Placeholder implementation - would use Cloud KMS encryption
-    this.logger.info({ keyName }, 'Encrypting data with Cloud KMS HSM (placeholder)')
+    this.logInfo('Encrypting data with Cloud KMS HSM (placeholder)', { keyName })
     
     // In production: 
     // const [encryptResponse] = await this.kmsClient.encrypt({
@@ -512,7 +512,7 @@ export class GoogleCloudKMSService extends BaseService {
 
   private async decryptWithCloudKMS(encryptedData: string, keyName: string): Promise<string> {
     // Placeholder implementation - would use Cloud KMS decryption
-    this.logger.info({ keyName }, 'Decrypting data with Cloud KMS HSM (placeholder)')
+    this.logInfo('Decrypting data with Cloud KMS HSM (placeholder)', { keyName })
     
     // In production:
     // const [decryptResponse] = await this.kmsClient.decrypt({
@@ -612,9 +612,9 @@ export class GoogleCloudKMSService extends BaseService {
         metadata: event.metadata
       }
     }).catch(error => {
-      this.logger.warn({ error }, 'Failed to store Cloud KMS audit log')
+      this.logWarn('Failed to store Cloud KMS audit log', { error })
     })
 
-    this.logger.info({ auditLog }, 'Cloud KMS audit event logged')
+    this.logInfo('Cloud KMS audit event logged', { auditLog })
   }
 }

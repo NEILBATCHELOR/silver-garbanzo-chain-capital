@@ -104,7 +104,7 @@ export class TransactionService extends BaseService {
         this.providers.set('near', { rpcUrl: process.env.VITE_NEAR_RPC_URL })
       }
       
-      this.logger.info('Blockchain providers initialized', {
+      this.logInfo('Blockchain providers initialized', {
         ethereum: !!process.env.ETHEREUM_RPC_URL,
         polygon: !!process.env.POLYGON_RPC_URL,
         arbitrum: !!process.env.ARBITRUM_RPC_URL,
@@ -116,7 +116,7 @@ export class TransactionService extends BaseService {
       })
       
     } catch (error) {
-      this.logger.warn('Failed to initialize some blockchain providers:', error)
+      this.logWarn('Failed to initialize some blockchain providers:', error)
     }
   }
 
@@ -125,7 +125,7 @@ export class TransactionService extends BaseService {
    */
   async buildTransaction(request: BuildTransactionRequest): Promise<ServiceResult<BuildTransactionResponse>> {
     try {
-      this.logger.info('Building transaction', { 
+      this.logInfo('Building transaction', { 
         walletId: request.wallet_id,
         blockchain: request.blockchain,
         to: request.to,
@@ -267,7 +267,7 @@ export class TransactionService extends BaseService {
         expires_at: expiresAt.toISOString()
       }
 
-      this.logger.info('Transaction built successfully', { 
+      this.logInfo('Transaction built successfully', { 
         transactionId,
         blockchain: request.blockchain,
         gasUsed,
@@ -277,7 +277,7 @@ export class TransactionService extends BaseService {
       return this.success(response)
 
     } catch (error) {
-      this.logger.error('Failed to build transaction:', error)
+      this.logError('Failed to build transaction:', error)
       return this.error('Failed to build transaction', 'TRANSACTION_BUILD_FAILED')
     }
   }
@@ -287,7 +287,7 @@ export class TransactionService extends BaseService {
    */
   async broadcastTransaction(request: BroadcastTransactionRequest): Promise<ServiceResult<BroadcastTransactionResponse>> {
     try {
-      this.logger.info('Broadcasting transaction', { transactionId: request.transaction_id })
+      this.logInfo('Broadcasting transaction', { transactionId: request.transaction_id })
 
       // Retrieve transaction details
       const transactionDraft = await this.getTransactionDraft(request.transaction_id)
@@ -376,7 +376,7 @@ export class TransactionService extends BaseService {
         broadcast_at: new Date().toISOString()
       }
 
-      this.logger.info('Transaction broadcast successfully', { 
+      this.logInfo('Transaction broadcast successfully', { 
         transactionHash,
         blockchain: transactionDraft.blockchain
       })
@@ -384,7 +384,7 @@ export class TransactionService extends BaseService {
       return this.success(response)
 
     } catch (error) {
-      this.logger.error('Failed to broadcast transaction:', error)
+      this.logError('Failed to broadcast transaction:', error)
       return this.error('Failed to broadcast transaction', 'TRANSACTION_BROADCAST_FAILED')
     }
   }
@@ -451,7 +451,7 @@ export class TransactionService extends BaseService {
               const nearStatus = await this.getNearTransactionStatus(transactionHash, provider.rpcUrl)
               status = nearStatus.success ? nearStatus.data! : 'unknown'
             } catch (error) {
-              this.logger.warn('Failed to check NEAR transaction status:', error)
+              this.logWarn('Failed to check NEAR transaction status:', error)
               status = 'unknown'
             }
           }
@@ -469,7 +469,7 @@ export class TransactionService extends BaseService {
       return this.success(status)
 
     } catch (error) {
-      this.logger.error('Failed to get transaction status:', error)
+      this.logError('Failed to get transaction status:', error)
       return this.error('Failed to get transaction status', 'STATUS_CHECK_FAILED')
     }
   }
@@ -516,7 +516,7 @@ export class TransactionService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to build EVM transaction:', error)
+      this.logError('Failed to build EVM transaction:', error)
       return this.error('Failed to build EVM transaction', 'EVM_TRANSACTION_BUILD_FAILED')
     }
   }
@@ -560,7 +560,7 @@ export class TransactionService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to build Solana transaction:', error)
+      this.logError('Failed to build Solana transaction:', error)
       return this.error('Failed to build Solana transaction', 'SOLANA_TRANSACTION_BUILD_FAILED')
     }
   }
@@ -570,7 +570,7 @@ export class TransactionService extends BaseService {
    */
   private async buildBitcoinTransaction(params: any): Promise<ServiceResult<{ rawTransaction: string; gasUsed: string }>> {
     try {
-      this.logger.info('Building Bitcoin transaction', {
+      this.logInfo('Building Bitcoin transaction', {
         from: params.from,
         to: params.to,
         amount: params.amount
@@ -654,7 +654,7 @@ export class TransactionService extends BaseService {
           })
         } else {
           // If change is dust, add to fee
-          this.logger.debug('Change amount is dust, adding to fee', {
+          this.logDebug('Change amount is dust, adding to fee', {
             changeAmount,
             totalFee,
             adjustedFee: totalFee + changeAmount
@@ -665,7 +665,7 @@ export class TransactionService extends BaseService {
       // Get the raw transaction hex (unsigned)
       const rawTransaction = psbt.toHex()
 
-      this.logger.info('Bitcoin transaction built successfully', {
+      this.logInfo('Bitcoin transaction built successfully', {
         inputCount: selectedUTXOs.length,
         outputCount: psbt.txOutputs.length,
         totalFee,
@@ -679,7 +679,7 @@ export class TransactionService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to build Bitcoin transaction:', error)
+      this.logError('Failed to build Bitcoin transaction:', error)
       return this.error('Failed to build Bitcoin transaction', 'BITCOIN_TRANSACTION_BUILD_FAILED')
     }
   }
@@ -689,7 +689,7 @@ export class TransactionService extends BaseService {
    */
   private async buildNearTransaction(params: any): Promise<ServiceResult<{ rawTransaction: string; gasUsed: string }>> {
     try {
-      this.logger.info('Building NEAR transaction', {
+      this.logInfo('Building NEAR transaction', {
         from: params.from,
         to: params.to,
         amount: params.amount
@@ -746,7 +746,7 @@ export class TransactionService extends BaseService {
         gasPrice: gasPrice.data!.toString()
       })
 
-      this.logger.info('NEAR transaction built successfully', {
+      this.logInfo('NEAR transaction built successfully', {
         nonce: transaction.nonce,
         gasUsed,
         gasPrice: gasPrice.data!.toString(),
@@ -759,7 +759,7 @@ export class TransactionService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error('Failed to build NEAR transaction:', error)
+      this.logError('Failed to build NEAR transaction:', error)
       return this.error('Failed to build NEAR transaction', 'NEAR_TRANSACTION_BUILD_FAILED')
     }
   }
@@ -835,13 +835,13 @@ export class TransactionService extends BaseService {
         }
       })
       
-      this.logger.debug('Transaction draft stored successfully', { 
+      this.logDebug('Transaction draft stored successfully', { 
         transactionId: params.transaction_id,
         walletId: params.wallet_id,
         blockchain: params.blockchain
       })
     } catch (error) {
-      this.logger.error('Failed to store transaction draft:', error)
+      this.logError('Failed to store transaction draft:', error)
       throw new Error('Failed to store transaction draft')
     }
   }
@@ -858,13 +858,13 @@ export class TransactionService extends BaseService {
       })
       
       if (!draft) {
-        this.logger.debug('Transaction draft not found', { transactionId })
+        this.logDebug('Transaction draft not found', { transactionId })
         return null
       }
       
       // Check if draft has expired
       if (new Date() > draft.expires_at) {
-        this.logger.debug('Transaction draft expired, cleaning up', { 
+        this.logDebug('Transaction draft expired, cleaning up', { 
           transactionId,
           expiresAt: draft.expires_at
         })
@@ -874,7 +874,7 @@ export class TransactionService extends BaseService {
         return null
       }
       
-      this.logger.debug('Transaction draft retrieved successfully', { 
+      this.logDebug('Transaction draft retrieved successfully', { 
         transactionId,
         walletId: draft.wallet_id,
         blockchain: draft.blockchain
@@ -893,7 +893,7 @@ export class TransactionService extends BaseService {
         created_at: draft.created_at
       }
     } catch (error) {
-      this.logger.error('Failed to get transaction draft:', error)
+      this.logError('Failed to get transaction draft:', error)
       return null
     }
   }
@@ -909,16 +909,16 @@ export class TransactionService extends BaseService {
         }
       })
       
-      this.logger.debug('Transaction draft deleted successfully', { 
+      this.logDebug('Transaction draft deleted successfully', { 
         transactionId,
         deletedId: deleted.id
       })
     } catch (error) {
       // If draft doesn't exist, that's fine - log as debug instead of error
       if (error instanceof Error && error.message.includes('Record to delete does not exist')) {
-        this.logger.debug('Transaction draft not found for deletion', { transactionId })
+        this.logDebug('Transaction draft not found for deletion', { transactionId })
       } else {
-        this.logger.error('Failed to delete transaction draft:', error)
+        this.logError('Failed to delete transaction draft:', error)
         throw new Error('Failed to delete transaction draft')
       }
     }
@@ -975,14 +975,14 @@ export class TransactionService extends BaseService {
         }
       })
       
-      this.logger.debug('Transaction stored successfully', { 
+      this.logDebug('Transaction stored successfully', { 
         hash: params.hash,
         transactionId: transaction.id,
         walletId: params.wallet_id,
         blockchain: params.blockchain
       })
     } catch (error) {
-      this.logger.error('Failed to store transaction:', error)
+      this.logError('Failed to store transaction:', error)
       throw new Error('Failed to store transaction')
     }
   }
@@ -999,11 +999,11 @@ export class TransactionService extends BaseService {
       })
       
       if (!transaction) {
-        this.logger.debug('Transaction not found', { transactionHash })
+        this.logDebug('Transaction not found', { transactionHash })
         return null
       }
       
-      this.logger.debug('Transaction retrieved successfully', { 
+      this.logDebug('Transaction retrieved successfully', { 
         transactionHash,
         status: transaction.status,
         blockchain: transaction.blockchain
@@ -1027,7 +1027,7 @@ export class TransactionService extends BaseService {
         updated_at: transaction.updated_at
       }
     } catch (error) {
-      this.logger.error('Failed to get stored transaction:', error)
+      this.logError('Failed to get stored transaction:', error)
       return null
     }
   }
@@ -1059,14 +1059,14 @@ export class TransactionService extends BaseService {
         })
       ])
       
-      this.logger.debug('Transaction status updated successfully', { 
+      this.logDebug('Transaction status updated successfully', { 
         transactionHash,
         status,
         transactionId: updatedTransaction.id,
         walletTransactionsUpdated: updatedWalletTransaction.count
       })
     } catch (error) {
-      this.logger.error('Failed to update transaction status:', error)
+      this.logError('Failed to update transaction status:', error)
       throw new Error('Failed to update transaction status')
     }
   }
@@ -1076,7 +1076,7 @@ export class TransactionService extends BaseService {
    */
   private async fetchBitcoinUTXOs(address: string): Promise<ServiceResult<BitcoinUTXO[]>> {
     try {
-      this.logger.debug('Fetching UTXOs for Bitcoin address', { address })
+      this.logDebug('Fetching UTXOs for Bitcoin address', { address })
       
       // Use configured Bitcoin RPC from .env
       const bitcoinRpcUrl = process.env.NODE_ENV === 'production' || !process.env.BITCOIN_NETWORK || process.env.BITCOIN_NETWORK === 'mainnet'
@@ -1084,13 +1084,13 @@ export class TransactionService extends BaseService {
         : process.env.VITE_BITCOIN_TESTNET_RPC_URL
 
       if (!bitcoinRpcUrl) {
-        this.logger.warn('No Bitcoin RPC URL configured, using empty UTXO set')
+        this.logWarn('No Bitcoin RPC URL configured, using empty UTXO set')
         return this.success([])
       }
 
       // Try Bitcoin RPC first
       try {
-        this.logger.debug('Using Bitcoin RPC for UTXO fetching', { rpcUrl: bitcoinRpcUrl })
+        this.logDebug('Using Bitcoin RPC for UTXO fetching', { rpcUrl: bitcoinRpcUrl })
         
         // Use getaddressutxos method for QuickNode Bitcoin RPC
         const rpcResponse = await fetch(bitcoinRpcUrl, {
@@ -1120,7 +1120,7 @@ export class TransactionService extends BaseService {
               confirmations: utxo.confirmations || 0
             })).filter((utxo: BitcoinUTXO) => utxo.confirmations > 0) // Only confirmed UTXOs
 
-            this.logger.info('Successfully fetched UTXOs from Bitcoin RPC', {
+            this.logInfo('Successfully fetched UTXOs from Bitcoin RPC', {
               address,
               utxoCount: utxos.length,
               totalValue: utxos.reduce((sum, utxo) => sum + utxo.value, 0)
@@ -1130,18 +1130,18 @@ export class TransactionService extends BaseService {
           }
         }
 
-        this.logger.warn('Bitcoin RPC failed or returned no results, using empty UTXO set')
+        this.logWarn('Bitcoin RPC failed or returned no results, using empty UTXO set')
         
       } catch (rpcError) {
-        this.logger.warn('Bitcoin RPC request failed, using empty UTXO set:', rpcError)
+        this.logWarn('Bitcoin RPC request failed, using empty UTXO set:', rpcError)
       }
 
       // Return empty UTXO set if RPC fails (no fallback to public APIs)
-      this.logger.info('Using empty UTXO set due to RPC failure', { address })
+      this.logInfo('Using empty UTXO set due to RPC failure', { address })
       return this.success([])
 
     } catch (error) {
-      this.logger.error('Failed to fetch Bitcoin UTXOs:', error)
+      this.logError('Failed to fetch Bitcoin UTXOs:', error)
       return this.error('Failed to fetch UTXOs', 'UTXO_FETCH_FAILED')
     }
   }
@@ -1182,7 +1182,7 @@ export class TransactionService extends BaseService {
 
       return this.error('Failed to get address info', 'ADDRESS_INFO_FAILED')
     } catch (error) {
-      this.logger.error('Failed to get Bitcoin address info:', error)
+      this.logError('Failed to get Bitcoin address info:', error)
       return this.error('Failed to get address info', 'ADDRESS_INFO_FAILED')
     }
   }
@@ -1192,7 +1192,7 @@ export class TransactionService extends BaseService {
    */
   private async getBitcoinFeeRate(priority: TransactionPriority): Promise<ServiceResult<number>> {
     try {
-      this.logger.debug('Fetching Bitcoin fee rates', { priority })
+      this.logDebug('Fetching Bitcoin fee rates', { priority })
       
       // Use configured Bitcoin RPC from .env
       const bitcoinRpcUrl = process.env.NODE_ENV === 'production' || !process.env.BITCOIN_NETWORK || process.env.BITCOIN_NETWORK === 'mainnet'
@@ -1200,14 +1200,14 @@ export class TransactionService extends BaseService {
         : process.env.VITE_BITCOIN_TESTNET_RPC_URL
 
       if (!bitcoinRpcUrl) {
-        this.logger.warn('No Bitcoin RPC URL configured, using default rates')
+        this.logWarn('No Bitcoin RPC URL configured, using default rates')
         const defaultRates = { low: 1, medium: 5, high: 10, urgent: 20 }
         return this.success(defaultRates[priority] || 5)
       }
 
       // Try Bitcoin RPC first
       try {
-        this.logger.debug('Using Bitcoin RPC for fee estimation', { rpcUrl: bitcoinRpcUrl })
+        this.logDebug('Using Bitcoin RPC for fee estimation', { rpcUrl: bitcoinRpcUrl })
         
         // Get fee estimates for different confirmation targets
         const targets = { urgent: 1, high: 3, medium: 6, low: 144 }
@@ -1237,7 +1237,7 @@ export class TransactionService extends BaseService {
             // Ensure minimum fee rate (1 sat/vB)
             const finalFeeRate = Math.max(feeRateSatPerVB, 1)
 
-            this.logger.info('Successfully fetched fee rate from Bitcoin RPC', {
+            this.logInfo('Successfully fetched fee rate from Bitcoin RPC', {
               priority,
               targetBlocks,
               feeRateBTCPerKB,
@@ -1248,21 +1248,21 @@ export class TransactionService extends BaseService {
           }
         }
 
-        this.logger.warn('Bitcoin RPC fee estimation failed, using default rates')
+        this.logWarn('Bitcoin RPC fee estimation failed, using default rates')
         
       } catch (rpcError) {
-        this.logger.warn('Bitcoin RPC fee estimation failed, using default rates:', rpcError)
+        this.logWarn('Bitcoin RPC fee estimation failed, using default rates:', rpcError)
       }
 
       // Use default rates if RPC fails (no fallback to public APIs)
       const defaultRates = { low: 1, medium: 5, high: 10, urgent: 20 }
       const fallbackRate = defaultRates[priority] || 5
       
-      this.logger.info('Using default Bitcoin fee rate', { priority, fallbackRate })
+      this.logInfo('Using default Bitcoin fee rate', { priority, fallbackRate })
       return this.success(fallbackRate)
 
     } catch (error) {
-      this.logger.error('Failed to get Bitcoin fee rate:', error)
+      this.logError('Failed to get Bitcoin fee rate:', error)
       return this.error('Failed to get fee rate', 'FEE_RATE_FETCH_FAILED')
     }
   }
@@ -1303,7 +1303,7 @@ export class TransactionService extends BaseService {
 
       return this.error('Failed to get network fee estimate', 'NETWORK_FEE_FAILED')
     } catch (error) {
-      this.logger.error('Failed to get Bitcoin network fee estimate:', error)
+      this.logError('Failed to get Bitcoin network fee estimate:', error)
       return this.error('Failed to get network fee estimate', 'NETWORK_FEE_FAILED')
     }
   }
@@ -1318,7 +1318,7 @@ export class TransactionService extends BaseService {
     changeAddress: string
   ): { success: boolean; data?: CoinSelectionResult; error?: string } {
     try {
-      this.logger.debug('Selecting coins for Bitcoin transaction', {
+      this.logDebug('Selecting coins for Bitcoin transaction', {
         availableUTXOs: utxos.length,
         targetAmount,
         feeRateSatPerVByte
@@ -1377,7 +1377,7 @@ export class TransactionService extends BaseService {
         }
       }
 
-      this.logger.info('Coin selection completed', {
+      this.logInfo('Coin selection completed', {
         selectedUTXOs: bestSelection.selectedUTXOs.length,
         totalInput: bestSelection.totalInput,
         targetAmount,
@@ -1392,7 +1392,7 @@ export class TransactionService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error('Coin selection failed:', error)
+      this.logError('Coin selection failed:', error)
       return {
         success: false,
         error: 'Coin selection algorithm failed'
@@ -1459,7 +1459,7 @@ export class TransactionService extends BaseService {
    */
   private async broadcastBitcoinTransaction(signedTransaction: string): Promise<string> {
     try {
-      this.logger.debug('Broadcasting Bitcoin transaction', {
+      this.logDebug('Broadcasting Bitcoin transaction', {
         signedTxLength: signedTransaction.length
       })
 
@@ -1470,7 +1470,7 @@ export class TransactionService extends BaseService {
 
       if (bitcoinRpcUrl) {
         try {
-          this.logger.debug('Using Bitcoin RPC for transaction broadcast', { rpcUrl: bitcoinRpcUrl })
+          this.logDebug('Using Bitcoin RPC for transaction broadcast', { rpcUrl: bitcoinRpcUrl })
           
           const rpcResponse = await fetch(bitcoinRpcUrl, {
             method: 'POST',
@@ -1491,31 +1491,31 @@ export class TransactionService extends BaseService {
             if (data.result && typeof data.result === 'string') {
               const transactionHash = data.result
 
-              this.logger.info('Successfully broadcast Bitcoin transaction via RPC', {
+              this.logInfo('Successfully broadcast Bitcoin transaction via RPC', {
                 transactionHash,
                 rpcUrl: bitcoinRpcUrl
               })
 
               return transactionHash
             } else if (data.error) {
-              this.logger.warn('Bitcoin RPC broadcast failed:', data.error)
+              this.logWarn('Bitcoin RPC broadcast failed:', data.error)
             }
           }
 
-          this.logger.warn('Bitcoin RPC broadcast failed, using simulated hash')
+          this.logWarn('Bitcoin RPC broadcast failed, using simulated hash')
           
         } catch (rpcError) {
-          this.logger.warn('Bitcoin RPC broadcast request failed, using simulated hash:', rpcError)
+          this.logWarn('Bitcoin RPC broadcast request failed, using simulated hash:', rpcError)
         }
       }
 
       // Generate simulated hash if RPC fails or is not configured
       const simulatedHash = `btc_sim_${Date.now().toString(16)}_${Math.random().toString(36).substr(2, 8)}`
-      this.logger.warn('Using simulated Bitcoin transaction hash', { simulatedHash })
+      this.logWarn('Using simulated Bitcoin transaction hash', { simulatedHash })
       return simulatedHash
 
     } catch (error) {
-      this.logger.error('Failed to broadcast Bitcoin transaction:', error)
+      this.logError('Failed to broadcast Bitcoin transaction:', error)
       throw new Error('Bitcoin transaction broadcast failed')
     }
   }
@@ -1553,7 +1553,7 @@ export class TransactionService extends BaseService {
 
       return this.error('Failed to get transaction info', 'TX_INFO_FAILED')
     } catch (error) {
-      this.logger.error('Failed to get Bitcoin transaction info:', error)
+      this.logError('Failed to get Bitcoin transaction info:', error)
       return this.error('Failed to get transaction info', 'TX_INFO_FAILED')
     }
   }
@@ -1629,7 +1629,7 @@ export class TransactionService extends BaseService {
       return this.success({ nonce, blockHash })
 
     } catch (error) {
-      this.logger.error('Failed to get NEAR account info:', error)
+      this.logError('Failed to get NEAR account info:', error)
       return this.error('Failed to get account info', 'ACCOUNT_INFO_FETCH_FAILED')
     }
   }
@@ -1664,7 +1664,7 @@ export class TransactionService extends BaseService {
       return this.success(gasPrice)
 
     } catch (error) {
-      this.logger.error('Failed to get NEAR gas price:', error)
+      this.logError('Failed to get NEAR gas price:', error)
       return this.error('Failed to get gas price', 'GAS_PRICE_FETCH_FAILED')
     }
   }
@@ -1683,7 +1683,7 @@ export class TransactionService extends BaseService {
       return this.success(transferGas)
 
     } catch (error) {
-      this.logger.error('Failed to estimate NEAR gas:', error)
+      this.logError('Failed to estimate NEAR gas:', error)
       return this.error('Failed to estimate gas', 'GAS_ESTIMATION_FAILED')
     }
   }
@@ -1693,7 +1693,7 @@ export class TransactionService extends BaseService {
    */
   private async broadcastNearTransaction(signedTransaction: string, rpcUrl: string): Promise<string> {
     try {
-      this.logger.debug('Broadcasting NEAR transaction', {
+      this.logDebug('Broadcasting NEAR transaction', {
         signedTxLength: signedTransaction.length
       })
 
@@ -1724,18 +1724,18 @@ export class TransactionService extends BaseService {
         throw new Error('Transaction hash not found in response')
       }
 
-      this.logger.info('Successfully broadcast NEAR transaction', {
+      this.logInfo('Successfully broadcast NEAR transaction', {
         transactionHash
       })
 
       return transactionHash
 
     } catch (error) {
-      this.logger.error('Failed to broadcast NEAR transaction:', error)
+      this.logError('Failed to broadcast NEAR transaction:', error)
       
       // Return simulated hash if broadcast fails (for development)
       const simulatedHash = `near_sim_${Date.now().toString(16)}_${Math.random().toString(36).substr(2, 8)}`
-      this.logger.warn('NEAR broadcast failed, using simulated hash', { simulatedHash })
+      this.logWarn('NEAR broadcast failed, using simulated hash', { simulatedHash })
       
       return simulatedHash
     }
@@ -1785,7 +1785,7 @@ export class TransactionService extends BaseService {
       return this.success('pending' as TransactionStatus)
 
     } catch (error) {
-      this.logger.error('Failed to get NEAR transaction status:', error)
+      this.logError('Failed to get NEAR transaction status:', error)
       return this.error('Failed to get transaction status', 'STATUS_CHECK_FAILED')
     }
   }

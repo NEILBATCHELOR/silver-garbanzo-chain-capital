@@ -3,3 +3,4 @@
  */
 
 export * from './type-mappers'
+export * from './loggerAdapter'

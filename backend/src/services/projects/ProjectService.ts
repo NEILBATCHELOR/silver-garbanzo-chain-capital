@@ -199,7 +199,7 @@ export class ProjectService extends BaseService {
 
       return this.paginatedResponse(enhancedProjects, total, page, limit)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get projects')
+      this.logError('Failed to get projects', { error, options })
       throw new Error('Failed to retrieve projects')
     }
   }
@@ -294,7 +294,7 @@ export class ProjectService extends BaseService {
 
       return this.success(enhancedProject)
     } catch (error) {
-      this.logger.error({ error, projectId: id }, 'Failed to get project by ID')
+      this.logError('Failed to get project by ID', { error, projectId: id })
       return this.error('Failed to retrieve project', 'DATABASE_ERROR')
     }
   }
@@ -371,10 +371,10 @@ export class ProjectService extends BaseService {
         validation
       }
 
-      this.logger.info({ projectId: project.id, capTableId: capTable?.id }, 'Project created successfully')
+      this.logInfo('Project created successfully', { projectId: project.id, capTableId: capTable?.id })
       return this.success(creationResult)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create project')
+      this.logError('Failed to create project', { error, data })
       return this.error('Failed to create project', 'DATABASE_ERROR')
     }
   }
@@ -412,10 +412,10 @@ export class ProjectService extends BaseService {
 
       const enhancedProject = await this.enhanceProjectWithStats(project)
 
-      this.logger.info({ projectId: id }, 'Project updated successfully')
+      this.logInfo('Project updated successfully', { projectId: id })
       return this.success(enhancedProject)
     } catch (error) {
-      this.logger.error({ error, projectId: id, data }, 'Failed to update project')
+      this.logError('Failed to update project', { error, projectId: id, data })
       
       if ((error as any).code === 'P2025') {
         return this.error('Project not found', 'NOT_FOUND', 404)
@@ -457,10 +457,10 @@ export class ProjectService extends BaseService {
         return result
       }
 
-      this.logger.info({ projectId: id }, 'Project deleted successfully')
+      this.logInfo('Project deleted successfully', { projectId: id })
       return this.success(true)
     } catch (error) {
-      this.logger.error({ error, projectId: id }, 'Failed to delete project')
+      this.logError('Failed to delete project', { error, projectId: id })
       
       if (error instanceof Error && error.message === 'Project not found') {
         return this.error('Project not found', 'NOT_FOUND', 404)
@@ -486,7 +486,7 @@ export class ProjectService extends BaseService {
       const enhancedProject = await this.enhanceProjectWithStats(project)
       return this.success(enhancedProject)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get primary project')
+      this.logError('Failed to get primary project', { error })
       return this.error('Failed to get primary project', 'DATABASE_ERROR')
     }
   }
@@ -524,10 +524,10 @@ export class ProjectService extends BaseService {
 
       const enhancedProject = await this.enhanceProjectWithStats(result.data!)
 
-      this.logger.info({ projectId: id }, 'Primary project set successfully')
+      this.logInfo('Primary project set successfully', { projectId: id })
       return this.success(enhancedProject)
     } catch (error) {
-      this.logger.error({ error, projectId: id }, 'Failed to set primary project')
+      this.logError('Failed to set primary project', { error, projectId: id })
       
       if (error instanceof Error && error.message === 'Project not found') {
         return this.error('Project not found', 'NOT_FOUND', 404)
@@ -545,7 +545,7 @@ export class ProjectService extends BaseService {
       const statistics = await this.calculateProjectStatistics(id)
       return this.success(statistics)
     } catch (error) {
-      this.logger.error({ error, projectId: id }, 'Failed to get project statistics')
+      this.logError('Failed to get project statistics', { error, projectId: id })
       return this.error('Failed to get project statistics', 'DATABASE_ERROR')
     }
   }
@@ -622,15 +622,15 @@ export class ProjectService extends BaseService {
 
       const data = result.data!
 
-      this.logger.info({ 
+      this.logInfo('Bulk update completed', { 
         projectIds, 
         successCount: data.successful.length,
         failCount: data.failed.length 
-      }, 'Bulk update completed')
+      })
 
       return this.success(data)
     } catch (error) {
-      this.logger.error({ error, request }, 'Failed to bulk update projects')
+      this.logError('Failed to bulk update projects', { error, request })
       return this.error('Failed to bulk update projects', 'DATABASE_ERROR')
     }
   }
@@ -705,7 +705,7 @@ export class ProjectService extends BaseService {
 
       return this.success(summary)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to get compliance summary')
+      this.logError('Failed to get compliance summary', { error })
       return this.error('Failed to get compliance summary', 'DATABASE_ERROR')
     }
   }

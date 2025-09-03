@@ -103,7 +103,7 @@ export class ProjectAnalyticsService extends BaseService {
 
       return this.success(analytics)
     } catch (error) {
-      this.logger.error({ error, projectId }, 'Failed to get project analytics')
+      this.logError('Failed to get project analytics', { error, projectId })
       return this.error('Failed to retrieve project analytics', 'DATABASE_ERROR')
     }
   }
@@ -143,7 +143,7 @@ export class ProjectAnalyticsService extends BaseService {
 
       return this.success(formattedEntries)
     } catch (error) {
-      this.logger.error({ error, projectId }, 'Failed to get project audit trail')
+      this.logError('Failed to get project audit trail', { error, projectId })
       return this.error('Failed to retrieve audit trail', 'DATABASE_ERROR')
     }
   }
@@ -196,7 +196,7 @@ export class ProjectAnalyticsService extends BaseService {
           return this.error('Unsupported export format', 'INVALID_FORMAT', 400)
       }
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to export projects')
+      this.logError('Failed to export projects', { error, options })
       return this.error('Failed to export projects', 'EXPORT_ERROR')
     }
   }
@@ -309,14 +309,14 @@ export class ProjectAnalyticsService extends BaseService {
         }
       }
 
-      this.logger.info({ 
+      this.logInfo('Project import completed', { 
         imported: successful.length, 
         failed: failed.length 
-      }, 'Project import completed')
+      })
 
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to import projects')
+      this.logError('Failed to import projects', { error, data })
       return this.error('Failed to import projects', 'IMPORT_ERROR')
     }
   }

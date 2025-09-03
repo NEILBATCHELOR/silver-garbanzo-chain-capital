@@ -79,7 +79,7 @@ export class FactoringService extends BaseService {
       return this.success(invoiceResult)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create invoice')
+      this.logError('Failed to create invoice', { error, data })
       return this.error('Failed to create invoice', 'CREATE_ERROR')
     }
   }
@@ -120,7 +120,7 @@ export class FactoringService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error({ error, invoiceId }, 'Failed to get invoice')
+      this.logError('Failed to get invoice', { error, invoiceId })
       return this.error('Failed to get invoice', 'FETCH_ERROR')
     }
   }
@@ -198,7 +198,7 @@ export class FactoringService extends BaseService {
       return this.success(this.paginatedResponse(convertedInvoices, total, page, take))
 
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get invoices')
+      this.logError('Failed to get invoices', { error, options })
       const limit = options.limit || 20
       return this.error('Failed to fetch invoices', 'FETCH_ERROR', 500)
     }
@@ -232,7 +232,7 @@ export class FactoringService extends BaseService {
       return this.success(invoiceResult)
 
     } catch (error) {
-      this.logger.error({ error, invoiceId, data }, 'Failed to update invoice')
+      this.logError('Failed to update invoice', { error, invoiceId, data })
       
       if ((error as any).code === 'P2025') {
         return this.error('Invoice not found', 'NOT_FOUND', 404)
@@ -273,7 +273,7 @@ export class FactoringService extends BaseService {
       return this.success(poolResult)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create pool')
+      this.logError('Failed to create pool', { error, data })
       return this.error('Failed to create pool', 'CREATE_ERROR')
     }
   }
@@ -335,7 +335,7 @@ export class FactoringService extends BaseService {
       return this.success(poolWithStats)
 
     } catch (error) {
-      this.logger.error({ error, poolId }, 'Failed to get pool with invoices')
+      this.logError('Failed to get pool with invoices', { error, poolId })
       return this.error('Failed to get pool', 'FETCH_ERROR')
     }
   }
@@ -362,7 +362,7 @@ export class FactoringService extends BaseService {
       return this.success(provider as Provider)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create provider')
+      this.logError('Failed to create provider', { error, data })
       return this.error('Failed to create provider', 'CREATE_ERROR')
     }
   }
@@ -381,7 +381,7 @@ export class FactoringService extends BaseService {
       )
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get providers')
+      this.logError('Failed to get providers', { error, options })
       return this.error('Failed to fetch providers', 'FETCH_ERROR', 500)
     }
   }
@@ -408,7 +408,7 @@ export class FactoringService extends BaseService {
       return this.success(payer as Payer)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create payer')
+      this.logError('Failed to create payer', { error, data })
       return this.error('Failed to create payer', 'CREATE_ERROR')
     }
   }
@@ -427,7 +427,7 @@ export class FactoringService extends BaseService {
       )
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, options }, 'Failed to get payers')
+      this.logError('Failed to get payers', { error, options })
       return this.error('Failed to fetch payers', 'FETCH_ERROR', 500)
     }
   }
@@ -521,7 +521,7 @@ export class FactoringService extends BaseService {
       return this.success(token)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to tokenize pool')
+      this.logError('Failed to tokenize pool', { error, data })
       return this.error('Failed to tokenize pool', 'TOKENIZATION_ERROR')
     }
   }
@@ -608,7 +608,7 @@ export class FactoringService extends BaseService {
       return this.success(tokenizationData)
 
     } catch (error) {
-      this.logger.error({ error, poolId }, 'Failed to get pool tokenization data')
+      this.logError('Failed to get pool tokenization data', { error, poolId })
       return this.error('Failed to get pool tokenization data', 'FETCH_ERROR')
     }
   }
@@ -687,7 +687,7 @@ export class FactoringService extends BaseService {
       } as TokenAllocation)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to create token allocation')
+      this.logError('Failed to create token allocation', { error, data })
       return this.error('Failed to create token allocation', 'ALLOCATION_ERROR')
     }
   }
@@ -729,7 +729,7 @@ export class FactoringService extends BaseService {
       return this.success(this.paginatedResponse(formattedAllocations, total, currentPage, limit))
 
     } catch (error) {
-      this.logger.error({ error, projectId, options }, 'Failed to get token allocations')
+      this.logError('Failed to get token allocations', { error, projectId, options })
       return this.error('Failed to fetch token allocations', 'FETCH_ERROR', 500)
     }
   }
@@ -812,7 +812,7 @@ export class FactoringService extends BaseService {
       } as TokenDistribution)
 
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to distribute tokens')
+      this.logError('Failed to distribute tokens', { error, data })
       return this.error('Failed to distribute tokens', 'DISTRIBUTION_ERROR')
     }
   }
@@ -856,7 +856,7 @@ export class FactoringService extends BaseService {
       return this.success(this.paginatedResponse(formattedDistributions, total, currentPage, limit))
 
     } catch (error) {
-      this.logger.error({ error, projectId, options }, 'Failed to get token distributions')
+      this.logError('Failed to get token distributions', { error, projectId, options })
       return this.error('Failed to fetch token distributions', 'FETCH_ERROR', 500)
     }
   }
@@ -903,7 +903,7 @@ export class FactoringService extends BaseService {
       } as TokenDistribution)
 
     } catch (error) {
-      this.logger.error({ error, distributionId, status }, 'Failed to update distribution status')
+      this.logError('Failed to update distribution status', { error, distributionId, status })
       return this.error('Failed to update distribution status', 'UPDATE_ERROR')
     }
   }

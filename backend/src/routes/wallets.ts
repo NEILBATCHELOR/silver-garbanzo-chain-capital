@@ -75,6 +75,7 @@ import {
   ProposalStatus,
   MultiSigQueryOptions
 } from '../services/wallets/multi-sig/index'
+import { logError } from '../utils/loggerAdapter'
 
 // Request/Response Schema Definitions
 const BlockchainNetworkSchema = Type.Union([
@@ -428,7 +429,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Create wallet error:', error)
+      logError(fastify.log, 'Create wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -463,7 +464,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get wallet error:', error)
+      logError(fastify.log, 'Get wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -507,7 +508,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('List wallets error:', error)
+      logError(fastify.log, 'List wallets error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -542,7 +543,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get wallet balance error:', error)
+      logError(fastify.log, 'Get wallet balance error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -579,7 +580,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Build transaction error:', error)
+      logError(fastify.log, 'Build transaction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -612,7 +613,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Broadcast transaction error:', error)
+      logError(fastify.log, 'Broadcast transaction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -647,7 +648,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get transaction status error:', error)
+      logError(fastify.log, 'Get transaction status error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -680,7 +681,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Sign transaction error:', error)
+      logError(fastify.log, 'Sign transaction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -720,7 +721,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Sign message error:', error)
+      logError(fastify.log, 'Sign message error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -759,7 +760,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
         data: estimate
       })
     } catch (error) {
-      fastify.log.error('Estimate fee error:', error)
+      logError(fastify.log, 'Estimate fee error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -798,7 +799,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get nonce info error:', error)
+      logError(fastify.log, 'Get nonce info error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -842,7 +843,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Reserve nonce error:', error)
+      logError(fastify.log, 'Reserve nonce error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -881,7 +882,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get unified wallet error:', error)
+      logError(fastify.log, 'Get unified wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -923,7 +924,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Upgrade wallet error:', error)
+      logError(fastify.log, 'Upgrade wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -965,7 +966,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Send unified transaction error:', error)
+      logError(fastify.log, 'Send unified transaction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1006,7 +1007,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
         data: capabilities
       })
     } catch (error) {
-      fastify.log.error('Get wallet capabilities error:', error)
+      logError(fastify.log, 'Get wallet capabilities error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1066,7 +1067,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Create smart contract wallet error:', error)
+      logError(fastify.log, 'Create smart contract wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1101,7 +1102,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get smart contract wallet error:', error)
+      logError(fastify.log, 'Get smart contract wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1150,7 +1151,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Register WebAuthn credential error:', error)
+      logError(fastify.log, 'Register WebAuthn credential error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1217,7 +1218,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('WebAuthn authentication error:', error)
+      logError(fastify.log, 'WebAuthn authentication error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1252,7 +1253,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('List WebAuthn credentials error:', error)
+      logError(fastify.log, 'List WebAuthn credentials error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1317,7 +1318,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(sendResult)
     } catch (error) {
-      fastify.log.error('Send gasless transaction error:', error)
+      logError(fastify.log, 'Send gasless transaction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1365,7 +1366,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Batch operations error:', error)
+      logError(fastify.log, 'Batch operations error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1416,7 +1417,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Initiate signature migration error:', error)
+      logError(fastify.log, 'Initiate signature migration error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1451,7 +1452,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get migration status error:', error)
+      logError(fastify.log, 'Get migration status error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1490,7 +1491,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get restrictions error:', error)
+      logError(fastify.log, 'Get restrictions error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1564,7 +1565,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Add restriction error:', error)
+      logError(fastify.log, 'Add restriction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1626,7 +1627,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Validate transaction error:', error)
+      logError(fastify.log, 'Validate transaction error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1679,7 +1680,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Lock wallet error:', error)
+      logError(fastify.log, 'Lock wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1729,7 +1730,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Unlock wallet error:', error)
+      logError(fastify.log, 'Unlock wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1764,7 +1765,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get lock status error:', error)
+      logError(fastify.log, 'Get lock status error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1803,7 +1804,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('List guardians error:', error)
+      logError(fastify.log, 'List guardians error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1850,7 +1851,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Add guardian error:', error)
+      logError(fastify.log, 'Add guardian error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1885,7 +1886,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('HSM health check error:', error)
+      logError(fastify.log, 'HSM health check error:', error)
       return reply.status(500).send({
         success: false,
         error: 'HSM health check failed'
@@ -1923,7 +1924,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
         }
       })
     } catch (error) {
-      fastify.log.error('Enable HSM error:', error)
+      logError(fastify.log, 'Enable HSM error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1960,7 +1961,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Create multi-sig wallet error:', error)
+      logError(fastify.log, 'Create multi-sig wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -1993,7 +1994,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('List multi-sig wallets error:', error)
+      logError(fastify.log, 'List multi-sig wallets error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2028,7 +2029,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get multi-sig wallet error:', error)
+      logError(fastify.log, 'Get multi-sig wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2071,7 +2072,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Update multi-sig wallet error:', error)
+      logError(fastify.log, 'Update multi-sig wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2107,7 +2108,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Delete multi-sig wallet error:', error)
+      logError(fastify.log, 'Delete multi-sig wallet error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2149,7 +2150,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Add owner error:', error)
+      logError(fastify.log, 'Add owner error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2186,7 +2187,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Remove owner error:', error)
+      logError(fastify.log, 'Remove owner error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2228,7 +2229,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Update threshold error:', error)
+      logError(fastify.log, 'Update threshold error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2263,7 +2264,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get wallet statistics error:', error)
+      logError(fastify.log, 'Get wallet statistics error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2300,7 +2301,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Create proposal error:', error)
+      logError(fastify.log, 'Create proposal error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2338,7 +2339,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('List proposals error:', error)
+      logError(fastify.log, 'List proposals error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2373,7 +2374,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get proposal error:', error)
+      logError(fastify.log, 'Get proposal error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2426,7 +2427,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Sign proposal error:', error)
+      logError(fastify.log, 'Sign proposal error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2462,7 +2463,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Execute proposal error:', error)
+      logError(fastify.log, 'Execute proposal error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2498,7 +2499,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Cancel proposal error:', error)
+      logError(fastify.log, 'Cancel proposal error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2547,7 +2548,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(201).send(result)
     } catch (error) {
-      fastify.log.error('Deploy Gnosis Safe error:', error)
+      logError(fastify.log, 'Deploy Gnosis Safe error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2599,7 +2600,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Add owner to Gnosis Safe error:', error)
+      logError(fastify.log, 'Add owner to Gnosis Safe error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2650,7 +2651,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Remove owner from Gnosis Safe error:', error)
+      logError(fastify.log, 'Remove owner from Gnosis Safe error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2699,7 +2700,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Change Gnosis Safe threshold error:', error)
+      logError(fastify.log, 'Change Gnosis Safe threshold error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2734,7 +2735,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get multi-sig analytics error:', error)
+      logError(fastify.log, 'Get multi-sig analytics error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2769,7 +2770,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       
       return reply.status(200).send(result)
     } catch (error) {
-      fastify.log.error('Get signer statistics error:', error)
+      logError(fastify.log, 'Get signer statistics error:', error)
       return reply.status(500).send({
         success: false,
         error: 'Internal server error'
@@ -2857,7 +2858,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
         }
       })
     } catch (error) {
-      fastify.log.error('Health check error:', error)
+      logError(fastify.log, 'Health check error:', error)
       return reply.status(500).send({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
@@ -2893,7 +2894,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
         
         return reply.status(200).send(result)
       } catch (error) {
-        fastify.log.error('Generate test key pair error:', error)
+        logError(fastify.log, 'Generate test key pair error:', error)
         return reply.status(500).send({
           success: false,
           error: 'Internal server error'

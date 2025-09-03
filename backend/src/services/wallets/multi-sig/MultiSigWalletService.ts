@@ -69,11 +69,11 @@ export class MultiSigWalletService extends BaseService {
       this.providers.set('bitcoin', { network: process.env.BITCOIN_NETWORK || 'mainnet' })
       this.providers.set('near', { rpcUrl: process.env.NEAR_RPC_URL || 'https://rpc.mainnet.near.org' })
 
-      this.logger.info('Multi-sig providers initialized', {
+      this.logInfo('Multi-sig providers initialized', {
         providersCount: this.providers.size
       })
     } catch (error) {
-      this.logger.warn('Failed to initialize some multi-sig providers:', error)
+      this.logWarn('Failed to initialize some multi-sig providers:', error)
     }
   }
 
@@ -129,7 +129,7 @@ export class MultiSigWalletService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Multi-sig wallet created', {
+      this.logInfo('Multi-sig wallet created', {
         id: wallet.id,
         blockchain: wallet.blockchain,
         address: wallet.address,
@@ -139,7 +139,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(this.formatWallet(wallet))
     } catch (error) {
-      this.logger.error('Create multi-sig wallet error:', error)
+      this.logError('Create multi-sig wallet error:', error)
       return this.error('Failed to create multi-sig wallet')
     }
   }
@@ -159,7 +159,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(this.formatWallet(wallet))
     } catch (error) {
-      this.logger.error('Get multi-sig wallet error:', error)
+      this.logError('Get multi-sig wallet error:', error)
       return this.error('Failed to get multi-sig wallet')
     }
   }
@@ -221,14 +221,14 @@ export class MultiSigWalletService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Multi-sig wallet updated', {
+      this.logInfo('Multi-sig wallet updated', {
         id: wallet.id,
         changes: Object.keys(updateData)
       })
 
       return this.success(this.formatWallet(wallet))
     } catch (error) {
-      this.logger.error('Update multi-sig wallet error:', error)
+      this.logError('Update multi-sig wallet error:', error)
       return this.error('Failed to update multi-sig wallet')
     }
   }
@@ -321,7 +321,7 @@ export class MultiSigWalletService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Multi-sig wallet deleted', {
+      this.logInfo('Multi-sig wallet deleted', {
         id,
         name: wallet.name,
         blockchain: wallet.blockchain
@@ -329,7 +329,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(true)
     } catch (error) {
-      this.logger.error('Delete multi-sig wallet error:', error)
+      this.logError('Delete multi-sig wallet error:', error)
       return this.error('Failed to delete multi-sig wallet')
     }
   }
@@ -384,7 +384,7 @@ export class MultiSigWalletService extends BaseService {
         prevPage: page > 1 ? page - 1 : undefined
       })
     } catch (error) {
-      this.logger.error('List multi-sig wallets error:', error)
+      this.logError('List multi-sig wallets error:', error)
       return this.error('Failed to list multi-sig wallets')
     }
   }
@@ -441,7 +441,7 @@ export class MultiSigWalletService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Owner added to multi-sig wallet', {
+      this.logInfo('Owner added to multi-sig wallet', {
         walletId,
         newOwner,
         totalOwners: updatedOwners.length
@@ -449,7 +449,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(this.formatWallet(updatedWallet))
     } catch (error) {
-      this.logger.error('Add owner error:', error)
+      this.logError('Add owner error:', error)
       return this.error('Failed to add owner')
     }
   }
@@ -501,7 +501,7 @@ export class MultiSigWalletService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Owner removed from multi-sig wallet', {
+      this.logInfo('Owner removed from multi-sig wallet', {
         walletId,
         removedOwner: ownerToRemove,
         totalOwners: updatedOwners.length
@@ -509,7 +509,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(this.formatWallet(updatedWallet))
     } catch (error) {
-      this.logger.error('Remove owner error:', error)
+      this.logError('Remove owner error:', error)
       return this.error('Failed to remove owner')
     }
   }
@@ -553,7 +553,7 @@ export class MultiSigWalletService extends BaseService {
       //   }
       // })
 
-      this.logger.info('Multi-sig wallet threshold updated', {
+      this.logInfo('Multi-sig wallet threshold updated', {
         walletId,
         oldThreshold: wallet.threshold,
         newThreshold
@@ -561,7 +561,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(this.formatWallet(updatedWallet))
     } catch (error) {
-      this.logger.error('Update threshold error:', error)
+      this.logError('Update threshold error:', error)
       return this.error('Failed to update threshold')
     }
   }
@@ -632,7 +632,7 @@ export class MultiSigWalletService extends BaseService {
         updated_at: wallet.updated_at
       }
 
-      this.logger.info('Multi-sig wallet statistics retrieved', {
+      this.logInfo('Multi-sig wallet statistics retrieved', {
         walletId,
         totalTransactions,
         executedTransactions,
@@ -641,7 +641,7 @@ export class MultiSigWalletService extends BaseService {
 
       return this.success(statistics)
     } catch (error) {
-      this.logger.error('Get wallet statistics error:', error)
+      this.logError('Get wallet statistics error:', error)
       return this.error('Failed to get wallet statistics')
     }
   }
@@ -724,11 +724,11 @@ export class MultiSigWalletService extends BaseService {
         }
 
         default:
-          this.logger.error('Unsupported blockchain for multi-sig address generation:', blockchain)
+          this.logError('Unsupported blockchain for multi-sig address generation:', blockchain)
           return null
       }
     } catch (error) {
-      this.logger.error('Generate multi-sig address error:', error)
+      this.logError('Generate multi-sig address error:', error)
       return null
     }
   }

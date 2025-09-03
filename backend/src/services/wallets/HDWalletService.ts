@@ -35,10 +35,10 @@ export class HDWalletService extends BaseService {
       }
 
       const mnemonic = bip39.generateMnemonic(strength)
-      this.logger.info('Mnemonic generated successfully')
+      this.logInfo('Mnemonic generated successfully')
       return this.success(mnemonic)
     } catch (error) {
-      this.logger.error({ error, strength }, 'Failed to generate mnemonic')
+      this.logError('Failed to generate mnemonic', { error, strength })
       return this.error('Failed to generate mnemonic', 'MNEMONIC_GENERATION_FAILED')
     }
   }
@@ -77,11 +77,11 @@ export class HDWalletService extends BaseService {
         derivationPaths
       }
 
-      this.logger.info('HD wallet generated successfully')
+      this.logInfo('HD wallet generated successfully')
       return this.success(hdWalletData)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to generate HD wallet')
+      this.logError('Failed to generate HD wallet', { error })
       return this.error('Failed to generate HD wallet', 'GENERATION_FAILED')
     }
   }
@@ -116,11 +116,11 @@ export class HDWalletService extends BaseService {
         derivationPaths
       }
 
-      this.logger.info('HD wallet restored from mnemonic')
+      this.logInfo('HD wallet restored from mnemonic')
       return this.success(hdWalletData)
 
     } catch (error) {
-      this.logger.error({ error }, 'Failed to restore HD wallet from mnemonic')
+      this.logError('Failed to restore HD wallet from mnemonic', { error })
       return this.error('Failed to restore HD wallet', 'RESTORE_FAILED')
     }
   }
@@ -169,7 +169,7 @@ export class HDWalletService extends BaseService {
       return this.success(address)
 
     } catch (error) {
-      this.logger.error({ error, blockchain }, `Failed to derive ${blockchain} address`)
+      this.logError(`Failed to derive ${blockchain} address`, { error, blockchain })
       return this.error(`Failed to derive ${blockchain} address`, 'DERIVATION_FAILED')
     }
   }
@@ -192,7 +192,7 @@ export class HDWalletService extends BaseService {
           addresses[blockchain] = result.data!
         } else {
           errors.push(`${blockchain}: ${result.error}`)
-          this.logger.warn({ blockchain, error: result.error }, 'Failed to derive address for blockchain')
+          this.logWarn('Failed to derive address for blockchain', { blockchain, error: result.error })
         }
       }
 
@@ -201,13 +201,13 @@ export class HDWalletService extends BaseService {
       }
 
       if (errors.length > 0) {
-        this.logger.warn({ errors }, 'Some address derivations failed')
+        this.logWarn('Some address derivations failed', { errors })
       }
 
       return this.success(addresses)
 
     } catch (error) {
-      this.logger.error({ error, blockchains }, 'Failed to derive multi-chain addresses')
+      this.logError('Failed to derive multi-chain addresses', { error, blockchains })
       return this.error('Failed to derive multi-chain addresses', 'MULTI_DERIVATION_FAILED')
     }
   }
@@ -220,7 +220,7 @@ export class HDWalletService extends BaseService {
       const isValid = bip39.validateMnemonic(mnemonic)
       return this.success(isValid)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to validate mnemonic')
+      this.logError('Failed to validate mnemonic', { error })
       return this.error('Failed to validate mnemonic', 'VALIDATION_FAILED')
     }
   }
@@ -237,7 +237,7 @@ export class HDWalletService extends BaseService {
       }
       return this.success(wordlist)
     } catch (error) {
-      this.logger.error({ error, language }, 'Failed to get mnemonic word list')
+      this.logError('Failed to get mnemonic word list', { error, language })
       return this.error('Failed to get mnemonic word list', 'WORDLIST_FAILED')
     }
   }
@@ -250,7 +250,7 @@ export class HDWalletService extends BaseService {
       const entropy = bip39.generateMnemonic(strength)
       return this.success(entropy)
     } catch (error) {
-      this.logger.error({ error, strength }, 'Failed to generate entropy')
+      this.logError('Failed to generate entropy', { error, strength })
       return this.error('Failed to generate entropy', 'ENTROPY_FAILED')
     }
   }
@@ -289,13 +289,13 @@ export class HDWalletService extends BaseService {
       // Compute the Ethereum address from the private key
       const address = ethers.computeAddress(privateKeyHex)
       
-      this.logger.debug('Ethereum address derived successfully', { 
+      this.logDebug('Ethereum address derived successfully', { 
         publicKey: keyPair.publicKey.toString('hex').slice(0, 16) + '...'
       })
       
       return address
     } catch (error) {
-      this.logger.error({ error }, 'Failed to compute Ethereum address')
+      this.logError('Failed to compute Ethereum address', { error })
       throw new Error('Failed to compute Ethereum address')
     }
   }
@@ -316,13 +316,13 @@ export class HDWalletService extends BaseService {
       // Get the base58-encoded public key (Solana address)
       const address = solanaKeypair.publicKey.toBase58()
       
-      this.logger.debug('Solana address derived successfully', {
+      this.logDebug('Solana address derived successfully', {
         publicKey: address.slice(0, 8) + '...'
       })
       
       return address
     } catch (error) {
-      this.logger.error({ error }, 'Failed to derive Solana address')
+      this.logError('Failed to derive Solana address', { error })
       throw new Error('Failed to derive Solana address')
     }
   }
@@ -344,13 +344,13 @@ export class HDWalletService extends BaseService {
       // NEAR implicit account ID is the hex representation of the public key
       const implicitAccountId = Buffer.from(publicKeyBytes).toString('hex')
       
-      this.logger.debug('NEAR address derived successfully', {
+      this.logDebug('NEAR address derived successfully', {
         accountId: implicitAccountId.slice(0, 16) + '...'
       })
       
       return implicitAccountId
     } catch (error) {
-      this.logger.error({ error }, 'Failed to derive NEAR address')
+      this.logError('Failed to derive NEAR address', { error })
       throw new Error('Failed to derive NEAR address')
     }
   }
@@ -384,7 +384,7 @@ export class HDWalletService extends BaseService {
       
       return this.success(masterKey)
     } catch (error) {
-      this.logger.error({ error }, 'Failed to create master key from encrypted seed')
+      this.logError('Failed to create master key from encrypted seed', { error })
       return this.error('Failed to create master key', 'MASTER_KEY_FAILED')
     }
   }

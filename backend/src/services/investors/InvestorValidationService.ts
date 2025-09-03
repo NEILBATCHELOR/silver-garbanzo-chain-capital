@@ -40,7 +40,7 @@ export class InvestorValidationService extends BaseService {
       const validationResult = await this.performValidation(data)
       return this.success(validationResult)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate investor')
+      this.logError('Failed to validate investor', { error, data })
       return this.error('Validation service error', 'VALIDATION_ERROR')
     }
   }
@@ -66,7 +66,7 @@ export class InvestorValidationService extends BaseService {
 
       return this.success(validationResult)
     } catch (error) {
-      this.logger.error({ error, data }, 'Failed to validate investor update')
+      this.logError('Failed to validate investor update', { error, data })
       return this.error('Update validation service error', 'VALIDATION_ERROR')
     }
   }
@@ -90,7 +90,7 @@ export class InvestorValidationService extends BaseService {
       }
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, investor }, 'Failed to validate KYC data')
+      this.logError('Failed to validate KYC data', { error, investor })
       return this.error('KYC validation service error', 'VALIDATION_ERROR')
     }
   }
@@ -114,7 +114,7 @@ export class InvestorValidationService extends BaseService {
       }
       return this.success(result)
     } catch (error) {
-      this.logger.error({ error, investor }, 'Failed to validate accreditation')
+      this.logError('Failed to validate accreditation', { error, investor })
       return this.error('Accreditation validation service error', 'VALIDATION_ERROR')
     }
   }

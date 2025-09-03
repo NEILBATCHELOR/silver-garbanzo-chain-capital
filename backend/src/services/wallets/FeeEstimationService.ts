@@ -50,7 +50,7 @@ export class FeeEstimationService extends BaseService {
         this.providers.set('solana', new Connection(process.env.VITE_SOLANA_RPC_URL, 'confirmed'))
       }
 
-      this.logger.info('Fee estimation providers initialized', {
+      this.logInfo('Fee estimation providers initialized', {
         ethereum: !!process.env.VITE_MAINNET_RPC_URL,
         polygon: !!process.env.VITE_POLYGON_RPC_URL,
         arbitrum: !!process.env.VITE_ARBITRUM_RPC_URL,
@@ -60,7 +60,7 @@ export class FeeEstimationService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.warn('Failed to initialize some fee estimation providers:', error)
+      this.logWarn('Failed to initialize some fee estimation providers:', error)
     }
   }
 
@@ -76,7 +76,7 @@ export class FeeEstimationService extends BaseService {
     data?: string
   }): Promise<TransactionFeeEstimate> {
     try {
-      this.logger.info('Estimating fees', { 
+      this.logInfo('Estimating fees', { 
         blockchain: params.blockchain,
         priority: params.priority || 'medium'
       })
@@ -85,7 +85,7 @@ export class FeeEstimationService extends BaseService {
       const cacheKey = `${params.blockchain}_${params.priority || 'medium'}_${params.gasUsed || 'default'}`
       const cached = this.feeCache.get(cacheKey)
       if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        this.logger.debug('Returning cached fee estimate', { blockchain: params.blockchain })
+        this.logDebug('Returning cached fee estimate', { blockchain: params.blockchain })
         return cached.estimate
       }
 
@@ -123,7 +123,7 @@ export class FeeEstimationService extends BaseService {
         timestamp: Date.now()
       })
 
-      this.logger.info('Fee estimation completed', {
+      this.logInfo('Fee estimation completed', {
         blockchain: params.blockchain,
         lowFee: estimate.low.fee,
         mediumFee: estimate.medium.fee,
@@ -133,7 +133,7 @@ export class FeeEstimationService extends BaseService {
       return estimate
 
     } catch (error) {
-      this.logger.error('Failed to estimate fees:', error)
+      this.logError('Failed to estimate fees:', error)
       
       // Return fallback estimate on error
       return this.getBasicFeeEstimate(params.blockchain, params.gasUsed || '21000')
@@ -171,7 +171,7 @@ export class FeeEstimationService extends BaseService {
           })
           gasLimit = gasEstimate
         } catch (error) {
-          this.logger.warn('Failed to estimate gas, using default', error)
+          this.logWarn('Failed to estimate gas, using default', error)
         }
       }
 
@@ -198,7 +198,7 @@ export class FeeEstimationService extends BaseService {
       return this.getBasicFeeEstimate(params.blockchain, gasLimit.toString())
 
     } catch (error) {
-      this.logger.error('Failed to estimate EVM fees:', error)
+      this.logError('Failed to estimate EVM fees:', error)
       return this.getBasicFeeEstimate(params.blockchain, params.gasUsed || '21000')
     }
   }
@@ -320,7 +320,7 @@ export class FeeEstimationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error('Failed to get Solana fees from network:', error)
+      this.logError('Failed to get Solana fees from network:', error)
       return this.getBasicSolanaFeeEstimate()
     }
   }
@@ -366,7 +366,7 @@ export class FeeEstimationService extends BaseService {
       }
 
     } catch (error) {
-      this.logger.error('Failed to estimate Bitcoin fees:', error)
+      this.logError('Failed to estimate Bitcoin fees:', error)
       return this.getBasicBitcoinFeeEstimate()
     }
   }
@@ -504,7 +504,7 @@ export class FeeEstimationService extends BaseService {
    */
   clearFeeCache(): void {
     this.feeCache.clear()
-    this.logger.info('Fee cache cleared')
+    this.logInfo('Fee cache cleared')
   }
 
   /**

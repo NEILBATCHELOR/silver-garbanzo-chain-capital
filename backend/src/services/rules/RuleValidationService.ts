@@ -186,7 +186,7 @@ export class RuleValidationService extends BaseService {
       const existingRule = await this.db.rules.findFirst({ where })
       return !existingRule
     } catch (error) {
-      this.logger.error({ error, ruleName }, 'Failed to check rule name uniqueness')
+      this.logError('Failed to check rule name uniqueness', { error, ruleName })
       return false
     }
   }

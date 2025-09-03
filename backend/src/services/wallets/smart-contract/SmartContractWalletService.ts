@@ -90,16 +90,16 @@ export class SmartContractWalletService extends BaseService {
         await this.addInitialFacets(walletId, initialFacets)
       }
 
-      this.logger.info({
+      this.logInfo('Smart contract wallet created', {
         walletId,
         proxyAddress: deploymentResult.data!.proxyAddress,
         txHash: deploymentResult.data!.transactionHash
-      }, 'Smart contract wallet created')
+      })
 
       return this.success(this.mapToSmartContractWallet(smartWallet))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to create smart contract wallet')
+      this.logError('Failed to create smart contract wallet', { error, walletId })
       return this.error('Failed to create smart contract wallet', 'SMART_WALLET_CREATE_ERROR')
     }
   }
@@ -120,7 +120,7 @@ export class SmartContractWalletService extends BaseService {
       return this.success(this.mapToSmartContractWallet(smartWallet))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get smart contract wallet')
+      this.logError('Failed to get smart contract wallet', { error, walletId })
       return this.error('Failed to get smart contract wallet', 'SMART_WALLET_GET_ERROR')
     }
   }
@@ -148,7 +148,7 @@ export class SmartContractWalletService extends BaseService {
       })))
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to get wallet facets')
+      this.logError('Failed to get wallet facets', { error, walletId })
       return this.error('Failed to get wallet facets', 'FACET_LIST_ERROR')
     }
   }
@@ -190,19 +190,19 @@ export class SmartContractWalletService extends BaseService {
       // Update local facet records
       await this.updateFacetRecords(walletId, operation.facetCuts)
 
-      this.logger.info({
+      this.logInfo('Diamond cut operation completed', {
         walletId,
         proxyAddress: smartWallet.data.diamondProxyAddress,
         operationCount: operation.facetCuts.length,
         txHash: cutResult.data!.transactionHash
-      }, 'Diamond cut operation completed')
+      })
 
       return this.success({
         transactionHash: cutResult.data!.transactionHash
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId }, 'Failed to perform diamond cut')
+      this.logError('Failed to perform diamond cut', { error, walletId })
       return this.error('Failed to perform diamond cut', 'DIAMOND_CUT_ERROR')
     }
   }
@@ -234,7 +234,7 @@ export class SmartContractWalletService extends BaseService {
       return await this.diamondCut(walletId, operation)
 
     } catch (error) {
-      this.logger.error({ error, walletId, facetName }, 'Failed to add facet')
+      this.logError('Failed to add facet', { error, walletId, facetName })
       return this.error('Failed to add facet', 'FACET_ADD_ERROR')
     }
   }
@@ -259,7 +259,7 @@ export class SmartContractWalletService extends BaseService {
       return await this.diamondCut(walletId, operation)
 
     } catch (error) {
-      this.logger.error({ error, walletId, facetAddress }, 'Failed to remove facet')
+      this.logError('Failed to remove facet', { error, walletId, facetAddress })
       return this.error('Failed to remove facet', 'FACET_REMOVE_ERROR')
     }
   }
@@ -341,12 +341,12 @@ export class SmartContractWalletService extends BaseService {
         await this.updateFacetRecords(walletId, upgradeCuts)
       }
 
-      this.logger.info({
+      this.logInfo('Smart contract wallet upgraded', {
         walletId,
         fromVersion: smartWallet.data.implementationVersion,
         toVersion: newImplementationVersion,
         txHash: upgradeResult.data!.transactionHash
-      }, 'Smart contract wallet upgraded')
+      })
 
       return this.success({
         transactionHash: upgradeResult.data!.transactionHash,
@@ -354,7 +354,7 @@ export class SmartContractWalletService extends BaseService {
       })
 
     } catch (error) {
-      this.logger.error({ error, walletId, newImplementationVersion }, 'Failed to upgrade wallet')
+      this.logError('Failed to upgrade wallet', { error, walletId, newImplementationVersion })
       return this.error('Failed to upgrade wallet', 'WALLET_UPGRADE_ERROR')
     }
   }
@@ -370,11 +370,11 @@ export class SmartContractWalletService extends BaseService {
   ): Promise<ServiceResult<{ proxyAddress: string; transactionHash: string }>> {
     // This would deploy the actual Diamond proxy contract
     // Placeholder implementation
-    this.logger.info({
+    this.logInfo('Deploying Diamond proxy (placeholder)', {
       walletId,
       facetRegistryAddress,
       initialFacets
-    }, 'Deploying Diamond proxy (placeholder)')
+    })
 
     // Generate mock addresses
     const proxyAddress = '0x' + Math.random().toString(16).substring(2, 42).padStart(40, '0')
@@ -392,10 +392,10 @@ export class SmartContractWalletService extends BaseService {
   ): Promise<ServiceResult<{ transactionHash: string }>> {
     // This would execute the diamondCut function on the contract
     // Placeholder implementation
-    this.logger.info({
+    this.logInfo('Executing diamond cut (placeholder)', {
       proxyAddress,
       operation
-    }, 'Executing diamond cut (placeholder)')
+    })
 
     const transactionHash = '0x' + Math.random().toString(16).substring(2, 66)
 
@@ -415,11 +415,11 @@ export class SmartContractWalletService extends BaseService {
     // 4. Emit upgrade events
     
     // Placeholder implementation
-    this.logger.info({
+    this.logInfo('Executing wallet upgrade (placeholder)', {
       proxyAddress,
       newVersion,
       upgradeFacetsCount: upgradeFacets.length
-    }, 'Executing wallet upgrade (placeholder)')
+    })
 
     const transactionHash = '0x' + Math.random().toString(16).substring(2, 66)
 

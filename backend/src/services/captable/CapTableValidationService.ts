@@ -118,7 +118,7 @@ export class CapTableValidationService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error('Error validating cap table creation', { error, data })
+      this.logError('Error validating cap table creation', { error, data })
       return this.error('Validation failed', 'VALIDATION_ERROR')
     }
   }
@@ -188,7 +188,7 @@ export class CapTableValidationService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error('Error validating cap table update', { error, id, data })
+      this.logError('Error validating cap table update', { error, id, data })
       return this.error('Validation failed', 'VALIDATION_ERROR')
     }
   }
@@ -333,7 +333,7 @@ export class CapTableValidationService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error('Error validating investor creation', { error, data })
+      this.logError('Error validating investor creation', { error, data })
       return this.error('Validation failed', 'VALIDATION_ERROR')
     }
   }
@@ -484,7 +484,7 @@ export class CapTableValidationService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error('Error validating subscription creation', { error, data })
+      this.logError('Error validating subscription creation', { error, data })
       return this.error('Validation failed', 'VALIDATION_ERROR')
     }
   }
@@ -608,7 +608,7 @@ export class CapTableValidationService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error('Error validating token allocation creation', { error, data })
+      this.logError('Error validating token allocation creation', { error, data })
       return this.error('Validation failed', 'VALIDATION_ERROR')
     }
   }
@@ -727,7 +727,7 @@ export class CapTableValidationService extends BaseService {
       return this.success(result)
 
     } catch (error) {
-      this.logger.error('Error validating bulk operation', { error, operationType, itemCount: items.length })
+      this.logError('Error validating bulk operation', { error, operationType, itemCount: items.length })
       return this.error('Validation failed', 'VALIDATION_ERROR')
     }
   }
