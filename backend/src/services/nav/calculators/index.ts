@@ -126,7 +126,7 @@ export { PrivateDebtCalculator } from './PrivateDebtCalculator'
 export type {
   PrivateDebtCalculationInput,
   LoanDetails,
-  CreditRiskAssessment,
+  CreditRiskAssessment as PrivateDebtCreditRiskAssessment,
   CollateralAnalysis,
   PortfolioMetrics
 } from './PrivateDebtCalculator'
@@ -191,11 +191,63 @@ export type {
   RobustnessTest
 } from './QuantitativeStrategiesCalculator'
 
-// TODO: Implement remaining extended calculators
-// export { StructuredProductCalculator } from './StructuredProductCalculator'
-// export { CollectiblesCalculator } from './CollectiblesCalculator'
-// export { ClimateReceivablesCalculator } from './ClimateReceivablesCalculator'
-// export { InvoiceReceivablesCalculator } from './InvoiceReceivablesCalculator'
+// Extended Calculators - FINAL 4 COMPLETE ✅
+export { StructuredProductCalculator } from './StructuredProductCalculator'
+export type {
+  StructuredProductCalculationInput,
+  StructuredProductPriceData,
+  PayoffScenario,
+  RiskMetrics as StructuredProductRiskMetrics,
+  ComplexityAnalysis
+} from './StructuredProductCalculator'
+
+export { CollectiblesCalculator } from './CollectiblesCalculator'
+export type {
+  CollectiblesCalculationInput,
+  AuthenticityDetails,
+  ProvenanceDetails,
+  OwnershipRecord,
+  Exhibition,
+  Publication,
+  CollectiblesMarketData,
+  AuctionResult,
+  StorageRequirements,
+  ValuationMetrics,
+  RiskAssessment as CollectiblesRiskAssessment
+} from './CollectiblesCalculator'
+
+export { ClimateReceivablesCalculator } from './ClimateReceivablesCalculator'
+export type {
+  ClimateReceivablesCalculationInput,
+  CobenefitDetails,
+  ClimateReceivablesPriceData,
+  VerificationMetrics,
+  PolicyImpactAnalysis,
+  ClimateRiskAssessment,
+  SustainabilityMetrics,
+  MarketDynamics,
+  ComplianceMarketData,
+  VoluntaryMarketData,
+  FuturesMarketData,
+  MarketCorrelations
+} from './ClimateReceivablesCalculator'
+
+export { InvoiceReceivablesCalculator } from './InvoiceReceivablesCalculator'
+export type {
+  InvoiceReceivablesCalculationInput,
+  CollectionHistory,
+  GuaranteeDetails,
+  InsuranceDetails,
+  VerificationStatus,
+  InvoiceReceivablesPriceData,
+  CreditRiskAssessment as InvoiceCreditRiskAssessment,
+  CollectionMetrics,
+  FactoringTerms,
+  ConcentrationLimits,
+  IndustryAnalysis,
+  SeasonalityPattern,
+  DilutionAnalysis
+} from './InvoiceReceivablesCalculator'
 
 // ==================== FACTORY FUNCTIONS ====================
 
@@ -238,8 +290,22 @@ export const CALCULATOR_FOUNDATION_IMPLEMENTED = true
  * - CommoditiesCalculator ✅
  * - StablecoinCryptoCalculator ✅
  * - AssetBackedCalculator ✅
+ * 
+ * Extended Calculators: 15/15 COMPLETED ✅
+ * - CompositeFundCalculator ✅
+ * - PrivateEquityCalculator ✅
+ * - RealEstateCalculator ✅
+ * - PrivateDebtCalculator ✅
+ * - InfrastructureCalculator ✅
+ * - EnergyCalculator ✅
+ * - DigitalTokenizedFundCalculator ✅
+ * - QuantitativeStrategiesCalculator ✅
+ * - StructuredProductCalculator ✅
+ * - CollectiblesCalculator ✅
+ * - ClimateReceivablesCalculator ✅
+ * - InvoiceReceivablesCalculator ✅
  */
-export const ASSET_CALCULATORS_IMPLEMENTED = true // Phase 6 Priority Calculators COMPLETE
+export const ASSET_CALCULATORS_IMPLEMENTED = true // ALL CALCULATORS COMPLETE ✅
 
 /**
  * List of asset types that will be supported when Phase 6 is complete
