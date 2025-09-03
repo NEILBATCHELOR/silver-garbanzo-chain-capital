@@ -122,6 +122,7 @@ export interface CalculationResult {
   calculatedAt: Date
   status: CalculationStatus
   errorMessage?: string
+  metadata?: Record<string, any>
 }
 
 // ==================== VALIDATION ====================

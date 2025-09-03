@@ -90,7 +90,7 @@ export type {
   TranchingStructure 
 } from './AssetBackedCalculator'
 
-// Extended Calculators (Plan 1 Additions) - SAMPLE IMPLEMENTATIONS
+// Extended Calculators (Plan 1 Additions) - IMPLEMENTED
 export { CompositeFundCalculator } from './CompositeFundCalculator'
 export type { 
   CompositeFundCalculationInput, 
@@ -101,16 +101,99 @@ export type {
   RiskAttribution 
 } from './CompositeFundCalculator'
 
+// PrivateEquityCalculator - COMPLETED ✅
+export { PrivateEquityCalculator } from './PrivateEquityCalculator'
+export type {
+  PrivateEquityCalculationInput,
+  PortfolioCompany,
+  FundPerformanceMetrics,
+  JCurveAnalysis,
+  IlliquidityAdjustment
+} from './PrivateEquityCalculator'
+
+// RealEstateCalculator - COMPLETED ✅
+export { RealEstateCalculator } from './RealEstateCalculator'
+export type {
+  RealEstateCalculationInput,
+  PropertyDetails,
+  MarketComparables,
+  ValuationResult,
+  ReitMetrics
+} from './RealEstateCalculator'
+
+// PrivateDebtCalculator - COMPLETED ✅
+export { PrivateDebtCalculator } from './PrivateDebtCalculator'
+export type {
+  PrivateDebtCalculationInput,
+  LoanDetails,
+  CreditRiskAssessment,
+  CollateralAnalysis,
+  PortfolioMetrics
+} from './PrivateDebtCalculator'
+
+// InfrastructureCalculator - COMPLETED ✅
+export { InfrastructureCalculator } from './InfrastructureCalculator'
+export type { InfrastructureCalculationInput, InfrastructureAsset } from './InfrastructureCalculator'
+
+export { EnergyCalculator } from './EnergyCalculator'
+export type { 
+  EnergyCalculationInput, 
+  EnergyAsset,
+  EnergyRiskMetrics,
+  PowerPurchaseAgreement,
+  WeatherRisk,
+  CommodityExposure,
+  EnergyValuationScenario
+} from './EnergyCalculator'
+
+export { DigitalTokenizedFundCalculator } from './DigitalTokenizedFundCalculator'
+export type { 
+  DigitalTokenizedFundCalculationInput,
+  DigitalAsset,
+  LiquidityPoolPosition,
+  StakingPosition,
+  YieldFarmingPosition,
+  GovernanceToken,
+  VestingSchedule,
+  AuditStatus,
+  TechnicalMetrics,
+  DeFiMetrics,
+  TokenMetrics,
+  DigitalRiskMetrics,
+  GovernanceMetrics,
+  BlockchainPosition,
+  CrossChainBridge,
+  DeFiProtocolExposure,
+  TokenomicsData
+} from './DigitalTokenizedFundCalculator'
+
+export { QuantitativeStrategiesCalculator } from './QuantitativeStrategiesCalculator'
+export type { 
+  QuantitativeStrategiesCalculationInput,
+  FactorLoading,
+  QuantStrategy,
+  PerformanceMetrics,
+  QuantRiskMetrics,
+  FactorExposure,
+  FactorMetric,
+  BacktestResults,
+  YearlyPerformance,
+  AlgorithmicExecution,
+  QuantPosition,
+  DynamicHedging,
+  HedgeInstrument,
+  RiskManagement,
+  StressTestResult,
+  SystemMetrics,
+  AlphaSource,
+  ModelValidation,
+  WalkForwardResult,
+  RobustnessTest
+} from './QuantitativeStrategiesCalculator'
+
 // TODO: Implement remaining extended calculators
-// export { PrivateEquityCalculator } from './PrivateEquityCalculator'
-// export { PrivateDebtCalculator } from './PrivateDebtCalculator'
-// export { RealEstateCalculator } from './RealEstateCalculator'
-// export { InfrastructureCalculator } from './InfrastructureCalculator'
 // export { StructuredProductCalculator } from './StructuredProductCalculator'
-// export { QuantitativeStrategiesCalculator } from './QuantitativeStrategiesCalculator'
-// export { EnergyCalculator } from './EnergyCalculator'
 // export { CollectiblesCalculator } from './CollectiblesCalculator'
-// export { DigitalTokenizedFundCalculator } from './DigitalTokenizedFundCalculator'
 // export { ClimateReceivablesCalculator } from './ClimateReceivablesCalculator'
 // export { InvoiceReceivablesCalculator } from './InvoiceReceivablesCalculator'
 
