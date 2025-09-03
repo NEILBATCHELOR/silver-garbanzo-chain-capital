@@ -63,10 +63,56 @@ export type {
   StablecoinComplianceMetrics 
 } from './StablecoinFiatCalculator'
 
-// TODO: Export remaining priority calculators as they are implemented
-// export { StablecoinCryptoCalculator } from './StablecoinCryptoCalculator'
-// export { CommoditiesCalculator } from './CommoditiesCalculator'
-// export { AssetBackedCalculator } from './AssetBackedCalculator'
+// Priority Calculators (Phase 6) - COMPLETED
+export { CommoditiesCalculator } from './CommoditiesCalculator'
+export type { 
+  CommodityCalculationInput, 
+  CommodityPriceData, 
+  CommodityRollData, 
+  StorageCostData 
+} from './CommoditiesCalculator'
+
+export { StablecoinCryptoCalculator } from './StablecoinCryptoCalculator'
+export type { 
+  StablecoinCryptoCalculationInput, 
+  CollateralAsset, 
+  StablecoinCryptoPriceData, 
+  LiquidationRisk, 
+  ProtocolMetrics 
+} from './StablecoinCryptoCalculator'
+
+export { AssetBackedCalculator } from './AssetBackedCalculator'
+export type { 
+  AssetBackedCalculationInput, 
+  AssetBackedPriceData, 
+  CashFlowProjection, 
+  CreditMetrics, 
+  TranchingStructure 
+} from './AssetBackedCalculator'
+
+// Extended Calculators (Plan 1 Additions) - SAMPLE IMPLEMENTATIONS
+export { CompositeFundCalculator } from './CompositeFundCalculator'
+export type { 
+  CompositeFundCalculationInput, 
+  AssetAllocationTarget, 
+  ConcentrationLimit, 
+  PortfolioHolding, 
+  CompositeFundMetrics, 
+  RiskAttribution 
+} from './CompositeFundCalculator'
+
+// TODO: Implement remaining extended calculators
+// export { PrivateEquityCalculator } from './PrivateEquityCalculator'
+// export { PrivateDebtCalculator } from './PrivateDebtCalculator'
+// export { RealEstateCalculator } from './RealEstateCalculator'
+// export { InfrastructureCalculator } from './InfrastructureCalculator'
+// export { StructuredProductCalculator } from './StructuredProductCalculator'
+// export { QuantitativeStrategiesCalculator } from './QuantitativeStrategiesCalculator'
+// export { EnergyCalculator } from './EnergyCalculator'
+// export { CollectiblesCalculator } from './CollectiblesCalculator'
+// export { DigitalTokenizedFundCalculator } from './DigitalTokenizedFundCalculator'
+// export { ClimateReceivablesCalculator } from './ClimateReceivablesCalculator'
+// export { InvoiceReceivablesCalculator } from './InvoiceReceivablesCalculator'
 
 // ==================== FACTORY FUNCTIONS ====================
 
@@ -100,17 +146,17 @@ export function createDefaultCalculatorRegistry(): CalculatorRegistry {
 export const CALCULATOR_FOUNDATION_IMPLEMENTED = true
 
 /**
- * Indicates specific asset calculators are partially implemented
- * Phase 7 in progress: 4/7 priority calculators completed
+ * Indicates specific asset calculators implementation status
+ * Phase 6 Priority Calculators: 7/7 COMPLETED ✅
  * - EquityCalculator ✅
  * - BondCalculator ✅  
  * - MmfCalculator ✅
  * - StablecoinFiatCalculator ✅
- * - StablecoinCryptoCalculator ⏳
- * - CommoditiesCalculator ⏳
- * - AssetBackedCalculator ⏳
+ * - CommoditiesCalculator ✅
+ * - StablecoinCryptoCalculator ✅
+ * - AssetBackedCalculator ✅
  */
-export const ASSET_CALCULATORS_IMPLEMENTED = false // Will be true when all 7 priority calculators are done
+export const ASSET_CALCULATORS_IMPLEMENTED = true // Phase 6 Priority Calculators COMPLETE
 
 /**
  * List of asset types that will be supported when Phase 6 is complete
