@@ -110,8 +110,8 @@ export function resolveAssetTypeFromTable(tableName: string, productData?: any):
       return AssetType.COMPOSITE_FUNDS
       
     case 'stablecoin_products':
-      // Determine stablecoin type from backing_type or similar field
-      const backingType = productData?.backing_type?.toLowerCase() || 
+      // Determine stablecoin type from collateral_type_enum (verified field)
+      const backingType = productData?.collateral_type_enum?.toLowerCase() || 
                          productData?.collateral_type?.toLowerCase()
       if (backingType === 'fiat' || backingType === 'fiat_backed') {
         return AssetType.STABLECOIN_FIAT_BACKED

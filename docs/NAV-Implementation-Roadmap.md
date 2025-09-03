@@ -10,9 +10,9 @@
 | 0 | Database Schema | ✅ Complete | - | - | - |
 | 0.1 | Dependencies | ✅ Complete | - | - | - |
 | 1 | TypeScript Types | ✅ Complete | - | - | - |
-| 2 | API Routes | ❌ Not Started | P0 | 2-3 days | Phase 3 |
-| 3 | Product Type Utils | ❌ Not Started | P0 | 1 day | Types |
-| 4 | Basic NAV Service | ❌ Not Started | P0 | 2-3 days | Phase 3 |
+| 2 | API Routes | ✅ Complete | P0 | 2-3 days | Phase 3 |
+| 3 | Product Type Utils | ✅ Complete | P0 | 1 day | Types |
+| 4 | Basic NAV Service | ✅ Complete | P0 | 2-3 days | Phase 3 |
 | 5 | Calculator Foundation | ✅ Complete | P0 | 1-2 days | Phase 4 |
 | 6 | Asset Calculators | ❌ Not Started | P0 | 3-5 days | Phase 5 |
 | 7 | Market Data Oracle | ❌ Not Started | P0 | 2-3 days | API keys |

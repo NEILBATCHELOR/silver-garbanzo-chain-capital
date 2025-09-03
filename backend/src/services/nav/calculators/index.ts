@@ -36,9 +36,14 @@ export type {
 
 // ==================== ASSET-SPECIFIC CALCULATORS ====================
 
-// TODO: Export specific calculators as they are implemented in Phase 6
-// export { EquityCalculator } from './EquityCalculator'
-// export { BondCalculator } from './BondCalculator'
+// Phase 6 Implementation - Priority calculators
+export { EquityCalculator } from './EquityCalculator'
+export type { EquityCalculationInput, EquityPriceData } from './EquityCalculator'
+
+export { BondCalculator } from './BondCalculator'
+export type { BondCalculationInput, BondPriceData, YieldCurvePoint } from './BondCalculator'
+
+// TODO: Export remaining priority calculators as they are implemented
 // export { MmfCalculator } from './MmfCalculator'
 // export { StablecoinFiatCalculator } from './StablecoinFiatCalculator'
 // export { StablecoinCryptoCalculator } from './StablecoinCryptoCalculator'
@@ -77,10 +82,10 @@ export function createDefaultCalculatorRegistry(): CalculatorRegistry {
 export const CALCULATOR_FOUNDATION_IMPLEMENTED = true
 
 /**
- * Indicates specific asset calculators are not yet implemented
- * This will be set to true in Phase 6
+ * Indicates specific asset calculators are partially implemented
+ * Phase 6 in progress: 2/7 priority calculators completed
  */
-export const ASSET_CALCULATORS_IMPLEMENTED = false
+export const ASSET_CALCULATORS_IMPLEMENTED = false // Will be true when all 7 priority calculators are done
 
 /**
  * List of asset types that will be supported when Phase 6 is complete

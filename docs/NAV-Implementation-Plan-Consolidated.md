@@ -64,7 +64,7 @@ class CalculatorRegistry {
 #### 3. Enhanced Calculator Coverage (15+ Types)
 Expand from Plan 2's 7 calculators to Plan 1's comprehensive coverage:
 
-**Priority Calculators (MVP - Plan 2):**
+**Priority Calculators (MVP - Plan 2):** 
 - MmfCalculator.ts - Money Market Funds
 - BondCalculator.ts - Fixed Income Securities
 - EquityCalculator.ts - Stock Holdings
