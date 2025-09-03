@@ -404,6 +404,128 @@ export type Database = {
           },
         ]
       }
+      asset_holdings: {
+        Row: {
+          asset_id: string
+          credit_rating: string | null
+          holding_type: string
+          id: string
+          maturity_date: string | null
+          quantity: number
+          source: string
+          updated_at: string | null
+          value: number
+        }
+        Insert: {
+          asset_id: string
+          credit_rating?: string | null
+          holding_type: string
+          id?: string
+          maturity_date?: string | null
+          quantity: number
+          source?: string
+          updated_at?: string | null
+          value: number
+        }
+        Update: {
+          asset_id?: string
+          credit_rating?: string | null
+          holding_type?: string
+          id?: string
+          maturity_date?: string | null
+          quantity?: number
+          source?: string
+          updated_at?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
+      asset_nav_data: {
+        Row: {
+          asset_id: string
+          asset_name: string
+          calculated_nav: number | null
+          calculation_method: string | null
+          change_amount: number | null
+          change_percent: number | null
+          created_at: string | null
+          created_by: string | null
+          date: string
+          id: string
+          market_conditions: string | null
+          nav: number
+          notes: string | null
+          outstanding_shares: number
+          previous_nav: number | null
+          project_id: string
+          source: string
+          total_assets: number
+          total_liabilities: number
+          updated_at: string | null
+          validated: boolean | null
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          asset_id: string
+          asset_name: string
+          calculated_nav?: number | null
+          calculation_method?: string | null
+          change_amount?: number | null
+          change_percent?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          date: string
+          id?: string
+          market_conditions?: string | null
+          nav: number
+          notes?: string | null
+          outstanding_shares: number
+          previous_nav?: number | null
+          project_id: string
+          source?: string
+          total_assets: number
+          total_liabilities?: number
+          updated_at?: string | null
+          validated?: boolean | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          asset_id?: string
+          asset_name?: string
+          calculated_nav?: number | null
+          calculation_method?: string | null
+          change_amount?: number | null
+          change_percent?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          date?: string
+          id?: string
+          market_conditions?: string | null
+          nav?: number
+          notes?: string | null
+          outstanding_shares?: number
+          previous_nav?: number | null
+          project_id?: string
+          source?: string
+          total_assets?: number
+          total_liabilities?: number
+          updated_at?: string | null
+          validated?: boolean | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_nav_data_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -8080,7 +8202,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          id: string
+          id?: string
           profile_type?: Database["public"]["Enums"]["profile_type"] | null
           updated_at?: string
           user_id?: string | null

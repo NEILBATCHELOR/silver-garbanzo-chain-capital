@@ -934,31 +934,237 @@ $$;
 
 
 --
+-- Name: calculate_daily_nav(uuid, date); Type: PROCEDURE; Schema: public; Owner: -
+--
+
+CREATE PROCEDURE public.calculate_daily_nav(IN p_project_id uuid, IN p_date date)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  v_product RECORD; -- Dynamic per type
+  v_nav NUMERIC(18,6); -- Computed NAV
+  v_total_assets NUMERIC(78,18); -- Summed assets
+  v_asset_name TEXT; -- Name from product table
+  v_total_liabilities NUMERIC(78,18) := 0; -- Example: defaults to 0; compute as needed
+  v_outstanding_shares NUMERIC(78,18); -- From token views or product
+BEGIN
+  -- Loop over products for project (union across all product tables for comprehensive coverage)
+  FOR v_product IN 
+    SELECT id, 'asset_backed' AS type FROM asset_backed_products WHERE project_id = p_project_id
+    UNION SELECT id, 'bond' AS type FROM bond_products WHERE project_id = p_project_id
+    UNION SELECT id, 'collectible' AS type FROM collectibles_products WHERE project_id = p_project_id
+    UNION SELECT id, 'commodity' AS type FROM commodities_products WHERE project_id = p_project_id
+    UNION SELECT id, 'climate_receivable' AS type FROM climate_receivables WHERE project_id = p_project_id
+    UNION SELECT id, 'digital_fund' AS type FROM digital_tokenised_fund_products WHERE project_id = p_project_id
+    UNION SELECT id, 'energy' AS type FROM energy_assets WHERE project_id = p_project_id
+    UNION SELECT id, 'equity' AS type FROM equity_products WHERE project_id = p_project_id
+    UNION SELECT id, 'fund' AS type FROM funds_products WHERE project_id = p_project_id
+    UNION SELECT id, 'infrastructure' AS type FROM infrastructure_products WHERE project_id = p_project_id
+    UNION SELECT id, 'private_debt' AS type FROM private_debt_products WHERE project_id = p_project_id
+    UNION SELECT id, 'private_equity' AS type FROM private_equity_products WHERE project_id = p_project_id
+    UNION SELECT id, 'real_estate' AS type FROM real_estate_products WHERE project_id = p_project_id
+    UNION SELECT id, 'structured' AS type FROM structured_products WHERE project_id = p_project_id
+    -- Add stablecoin subtypes if separate tables exist; otherwise handle via digital_fund or JSON
+    UNION SELECT id, 'stablecoin_fiat' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Fiat'
+    UNION SELECT id, 'stablecoin_crypto' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Crypto'
+    UNION SELECT id, 'stablecoin_commodity' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Commodity'
+    UNION SELECT id, 'stablecoin_algorithmic' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Algorithmic'
+    UNION SELECT id, 'stablecoin_rebasing' AS type FROM stablecoin_products WHERE project_id = p_project_id AND collateral_type = 'Rebasing' -- Adjust if rebasing is a flag
+  LOOP
+    -- Compute values based on product type (specialist logic per type; examples based on schema fields/oracles)
+    CASE v_product.type
+      WHEN 'asset_backed' THEN
+        -- Specialist: Discounted cash flows, adjust for delinquency/recovery
+        SELECT asset_type, current_balance, (current_balance * (1 + (interest_rate / 100)) * (recovery_rate_percentage / 100)), total_supply::NUMERIC(78,18)
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM asset_backed_products abp
+        LEFT JOIN token_erc20_view tv ON abp.id::text = tv.token_id
+        WHERE abp.id = v_product.id;
+        -- Adjust for delinquency
+        IF delinquency_status > 0 THEN v_total_assets := v_total_assets * (1 - (delinquency_status / 100)); END IF;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'bond' THEN
+        -- Specialist: Mark-to-market with yield adjustment
+        SELECT issuer_name, face_value, (face_value * (1 + (yield_to_maturity / 100))), outstanding_supply::NUMERIC(78,18)
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM bond_products bp
+        LEFT JOIN token_erc20_view tv ON bp.id::text = tv.token_id
+        WHERE bp.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'collectible' THEN
+        -- Specialist: Appraisal-based for uniques
+        SELECT description, current_value, current_value, 1 -- Often 1 share
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM collectibles_products cp
+        WHERE cp.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'commodity' THEN
+        -- Specialist: Contract size with liquidity adjustment
+        SELECT commodity_name, (contract_size * liquidity_metric), (contract_size * liquidity_metric), total_supply::NUMERIC(78,18)
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM commodities_products cp
+        LEFT JOIN token_erc20_view tv ON cp.id::text = tv.token_id
+        WHERE cp.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'climate_receivable' THEN
+        -- Specialist: Discounted green cash flows
+        SELECT receivable_type, amount, (amount / (1 + (discount_rate / 100))), 1
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM climate_receivables cr
+        WHERE cr.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'digital_fund' THEN
+        -- Specialist: Mirror underlying with on-chain adjustments
+        SELECT fund_name, total_value, total_value / outstanding_units, outstanding_units
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM digital_tokenised_fund_products dtf
+        LEFT JOIN token_erc20_view tv ON dtf.id::text = tv.token_id
+        WHERE dtf.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'energy' THEN
+        -- Specialist: Capacity-based with market price
+        SELECT asset_name, (capacity * production_rate * market_price), (capacity * production_rate * market_price), total_supply::NUMERIC(78,18)
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM energy_assets ea
+        LEFT JOIN token_erc20_view tv ON ea.id::text = tv.token_id
+        WHERE ea.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'equity' THEN
+        -- Specialist: Market cap or multiples
+        SELECT company_name, (shares_outstanding * current_share_price), (shares_outstanding * current_share_price), shares_outstanding
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM equity_products ep
+        WHERE ep.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'fund' THEN
+        -- Specialist: Weighted holdings (e.g., MMFs with compliance)
+        SELECT fund_name, SUM(ah.value), SUM(ah.value) / total_units, total_units
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM funds_products fp
+        LEFT JOIN asset_holdings ah ON fp.id = ah.asset_id
+        LEFT JOIN token_erc20_view tv ON fp.id::text = tv.token_id
+        WHERE fp.id = v_product.id AND (ah.maturity_date - p_date) <= 397 -- MMF maturity limit
+        GROUP BY fp.fund_name, fp.total_units, tv.total_supply;
+        -- Example MMF WAM check (simplified); raise error if >60
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares); -- Aim ~1.00
+
+      WHEN 'infrastructure' THEN
+        -- Specialist: Revenue projections with depreciation
+        SELECT project_name, (project_value - depreciation_accumulated), (project_value - depreciation_accumulated), total_units
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM infrastructure_products ip
+        WHERE ip.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'private_debt' THEN
+        -- Specialist: Amortized + interest minus impairments
+        SELECT debt_type, (principal_amount * (1 + (interest_rate / 100)) - impairment_amount), (principal_amount * (1 + (interest_rate / 100)) - impairment_amount), outstanding_units
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM private_debt_products pdp
+        WHERE pdp.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'private_equity' THEN
+        -- Specialist: Appraisal-based
+        SELECT company_name, current_valuation, current_valuation / shares_outstanding, shares_outstanding
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM private_equity_products pep
+        WHERE pep.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'real_estate' THEN
+        -- Specialist: Cap rate on NOI
+        SELECT property_name, (net_operating_income / cap_rate), (net_operating_income / cap_rate), total_units
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM real_estate_products rep
+        WHERE rep.id = v_product.id;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'structured' THEN
+        -- Specialist: Sum underlying with risk adjustments
+        SELECT product_name, SUM(underlying_value) * (1 - risk_factor), SUM(underlying_value) * (1 - risk_factor), total_units
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM structured_products sp
+        LEFT JOIN asset_holdings ah ON sp.id = ah.asset_id -- Assume holdings for underlyings
+        WHERE sp.id = v_product.id
+        GROUP BY sp.product_name, sp.total_units;
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      WHEN 'stablecoin_fiat' OR 'stablecoin_crypto' OR 'stablecoin_commodity' OR 'stablecoin_algorithmic' OR 'stablecoin_rebasing' THEN
+        -- Specialist: Peg stability; over-collateral for crypto/commodity
+        SELECT stablecoin_name, collateral_value, 1.00, total_supply::NUMERIC(78,18) -- Aim for peg ~1.00
+        INTO v_asset_name, v_total_assets, v_nav, v_outstanding_shares
+        FROM stablecoin_products scp
+        LEFT JOIN token_erc20_view tv ON scp.id::text = tv.token_id
+        WHERE scp.id = v_product.id;
+        -- For crypto: Ensure over-collateral (e.g., if collateral_value / total_supply < 1.5, flag)
+        IF v_product.type = 'stablecoin_rebasing' THEN v_outstanding_shares := v_outstanding_shares * rebasing_factor; END IF; -- Rebase adjustment
+        v_nav := COALESCE(v_nav, (v_total_assets - v_total_liabilities) / v_outstanding_shares);
+
+      ELSE
+        -- Default/fallback (aggregate from holdings if possible)
+        v_asset_name := 'Unknown Asset';
+        SELECT SUM(ah.value), COUNT(ah.id)
+        INTO v_total_assets, v_outstanding_shares
+        FROM asset_holdings ah
+        WHERE ah.asset_id = v_product.id;
+        v_outstanding_shares := GREATEST(v_outstanding_shares, 1); -- Avoid division by zero
+        v_nav := (v_total_assets - v_total_liabilities) / v_outstanding_shares;
+    END CASE;
+
+    -- Insert with computed values
+    INSERT INTO asset_nav_data (asset_id, project_id, date, nav, total_assets, asset_name, total_liabilities, outstanding_shares, source)
+    VALUES (v_product.id, p_project_id, p_date, v_nav, v_total_assets, v_asset_name, v_total_liabilities, v_outstanding_shares, 'calculated')
+    ON CONFLICT (asset_id, date) DO UPDATE SET 
+      nav = EXCLUDED.nav, 
+      total_assets = EXCLUDED.total_assets, 
+      asset_name = EXCLUDED.asset_name, 
+      total_liabilities = EXCLUDED.total_liabilities, 
+      outstanding_shares = EXCLUDED.outstanding_shares,
+      updated_at = NOW(); -- Update timestamp
+  END LOOP;
+END;
+$$;
+
+
+--
 -- Name: calculate_nav_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.calculate_nav_change() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-DECLARE
-    prev_nav DECIMAL(18, 6);
 BEGIN
-    -- Get previous NAV for the same fund
-    SELECT nav INTO prev_nav
-    FROM fund_nav_data
-    WHERE fund_id = NEW.fund_id 
+  -- Retrieve the most recent previous NAV for the same asset before the current date
+  SELECT nav INTO NEW.previous_nav
+  FROM public.asset_nav_data
+  WHERE asset_id = NEW.asset_id
     AND date < NEW.date
-    ORDER BY date DESC
-    LIMIT 1;
-    
-    IF prev_nav IS NOT NULL THEN
-        NEW.previous_nav = prev_nav;
-        NEW.change_amount = NEW.nav - prev_nav;
-        NEW.change_percent = ((NEW.nav - prev_nav) / prev_nav) * 100;
+  ORDER BY date DESC
+  LIMIT 1;
+
+  -- Calculate changes if a previous NAV exists
+  IF NEW.previous_nav IS NOT NULL THEN
+    NEW.change_amount := NEW.nav - NEW.previous_nav;
+    IF NEW.previous_nav != 0 THEN
+      NEW.change_percent := (NEW.change_amount / NEW.previous_nav) * 100;
+    ELSE
+      NEW.change_percent := NULL;
     END IF;
-    
-    NEW.updated_at = NOW();
-    RETURN NEW;
+  ELSE
+    NEW.change_amount := NULL;
+    NEW.change_percent := NULL;
+  END IF;
+
+  RETURN NEW;
 END;
 $$;
 
@@ -5515,6 +5721,23 @@ $$;
 
 
 --
+-- Name: update_total_assets(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_total_assets() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  UPDATE public.asset_nav_data
+  SET total_assets = (SELECT SUM(value) FROM public.asset_holdings WHERE asset_id = NEW.asset_id),
+      updated_at = NOW()
+  WHERE asset_id = NEW.asset_id AND date = CURRENT_DATE;  -- Respects unique_asset_date
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6572,6 +6795,66 @@ CREATE TABLE public.asset_backed_products (
 --
 
 COMMENT ON TABLE public.asset_backed_products IS 'Asset-backed securities and receivables products with unique constraint on project_id to ensure one product per project';
+
+
+--
+-- Name: asset_holdings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.asset_holdings (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    asset_id uuid NOT NULL,
+    holding_type text NOT NULL,
+    quantity numeric(78,18) NOT NULL,
+    value numeric(78,18) NOT NULL,
+    maturity_date date,
+    credit_rating text,
+    source text DEFAULT 'oracle'::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT asset_holdings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'oracle'::text, 'calculated'::text, 'administrator'::text]))),
+    CONSTRAINT positive_quantity CHECK ((quantity > (0)::numeric)),
+    CONSTRAINT positive_value CHECK ((value > (0)::numeric))
+);
+
+
+--
+-- Name: asset_nav_data; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.asset_nav_data (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    asset_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    date date NOT NULL,
+    nav numeric(18,6) NOT NULL,
+    total_assets numeric(78,18) NOT NULL,
+    asset_name text NOT NULL,
+    total_liabilities numeric(78,18) DEFAULT 0 NOT NULL,
+    outstanding_shares numeric(78,18) NOT NULL,
+    previous_nav numeric(18,6),
+    change_amount numeric(18,6),
+    change_percent numeric(8,4),
+    source text DEFAULT 'manual'::text NOT NULL,
+    validated boolean DEFAULT false,
+    validated_by uuid,
+    validated_at timestamp with time zone,
+    notes text,
+    calculation_method text,
+    market_conditions text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    created_by uuid,
+    calculated_nav numeric(18,6) GENERATED ALWAYS AS (
+CASE
+    WHEN (total_assets > total_liabilities) THEN ((total_assets - total_liabilities) / outstanding_shares)
+    ELSE NULL::numeric
+END) STORED,
+    CONSTRAINT asset_nav_data_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'oracle'::text, 'calculated'::text, 'administrator'::text]))),
+    CONSTRAINT non_negative_liabilities CHECK ((total_liabilities >= (0)::numeric)),
+    CONSTRAINT positive_assets CHECK ((total_assets > (0)::numeric)),
+    CONSTRAINT positive_nav CHECK ((nav > (0)::numeric)),
+    CONSTRAINT positive_shares CHECK ((outstanding_shares > (0)::numeric))
+);
 
 
 --
@@ -10464,7 +10747,7 @@ CREATE TABLE public.production_data (
 --
 
 CREATE TABLE public.profiles (
-    id uuid NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
     profile_type public.profile_type,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -15882,6 +16165,22 @@ COMMENT ON CONSTRAINT asset_backed_products_project_id_key ON public.asset_backe
 
 
 --
+-- Name: asset_holdings asset_holdings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_holdings
+    ADD CONSTRAINT asset_holdings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: asset_nav_data asset_nav_data_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_nav_data
+    ADD CONSTRAINT asset_nav_data_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18876,6 +19175,14 @@ ALTER TABLE ONLY public.transactions
 
 
 --
+-- Name: asset_nav_data unique_asset_date; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_nav_data
+    ADD CONSTRAINT unique_asset_date UNIQUE (asset_id, date);
+
+
+--
 -- Name: approval_config_approvers unique_config_role_approver; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -19393,6 +19700,27 @@ CREATE INDEX idx_asset_backed_products_project_id ON public.asset_backed_product
 --
 
 CREATE UNIQUE INDEX idx_asset_backed_products_project_id_unique ON public.asset_backed_products USING btree (project_id);
+
+
+--
+-- Name: idx_asset_holdings_asset_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_holdings_asset_id ON public.asset_holdings USING btree (asset_id);
+
+
+--
+-- Name: idx_asset_nav_data_fund_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_nav_data_fund_date ON public.asset_nav_data USING btree (asset_id, date DESC);
+
+
+--
+-- Name: idx_asset_nav_data_validated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_asset_nav_data_validated ON public.asset_nav_data USING btree (validated, date DESC);
 
 
 --
@@ -24317,6 +24645,13 @@ CREATE TRIGGER tr_redemption_windows_updated_at BEFORE UPDATE ON public.redempti
 
 
 --
+-- Name: asset_nav_data trigger_calculate_asset_nav_change; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_calculate_asset_nav_change BEFORE INSERT OR UPDATE ON public.asset_nav_data FOR EACH ROW EXECUTE FUNCTION public.calculate_nav_change();
+
+
+--
 -- Name: fund_nav_data trigger_calculate_nav_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -24601,6 +24936,13 @@ CREATE TRIGGER trigger_update_group_member_count_insert_new AFTER INSERT ON publ
 --
 
 CREATE TRIGGER trigger_update_settlement_status BEFORE UPDATE ON public.redemption_settlements FOR EACH ROW EXECUTE FUNCTION public.update_settlement_status();
+
+
+--
+-- Name: asset_holdings trigger_update_total_assets; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_total_assets AFTER INSERT OR DELETE OR UPDATE ON public.asset_holdings FOR EACH ROW EXECUTE FUNCTION public.update_total_assets();
 
 
 --
@@ -25121,6 +25463,30 @@ ALTER TABLE ONLY public.approval_configs
 
 ALTER TABLE ONLY public.approval_requests
     ADD CONSTRAINT approval_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: asset_nav_data asset_nav_data_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_nav_data
+    ADD CONSTRAINT asset_nav_data_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: asset_nav_data asset_nav_data_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_nav_data
+    ADD CONSTRAINT asset_nav_data_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: asset_nav_data asset_nav_data_validated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.asset_nav_data
+    ADD CONSTRAINT asset_nav_data_validated_by_fkey FOREIGN KEY (validated_by) REFERENCES auth.users(id);
 
 
 --
@@ -27693,6 +28059,16 @@ GRANT ALL ON FUNCTION public.begin_transaction() TO prisma;
 
 
 --
+-- Name: PROCEDURE calculate_daily_nav(IN p_project_id uuid, IN p_date date); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON PROCEDURE public.calculate_daily_nav(IN p_project_id uuid, IN p_date date) TO anon;
+GRANT ALL ON PROCEDURE public.calculate_daily_nav(IN p_project_id uuid, IN p_date date) TO authenticated;
+GRANT ALL ON PROCEDURE public.calculate_daily_nav(IN p_project_id uuid, IN p_date date) TO service_role;
+GRANT ALL ON PROCEDURE public.calculate_daily_nav(IN p_project_id uuid, IN p_date date) TO prisma;
+
+
+--
 -- Name: FUNCTION calculate_nav_change(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -29033,6 +29409,16 @@ GRANT ALL ON FUNCTION public.update_timestamp_column() TO prisma;
 
 
 --
+-- Name: FUNCTION update_total_assets(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_total_assets() TO anon;
+GRANT ALL ON FUNCTION public.update_total_assets() TO authenticated;
+GRANT ALL ON FUNCTION public.update_total_assets() TO service_role;
+GRANT ALL ON FUNCTION public.update_total_assets() TO prisma;
+
+
+--
 -- Name: FUNCTION update_updated_at_column(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -29350,6 +29736,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.as
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO prisma;
+
+
+--
+-- Name: TABLE asset_holdings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO prisma;
+
+
+--
+-- Name: TABLE asset_nav_data; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO prisma;
 
 
 --
