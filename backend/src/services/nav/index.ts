@@ -1,30 +1,41 @@
-// TODO: Implement missing Nav services
-// import { NavService } from './NavService'
+// ==================== SERVICE IMPORTS ====================
+
+// Implemented services
+import { NavService } from './NavService'
+// TODO: Implement remaining services
 // import { MarketDataOracleService } from './MarketDataOracleService'
 // import { FxRateService } from './FxRateService'
 
-// Export service classes (commented out until services are implemented)
-// export { NavService } from './NavService'
+// ==================== EXPORTS ====================
+
+// Export service classes
+export { NavService } from './NavService'
+// TODO: Export remaining services when implemented
 // export { MarketDataOracleService } from './MarketDataOracleService'
 // export { FxRateService } from './FxRateService'
+
+// Export utility classes
+export * from './ProductTypeUtilities'
 
 // Export types
 export * from './types'
 
-// TODO: Implement Nav service factories when services are created
+// ==================== SERVICE FACTORIES ====================
+
 // Service instances (lazy loaded)
-// let navService: NavService | undefined
+let navService: NavService | undefined
 // let marketDataOracleService: MarketDataOracleService | undefined
 // let fxRateService: FxRateService | undefined
 
 // Factory functions for dependency injection
-// export const getNavService = (): NavService => {
-//   if (!navService) {
-//     navService = new NavService()
-//   }
-//   return navService
-// }
+export const getNavService = (): NavService => {
+  if (!navService) {
+    navService = new NavService()
+  }
+  return navService
+}
 
+// TODO: Implement remaining service factories
 // export const getMarketDataOracleService = (): MarketDataOracleService => {
 //   if (!marketDataOracleService) {
 //     marketDataOracleService = new MarketDataOracleService()
@@ -40,8 +51,8 @@ export * from './types'
 // }
 
 // Utility function to reset services (useful for testing)
-// export const resetNavServices = (): void => {
-//   navService = undefined
-//   marketDataOracleService = undefined
-//   fxRateService = undefined
-// }
+export const resetNavServices = (): void => {
+  navService = undefined
+  // marketDataOracleService = undefined
+  // fxRateService = undefined
+}

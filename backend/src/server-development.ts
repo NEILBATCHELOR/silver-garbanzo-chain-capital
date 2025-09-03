@@ -30,6 +30,7 @@ import ruleRoutes from './routes/rules'
 import factoringRoutes from './routes/factoring'
 import complianceRoutes from './routes/compliance'
 import calendarRoutes from './routes/calendar'
+import navRoutes from './routes/nav'
 import authRoutes from './routes/auth/index'
 
 // Types
@@ -241,6 +242,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(subscriptionRoutes, { prefix: apiPrefix })
   await app.register(documentRoutes, { prefix: apiPrefix })
   await app.register(walletRoutes, { prefix: apiPrefix })
+  await app.register(navRoutes, { prefix: apiPrefix })
   
   // System routes
   await app.register(auditRoutes, { prefix: apiPrefix })
