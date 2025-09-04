@@ -6851,6 +6851,7 @@ CREATE TABLE public.asset_holdings (
     oracle_price numeric(78,18) DEFAULT 0,
     last_oracle_update timestamp with time zone DEFAULT now(),
     CONSTRAINT asset_holdings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'oracle'::text, 'calculated'::text, 'administrator'::text]))),
+    CONSTRAINT chk_holdings_quantity_positive CHECK (((quantity IS NULL) OR (quantity > (0)::numeric))),
     CONSTRAINT mmf_maturity_check CHECK (
 CASE
     WHEN (holding_type = ANY (ARRAY['Government Securities'::text, 'Repos'::text, 'Commercial Paper'::text, 'CDs'::text, 'Corporate Debt'::text, 'Municipal Debt'::text])) THEN ((maturity_date - CURRENT_DATE) <= 397)
@@ -9088,7 +9089,12 @@ CREATE TABLE public.fund_products (
     geographic_focus text[],
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    asset_allocation jsonb,
+    concentration_limits jsonb,
+    CONSTRAINT chk_fund_expense_ratio CHECK (((expense_ratio IS NULL) OR ((expense_ratio >= (0)::numeric) AND (expense_ratio <= 0.50)))),
+    CONSTRAINT chk_fund_nav_positive CHECK (((net_asset_value IS NULL) OR (net_asset_value > (0)::numeric))),
+    CONSTRAINT chk_fund_status_valid CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'liquidated'::character varying, 'suspended'::character varying, 'Open'::character varying])::text[])))
 );
 
 
@@ -10224,6 +10230,45 @@ COMMENT ON TABLE public.nav_approvals IS 'Manages approval workflow for NAV calc
 
 
 --
+-- Name: nav_calculation_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_calculation_history (
+    id bigint NOT NULL,
+    run_id text NOT NULL,
+    asset_id text NOT NULL,
+    product_type text NOT NULL,
+    calculation_step text NOT NULL,
+    step_order integer NOT NULL,
+    input_data jsonb NOT NULL,
+    output_data jsonb NOT NULL,
+    processing_time_ms integer NOT NULL,
+    data_sources jsonb,
+    validation_results jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: nav_calculation_history_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.nav_calculation_history_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: nav_calculation_history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.nav_calculation_history_id_seq OWNED BY public.nav_calculation_history.id;
+
+
+--
 -- Name: nav_calculation_runs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10360,6 +10405,20 @@ CREATE TABLE public.nav_fx_rates (
 --
 
 COMMENT ON TABLE public.nav_fx_rates IS 'Stores foreign exchange rates for multi-currency NAV calculations with historical data';
+
+
+--
+-- Name: nav_fx_rates_latest; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.nav_fx_rates_latest AS
+ SELECT DISTINCT ON (nav_fx_rates.base_ccy, nav_fx_rates.quote_ccy) nav_fx_rates.base_ccy,
+    nav_fx_rates.quote_ccy,
+    nav_fx_rates.rate,
+    nav_fx_rates.as_of,
+    nav_fx_rates.source
+   FROM public.nav_fx_rates
+  ORDER BY nav_fx_rates.base_ccy, nav_fx_rates.quote_ccy, nav_fx_rates.as_of DESC;
 
 
 --
@@ -12908,7 +12967,19 @@ CREATE TABLE public.stablecoin_collateral (
     auditor character varying(255),
     last_audit_date timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    collateral_address text,
+    collateral_symbol text,
+    collateral_amount numeric,
+    collateral_value_usd numeric,
+    liquidation_ratio numeric,
+    stability_fee numeric,
+    debt_ceiling numeric,
+    risk_parameters jsonb,
+    oracle_price numeric,
+    last_oracle_update timestamp with time zone,
+    total_reserves numeric,
+    backing_ratio numeric
 );
 
 
@@ -16345,6 +16416,13 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: nav_calculation_history id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculation_history ALTER COLUMN id SET DEFAULT nextval('public.nav_calculation_history_id_seq'::regclass);
+
+
+--
 -- Name: alerts alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18109,6 +18187,14 @@ ALTER TABLE ONLY public.multi_sig_wallets
 
 ALTER TABLE ONLY public.nav_approvals
     ADD CONSTRAINT nav_approvals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_calculation_history nav_calculation_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculation_history
+    ADD CONSTRAINT nav_calculation_history_pkey PRIMARY KEY (id);
 
 
 --
@@ -22453,6 +22539,13 @@ CREATE INDEX idx_nav_calc_runs_status ON public.nav_calculation_runs USING btree
 
 
 --
+-- Name: idx_nav_fx_pair_asof; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_fx_pair_asof ON public.nav_fx_rates USING btree (base_ccy, quote_ccy, as_of DESC);
+
+
+--
 -- Name: idx_nav_fx_rates_as_of; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -22464,6 +22557,20 @@ CREATE INDEX idx_nav_fx_rates_as_of ON public.nav_fx_rates USING btree (as_of);
 --
 
 CREATE INDEX idx_nav_fx_rates_currencies ON public.nav_fx_rates USING btree (base_ccy, quote_ccy);
+
+
+--
+-- Name: idx_nav_history_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_history_asset ON public.nav_calculation_history USING btree (asset_id);
+
+
+--
+-- Name: idx_nav_history_run; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_history_run ON public.nav_calculation_history USING btree (run_id);
 
 
 --
@@ -23685,10 +23792,24 @@ CREATE INDEX idx_smart_contract_wallets_wallet_id ON public.smart_contract_walle
 
 
 --
+-- Name: idx_stablecoin_collateral_coin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stablecoin_collateral_coin ON public.stablecoin_collateral USING btree (stablecoin_id);
+
+
+--
 -- Name: idx_stablecoin_collateral_stablecoin_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_stablecoin_collateral_stablecoin_id ON public.stablecoin_collateral USING btree (stablecoin_id);
+
+
+--
+-- Name: idx_stablecoin_collateral_value; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stablecoin_collateral_value ON public.stablecoin_collateral USING btree (stablecoin_id, collateral_value_usd DESC);
 
 
 --
@@ -31524,6 +31645,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.na
 
 
 --
+-- Name: TABLE nav_calculation_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO prisma;
+
+
+--
+-- Name: SEQUENCE nav_calculation_history_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.nav_calculation_history_id_seq TO anon;
+GRANT ALL ON SEQUENCE public.nav_calculation_history_id_seq TO authenticated;
+GRANT ALL ON SEQUENCE public.nav_calculation_history_id_seq TO service_role;
+GRANT ALL ON SEQUENCE public.nav_calculation_history_id_seq TO prisma;
+
+
+--
 -- Name: TABLE nav_calculation_runs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -31561,6 +31702,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.na
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO prisma;
+
+
+--
+-- Name: TABLE nav_fx_rates_latest; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO prisma;
 
 
 --

@@ -20,6 +20,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -172,8 +173,8 @@ export interface ReitMetrics {
 }
 
 export class RealEstateCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -442,29 +443,45 @@ export class RealEstateCalculator extends BaseCalculator {
   }
 
   private async getPropertyDetails(input: RealEstateCalculationInput): Promise<PropertyDetails> {
-    // TODO: Replace with actual database query
-    return {
-      propertyId: input.propertyId || 'prop_001',
-      propertyName: `Property ${input.propertyId}`,
-      propertyType: input.propertyType || 'commercial',
-      propertyAddress: input.propertyAddress || '123 Main St',
-      geographicLocation: input.geographicLocation || 'New York',
-      acquisitionDate: input.acquisitionDate || new Date('2020-01-01'),
-      developmentStage: input.developmentStage || 'stabilized',
-      totalUnits: input.totalUnits || 100,
-      totalSquareFootage: input.totalSquareFootage || 50000,
-      buildingClass: 'A',
-      yearBuilt: 2015,
-      occupancyRate: input.occupancyRate || 0.92,
-      averageRent: 25,
-      marketRent: 27,
-      grossRentalIncome: 1350000,
-      netOperatingIncome: 950000,
-      capRate: input.capRate || 0.065,
-      environmentalCertifications: input.environmentalCertifications || ['LEED Gold'],
-      propertyTaxes: 125000,
-      insurance: 35000,
-      maintenanceReserves: 75000
+    if (!input.assetId) {
+      throw new Error('Asset ID is required for real estate property lookup')
+    }
+
+    try {
+      const productDetails = await this.databaseService.getRealEstateProductById(input.assetId)
+      
+      // Calculate derived values from database fields
+      const grossRentalIncome = (productDetails.gross_amount || 0) * 12 // Convert monthly to annual
+      const netOperatingIncome = grossRentalIncome * 0.7 // Assume 70% NOI margin
+      const capRate = netOperatingIncome > 0 && productDetails.property_value ?
+        netOperatingIncome / productDetails.property_value : 
+        (input.capRate || 0.065)
+      
+      return {
+        propertyId: productDetails.property_id || input.propertyId || productDetails.id,
+        propertyName: productDetails.property_name,
+        propertyType: productDetails.property_type || input.propertyType || 'commercial',
+        propertyAddress: productDetails.property_address,
+        geographicLocation: productDetails.geographic_location,
+        acquisitionDate: new Date(productDetails.acquisition_date) || input.acquisitionDate || new Date(),
+        developmentStage: productDetails.development_stage || input.developmentStage || 'stabilized',
+        totalUnits: productDetails.units || input.totalUnits || 1,
+        totalSquareFootage: input.totalSquareFootage || 50000, // Would need to be added to schema
+        buildingClass: 'A', // Would need to be added to schema
+        yearBuilt: new Date().getFullYear() - 10, // Would need to be added to schema
+        occupancyRate: input.occupancyRate || 0.92, // Would need to be calculated from lease data
+        averageRent: (productDetails.gross_amount || 25) / (productDetails.units || 1),
+        marketRent: ((productDetails.gross_amount || 25) * 1.08) / (productDetails.units || 1), // 8% above current
+        grossRentalIncome,
+        netOperatingIncome,
+        capRate,
+        environmentalCertifications: productDetails.environmental_certifications || input.environmentalCertifications || [],
+        propertyTaxes: productDetails.taxable_amount || 125000,
+        insurance: 35000, // Would need to be added to schema
+        maintenanceReserves: grossRentalIncome * 0.05 // 5% of gross income
+      }
+    } catch (error) {
+      throw new Error(`Failed to get real estate property details: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

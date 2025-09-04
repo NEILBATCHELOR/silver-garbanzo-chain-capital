@@ -16,6 +16,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -124,8 +125,8 @@ export class StablecoinFiatCalculator extends BaseCalculator {
   private static readonly STABILITY_WEIGHT = 0.4
   private static readonly COMPLIANCE_WEIGHT = 0.3
 
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -219,114 +220,256 @@ export class StablecoinFiatCalculator extends BaseCalculator {
   // ==================== STABLECOIN-SPECIFIC METHODS ====================
 
   /**
-   * Fetches stablecoin product details from the database
+   * Fetches stablecoin product details from the database using real DatabaseService
    */
   private async getStablecoinProductDetails(input: StablecoinFiatCalculationInput): Promise<any> {
-    // Mock implementation - replace with actual database query to stablecoin_products table
-    return {
-      id: input.assetId || 'stablecoin_default',
-      symbol: input.stablecoinSymbol || 'USDC',
-      name: 'USD Coin',
-      pegCurrency: input.pegCurrency || 'USD',
-      contractAddress: input.contractAddress || '0xa0b86a33e6a9cc4c60c8d1e5ad9bb3e1e9b1c4d2',
-      chainId: input.chainId || 1, // Ethereum mainnet
-      totalSupply: input.totalSupply || 1000000000, // 1B tokens
-      issuer: 'Circle',
-      regulatoryFramework: input.regulatoryFramework || 'US_TRUST',
-      redemptionMechanism: input.redemptionMechanism || 'direct',
-      reserveComposition: input.reserveComposition || 'cash_equivalents',
-      attestationRequired: input.attestationRequired !== false,
-      auditFrequency: input.auditFrequency || 'monthly',
-      maxPegDeviationBps: input.maxPegDeviationBps || 100,
-      minimumReserveRatio: 1.00,
-      launchDate: new Date('2018-10-01')
+    try {
+      // Use DatabaseService to get real stablecoin product details
+      const productDetails = await this.databaseService.getStablecoinProductById(
+        input.assetId || input.projectId!
+      )
+      
+      // Transform database fields to expected format
+      const result = {
+        id: productDetails.id,
+        symbol: productDetails.token_symbol,
+        name: productDetails.token_name,
+        pegCurrency: productDetails.peg_currency,
+        contractAddress: productDetails.contract_address,
+        chainId: productDetails.blockchain_network, // May need mapping from network name to chain ID
+        totalSupply: productDetails.total_supply,
+        circulatingSupply: productDetails.circulating_supply,
+        pegValue: productDetails.peg_value,
+        collateralType: productDetails.collateral_type_enum,
+        stabilityMechanism: productDetails.stability_mechanism,
+        reserveAssets: productDetails.reserve_assets ? JSON.parse(productDetails.reserve_assets) : [],
+        collateralRatio: productDetails.collateral_ratio,
+        minimumReserveRatio: productDetails.collateral_ratio || 1.00,
+        maxPegDeviationBps: 100, // Default value - could be added to schema
+        attestationRequired: true,
+        auditFrequency: 'monthly' // Default - could be added to schema
+      }
+      
+      // Save calculation step for audit trail
+      await this.databaseService.saveCalculationHistory({
+        run_id: this.generateRunId(),
+        asset_id: input.assetId || input.projectId!,
+        product_type: 'stablecoin_fiat_backed',
+        calculation_step: 'get_stablecoin_product_details',
+        step_order: 1,
+        input_data: { assetId: input.assetId, projectId: input.projectId },
+        output_data: result,
+        processing_time_ms: Date.now() - Date.now(), // Will be properly timed
+        data_sources: ['stablecoin_products'],
+        validation_results: { productFound: true, collateralType: result.collateralType }
+      })
+      
+      return result
+    } catch (error) {
+      throw new Error(`Failed to fetch stablecoin product details: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   /**
-   * Fetches fiat reserve holdings from the database
+   * Fetches fiat reserve holdings from the database using real DatabaseService
    */
   private async getFiatReserves(input: StablecoinFiatCalculationInput): Promise<FiatReserve[]> {
-    // Mock implementation - replace with actual database query
-    const mockReserves: FiatReserve[] = [
-      {
-        instrumentKey: 'USD_CASH_JPMORGAN',
-        quantity: 400000000, // $400M
-        currency: 'USD',
-        effectiveDate: new Date(),
-        reserveType: 'cash',
-        bankName: 'JPMorgan Chase',
-        accountType: 'checking',
-        fdic_insured: true,
-        liquidationTime: 0, // immediate
-        attestationDate: new Date(),
-        attestationFirm: 'Grant Thornton LLP',
-        marketValue: 400000000,
-        bookValue: 400000000
-      },
-      {
-        instrumentKey: 'US_TREASURY_BILL_3M',
-        quantity: 500000000, // $500M
-        currency: 'USD',
-        effectiveDate: new Date(),
-        reserveType: 'treasury_bill',
-        maturityDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-        creditRating: 'AAA',
-        yield: 0.0525,
-        liquidationTime: 1, // 1 day
-        attestationDate: new Date(),
-        attestationFirm: 'Grant Thornton LLP',
-        marketValue: 499500000,
-        bookValue: 500000000
-      },
-      {
-        instrumentKey: 'MONEY_MARKET_FUND_FIDELITY',
-        quantity: 100000000, // $100M
-        currency: 'USD',
-        effectiveDate: new Date(),
-        reserveType: 'money_market',
-        yield: 0.0515,
-        liquidationTime: 2, // 2 days
-        attestationDate: new Date(),
-        attestationFirm: 'Grant Thornton LLP',
-        marketValue: 100000000,
-        bookValue: 100000000
+    try {
+      // Use DatabaseService to get real fiat reserves
+      const reservesData = await this.databaseService.getFiatReserves(
+        input.assetId || input.projectId!
+      )
+      
+      // Transform database reserves to FiatReserve format
+      const fiatReserves: FiatReserve[] = []
+      
+      for (const reserve of reservesData) {
+        const fiatReserve: FiatReserve = {
+          instrumentKey: reserve.instrument_key,
+          quantity: reserve.quantity,
+          currency: reserve.holding_currency || reserve.currency,
+          effectiveDate: new Date(reserve.effective_date),
+          reserveType: this.mapReserveType(reserve.holding_type),
+          bankName: this.extractBankName(reserve.instrument_key),
+          accountType: this.extractAccountType(reserve.instrument_key),
+          fdic_insured: this.isFdicInsured(reserve.instrument_key),
+          liquidationTime: this.getLiquidationTime(reserve.holding_type),
+          attestationDate: new Date(), // Could be from reserve attestation data
+          attestationFirm: 'Independent Auditor', // Could be from attestation table
+          marketValue: reserve.value,
+          bookValue: reserve.value // Assuming market value = book value for simplicity
+        }
+        
+        fiatReserves.push(fiatReserve)
       }
-    ]
-
-    return mockReserves
+      
+      // Save calculation step for audit trail
+      await this.databaseService.saveCalculationHistory({
+        run_id: this.generateRunId(),
+        asset_id: input.assetId || input.projectId!,
+        product_type: 'stablecoin_fiat_backed',
+        calculation_step: 'get_fiat_reserves',
+        step_order: 2,
+        input_data: { assetId: input.assetId },
+        output_data: { reservesCount: fiatReserves.length, totalValue: fiatReserves.reduce((sum, r) => sum + (r.marketValue || 0), 0) },
+        processing_time_ms: Date.now() - Date.now(), // Will be properly timed
+        data_sources: ['stablecoin_collateral', 'asset_holdings'],
+        validation_results: { reservesFound: fiatReserves.length > 0 }
+      })
+      
+      return fiatReserves
+    } catch (error) {
+      throw new Error(`Failed to fetch fiat reserves: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+  
+  /**
+   * Maps database holding type to reserve type
+   */
+  private mapReserveType(holdingType: string): 'cash' | 'treasury_bill' | 'commercial_paper' | 'money_market' | 'repo' | 'bank_deposit' {
+    const typeMapping: { [key: string]: 'cash' | 'treasury_bill' | 'commercial_paper' | 'money_market' | 'repo' | 'bank_deposit' } = {
+      'cash': 'cash',
+      'treasury': 'treasury_bill',
+      'money_market': 'money_market',
+      'deposit': 'bank_deposit',
+      'cd': 'bank_deposit',
+      'commercial_paper': 'commercial_paper',
+      'repo': 'repo'
+    }
+    return typeMapping[holdingType] || 'cash'
+  }
+  
+  /**
+   * Extracts bank name from instrument key
+   */
+  private extractBankName(instrumentKey: string): string {
+    // Simple extraction - could be more sophisticated
+    if (instrumentKey.includes('JPMORGAN')) return 'JPMorgan Chase'
+    if (instrumentKey.includes('GOLDMAN')) return 'Goldman Sachs'
+    if (instrumentKey.includes('CITI')) return 'Citibank'
+    if (instrumentKey.includes('TREASURY')) return 'US Treasury'
+    return 'Banking Partner'
+  }
+  
+  /**
+   * Extracts account type from instrument key
+   */
+  private extractAccountType(instrumentKey: string): 'checking' | 'savings' | 'money_market' | 'cd' {
+    if (instrumentKey.includes('CHECKING')) return 'checking'
+    if (instrumentKey.includes('SAVINGS')) return 'savings'
+    if (instrumentKey.includes('MMF')) return 'money_market'
+    if (instrumentKey.includes('CD')) return 'cd'
+    return 'checking' // Default to checking instead of 'institutional'
+  }
+  
+  /**
+   * Determines if reserve is FDIC insured
+   */
+  private isFdicInsured(instrumentKey: string): boolean {
+    // US banks are typically FDIC insured up to limits
+    return instrumentKey.includes('USD') && 
+           (instrumentKey.includes('CASH') || instrumentKey.includes('DEPOSIT'))
+  }
+  
+  /**
+   * Gets typical liquidation time for reserve type
+   */
+  private getLiquidationTime(holdingType: string): number {
+    const liquidationTimes: { [key: string]: number } = {
+      'cash': 0,           // immediate
+      'treasury': 1,       // 1 day
+      'money_market': 1,   // 1 day
+      'deposit': 0,        // immediate
+      'cd': 30             // 30 days (early withdrawal penalty)
+    }
+    return liquidationTimes[holdingType] || 1
   }
 
   /**
-   * Gets the latest reserve attestation
+   * Gets the latest reserve attestation using real DatabaseService
    */
   private async getLatestAttestation(input: StablecoinFiatCalculationInput): Promise<ReserveAttestation> {
-    // Mock implementation - replace with actual database query
-    const totalReserves = 999500000 // $999.5M
-    const totalLiabilities = 0
-    const totalSupply = 1000000000 // 1B tokens
-    
-    return {
-      attestationDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-      attestationFirm: 'Grant Thornton LLP',
-      totalReserves,
-      totalLiabilities,
-      netReserves: totalReserves - totalLiabilities,
-      reserveCoverage: totalReserves / totalSupply,
-      breakdownByCurrency: {
-        'USD': 999500000
-      },
-      breakdownByAssetType: {
-        'cash': 400000000,
-        'treasury_bills': 499500000,
-        'money_market_funds': 100000000
-      },
-      cashPercentage: 0.40, // 40%
-      equivalentsPercentage: 0.60, // 60%
-      riskAssetPercentage: 0.00, // 0%
-      attestationOpinion: 'unqualified',
-      nextAttestationDue: new Date(Date.now() + 23 * 24 * 60 * 60 * 1000), // 23 days from now
-      reportUrl: 'https://example.com/attestation-report-latest.pdf'
+    try {
+      // Use DatabaseService to get real reserve attestation
+      const attestationData = await this.databaseService.getReserveAttestation(
+        input.assetId || input.projectId!
+      )
+      
+      // Also get the reserves data for breakdown calculations
+      const reservesData = await this.databaseService.getFiatReserves(
+        input.assetId || input.projectId!
+      )
+      
+      // Calculate breakdowns from actual reserve data
+      const breakdownByCurrency: { [key: string]: number } = {}
+      const breakdownByAssetType: { [key: string]: number } = {}
+      let totalReserveValue = 0
+      
+      for (const reserve of reservesData) {
+        const currency = reserve.holding_currency || reserve.currency || 'USD'
+        const assetType = this.mapReserveType(reserve.holding_type)
+        const value = reserve.value || 0
+        
+        // Aggregate by currency
+        breakdownByCurrency[currency] = (breakdownByCurrency[currency] || 0) + value
+        
+        // Aggregate by asset type
+        breakdownByAssetType[assetType] = (breakdownByAssetType[assetType] || 0) + value
+        
+        totalReserveValue += value
+      }
+      
+      // Calculate percentages
+      const cashValue = breakdownByAssetType['cash'] || 0
+      const treasuryValue = breakdownByAssetType['treasury_bill'] || 0
+      const mmfValue = breakdownByAssetType['money_market'] || 0
+      const equivalentsValue = treasuryValue + mmfValue
+      
+      const cashPercentage = totalReserveValue > 0 ? cashValue / totalReserveValue : 0
+      const equivalentsPercentage = totalReserveValue > 0 ? equivalentsValue / totalReserveValue : 0
+      const riskAssetPercentage = 1 - cashPercentage - equivalentsPercentage
+      
+      const result: ReserveAttestation = {
+        attestationDate: new Date(attestationData.audit_date || Date.now()),
+        attestationFirm: attestationData.auditor_firm || 'Independent Auditor',
+        totalReserves: attestationData.total_reserves || totalReserveValue,
+        totalLiabilities: 0, // Assuming no liabilities for now
+        netReserves: (attestationData.total_reserves || totalReserveValue) - 0,
+        reserveCoverage: attestationData.backing_ratio || 1.0,
+        breakdownByCurrency,
+        breakdownByAssetType,
+        cashPercentage,
+        equivalentsPercentage,
+        riskAssetPercentage: Math.max(0, riskAssetPercentage),
+        attestationOpinion: 'unqualified', // Could be added to schema
+        nextAttestationDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        reportUrl: attestationData.attestation_url || null
+      }
+      
+      // Save calculation step for audit trail
+      await this.databaseService.saveCalculationHistory({
+        run_id: this.generateRunId(),
+        asset_id: input.assetId || input.projectId!,
+        product_type: 'stablecoin_fiat_backed',
+        calculation_step: 'get_reserve_attestation',
+        step_order: 3,
+        input_data: { assetId: input.assetId },
+        output_data: {
+          totalReserves: result.totalReserves,
+          reserveCoverage: result.reserveCoverage,
+          attestationFirm: result.attestationFirm
+        },
+        processing_time_ms: Date.now() - Date.now(), // Will be properly timed
+        data_sources: ['stablecoin_collateral', 'asset_holdings'],
+        validation_results: {
+          attestationFound: true,
+          reserveCoverageAdequate: result.reserveCoverage >= 1.0
+        }
+      })
+      
+      return result
+    } catch (error) {
+      throw new Error(`Failed to fetch reserve attestation: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

@@ -265,7 +265,7 @@ export function getCalculatorForAssetType(assetType: AssetType): AssetNavCalcula
  * This provides basic NAV calculation capability until specific calculators are implemented
  */
 export function createDefaultCalculatorRegistry(): CalculatorRegistry {
-  return createCalculatorRegistry({
+  return createCalculatorRegistry(undefined, {
     enableHealthChecks: true,
     enableCaching: true,
     defaultFallbackEnabled: true,

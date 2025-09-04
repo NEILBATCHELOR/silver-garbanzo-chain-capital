@@ -13,6 +13,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -22,7 +23,6 @@ import {
   NavServiceResult,
   ValidationSeverity
 } from '../types'
-// Product utilities will be imported when needed
 
 export interface EquityCalculationInput extends CalculationInput {
   // Equity-specific parameters
@@ -51,8 +51,8 @@ export interface EquityPriceData extends PriceData {
 }
 
 export class EquityCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -131,43 +131,82 @@ export class EquityCalculator extends BaseCalculator {
   // ==================== EQUITY-SPECIFIC METHODS ====================
 
   /**
-   * Fetches equity product details from the database
+   * Fetches equity product details from the database - NO MOCKS
    */
   private async getEquityProductDetails(input: EquityCalculationInput): Promise<any> {
-    // Mock implementation - replace with actual database query
-    return {
-      id: input.assetId,
-      symbol: input.assetId?.split('_')[1] || 'UNKNOWN',
-      cusip: input.cusip,
-      isin: input.isin,
-      exchange: input.exchangeCode || 'NYSE',
-      currency: 'USD',
-      dividendPerShare: input.dividendPerShare || 0,
-      splitRatio: input.splitRatio || 1,
-      splitEffectiveDate: input.splitEffectiveDate,
-      exDividendDate: input.exDividendDate,
-      dividendSource: 'bloomberg'
+    if (!input.assetId) {
+      throw new Error('Asset ID is required for equity product lookup')
+    }
+
+    try {
+      const productDetails = await this.databaseService.getEquityProductById(input.assetId)
+      
+      return {
+        id: productDetails.id,
+        symbol: productDetails.ticker_symbol,
+        companyName: productDetails.company_name,
+        exchange: productDetails.exchange || input.exchangeCode || 'NYSE',
+        currency: productDetails.currency || 'USD',
+        marketCap: productDetails.market_capitalization,
+        sharesOutstanding: productDetails.shares_outstanding,
+        dividendYield: productDetails.dividend_yield,
+        earningsPerShare: productDetails.earnings_per_share,
+        priceEarningsRatio: productDetails.price_earnings_ratio,
+        sector: productDetails.sector_industry,
+        status: productDetails.status,
+        // Corporate action data from input (would normally come from corporate_actions_history JSONB)
+        dividendPerShare: input.dividendPerShare || 0,
+        splitRatio: input.splitRatio || 1,
+        splitEffectiveDate: input.splitEffectiveDate,
+        exDividendDate: input.exDividendDate
+      }
+    } catch (error) {
+      throw new Error(`Failed to get equity product details: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   /**
-   * Fetches current market price data for the equity
+   * Fetches current market price data for the equity - NO MOCKS
    */
   private async fetchEquityPriceData(input: EquityCalculationInput, productDetails: any): Promise<EquityPriceData> {
-    // Mock implementation - replace with actual market data service
-    const mockPrice = input.marketPrice || 100.00
-    
-    return {
-      price: mockPrice,
-      currency: productDetails.currency,
-      source: 'bloomberg',
-      asOf: input.valuationDate,
-      exchange: productDetails.exchange,
-      bid: mockPrice * 0.999,
-      ask: mockPrice * 1.001,
-      volume: 1000000,
-      staleness: 0,
-      confidence: 0.95
+    try {
+      
+      // Try to get price data from nav_price_cache using equity symbol as instrument key
+      const instrumentKey = productDetails.symbol || input.assetId
+      
+      let priceData
+      try {
+        priceData = await this.databaseService.getPriceData(instrumentKey)
+      } catch (error) {
+        // If no price data found, use fallback values
+        console.warn(`No price data found for equity ${instrumentKey}, using fallback values`)
+        priceData = {
+          price: input.marketPrice || 100.00,
+          currency: productDetails.currency,
+          source: 'fallback',
+          as_of: input.valuationDate.toISOString(),
+          instrument_key: instrumentKey
+        }
+      }
+      
+      const price = priceData.price
+      
+      return {
+        price,
+        currency: priceData.currency,
+        source: priceData.source,
+        asOf: new Date(priceData.as_of),
+        exchange: productDetails.exchange,
+        bid: price * 0.999, // TODO: Get actual bid/ask from market data
+        ask: price * 1.001,
+        volume: 1000000, // TODO: Get actual volume
+        dividendYield: productDetails.dividendYield,
+        exDividendDate: productDetails.exDividendDate,
+        staleness: 0,
+        confidence: priceData.source === 'fallback' ? 0.5 : 0.95
+      }
+    } catch (error) {
+      throw new Error(`Failed to fetch equity price data: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

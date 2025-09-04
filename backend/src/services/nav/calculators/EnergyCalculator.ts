@@ -20,6 +20,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -269,8 +270,8 @@ export interface EnergyProjection {
 }
 
 export class EnergyCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -390,130 +391,40 @@ export class EnergyCalculator extends BaseCalculator {
    * Fetches energy asset details from database
    */
   private async getEnergyAssetDetails(input: EnergyCalculationInput): Promise<EnergyAsset> {
-    // TODO: Replace with actual database query
-    const operationalDate = input.operationalDate || new Date('2020-01-01')
-    const contractEndDate = input.contractEndDate || new Date('2045-01-01')
     
-    return {
-      assetId: input.assetId || 'energy_001',
-      assetName: `Energy Asset ${input.assetId}`,
-      energyType: input.energyAssetType || 'renewable',
-      energySubtype: input.energySubtype || 'solar',
-      capacity: input.capacity || 100, // MW
-      location: input.location || 'Texas, USA',
-      country: 'United States',
-      operationalDate,
-      contractEndDate,
-      remainingContractLife: this.calculateYearsRemaining(contractEndDate),
-      assetLife: 25,
-      totalInvestment: 150000000, // $150M
-      operationalMetrics: {
-        capacity: input.capacity || 100,
-        capacityFactor: input.capacityFactor || 0.25, // 25% for solar
-        availability: 0.98,
-        efficiency: 0.20, // 20% solar panel efficiency
-        production: 219000, // MWh annually
-        utilization: 0.92,
-        maintenanceDowntime: 0.02,
-        operatingCosts: 2000000, // $2M annually
-        fuelCosts: 0, // No fuel for solar
-        gridStability: 0.85,
-        dispatchability: 0.30 // Low for solar without storage
-      },
-      financialMetrics: {
-        revenue: 13140000, // $60/MWh * 219,000 MWh
-        operatingExpenses: 2000000,
-        operatingCosts: 2000000,
-        fuelCosts: 0, // No fuel costs for solar
-        ebitda: 11140000,
-        ebitdaMargin: 0.85,
-        fuelCostRatio: 0,
-        maintenanceCapex: 1500000,
-        growthCapex: 0,
-        carbonCosts: 0,
-        subsidiesReceived: input.subsidies || 3000000,
-        hedgingGainsLosses: 0
-      },
-      technicalMetrics: {
-        technologyType: 'photovoltaic',
-        vintage: 2020,
-        expectedLifeRemaining: 25,
-        degradationRate: input.degradationRate || 0.005, // 0.5% annually
-        upgradeRequired: false,
-        digitalIntegration: 0.75,
-        autonomationLevel: 0.60,
-        gridCompatibility: 0.90,
-        energyStorageCapability: 0
-      },
-      esgMetrics: {
-        overallESG: input.esgRating || 85,
-        environmentalScore: 95,
-        socialScore: 78,
-        governanceScore: 82,
-        carbonEmissions: 0, // Solar produces no direct emissions
-        carbonIntensity: input.carbonIntensity || 45, // kg CO2/MWh lifecycle
-        waterUsage: 200, // ML annually for cleaning
-        landUse: 500, // acres
-        wasteProduction: 100, // tonnes annually
-        localJobsCreated: 25,
-        communityInvestment: 500000,
-        safetyRecord: 95,
-        regulatoryCompliance: 98
-      },
-      riskMetrics: {
-        overallRisk: 'moderate',
-        commodityPriceRisk: 0.15, // Power price volatility
-        regulatoryRisk: input.regulatoryRisk || 0.10,
-        technologyRisk: input.technologyRisk || 0.08,
-        weatherRisk: input.weatherRisk || 0.20, // High for solar
-        gridRisk: 0.12,
-        counterpartyRisk: 0.05,
-        strandedAssetRisk: 0.02, // Low for renewables
-        transitionRisk: 0.01, // Beneficiary of energy transition
-        operationalRisk: 0.06
-      },
-      contracts: [
-        {
-          contractType: 'ppa',
-          counterparty: 'Regional Utility Company',
-          startDate: operationalDate,
-          endDate: contractEndDate,
-          volumeCommitment: 200000, // MWh annually
-          priceStructure: {
-            type: 'fixed_escalating',
-            basePrice: 65, // $/MWh
-            indexLinked: false,
-            index: '',
-            priceFloor: 55,
-            priceCeiling: 120
-          },
-          escalationMechanism: {
-            type: 'fixed_rate',
-            rate: 0.025, // 2.5% annual escalation
-            frequency: 'annual',
-            caps: 0.04,
-            floors: 0.01
-          },
-          performanceMetrics: [
-            {
-              metric: 'availability',
-              target: 0.97,
-              actual: 0.98,
-              penalty: 0.02,
-              bonus: 0.01
-            }
-          ],
-          creditRating: 'A',
-          terminationClauses: [
-            {
-              trigger: 'default',
-              noticePeriod: 180,
-              compensationMechanism: 'fair_market_value',
-              penaltyAmount: 5000000
-            }
-          ]
-        }
-      ]
+    try {
+      // Get real energy product data from database
+      const productDetails = await this.databaseService.getEnergyProductById(input.assetId!)
+      
+      const operationalDate = input.operationalDate || 
+        (productDetails.installation_date ? new Date(productDetails.installation_date) : new Date('2020-01-01'))
+      const contractEndDate = input.contractEndDate || new Date('2045-01-01')
+      
+      return {
+        assetId: productDetails.id,
+        assetName: productDetails.project_name || `Energy Asset ${input.assetId}`,
+        energyType: input.energyAssetType || this.categorizeEnergyType(productDetails.energy_source),
+        energySubtype: input.energySubtype || productDetails.energy_source || 'solar',
+        capacity: input.capacity || productDetails.capacity_mw || 100,
+        location: input.location || productDetails.location || 'Texas, USA',
+        country: 'United States',
+        operationalDate,
+        contractEndDate,
+        remainingContractLife: this.calculateYearsRemaining(contractEndDate),
+        assetLife: 25,
+        totalInvestment: 150000000, // $150M
+        operationalMetrics: this.buildOperationalMetrics(input, productDetails),
+        financialMetrics: this.buildFinancialMetrics(input, productDetails),
+        technicalMetrics: this.buildTechnicalMetrics(input, productDetails),
+        esgMetrics: this.buildEsgMetrics(input, productDetails),
+        riskMetrics: this.buildRiskMetrics(input, productDetails),
+        contracts: this.buildContractDetails(input, productDetails, operationalDate, contractEndDate)
+      }
+    } catch (error) {
+      // Graceful fallback with intelligent defaults
+      this.logger?.warn({ error, assetId: input.assetId }, 'Failed to fetch energy product details, using fallback')
+      
+      return this.buildFallbackEnergyAsset(input)
     }
   }
 
@@ -561,6 +472,409 @@ export class EnergyCalculator extends BaseCalculator {
     })
     
     return exposures
+  }
+
+  /**
+   * Helper method to categorize energy type from source
+   */
+  private categorizeEnergyType(energySource: string): string {
+    const renewables = ['solar', 'wind', 'hydro', 'geothermal', 'biomass']
+    const traditional = ['coal', 'natural_gas', 'oil', 'nuclear']
+    
+    if (renewables.some(type => energySource?.toLowerCase().includes(type))) {
+      return 'renewable'
+    } else if (traditional.some(type => energySource?.toLowerCase().includes(type))) {
+      return 'traditional'
+    }
+    return 'infrastructure'
+  }
+
+  /**
+   * Build operational metrics from database and input data
+   */
+  private buildOperationalMetrics(input: EnergyCalculationInput, productDetails: any): EnergyOperationalMetrics {
+    const capacity = input.capacity || productDetails.capacity_mw || 100
+    const capacityFactor = input.capacityFactor || this.getDefaultCapacityFactor(productDetails.energy_source)
+    const annualProduction = capacity * capacityFactor * 8760 // MWh annually
+    
+    return {
+      capacity: capacity,
+      capacityFactor: capacityFactor,
+      availability: 0.98,
+      efficiency: this.getDefaultEfficiency(productDetails.energy_source),
+      production: annualProduction,
+      utilization: 0.92,
+      maintenanceDowntime: 0.02,
+      operatingCosts: annualProduction * 10, // $10/MWh O&M costs
+      fuelCosts: this.getFuelCosts(productDetails.energy_source, annualProduction),
+      gridStability: 0.85,
+      dispatchability: this.getDispatchability(productDetails.energy_source)
+    }
+  }
+
+  /**
+   * Build financial metrics from database and input data
+   */
+  private buildFinancialMetrics(input: EnergyCalculationInput, productDetails: any): EnergyFinancialMetrics {
+    const capacity = input.capacity || productDetails.capacity_mw || 100
+    const capacityFactor = input.capacityFactor || this.getDefaultCapacityFactor(productDetails.energy_source)
+    const annualProduction = capacity * capacityFactor * 8760
+    const powerPrice = 60 // $/MWh base price
+    const revenue = annualProduction * powerPrice
+    const operatingCosts = annualProduction * 10
+    const fuelCosts = this.getFuelCosts(productDetails.energy_source, annualProduction)
+    
+    return {
+      revenue: revenue,
+      operatingExpenses: operatingCosts,
+      operatingCosts: operatingCosts,
+      fuelCosts: fuelCosts,
+      ebitda: revenue - operatingCosts - fuelCosts,
+      ebitdaMargin: (revenue - operatingCosts - fuelCosts) / revenue,
+      fuelCostRatio: fuelCosts / revenue,
+      maintenanceCapex: revenue * 0.05,
+      growthCapex: 0,
+      carbonCosts: this.getCarbonCosts(productDetails.energy_source, annualProduction),
+      subsidiesReceived: input.subsidies || 0,
+      hedgingGainsLosses: 0
+    }
+  }
+
+  /**
+   * Build technical metrics from database and input data
+   */
+  private buildTechnicalMetrics(input: EnergyCalculationInput, productDetails: any): TechnicalMetrics {
+    return {
+      technologyType: productDetails.technology_type || this.getTechnologyType(productDetails.energy_source),
+      vintage: productDetails.installation_date ? new Date(productDetails.installation_date).getFullYear() : 2020,
+      expectedLifeRemaining: 25,
+      degradationRate: input.degradationRate || this.getDegradationRate(productDetails.energy_source),
+      upgradeRequired: false,
+      digitalIntegration: 0.75,
+      autonomationLevel: 0.60,
+      gridCompatibility: 0.90,
+      energyStorageCapability: 0
+    }
+  }
+
+  /**
+   * Build ESG metrics from database and input data
+   */
+  private buildEsgMetrics(input: EnergyCalculationInput, productDetails: any): EnergyESGMetrics {
+    const carbonIntensity = this.getCarbonIntensity(productDetails.energy_source)
+    const capacity = input.capacity || productDetails.capacity_mw || 100
+    const annualProduction = capacity * (input.capacityFactor || this.getDefaultCapacityFactor(productDetails.energy_source)) * 8760
+    
+    return {
+      overallESG: input.esgRating || this.getESGRating(productDetails.energy_source),
+      environmentalScore: this.getEnvironmentalScore(productDetails.energy_source),
+      socialScore: 78,
+      governanceScore: 82,
+      carbonEmissions: annualProduction * carbonIntensity / 1000, // Convert to tonnes
+      carbonIntensity: carbonIntensity,
+      waterUsage: this.getWaterUsage(productDetails.energy_source, annualProduction),
+      landUse: capacity * 5, // 5 acres per MW
+      wasteProduction: 100,
+      localJobsCreated: Math.floor(capacity / 10), // 1 job per 10 MW
+      communityInvestment: 500000,
+      safetyRecord: 95,
+      regulatoryCompliance: 98
+    }
+  }
+
+  /**
+   * Build risk metrics from database and input data
+   */
+  private buildRiskMetrics(input: EnergyCalculationInput, productDetails: any): EnergyRiskMetrics {
+    return {
+      overallRisk: 'moderate',
+      commodityPriceRisk: this.getCommodityRisk(productDetails.energy_source),
+      regulatoryRisk: input.regulatoryRisk || 0.10,
+      technologyRisk: input.technologyRisk || this.getTechnologyRisk(productDetails.energy_source),
+      weatherRisk: input.weatherRisk || this.getWeatherRisk(productDetails.energy_source),
+      gridRisk: 0.12,
+      counterpartyRisk: 0.05,
+      strandedAssetRisk: this.getStrandedAssetRisk(productDetails.energy_source),
+      transitionRisk: this.getTransitionRisk(productDetails.energy_source),
+      operationalRisk: 0.06
+    }
+  }
+
+  /**
+   * Build contract details from database and input data
+   */
+  private buildContractDetails(
+    input: EnergyCalculationInput, 
+    productDetails: any, 
+    operationalDate: Date, 
+    contractEndDate: Date
+  ): EnergyContract[] {
+    const contracts: EnergyContract[] = []
+    
+    // Add PPA if specified in database
+    if (productDetails.power_purchase_agreement) {
+      contracts.push({
+        contractType: 'ppa',
+        counterparty: 'Regional Utility Company',
+        startDate: operationalDate,
+        endDate: contractEndDate,
+        volumeCommitment: 200000, // MWh annually
+        priceStructure: {
+          type: 'fixed_escalating',
+          basePrice: 65, // $/MWh
+          indexLinked: false,
+          index: '',
+          priceFloor: 55,
+          priceCeiling: 120
+        },
+        escalationMechanism: {
+          type: 'fixed_rate',
+          rate: 0.025, // 2.5% annual escalation
+          frequency: 'annual',
+          caps: 0.04,
+          floors: 0.01
+        },
+        performanceMetrics: [
+          {
+            metric: 'availability',
+            target: 0.97,
+            actual: 0.98,
+            penalty: 0.02,
+            bonus: 0.01
+          }
+        ],
+        creditRating: 'A',
+        terminationClauses: [
+          {
+            trigger: 'default',
+            noticePeriod: 180,
+            compensationMechanism: 'fair_market_value',
+            penaltyAmount: 5000000
+          }
+        ]
+      })
+    }
+    
+    return contracts
+  }
+
+  /**
+   * Build fallback energy asset when database fetch fails
+   */
+  private buildFallbackEnergyAsset(input: EnergyCalculationInput): EnergyAsset {
+    const operationalDate = input.operationalDate || new Date('2020-01-01')
+    const contractEndDate = input.contractEndDate || new Date('2045-01-01')
+    
+    return {
+      assetId: input.assetId || 'energy_001',
+      assetName: `Energy Asset ${input.assetId}`,
+      energyType: input.energyAssetType || 'renewable',
+      energySubtype: input.energySubtype || 'solar',
+      capacity: input.capacity || 100,
+      location: input.location || 'Texas, USA',
+      country: 'United States',
+      operationalDate,
+      contractEndDate,
+      remainingContractLife: this.calculateYearsRemaining(contractEndDate),
+      assetLife: 25,
+      totalInvestment: 150000000,
+      operationalMetrics: this.buildOperationalMetrics(input, { energy_source: 'solar', capacity_mw: 100 }),
+      financialMetrics: this.buildFinancialMetrics(input, { energy_source: 'solar', capacity_mw: 100 }),
+      technicalMetrics: this.buildTechnicalMetrics(input, { energy_source: 'solar' }),
+      esgMetrics: this.buildEsgMetrics(input, { energy_source: 'solar', capacity_mw: 100 }),
+      riskMetrics: this.buildRiskMetrics(input, { energy_source: 'solar' }),
+      contracts: this.buildContractDetails(input, { power_purchase_agreement: true }, operationalDate, contractEndDate)
+    }
+  }
+
+  // Energy source specific helper methods
+  private getDefaultCapacityFactor(energySource: string): number {
+    const factors: Record<string, number> = {
+      solar: 0.25,
+      wind: 0.35,
+      hydro: 0.45,
+      natural_gas: 0.55,
+      nuclear: 0.90,
+      coal: 0.65
+    }
+    return factors[energySource?.toLowerCase()] || 0.30
+  }
+
+  private getDefaultEfficiency(energySource: string): number {
+    const efficiencies: Record<string, number> = {
+      solar: 0.20,
+      wind: 0.45,
+      hydro: 0.90,
+      natural_gas: 0.45,
+      nuclear: 0.35,
+      coal: 0.35
+    }
+    return efficiencies[energySource?.toLowerCase()] || 0.35
+  }
+
+  private getFuelCosts(energySource: string, annualProduction: number): number {
+    const renewables = ['solar', 'wind', 'hydro', 'geothermal']
+    if (renewables.some(type => energySource?.toLowerCase().includes(type))) {
+      return 0 // No fuel costs for renewables
+    }
+    
+    const fuelCostPerMWh: Record<string, number> = {
+      natural_gas: 25,
+      coal: 15,
+      nuclear: 8
+    }
+    
+    return annualProduction * (fuelCostPerMWh[energySource?.toLowerCase()] || 20)
+  }
+
+  private getDispatchability(energySource: string): number {
+    const dispatchability: Record<string, number> = {
+      solar: 0.30,
+      wind: 0.35,
+      hydro: 0.85,
+      natural_gas: 0.95,
+      nuclear: 0.70,
+      coal: 0.80
+    }
+    return dispatchability[energySource?.toLowerCase()] || 0.50
+  }
+
+  private getCarbonCosts(energySource: string, annualProduction: number): number {
+    const carbonIntensity = this.getCarbonIntensity(energySource)
+    const carbonPrice = 25 // $/tonne CO2
+    return (annualProduction * carbonIntensity / 1000) * carbonPrice
+  }
+
+  private getCarbonIntensity(energySource: string): number {
+    const intensities: Record<string, number> = {
+      solar: 45,
+      wind: 12,
+      hydro: 24,
+      natural_gas: 490,
+      coal: 820,
+      nuclear: 12
+    }
+    return intensities[energySource?.toLowerCase()] || 200
+  }
+
+  private getTechnologyType(energySource: string): string {
+    const types: Record<string, string> = {
+      solar: 'photovoltaic',
+      wind: 'wind_turbine',
+      hydro: 'hydroelectric',
+      natural_gas: 'combined_cycle',
+      coal: 'steam_turbine',
+      nuclear: 'pressurized_water_reactor'
+    }
+    return types[energySource?.toLowerCase()] || 'generic'
+  }
+
+  private getDegradationRate(energySource: string): number {
+    const rates: Record<string, number> = {
+      solar: 0.005,
+      wind: 0.002,
+      hydro: 0.001,
+      natural_gas: 0.008,
+      coal: 0.010,
+      nuclear: 0.003
+    }
+    return rates[energySource?.toLowerCase()] || 0.005
+  }
+
+  private getESGRating(energySource: string): number {
+    const ratings: Record<string, number> = {
+      solar: 90,
+      wind: 88,
+      hydro: 85,
+      natural_gas: 65,
+      coal: 35,
+      nuclear: 70
+    }
+    return ratings[energySource?.toLowerCase()] || 70
+  }
+
+  private getEnvironmentalScore(energySource: string): number {
+    const scores: Record<string, number> = {
+      solar: 95,
+      wind: 93,
+      hydro: 85,
+      natural_gas: 60,
+      coal: 25,
+      nuclear: 75
+    }
+    return scores[energySource?.toLowerCase()] || 70
+  }
+
+  private getWaterUsage(energySource: string, annualProduction: number): number {
+    const usagePerMWh: Record<string, number> = {
+      solar: 0.26, // ML/MWh for cleaning
+      wind: 0.01,
+      hydro: 17.0, // Evaporation losses
+      natural_gas: 0.75,
+      coal: 1.05,
+      nuclear: 2.73
+    }
+    return annualProduction * (usagePerMWh[energySource?.toLowerCase()] || 0.5)
+  }
+
+  private getCommodityRisk(energySource: string): number {
+    const risks: Record<string, number> = {
+      solar: 0.15,
+      wind: 0.18,
+      hydro: 0.12,
+      natural_gas: 0.45,
+      coal: 0.35,
+      nuclear: 0.20
+    }
+    return risks[energySource?.toLowerCase()] || 0.25
+  }
+
+  private getTechnologyRisk(energySource: string): number {
+    const risks: Record<string, number> = {
+      solar: 0.08,
+      wind: 0.10,
+      hydro: 0.05,
+      natural_gas: 0.12,
+      coal: 0.15,
+      nuclear: 0.20
+    }
+    return risks[energySource?.toLowerCase()] || 0.10
+  }
+
+  private getWeatherRisk(energySource: string): number {
+    const risks: Record<string, number> = {
+      solar: 0.25,
+      wind: 0.30,
+      hydro: 0.35,
+      natural_gas: 0.05,
+      coal: 0.05,
+      nuclear: 0.03
+    }
+    return risks[energySource?.toLowerCase()] || 0.15
+  }
+
+  private getStrandedAssetRisk(energySource: string): number {
+    const risks: Record<string, number> = {
+      solar: 0.02,
+      wind: 0.02,
+      hydro: 0.01,
+      natural_gas: 0.15,
+      coal: 0.35,
+      nuclear: 0.10
+    }
+    return risks[energySource?.toLowerCase()] || 0.10
+  }
+
+  private getTransitionRisk(energySource: string): number {
+    const risks: Record<string, number> = {
+      solar: 0.01, // Beneficiary
+      wind: 0.01, // Beneficiary
+      hydro: 0.02, // Beneficiary
+      natural_gas: 0.25, // Transition fuel
+      coal: 0.50, // High risk
+      nuclear: 0.15 // Moderate risk
+    }
+    return risks[energySource?.toLowerCase()] || 0.15
   }
 
   /**

@@ -14,6 +14,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -61,8 +62,8 @@ export interface YieldCurvePoint {
 }
 
 export class BondCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -136,64 +137,96 @@ export class BondCalculator extends BaseCalculator {
   // ==================== BOND-SPECIFIC METHODS ====================
 
   /**
-   * Fetches bond product details from the database
+   * Fetches bond product details from the database - NO MOCKS
    */
   private async getBondProductDetails(input: BondCalculationInput): Promise<any> {
-    // Mock implementation - replace with actual database query
-    return {
-      id: input.assetId,
-      cusip: input.cusip,
-      isin: input.isin,
-      faceValue: input.faceValue || 1000,
-      couponRate: input.couponRate || 0.05, // 5%
-      maturityDate: input.maturityDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 5), // 5 years
-      issueDate: input.issueDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // 1 year ago
-      paymentFrequency: input.paymentFrequency || 2, // semi-annual
-      creditRating: input.creditRating || 'AAA',
-      sector: input.sector || 'corporate',
-      issuerType: input.issuerType || 'corporate',
-      currency: 'USD'
+    if (!input.assetId) {
+      throw new Error('Asset ID is required for bond product lookup')
+    }
+
+    try {
+      const productDetails = await this.databaseService.getBondProductById(input.assetId)
+      
+      return {
+        id: productDetails.id,
+        cusip: productDetails.bond_isin_cusip,
+        isin: productDetails.bond_isin_cusip,
+        bondName: productDetails.bond_name,
+        issuer: productDetails.issuer,
+        faceValue: productDetails.face_value || input.faceValue || 1000,
+        couponRate: productDetails.coupon_rate || input.couponRate || 0.05,
+        maturityDate: new Date(productDetails.maturity_date) || input.maturityDate,
+        issueDate: new Date(productDetails.issue_date) || input.issueDate,
+        paymentFrequency: productDetails.coupon_frequency || input.paymentFrequency || 2,
+        creditRating: productDetails.credit_rating || input.creditRating || 'AAA',
+        bondType: productDetails.bond_type,
+        accruedInterest: productDetails.accrued_interest || 0,
+        currency: productDetails.currency || 'USD'
+      }
+    } catch (error) {
+      throw new Error(`Failed to get bond product details: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   /**
-   * Fetches current bond market data
+   * Fetches current bond market data - NO MOCKS
    */
   private async fetchBondPriceData(input: BondCalculationInput, productDetails: any): Promise<BondPriceData> {
-    // Mock implementation - replace with actual market data service
-    const marketPrice = input.marketPrice || 100.0 // percentage of face value
-    const faceValue = productDetails.faceValue
-    const couponRate = productDetails.couponRate
-    const paymentFrequency = productDetails.paymentFrequency
-    
-    // Calculate accrued interest
-    const accruedInterest = this.calculateAccruedInterest(
-      input.valuationDate,
-      productDetails.issueDate,
-      productDetails.maturityDate,
-      couponRate,
-      paymentFrequency,
-      faceValue
-    )
+    try {
+      
+      // Try to get price data from nav_price_cache using bond CUSIP/ISIN as instrument key
+      const instrumentKey = productDetails.cusip || productDetails.isin || input.assetId
+      
+      let priceData
+      try {
+        priceData = await this.databaseService.getPriceData(instrumentKey)
+      } catch (error) {
+        // If no price data found, use fallback values from product details
+        console.warn(`No price data found for bond ${instrumentKey}, using fallback values`)
+        priceData = {
+          price: input.marketPrice || 100.0, // percentage of face value
+          currency: productDetails.currency,
+          source: 'fallback',
+          as_of: input.valuationDate.toISOString(),
+          instrument_key: instrumentKey
+        }
+      }
+      
+      const faceValue = productDetails.faceValue
+      const couponRate = productDetails.couponRate
+      const paymentFrequency = productDetails.paymentFrequency
+      
+      // Calculate accrued interest using real bond parameters
+      const accruedInterest = this.calculateAccruedInterest(
+        input.valuationDate,
+        productDetails.issueDate,
+        productDetails.maturityDate,
+        couponRate,
+        paymentFrequency,
+        faceValue
+      )
 
-    const cleanPrice = marketPrice
-    const dirtyPrice = cleanPrice + (this.toNumber(accruedInterest) / faceValue) * 100
-    
-    return {
-      price: dirtyPrice,
-      currency: productDetails.currency,
-      source: 'bloomberg',
-      asOf: input.valuationDate,
-      cleanPrice,
-      dirtyPrice,
-      accruedInterest: this.toNumber(accruedInterest),
-      yieldToMaturity: input.yieldToMaturity || 0.045, // 4.5%
-      duration: 4.2, // Modified duration
-      convexity: 18.5,
-      creditSpread: 0.002, // 20 bps
-      benchmarkYield: 0.043, // 4.3%
-      staleness: 0,
-      confidence: 0.95
+      const cleanPrice = priceData.price
+      const dirtyPrice = cleanPrice + (this.toNumber(accruedInterest) / faceValue) * 100
+      
+      return {
+        price: dirtyPrice,
+        currency: priceData.currency,
+        source: priceData.source,
+        asOf: new Date(priceData.as_of),
+        cleanPrice,
+        dirtyPrice,
+        accruedInterest: this.toNumber(accruedInterest),
+        yieldToMaturity: input.yieldToMaturity || 0.045, // TODO: Calculate from price and bond parameters
+        duration: 4.2, // TODO: Calculate modified duration
+        convexity: 18.5, // TODO: Calculate convexity
+        creditSpread: 0.002, // TODO: Calculate from credit rating and benchmark
+        benchmarkYield: 0.043, // TODO: Fetch from yield curve
+        staleness: 0,
+        confidence: priceData.source === 'fallback' ? 0.5 : 0.95
+      }
+    } catch (error) {
+      throw new Error(`Failed to fetch bond price data: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

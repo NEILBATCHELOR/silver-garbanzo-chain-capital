@@ -21,6 +21,25 @@ import {
   CalculationResult
 } from '../types'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService, createDatabaseService } from '../DatabaseService'
+
+// Import all refactored calculators
+import { AssetBackedCalculator } from './AssetBackedCalculator'
+import { BondCalculator } from './BondCalculator'
+import { ClimateReceivablesCalculator } from './ClimateReceivablesCalculator'
+import { CollectiblesCalculator } from './CollectiblesCalculator'
+import { CommoditiesCalculator } from './CommoditiesCalculator'
+import { DigitalTokenizedFundCalculator } from './DigitalTokenizedFundCalculator'
+import { EnergyCalculator } from './EnergyCalculator'
+import { EquityCalculator } from './EquityCalculator'
+import { InfrastructureCalculator } from './InfrastructureCalculator'
+import { InvoiceReceivablesCalculator } from './InvoiceReceivablesCalculator'
+import { MmfCalculator } from './MmfCalculator'
+import { PrivateDebtCalculator } from './PrivateDebtCalculator'
+import { PrivateEquityCalculator } from './PrivateEquityCalculator'
+import { QuantitativeStrategiesCalculator } from './QuantitativeStrategiesCalculator'
+import { RealEstateCalculator } from './RealEstateCalculator'
+import { StructuredProductCalculator } from './StructuredProductCalculator'
 
 export interface CalculatorRegistration {
   calculator: AssetNavCalculator
@@ -65,8 +84,10 @@ export class CalculatorRegistry {
   private metrics: RegistryMetrics
   private options: RegistryOptions
   private healthCheckTimer?: NodeJS.Timeout
+  private databaseService: DatabaseService
 
-  constructor(options: RegistryOptions = {}) {
+  constructor(databaseService?: DatabaseService, options: RegistryOptions = {}) {
+    this.databaseService = databaseService || createDatabaseService()
     this.options = {
       enableHealthChecks: true,
       enableCaching: true,
@@ -431,7 +452,7 @@ export class CalculatorRegistry {
     }
     
     // Create a basic fallback calculator
-    const fallbackCalculator = new DefaultFallbackCalculator()
+    const fallbackCalculator = new DefaultFallbackCalculator(this.databaseService)
     
     return {
       calculator: fallbackCalculator,
@@ -570,20 +591,149 @@ class DefaultFallbackCalculator extends BaseCalculator {
 }
 
 /**
- * Factory function to create and initialize the registry with common calculators
+ * Factory function to create and initialize the registry with all available calculators
  */
-export function createCalculatorRegistry(options?: RegistryOptions): CalculatorRegistry {
-  const registry = new CalculatorRegistry(options)
+export function createCalculatorRegistry(databaseService?: DatabaseService, options?: RegistryOptions): CalculatorRegistry {
+  const registry = new CalculatorRegistry(databaseService, options)
+  const dbService = databaseService || createDatabaseService()
   
-  // TODO: Register actual calculators when they are implemented
-  // registry.register({
-  //   calculator: new EquityCalculator(),
-  //   assetTypes: [AssetType.EQUITY],
-  //   priority: 90,
-  //   enabled: true,
-  //   description: 'Equity NAV calculator using market prices',
-  //   version: '1.0.0'
-  // })
+  // Register all refactored calculators with proper asset type mappings and priorities
+  const calculatorRegistrations: CalculatorRegistration[] = [
+    {
+      calculator: new EquityCalculator(dbService),
+      assetTypes: [AssetType.EQUITY],
+      priority: 90,
+      enabled: true,
+      description: 'Equity NAV calculator with market price integration and corporate actions',
+      version: '1.0.0'
+    },
+    {
+      calculator: new BondCalculator(dbService),
+      assetTypes: [AssetType.BONDS],
+      priority: 90,
+      enabled: true,
+      description: 'Fixed income calculator with yield curve and credit spread adjustments',
+      version: '1.0.0'
+    },
+    {
+      calculator: new MmfCalculator(dbService),
+      assetTypes: [AssetType.MMF],
+      priority: 95,
+      enabled: true,
+      description: 'Money Market Fund calculator with SEC 2a-7 compliance and shadow pricing',
+      version: '1.0.0'
+    },
+    {
+      calculator: new CommoditiesCalculator(dbService),
+      assetTypes: [AssetType.COMMODITIES],
+      priority: 85,
+      enabled: true,
+      description: 'Physical commodities calculator with storage costs and futures roll',
+      version: '1.0.0'
+    },
+    {
+      calculator: new PrivateEquityCalculator(dbService),
+      assetTypes: [AssetType.PRIVATE_EQUITY],
+      priority: 90,
+      enabled: true,
+      description: 'Private equity calculator with J-curve analysis and illiquidity adjustments',
+      version: '1.0.0'
+    },
+    {
+      calculator: new PrivateDebtCalculator(dbService),
+      assetTypes: [AssetType.PRIVATE_DEBT],
+      priority: 90,
+      enabled: true,
+      description: 'Private debt calculator with credit risk and recovery analysis',
+      version: '1.0.0'
+    },
+    {
+      calculator: new RealEstateCalculator(dbService),
+      assetTypes: [AssetType.REAL_ESTATE],
+      priority: 85,
+      enabled: true,
+      description: 'Real estate calculator with income, sales comparison, and cost approaches',
+      version: '1.0.0'
+    },
+    {
+      calculator: new InfrastructureCalculator(dbService),
+      assetTypes: [AssetType.INFRASTRUCTURE],
+      priority: 85,
+      enabled: true,
+      description: 'Infrastructure calculator with DCF modeling and regulatory assessment',
+      version: '1.0.0'
+    },
+    {
+      calculator: new EnergyCalculator(dbService),
+      assetTypes: [AssetType.ENERGY],
+      priority: 85,
+      enabled: true,
+      description: 'Energy assets calculator with commodity exposure and weather risk',
+      version: '1.0.0'
+    },
+    {
+      calculator: new CollectiblesCalculator(dbService),
+      assetTypes: [AssetType.COLLECTIBLES],
+      priority: 80,
+      enabled: true,
+      description: 'Collectibles calculator with auction data and authenticity assessment',
+      version: '1.0.0'
+    },
+    {
+      calculator: new AssetBackedCalculator(dbService),
+      assetTypes: [AssetType.ASSET_BACKED],
+      priority: 85,
+      enabled: true,
+      description: 'Asset-backed securities calculator with tranching and credit enhancement',
+      version: '1.0.0'
+    },
+    {
+      calculator: new StructuredProductCalculator(dbService),
+      assetTypes: [AssetType.STRUCTURED_PRODUCTS],
+      priority: 80,
+      enabled: true,
+      description: 'Structured products calculator with payoff modeling and scenario analysis',
+      version: '1.0.0'
+    },
+    {
+      calculator: new QuantitativeStrategiesCalculator(dbService),
+      assetTypes: [AssetType.QUANT_STRATEGIES],
+      priority: 85,
+      enabled: true,
+      description: 'Quantitative strategies calculator with factor models and backtesting',
+      version: '1.0.0'
+    },
+    {
+      calculator: new InvoiceReceivablesCalculator(dbService),
+      assetTypes: [AssetType.INVOICE_RECEIVABLES],
+      priority: 85,
+      enabled: true,
+      description: 'Invoice receivables calculator with credit risk and collection analysis',
+      version: '1.0.0'
+    },
+    {
+      calculator: new ClimateReceivablesCalculator(dbService),
+      assetTypes: [AssetType.CLIMATE_RECEIVABLES],
+      priority: 85,
+      enabled: true,
+      description: 'Climate receivables calculator with carbon market data and policy analysis',
+      version: '1.0.0'
+    },
+    {
+      calculator: new DigitalTokenizedFundCalculator(dbService),
+      assetTypes: [AssetType.DIGITAL_TOKENIZED_FUNDS],
+      priority: 80,
+      enabled: true,
+      description: 'Digital tokenized funds calculator with DeFi integration and smart contract risk',
+      version: '1.0.0'
+    }
+  ]
+  
+  // Register all calculators
+  registry.registerAll(calculatorRegistrations)
+  
+  console.log(`CalculatorRegistry initialized with ${calculatorRegistrations.length} calculators`)
+  console.log(`Supported asset types: ${registry.getSupportedAssetTypes().join(', ')}`)
   
   return registry
 }

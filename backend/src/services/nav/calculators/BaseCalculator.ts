@@ -25,6 +25,7 @@ import {
   ValidationSeverity
 } from '../types'
 import { NavServiceResult } from '../types'
+import { DatabaseService } from '../DatabaseService'
 
 // Configure Decimal.js for financial precision
 Decimal.set({
@@ -62,9 +63,11 @@ export interface CalculatorMetrics {
 export abstract class BaseCalculator implements AssetNavCalculator {
   protected readonly options: CalculatorOptions
   protected readonly logger: any // Use existing logging infrastructure
+  protected readonly databaseService: DatabaseService
   protected metrics: CalculatorMetrics
 
-  constructor(options: CalculatorOptions = {}) {
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    this.databaseService = databaseService
     this.options = {
       enableRiskControls: true,
       enableObservability: true,
@@ -245,8 +248,7 @@ export abstract class BaseCalculator implements AssetNavCalculator {
   // ==================== FX CONVERSION UTILITIES ====================
 
   /**
-   * Converts amount from one currency to another
-   * TODO: Integration with FxRateService when implemented
+   * Converts amount from one currency to another using real database FX rates
    */
   protected async convertCurrency(
     amount: number | Decimal, 
@@ -263,17 +265,26 @@ export abstract class BaseCalculator implements AssetNavCalculator {
       }
     }
 
-    // TODO: Replace with actual FX service call
-    // For now, mock implementation - this will be replaced in Phase 10
-    const mockFxRate = 1.0 // Placeholder
-    const amountDecimal = amount instanceof Decimal ? amount : new Decimal(amount)
-    
-    this.metrics.fxRatesUsed[`${fromCurrency}/${toCurrency}`] = mockFxRate
-    
-    return {
-      convertedAmount: this.multiply(amountDecimal, mockFxRate),
-      fxRate: mockFxRate,
-      source: 'mock_fx_service'
+    try {
+      // Use real DatabaseService to get FX rates
+      const fxRate = await this.databaseService.getLatestFxRates(
+        fromCurrency.toUpperCase(), 
+        toCurrency.toUpperCase()
+      )
+      
+      const amountDecimal = amount instanceof Decimal ? amount : new Decimal(amount)
+      const convertedAmount = this.multiply(amountDecimal, fxRate.rate)
+      
+      // Track FX usage for metrics
+      this.metrics.fxRatesUsed[`${fromCurrency}/${toCurrency}`] = fxRate.rate
+      
+      return {
+        convertedAmount,
+        fxRate: fxRate.rate,
+        source: fxRate.source
+      }
+    } catch (error) {
+      throw new Error(`Failed to convert ${fromCurrency} to ${toCurrency}: ${error instanceof Error ? error.message : 'Unknown FX error'}`)
     }
   }
 
@@ -287,26 +298,40 @@ export abstract class BaseCalculator implements AssetNavCalculator {
   // ==================== PRICE DATA UTILITIES ====================
 
   /**
-   * Fetches price data for an instrument
-   * TODO: Integration with MarketDataOracleService when implemented
+   * Fetches price data for an instrument using real database price cache
    */
   protected async fetchPriceData(
     instrumentKey: string, 
     asOf?: Date,
     preferredProvider?: MarketDataProvider
   ): Promise<PriceData> {
-    // TODO: Replace with actual market data service call
-    // For now, mock implementation - this will be replaced in Phase 7
-    const mockPrice: PriceData = {
-      price: 100.0, // Placeholder
-      currency: 'USD',
-      asOf: asOf || new Date(),
-      source: preferredProvider || MarketDataProvider.MANUAL_OVERRIDE
+    try {
+      // Use real DatabaseService to get price data
+      const priceData = await this.databaseService.getPriceData(instrumentKey)
+      
+      // Validate price data freshness
+      const validation = await this.databaseService.validatePriceDataFreshness(
+        instrumentKey, 
+        this.options.maxPriceStalenessMinutes
+      )
+      
+      if (!validation.isValid) {
+        this.metrics.riskControlsTriggered.push(`Stale price data for ${instrumentKey}: ${validation.reason}`)
+        throw new Error(`Stale price data for ${instrumentKey}: ${validation.reason}`)
+      }
+      
+      // Track price data source for metrics
+      this.metrics.priceDataSources[instrumentKey] = priceData.source as MarketDataProvider
+      
+      return {
+        price: priceData.price,
+        currency: priceData.currency,
+        asOf: new Date(priceData.as_of),
+        source: priceData.source as MarketDataProvider
+      }
+    } catch (error) {
+      throw new Error(`Failed to fetch price data for ${instrumentKey}: ${error instanceof Error ? error.message : 'Unknown price error'}`)
     }
-    
-    this.metrics.priceDataSources[instrumentKey] = mockPrice.source as MarketDataProvider
-    
-    return mockPrice
   }
 
   /**

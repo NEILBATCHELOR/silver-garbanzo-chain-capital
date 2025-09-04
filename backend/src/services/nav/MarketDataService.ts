@@ -18,6 +18,7 @@
 
 import { Decimal } from 'decimal.js'
 import { PriceData, MarketDataProvider } from './types'
+import { createDatabaseService } from './DatabaseService'
 
 export interface MarketDataRequest {
   symbol: string
@@ -206,125 +207,52 @@ export class MarketDataService {
   }
 
   /**
-   * Fetches data from a specific provider
+   * Fetches price data from database only - NO EXTERNAL PROVIDERS
+   * All price data must come from nav_price_cache table
    */
   private async fetchFromProvider(
     provider: MarketDataProvider, 
     request: MarketDataRequest
   ): Promise<MarketDataResponse> {
-    
-    switch (provider) {
-      case MarketDataProvider.CHAINLINK:
-        return this.fetchFromChainlink(request)
-      
-      case MarketDataProvider.ONCHAIN_DEX:
-        return this.fetchFromOnchainDex(request)
-      
-      case MarketDataProvider.COINGECKO:
-        return this.fetchFromCoinGecko(request)
-      
-      case MarketDataProvider.INTERNAL_DB:
-        return this.fetchFromInternalDb(request)
-      
-      default:
-        throw new Error(`Unsupported provider: ${provider}`)
-    }
+    // ALL PROVIDERS NOW QUERY DATABASE - NO MOCKS
+    return this.fetchFromDatabase(request)
   }
 
   /**
-   * Chainlink API integration (mock implementation)
+   * Database-only price fetching - replaces ALL mock implementations
+   * Queries nav_price_cache table for real price data
    */
-  private async fetchFromChainlink(request: MarketDataRequest): Promise<MarketDataResponse> {
-    // Mock implementation - replace with actual Chainlink API
-    const mockPrice: PriceData = {
-      price: 100.0 + Math.random() * 10, // Mock price with variation
-      currency: request.currency || 'USD',
-      source: 'chainlink',
-      asOf: request.timestamp
-    }
-
-    return {
-      success: true,
-      data: mockPrice,
-      provider: MarketDataProvider.CHAINLINK,
-      cached: false,
-      staleness: 0
-    }
-  }
-
-  /**
-   * OnChain DEX integration (mock implementation)
-   */
-  private async fetchFromOnchainDex(request: MarketDataRequest): Promise<MarketDataResponse> {
-    // Mock implementation - replace with actual DEX API
-    const mockPrice: PriceData = {
-      price: 99.0 + Math.random() * 12, // Mock price with variation
-      currency: request.currency || 'USD',
-      source: 'onchain_dex',
-      asOf: request.timestamp
-    }
-
-    return {
-      success: true,
-      data: mockPrice,
-      provider: MarketDataProvider.ONCHAIN_DEX,
-      cached: false,
-      staleness: 1
-    }
-  }
-
-  /**
-   * CoinGecko API integration (mock implementation)
-   */
-  private async fetchFromCoinGecko(request: MarketDataRequest): Promise<MarketDataResponse> {
-    // Mock implementation - replace with actual CoinGecko API
-    if (request.assetClass !== 'crypto') {
+  private async fetchFromDatabase(request: MarketDataRequest): Promise<MarketDataResponse> {
+    try {
+      // Use DatabaseService to get real price data
+      const databaseService = createDatabaseService()
+      const priceData = await databaseService.getPriceData(request.symbol)
+      
+      // Calculate staleness
+      const ageMinutes = (Date.now() - new Date(priceData.as_of).getTime()) / (60 * 1000)
+      
+      return {
+        success: true,
+        data: {
+          price: priceData.price,
+          currency: priceData.currency,
+          source: priceData.source,
+          asOf: new Date(priceData.as_of)
+        },
+        provider: MarketDataProvider.INTERNAL_DB,
+        cached: false,
+        staleness: Math.round(ageMinutes)
+      }
+    } catch (error) {
       return {
         success: false,
-        error: 'CoinGecko only supports crypto assets',
-        provider: MarketDataProvider.COINGECKO,
+        error: error instanceof Error ? error.message : 'Database price fetch failed',
+        provider: MarketDataProvider.INTERNAL_DB,
         cached: false,
         staleness: -1
       }
     }
-
-    const mockPrice: PriceData = {
-      price: 50000 + Math.random() * 10000, // Mock crypto price
-      currency: 'USD',
-      source: 'coingecko',
-      asOf: request.timestamp
-    }
-
-    return {
-      success: true,
-      data: mockPrice,
-      provider: MarketDataProvider.COINGECKO,
-      cached: false,
-      staleness: 0
-    }
   }
-
-  /**
-   * Internal database fallback (mock implementation)
-   */
-  private async fetchFromInternalDb(request: MarketDataRequest): Promise<MarketDataResponse> {
-    // Mock implementation - replace with actual database query
-    const mockPrice: PriceData = {
-      price: 100.0, // Static fallback price
-      currency: request.currency || 'USD',
-      source: 'internal_db',
-      asOf: new Date(Date.now() - 60 * 60 * 1000) // 1 hour old
-    }
-
-    return {
-      success: true,
-      data: mockPrice,
-      provider: MarketDataProvider.INTERNAL_DB,
-      cached: false,
-      staleness: 60
-    }
-  }
-
   /**
    * Checks rate limiting for provider
    */

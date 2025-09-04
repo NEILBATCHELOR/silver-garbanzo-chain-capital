@@ -5137,9 +5137,11 @@ export type Database = {
       }
       fund_products: {
         Row: {
+          asset_allocation: Json | null
           assets_under_management: number | null
           benchmark_index: string | null
           closure_liquidation_date: string | null
+          concentration_limits: Json | null
           created_at: string | null
           creation_redemption_history: Json | null
           currency: string | null
@@ -5165,9 +5167,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          asset_allocation?: Json | null
           assets_under_management?: number | null
           benchmark_index?: string | null
           closure_liquidation_date?: string | null
+          concentration_limits?: Json | null
           created_at?: string | null
           creation_redemption_history?: Json | null
           currency?: string | null
@@ -5193,9 +5197,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          asset_allocation?: Json | null
           assets_under_management?: number | null
           benchmark_index?: string | null
           closure_liquidation_date?: string | null
+          concentration_limits?: Json | null
           created_at?: string | null
           creation_redemption_history?: Json | null
           currency?: string | null
@@ -7252,6 +7258,51 @@ export type Database = {
             referencedColumns: ["run_id"]
           },
         ]
+      }
+      nav_calculation_history: {
+        Row: {
+          asset_id: string
+          calculation_step: string
+          created_at: string | null
+          data_sources: Json | null
+          id: number
+          input_data: Json
+          output_data: Json
+          processing_time_ms: number
+          product_type: string
+          run_id: string
+          step_order: number
+          validation_results: Json | null
+        }
+        Insert: {
+          asset_id: string
+          calculation_step: string
+          created_at?: string | null
+          data_sources?: Json | null
+          id?: number
+          input_data: Json
+          output_data: Json
+          processing_time_ms: number
+          product_type: string
+          run_id: string
+          step_order: number
+          validation_results?: Json | null
+        }
+        Update: {
+          asset_id?: string
+          calculation_step?: string
+          created_at?: string | null
+          data_sources?: Json | null
+          id?: number
+          input_data?: Json
+          output_data?: Json
+          processing_time_ms?: number
+          product_type?: string
+          run_id?: string
+          step_order?: number
+          validation_results?: Json | null
+        }
+        Relationships: []
       }
       nav_calculation_runs: {
         Row: {
@@ -11224,34 +11275,70 @@ export type Database = {
         Row: {
           auditor: string | null
           backing_amount: number | null
+          backing_ratio: number | null
+          collateral_address: string | null
+          collateral_amount: number | null
           collateral_asset: string | null
+          collateral_symbol: string | null
+          collateral_value_usd: number | null
           created_at: string | null
           custodian: string | null
+          debt_ceiling: number | null
           id: string
           last_audit_date: string | null
+          last_oracle_update: string | null
+          liquidation_ratio: number | null
+          oracle_price: number | null
+          risk_parameters: Json | null
+          stability_fee: number | null
           stablecoin_id: string
+          total_reserves: number | null
           updated_at: string | null
         }
         Insert: {
           auditor?: string | null
           backing_amount?: number | null
+          backing_ratio?: number | null
+          collateral_address?: string | null
+          collateral_amount?: number | null
           collateral_asset?: string | null
+          collateral_symbol?: string | null
+          collateral_value_usd?: number | null
           created_at?: string | null
           custodian?: string | null
+          debt_ceiling?: number | null
           id?: string
           last_audit_date?: string | null
+          last_oracle_update?: string | null
+          liquidation_ratio?: number | null
+          oracle_price?: number | null
+          risk_parameters?: Json | null
+          stability_fee?: number | null
           stablecoin_id: string
+          total_reserves?: number | null
           updated_at?: string | null
         }
         Update: {
           auditor?: string | null
           backing_amount?: number | null
+          backing_ratio?: number | null
+          collateral_address?: string | null
+          collateral_amount?: number | null
           collateral_asset?: string | null
+          collateral_symbol?: string | null
+          collateral_value_usd?: number | null
           created_at?: string | null
           custodian?: string | null
+          debt_ceiling?: number | null
           id?: string
           last_audit_date?: string | null
+          last_oracle_update?: string | null
+          liquidation_ratio?: number | null
+          oracle_price?: number | null
+          risk_parameters?: Json | null
+          stability_fee?: number | null
           stablecoin_id?: string
+          total_reserves?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -19829,6 +19916,16 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nav_fx_rates_latest: {
+        Row: {
+          as_of: string | null
+          base_ccy: string | null
+          quote_ccy: string | null
+          rate: number | null
+          source: string | null
+        }
+        Relationships: []
       }
       project_type_stats: {
         Row: {

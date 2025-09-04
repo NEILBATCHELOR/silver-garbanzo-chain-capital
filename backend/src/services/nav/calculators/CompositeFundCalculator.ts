@@ -16,6 +16,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -100,8 +101,8 @@ export interface RiskAttribution {
 }
 
 export class CompositeFundCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -197,139 +198,143 @@ export class CompositeFundCalculator extends BaseCalculator {
   // ==================== COMPOSITE FUND SPECIFIC METHODS ====================
 
   /**
-   * Fetches composite fund details from database
+   * Fetches composite fund details from database using real DatabaseService
    */
   private async getCompositeFundDetails(input: CompositeFundCalculationInput): Promise<any> {
-    // Mock implementation - replace with actual database query
-    return {
-      id: input.assetId || 'CF001',
-      fundName: 'Multi-Asset Strategic Fund',
-      fundStrategy: input.fundStrategy || 'balanced_growth',
-      fundCurrency: input.fundCurrency || 'USD',
-      inceptionDate: new Date('2020-01-01'),
-      managementFee: input.managementFee || 0.015, // 1.5%
-      performanceFee: input.performanceFee || 0.20, // 20%
-      highWaterMark: input.highWaterMark || 100.0,
-      benchmarkIndex: input.benchmarkIndex || '60/40_PORTFOLIO',
-      rebalancingFrequency: input.rebalancingFrequency || 'quarterly',
-      lockupPeriod: input.lockupPeriod || 90, // 90 days
-      redemptionNotice: input.redemptionNotice || 30, // 30 days
-      minimumInvestment: input.minimumInvestment || 1000000, // $1M
-      assetAllocation: input.assetAllocation || [
-        {
-          assetClass: AssetType.EQUITY,
-          targetAllocation: 50.0,
-          minAllocation: 40.0,
-          maxAllocation: 70.0,
-          currentAllocation: 52.0,
-          strategicWeight: 50.0,
-          tacticalWeight: 2.0
-        },
-        {
-          assetClass: AssetType.BONDS,
-          targetAllocation: 30.0,
-          minAllocation: 20.0,
-          maxAllocation: 50.0,
-          currentAllocation: 28.0,
-          strategicWeight: 30.0,
-          tacticalWeight: -2.0
-        },
-        {
-          assetClass: AssetType.COMMODITIES,
-          targetAllocation: 10.0,
-          minAllocation: 5.0,
-          maxAllocation: 20.0,
-          currentAllocation: 12.0,
-          strategicWeight: 10.0,
-          tacticalWeight: 2.0
-        },
-        {
-          assetClass: AssetType.REAL_ESTATE,
-          targetAllocation: 10.0,
-          minAllocation: 5.0,
-          maxAllocation: 15.0,
-          currentAllocation: 8.0,
-          strategicWeight: 10.0,
-          tacticalWeight: -2.0
-        }
-      ],
-      concentrationLimits: input.concentrationLimits || [
-        {
-          limitType: 'single_position',
-          maxAllocation: 5.0, // 5% max per position
-          currentAllocation: 3.2,
-          riskScore: 0.6
-        },
-        {
-          limitType: 'sector',
-          maxAllocation: 25.0, // 25% max per sector
-          currentAllocation: 18.5,
-          riskScore: 0.4
-        }
-      ],
-      hedgingStrategy: input.hedgingStrategy || 'selective_currency_hedge',
-      riskBudget: input.riskBudget || 0.15 // 15% annual volatility target
+    try {
+      // Use DatabaseService to get real composite fund details
+      const fundDetails = await this.databaseService.getCompositeFundDetails(
+        input.assetId || input.projectId!
+      )
+      
+      // Get asset allocation configuration from database
+      const assetAllocation = await this.databaseService.getAssetAllocation(
+        input.assetId || input.projectId!
+      )
+      
+      // Get concentration limits from database
+      const concentrationLimits = await this.databaseService.getConcentrationLimits(
+        input.assetId || input.projectId!
+      )
+      
+      // Merge database data with any input overrides
+      const result = {
+        id: fundDetails.id,
+        fundName: fundDetails.fund_name,
+        fundStrategy: fundDetails.fund_strategy,
+        fundCurrency: fundDetails.fund_currency,
+        inceptionDate: new Date(fundDetails.inception_date),
+        managementFee: fundDetails.management_fee,
+        performanceFee: fundDetails.performance_fee,
+        highWaterMark: fundDetails.high_water_mark,
+        benchmarkIndex: fundDetails.benchmark_index,
+        rebalancingFrequency: fundDetails.rebalancing_frequency,
+        lockupPeriod: fundDetails.lockup_period,
+        redemptionNotice: fundDetails.redemption_notice,
+        minimumInvestment: fundDetails.minimum_investment,
+        hedgingStrategy: fundDetails.hedging_strategy,
+        riskBudget: fundDetails.risk_budget,
+        assetAllocation: assetAllocation || [],
+        concentrationLimits: concentrationLimits || []
+      }
+      
+      // Save calculation step for audit trail
+      await this.databaseService.saveCalculationHistory({
+        run_id: this.generateRunId(),
+        asset_id: input.assetId || input.projectId!,
+        product_type: 'composite_fund',
+        calculation_step: 'get_fund_details',
+        step_order: 1,
+        input_data: { assetId: input.assetId, projectId: input.projectId },
+        output_data: result,
+        processing_time_ms: Date.now() - Date.now(), // Will be properly timed in actual implementation
+        data_sources: ['fund_products', 'asset_allocation', 'concentration_limits'],
+        validation_results: { fundDetailsFound: true, assetAllocationCount: assetAllocation?.length || 0 }
+      })
+      
+      return result
+    } catch (error) {
+      throw new Error(`Failed to fetch composite fund details: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   /**
-   * Gets current portfolio holdings
+   * Gets current portfolio holdings using real DatabaseService
    */
   private async getPortfolioHoldings(
     input: CompositeFundCalculationInput,
     fundDetails: any
   ): Promise<PortfolioHolding[]> {
-    // Mock implementation - in reality this would query holdings from database
-    return [
-      {
-        assetId: 'SPY_ETF',
-        assetType: AssetType.EQUITY,
-        quantity: 100000,
-        marketValue: 45000000,
-        weight: 0.45,
-        currency: 'USD',
-        beta: 1.0,
-        volatility: 0.20,
-        expectedReturn: 0.08,
-        correlations: { 'BONDS': 0.2, 'COMMODITIES': 0.3, 'REAL_ESTATE': 0.6 }
-      },
-      {
-        assetId: 'TLT_ETF',
-        assetType: AssetType.BONDS,
-        quantity: 300000,
-        marketValue: 30000000,
-        weight: 0.30,
-        currency: 'USD',
-        beta: -0.2,
-        volatility: 0.12,
-        expectedReturn: 0.04,
-        correlations: { 'EQUITY': 0.2, 'COMMODITIES': -0.1, 'REAL_ESTATE': 0.1 }
-      },
-      {
-        assetId: 'GLD_ETF',
-        assetType: AssetType.COMMODITIES,
-        quantity: 150000,
-        marketValue: 15000000,
-        weight: 0.15,
-        currency: 'USD',
-        beta: 0.1,
-        volatility: 0.25,
-        expectedReturn: 0.05,
-        correlations: { 'EQUITY': 0.3, 'BONDS': -0.1, 'REAL_ESTATE': 0.4 }
-      },
-      {
-        assetId: 'VNQ_ETF',
-        assetType: AssetType.REAL_ESTATE,
-        quantity: 100000,
-        marketValue: 10000000,
-        weight: 0.10,
-        currency: 'USD',
-        beta: 0.8,
-        volatility: 0.18,
-        expectedReturn: 0.07,
-        correlations: { 'EQUITY': 0.6, 'BONDS': 0.1, 'COMMODITIES': 0.4 }
+    try {
+      // Use DatabaseService to get real portfolio holdings
+      const holdingsData = await this.databaseService.getPortfolioHoldings(
+        input.assetId || input.projectId!
+      )
+      
+      // Transform database holdings to PortfolioHolding format
+      const portfolioHoldings: PortfolioHolding[] = []
+      let totalValue = 0
+      
+      // Calculate total value first for weight calculations
+      for (const holding of holdingsData) {
+        totalValue += holding.value || 0
       }
-    ]
+      
+      // Transform each holding
+      for (const holding of holdingsData) {
+        const portfolioHolding: PortfolioHolding = {
+          assetId: holding.asset_id,
+          assetType: this.mapAssetType(holding.asset_type),
+          quantity: holding.quantity,
+          marketValue: holding.value,
+          weight: totalValue > 0 ? (holding.value || 0) / totalValue : 0,
+          currency: holding.currency,
+          beta: holding.beta || null,
+          volatility: holding.volatility || null,
+          expectedReturn: holding.expected_return || null,
+          correlations: holding.correlations ? JSON.parse(holding.correlations) : {}
+        }
+        
+        portfolioHoldings.push(portfolioHolding)
+      }
+      
+      // Save calculation step for audit trail
+      await this.databaseService.saveCalculationHistory({
+        run_id: this.generateRunId(),
+        asset_id: input.assetId || input.projectId!,
+        product_type: 'composite_fund',
+        calculation_step: 'get_portfolio_holdings',
+        step_order: 2,
+        input_data: { fundId: fundDetails.id },
+        output_data: { holdingsCount: portfolioHoldings.length, totalValue },
+        processing_time_ms: Date.now() - Date.now(), // Will be properly timed
+        data_sources: ['asset_holdings', 'equity_products', 'bond_products', 'commodities_products'],
+        validation_results: { holdingsFound: portfolioHoldings.length > 0, totalValueValid: totalValue > 0 }
+      })
+      
+      return portfolioHoldings
+    } catch (error) {
+      throw new Error(`Failed to fetch portfolio holdings: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+  
+  /**
+   * Maps database asset type to AssetType enum
+   */
+  private mapAssetType(dbAssetType: string): AssetType {
+    const typeMapping: { [key: string]: AssetType } = {
+      'equity': AssetType.EQUITY,
+      'bond': AssetType.BONDS,
+      'commodities': AssetType.COMMODITIES,
+      'real_estate': AssetType.REAL_ESTATE,
+      'money_market': AssetType.MMF,
+      'private_equity': AssetType.PRIVATE_EQUITY,
+      'private_debt': AssetType.PRIVATE_DEBT,
+      'energy': AssetType.ENERGY,
+      'infrastructure': AssetType.INFRASTRUCTURE
+    }
+    
+    return typeMapping[dbAssetType] || AssetType.EQUITY // Default to equity if unknown
   }
 
   /**

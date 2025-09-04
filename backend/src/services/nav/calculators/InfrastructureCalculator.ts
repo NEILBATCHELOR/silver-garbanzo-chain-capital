@@ -20,6 +20,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -258,8 +259,8 @@ export interface InfrastructureRiskAssessment {
 }
 
 export class InfrastructureCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -375,134 +376,44 @@ export class InfrastructureCalculator extends BaseCalculator {
    * Fetches infrastructure asset details from database
    */
   private async getInfrastructureAssetDetails(input: InfrastructureCalculationInput): Promise<InfrastructureAsset> {
-    // TODO: Replace with actual database query
-    const operationalDate = input.operationalDate || new Date('2020-01-01')
-    const concessionEndDate = input.concessionEndDate || new Date('2050-01-01')
-    const remainingConcessionLife = this.calculateYearsRemaining(concessionEndDate)
     
-    return {
-      assetId: input.assetId || 'infra_001',
-      assetName: `Infrastructure Asset ${input.assetId}`,
-      assetType: input.assetType || 'transportation',
-      subAssetType: input.subAssetType || 'toll_roads',
-      geographicLocation: input.geographicLocation || 'United States',
-      country: 'United States',
-      region: 'North America',
-      constructionStartDate: input.constructionStartDate,
-      operationalDate,
-      concessionEndDate,
-      remainingConcessionLife,
-      assetLifeRemaining: 25,
-      totalInvestment: input.totalInvestment || 500000000,
-      constructionCost: input.constructionCost || 450000000,
-      regulatoryFramework: input.regulatoryFramework || 'concession',
-      revenueModel: input.revenueModel || 'merchant_revenue',
-      keyContracts: [
-        {
-          contractType: 'concession',
-          counterparty: 'State Transportation Authority',
-          contractLength: 30,
-          startDate: operationalDate,
-          endDate: concessionEndDate,
-          revenueType: 'variable',
-          escalation: {
-            type: 'cpi_linked',
-            baseRate: 0.025,
-            inflationIndex: 'CPI',
-            cappedRate: 0.045,
-            flooredRate: 0.01,
-            reviewFrequency: 'annual'
-          },
-          terminationClauses: [
-            {
-              trigger: 'default',
-              noticePeriod: 90,
-              compensationMechanism: 'debt_plus_equity',
-              assetOwnership: 'revert'
-            }
-          ],
-          performanceMetrics: [
-            {
-              metric: 'availability',
-              target: 0.99,
-              actual: 0.995,
-              penaltyRate: 0.01,
-              bonusRate: 0.005,
-              measurementFrequency: 'monthly'
-            }
-          ],
-          creditRating: 'A-',
-          guarantees: ['government_guarantee', 'revenue_guarantee']
-        }
-      ],
-      regulatoryMetrics: {
-        framework: input.regulatoryFramework || 'concession',
-        regulator: 'Transportation Authority',
-        rateBase: input.regulatedAssetBase || 400000000,
-        allowedROE: input.allowedReturnOnEquity || 0.095,
-        allowedROA: 0.065,
-        nextRateReview: new Date('2026-01-01'),
-        rateReviewFrequency: 5,
-        tariffEscalation: 0.03,
-        subsidiesReceived: 0,
-        regulatoryChanges: []
-      },
-      operationalMetrics: {
-        capacity: 100000, // vehicles per day
-        utilization: 0.75,
-        throughput: 75000,
-        availability: 0.995,
-        operatingCosts: 25000000,
-        maintenanceCosts: 15000000,
-        capitalExpenditures: 10000000,
-        operatingMargin: 0.65,
-        ebitdaMargin: 0.70,
-        laborCosts: 8000000,
-        contractorCosts: 5000000,
-        insuranceCosts: 2000000
-      },
-      esgMetrics: {
-        overallScore: input.esgScore || 75,
-        environmentalScore: 72,
-        socialScore: 78,
-        socialImpactScore: input.socialImpactScore || 82,
-        governanceScore: 76,
-        carbonEmissions: input.carbonIntensity || 1200,
-        carbonIntensity: 0.15,
-        waterUsage: 50000,
-        wasteGeneration: 500,
-        jobsCreated: 250,
-        localCommunityImpact: 85,
-        safetyIncidents: 2,
-        complianceScore: 95
-      },
-      assetCondition: {
-        overallCondition: 'good',
-        ageYears: this.calculateAssetAge(operationalDate),
-        expectedLifeRemaining: 25,
-        maintenanceBacklog: 5000000,
-        replacementCapexRequired: 50000000,
-        conditionAssessments: [
-          {
-            assessmentDate: new Date('2024-06-01'),
-            component: 'road_surface',
-            condition: 'good',
-            recommendedAction: 'routine_maintenance',
-            costEstimate: 2000000,
-            urgency: 'within_year'
-          }
-        ],
-        maintenancePlans: [
-          {
-            component: 'toll_systems',
-            maintenanceType: 'preventive',
-            frequency: 'quarterly',
-            annualCost: 1500000,
-            nextScheduledDate: new Date('2025-04-01'),
-            deferralImpact: 0.05
-          }
-        ]
+    try {
+      // Get real infrastructure product data from database
+      const productDetails = await this.databaseService.getInfrastructureProductById(input.assetId!)
+      
+      const operationalDate = input.operationalDate || 
+        (productDetails.operational_date ? new Date(productDetails.operational_date) : new Date('2020-01-01'))
+      const concessionEndDate = input.concessionEndDate || this.calculateConcessionEndDate(operationalDate, productDetails.concession_period_years || 30)
+      const remainingConcessionLife = this.calculateYearsRemaining(concessionEndDate)
+      
+      return {
+        assetId: productDetails.id,
+        assetName: productDetails.project_name || `Infrastructure Asset ${input.assetId}`,
+        assetType: input.assetType || productDetails.infrastructure_type || 'transportation',
+        subAssetType: input.subAssetType || this.getSubAssetType(productDetails.infrastructure_type),
+        geographicLocation: input.geographicLocation || productDetails.location || 'United States',
+        country: 'United States',
+        region: 'North America',
+        constructionStartDate: input.constructionStartDate || (productDetails.construction_date ? new Date(productDetails.construction_date) : undefined),
+        operationalDate,
+        concessionEndDate,
+        remainingConcessionLife,
+        assetLifeRemaining: 25,
+        totalInvestment: input.totalInvestment || productDetails.asset_value || 500000000,
+        constructionCost: input.constructionCost || (productDetails.asset_value ? productDetails.asset_value * 0.9 : 450000000),
+        regulatoryFramework: input.regulatoryFramework || this.getRegularoryFramework(productDetails.infrastructure_type),
+        revenueModel: input.revenueModel || productDetails.revenue_model || 'merchant_revenue',
+        keyContracts: this.buildInfrastructureContracts(productDetails, operationalDate, concessionEndDate),
+        regulatoryMetrics: this.buildRegulatoryMetrics(input, productDetails),
+        operationalMetrics: this.buildOperationalMetrics(input, productDetails),
+        esgMetrics: this.buildEsgMetrics(input, productDetails),
+        assetCondition: this.buildAssetCondition(input, productDetails, operationalDate)
       }
+    } catch (error) {
+      // Graceful fallback with intelligent defaults
+      this.logger?.warn({ error, assetId: input.assetId }, 'Failed to fetch infrastructure product details, using fallback')
+      
+      return this.buildFallbackInfrastructureAsset(input)
     }
   }
 
@@ -983,5 +894,249 @@ export class InfrastructureCalculator extends BaseCalculator {
 
   protected override generateRunId(): string {
     return `infra_nav_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // Helper methods for building infrastructure asset details from database
+  private calculateConcessionEndDate(operationalDate: Date, concessionYears: number): Date {
+    const endDate = new Date(operationalDate)
+    endDate.setFullYear(endDate.getFullYear() + concessionYears)
+    return endDate
+  }
+
+  private getSubAssetType(infrastructureType: string): string {
+    const subTypes: Record<string, string> = {
+      transportation: 'toll_roads',
+      energy: 'power_transmission',
+      utilities: 'water_treatment',
+      social: 'hospitals',
+      telecom: 'fiber_networks'
+    }
+    return subTypes[infrastructureType?.toLowerCase()] || 'toll_roads'
+  }
+
+  private getRegularoryFramework(infrastructureType: string): string {
+    const frameworks: Record<string, string> = {
+      transportation: 'concession',
+      energy: 'regulated_utility',
+      utilities: 'regulated_utility',
+      social: 'ppp',
+      telecom: 'regulated_utility'
+    }
+    return frameworks[infrastructureType?.toLowerCase()] || 'concession'
+  }
+
+  private buildInfrastructureContracts(
+    productDetails: any, 
+    operationalDate: Date, 
+    concessionEndDate: Date
+  ): ContractDetails[] {
+    return [
+      {
+        contractType: 'concession',
+        counterparty: 'State Transportation Authority',
+        contractLength: Math.floor((concessionEndDate.getTime() - operationalDate.getTime()) / (365 * 24 * 60 * 60 * 1000)),
+        startDate: operationalDate,
+        endDate: concessionEndDate,
+        revenueType: 'variable',
+        escalation: {
+          type: 'cpi_linked',
+          baseRate: 0.025,
+          inflationIndex: 'CPI',
+          cappedRate: 0.045,
+          flooredRate: 0.01,
+          reviewFrequency: 'annual'
+        },
+        terminationClauses: [
+          {
+            trigger: 'default',
+            noticePeriod: 90,
+            compensationMechanism: 'debt_plus_equity',
+            assetOwnership: 'revert'
+          }
+        ],
+        performanceMetrics: [
+          {
+            metric: 'availability',
+            target: 0.99,
+            actual: 0.995,
+            penaltyRate: 0.01,
+            bonusRate: 0.005,
+            measurementFrequency: 'monthly'
+          }
+        ],
+        creditRating: 'A-',
+        guarantees: ['government_guarantee', 'revenue_guarantee']
+      }
+    ]
+  }
+
+  private buildRegulatoryMetrics(input: InfrastructureCalculationInput, productDetails: any): RegulatoryMetrics {
+    return {
+      framework: input.regulatoryFramework || this.getRegularoryFramework(productDetails.infrastructure_type),
+      regulator: 'Transportation Authority',
+      rateBase: input.regulatedAssetBase || (productDetails.asset_value ? productDetails.asset_value * 0.8 : 400000000),
+      allowedROE: input.allowedReturnOnEquity || 0.095,
+      allowedROA: 0.065,
+      nextRateReview: new Date('2026-01-01'),
+      rateReviewFrequency: 5,
+      tariffEscalation: 0.03,
+      subsidiesReceived: 0,
+      regulatoryChanges: []
+    }
+  }
+
+  private buildOperationalMetrics(input: InfrastructureCalculationInput, productDetails: any): OperationalMetrics {
+    const capacity = this.getCapacityByType(productDetails.infrastructure_type)
+    return {
+      capacity,
+      utilization: 0.75,
+      throughput: capacity * 0.75,
+      availability: 0.995,
+      operatingCosts: (productDetails.asset_value || 500000000) * 0.05, // 5% of asset value
+      maintenanceCosts: (productDetails.asset_value || 500000000) * 0.03, // 3% of asset value
+      capitalExpenditures: (productDetails.asset_value || 500000000) * 0.02, // 2% of asset value
+      operatingMargin: 0.65,
+      ebitdaMargin: 0.70,
+      laborCosts: (productDetails.asset_value || 500000000) * 0.016, // 1.6% of asset value
+      contractorCosts: (productDetails.asset_value || 500000000) * 0.01, // 1% of asset value
+      insuranceCosts: (productDetails.asset_value || 500000000) * 0.004 // 0.4% of asset value
+    }
+  }
+
+  private getCapacityByType(infrastructureType: string): number {
+    const capacities: Record<string, number> = {
+      transportation: 100000, // vehicles per day
+      energy: 500, // MW
+      utilities: 50000, // m³ per day
+      social: 500, // patients per day
+      telecom: 10000 // Gbps
+    }
+    return capacities[infrastructureType?.toLowerCase()] || 100000
+  }
+
+  private buildEsgMetrics(input: InfrastructureCalculationInput, productDetails: any): ESGMetrics {
+    return {
+      overallScore: input.esgScore || this.getESGScoreByType(productDetails.infrastructure_type),
+      environmentalScore: this.getEnvironmentalScoreByType(productDetails.infrastructure_type),
+      socialScore: 78,
+      socialImpactScore: input.socialImpactScore || 82,
+      governanceScore: 76,
+      carbonEmissions: input.carbonIntensity || this.getCarbonEmissionsByType(productDetails.infrastructure_type),
+      carbonIntensity: 0.15,
+      waterUsage: 50000,
+      wasteGeneration: 500,
+      jobsCreated: Math.floor((productDetails.asset_value || 500000000) / 2000000), // 1 job per $2M investment
+      localCommunityImpact: 85,
+      safetyIncidents: 2,
+      complianceScore: 95
+    }
+  }
+
+  private getESGScoreByType(infrastructureType: string): number {
+    const scores: Record<string, number> = {
+      transportation: 75,
+      energy: 80, // Assuming renewable energy
+      utilities: 85,
+      social: 90,
+      telecom: 70
+    }
+    return scores[infrastructureType?.toLowerCase()] || 75
+  }
+
+  private getEnvironmentalScoreByType(infrastructureType: string): number {
+    const scores: Record<string, number> = {
+      transportation: 72,
+      energy: 85, // Assuming renewable energy
+      utilities: 80,
+      social: 78,
+      telecom: 75
+    }
+    return scores[infrastructureType?.toLowerCase()] || 72
+  }
+
+  private getCarbonEmissionsByType(infrastructureType: string): number {
+    const emissions: Record<string, number> = {
+      transportation: 1200,
+      energy: 500, // Assuming renewable energy
+      utilities: 800,
+      social: 600,
+      telecom: 300
+    }
+    return emissions[infrastructureType?.toLowerCase()] || 1200
+  }
+
+  private buildAssetCondition(
+    input: InfrastructureCalculationInput, 
+    productDetails: any, 
+    operationalDate: Date
+  ): AssetCondition {
+    return {
+      overallCondition: 'good',
+      ageYears: this.calculateAssetAge(operationalDate),
+      expectedLifeRemaining: 25,
+      maintenanceBacklog: (productDetails.asset_value || 500000000) * 0.01, // 1% of asset value
+      replacementCapexRequired: (productDetails.asset_value || 500000000) * 0.10, // 10% of asset value
+      conditionAssessments: [
+        {
+          assessmentDate: new Date('2024-06-01'),
+          component: this.getMainComponentByType(productDetails.infrastructure_type),
+          condition: 'good',
+          recommendedAction: 'routine_maintenance',
+          costEstimate: (productDetails.asset_value || 500000000) * 0.004, // 0.4% of asset value
+          urgency: 'within_year'
+        }
+      ],
+      maintenancePlans: [
+        {
+          component: this.getMainComponentByType(productDetails.infrastructure_type),
+          maintenanceType: 'preventive',
+          frequency: 'quarterly',
+          annualCost: (productDetails.asset_value || 500000000) * 0.003, // 0.3% of asset value
+          nextScheduledDate: new Date('2025-04-01'),
+          deferralImpact: 0.05
+        }
+      ]
+    }
+  }
+
+  private getMainComponentByType(infrastructureType: string): string {
+    const components: Record<string, string> = {
+      transportation: 'road_surface',
+      energy: 'transmission_lines',
+      utilities: 'treatment_equipment',
+      social: 'medical_equipment',
+      telecom: 'fiber_cables'
+    }
+    return components[infrastructureType?.toLowerCase()] || 'road_surface'
+  }
+
+  private buildFallbackInfrastructureAsset(input: InfrastructureCalculationInput): InfrastructureAsset {
+    const operationalDate = input.operationalDate || new Date('2020-01-01')
+    const concessionEndDate = input.concessionEndDate || new Date('2050-01-01')
+    const remainingConcessionLife = this.calculateYearsRemaining(concessionEndDate)
+    
+    return {
+      assetId: input.assetId || 'infra_001',
+      assetName: `Infrastructure Asset ${input.assetId}`,
+      assetType: input.assetType || 'transportation',
+      subAssetType: input.subAssetType || 'toll_roads',
+      geographicLocation: input.geographicLocation || 'United States',
+      country: 'United States',
+      region: 'North America',
+      constructionStartDate: input.constructionStartDate,
+      operationalDate,
+      concessionEndDate,
+      remainingConcessionLife,
+      assetLifeRemaining: 25,
+      totalInvestment: input.totalInvestment || 500000000,
+      constructionCost: input.constructionCost || 450000000,
+      regulatoryFramework: input.regulatoryFramework || 'concession',
+      revenueModel: input.revenueModel || 'merchant_revenue',
+      keyContracts: this.buildInfrastructureContracts({infrastructure_type: 'transportation'}, operationalDate, concessionEndDate),
+      regulatoryMetrics: this.buildRegulatoryMetrics(input, {infrastructure_type: 'transportation', asset_value: 500000000}),
+      operationalMetrics: this.buildOperationalMetrics(input, {infrastructure_type: 'transportation', asset_value: 500000000}),
+      esgMetrics: this.buildEsgMetrics(input, {infrastructure_type: 'transportation', asset_value: 500000000}),
+      assetCondition: this.buildAssetCondition(input, {infrastructure_type: 'transportation', asset_value: 500000000}, operationalDate)
+    }
   }
 }

@@ -16,6 +16,7 @@
 
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
+import { DatabaseService } from '../DatabaseService'
 import {
   AssetType,
   CalculationInput,
@@ -99,8 +100,8 @@ export interface TranchingStructure {
 }
 
 export class AssetBackedCalculator extends BaseCalculator {
-  constructor(options: CalculatorOptions = {}) {
-    super(options)
+  constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
+    super(databaseService, options)
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -189,72 +190,40 @@ export class AssetBackedCalculator extends BaseCalculator {
   // ==================== ASSET-BACKED SPECIFIC METHODS ====================
 
   /**
-   * Fetches asset-backed product details from database
+   * Fetches asset-backed product details from database - NO MOCKS
    */
   private async getAssetBackedProductDetails(input: AssetBackedCalculationInput): Promise<any> {
-    // Mock implementation - replace with actual database query
-    return {
-      id: input.assetId,
-      assetNumber: input.assetNumber || 'ABS001',
-      assetType: input.assetType || 'mortgage',
-      originationDate: new Date('2020-01-01'),
-      originalAmount: input.originalAmount || 1000000,
-      currentBalance: input.currentBalance || 800000,
-      maturityDate: input.maturityDate || new Date('2030-01-01'),
-      interestRate: input.interestRate || 0.045,
-      accrualType: input.accrualType || 'simple',
-      lienPosition: input.lienPosition || 'first',
-      paymentFrequency: input.paymentFrequency || 'monthly',
-      delinquencyStatus: input.delinquencyStatus || 0,
-      modificationIndicator: input.modificationIndicator || false,
-      prepaymentPenalty: input.prepaymentPenalty || 0.02,
-      debtorCreditQuality: input.creditQuality || 'prime',
-      recoveryRatePercentage: input.recoveryRate || 0.70,
-      collectionPeriodDays: 30,
-      diversificationMetrics: 'high',
-      servicerRating: 'A',
-      poolCharacteristics: {
-        size: input.poolSize || 100000000,
-        numberOfLoans: 500,
-        averageLoanSize: 200000,
-        weightedAverageCoupon: 0.045,
-        weightedAverageMaturity: 180 // months
-      },
-      tranchingStructure: [
-        {
-          trancheId: 'Senior',
-          seniority: 1,
-          originalSize: 800000000,
-          currentSize: 640000000,
-          rating: 'AAA',
-          coupon: 0.035,
-          attachment: 0.80,
-          detachment: 1.00,
-          enhancement: 0.20
-        },
-        {
-          trancheId: 'Mezzanine',
-          seniority: 2,
-          originalSize: 150000000,
-          currentSize: 120000000,
-          rating: 'BBB',
-          coupon: 0.055,
-          attachment: 0.65,
-          detachment: 0.80,
-          enhancement: 0.35
-        },
-        {
-          trancheId: 'Equity',
-          seniority: 3,
-          originalSize: 50000000,
-          currentSize: 40000000,
-          rating: 'NR',
-          coupon: 0.00, // Residual
-          attachment: 0.00,
-          detachment: 0.65,
-          enhancement: 0.00
-        }
-      ]
+    if (!input.assetId) {
+      throw new Error('Asset ID is required for asset-backed product lookup')
+    }
+
+    try {
+      const productDetails = await this.databaseService.getAssetBackedProductById(input.assetId)
+      
+      return {
+        id: productDetails.id,
+        securityName: productDetails.security_name,
+        underlyingAssetType: productDetails.underlying_asset_type,
+        assetPoolValue: productDetails.asset_pool_value,
+        creditRating: productDetails.credit_rating,
+        maturityDate: new Date(productDetails.maturity_date),
+        couponRate: productDetails.coupon_rate,
+        paymentFrequency: productDetails.payment_frequency,
+        currency: productDetails.currency,
+        status: productDetails.status,
+        // Additional fields from input for detailed calculations
+        assetNumber: input.assetNumber,
+        currentBalance: input.currentBalance || productDetails.asset_pool_value,
+        originalAmount: input.originalAmount || productDetails.asset_pool_value,
+        interestRate: input.interestRate || productDetails.coupon_rate,
+        lienPosition: input.lienPosition || 'senior',
+        delinquencyStatus: input.delinquencyStatus || 0,
+        recoveryRate: input.recoveryRate || 0.7, // Default 70% recovery rate
+        servicerName: input.servicerName || 'default_servicer',
+        subordinationLevel: input.subordinationLevel || 0.1
+      }
+    } catch (error) {
+      throw new Error(`Failed to get asset-backed product details: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
