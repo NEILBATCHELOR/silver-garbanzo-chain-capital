@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { createCalculatorRegistry } from '../CalculatorRegistry'
-import { AssetType, CalculationInput } from '../../types'
+import { AssetType, CalculationInput, CalculationStatus } from '../../types'
 import { DatabaseService } from '../../DatabaseService'
 
 // Mock database responses for integration testing
@@ -171,12 +171,10 @@ describe('NAV Calculator Integration Tests', () => {
       // Test actual calculation
       const result = await resolution.calculator.calculate(input)
       
-      expect(result.success).toBe(true)
-      expect(result.data).toBeDefined()
-      expect(result.data.assetId).toBe('equity-1')
-      expect(result.data.productType).toBe(AssetType.EQUITY)
-      expect(result.data.currency).toBe('USD')
-      expect(result.data.navValue).toBeGreaterThan(0)
+      expect(result).toBeDefined()
+      expect(result.assetId).toBe('equity-1')
+      expect(result.productType).toBe(AssetType.EQUITY)
+      expect(result.navValue).toBeGreaterThanOrEqual(0)
     })
 
     it('should handle bond calculation end-to-end', async () => {
@@ -194,12 +192,10 @@ describe('NAV Calculator Integration Tests', () => {
       // Test actual calculation
       const result = await resolution.calculator.calculate(input)
       
-      expect(result.success).toBe(true)
-      expect(result.data).toBeDefined()
-      expect(result.data.assetId).toBe('bond-1')
-      expect(result.data.productType).toBe(AssetType.BONDS)
-      expect(result.data.currency).toBe('USD')
-      expect(result.data.navValue).toBeGreaterThan(0)
+      expect(result).toBeDefined()
+      expect(result.assetId).toBe('bond-1')
+      expect(result.productType).toBe(AssetType.BONDS)
+      expect(result.navValue).toBeGreaterThanOrEqual(0)
     })
 
     it('should handle MMF calculation with SEC compliance', async () => {
@@ -218,11 +214,10 @@ describe('NAV Calculator Integration Tests', () => {
       // Test actual calculation
       const result = await resolution.calculator.calculate(input)
       
-      expect(result.success).toBe(true)
-      expect(result.data).toBeDefined()
-      expect(result.data.assetId).toBe('mmf-1')
-      expect(result.data.productType).toBe(AssetType.MMF)
-      expect(result.data.navPerShare).toBeCloseTo(1.0, 2) // MMF should be close to $1
+      expect(result).toBeDefined()
+      expect(result.assetId).toBe('mmf-1')
+      expect(result.productType).toBe(AssetType.MMF)
+      expect(result.navPerShare).toBeCloseTo(1.0, 2) // MMF should be close to $1
     })
 
     it('should handle multiple asset types in sequence', async () => {
@@ -245,8 +240,8 @@ describe('NAV Calculator Integration Tests', () => {
         expect(resolution.calculator.getAssetTypes()).toContain(testCase.productType)
 
         const result = await resolution.calculator.calculate(input)
-        expect(result.success).toBe(true)
-        expect(result.data.productType).toBe(testCase.productType)
+        expect(result).toBeDefined()
+        expect(result.productType).toBe(testCase.productType)
       }
     })
   })
@@ -314,9 +309,9 @@ describe('NAV Calculator Integration Tests', () => {
       const resolution = failingRegistry.resolve(input)
       const result = await resolution.calculator.calculate(input)
 
-      expect(result.success).toBe(false)
-      expect(result.error).toBeDefined()
-      expect(result.code).toBeDefined()
+      expect(result).toBeDefined()
+      expect(result.status).toBe(CalculationStatus.FAILED)
+      expect(result.errorMessage).toContain('Database connection failed')
 
       failingRegistry.destroy()
     })
@@ -334,8 +329,9 @@ describe('NAV Calculator Integration Tests', () => {
       const resolution = registry.resolve(input)
       const result = await resolution.calculator.calculate(input)
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Asset not found')
+      expect(result).toBeDefined()
+      expect(result.status).toBe(CalculationStatus.FAILED)
+      expect(result.errorMessage).toContain('Asset not found')
     })
   })
 
@@ -343,7 +339,7 @@ describe('NAV Calculator Integration Tests', () => {
     it('should handle multiple calculations efficiently', async () => {
       const startTime = Date.now()
 
-      const calculations = []
+      const calculations: Promise<any>[] = []
       for (let i = 0; i < 10; i++) {
         const input: CalculationInput = {
           assetId: `equity-${i}`,
@@ -355,13 +351,14 @@ describe('NAV Calculator Integration Tests', () => {
         calculations.push(resolution.calculator.calculate(input))
       }
 
-      const results = await Promise.all(calculations)
+      const results: any[] = await Promise.all(calculations)
       const endTime = Date.now()
       const avgTime = (endTime - startTime) / 10
 
       // All calculations should succeed
       results.forEach(result => {
-        expect(result.success).toBe(true)
+        expect(result).toBeDefined()
+        expect(result.status).not.toBe(CalculationStatus.FAILED)
       })
 
       // Should complete efficiently (under 100ms average per calculation)

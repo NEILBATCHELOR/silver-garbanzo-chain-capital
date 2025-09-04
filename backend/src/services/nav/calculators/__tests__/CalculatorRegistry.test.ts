@@ -65,7 +65,7 @@ describe('CalculatorRegistry', () => {
     it('should register multiple calculators', () => {
       const registrations: CalculatorRegistration[] = [
         {
-          calculator: new MockCalculator(mockDatabaseService, [AssetType.EQUITY]),
+          calculator: new MockEquityCalculator(mockDatabaseService),
           assetTypes: [AssetType.EQUITY],
           priority: 90,
           enabled: true,
@@ -73,7 +73,7 @@ describe('CalculatorRegistry', () => {
           version: '1.0.0'
         },
         {
-          calculator: new MockCalculator(mockDatabaseService, [AssetType.BONDS]),
+          calculator: new MockBondCalculator(mockDatabaseService),
           assetTypes: [AssetType.BONDS],
           priority: 85,
           enabled: true,
@@ -113,9 +113,9 @@ describe('CalculatorRegistry', () => {
   describe('Calculator Resolution', () => {
     beforeEach(() => {
       // Register test calculators
-      const equityCalculator = new MockCalculator(mockDatabaseService, [AssetType.EQUITY])
-      const bondCalculator = new MockCalculator(mockDatabaseService, [AssetType.BONDS])
-      const mmfCalculator = new MockCalculator(mockDatabaseService, [AssetType.MMF])
+      const equityCalculator = new MockEquityCalculator(mockDatabaseService)
+      const bondCalculator = new MockBondCalculator(mockDatabaseService)
+      const mmfCalculator = new MockMMFCalculator(mockDatabaseService)
 
       const registrations: CalculatorRegistration[] = [
         {
@@ -163,7 +163,7 @@ describe('CalculatorRegistry', () => {
 
     it('should resolve highest priority calculator for asset type', () => {
       // Add second equity calculator with different priority
-      const highPriorityEquity = new MockCalculator(mockDatabaseService, [AssetType.EQUITY])
+      const highPriorityEquity = new MockEquityCalculator(mockDatabaseService)
       registry.register({
         calculator: highPriorityEquity,
         assetTypes: [AssetType.EQUITY],
@@ -227,10 +227,11 @@ describe('CalculatorRegistry', () => {
       })
 
       const healthResults = await registry.performHealthCheck()
+      const calculatorId = Object.keys(healthResults)[0]
 
       expect(healthResults).toBeDefined()
       expect(Object.keys(healthResults)).toHaveLength(1)
-      expect(healthResults['MockCalculator']).toBe(true)
+      expect(healthResults[calculatorId]).toBe(true)
     })
 
     it('should disable calculators that fail health checks', async () => {
@@ -250,8 +251,9 @@ describe('CalculatorRegistry', () => {
       })
 
       const healthResults = await registry.performHealthCheck()
+      const calculatorId = Object.keys(healthResults)[0]
 
-      expect(healthResults['MockCalculator']).toBe(false)
+      expect(healthResults[calculatorId]).toBe(false)
       expect(registry.getEnabledCalculators()).toHaveLength(0)
     })
   })
@@ -303,7 +305,7 @@ describe('CalculatorRegistry', () => {
     beforeEach(() => {
       const registrations: CalculatorRegistration[] = [
         {
-          calculator: new MockCalculator(mockDatabaseService, [AssetType.EQUITY]),
+          calculator: new MockEquityCalculator(mockDatabaseService),
           assetTypes: [AssetType.EQUITY],
           priority: 90,
           enabled: true,
@@ -311,7 +313,7 @@ describe('CalculatorRegistry', () => {
           version: '1.0.0'
         },
         {
-          calculator: new MockCalculator(mockDatabaseService, [AssetType.BONDS]),
+          calculator: new MockBondCalculator(mockDatabaseService),
           assetTypes: [AssetType.BONDS],
           priority: 85,
           enabled: false, // Disabled
@@ -484,10 +486,16 @@ describe('Factory Function Integration', () => {
 // Mock Calculator for Testing
 class MockCalculator extends BaseCalculator {
   private supportedAssetTypes: AssetType[]
+  private calculatorName: string
 
-  constructor(databaseService: DatabaseService, assetTypes: AssetType[] = [AssetType.EQUITY]) {
+  constructor(databaseService: DatabaseService, assetTypes: AssetType[] = [AssetType.EQUITY], name?: string) {
     super(databaseService)
     this.supportedAssetTypes = assetTypes
+    this.calculatorName = name || 'MockCalculator'
+    // Override constructor name for unique IDs
+    Object.defineProperty(this.constructor, 'name', {
+      value: this.calculatorName + '_' + Math.random().toString(36).substring(2, 8)
+    })
   }
 
   canHandle(input: any): boolean {
@@ -518,5 +526,24 @@ class MockCalculator extends BaseCalculator {
         status: CalculationStatus.COMPLETED
       }
     }
+  }
+}
+
+// Create specific calculator classes for testing
+class MockEquityCalculator extends MockCalculator {
+  constructor(databaseService: DatabaseService) {
+    super(databaseService, [AssetType.EQUITY], 'MockEquityCalculator')
+  }
+}
+
+class MockBondCalculator extends MockCalculator {
+  constructor(databaseService: DatabaseService) {
+    super(databaseService, [AssetType.BONDS], 'MockBondCalculator')
+  }
+}
+
+class MockMMFCalculator extends MockCalculator {
+  constructor(databaseService: DatabaseService) {
+    super(databaseService, [AssetType.MMF], 'MockMMFCalculator')
   }
 }

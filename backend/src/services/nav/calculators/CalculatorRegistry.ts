@@ -117,10 +117,10 @@ export class CalculatorRegistry {
    * Registers a calculator with the registry
    */
   register(registration: CalculatorRegistration): void {
-    const calculatorId = this.getCalculatorId(registration.calculator)
-    
-    // Validate registration
+    // Validate registration first
     this.validateRegistration(registration)
+    
+    const calculatorId = this.getCalculatorId(registration.calculator)
     
     this.registrations.set(calculatorId, registration)
     this.updateMetrics()
