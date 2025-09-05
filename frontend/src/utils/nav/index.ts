@@ -138,3 +138,14 @@ export function formatRelativeTime(dateString: string): string {
     return dateString
   }
 }
+
+// Export permission utilities
+export {
+  NAV_PERMISSIONS,
+  NAV_PERMISSION_GROUPS,
+  NAV_PERMISSION_DESCRIPTIONS,
+  useNavPermissions,
+  getNavPermissionDisplayName,
+  isNavPermissionForArea,
+  type NavPermission
+} from './permissions'

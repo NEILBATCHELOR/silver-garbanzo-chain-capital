@@ -227,8 +227,8 @@ export default function CalculatorDetailPage() {
 
   function handleCalculatorSubmit(data: any) {
     console.log('Calculator submission:', data)
-    // Handle the calculation submission
-    // This would typically trigger the useCalculateNav hook
+    // TODO: Integrate with useAsyncCalculation hook
+    // This will be implemented when the calculator forms are updated
   }
 
   function handleCalculatorReset() {

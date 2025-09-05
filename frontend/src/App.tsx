@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, lazy, useState } from "react";
 import { Roles } from '@/utils/auth/constants';
 import { initializeBrowserErrorHandling } from '@/utils/browserErrorHandling';
 import { Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,8 +40,6 @@ import { ActivityMonitorPage, ActivityMetricsPage } from "@/pages/activity";
 
 // Token Pages  
 import TokenDashboardPage from "@/components/tokens/pages/TokenDashboardPage";
-// Legacy import kept for reference - will be removed
-// import LegacyTokenDashboardPage from "@/components/tokens/pages/LegacyTokenDashboardPage";
 import TokenEditPage from "@/components/tokens/pages/TokenEditPage";
 import TokenDeployPageEnhanced from "@/components/tokens/pages/TokenDeployPageEnhanced";
 import TokenEventsPage from "@/components/tokens/pages/TokenEventsPage";
@@ -144,6 +143,21 @@ import { WagmiRouteWrapper } from "@/infrastructure/web3/conditional";
 
 // Add this import
 const IssuerOnboardingFlow = lazy(() => import('@/components/compliance/issuer/onboarding/IssuerOnboardingFlow'));
+
+// Create QueryClient for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 30 * 1000, // 30 seconds
+      gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 // NAV Pages
 import NavDashboardPage from '@/pages/nav/nav-dashboard-page';
@@ -494,10 +508,11 @@ function App() {
 
   return (
     <AuthProvider>
-      <OrganizationProvider>
-        <AuditProvider enableAutoTracking={true}>
-          <WagmiRouteWrapper>
-            <NotificationProvider>
+      <QueryClientProvider client={queryClient}>
+        <OrganizationProvider>
+          <AuditProvider enableAutoTracking={true}>
+            <WagmiRouteWrapper>
+              <NotificationProvider>
             
             <Suspense fallback={<div>Loading...</div>}>
           <Routes>
@@ -712,6 +727,13 @@ function App() {
               <Route path="activity" element={<ActivityMonitorPage />} />
               <Route path="activity/metrics" element={<ActivityMetricsPage />} />
               
+              {/* NAV Engine Routes */}
+              <Route path="nav" element={<NavDashboardPage />} />
+              <Route path="nav/calculators" element={<NavCalculatorsPage />} />
+              <Route path="nav/calculators/:slug" element={<CalculatorDetailPage />} />
+              <Route path="nav/valuations" element={<NavValuationsPage />} />
+              <Route path="nav/audit" element={<NavAuditPage />} />
+              
               {/* Admin Configuration Routes */}
               <Route path="admin/sidebar-configuration" element={<SidebarAdminDashboard />} />
             </Route>
@@ -732,6 +754,7 @@ function App() {
         </WagmiRouteWrapper>
       </AuditProvider>
       </OrganizationProvider>
+      </QueryClientProvider>
     </AuthProvider>
   );
 }

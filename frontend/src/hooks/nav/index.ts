@@ -13,6 +13,21 @@ export {
   type UseCalculateNavResult
 } from './useCalculateNav'
 
+// Async calculation hooks with polling and cancellation
+export {
+  useAsyncCalculation,
+  type UseAsyncCalculationResult,
+  type AsyncCalculationStatus
+} from './useAsyncCalculation'
+
+// UX and notification hooks
+export {
+  useNavToast,
+  NavToastTemplates,
+  type NavToastType,
+  type NavToastOptions
+} from './useNavToast'
+
 // History hooks
 export {
   useNavHistory,

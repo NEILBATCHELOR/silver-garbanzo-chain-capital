@@ -1,14 +1,21 @@
 /**
  * =====================================================
  * PERMISSIONS SERVICE - INDEX
- * Exports for permissions-related services
- * Date: August 28, 2025
+ * Enhanced to use new service with NAV support
+ * Date: September 05, 2025
  * =====================================================
  */
 
-export { dynamicPermissionsService, DynamicPermissionsService } from './DynamicPermissionsService';
+// 🆕 Export enhanced service with NAV support
+export { 
+  DynamicPermissionsService, 
+  dynamicPermissionsService 
+} from './enhancedDynamicPermissionsService';
 
 export type {
   DynamicPermission,
   PermissionCategory
-} from './DynamicPermissionsService';
+} from './enhancedDynamicPermissionsService';
+
+// Keep original export for backward compatibility
+export { dynamicPermissionsService as permissionsService } from './enhancedDynamicPermissionsService';

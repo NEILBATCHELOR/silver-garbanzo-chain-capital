@@ -164,7 +164,15 @@ export const resolveIcon = (iconName: string | undefined): IconComponent => {
     'ChartCandlestick': 'BarChart3', // ChartCandlestick doesn't exist, use BarChart3
     'CircleUser': 'UserCircle', // CircleUser doesn't exist, use UserCircle
     'UserRoundCog': 'UserRoundCog',
-    'Activity': 'Activity'
+    'Activity': 'Activity',
+    // NAV Engine icon mappings
+    'Sheet': 'Table', // Sheet doesn't exist, use Table for spreadsheet-like display
+    'Calculator': 'Calculator',
+    'CircleEqual': 'Equal', // CircleEqual doesn't exist, use Equal
+    'SquareSigma': 'Sigma', // SquareSigma doesn't exist, use Sigma
+    'FileSpreadsheet': 'FileSpreadsheet',
+    // Administration icon mappings
+    'PanelLeftDashed': 'PanelLeft' // PanelLeftDashed doesn't exist, use PanelLeft
   };
 
   // Try special mappings with both original case and lowercase

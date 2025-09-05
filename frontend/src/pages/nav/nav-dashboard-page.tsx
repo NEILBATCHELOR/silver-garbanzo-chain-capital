@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
   NavDashboardHeader,
-  NavKpiCards
+  NavKpiCards,
+  NavPermissionGuard,
+  InlineNavPermissionGuard
 } from '@/components/nav'
 import { 
   useNavOverview,
@@ -22,6 +24,7 @@ import {
   calculationStatusLabels,
   calculationStatusColors 
 } from '@/types/nav'
+import { NAV_PERMISSIONS } from '@/utils/nav'
 
 export function NavDashboardPage() {
   const navigate = useNavigate()
@@ -69,7 +72,11 @@ export function NavDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <NavPermissionGuard 
+      permission={NAV_PERMISSIONS.VIEW_DASHBOARD}
+      showPermissionNotice={true}
+      className="space-y-6"
+    >
       {/* Dashboard Header */}
       <NavDashboardHeader
         title="NAV Dashboard"
@@ -128,13 +135,15 @@ export function NavDashboardPage() {
                 ))
               )}
               
-              <Button
-                variant="outline"
-                className="w-full mt-4"
-                onClick={() => navigate('/nav/calculators')}
-              >
-                View All Calculators
-              </Button>
+              <InlineNavPermissionGuard permission={NAV_PERMISSIONS.VIEW_CALCULATORS}>
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={() => navigate('/nav/calculators')}
+                >
+                  View All Calculators
+                </Button>
+              </InlineNavPermissionGuard>
             </CardContent>
           </Card>
         </div>
@@ -203,13 +212,15 @@ export function NavDashboardPage() {
                 </div>
               )}
               
-              <Button
-                variant="outline"
-                className="w-full mt-4"
-                onClick={handleViewHistory}
-              >
-                View Full History
-              </Button>
+              <InlineNavPermissionGuard permission={NAV_PERMISSIONS.VIEW_HISTORY}>
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={handleViewHistory}
+                >
+                  View Full History
+                </Button>
+              </InlineNavPermissionGuard>
             </CardContent>
           </Card>
         </div>
@@ -267,13 +278,15 @@ export function NavDashboardPage() {
                 </div>
               )}
               
-              <Button
-                variant="outline"
-                className="w-full mt-4"
-                onClick={() => navigate('/nav/analytics')}
-              >
-                View Analytics
-              </Button>
+              <InlineNavPermissionGuard permission={NAV_PERMISSIONS.VIEW_DASHBOARD}>
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={() => navigate('/nav/analytics')}
+                >
+                  View Analytics
+                </Button>
+              </InlineNavPermissionGuard>
             </CardContent>
           </Card>
         </div>
@@ -332,7 +345,7 @@ export function NavDashboardPage() {
           </Card>
         </div>
       )}
-    </div>
+    </NavPermissionGuard>
   )
 }
 

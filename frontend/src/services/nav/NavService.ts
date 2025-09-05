@@ -14,17 +14,20 @@ const API_BASE = `${BACKEND_URL}/api/v1/nav`;
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
 const CALCULATION_TIMEOUT = 30000; // 30 seconds for calculations
 
+// Import types
+import { AssetType, CalculationStatus, ApprovalStatus } from '@/types/nav';
+
 // Types for API requests and responses (based on backend OpenAPI spec)
 export interface NavCurrentRequest {
   assetId?: string;
-  productType?: string;
+  productType?: AssetType;
   projectId?: string;
   asOf?: string; // ISO date string
 }
 
 export interface NavCalculationRequest {
   assetId?: string;
-  productType?: string;
+  productType?: AssetType;
   projectId?: string;
   valuationDate: string; // Required - ISO date string
   targetCurrency?: string; // Default 'USD'
@@ -35,10 +38,10 @@ export interface NavRunsListRequest {
   page?: number; // Default 1
   limit?: number; // Default 20, max 100
   assetId?: string;
-  productType?: string;
+  productType?: AssetType;
   projectId?: string;
-  status?: 'queued' | 'running' | 'completed' | 'failed';
-  approvalStatus?: 'draft' | 'validated' | 'approved' | 'rejected' | 'published';
+  status?: CalculationStatus;
+  approvalStatus?: ApprovalStatus;
   dateFrom?: string;
   dateTo?: string;
   sortBy?: 'valuationDate' | 'calculatedAt' | 'navValue' | 'status';
@@ -48,7 +51,7 @@ export interface NavRunsListRequest {
 export interface NavCalculationResult {
   runId: string;
   assetId?: string;
-  productType?: string;
+  productType?: AssetType;
   projectId?: string;
   valuationDate: string;
   navValue: number;
@@ -59,8 +62,8 @@ export interface NavCalculationResult {
   sharesOutstanding?: number;
   currency: string;
   calculatedAt: string;
-  status: 'queued' | 'running' | 'completed' | 'failed';
-  approvalStatus?: 'draft' | 'validated' | 'approved' | 'rejected' | 'published';
+  status: CalculationStatus;
+  approvalStatus?: ApprovalStatus;
   errorMessage?: string;
   metadata?: Record<string, any>;
 }

@@ -26,6 +26,53 @@ export {
   type CalculatorFormComponent
 } from './calculators/calculators.config'
 
+// Async calculation components
+export {
+  AsyncCalculationProgress,
+  AsyncCalculationProgressCompact
+} from './async-calculation-progress'
+
+// Valuation management components
+export {
+  SaveAsValuation,
+  QuickSaveValuation
+} from './save-as-valuation'
+
+// Permission components
+export {
+  NavPermissionGuard,
+  NavPermissionNotice,
+  InlineNavPermissionGuard,
+  useNavPermissionCheck
+} from './nav-permission-guard'
+
+// UX and accessibility components
+export {
+  NavKpiCardsSkeleton,
+  CalculatorListSkeleton,
+  CalculationHistorySkeleton,
+  ValuationListSkeleton,
+  CalculatorFormSkeleton,
+  CalculatorResultsSkeleton,
+  AuditLogSkeleton,
+  NavPageSkeleton,
+  SearchResultsSkeleton
+} from './nav-loading-skeletons'
+
+export {
+  EmptyState,
+  NoCalculationsEmpty,
+  NoHistoryEmpty,
+  NoValuationsEmpty,
+  NoSearchResultsEmpty,
+  NoAuditDataEmpty,
+  NoTrendingDataEmpty,
+  ErrorState,
+  LoadingFailedState,
+  PermissionDeniedState,
+  ComingSoonState
+} from './nav-empty-states'
+
 // Future components (to be implemented)
 // export { NavHistoryTable } from './nav-history-table'
 // export { NavValuationTable } from './nav-valuation-table'

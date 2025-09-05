@@ -51,6 +51,11 @@ import {
   Trophy,
   Leaf,
   TrendingUp,
+  Sheet,
+  Calculator,
+  CircleEqual,
+  SquareSigma,
+  FileSpreadsheet,
   BarChart2,
   PanelLeftDashed,
 } from "lucide-react";
@@ -448,6 +453,39 @@ const Sidebar = () => {
                   icon={<FileText className="h-4 w-4" />}
                   label="Documents"
                   href="/compliance/portal/documents"
+                />
+              </div>
+            </div>
+            {/* NAV ENGINE */}
+             <div>
+              <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground">
+                NAV ENGINE
+              </h3>
+              <div className="space-y-1">
+				<SidebarItem
+                  icon={<Sheet className="h-4 w-4" />}
+                  label="Nav Dashboard"
+                  href="/NavDashboardPage"
+                />
+                <SidebarItem
+                  icon={<Calculator className="h-4 w-4" />}
+                  label="Calculators"
+                  href="/NavCalculatorsPage"
+                />
+                <SidebarItem
+                  icon={<CircleEqual className="h-4 w-4" />}
+                  label="Marks"
+                  href="/CalculatorDetailPage"
+                />
+                <SidebarItem
+                  icon={<SquareSigma className="h-4 w-4" />}
+                  label="Valuations"
+                  href="/NavValuationsPage"
+                />
+                <SidebarItem
+                  icon={<FileSpreadsheet className="h-4 w-4" />}
+                  label="History"
+                  href="/NavAuditPage"
                 />
               </div>
             </div>

@@ -13,7 +13,13 @@ import {
   FileText,
   UserRoundCog,
   Activity,
-  Settings
+  Settings,
+  Table,
+  Hash,
+  Equal,
+  BarChart3,
+  FileSpreadsheet,
+  PanelLeft
 } from 'lucide-react';
 import type { SidebarSection } from '@/types/sidebar';
 
@@ -143,6 +149,52 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
     ]
   },
 
+  // NAV ENGINE SECTION
+  {
+    id: 'nav-engine',
+    title: 'NAV ENGINE',
+    permissions: ['nav:view_dashboard'],
+    roles: ['Operations', 'Owner', 'Super Admin', 'Compliance Manager'],
+    minRolePriority: 70,
+    items: [
+      {
+        id: 'nav-dashboard',
+        label: 'Nav Dashboard',
+        href: '/nav',
+        icon: Table,
+        permissions: ['nav:view_dashboard']
+      },
+      {
+        id: 'calculators',
+        label: 'Calculators',
+        href: '/nav/calculators',
+        icon: Hash,
+        permissions: ['nav:view_calculators']
+      },
+      {
+        id: 'marks',
+        label: 'Marks',
+        href: '/nav/calculators/:slug',
+        icon: Equal,
+        permissions: ['nav:run_calculation']
+      },
+      {
+        id: 'valuations',
+        label: 'Valuations',
+        href: '/nav/valuations',
+        icon: BarChart3,
+        permissions: ['nav:manage_valuations']
+      },
+      {
+        id: 'nav-history',
+        label: 'History',
+        href: '/nav/audit',
+        icon: FileSpreadsheet,
+        permissions: ['nav:view_history']
+      }
+    ]
+  },
+
   // ADMINISTRATION SECTION
   {
     id: 'administration',
@@ -163,7 +215,7 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         id: 'sidebar-configuration',
         label: 'Sidebar Configuration',
         href: '/admin/sidebar-configuration',
-        icon: Settings,
+        icon: PanelLeft,
         permissions: ['system.configure'],
         roles: ['Super Admin'],
         minRolePriority: 100

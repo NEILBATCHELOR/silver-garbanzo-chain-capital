@@ -236,6 +236,35 @@ export class SidebarPermissionValidationService {
       description: 'Investor document management'
     },
 
+    // NAV SECTION
+    'nav': {
+      requiredPermissions: ['nav:view_dashboard'],
+      minRolePriority: 60,
+      description: 'NAV dashboard access'
+    },
+    'nav-calculators': {
+      requiredPermissions: ['nav:view_calculators'],
+      alternativePermissions: ['nav:view_dashboard'],
+      minRolePriority: 60,
+      description: 'NAV calculators access'
+    },
+    'nav-calculator-detail': {
+      requiredPermissions: ['nav:run_calculation', 'nav:view_calculators'],
+      minRolePriority: 60,
+      description: 'Individual NAV calculator access'
+    },
+    'nav-valuations': {
+      requiredPermissions: ['nav:manage_valuations'],
+      alternativePermissions: ['nav:view_dashboard'],
+      minRolePriority: 60,
+      description: 'NAV valuations management'
+    },
+    'nav-audit': {
+      requiredPermissions: ['nav:view_audit'],
+      minRolePriority: 70,
+      description: 'NAV audit trail access'
+    },
+
     // ADMINISTRATION SECTION
     'roles': {
       requiredPermissions: ['user.assign_role', 'user.view'],
