@@ -145,6 +145,13 @@ import { WagmiRouteWrapper } from "@/infrastructure/web3/conditional";
 // Add this import
 const IssuerOnboardingFlow = lazy(() => import('@/components/compliance/issuer/onboarding/IssuerOnboardingFlow'));
 
+// NAV Pages
+import NavDashboardPage from '@/pages/nav/nav-dashboard-page';
+import NavCalculatorsPage from '@/pages/nav/nav-calculators-page';
+import CalculatorDetailPage from '@/pages/nav/calculator-detail-page';
+import NavValuationsPage from '@/pages/nav/nav-valuations-page';
+import NavAuditPage from '@/pages/nav/nav-audit-page';
+
 // Redirect component for token routes
 const TokenRedirect = () => {
   const { projectId } = useParams();
@@ -607,6 +614,13 @@ function App() {
               <Route path="projects/:projectId/tokens/:tokenId/analytics" element={<TokenAnalyticsPage />} />
               <Route path="projects/:projectId/tokens/:tokenId/operations" element={<TokenOperationsPage />} />
               <Route path="projects/:projectId/tokens/:tokenId/mint" element={<TokenMintPage />} /> {/* Legacy route */}
+
+              {/* NAV Routes */}
+              <Route path="nav" element={<NavDashboardPage />} />
+              <Route path="nav/calculators" element={<NavCalculatorsPage />} />
+              <Route path="nav/calculators/:slug" element={<CalculatorDetailPage />} />
+              <Route path="nav/valuations" element={<NavValuationsPage />} />
+              <Route path="nav/audit" element={<NavAuditPage />} />
 
               {/* Factoring Routes */}
               <Route path="factoring/" element={<FactoringManager/>} />
