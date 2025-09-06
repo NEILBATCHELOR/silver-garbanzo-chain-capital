@@ -182,12 +182,20 @@ export interface ClimatePolicy {
   updatedAt: string;
 }
 
-// Risk Levels
+// Risk Levels - Updated to match code usage
 export enum RiskLevel {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high'
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
 }
+
+// Legacy lowercase risk levels for backwards compatibility
+export const LEGACY_RISK_LEVELS = {
+  low: 'LOW',
+  medium: 'MEDIUM',
+  high: 'HIGH'
+} as const;
 
 // Climate Receivables Types
 export interface ClimateReceivableDB {
@@ -782,3 +790,17 @@ export interface ClimateToken {
   averageDiscountRate?: number;
   poolDetails?: ClimateTokenizationPool;
 }
+
+// ============================================================================
+// CLIMATE NAV VALUATION TYPES
+// ============================================================================
+
+// Export comprehensive climate NAV valuation types
+export * from './climate-nav-types';
+
+// ============================================================================
+// ENHANCED CLIMATE RECEIVABLES TYPES
+// ============================================================================
+
+// Export enhanced types with fixes for TypeScript errors
+export * from './enhanced-types';

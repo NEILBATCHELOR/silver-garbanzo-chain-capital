@@ -16,6 +16,9 @@ import { ClimateIncentivesService } from './climateIncentivesService';
 import { RECIncentiveOrchestrator } from './business-logic/rec-incentive-orchestrator';
 import { enhancedRECService, enhancedIncentiveService } from './enhanced-rec-incentive-service';
 
+// Enhanced Business Logic Services (using consolidated climate NAV types)
+export * from './business-logic';
+
 export {
   productionDataService,
   climateReceivablesService,

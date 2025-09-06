@@ -2,8 +2,10 @@
 -- PostgreSQL database dump
 --
 
+\restrict yPiJWDC8xQw23cDZLZOODjzwU2XW0bcDNtV7lGuKltSKMX4apbnbiqTtTZuQ6gy
+
 -- Dumped from database version 15.8
--- Dumped by pg_dump version 17.5 (Postgres.app)
+-- Dumped by pg_dump version 17.6 (Postgres.app)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -7165,8 +7167,32 @@ CREATE TABLE public.climate_receivables (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     project_id uuid,
+    climate_nav_value numeric(15,2),
+    monte_carlo_nav_value numeric(15,2),
+    nav_variance_percentage numeric(6,4),
+    nav_reconciliation_status text,
+    investment_recommendation text,
+    recommendation_confidence numeric(4,3),
+    target_price numeric(15,2),
+    climate_nav_last_calculated timestamp with time zone,
+    CONSTRAINT climate_receivables_investment_recommendation_check CHECK ((investment_recommendation = ANY (ARRAY['BUY'::text, 'HOLD'::text, 'SELL'::text, 'UNDER_REVIEW'::text]))),
+    CONSTRAINT climate_receivables_nav_reconciliation_status_check CHECK ((nav_reconciliation_status = ANY (ARRAY['LOW_VARIANCE'::text, 'MEDIUM_VARIANCE'::text, 'HIGH_VARIANCE'::text, 'REQUIRES_REVIEW'::text]))),
     CONSTRAINT climate_receivables_risk_score_check CHECK (((risk_score >= 0) AND (risk_score <= 100)))
 );
+
+
+--
+-- Name: COLUMN climate_receivables.climate_nav_value; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.climate_receivables.climate_nav_value IS 'Climate-specific NAV using LCOE/PPA/Carbon methodology';
+
+
+--
+-- Name: COLUMN climate_receivables.nav_variance_percentage; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.climate_receivables.nav_variance_percentage IS 'Variance between Climate NAV and Monte Carlo NAV methods';
 
 
 --
@@ -7200,6 +7226,60 @@ CREATE VIEW public.climate_investor_pool_summary AS
      JOIN public.climate_pool_receivables cpr ON ((ctp.pool_id = cpr.pool_id)))
      JOIN public.climate_receivables cr ON ((cpr.receivable_id = cr.receivable_id)))
   GROUP BY ipa.investor_id, ipa.pool_id, ctp.name, ipa.investment_amount;
+
+
+--
+-- Name: climate_nav_calculations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.climate_nav_calculations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    receivable_id uuid NOT NULL,
+    asset_id uuid,
+    calculation_type text NOT NULL,
+    lcoe_capex numeric(15,2),
+    lcoe_opex_annual numeric(12,2),
+    lcoe_maintenance_costs jsonb,
+    lcoe_tax_credits jsonb,
+    lcoe_calculated numeric(10,4),
+    lcoe_competitiveness text,
+    ppa_contract_type text,
+    ppa_base_rate numeric(10,4),
+    ppa_escalation_rate numeric(6,4),
+    ppa_market_comparison numeric(10,4),
+    ppa_counterparty_rating text,
+    ppa_risk_premium numeric(6,4),
+    carbon_credits_annual integer,
+    carbon_price_current numeric(8,2),
+    carbon_verification_standard text,
+    additionality_financial boolean,
+    additionality_regulatory boolean,
+    additionality_common_practice boolean,
+    additionality_barrier boolean,
+    additionality_premium_percentage numeric(5,2),
+    climate_nav_value numeric(15,2),
+    monte_carlo_nav_value numeric(15,2),
+    valuation_variance numeric(6,4),
+    recommended_value numeric(15,2),
+    investment_recommendation text,
+    confidence_level numeric(4,3),
+    calculation_methodology text,
+    data_sources jsonb,
+    risk_adjustments jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    calculated_by text,
+    CONSTRAINT climate_nav_calculations_calculation_type_check CHECK ((calculation_type = ANY (ARRAY['LCOE_BENCHMARK'::text, 'PPA_ANALYSIS'::text, 'CARBON_CREDIT'::text, 'INTEGRATED_VALUATION'::text]))),
+    CONSTRAINT climate_nav_calculations_carbon_verification_standard_check CHECK ((carbon_verification_standard = ANY (ARRAY['VCS'::text, 'CDM'::text, 'GOLD_STANDARD'::text, 'CAR'::text]))),
+    CONSTRAINT climate_nav_calculations_lcoe_competitiveness_check CHECK ((lcoe_competitiveness = ANY (ARRAY['EXCELLENT'::text, 'GOOD'::text, 'MARKET'::text, 'POOR'::text]))),
+    CONSTRAINT climate_nav_calculations_ppa_contract_type_check CHECK ((ppa_contract_type = ANY (ARRAY['FIXED'::text, 'ESCALATING'::text, 'INDEXED'::text])))
+);
+
+
+--
+-- Name: TABLE climate_nav_calculations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.climate_nav_calculations IS 'Historical climate NAV calculations with detailed methodology tracking';
 
 
 --
@@ -8772,8 +8852,31 @@ CREATE TABLE public.energy_assets (
     capacity numeric(10,2) NOT NULL,
     owner_id uuid,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    lcoe_calculated numeric(10,4),
+    lcoe_industry_benchmark numeric(10,4),
+    lcoe_competitiveness_ratio numeric(6,4),
+    lcoe_last_calculated timestamp with time zone,
+    capacity_factor_actual numeric(6,4),
+    capacity_factor_theoretical numeric(6,4),
+    capacity_factor_industry_avg numeric(6,4),
+    capacity_factor_percentile integer,
+    capacity_factor_last_calculated timestamp with time zone
 );
+
+
+--
+-- Name: COLUMN energy_assets.lcoe_calculated; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.energy_assets.lcoe_calculated IS 'Calculated Levelized Cost of Energy in $/MWh';
+
+
+--
+-- Name: COLUMN energy_assets.capacity_factor_actual; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.energy_assets.capacity_factor_actual IS 'Actual capacity factor (0.20 = 20% efficiency)';
 
 
 --
@@ -16605,6 +16708,14 @@ ALTER TABLE ONLY public.climate_investor_pools
 
 
 --
+-- Name: climate_nav_calculations climate_nav_calculations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_nav_calculations
+    ADD CONSTRAINT climate_nav_calculations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: climate_payers climate_payers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20425,6 +20536,34 @@ CREATE INDEX idx_climate_incentives_type ON public.climate_incentives USING btre
 
 
 --
+-- Name: idx_climate_nav_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_nav_asset ON public.climate_nav_calculations USING btree (asset_id);
+
+
+--
+-- Name: idx_climate_nav_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_nav_created ON public.climate_nav_calculations USING btree (created_at);
+
+
+--
+-- Name: idx_climate_nav_receivable; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_nav_receivable ON public.climate_nav_calculations USING btree (receivable_id);
+
+
+--
+-- Name: idx_climate_nav_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_nav_type ON public.climate_nav_calculations USING btree (calculation_type);
+
+
+--
 -- Name: idx_climate_policies_effective_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -21265,10 +21404,31 @@ CREATE INDEX idx_documents_workflow_stage ON public.documents USING btree (workf
 
 
 --
+-- Name: idx_energy_assets_capacity_factor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_energy_assets_capacity_factor ON public.energy_assets USING btree (capacity_factor_actual);
+
+
+--
+-- Name: idx_energy_assets_competitiveness; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_energy_assets_competitiveness ON public.energy_assets USING btree (lcoe_competitiveness_ratio);
+
+
+--
 -- Name: idx_energy_assets_duplicate_check; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_energy_assets_duplicate_check ON public.energy_assets USING btree (name, type, location, capacity);
+
+
+--
+-- Name: idx_energy_assets_lcoe_calculated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_energy_assets_lcoe_calculated ON public.energy_assets USING btree (lcoe_calculated);
 
 
 --
@@ -26128,6 +26288,22 @@ ALTER TABLE ONLY public.climate_investor_pools
 
 
 --
+-- Name: climate_nav_calculations climate_nav_calculations_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_nav_calculations
+    ADD CONSTRAINT climate_nav_calculations_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.energy_assets(asset_id);
+
+
+--
+-- Name: climate_nav_calculations climate_nav_calculations_receivable_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_nav_calculations
+    ADD CONSTRAINT climate_nav_calculations_receivable_id_fkey FOREIGN KEY (receivable_id) REFERENCES public.climate_receivables(receivable_id);
+
+
+--
 -- Name: climate_policy_impacts climate_policy_impacts_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -30535,6 +30711,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cl
 
 
 --
+-- Name: TABLE climate_nav_calculations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO prisma;
+
+
+--
 -- Name: TABLE climate_payers; Type: ACL; Schema: public; Owner: -
 --
 
@@ -33471,4 +33657,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict yPiJWDC8xQw23cDZLZOODjzwU2XW0bcDNtV7lGuKltSKMX4apbnbiqTtTZuQ6gy
 

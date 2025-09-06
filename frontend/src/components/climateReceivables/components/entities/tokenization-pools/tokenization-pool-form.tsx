@@ -62,7 +62,7 @@ const TokenizationPoolForm: React.FC<TokenizationPoolFormProps> = ({ isEditing =
   const formSchema = z.object({
     name: z.string().min(3, 'Name must be at least 3 characters'),
     totalValue: z.coerce.number().nonnegative('Total value must be non-negative'),
-    riskProfile: z.enum([RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH])
+    riskProfile: z.enum([RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH, RiskLevel.CRITICAL])
   });
   
   // Initialize the form
@@ -238,6 +238,7 @@ const TokenizationPoolForm: React.FC<TokenizationPoolFormProps> = ({ isEditing =
                           <SelectItem value={RiskLevel.LOW}>Low Risk</SelectItem>
                           <SelectItem value={RiskLevel.MEDIUM}>Medium Risk</SelectItem>
                           <SelectItem value={RiskLevel.HIGH}>High Risk</SelectItem>
+                          <SelectItem value={RiskLevel.CRITICAL}>Critical Risk</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormDescription>

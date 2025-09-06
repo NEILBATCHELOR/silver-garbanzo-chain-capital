@@ -1082,6 +1082,135 @@ export type Database = {
           },
         ]
       }
+      climate_nav_calculations: {
+        Row: {
+          additionality_barrier: boolean | null
+          additionality_common_practice: boolean | null
+          additionality_financial: boolean | null
+          additionality_premium_percentage: number | null
+          additionality_regulatory: boolean | null
+          asset_id: string | null
+          calculated_by: string | null
+          calculation_methodology: string | null
+          calculation_type: string
+          carbon_credits_annual: number | null
+          carbon_price_current: number | null
+          carbon_verification_standard: string | null
+          climate_nav_value: number | null
+          confidence_level: number | null
+          created_at: string | null
+          data_sources: Json | null
+          id: string
+          investment_recommendation: string | null
+          lcoe_calculated: number | null
+          lcoe_capex: number | null
+          lcoe_competitiveness: string | null
+          lcoe_maintenance_costs: Json | null
+          lcoe_opex_annual: number | null
+          lcoe_tax_credits: Json | null
+          monte_carlo_nav_value: number | null
+          ppa_base_rate: number | null
+          ppa_contract_type: string | null
+          ppa_counterparty_rating: string | null
+          ppa_escalation_rate: number | null
+          ppa_market_comparison: number | null
+          ppa_risk_premium: number | null
+          receivable_id: string
+          recommended_value: number | null
+          risk_adjustments: Json | null
+          valuation_variance: number | null
+        }
+        Insert: {
+          additionality_barrier?: boolean | null
+          additionality_common_practice?: boolean | null
+          additionality_financial?: boolean | null
+          additionality_premium_percentage?: number | null
+          additionality_regulatory?: boolean | null
+          asset_id?: string | null
+          calculated_by?: string | null
+          calculation_methodology?: string | null
+          calculation_type: string
+          carbon_credits_annual?: number | null
+          carbon_price_current?: number | null
+          carbon_verification_standard?: string | null
+          climate_nav_value?: number | null
+          confidence_level?: number | null
+          created_at?: string | null
+          data_sources?: Json | null
+          id?: string
+          investment_recommendation?: string | null
+          lcoe_calculated?: number | null
+          lcoe_capex?: number | null
+          lcoe_competitiveness?: string | null
+          lcoe_maintenance_costs?: Json | null
+          lcoe_opex_annual?: number | null
+          lcoe_tax_credits?: Json | null
+          monte_carlo_nav_value?: number | null
+          ppa_base_rate?: number | null
+          ppa_contract_type?: string | null
+          ppa_counterparty_rating?: string | null
+          ppa_escalation_rate?: number | null
+          ppa_market_comparison?: number | null
+          ppa_risk_premium?: number | null
+          receivable_id: string
+          recommended_value?: number | null
+          risk_adjustments?: Json | null
+          valuation_variance?: number | null
+        }
+        Update: {
+          additionality_barrier?: boolean | null
+          additionality_common_practice?: boolean | null
+          additionality_financial?: boolean | null
+          additionality_premium_percentage?: number | null
+          additionality_regulatory?: boolean | null
+          asset_id?: string | null
+          calculated_by?: string | null
+          calculation_methodology?: string | null
+          calculation_type?: string
+          carbon_credits_annual?: number | null
+          carbon_price_current?: number | null
+          carbon_verification_standard?: string | null
+          climate_nav_value?: number | null
+          confidence_level?: number | null
+          created_at?: string | null
+          data_sources?: Json | null
+          id?: string
+          investment_recommendation?: string | null
+          lcoe_calculated?: number | null
+          lcoe_capex?: number | null
+          lcoe_competitiveness?: string | null
+          lcoe_maintenance_costs?: Json | null
+          lcoe_opex_annual?: number | null
+          lcoe_tax_credits?: Json | null
+          monte_carlo_nav_value?: number | null
+          ppa_base_rate?: number | null
+          ppa_contract_type?: string | null
+          ppa_counterparty_rating?: string | null
+          ppa_escalation_rate?: number | null
+          ppa_market_comparison?: number | null
+          ppa_risk_premium?: number | null
+          receivable_id?: string
+          recommended_value?: number | null
+          risk_adjustments?: Json | null
+          valuation_variance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "climate_nav_calculations_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "energy_assets"
+            referencedColumns: ["asset_id"]
+          },
+          {
+            foreignKeyName: "climate_nav_calculations_receivable_id_fkey"
+            columns: ["receivable_id"]
+            isOneToOne: false
+            referencedRelation: "climate_receivables"
+            referencedColumns: ["receivable_id"]
+          },
+        ]
+      }
       climate_payers: {
         Row: {
           created_at: string | null
@@ -1381,37 +1510,61 @@ export type Database = {
         Row: {
           amount: number
           asset_id: string | null
+          climate_nav_last_calculated: string | null
+          climate_nav_value: number | null
           created_at: string | null
           discount_rate: number | null
           due_date: string
+          investment_recommendation: string | null
+          monte_carlo_nav_value: number | null
+          nav_reconciliation_status: string | null
+          nav_variance_percentage: number | null
           payer_id: string | null
           project_id: string | null
           receivable_id: string
+          recommendation_confidence: number | null
           risk_score: number | null
+          target_price: number | null
           updated_at: string | null
         }
         Insert: {
           amount: number
           asset_id?: string | null
+          climate_nav_last_calculated?: string | null
+          climate_nav_value?: number | null
           created_at?: string | null
           discount_rate?: number | null
           due_date: string
+          investment_recommendation?: string | null
+          monte_carlo_nav_value?: number | null
+          nav_reconciliation_status?: string | null
+          nav_variance_percentage?: number | null
           payer_id?: string | null
           project_id?: string | null
           receivable_id?: string
+          recommendation_confidence?: number | null
           risk_score?: number | null
+          target_price?: number | null
           updated_at?: string | null
         }
         Update: {
           amount?: number
           asset_id?: string | null
+          climate_nav_last_calculated?: string | null
+          climate_nav_value?: number | null
           created_at?: string | null
           discount_rate?: number | null
           due_date?: string
+          investment_recommendation?: string | null
+          monte_carlo_nav_value?: number | null
+          nav_reconciliation_status?: string | null
+          nav_variance_percentage?: number | null
           payer_id?: string | null
           project_id?: string | null
           receivable_id?: string
+          recommendation_confidence?: number | null
           risk_score?: number | null
+          target_price?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -4597,7 +4750,16 @@ export type Database = {
         Row: {
           asset_id: string
           capacity: number
+          capacity_factor_actual: number | null
+          capacity_factor_industry_avg: number | null
+          capacity_factor_last_calculated: string | null
+          capacity_factor_percentile: number | null
+          capacity_factor_theoretical: number | null
           created_at: string | null
+          lcoe_calculated: number | null
+          lcoe_competitiveness_ratio: number | null
+          lcoe_industry_benchmark: number | null
+          lcoe_last_calculated: string | null
           location: string
           name: string
           owner_id: string | null
@@ -4607,7 +4769,16 @@ export type Database = {
         Insert: {
           asset_id?: string
           capacity: number
+          capacity_factor_actual?: number | null
+          capacity_factor_industry_avg?: number | null
+          capacity_factor_last_calculated?: string | null
+          capacity_factor_percentile?: number | null
+          capacity_factor_theoretical?: number | null
           created_at?: string | null
+          lcoe_calculated?: number | null
+          lcoe_competitiveness_ratio?: number | null
+          lcoe_industry_benchmark?: number | null
+          lcoe_last_calculated?: string | null
           location: string
           name: string
           owner_id?: string | null
@@ -4617,7 +4788,16 @@ export type Database = {
         Update: {
           asset_id?: string
           capacity?: number
+          capacity_factor_actual?: number | null
+          capacity_factor_industry_avg?: number | null
+          capacity_factor_last_calculated?: string | null
+          capacity_factor_percentile?: number | null
+          capacity_factor_theoretical?: number | null
           created_at?: string | null
+          lcoe_calculated?: number | null
+          lcoe_competitiveness_ratio?: number | null
+          lcoe_industry_benchmark?: number | null
+          lcoe_last_calculated?: string | null
           location?: string
           name?: string
           owner_id?: string | null
