@@ -22,8 +22,16 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { useClimateReceivablesServices } from "./hooks";
+import { useIntegratedClimateValuation } from "./hooks";
 import { RiskLevel } from "./services/business-logic/enhanced-types";
 import type { Alert as AlertType } from "./services/business-logic/enhanced-types";
+
+// Import Climate NAV Widgets
+import ClimateNAVOverviewCard from "./components/widgets/climate-nav-overview-card";
+import LCOEAnalysisWidget from "./components/widgets/lcoe-analysis-widget";
+import PPAContractEvaluationPanel from "./components/widgets/ppa-contract-evaluation-panel";
+import CarbonCreditValuationDashboard from "./components/widgets/carbon-credit-valuation-dashboard";
+import IntegratedValuationReconciliationView from "./components/widgets/integrated-valuation-reconciliation-view";
 
 interface EnhancedClimateReceivablesDashboardProps {
   projectId: string;
@@ -63,6 +71,20 @@ const EnhancedClimateReceivablesDashboard: React.FC<EnhancedClimateReceivablesDa
     enableRiskCalculation: true,
     enableCashFlowForecasting: true,
     enableAlerts: true
+  });
+
+  // Initialize Climate NAV valuation services
+  const {
+    performIntegratedValuation,
+    metrics: climateNAVMetrics,
+    portfolioSummary,
+    loading: isClimateNAVLoading,
+    getPortfolioPerformance
+  } = useIntegratedClimateValuation({
+    receivableIds: [], // Will be populated with actual receivable IDs
+    enableMLModels: true,
+    enableStressTesting: true,
+    autoRefresh: true
   });
 
   const dashboardData = getDashboardData();
@@ -316,6 +338,7 @@ const EnhancedClimateReceivablesDashboard: React.FC<EnhancedClimateReceivablesDa
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground mb-4">
           <TabsTrigger value="overview" className="px-3 py-1.5">Enhanced Overview</TabsTrigger>
+          <TabsTrigger value="climate-nav" className="px-3 py-1.5">Climate NAV</TabsTrigger>
           <TabsTrigger value="risk-analysis" className="px-3 py-1.5">Risk Analysis</TabsTrigger>
           <TabsTrigger value="cash-flow" className="px-3 py-1.5">Cash Flow</TabsTrigger>
           <TabsTrigger value="alerts" className="px-3 py-1.5">
@@ -415,6 +438,96 @@ const EnhancedClimateReceivablesDashboard: React.FC<EnhancedClimateReceivablesDa
                 )}
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="climate-nav" className="space-y-4">
+          <div className="space-y-6">
+            {/* Climate NAV Overview */}
+            <ClimateNAVOverviewCard 
+              receivableIds={climateNAVMetrics.map(m => m.receivableId) || []}
+            />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* LCOE Analysis */}
+              <LCOEAnalysisWidget 
+                receivableId={climateNAVMetrics[0]?.receivableId}
+                showComparison={true}
+              />
+              
+              {/* PPA Contract Evaluation */}
+              <PPAContractEvaluationPanel 
+                receivableId={climateNAVMetrics[0]?.receivableId}
+                showTrends={true}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Carbon Credit Valuation */}
+              <CarbonCreditValuationDashboard 
+                receivableId={climateNAVMetrics[0]?.receivableId}
+                showMarketTrends={true}
+              />
+              
+              {/* Integrated Valuation Reconciliation */}
+              <IntegratedValuationReconciliationView 
+                receivableIds={climateNAVMetrics.map(m => m.receivableId) || []}
+                showDetailedAnalysis={true}
+                autoRefresh={true}
+              />
+            </div>
+            
+            {/* Portfolio Performance Summary */}
+            {portfolioSummary && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Portfolio Climate NAV Summary</CardTitle>
+                  <CardDescription>
+                    Comprehensive climate-specific valuation analysis across all receivables
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Total Climate NAV</div>
+                      <div className="text-xl font-bold">
+                        ${portfolioSummary.totalValue?.toLocaleString() || '0'}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Portfolio Risk Level</div>
+                      <div className="text-xl font-bold">
+                        <Badge variant={portfolioSummary?.portfolioRisk?.beta < 0.8 ? 'default' : 'destructive'}>
+                          {portfolioSummary?.portfolioRisk?.beta < 0.8 ? 'LOW' : portfolioSummary?.portfolioRisk?.beta < 1.2 ? 'MEDIUM' : 'HIGH'}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Confidence Level</div>
+                      <div className="text-xl font-bold">
+                        {climateNAVMetrics.length > 0 ? `${(climateNAVMetrics.reduce((sum, m) => sum + m.confidence, 0) / climateNAVMetrics.length * 100).toFixed(1)}%` : 'N/A'}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+                      <div className="text-sm font-medium text-muted-foreground">Assets Count</div>
+                      <div className="text-xl font-bold">
+                        {climateNAVMetrics.length || 0}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {isClimateNAVLoading && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Loading Climate NAV Analysis...</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 

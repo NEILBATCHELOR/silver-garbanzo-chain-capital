@@ -9,6 +9,7 @@ import { CombinedOrgProjectSelector } from "@/components/organizations";
 
 import ClimateReceivablesNavigation from "./ClimateReceivablesNavigation";
 import ClimateReceivablesDashboard from "./ClimateReceivablesDashboard";
+import EnhancedClimateReceivablesDashboard from "./EnhancedClimateReceivablesDashboard";
 import ClimateReceivablesVisualizationsPage from "./ClimateReceivablesVisualizationsPage";
 
 // New CRUD Pages
@@ -158,8 +159,11 @@ const ClimateReceivablesManager: React.FC = () => {
 
     return (
       <Routes>
-        {/* Main dashboard route */}
-        <Route path="/dashboard" element={<ClimateReceivablesDashboard projectId={currentProjectId} />} />
+        {/* Main dashboard route - Enhanced with Climate NAV */}
+        <Route path="/dashboard" element={<EnhancedClimateReceivablesDashboard projectId={currentProjectId} />} />
+        
+        {/* Legacy basic dashboard for comparison */}
+        <Route path="/basic-dashboard" element={<ClimateReceivablesDashboard projectId={currentProjectId} />} />
         
         {/* Production Data routes */}
         <Route path="/production" element={<ProductionDataList projectId={currentProjectId} />} />
