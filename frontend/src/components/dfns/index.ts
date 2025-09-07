@@ -15,14 +15,23 @@ export { default as DfnsWalletList } from './DfnsWalletList';
 
 // ===== Enhanced Component Exports =====
 export { DfnsAuthentication } from './DfnsAuthentication';
+export { default as DfnsRegistrationWizard } from './DfnsRegistrationWizard';
+export { EnhancedDfnsAuthentication } from './EnhancedDfnsAuthentication';
 export { default as DfnsDelegatedAuthentication } from './DfnsDelegatedAuthentication';
 export { default as DfnsWebhookManagement } from './DfnsWebhookManagement';
+export { default as DfnsUserManagement } from './DfnsUserManagement';
 
 // ===== Advanced Service Component Exports =====
 export { default as DfnsExchangeManagement } from './DfnsExchangeManagement';
 export { default as DfnsStakingManagement } from './DfnsStakingManagement';
 export { default as DfnsAmlKytCompliance } from './DfnsAmlKytCompliance';
 export { default as DfnsFiatIntegration } from './DfnsFiatIntegration';
+
+// ===== Personal Access Token Management =====
+export { default as DfnsPersonalAccessTokenManagement } from './DfnsPersonalAccessTokenManagement';
+export { default as DfnsPersonalAccessTokenList } from './DfnsPersonalAccessTokenList';
+export { default as DfnsPersonalAccessTokenForm } from './DfnsPersonalAccessTokenForm';
+export { default as DfnsPersonalAccessTokenCard } from './DfnsPersonalAccessTokenCard';
 
 // ===== Type-only Re-exports =====
 export type { DfnsActivityLogProps } from './DfnsActivityLog';
@@ -34,16 +43,36 @@ export type { DfnsWalletListProps } from './DfnsWalletList';
 
 // ===== Enhanced Component Types =====
 export type { 
-  DfnsAuthenticationProps
+  DfnsAuthenticationProps,
 } from './DfnsAuthentication';
+export type {
+  EnhancedAuthProps
+} from './EnhancedDfnsAuthentication';
 export type {
   DfnsDelegatedAuthProps
 } from './DfnsDelegatedAuthentication';
+export type {
+  DfnsUserManagementProps
+} from './DfnsUserManagement';
 
 // ===== Advanced Service Component Types =====
 export type {
   DfnsFiatIntegrationProps
 } from './DfnsFiatIntegration';
+
+// ===== Personal Access Token Management Types =====
+export type {
+  DfnsPersonalAccessTokenManagementProps
+} from './DfnsPersonalAccessTokenManagement';
+export type {
+  DfnsPersonalAccessTokenListProps
+} from './DfnsPersonalAccessTokenList';
+export type {
+  DfnsPersonalAccessTokenFormProps
+} from './DfnsPersonalAccessTokenForm';
+export type {
+  DfnsPersonalAccessTokenCardProps
+} from './DfnsPersonalAccessTokenCard';
 
 // ===== Enhanced RAMP Network Types =====
 export type {

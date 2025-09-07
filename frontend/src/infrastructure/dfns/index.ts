@@ -14,6 +14,11 @@ export { DfnsManager, default as DfnsManagerDefault } from './DfnsManager';
 export { default as DfnsApiClient } from './client';
 export type { RequestOptions } from './client';
 
+// ===== SDK Migration =====
+export { DfnsSDKClient } from './sdk-client';
+export { DfnsMigrationAdapter } from './migration-adapter';
+export type { DfnsSDKConfig, MigrationConfig } from './migration-adapter';
+
 // ===== Factory Function =====
 let dfnsManagerInstance: any | null = null;
 
@@ -37,6 +42,10 @@ export async function getDfnsManager(config?: Partial<import('@/types/dfns').Dfn
 
 // ===== Enhanced Authentication =====
 export { default as DfnsAuthenticator } from './auth';
+export { EnhancedDfnsAuth } from './enhanced-auth';
+export { EnhancedDfnsAuthExtensions } from './enhanced-auth-extensions';
+export { DfnsUserActionSigning } from './user-action-signing';
+export { default as DfnsAuthenticationManager } from './auth-manager';
 export type {
   AuthCredentials,
   AuthHeaders,
@@ -44,6 +53,21 @@ export type {
   UserActionSignature,
   ServiceAccountToken
 } from './auth';
+export type {
+  UserActionChallenge,
+  ServiceAccountTokenInfo,
+  RecoveryCredential,
+  PasskeyRegistrationResult
+} from './enhanced-auth';
+export type {
+  UserActionChallengeRequest,
+  UserActionChallengeResponse,
+  CompleteUserActionRequest,
+  UserActionResponse,
+  UserActionContext,
+  UserActionResult,
+  UserActionSigningService
+} from '@/types/dfns/user-actions';
 export {
   DfnsCredentialKind,
   DfnsSignatureType
@@ -52,7 +76,8 @@ export {
 // ===== Credential Management =====
 export { default as DfnsCredentialManager } from './credential-manager';
 export type {
-  CredentialInfo,
+  DfnsCredentialInfo,
+  CredentialInfo, // @deprecated Use DfnsCredentialInfo instead
   AuthenticatorInfo,
   CredentialCreationResult,
   RecoveryKeyInfo,
@@ -76,9 +101,55 @@ export {
   PermissionAssignmentStatus
 } from './service-account-manager';
 
+// ===== User Management =====
+export { default as DfnsUserManager } from './user-manager';
+export type {
+  DfnsUser,
+  CreateUserRequest,
+  CreateUserResponse,
+  ListUsersResponse,
+  DfnsUserPermissionAssignment,
+  UserSearchCriteria,
+  UserFilterOptions,
+  UserValidationResult,
+  UserValidationError,
+  DfnsUserManagementService
+} from '@/types/dfns/user';
+export {
+  DfnsUserStatus,
+  DfnsUserKind,
+  DfnsPermissionAssignmentStatus,
+  UserActivityType,
+  UserManagementErrorCode
+} from '@/types/dfns/user';
+
+// ===== Registration Management =====
+export { default as DfnsRegistrationManager } from './registration-manager';
+export type {
+  RegistrationChallenge,
+  RegistrationState,
+  RegistrationConfig,
+  RegistrationResult,
+  RegistrationInitRequest,
+  CompleteRegistrationRequest,
+  EndUserRegistrationRequest,
+  SocialRegistrationRequest,
+  RegistrationCodeRequest,
+  CredentialRegistration,
+  WalletSpec,
+  RegisteredUser,
+  RegisteredCredential,
+  RegisteredWallet,
+  SocialProvider,
+  CredentialKind as RegistrationCredentialKind
+} from '@/types/dfns/registration';
+
 // ===== Configuration =====
 export {
   DFNS_CONFIG,
+  DFNS_SDK_CONFIG,
+  MIGRATION_CONFIG,
+  PHASE2_CONFIG,
   DFNS_ENDPOINTS,
   DEFAULT_RETRY_CONFIG,
   DEFAULT_LOGGING_CONFIG,
@@ -105,6 +176,7 @@ export { default as DfnsAmlKytManager } from './aml-kyt-manager';
 export { default as DfnsAccountAbstractionManager } from './account-abstraction-manager';
 export { default as DfnsDelegatedSigningManager } from './delegated-signing-manager';
 export { default as DfnsFiatManager } from './fiat-manager';
+export { DfnsPersonalAccessTokenManager, default as DfnsPersonalAccessTokenManagerDefault } from './personal-access-token-manager';
 
 // ===== Enhanced Error Handling =====
 export { 

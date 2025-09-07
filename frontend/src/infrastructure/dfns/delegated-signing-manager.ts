@@ -865,6 +865,178 @@ export class DfnsDelegatedSigningManager {
     throw new Error('Not implemented - requires recovery tracking');
   }
 
+  /**
+   * Create a credential code for cross-device registration
+   */
+  async createCredentialCode(params: {
+    username: string;
+    displayName: string;
+    credentialName: string;
+  }): Promise<{ code: string; expiresAt: string }> {
+    try {
+      // Generate a temporary code (6-digit numeric)
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 60000).toISOString(); // 1 minute expiry
+      
+      // In a real implementation, this would store the code in DFNS API
+      // For now, we'll return a mock response
+      return {
+        code,
+        expiresAt
+      };
+    } catch (error) {
+      console.error('Error creating credential code:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a credential using a cross-device code
+   */
+  async createCredentialWithCrossDeviceCode(params: {
+    code: string;
+    credentialData: any;
+  }): Promise<DelegatedCredential> {
+    try {
+      // In a real implementation, this would validate the code and create credential via DFNS API
+      // For now, we'll return a mock credential
+      const credential: DelegatedCredential = {
+        id: `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: params.credentialData.credentialType || DelegatedCredentialType.WebAuthn,
+        status: DelegatedCredentialStatus.Active,
+        publicKey: this.generateMockPublicKey(),
+        attestationType: 'none',
+        authenticatorInfo: {
+          aaguid: '00000000-0000-0000-0000-000000000000',
+          credentialId: `cred_${Date.now()}`,
+          counter: 0,
+          credentialBackedUp: false,
+          credentialDeviceType: AuthenticatorDeviceType.CrossPlatform,
+          transports: [AuthenticatorTransport.USB],
+          userVerification: UserVerificationRequirement.Required
+        },
+        metadata: {
+          name: params.credentialData.deviceName || 'Cross-Device Credential',
+          userAgent: 'Cross-Device',
+          tags: ['cross-device']
+        },
+        deviceInfo: {
+          platform: 'Cross-Device',
+          browser: 'Unknown',
+          userAgent: 'Cross-Device',
+          fingerprint: 'cross-device',
+          trusted: true,
+          enrolledAt: new Date().toISOString()
+        },
+        createdAt: new Date().toISOString(),
+        lastUsedAt: undefined
+      };
+      
+      return credential;
+    } catch (error) {
+      console.error('Error creating credential with code:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Generate a mock public key for testing
+   */
+  private generateMockPublicKey(): string {
+    return 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE' + 
+           Math.random().toString(36).substr(2, 32).toUpperCase();
+  }
+
+  /**
+   * Deactivate a delegated credential
+   */
+  async deactivateCredential(credentialId: string): Promise<DelegatedCredential> {
+    try {
+      // In a real implementation, this would call DFNS API to deactivate the credential
+      // For now, we'll return a mock deactivated credential
+      const credential: DelegatedCredential = {
+        id: credentialId,
+        type: DelegatedCredentialType.WebAuthn,
+        status: DelegatedCredentialStatus.Inactive,
+        publicKey: this.generateMockPublicKey(),
+        attestationType: 'none',
+        authenticatorInfo: {
+          aaguid: '00000000-0000-0000-0000-000000000000',
+          credentialId: credentialId,
+          counter: 0,
+          credentialBackedUp: false,
+          credentialDeviceType: AuthenticatorDeviceType.Platform,
+          transports: [AuthenticatorTransport.Internal],
+          userVerification: UserVerificationRequirement.Required
+        },
+        metadata: {
+          name: 'Deactivated Credential',
+          userAgent: navigator.userAgent
+        },
+        deviceInfo: {
+          platform: navigator.platform,
+          browser: 'Unknown',
+          userAgent: navigator.userAgent,
+          fingerprint: 'mock-fingerprint',
+          trusted: true,
+          enrolledAt: new Date().toISOString()
+        },
+        createdAt: new Date().toISOString(),
+        lastUsedAt: undefined
+      };
+      
+      return credential;
+    } catch (error) {
+      console.error('Error deactivating credential:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Activate a delegated credential
+   */
+  async activateCredential(credentialId: string): Promise<DelegatedCredential> {
+    try {
+      // In a real implementation, this would call DFNS API to activate the credential
+      // For now, we'll return a mock activated credential
+      const credential: DelegatedCredential = {
+        id: credentialId,
+        type: DelegatedCredentialType.WebAuthn,
+        status: DelegatedCredentialStatus.Active,
+        publicKey: this.generateMockPublicKey(),
+        attestationType: 'none',
+        authenticatorInfo: {
+          aaguid: '00000000-0000-0000-0000-000000000000',
+          credentialId: credentialId,
+          counter: 0,
+          credentialBackedUp: false,
+          credentialDeviceType: AuthenticatorDeviceType.Platform,
+          transports: [AuthenticatorTransport.Internal],
+          userVerification: UserVerificationRequirement.Required
+        },
+        metadata: {
+          name: 'Activated Credential',
+          userAgent: navigator.userAgent
+        },
+        deviceInfo: {
+          platform: navigator.platform,
+          browser: 'Unknown',
+          userAgent: navigator.userAgent,
+          fingerprint: 'mock-fingerprint',
+          trusted: true,
+          enrolledAt: new Date().toISOString()
+        },
+        createdAt: new Date().toISOString(),
+        lastUsedAt: new Date().toISOString()
+      };
+      
+      return credential;
+    } catch (error) {
+      console.error('Error activating credential:', error);
+      throw error;
+    }
+  }
+
   private async getAuthHeaders(): Promise<Record<string, string>> {
     const headers = await this.authenticator.getAuthHeaders('GET', '/delegated');
     // Filter out undefined values and convert to Record<string, string>

@@ -43,9 +43,10 @@ interface StepperProps {
   steps: Array<{ title: string; description?: string }>
   currentStep: number
   onStepChange: (step: number) => void
+  children?: React.ReactNode
 }
 
-export function Stepper({ steps, currentStep, onStepChange }: StepperProps) {
+export function Stepper({ steps, currentStep, onStepChange, children }: StepperProps) {
   return (
     <div className="w-full max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -61,6 +62,7 @@ export function Stepper({ steps, currentStep, onStepChange }: StepperProps) {
           </React.Fragment>
         ))}
       </div>
+      {children}
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => onStepChange(currentStep - 1)} disabled={currentStep === 0}>
           Previous
@@ -73,3 +75,64 @@ export function Stepper({ steps, currentStep, onStepChange }: StepperProps) {
   )
 }
 
+// Additional components for backward compatibility with expected imports
+interface StepperItemProps {
+  value: string
+  children?: React.ReactNode
+  className?: string
+}
+
+export function StepperItem({ value, children, className }: StepperItemProps) {
+  return (
+    <div className={cn("step-item", className)} data-value={value}>
+      {children}
+    </div>
+  )
+}
+
+interface StepperSeparatorProps {
+  className?: string
+}
+
+export function StepperSeparator({ className }: StepperSeparatorProps) {
+  return (
+    <div className={cn("flex-1 border-t border-muted", className)} />
+  )
+}
+
+interface StepperTriggerProps {
+  value: string
+  children?: React.ReactNode
+  className?: string
+  disabled?: boolean
+}
+
+export function StepperTrigger({ value, children, className, disabled }: StepperTriggerProps) {
+  return (
+    <button
+      className={cn(
+        "flex items-center gap-2 p-2 rounded-md text-left transition-colors",
+        "hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed",
+        className
+      )}
+      disabled={disabled}
+      data-value={value}
+    >
+      {children}
+    </button>
+  )
+}
+
+interface StepperContentProps {
+  value: string
+  children?: React.ReactNode
+  className?: string
+}
+
+export function StepperContent({ value, children, className }: StepperContentProps) {
+  return (
+    <div className={cn("step-content", className)} data-value={value}>
+      {children}
+    </div>
+  )
+}

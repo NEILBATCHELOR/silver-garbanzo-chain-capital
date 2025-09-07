@@ -28,6 +28,44 @@ export interface ServiceAccountInfo {
   lastUsed?: string;
 }
 
+/**
+ * Official DFNS Service Account Response Structure
+ * Aligns with DFNS API specification
+ */
+export interface DfnsServiceAccountResponse {
+  userInfo: DfnsUserInfo;
+  accessTokens: DfnsAccessToken[];
+}
+
+export interface DfnsUserInfo {
+  username: string;
+  userId: string;
+  kind: "CustomerEmployee";
+  credentialUuid: string;
+  orgId: string;
+  permissions: string[];
+  scopes: string[];
+  isActive: boolean;
+  isServiceAccount: boolean;
+  isRegistered: boolean;
+  permissionAssignments: PermissionAssignment[];
+}
+
+export interface DfnsAccessToken {
+  accessToken?: string; // Only in create response
+  dateCreated: string;
+  credId: string;
+  isActive: boolean;
+  kind: string;
+  linkedUserId: string;
+  linkedAppId: string;
+  name: string;
+  orgId: string;
+  permissionAssignments: PermissionAssignment[];
+  publicKey: string;
+  tokenId: string;
+}
+
 export interface ServiceAccountCreationRequest {
   name: string;
   publicKey: string;
@@ -96,7 +134,7 @@ export class DfnsServiceAccountManager {
       externalId?: string;
       curve?: DfnsSignatureType;
     } = {}
-  ): Promise<{ serviceAccount: ServiceAccountInfo; keyPair: ServiceAccountKeyPair }> {
+  ): Promise<{ serviceAccount: DfnsServiceAccountResponse; keyPair: ServiceAccountKeyPair }> {
     try {
       // Ensure we're authenticated to create service accounts
       if (!this.authenticator.isAuthenticated()) {
@@ -141,7 +179,7 @@ export class DfnsServiceAccountManager {
         throw new Error(`Service account creation failed: ${errorData.message || response.statusText}`);
       }
 
-      const serviceAccount = await response.json();
+      const serviceAccount: DfnsServiceAccountResponse = await response.json();
 
       return {
         serviceAccount: serviceAccount,
@@ -163,7 +201,7 @@ export class DfnsServiceAccountManager {
       permissionIds?: string[];
       externalId?: string;
     } = {}
-  ): Promise<ServiceAccountInfo> {
+  ): Promise<DfnsServiceAccountResponse> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to create service accounts');
@@ -208,7 +246,7 @@ export class DfnsServiceAccountManager {
   /**
    * List all service accounts in the organization
    */
-  async listServiceAccounts(): Promise<ServiceAccountInfo[]> {
+  async listServiceAccounts(): Promise<DfnsServiceAccountResponse[]> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to list service accounts');
@@ -236,7 +274,7 @@ export class DfnsServiceAccountManager {
   /**
    * Get service account details
    */
-  async getServiceAccount(serviceAccountId: string): Promise<ServiceAccountInfo> {
+  async getServiceAccount(serviceAccountId: string): Promise<DfnsServiceAccountResponse> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to get service account');
@@ -269,7 +307,7 @@ export class DfnsServiceAccountManager {
       name?: string;
       externalId?: string;
     }
-  ): Promise<ServiceAccountInfo> {
+  ): Promise<DfnsServiceAccountResponse> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to update service account');
@@ -305,7 +343,7 @@ export class DfnsServiceAccountManager {
   /**
    * Activate a service account
    */
-  async activateServiceAccount(serviceAccountId: string): Promise<ServiceAccountInfo> {
+  async activateServiceAccount(serviceAccountId: string): Promise<DfnsServiceAccountResponse> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to activate service account');
@@ -338,7 +376,7 @@ export class DfnsServiceAccountManager {
   /**
    * Deactivate a service account
    */
-  async deactivateServiceAccount(serviceAccountId: string): Promise<ServiceAccountInfo> {
+  async deactivateServiceAccount(serviceAccountId: string): Promise<DfnsServiceAccountResponse> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to deactivate service account');
@@ -365,6 +403,42 @@ export class DfnsServiceAccountManager {
       return await response.json();
     } catch (error) {
       throw new Error(`Failed to deactivate service account: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Archive (soft delete) a service account
+   * DFNS API: DELETE /auth/service-accounts/{serviceAccountId}
+   * Required Permission: Auth:ServiceAccounts:Delete
+   */
+  async archiveServiceAccount(serviceAccountId: string): Promise<void> {
+    try {
+      if (!this.authenticator.isAuthenticated()) {
+        throw new Error('Authentication required to archive service account');
+      }
+
+      const userActionSignature = await this.authenticator.signUserAction(
+        'DELETE',
+        `/auth/service-accounts/${serviceAccountId}`
+      );
+
+      const response = await fetch(`${this.config.baseUrl}/auth/service-accounts/${serviceAccountId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.authenticator.getAccessToken()}`,
+          'X-DFNS-APPID': this.config.appId,
+          'X-DFNS-USERACTION': this.base64UrlEncode(JSON.stringify(userActionSignature))
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to archive service account: ${errorData.message || response.statusText}`);
+      }
+
+      // Archive operation returns no content (204 No Content)
+    } catch (error) {
+      throw new Error(`Failed to archive service account: ${(error as Error).message}`);
     }
   }
 
@@ -794,3 +868,5 @@ export class DfnsServiceAccountManager {
 // ===== Export =====
 
 export default DfnsServiceAccountManager;
+
+

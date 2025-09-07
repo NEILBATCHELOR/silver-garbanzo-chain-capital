@@ -10,11 +10,48 @@
  */
 
 import type { DfnsClientConfig } from '@/types/dfns';
-import { DfnsAuthenticator, DfnsCredentialKind, DfnsSignatureType } from './auth';
+import { DfnsAuthenticator, DfnsCredentialKind, DfnsSignatureType, SigningChallenge } from './auth';
 import { DFNS_CONFIG } from './config';
 
 // ===== Credential Management Types =====
 
+/**
+ * DFNS-compliant credential information interface
+ * Aligns with official DFNS API specification
+ */
+export interface DfnsCredentialInfo {
+  id: string;                  // Legacy ID field for backward compatibility
+  credentialId: string;        // DFNS credential ID  
+  credentialUuid: string;      // DFNS credential UUID
+  name?: string;               // Credential name
+  kind: DfnsCredentialKind;    // Credential type
+  status: DfnsCredentialStatus; // Credential status enum
+  isActive: boolean;           // Activation status (replaces status enum)
+  publicKey: string;           // Public key
+  algorithm?: string;          // Algorithm used
+  dateCreated: string;         // ISO date string
+  lastUsedAt?: string;         // Last usage timestamp
+  enrolledAt?: string;         // Enrollment timestamp
+  relyingPartyId?: string;     // For Fido2 credentials
+  origin?: string;             // For Fido2 credentials
+  attestationType?: string;    // Attestation type
+  authenticatorInfo?: AuthenticatorInfo; // WebAuthn info
+  externalId?: string;         // External identifier
+}
+
+/**
+ * Credential status enum for compatibility
+ */
+export enum DfnsCredentialStatus {
+  Active = 'Active',
+  Inactive = 'Inactive'
+}
+
+/**
+ * @deprecated Use DfnsCredentialInfo instead
+ * Legacy credential information interface for backward compatibility
+ * This interface will be removed in a future version.
+ */
 export interface CredentialInfo {
   id: string;
   name: string;
@@ -72,6 +109,72 @@ export enum CredentialStatus {
   Active = 'Active',
   Inactive = 'Inactive',
   Revoked = 'Revoked'
+}
+
+// ===== DFNS API Request/Response Types =====
+
+/**
+ * Request to create a one-time code for cross-device credential creation
+ */
+export interface CreateCredentialCodeRequest {
+  expiration: string; // ISO-8601 Date or Unix epoch, max 1 minute in future
+}
+
+/**
+ * Response from creating a credential code
+ */
+export interface CreateCredentialCodeResponse {
+  code: string;       // e.g., "A7U-KY6-9PT"
+  expiration: string; // ISO-8601 expiration time
+}
+
+/**
+ * Request to create credential challenge with code
+ */
+export interface CreateCredentialChallengeWithCodeRequest {
+  code: string;           // From createCredentialCode
+  credentialKind: DfnsCredentialKind;
+}
+
+/**
+ * Request to activate a credential
+ */
+export interface ActivateCredentialRequest {
+  credentialUuid: string; // e.g., "cr-4uc9u-12ij1-9s08327e73jqqcnr"
+}
+
+/**
+ * Request to deactivate a credential  
+ */
+export interface DeactivateCredentialRequest {
+  credentialUuid: string;
+}
+
+/**
+ * Response from credential activation/deactivation
+ */
+export interface CredentialActionResponse {
+  message: "success";
+}
+
+/**
+ * Credential signing challenge from DFNS API
+ * Renamed to avoid conflict with imported SigningChallenge
+ */
+export interface CredentialSigningChallenge {
+  challenge: string;
+  challengeIdentifier: string;
+  allowCredentials?: {
+    key?: Array<{
+      id: string;
+      type: string;
+    }>;
+    webauthn?: Array<{
+      id: string;
+      type: string;
+    }>;
+  };
+  expiresAt: string;
 }
 
 // ===== DFNS Credential Manager Class =====
@@ -330,24 +433,22 @@ export class DfnsCredentialManager {
 
   /**
    * Create a one-time code for cross-device credential creation
+   * Official DFNS API: POST /auth/credentials/code
    */
-  async createCrossDeviceCode(
-    deviceName: string,
-    expirationMinutes = 5
-  ): Promise<CrossDeviceCodeInfo> {
+  async createCredentialCode(expiration: string): Promise<{ code: string; expiration: string }> {
     try {
-      // Must be authenticated to create cross-device codes
+      // Must be authenticated to create credential codes
       if (!this.authenticator.isAuthenticated()) {
-        throw new Error('Authentication required to create cross-device code');
+        throw new Error('Authentication required to create credential code');
       }
 
       // Get user action signature for creating the code
       const userActionSignature = await this.authenticator.signUserAction(
         'POST',
-        '/auth/credentials/cross-device/code'
+        '/auth/credentials/code'
       );
 
-      const response = await fetch(`${this.config.baseUrl}/auth/credentials/cross-device/code`, {
+      const response = await fetch(`${this.config.baseUrl}/auth/credentials/code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -355,20 +456,118 @@ export class DfnsCredentialManager {
           'X-DFNS-APPID': this.config.appId,
           'X-DFNS-USERACTION': this.base64UrlEncode(JSON.stringify(userActionSignature))
         },
-        body: JSON.stringify({
-          deviceName: deviceName,
-          expirationMinutes: expirationMinutes
-        })
+        body: JSON.stringify({ expiration })
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create cross-device code: ${response.statusText}`);
+        throw new Error(`Failed to create credential code: ${response.statusText}`);
       }
 
       return await response.json();
     } catch (error) {
-      throw new Error(`Cross-device code creation failed: ${(error as Error).message}`);
+      throw new Error(`Credential code creation failed: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Create credential challenge using one-time code
+   * Official DFNS API: POST /auth/credentials/code/init
+   */
+  async createCredentialChallengeWithCode(
+    code: string,
+    credentialKind: DfnsCredentialKind
+  ): Promise<SigningChallenge> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/auth/credentials/code/init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-DFNS-APPID': this.config.appId
+        },
+        body: JSON.stringify({
+          code: code,
+          credentialKind: credentialKind
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create credential challenge with code: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Credential challenge with code failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Create credential using one-time code (no authentication required)
+   * Official DFNS API: POST /auth/credentials/code/verify
+   */
+  async createCredentialWithCode(
+    challengeIdentifier: string,
+    credentialName: string,
+    credentialKind: DfnsCredentialKind,
+    credentialInfo: any,
+    encryptedPrivateKey?: string
+  ): Promise<CredentialCreationResult> {
+    try {
+      const requestBody: any = {
+        challengeIdentifier,
+        credentialName,
+        credentialKind,
+        credentialInfo
+      };
+
+      if (encryptedPrivateKey) {
+        requestBody.encryptedPrivateKey = encryptedPrivateKey;
+      }
+
+      const response = await fetch(`${this.config.baseUrl}/auth/credentials/code/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-DFNS-APPID': this.config.appId
+          // Note: No Authorization or User Action headers required for code-based creation
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create credential with code: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return {
+        credentialId: result.id || result.credentialId,
+        publicKey: result.publicKey,
+        privateKey: result.privateKey,
+        recoveryCode: result.recoveryCode,
+        encryptedPrivateKey: result.encryptedPrivateKey
+      };
+    } catch (error) {
+      throw new Error(`Credential creation with code failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * @deprecated Use createCredentialCode() instead
+   * Legacy method for backward compatibility
+   */
+  async createCrossDeviceCode(
+    deviceName: string,
+    expirationMinutes = 5
+  ): Promise<CrossDeviceCodeInfo> {
+    // Convert to new API format
+    const expirationTime = new Date(Date.now() + expirationMinutes * 60000).toISOString();
+    const result = await this.createCredentialCode(expirationTime);
+    
+    return {
+      code: result.code,
+      expiresAt: result.expiration,
+      deviceName: deviceName,
+      challenge: '' // Not needed in new API
+    };
   }
 
   /**
@@ -440,8 +639,9 @@ export class DfnsCredentialManager {
 
   /**
    * List all credentials for the authenticated user
+   * Returns DFNS-compliant credential information
    */
-  async listCredentials(): Promise<CredentialInfo[]> {
+  async listCredentials(): Promise<DfnsCredentialInfo[]> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to list credentials');
@@ -460,7 +660,8 @@ export class DfnsCredentialManager {
       }
 
       const data = await response.json();
-      return data.credentials || [];
+      // Handle DFNS standard response format: { items: DfnsCredentialInfo[] }
+      return data.items || data.credentials || [];
     } catch (error) {
       throw new Error(`Failed to list credentials: ${(error as Error).message}`);
     }
@@ -468,8 +669,9 @@ export class DfnsCredentialManager {
 
   /**
    * Get credential details
+   * Returns DFNS-compliant credential information
    */
-  async getCredential(credentialId: string): Promise<CredentialInfo> {
+  async getCredential(credentialId: string): Promise<DfnsCredentialInfo> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to get credential');
@@ -495,6 +697,7 @@ export class DfnsCredentialManager {
 
   /**
    * Update credential (name, status)
+   * Returns DFNS-compliant credential information
    */
   async updateCredential(
     credentialId: string,
@@ -503,7 +706,7 @@ export class DfnsCredentialManager {
       status?: CredentialStatus;
       externalId?: string;
     }
-  ): Promise<CredentialInfo> {
+  ): Promise<DfnsCredentialInfo> {
     try {
       if (!this.authenticator.isAuthenticated()) {
         throw new Error('Authentication required to update credential');
@@ -538,24 +741,90 @@ export class DfnsCredentialManager {
   }
 
   /**
-   * Activate a credential
+   * Activate a credential using official DFNS API
+   * Official DFNS API: PUT /auth/credentials/activate
    */
-  async activateCredential(credentialId: string): Promise<CredentialInfo> {
-    return this.updateCredential(credentialId, { status: CredentialStatus.Active });
+  async activateCredential(credentialUuid: string): Promise<{ message: string }> {
+    try {
+      if (!this.authenticator.isAuthenticated()) {
+        throw new Error('Authentication required to activate credential');
+      }
+
+      const response = await fetch(`${this.config.baseUrl}/auth/credentials/activate`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.authenticator.getAccessToken()}`,
+          'X-DFNS-APPID': this.config.appId
+        },
+        body: JSON.stringify({ credentialUuid })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to activate credential: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to activate credential: ${(error as Error).message}`);
+    }
   }
 
   /**
-   * Deactivate a credential
+   * Deactivate a credential using official DFNS API
+   * Official DFNS API: PUT /auth/credentials/deactivate
    */
-  async deactivateCredential(credentialId: string): Promise<CredentialInfo> {
-    return this.updateCredential(credentialId, { status: CredentialStatus.Inactive });
+  async deactivateCredential(credentialUuid: string): Promise<{ message: string }> {
+    try {
+      if (!this.authenticator.isAuthenticated()) {
+        throw new Error('Authentication required to deactivate credential');
+      }
+
+      const response = await fetch(`${this.config.baseUrl}/auth/credentials/deactivate`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.authenticator.getAccessToken()}`,
+          'X-DFNS-APPID': this.config.appId
+        },
+        body: JSON.stringify({ credentialUuid })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to deactivate credential: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to deactivate credential: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * @deprecated Use activateCredential() with credentialUuid instead
+   * Legacy method for backward compatibility
+   */
+  async activateCredentialLegacy(credentialId: string): Promise<CredentialInfo> {
+    const result = await this.updateCredential(credentialId, { status: CredentialStatus.Active });
+    return this.mapToLegacyCredential(result);
+  }
+
+  /**
+   * @deprecated Use deactivateCredential() with credentialUuid instead
+   * Legacy method for backward compatibility
+   */
+  async deactivateCredentialLegacy(credentialId: string): Promise<CredentialInfo> {
+    const result = await this.updateCredential(credentialId, { status: CredentialStatus.Inactive });
+    return this.mapToLegacyCredential(result);
   }
 
   /**
    * Revoke a credential (cannot be reactivated)
+   * @deprecated Use deactivateCredential() with credentialUuid instead
    */
   async revokeCredential(credentialId: string): Promise<CredentialInfo> {
-    return this.updateCredential(credentialId, { status: CredentialStatus.Revoked });
+    const result = await this.updateCredential(credentialId, { status: CredentialStatus.Revoked });
+    return this.mapToLegacyCredential(result);
   }
 
   // ===== Password-Protected Key Utilities =====
@@ -605,6 +874,84 @@ export class DfnsCredentialManager {
   }
 
   // ===== Private Helper Methods =====
+
+  /**
+   * Convert legacy CredentialInfo to DFNS-compliant DfnsCredentialInfo
+   * Provides backward compatibility during transition
+   */
+  private mapLegacyCredential(legacy: CredentialInfo): DfnsCredentialInfo {
+    return {
+      id: legacy.id, // Required ID field
+      credentialId: legacy.id, // Map old id to credentialId
+      credentialUuid: legacy.id, // Use same value for UUID initially
+      name: legacy.name,
+      kind: legacy.kind,
+      status: legacy.status === CredentialStatus.Active ? DfnsCredentialStatus.Active : DfnsCredentialStatus.Inactive, // Required status field
+      isActive: legacy.status === CredentialStatus.Active,
+      publicKey: legacy.publicKey,
+      algorithm: legacy.algorithm,
+      dateCreated: legacy.enrolledAt,
+      lastUsedAt: legacy.lastUsedAt,
+      enrolledAt: legacy.enrolledAt,
+      attestationType: legacy.attestationType,
+      authenticatorInfo: legacy.authenticatorInfo,
+      externalId: legacy.externalId
+    };
+  }
+
+  /**
+   * Convert DFNS-compliant DfnsCredentialInfo to legacy CredentialInfo
+   * Provides backward compatibility for legacy code
+   */
+  private mapToLegacyCredential(dfns: DfnsCredentialInfo): CredentialInfo {
+    return {
+      id: dfns.credentialUuid || dfns.credentialId,
+      name: dfns.name || '',
+      kind: dfns.kind,
+      status: dfns.isActive ? CredentialStatus.Active : CredentialStatus.Inactive,
+      publicKey: dfns.publicKey,
+      algorithm: dfns.algorithm || '',
+      attestationType: dfns.attestationType,
+      authenticatorInfo: dfns.authenticatorInfo,
+      enrolledAt: dfns.enrolledAt || dfns.dateCreated,
+      lastUsedAt: dfns.lastUsedAt,
+      externalId: dfns.externalId
+    };
+  }
+
+  /**
+   * Legacy method: List credentials with backward compatibility
+   * @deprecated Use listCredentials() which now returns DfnsCredentialInfo[]
+   */
+  async listCredentialsLegacy(): Promise<CredentialInfo[]> {
+    const dfnsCredentials = await this.listCredentials();
+    return dfnsCredentials.map(cred => this.mapToLegacyCredential(cred));
+  }
+
+  /**
+   * Legacy method: Get credential with backward compatibility
+   * @deprecated Use getCredential() which now returns DfnsCredentialInfo
+   */
+  async getCredentialLegacy(credentialId: string): Promise<CredentialInfo> {
+    const dfnsCredential = await this.getCredential(credentialId);
+    return this.mapToLegacyCredential(dfnsCredential);
+  }
+
+  /**
+   * Legacy method: Update credential with backward compatibility
+   * @deprecated Use updateCredential() which now returns DfnsCredentialInfo
+   */
+  async updateCredentialLegacy(
+    credentialId: string,
+    updates: {
+      name?: string;
+      status?: CredentialStatus;
+      externalId?: string;
+    }
+  ): Promise<CredentialInfo> {
+    const dfnsCredential = await this.updateCredential(credentialId, updates);
+    return this.mapToLegacyCredential(dfnsCredential);
+  }
 
   /**
    * Generate cryptographic key pair
@@ -864,7 +1211,7 @@ export class DfnsCredentialManager {
   /**
    * Get credential challenge with cross-device code
    */
-  private async getCredentialChallengeWithCode(code: string, request: any): Promise<{ challenge: string; challengeIdentifier: string }> {
+  private async getCredentialChallengeWithCode(code: string, request: any): Promise<SigningChallenge> {
     const response = await fetch(`${this.config.baseUrl}/auth/credentials/cross-device/init`, {
       method: 'POST',
       headers: {
@@ -881,7 +1228,15 @@ export class DfnsCredentialManager {
       throw new Error(`Failed to get credential challenge with code: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    
+    // Ensure the response matches SigningChallenge interface
+    return {
+      challenge: data.challenge,
+      challengeIdentifier: data.challengeIdentifier,
+      allowCredentials: data.allowCredentials || { key: [], webauthn: [] },
+      expiresAt: data.expiresAt || new Date(Date.now() + 5 * 60 * 1000).toISOString() // Default to 5 minutes from now
+    };
   }
 
   /**
@@ -905,45 +1260,7 @@ export class DfnsCredentialManager {
   }
 
   // ===== Credential Creation with Challenge Methods =====
-
-  private async createFido2CredentialWithChallenge(
-    challenge: any,
-    name: string,
-    username: string,
-    displayName: string
-  ): Promise<CredentialCreationResult> {
-    // Implementation similar to createFido2Credential but using existing challenge
-    // This would be used for cross-device credential creation
-    throw new Error('Method not implemented - would use existing challenge');
-  }
-
-  private async createKeyCredentialWithChallenge(
-    challenge: any,
-    name: string,
-    curve: DfnsSignatureType
-  ): Promise<CredentialCreationResult> {
-    // Implementation similar to createKeyCredential but using existing challenge
-    throw new Error('Method not implemented - would use existing challenge');
-  }
-
-  private async createPasswordProtectedKeyCredentialWithChallenge(
-    challenge: any,
-    name: string,
-    password: string,
-    curve: DfnsSignatureType
-  ): Promise<CredentialCreationResult> {
-    // Implementation similar to createPasswordProtectedKeyCredential but using existing challenge
-    throw new Error('Method not implemented - would use existing challenge');
-  }
-
-  private async createRecoveryKeyCredentialWithChallenge(
-    challenge: any,
-    name: string,
-    curve: DfnsSignatureType
-  ): Promise<CredentialCreationResult> {
-    // Implementation similar to createRecoveryKeyCredential but using existing challenge
-    throw new Error('Method not implemented - would use existing challenge');
-  }
+  // Note: Actual implementations are below in the IMPLEMENTATION section
 
   // ===== Utility Methods =====
 
@@ -1032,6 +1349,216 @@ export class DfnsCredentialManager {
       'absurd', 'abuse', 'access', 'accident', 'account', 'accuse', 'achieve', 'acid',
       // ... truncated for brevity - would include full 2048 word BIP39 list
     ];
+  }
+
+  // ===== IMPLEMENTATION: Missing Cross-Device Challenge Methods =====
+
+  /**
+   * Create Fido2 credential using existing challenge (for cross-device flow)
+   */
+  private async createFido2CredentialWithChallenge(
+    challenge: CredentialSigningChallenge,
+    name: string,
+    username: string,
+    displayName: string
+  ): Promise<CredentialCreationResult> {
+    if (!navigator.credentials) {
+      throw new Error('WebAuthn not supported in this browser');
+    }
+
+    try {
+      // Create WebAuthn credential with existing challenge
+      const createOptions: CredentialCreationOptions = {
+        publicKey: {
+          challenge: this.base64UrlDecode(challenge.challenge),
+          rp: {
+            name: 'Chain Capital - DFNS',
+            id: this.getRelyingPartyId()
+          },
+          user: {
+            id: new TextEncoder().encode(username),
+            name: username,
+            displayName: displayName
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: 'public-key' },   // ES256 (secp256r1)
+            { alg: -257, type: 'public-key' }, // RS256
+            { alg: -8, type: 'public-key' }    // EdDSA
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            userVerification: 'required',
+            residentKey: 'preferred',
+            requireResidentKey: false
+          },
+          timeout: 60000,
+          attestation: 'direct',
+          excludeCredentials: []
+        }
+      };
+
+      const credential = await navigator.credentials.create(createOptions) as PublicKeyCredential;
+      
+      if (!credential) {
+        throw new Error('Failed to create WebAuthn credential');
+      }
+
+      // Extract credential data
+      const response = credential.response as AuthenticatorAttestationResponse;
+      const credentialId = this.arrayBufferToBase64Url(credential.rawId);
+      const publicKey = this.extractPublicKeyFromAttestation(response);
+      const attestationObject = this.arrayBufferToBase64Url(response.attestationObject);
+      const clientDataJSON = this.arrayBufferToBase64Url(response.clientDataJSON);
+
+      // Complete credential creation using existing challenge
+      const registeredCredential = await this.createCredentialWithCode(
+        challenge.challengeIdentifier,
+        name,
+        DfnsCredentialKind.Fido2,
+        {
+          credentialId: credentialId,
+          publicKey: publicKey,
+          attestationObject: attestationObject,
+          clientDataJSON: clientDataJSON
+        }
+      );
+
+      return registeredCredential;
+    } catch (error) {
+      throw new Error(`Cross-device Fido2 credential creation failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Create Key credential using existing challenge (for cross-device flow)
+   */
+  private async createKeyCredentialWithChallenge(
+    challenge: SigningChallenge,
+    name: string,
+    curve: DfnsSignatureType
+  ): Promise<CredentialCreationResult> {
+    try {
+      // Generate key pair
+      const keyPair = await this.generateKeyPair(curve);
+      
+      // Sign challenge with new private key
+      const signature = await this.signChallenge(
+        challenge.challenge, 
+        keyPair.privateKey, 
+        curve
+      );
+      
+      // Complete credential creation using existing challenge
+      const registeredCredential = await this.createCredentialWithCode(
+        challenge.challengeIdentifier,
+        name,
+        DfnsCredentialKind.Key,
+        {
+          publicKey: keyPair.publicKey,
+          signature: signature,
+          algorithm: this.getAlgorithmName(curve)
+        }
+      );
+
+      return {
+        credentialId: registeredCredential.credentialId,
+        publicKey: keyPair.publicKey,
+        privateKey: keyPair.privateKey
+      };
+    } catch (error) {
+      throw new Error(`Cross-device Key credential creation failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Create PasswordProtected credential using existing challenge (for cross-device flow)
+   */
+  private async createPasswordProtectedKeyCredentialWithChallenge(
+    challenge: SigningChallenge,
+    name: string,
+    password: string,
+    curve: DfnsSignatureType
+  ): Promise<CredentialCreationResult> {
+    try {
+      // Generate key pair
+      const keyPair = await this.generateKeyPair(curve);
+      
+      // Encrypt private key with password
+      const encryptedKeyInfo = await this.encryptPrivateKey(keyPair.privateKey, password);
+      
+      // Sign challenge with original private key
+      const signature = await this.signChallenge(
+        challenge.challenge, 
+        keyPair.privateKey, 
+        curve
+      );
+      
+      // Complete credential creation using existing challenge
+      const registeredCredential = await this.createCredentialWithCode(
+        challenge.challengeIdentifier,
+        name,
+        DfnsCredentialKind.PasswordProtectedKey,
+        {
+          publicKey: keyPair.publicKey,
+          signature: signature,
+          algorithm: this.getAlgorithmName(curve)
+        },
+        encryptedKeyInfo.encryptedPrivateKey
+      );
+
+      return {
+        credentialId: registeredCredential.credentialId,
+        publicKey: keyPair.publicKey,
+        encryptedPrivateKey: encryptedKeyInfo.encryptedPrivateKey
+      };
+    } catch (error) {
+      throw new Error(`Cross-device PasswordProtected credential creation failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Create Recovery credential using existing challenge (for cross-device flow)
+   */
+  private async createRecoveryKeyCredentialWithChallenge(
+    challenge: SigningChallenge,
+    name: string,
+    curve: DfnsSignatureType
+  ): Promise<CredentialCreationResult> {
+    try {
+      // Generate key pair
+      const keyPair = await this.generateKeyPair(curve);
+      
+      // Generate recovery code
+      const recoveryInfo = await this.generateRecoveryCode(keyPair.privateKey);
+      
+      // Sign challenge with private key
+      const signature = await this.signChallenge(
+        challenge.challenge, 
+        keyPair.privateKey, 
+        curve
+      );
+      
+      // Complete credential creation using existing challenge
+      const registeredCredential = await this.createCredentialWithCode(
+        challenge.challengeIdentifier,
+        name,
+        DfnsCredentialKind.RecoveryKey,
+        {
+          publicKey: keyPair.publicKey,
+          signature: signature,
+          algorithm: this.getAlgorithmName(curve),
+          recoveryCode: recoveryInfo.recoveryCode
+        }
+      );
+
+      return {
+        credentialId: registeredCredential.credentialId,
+        publicKey: keyPair.publicKey,
+        recoveryCode: recoveryInfo.recoveryCode
+      };
+    } catch (error) {
+      throw new Error(`Cross-device Recovery credential creation failed: ${(error as Error).message}`);
+    }
   }
 }
 

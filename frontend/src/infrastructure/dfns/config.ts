@@ -5,7 +5,14 @@
  * including authentication, API endpoints, and client options.
  */
 
-import type { DfnsClientConfig, DfnsRetryConfig, DfnsLoggingConfig } from '@/types/dfns';
+import type { 
+  DfnsClientConfig, 
+  DfnsRetryConfig, 
+  DfnsLoggingConfig,
+  UserVerificationRequirement,
+  ResidentKeyRequirement,
+  AuthenticatorAttachment
+} from '../../types/dfns';
 
 // ===== Environment Variables =====
 
@@ -319,6 +326,77 @@ export function getDefaultHeaders(): Record<string, string> {
     'X-DFNS-VERSION': '1.0.0'
   };
 }
+
+// ===== Phase 2 Feature Configuration =====
+
+export const PHASE2_CONFIG = {
+  // User Action Signing
+  enableUserActionSigning: getEnvVar('VITE_DFNS_ENABLE_USER_ACTION_SIGNING', 'true') === 'true',
+  
+  // Passkey Registration
+  enablePasskeyRegistration: getEnvVar('VITE_DFNS_ENABLE_PASSKEY_REGISTRATION', 'true') === 'true',
+  
+  // Recovery Mechanisms
+  enableRecoveryMechanisms: getEnvVar('VITE_DFNS_ENABLE_RECOVERY_MECHANISMS', 'true') === 'true',
+  
+  // Token Management
+  autoTokenRefresh: getEnvVar('VITE_DFNS_AUTO_TOKEN_REFRESH', 'true') === 'true',
+  tokenRefreshThreshold: parseInt(getEnvVar('VITE_DFNS_TOKEN_REFRESH_THRESHOLD', '300')), // 5 minutes
+  
+  // WebAuthn Enhanced Configuration
+  webAuthn: {
+    rpId: getEnvVar('VITE_DFNS_RP_ID', 'localhost'),
+    origin: getEnvVar('VITE_DFNS_ORIGIN', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
+    timeout: parseInt(getEnvVar('VITE_DFNS_WEBAUTHN_TIMEOUT', '60000')), // 60 seconds
+    userVerification: getEnvVar('VITE_DFNS_USER_VERIFICATION', 'required') as UserVerificationRequirement,
+    residentKey: getEnvVar('VITE_DFNS_RESIDENT_KEY', 'preferred') as ResidentKeyRequirement,
+    authenticatorAttachment: getEnvVar('VITE_DFNS_AUTHENTICATOR_ATTACHMENT', 'platform') as AuthenticatorAttachment,
+  },
+  
+  // Enhanced Error Handling
+  retryFailedActions: getEnvVar('VITE_DFNS_RETRY_FAILED_ACTIONS', 'true') === 'true',
+  maxActionRetries: parseInt(getEnvVar('VITE_DFNS_MAX_ACTION_RETRIES', '3')),
+  actionRetryDelay: parseInt(getEnvVar('VITE_DFNS_ACTION_RETRY_DELAY', '1000')), // 1 second
+};
+
+// ===== SDK Configuration =====
+
+export const DFNS_SDK_CONFIG = {
+  appId: DFNS_CONFIG.appId,
+  baseUrl: DFNS_CONFIG.baseUrl,
+  
+  // Service Account configuration
+  serviceAccount: DFNS_CONFIG.serviceAccountId && DFNS_CONFIG.serviceAccountPrivateKey ? {
+    privateKey: DFNS_CONFIG.serviceAccountPrivateKey,
+    credentialId: DFNS_CONFIG.serviceAccountId,
+  } : undefined,
+  
+  // Enhanced WebAuthn configuration (Phase 2)
+  webAuthn: PHASE2_CONFIG.webAuthn,
+  
+  // Phase 2 feature flags
+  features: {
+    userActionSigning: PHASE2_CONFIG.enableUserActionSigning,
+    passkeyRegistration: PHASE2_CONFIG.enablePasskeyRegistration,
+    recoveryMechanisms: PHASE2_CONFIG.enableRecoveryMechanisms,
+    autoTokenRefresh: PHASE2_CONFIG.autoTokenRefresh,
+  },
+  
+  // Enhanced retry configuration
+  retry: {
+    enabled: PHASE2_CONFIG.retryFailedActions,
+    maxAttempts: PHASE2_CONFIG.maxActionRetries,
+    delay: PHASE2_CONFIG.actionRetryDelay,
+  },
+};
+
+// ===== Migration Configuration =====
+
+export const MIGRATION_CONFIG = {
+  useSdk: getEnvVar('VITE_DFNS_USE_SDK', 'true') === 'true',
+  enableFallback: getEnvVar('VITE_DFNS_ENABLE_FALLBACK', 'true') === 'true',
+  logTransitions: getEnvVar('VITE_DFNS_LOG_TRANSITIONS', 'false') === 'true',
+};
 
 // Validate configuration on import
 validateDfnsConfig();

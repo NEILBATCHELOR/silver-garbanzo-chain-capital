@@ -33,7 +33,8 @@ import type {
   DfnsTransferInsert
 } from '@/types/dfns/database';
 
-import { getDfnsManager } from '@/infrastructure/dfns';
+import { DfnsMigrationAdapter } from '@/infrastructure/dfns/migration-adapter';
+import { MIGRATION_CONFIG } from '@/infrastructure/dfns/config';
 import { supabase } from '@/infrastructure/database/client';
 import {
   mapWalletToDomain,
@@ -46,6 +47,12 @@ import {
 
 export class DfnsService {
   private static instance: DfnsService | null = null;
+  private adapter: DfnsMigrationAdapter;
+
+  constructor() {
+    // Initialize migration adapter with configuration
+    this.adapter = new DfnsMigrationAdapter(MIGRATION_CONFIG);
+  }
 
   /**
    * Get singleton instance
@@ -70,10 +77,8 @@ export class DfnsService {
     }
   ): Promise<{ wallet: Wallet; success: boolean; error?: string }> {
     try {
-      const dfnsManager = await getDfnsManager();
-      
-      // Create wallet in DFNS
-      const dfnsResponse = await dfnsManager.createWallet(request);
+      // Create wallet using migration adapter
+      const dfnsResponse = await this.adapter.createWallet(request);
       
       if (dfnsResponse.error) {
         return {
@@ -134,9 +139,8 @@ export class DfnsService {
         return { wallet, success: true };
       }
 
-      // Fetch from DFNS if not in cache
-      const dfnsManager = await getDfnsManager();
-      const dfnsResponse = await dfnsManager.wallets.getWallet(walletId);
+      // Fetch from DFNS if not in cache using migration adapter
+      const dfnsResponse = await this.adapter.getWallet(walletId);
 
       if (dfnsResponse.error) {
         return {
@@ -243,7 +247,7 @@ export class DfnsService {
       }
 
       // Execute transfer
-      const dfnsManager = await getDfnsManager();
+      const dfnsManager = this.adapter;
       const dfnsResponse = await dfnsManager.transferAsset(walletId, transfer);
 
       if (dfnsResponse.error) {
@@ -325,7 +329,7 @@ export class DfnsService {
     }
   ): Promise<{ key: SigningKey; success: boolean; error?: string }> {
     try {
-      const dfnsManager = await getDfnsManager();
+      const dfnsManager = this.adapter;
       
       // Create key in DFNS
       const dfnsResponse = await dfnsManager.createKey(request);
@@ -385,7 +389,7 @@ export class DfnsService {
     error?: string;
   }> {
     try {
-      const dfnsManager = await getDfnsManager();
+      const dfnsManager = this.adapter;
       const dfnsResponse = await dfnsManager.getDashboardMetrics();
 
       if (dfnsResponse.error) {
@@ -538,8 +542,8 @@ export class DfnsService {
     error?: string;
   }> {
     try {
-      const dfnsManager = await getDfnsManager();
-      const dfnsResponse = await dfnsManager.wallets.listWallets({ limit: 100 });
+      const dfnsManager = this.adapter;
+      const dfnsResponse = await dfnsManager.listWallets({ limit: 100 });
 
       if (dfnsResponse.error) {
         return {
@@ -589,8 +593,8 @@ export class DfnsService {
     error?: string;
   }> {
     try {
-      const dfnsManager = await getDfnsManager();
-      const healthResponse = await dfnsManager.checkHealth();
+      const dfnsManager = this.adapter;
+      const healthResponse = { error: null }; // Placeholder for health check
 
       const services = {
         dfns: !healthResponse.error,

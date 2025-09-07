@@ -141,6 +141,32 @@ export enum DfnsCredentialStatus {
   Inactive = 'Inactive'
 }
 
+// ===== WebAuthn Types =====
+
+/**
+ * WebAuthn User Verification Requirement
+ * Standard WebAuthn type for user verification requirements
+ */
+export type UserVerificationRequirement = 'required' | 'preferred' | 'discouraged';
+
+/**
+ * WebAuthn Resident Key Requirement
+ * Standard WebAuthn type for resident key requirements
+ */
+export type ResidentKeyRequirement = 'required' | 'preferred' | 'discouraged';
+
+/**
+ * WebAuthn Authenticator Attachment
+ * Standard WebAuthn type for authenticator attachment constraints
+ */
+export type AuthenticatorAttachment = 'platform' | 'cross-platform';
+
+/**
+ * WebAuthn Authenticator Transport
+ * Standard WebAuthn type for authenticator transports
+ */
+export type AuthenticatorTransport = 'usb' | 'nfc' | 'ble' | 'hybrid' | 'internal';
+
 /**
  * Service Account for server-side authentication
  */

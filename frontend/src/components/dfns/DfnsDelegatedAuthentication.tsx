@@ -39,8 +39,13 @@ import {
   DelegatedCredentialType,
   DelegatedCredentialStatus,
   RecoveryType,
-  RecoveryProcess
+  RecoveryProcess,
+  AuthenticatorDeviceType,
+  AuthenticatorTransport,
+  UserVerificationRequirement
 } from '@/infrastructure/dfns/delegated-signing-manager';
+import { DfnsCredentialInfo } from '@/infrastructure/dfns/credential-manager';
+import { DfnsCredentialKind } from '@/infrastructure/dfns/auth';
 import { useDfns } from '@/hooks/useDfns';
 
 // ===== Component Types =====
@@ -63,6 +68,12 @@ interface RecoveryInitiationForm {
   username: string;
   recoveryType: RecoveryType;
   verificationData?: string;
+}
+
+interface CrossDeviceForm {
+  deviceName: string;
+  credentialType: DfnsCredentialKind;
+  password: string;
 }
 
 // ===== Main Component =====
@@ -94,6 +105,15 @@ export function DfnsDelegatedAuthentication({
   const [showRegistration, setShowRegistration] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [registrationProgress, setRegistrationProgress] = useState(0);
+
+  // Cross-device credential management
+  const [oneTimeCode, setOneTimeCode] = useState<string | null>(null);
+  const [showCodeDialog, setShowCodeDialog] = useState(false);
+  const [crossDeviceForm, setCrossDeviceForm] = useState<CrossDeviceForm>({
+    deviceName: '',
+    credentialType: DfnsCredentialKind.Fido2,
+    password: ''
+  });
 
   // Hooks
   const { client } = useDfns();
@@ -262,6 +282,143 @@ export function DfnsDelegatedAuthentication({
     }
   };
 
+  // ===== Cross-Device Credential Creation =====
+
+  /**
+   * Handle cross-device credential creation initiation
+   */
+  const handleCrossDeviceCredentialCreation = async () => {
+    if (!delegatedManager) {
+      setError('Delegated signing manager not initialized');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Step 1: Create one-time code (expires in 1 minute)
+      const codeResponse = await delegatedManager.createCredentialCode({
+        username: registrationForm.username || 'user',
+        displayName: registrationForm.displayName || 'User',
+        credentialName: crossDeviceForm.deviceName || 'Cross-Device Credential'
+      });
+
+      // Step 2: Display code to user for cross-device input
+      setOneTimeCode(codeResponse.code);
+      setShowCodeDialog(true);
+      setSuccess('Cross-device code generated! Use this code on your other device within 1 minute.');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Cross-device credential creation failed';
+      setError(errorMessage);
+      onError?.(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Handle completing cross-device credential creation
+   */
+  const handleCompleteCrossDeviceCredential = async (code: string) => {
+    if (!delegatedManager) {
+      setError('Delegated signing manager not initialized');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Create credential using cross-device code
+      const result = await delegatedManager.createCredentialWithCrossDeviceCode({
+        code: code,
+        credentialData: {
+          deviceName: crossDeviceForm.deviceName || 'Cross-Device Credential',
+          credentialType: crossDeviceForm.credentialType,
+          username: registrationForm.username || 'user',
+          displayName: registrationForm.displayName || 'User',
+          password: crossDeviceForm.password || undefined
+        }
+      });
+
+      setSuccess('Cross-device credential created successfully!');
+      setShowCodeDialog(false);
+      setOneTimeCode(null);
+      loadUserData(); // Refresh credential list
+      
+      // Callback for parent component
+      onCredentialRegistered?.({
+        id: result.id || 'generated-id',
+        type: crossDeviceForm.credentialType as any,
+        status: DelegatedCredentialStatus.Active,
+        createdAt: new Date().toISOString(),
+        lastUsedAt: null,
+        publicKey: result.publicKey || '',
+        attestationType: 'none',
+        authenticatorInfo: {
+          aaguid: '',
+          credentialId: result.id || 'generated-id',
+          counter: 0,
+          credentialBackedUp: false,
+          credentialDeviceType: AuthenticatorDeviceType.CrossPlatform,
+          transports: [AuthenticatorTransport.USB],
+          userVerification: UserVerificationRequirement.Required
+        },
+        metadata: {
+          name: crossDeviceForm.deviceName || 'Cross-Device Credential',
+          userAgent: navigator.userAgent
+        },
+        deviceInfo: {
+          platform: 'Cross-Device',
+          browser: 'Unknown',
+          userAgent: navigator.userAgent,
+          fingerprint: 'cross-device',
+          trusted: true,
+          enrolledAt: new Date().toISOString()
+        }
+      } as DelegatedCredential);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Cross-device credential creation failed';
+      setError(errorMessage);
+      onError?.(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Handle credential activation/deactivation toggle
+   */
+  const handleCredentialToggle = async (credential: DelegatedCredential) => {
+    if (!delegatedManager) {
+      setError('Delegated signing manager not initialized');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (credential.status === DelegatedCredentialStatus.Active) {
+        await delegatedManager.deactivateCredential(credential.id);
+        setSuccess(`Credential "${credential.metadata.name}" deactivated successfully!`);
+      } else {
+        await delegatedManager.activateCredential(credential.id);
+        setSuccess(`Credential "${credential.metadata.name}" activated successfully!`);
+      }
+      
+      // Refresh credential list
+      await loadUserData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Credential toggle failed';
+      setError(errorMessage);
+      onError?.(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ===== Utility Functions =====
 
   const getCredentialIcon = (type: DelegatedCredentialType) => {
@@ -352,10 +509,11 @@ export function DfnsDelegatedAuthentication({
 
       {/* Main Content */}
       <Tabs defaultValue="credentials" className="space-y-4">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
-          <TabsTrigger value="sessions">Active Sessions</TabsTrigger>
-          <TabsTrigger value="security">Security Settings</TabsTrigger>
+          <TabsTrigger value="register">Register</TabsTrigger>
+          <TabsTrigger value="cross-device">Cross-Device</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
         </TabsList>
 
         {/* Credentials Tab */}
@@ -432,6 +590,211 @@ export function DfnsDelegatedAuthentication({
           )}
         </TabsContent>
 
+        {/* Register Tab */}
+        <TabsContent value="register" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Register New Credential
+              </CardTitle>
+              <CardDescription>
+                Create a new authentication credential for secure access
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {registrationProgress > 0 && (
+                <div className="space-y-2">
+                  <Label>Registration Progress</Label>
+                  <Progress value={registrationProgress} />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={registrationForm.username}
+                  onChange={(e) => setRegistrationForm(prev => ({ ...prev, username: e.target.value }))}
+                  placeholder="Enter your username"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Display Name</Label>
+                <Input
+                  id="displayName"
+                  value={registrationForm.displayName}
+                  onChange={(e) => setRegistrationForm(prev => ({ ...prev, displayName: e.target.value }))}
+                  placeholder="Enter display name"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="credentialName">Credential Name</Label>
+                <Input
+                  id="credentialName"
+                  value={registrationForm.credentialName}
+                  onChange={(e) => setRegistrationForm(prev => ({ ...prev, credentialName: e.target.value }))}
+                  placeholder="e.g., My MacBook Pro"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleCredentialRegistration(DelegatedCredentialType.WebAuthn)}
+                  disabled={isLoading || !registrationForm.username || !registrationForm.displayName}
+                  className="flex-1"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  WebAuthn
+                </Button>
+                <Button
+                  onClick={() => handleCredentialRegistration(DelegatedCredentialType.Passkey)}
+                  disabled={isLoading || !registrationForm.username || !registrationForm.displayName}
+                  className="flex-1"
+                >
+                  <Fingerprint className="h-4 w-4 mr-2" />
+                  Passkey
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Cross-Device Tab */}
+        <TabsContent value="cross-device" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                Cross-Device Credentials
+              </CardTitle>
+              <CardDescription>
+                Create credentials that can be used across multiple devices
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="deviceName">Device Name</Label>
+                    <Input
+                      id="deviceName"
+                      value={crossDeviceForm.deviceName}
+                      onChange={(e) => setCrossDeviceForm(prev => ({
+                        ...prev,
+                        deviceName: e.target.value
+                      }))}
+                      placeholder="e.g., iPhone, Work Laptop"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="credentialType">Credential Type</Label>
+                    <select
+                      id="credentialType"
+                      value={crossDeviceForm.credentialType}
+                      onChange={(e) => setCrossDeviceForm(prev => ({
+                        ...prev,
+                        credentialType: e.target.value as DfnsCredentialKind
+                      }))}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value={DfnsCredentialKind.Fido2}>WebAuthn/Passkey</option>
+                      <option value={DfnsCredentialKind.Key}>Private Key</option>
+                      <option value={DfnsCredentialKind.PasswordProtectedKey}>Password Protected Key</option>
+                      <option value={DfnsCredentialKind.RecoveryKey}>Recovery Key</option>
+                    </select>
+                  </div>
+                </div>
+
+                {crossDeviceForm.credentialType === DfnsCredentialKind.PasswordProtectedKey && (
+                  <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={crossDeviceForm.password}
+                      onChange={(e) => setCrossDeviceForm(prev => ({
+                        ...prev,
+                        password: e.target.value
+                      }))}
+                      placeholder="Enter password for key protection"
+                    />
+                  </div>
+                )}
+
+                <Button 
+                  onClick={handleCrossDeviceCredentialCreation}
+                  disabled={isLoading || !crossDeviceForm.deviceName}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Generating Code...
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="h-4 w-4 mr-2" />
+                      Generate Cross-Device Code
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Use Code Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Use Cross-Device Code</CardTitle>
+              <CardDescription>
+                Enter a code generated on another device to create a credential here
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="codeInput">Cross-Device Code</Label>
+                  <Input
+                    id="codeInput"
+                    placeholder="Enter the code from your other device"
+                    className="font-mono"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const code = (e.target as HTMLInputElement).value.trim();
+                        if (code) {
+                          handleCompleteCrossDeviceCredential(code);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <Button 
+                  onClick={() => {
+                    const input = document.getElementById('codeInput') as HTMLInputElement;
+                    const code = input?.value.trim();
+                    if (code) {
+                      handleCompleteCrossDeviceCredential(code);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Creating Credential...
+                    </>
+                  ) : (
+                    'Use Code to Create Credential'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Sessions Tab */}
         <TabsContent value="sessions" className="space-y-4">
           {activeSessions.length === 0 ? (
@@ -479,49 +842,6 @@ export function DfnsDelegatedAuthentication({
               ))}
             </div>
           )}
-        </TabsContent>
-
-        {/* Security Settings Tab */}
-        <TabsContent value="security" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Security Preferences</CardTitle>
-              <CardDescription>
-                Configure your delegated authentication security settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Require biometric verification</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Always require biometric verification for sensitive operations
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Session timeout</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Automatically end sessions after period of inactivity
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Recovery options</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Enable account recovery through identity verification
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
 
@@ -641,6 +961,51 @@ export function DfnsDelegatedAuthentication({
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Initiate Recovery
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cross-Device Code Dialog */}
+      <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cross-Device Code Generated</DialogTitle>
+            <DialogDescription>
+              Use this code on your other device to create the credential. Code expires in 1 minute.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {oneTimeCode && (
+              <div className="text-center p-6 bg-gray-50 rounded-lg">
+                <p className="text-3xl font-mono font-bold tracking-wider mb-2">
+                  {oneTimeCode}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Enter this code on your other device
+                </p>
+              </div>
+            )}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-900">Instructions:</p>
+                  <ol className="list-decimal list-inside mt-2 space-y-1 text-blue-800">
+                    <li>Open this application on your other device</li>
+                    <li>Navigate to Cross-Device Credentials</li>
+                    <li>Click "Use Code" and enter the code above</li>
+                    <li>Complete the credential creation process</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCodeDialog(false)}
+              className="w-full"
+            >
+              Close
             </Button>
           </div>
         </DialogContent>

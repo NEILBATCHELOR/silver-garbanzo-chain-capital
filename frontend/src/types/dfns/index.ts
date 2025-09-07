@@ -20,6 +20,72 @@ export * from './mappers';
 // Fiat integration types
 export * from './fiat';
 
+// User Action Signing types
+export * from './user-actions';
+
+// Registration types
+export * from './registration';
+
+// User management types (avoiding duplicates with core.ts)
+export type {
+  // User management specific types that don't conflict
+  CreateUserRequest,
+  CreateUserResponse,
+  GetUserRequest,
+  GetUserResponse,
+  ListUsersRequest,
+  ListUsersResponse,
+  ActivateUserRequest,
+  ActivateUserResponse,
+  DeactivateUserRequest,
+  DeactivateUserResponse,
+  ArchiveUserRequest,
+  DfnsUserPermissionAssignment,
+  DfnsPermissionAssignmentStatus,
+  UserSearchCriteria,
+  UserFilterOptions,
+  UserValidationResult,
+  UserValidationError,
+  DfnsUserManagementService,
+  UserManagementConfig,
+  UserActivity,
+  UserActivityType,
+  UserManagementError,
+  UserManagementErrorCode,
+  
+  // User types with specific aliases to avoid conflicts
+  DfnsUser as UserMgmtDfnsUser,
+  DfnsUserKind as UserMgmtDfnsUserKind,
+  DfnsUserStatus as UserMgmtDfnsUserStatus
+} from './user';
+
+// Personal Access Token management types (avoiding conflicts)
+export type {
+  CreatePersonalAccessTokenRequest,
+  CreatePersonalAccessTokenResponse,
+  GetPersonalAccessTokenRequest,
+  GetPersonalAccessTokenResponse,
+  ListPersonalAccessTokensRequest,
+  ListPersonalAccessTokensResponse,
+  UpdatePersonalAccessTokenRequest,
+  UpdatePersonalAccessTokenResponse,
+  ActivatePersonalAccessTokenRequest,
+  ActivatePersonalAccessTokenResponse,
+  DeactivatePersonalAccessTokenRequest,
+  DeactivatePersonalAccessTokenResponse,
+  ArchivePersonalAccessTokenRequest,
+  PersonalAccessTokenSearchCriteria,
+  PersonalAccessTokenFilterOptions,
+  PersonalAccessTokenValidationResult,
+  PersonalAccessTokenValidationError,
+  DfnsPersonalAccessTokenManagementService,
+  PersonalAccessTokenManagementConfig,
+  PersonalAccessTokenActivity,
+  PersonalAccessTokenActivityType,
+  PersonalAccessTokenManagementError,
+  PersonalAccessTokenManagementErrorCode
+} from './personal-access-token';
+
 // Re-export commonly used types with aliases for convenience
 export type {
   // Core API response types
@@ -32,8 +98,20 @@ export type {
   DfnsCurve,
   DfnsScheme,
   
+  // WebAuthn types
+  UserVerificationRequirement,
+  ResidentKeyRequirement,
+  AuthenticatorAttachment,
+  AuthenticatorTransport,
+  
   // Configuration
-  DfnsClientConfig
+  DfnsClientConfig,
+  
+  // Core user types (from core.ts)
+  DfnsUser as CoreDfnsUser,
+  DfnsUserKind as CoreDfnsUserKind,
+  DfnsUserStatus as CoreDfnsUserStatus,
+  DfnsPersonalAccessTokenStatus as CoreDfnsPersonalAccessTokenStatus
 } from './core';
 
 // Re-export enums as values (not types) so they can be used for enum access

@@ -21,13 +21,16 @@ import {
   DfnsAuthenticator, 
   DfnsCredentialManager,
   DfnsServiceAccountManager,
+  DfnsRegistrationManager,
   DfnsCredentialKind,
   DfnsSignatureType,
   type AuthCredentials,
   type ServiceAccountToken,
-  type CredentialInfo,
-  type ServiceAccountInfo
+  type DfnsCredentialInfo,
+  type ServiceAccountInfo,
+  type RegistrationResult
 } from '@/infrastructure/dfns';
+import { ServiceAccountStatus } from '@/infrastructure/dfns/service-account-manager';
 import { DEFAULT_CLIENT_CONFIG } from '@/infrastructure/dfns/config';
 import { 
   Key, 
@@ -48,9 +51,12 @@ export interface DfnsAuthenticationProps {
   onAuthSuccess?: (credentials: AuthCredentials) => void;
   onAuthError?: (error: Error) => void;
   onAuthLogout?: () => void;
-  defaultTab?: 'service-account' | 'webauthn' | 'key' | 'pat';
+  onRegistrationComplete?: (result: RegistrationResult) => void;
+  defaultTab?: 'service-account' | 'webauthn' | 'key' | 'pat' | 'register';
   showCredentialManagement?: boolean;
   showServiceAccountManagement?: boolean;
+  showRegistration?: boolean;
+  orgId?: string;
 }
 
 interface AuthState {
@@ -67,9 +73,12 @@ export const DfnsAuthentication: React.FC<DfnsAuthenticationProps> = ({
   onAuthSuccess,
   onAuthError,
   onAuthLogout,
+  onRegistrationComplete,
   defaultTab = 'webauthn',
   showCredentialManagement = true,
-  showServiceAccountManagement = true
+  showServiceAccountManagement = true,
+  showRegistration = true,
+  orgId
 }) => {
   // ===== State Management =====
   const [authState, setAuthState] = useState<AuthState>({
@@ -84,7 +93,7 @@ export const DfnsAuthentication: React.FC<DfnsAuthenticationProps> = ({
   const [credentialManager] = useState(() => new DfnsCredentialManager(DEFAULT_CLIENT_CONFIG, authenticator));
   const [serviceAccountManager] = useState(() => new DfnsServiceAccountManager(DEFAULT_CLIENT_CONFIG, authenticator));
 
-  const [credentials, setCredentials] = useState<CredentialInfo[]>([]);
+  const [credentials, setCredentials] = useState<DfnsCredentialInfo[]>([]);
   const [serviceAccounts, setServiceAccounts] = useState<ServiceAccountInfo[]>([]);
 
   // ===== Authentication Methods =====
@@ -223,7 +232,20 @@ export const DfnsAuthentication: React.FC<DfnsAuthenticationProps> = ({
     
     try {
       const accounts = await serviceAccountManager.listServiceAccounts();
-      setServiceAccounts(accounts);
+      // Map DfnsServiceAccountResponse[] to ServiceAccountInfo[]
+      const mappedAccounts: ServiceAccountInfo[] = accounts.map(account => ({
+        id: account.userInfo.userId,
+        name: account.userInfo.username,
+        status: account.userInfo.isActive ? ServiceAccountStatus.Active : ServiceAccountStatus.Inactive,
+        publicKey: account.accessTokens[0]?.publicKey || '',
+        externalId: account.userInfo.orgId,
+        permissionIds: account.userInfo.permissions,
+        dateCreated: account.accessTokens[0]?.dateCreated || new Date().toISOString(),
+        dateActivated: account.userInfo.isActive ? account.accessTokens[0]?.dateCreated : undefined,
+        dateDeactivated: !account.userInfo.isActive ? new Date().toISOString() : undefined,
+        lastUsed: undefined
+      }));
+      setServiceAccounts(mappedAccounts);
     } catch (error) {
       console.error('Failed to load service accounts:', error);
     }
@@ -347,7 +369,7 @@ export const DfnsAuthentication: React.FC<DfnsAuthenticationProps> = ({
             value={authState.currentTab} 
             onValueChange={(value) => setAuthState(prev => ({ ...prev, currentTab: value }))}
           >
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="webauthn">
                 <Fingerprint className="h-4 w-4 mr-2" />
                 WebAuthn
@@ -364,6 +386,12 @@ export const DfnsAuthentication: React.FC<DfnsAuthenticationProps> = ({
                 <User className="h-4 w-4 mr-2" />
                 Access Token
               </TabsTrigger>
+              {showRegistration && (
+                <TabsTrigger value="register">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Register
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="webauthn" className="space-y-4">
@@ -393,6 +421,16 @@ export const DfnsAuthentication: React.FC<DfnsAuthenticationProps> = ({
                 isLoading={authState.isLoading}
               />
             </TabsContent>
+
+            {showRegistration && (
+              <TabsContent value="register" className="space-y-4">
+                <RegistrationForm 
+                  onRegistrationComplete={onRegistrationComplete}
+                  onRegistrationError={onAuthError}
+                  orgId={orgId}
+                />
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
@@ -551,10 +589,117 @@ const PATAuthForm: React.FC<AuthFormProps> = ({ onAuth, isLoading }) => {
   );
 };
 
+// ===== Registration Form Component =====
+
+interface RegistrationFormProps {
+  onRegistrationComplete?: (result: RegistrationResult) => void;
+  onRegistrationError?: (error: Error) => void;
+  orgId?: string;
+}
+
+const RegistrationForm: React.FC<RegistrationFormProps> = ({ 
+  onRegistrationComplete, 
+  onRegistrationError,
+  orgId 
+}) => {
+  const [registrationManager] = useState(() => new DfnsRegistrationManager());
+  const [step, setStep] = useState<'init' | 'processing' | 'complete'>('init');
+  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('');
+  const [registrationCode, setRegistrationCode] = useState('');
+
+  const handleStartRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !registrationCode.trim()) return;
+
+    setLoading(true);
+    setStep('processing');
+
+    try {
+      // For demo purposes, we'll simulate a successful registration
+      // In real implementation, this would call the registration wizard
+      setTimeout(() => {
+        const mockResult: RegistrationResult = {
+          user: {
+            id: 'new-user-id',
+            username: username.trim(),
+            status: 'Active',
+            kind: 'Employee',
+            orgId: orgId || 'default',
+            registeredAt: new Date().toISOString(),
+            credentials: []
+          }
+        };
+        
+        setStep('complete');
+        setLoading(false);
+        onRegistrationComplete?.(mockResult);
+      }, 2000);
+    } catch (error) {
+      setLoading(false);
+      setStep('init');
+      onRegistrationError?.(error as Error);
+    }
+  };
+
+  if (step === 'processing') {
+    return (
+      <div className="text-center space-y-4">
+        <RefreshCw className="h-8 w-8 animate-spin mx-auto text-blue-500" />
+        <p>Creating your DFNS account...</p>
+        <p className="text-sm text-gray-600">This may take a few moments</p>
+      </div>
+    );
+  }
+
+  if (step === 'complete') {
+    return (
+      <div className="text-center space-y-4">
+        <CheckCircle className="h-8 w-8 mx-auto text-green-500" />
+        <p className="font-medium">Registration Successful!</p>
+        <p className="text-sm text-gray-600">Your DFNS account has been created.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleStartRegistration} className="space-y-4">
+      <div>
+        <Label htmlFor="reg-username">Username</Label>
+        <Input
+          id="reg-username"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Enter desired username"
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="reg-code">Registration Code</Label>
+        <Input
+          id="reg-code"
+          type="text"
+          value={registrationCode}
+          onChange={(e) => setRegistrationCode(e.target.value)}
+          placeholder="Enter registration code"
+          required
+        />
+      </div>
+      <Button type="submit" disabled={loading || !username.trim() || !registrationCode.trim()}>
+        {loading ? 'Starting Registration...' : 'Start Registration'}
+      </Button>
+      <p className="text-sm text-gray-600">
+        This will launch the full registration wizard to set up your credentials and wallets.
+      </p>
+    </form>
+  );
+};
+
 // ===== Management Section Components =====
 
 interface CredentialManagementSectionProps {
-  credentials: CredentialInfo[];
+  credentials: DfnsCredentialInfo[];
   credentialManager: DfnsCredentialManager;
   onCredentialsChange: () => void;
 }

@@ -39,6 +39,7 @@ import { DfnsExchangeManager } from './exchange-manager';
 import { DfnsStakingManager } from './staking-manager';
 import { DfnsAmlKytManager } from './aml-kyt-manager';
 import { DfnsAccountAbstractionManager } from './account-abstraction-manager';
+import { DfnsUserManager } from './user-manager';
 import { DFNS_CONFIG, DEFAULT_CLIENT_CONFIG } from './config';
 
 // ===== DFNS Manager =====
@@ -60,6 +61,7 @@ class DfnsManager {
   public staking: DfnsStakingManager;
   public amlKyt: DfnsAmlKytManager;
   public accountAbstraction: DfnsAccountAbstractionManager;
+  public users: DfnsUserManager;
 
   // State
   private isInitialized: boolean = false;
@@ -84,6 +86,7 @@ class DfnsManager {
     this.staking = new DfnsStakingManager(finalConfig, this.authenticator);
     this.amlKyt = new DfnsAmlKytManager(finalConfig, this.authenticator);
     this.accountAbstraction = new DfnsAccountAbstractionManager(finalConfig, this.authenticator);
+    this.users = new DfnsUserManager(finalConfig, this.authenticator);
   }
 
   // ===== Initialization & Authentication =====
