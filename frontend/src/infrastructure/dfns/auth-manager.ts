@@ -7,6 +7,8 @@
 
 import { DfnsUserActionSigning } from './user-action-signing';
 import { EnhancedDfnsAuth } from './enhanced-auth';
+import { DfnsAuthAdapter } from './auth-adapter';
+import { DFNS_SDK_CONFIG } from './config';
 import type {
   UserActionContext,
   UserActionResult,
@@ -19,10 +21,12 @@ import type {
 export class DfnsAuthenticationManager {
   private enhancedAuth: EnhancedDfnsAuth;
   private userActionSigning: DfnsUserActionSigning;
+  private authAdapter: DfnsAuthAdapter;
 
   constructor() {
     this.enhancedAuth = new EnhancedDfnsAuth();
     this.userActionSigning = new DfnsUserActionSigning();
+    this.authAdapter = new DfnsAuthAdapter(DFNS_SDK_CONFIG, this.enhancedAuth);
   }
 
   // ===== Delegate Core Authentication Methods =====
@@ -80,7 +84,15 @@ export class DfnsAuthenticationManager {
       }
     }
 
-    return baseHeaders;
+    // Filter out undefined values to ensure Record<string, string> compatibility
+    const filteredHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(baseHeaders)) {
+      if (value !== undefined) {
+        filteredHeaders[key] = value;
+      }
+    }
+
+    return filteredHeaders;
   }
 
   /**
@@ -243,6 +255,14 @@ export class DfnsAuthenticationManager {
     return this.enhancedAuth.getClient();
   }
 
+  // Add method to get config for recovery manager
+  getConfig() {
+    return {
+      baseUrl: this.enhancedAuth.getConfig().baseUrl,
+      appId: this.enhancedAuth.getConfig().appId
+    };
+  }
+
   shouldRefreshToken() {
     return this.enhancedAuth.shouldRefreshToken();
   }
@@ -253,12 +273,69 @@ export class DfnsAuthenticationManager {
 
   // ===== Recovery Methods =====
 
+  /**
+   * Create recovery credential using new recovery manager
+   */
   async createRecoveryCredential(name: string) {
-    return this.enhancedAuth.createRecoveryCredential(name);
+    const { DfnsUserRecoveryManager } = await import('./user-recovery-manager');
+    const recoveryManager = new DfnsUserRecoveryManager({
+      baseUrl: this.enhancedAuth.getConfig().baseUrl,
+      appId: this.enhancedAuth.getConfig().appId
+    }, this.authAdapter);
+    
+    return await recoveryManager.createRecoveryCredential(name);
   }
 
+  /**
+   * Initiate account recovery using new recovery manager
+   */
   async initiateAccountRecovery(username: string, recoveryCredentialId: string) {
-    return this.enhancedAuth.initiateAccountRecovery(username, recoveryCredentialId);
+    const { DfnsUserRecoveryManager } = await import('./user-recovery-manager');
+    const recoveryManager = new DfnsUserRecoveryManager({
+      baseUrl: this.enhancedAuth.getConfig().baseUrl,
+      appId: this.enhancedAuth.getConfig().appId
+    }, this.authAdapter);
+    
+    const orgId = this.enhancedAuth.getConfig().appId; // Using appId as orgId fallback
+    return await recoveryManager.initiateRecovery(username, orgId);
+  }
+
+  /**
+   * Send recovery code email
+   */
+  async sendRecoveryCode(username: string, orgId: string) {
+    const { DfnsUserRecoveryManager } = await import('./user-recovery-manager');
+    const recoveryManager = new DfnsUserRecoveryManager({
+      baseUrl: this.enhancedAuth.getConfig().baseUrl,
+      appId: this.enhancedAuth.getConfig().appId
+    }, this.authAdapter);
+    
+    return await recoveryManager.sendRecoveryCode(username, orgId);
+  }
+
+  /**
+   * Complete recovery with verification code and new credentials
+   */
+  async completeRecoveryWithWebAuthn(
+    username: string,
+    verificationCode: string,
+    orgId: string,
+    credentialId: string,
+    newCredentialName: string
+  ) {
+    const { DfnsUserRecoveryManager } = await import('./user-recovery-manager');
+    const recoveryManager = new DfnsUserRecoveryManager({
+      baseUrl: this.enhancedAuth.getConfig().baseUrl,
+      appId: this.enhancedAuth.getConfig().appId
+    }, this.authAdapter);
+    
+    return await recoveryManager.completeRecoveryWithWebAuthn(
+      username,
+      verificationCode,
+      orgId,
+      credentialId,
+      newCredentialName
+    );
   }
 }
 

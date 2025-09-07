@@ -18,6 +18,7 @@ export { DfnsAuthentication } from './DfnsAuthentication';
 export { default as DfnsRegistrationWizard } from './DfnsRegistrationWizard';
 export { EnhancedDfnsAuthentication } from './EnhancedDfnsAuthentication';
 export { default as DfnsDelegatedAuthentication } from './DfnsDelegatedAuthentication';
+export { default as DfnsUserRecovery } from './DfnsUserRecovery';
 export { default as DfnsWebhookManagement } from './DfnsWebhookManagement';
 export { default as DfnsUserManagement } from './DfnsUserManagement';
 
@@ -51,6 +52,9 @@ export type {
 export type {
   DfnsDelegatedAuthProps
 } from './DfnsDelegatedAuthentication';
+export type {
+  DfnsUserRecoveryProps
+} from './DfnsUserRecovery';
 export type {
   DfnsUserManagementProps
 } from './DfnsUserManagement';

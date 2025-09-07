@@ -46,6 +46,7 @@ export { EnhancedDfnsAuth } from './enhanced-auth';
 export { EnhancedDfnsAuthExtensions } from './enhanced-auth-extensions';
 export { DfnsUserActionSigning } from './user-action-signing';
 export { default as DfnsAuthenticationManager } from './auth-manager';
+export { DfnsUserRecoveryManager } from './user-recovery-manager';
 export type {
   AuthCredentials,
   AuthHeaders,
@@ -59,6 +60,20 @@ export type {
   RecoveryCredential,
   PasskeyRegistrationResult
 } from './enhanced-auth';
+export type {
+  SendRecoveryCodeRequest,
+  SendRecoveryCodeResponse,
+  CreateRecoveryRequest,
+  RecoveryChallenge,
+  CreateDelegatedRecoveryRequest,
+  DelegatedRecoveryChallenge,
+  RecoveryAssertion,
+  NewCredentials,
+  CompleteRecoveryRequest,
+  RecoveredUser,
+  CreateRecoveryCredentialRequest,
+  RecoveryCredential as UserRecoveryCredential
+} from './user-recovery-manager';
 export type {
   UserActionChallengeRequest,
   UserActionChallengeResponse,

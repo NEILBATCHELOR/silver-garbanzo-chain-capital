@@ -36,6 +36,8 @@ export interface AuthHeaders {
   'X-DFNS-SIGTYPE'?: string;
   'X-DFNS-SIGNATURE'?: string;
   'X-DFNS-VERSION'?: string;
+  'Content-Type'?: string;
+  [key: string]: string | undefined;
 }
 
 export interface SigningChallenge {

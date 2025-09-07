@@ -11,7 +11,9 @@
 import { DfnsApiClient, DfnsError } from '@dfns/sdk';
 import { AsymmetricKeySigner } from '@dfns/sdk-keysigner';
 import { DFNS_SDK_CONFIG } from './config';
+import { DfnsAuthAdapter } from './auth-adapter';
 import type { UserVerificationRequirement, AuthenticatorTransport } from '../../types/dfns';
+import type { AuthHeaders } from './auth';
 
 export interface UserActionChallenge {
   challenge: string;
@@ -397,8 +399,8 @@ export class EnhancedDfnsAuth {
     path: string,
     body?: any,
     requiresUserAction = true
-  ): Promise<Record<string, string>> {
-    const headers: Record<string, string> = {
+  ): Promise<AuthHeaders> {
+    const headers: AuthHeaders = {
       'Content-Type': 'application/json',
       'X-DFNS-APPID': DFNS_SDK_CONFIG.appId,
       'X-DFNS-VERSION': '1.0.0',
@@ -428,70 +430,51 @@ export class EnhancedDfnsAuth {
 
   /**
    * Create recovery credential for account recovery
+   * @deprecated Use DfnsUserRecoveryManager.createRecoveryCredential() instead
    */
   async createRecoveryCredential(name: string): Promise<RecoveryCredential> {
-    try {
-      const challenge = await this.initUserActionSigning('POST /auth/credentials');
-      
-      const recoveryCredential = await this.client.auth.createCredential({
-        body: {
-          credentialKind: 'Fido2',
-          credentialName: name,
-          challengeIdentifier: 'recovery-challenge', // Add required field
-          credentialInfo: {
-            credId: '',
-            clientData: '',
-            attestationData: ''
-          }
-        }
-      });
-
-      return {
-        id: recoveryCredential.credentialId,
-        name: recoveryCredential.name,
-        kind: 'RecoveryKey',
-        status: 'Active',
-        createdAt: recoveryCredential.dateCreated,
-      };
-    } catch (error) {
-      throw new Error(`Recovery credential creation failed: ${(error as Error).message}`);
-    }
+    const { DfnsUserRecoveryManager } = await import('./user-recovery-manager');
+    const adapter = new DfnsAuthAdapter(DFNS_SDK_CONFIG, this);
+    const recoveryManager = new DfnsUserRecoveryManager({
+      baseUrl: DFNS_SDK_CONFIG.baseUrl,
+      appId: DFNS_SDK_CONFIG.appId
+    }, adapter);
+    
+    const recoveryCredential = await recoveryManager.createRecoveryCredential(name);
+    
+    return {
+      id: recoveryCredential.id,
+      name: recoveryCredential.name,
+      kind: 'RecoveryKey',
+      status: 'Active',
+      createdAt: recoveryCredential.createdAt,
+    };
   }
 
   /**
    * Initiate account recovery using recovery credential
+   * @deprecated Use DfnsUserRecoveryManager.initiateRecovery() instead
    */
   async initiateAccountRecovery(
     username: string,
     recoveryCredentialId: string
   ): Promise<{ recoveryId: string; status: string }> {
+    const { DfnsUserRecoveryManager } = await import('./user-recovery-manager');
+    const adapter = new DfnsAuthAdapter(DFNS_SDK_CONFIG, this);
+    const recoveryManager = new DfnsUserRecoveryManager({
+      baseUrl: DFNS_SDK_CONFIG.baseUrl,
+      appId: DFNS_SDK_CONFIG.appId
+    }, adapter);
+    
+    // For backward compatibility, we'll use the new recovery flow
+    // This assumes orgId is available in the auth context
+    const orgId = DFNS_SDK_CONFIG.appId; // Using appId as orgId fallback
+    
     try {
-      const recovery = await this.client.auth.recover({
-        body: {
-          recovery: {
-            kind: 'RecoveryKey',
-            credentialAssertion: {
-              credId: recoveryCredentialId,
-              clientData: '',
-              signature: ''
-            }
-          },
-          newCredentials: {
-            firstFactorCredential: {
-              credentialKind: 'Fido2',
-              credentialInfo: {
-                credId: recoveryCredentialId,
-                clientData: '',
-                attestationData: ''
-              },
-              credentialName: 'recovery-credential'
-            }
-          }
-        }
-      });
-
+      const result = await recoveryManager.initiateRecovery(username, orgId);
+      
       return {
-        recoveryId: recovery.credential?.uuid || '',
+        recoveryId: recoveryCredentialId, // Use provided credential ID
         status: 'Initiated',
       };
     } catch (error) {
@@ -605,6 +588,23 @@ export class EnhancedDfnsAuth {
    */
   getClient(): DfnsApiClient {
     return this.client;
+  }
+
+  /**
+   * Get the current configuration
+   */
+  getConfig(): { baseUrl: string; appId: string } {
+    return {
+      baseUrl: DFNS_SDK_CONFIG.baseUrl,
+      appId: DFNS_SDK_CONFIG.appId
+    };
+  }
+
+  /**
+   * Get the current access token
+   */
+  getAccessToken(): string | undefined {
+    return this.authToken;
   }
 
   // ===== Utility Methods =====

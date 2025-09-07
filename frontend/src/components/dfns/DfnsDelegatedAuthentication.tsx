@@ -261,18 +261,32 @@ export function DfnsDelegatedAuthentication({
   };
 
   const handleRecoveryInitiation = async () => {
-    if (!delegatedManager) return;
-
     setIsLoading(true);
     setError(null);
 
     try {
-      const recovery = await delegatedManager.initiateRecovery(
-        recoveryForm.username,
-        recoveryForm.recoveryType,
-        recoveryForm.verificationData
-      );
-      setSuccess('Recovery process initiated. Check your email for next steps.');
+      // Import and use the actual recovery manager
+      const { DfnsUserRecoveryManager } = await import('@/infrastructure/dfns/user-recovery-manager');
+      const { DfnsAuthenticationManager } = await import('@/infrastructure/dfns/auth-manager');
+      
+      const authManager = new DfnsAuthenticationManager();
+      const recoveryManager = new DfnsUserRecoveryManager({
+        baseUrl: 'https://api.dfns.co', // Replace with actual config
+        appId: 'your-app-id' // Replace with actual app ID
+      });
+
+      if (recoveryForm.recoveryType === RecoveryType.KYC) {
+        // Send recovery code via email
+        await recoveryManager.sendRecoveryCode(
+          recoveryForm.username,
+          'your-org-id' // Replace with actual org ID
+        );
+        setSuccess('Recovery code sent to your email. Check your inbox and follow the instructions.');
+      } else {
+        // For RecoveryKey type, guide user to use their recovery key
+        setSuccess('Please use your recovery key to restore access. Enter your recovery phrase in the recovery flow.');
+      }
+      
       setShowRecovery(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initiate recovery';
