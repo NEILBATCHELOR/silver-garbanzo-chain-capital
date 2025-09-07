@@ -39,7 +39,7 @@ import { DfnsTransferDialog } from './DfnsTransferDialog';
 import { DfnsActivityLog } from './DfnsActivityLog';
 import { DfnsPolicyManagement } from './DfnsPolicyManagement';
 
-interface DfnsWalletDashboardProps {
+export interface DfnsWalletDashboardProps {
   className?: string;
 }
 
@@ -491,7 +491,6 @@ export function DfnsWalletDashboard({ className }: DfnsWalletDashboardProps) {
   );
 }
 
-// Export the Props interface
-export type { DfnsWalletDashboardProps };
+
 
 export default DfnsWalletDashboard;

@@ -47,7 +47,7 @@ import {
 import type { Wallet, WalletCreationRequest, DfnsNetwork } from '@/types/dfns';
 import { dfnsService } from '@/services/dfns/dfnsService';
 
-interface DfnsWalletCreationProps {
+export interface DfnsWalletCreationProps {
   isOpen: boolean;
   onClose: () => void;
   onWalletCreated: (wallet: Wallet) => void;
@@ -611,7 +611,6 @@ export function DfnsWalletCreation({
   );
 }
 
-// Export the Props interface
-export type { DfnsWalletCreationProps };
+
 
 export default DfnsWalletCreation;

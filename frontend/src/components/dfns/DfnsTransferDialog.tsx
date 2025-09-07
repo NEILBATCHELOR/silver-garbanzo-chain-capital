@@ -48,7 +48,7 @@ import { dfnsService } from '@/services/dfns/dfnsService';
 import { formatBalance } from '@/utils/shared/formatting/formatters';
 import { validateAddressForNetwork as isValidAddress } from '@/utils/shared/addressValidation';
 
-interface DfnsTransferDialogProps {
+export interface DfnsTransferDialogProps {
   isOpen: boolean;
   onClose: () => void;
   wallet: DfnsWallet;
@@ -663,7 +663,6 @@ export function DfnsTransferDialog({
   );
 }
 
-// Export the Props interface
-export type { DfnsTransferDialogProps };
+
 
 export default DfnsTransferDialog;
