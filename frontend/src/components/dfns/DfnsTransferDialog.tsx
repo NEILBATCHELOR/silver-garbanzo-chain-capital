@@ -62,6 +62,8 @@ interface GasEstimate {
   maxPriorityFeePerGas: string;
   estimatedFee: string;
   estimatedFeeUsd: string;
+  success: boolean;
+  error?: string;
 }
 
 export function DfnsTransferDialog({
@@ -160,7 +162,18 @@ export function DfnsTransferDialog({
         asset: formData.asset || undefined
       });
 
-      setGasEstimate(estimate);
+      if (estimate.success) {
+        setGasEstimate({
+          gasLimit: estimate.gasLimit || '',
+          gasPrice: estimate.gasPrice || '',
+          maxFeePerGas: estimate.maxFeePerGas || '',
+          maxPriorityFeePerGas: estimate.maxPriorityFeePerGas || '',
+          estimatedFee: estimate.estimatedFee || '',
+          estimatedFeeUsd: estimate.estimatedFeeUsd || '',
+          success: estimate.success,
+          error: estimate.error
+        });
+      }
     } catch (err) {
       console.error('Failed to estimate gas:', err);
       // Don't show error for gas estimation as it's auto-triggered
@@ -228,13 +241,26 @@ export function DfnsTransferDialog({
         maxPriorityFeePerGas: formData.customGas ? formData.maxPriorityFeePerGas : gasEstimate?.maxPriorityFeePerGas
       };
 
-      // Initiate transfer
-      const transfer = await dfnsService.createTransfer(transferRequest);
+      // Initiate transfer with walletId
+      const transfer = await dfnsService.createTransfer({
+        walletId: wallet.walletId,
+        ...transferRequest
+      });
 
       setSuccess(`Transfer initiated successfully! Transaction ID: ${transfer.transferId}`);
       
-      // Notify parent component
-      onTransferInitiated(transfer);
+      // Notify parent component with properly formatted transfer
+      const dfnsTransfer: DfnsTransfer = {
+        id: transfer.transferId,
+        status: transfer.status as any,
+        txHash: transfer.txHash,
+        dateCreated: new Date().toISOString(),
+        // Additional compatibility fields for the component
+        success: transfer.success,
+        walletId: wallet.walletId
+      };
+      
+      onTransferInitiated(dfnsTransfer);
 
       // Close dialog after a brief delay
       setTimeout(() => {

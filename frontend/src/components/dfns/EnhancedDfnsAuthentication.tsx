@@ -228,7 +228,8 @@ export const EnhancedDfnsAuthentication: React.FC<EnhancedAuthProps> = ({
   }, [adapter, onAuthError]);
 
   const handleLogout = useCallback(() => {
-    adapter.getActiveClient().logout?.();
+    // DFNS uses WebAuthn/Service Account auth, no traditional logout
+    // Just clear local auth state
     setAuthState({
       isAuthenticated: false,
       isLoading: false,

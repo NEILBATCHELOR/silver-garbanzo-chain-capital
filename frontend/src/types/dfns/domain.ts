@@ -610,6 +610,7 @@ export interface DfnsTransfer extends TransferResponse {
   // Additional UI fields
   walletId?: string;
   networkDisplayName?: string;
+  success?: boolean; // For backward compatibility with UI components
 }
 
 /**

@@ -104,7 +104,6 @@ export function DfnsActivityLog({
       setError(null);
       
       const response = await dfnsService.getActivityLog({
-        walletId,
         limit,
         offset: 0
       });

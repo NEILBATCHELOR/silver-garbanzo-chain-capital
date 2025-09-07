@@ -15,9 +15,15 @@ export { default as DfnsApiClient } from './client';
 export type { RequestOptions } from './client';
 
 // ===== SDK Migration =====
-export { DfnsSDKClient } from './sdk-client';
-export { DfnsMigrationAdapter } from './migration-adapter';
-export type { DfnsSDKConfig, MigrationConfig } from './migration-adapter';
+// Note: These files need to be created or use alternative implementations
+// export { DfnsSDKClient } from './sdk-client';
+// export { DfnsMigrationAdapter } from './migration-adapter';
+// export type { DfnsSDKConfig, MigrationConfig } from './migration-adapter';
+
+// Use existing client-sdk-replacement and fixed-migration-adapter
+export { DfnsSDKClient } from './client-sdk-replacement-fixed';
+export { FixedDfnsMigrationAdapter as DfnsMigrationAdapter } from './fixed-migration-adapter-corrected';
+export type { DfnsSDKConfig, MigrationConfig } from './fixed-migration-adapter-corrected';
 
 // ===== Factory Function =====
 let dfnsManagerInstance: any | null = null;
