@@ -17,6 +17,9 @@ export * from './database';
 // Type mappers for conversion between formats
 export * from './mappers';
 
+// SDK type mappers for DFNS API integration
+export * from './sdk-mappers';
+
 // Fiat integration types
 export * from './fiat';
 

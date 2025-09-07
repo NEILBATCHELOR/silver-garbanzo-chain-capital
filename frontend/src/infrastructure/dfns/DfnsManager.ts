@@ -26,13 +26,38 @@ import type {
   DfnsDashboardMetrics,
   TransactionHistory
 } from '@/types/dfns';
-import { DfnsPolicyStatus, DfnsPolicyApprovalStatus, DfnsTransactionStatus } from '@/types/dfns';
+import { 
+  DfnsPolicyStatus, 
+  DfnsPolicyApprovalStatus, 
+  DfnsTransactionStatus
+} from '@/types/dfns';
+import {
+  mapCreateWalletResponseToWallet,
+  mapListWalletsResponseToWallets,
+  mapCreateKeyResponseToSigningKey,
+  mapListKeysResponseToSigningKeys,
+  mapTransferAssetResponseToTransferResponse,
+  mapGenerateSignatureResponseToSignatureResponse,
+  DfnsCreateWalletResponse,
+  DfnsGetWalletResponse,
+  DfnsListWalletsResponse,
+  DfnsCreateKeyResponse,
+  DfnsGetKeyResponse,
+  DfnsListKeysResponse,
+  DfnsTransferAssetResponse,
+  DfnsGenerateSignatureResponse,
+  DfnsGetWalletAssetsResponse,
+  DfnsGetWalletHistoryResponse,
+  DfnsGetWalletNftsResponse
+} from '@/types/dfns/sdk-mappers';
 
-import { DfnsApiClient } from './client';
+import { DfnsApiClient } from '@dfns/sdk';
+import { AsymmetricKeySigner } from '@dfns/sdk-keysigner';
 import { DfnsAuthenticator } from './auth';
-import { DfnsWalletAdapter } from './adapters/WalletAdapter';
-import { DfnsKeysAdapter } from './adapters/KeysAdapter';
-import { DfnsPolicyAdapter } from './adapters/PolicyAdapter';
+// Temporarily comment out custom adapters - will create new ones that work with official SDK
+// import { DfnsWalletAdapter } from './adapters/WalletAdapter';
+// import { DfnsKeysAdapter } from './adapters/KeysAdapter';
+// import { DfnsPolicyAdapter } from './adapters/PolicyAdapter';
 import { DfnsWebhookManager } from './webhook-manager';
 import { DfnsPolicyManager } from './policy-manager';
 import { DfnsExchangeManager } from './exchange-manager';
@@ -48,11 +73,12 @@ class DfnsManager {
   // Core components
   private client: DfnsApiClient;
   private authenticator: DfnsAuthenticator;
+  private config: DfnsClientConfig;
 
-  // Service adapters
-  public wallets: DfnsWalletAdapter;
-  public keys: DfnsKeysAdapter;
-  public policies: DfnsPolicyAdapter;
+  // Service adapters - temporarily disabled while fixing SDK integration
+  // public wallets: DfnsWalletAdapter;
+  // public keys: DfnsKeysAdapter;
+  // public policies: DfnsPolicyAdapter;
 
   // Advanced service managers
   public webhooks: DfnsWebhookManager;
@@ -69,15 +95,25 @@ class DfnsManager {
 
   constructor(config?: Partial<DfnsClientConfig>) {
     const finalConfig = { ...DEFAULT_CLIENT_CONFIG, ...config };
+    this.config = finalConfig;
     
-    // Initialize core components
-    this.client = new DfnsApiClient(finalConfig);
+    // Initialize core components with official SDK
+    this.client = new DfnsApiClient({
+      appId: DFNS_CONFIG.appId,
+      baseUrl: DFNS_CONFIG.baseUrl,
+      signer: new AsymmetricKeySigner({
+        privateKey: DFNS_CONFIG.serviceAccountPrivateKey!,
+        credId: DFNS_CONFIG.serviceAccountId!,
+      })
+    });
+    
+    // Keep authenticator for backward compatibility with advanced managers
     this.authenticator = new DfnsAuthenticator(finalConfig);
 
-    // Initialize service adapters
-    this.wallets = new DfnsWalletAdapter(this.client);
-    this.keys = new DfnsKeysAdapter(this.client);
-    this.policies = new DfnsPolicyAdapter(this.client);
+    // Initialize service adapters - temporarily disabled
+    // this.wallets = new DfnsWalletAdapter(this.client);
+    // this.keys = new DfnsKeysAdapter(this.client);
+    // this.policies = new DfnsPolicyAdapter(this.client);
 
     // Initialize advanced service managers
     this.webhooks = new DfnsWebhookManager(finalConfig, this.authenticator);
@@ -169,11 +205,89 @@ class DfnsManager {
   // ===== Quick Access Methods =====
 
   /**
+   * List wallets
+   */
+  async listWallets(params?: { limit?: number; paginationToken?: string }): Promise<DfnsResponse<Wallet[]>> {
+    this.ensureInitialized();
+    try {
+      const response = await this.client.wallets.listWallets({
+        query: {
+          limit: params?.limit?.toString(),
+          paginationToken: params?.paginationToken
+        }
+      });
+
+      return {
+        kind: 'success',
+        data: mapListWalletsResponseToWallets(response)
+      };
+    } catch (error) {
+      return {
+        kind: 'error',
+        error: {
+          code: 'LIST_WALLETS_FAILED',
+          message: `Failed to list wallets: ${(error as Error).message}`
+        }
+      };
+    }
+  }
+
+  /**
+   * List keys
+   */
+  async listKeys(params?: { limit?: number; paginationToken?: string }): Promise<DfnsResponse<SigningKey[]>> {
+    this.ensureInitialized();
+    try {
+      const response = await this.client.keys.listKeys({
+        query: {
+          limit: params?.limit?.toString(),
+          paginationToken: params?.paginationToken
+        }
+      });
+
+      return {
+        kind: 'success',
+        data: mapListKeysResponseToSigningKeys(response)
+      };
+    } catch (error) {
+      return {
+        kind: 'error',
+        error: {
+          code: 'LIST_KEYS_FAILED',
+          message: `Failed to list keys: ${(error as Error).message}`
+        }
+      };
+    }
+  }
+
+  /**
    * Quick wallet creation
    */
   async createWallet(request: WalletCreationRequest): Promise<DfnsResponse<Wallet>> {
     this.ensureInitialized();
-    return this.wallets.createWallet(request);
+    try {
+      const response = await this.client.wallets.createWallet({
+        body: {
+          network: request.network as any,
+          name: request.name,
+          tags: request.tags,
+          externalId: request.externalId
+        }
+      });
+
+      return {
+        kind: 'success',
+        data: mapCreateWalletResponseToWallet(response)
+      };
+    } catch (error) {
+      return {
+        kind: 'error',
+        error: {
+          code: 'WALLET_CREATION_FAILED',
+          message: `Failed to create wallet: ${(error as Error).message}`
+        }
+      };
+    }
   }
 
   /**
@@ -181,7 +295,28 @@ class DfnsManager {
    */
   async createKey(request: KeyCreationRequest): Promise<DfnsResponse<SigningKey>> {
     this.ensureInitialized();
-    return this.keys.createKey(request);
+    try {
+      const response = await this.client.keys.createKey({
+        body: {
+          scheme: 'ECDSA',
+          curve: (request.curve === 'secp256k1' ? 'secp256k1' : request.curve) as any,
+          name: request.name
+        }
+      });
+
+      return {
+        kind: 'success',
+        data: mapCreateKeyResponseToSigningKey(response)
+      };
+    } catch (error) {
+      return {
+        kind: 'error',
+        error: {
+          code: 'KEY_CREATION_FAILED',
+          message: `Failed to create key: ${(error as Error).message}`
+        }
+      };
+    }
   }
 
   /**
@@ -192,7 +327,58 @@ class DfnsManager {
     transfer: TransferRequest
   ): Promise<DfnsResponse<TransferResponse>> {
     this.ensureInitialized();
-    return this.wallets.transferAsset(walletId, transfer);
+    try {
+      // Build transfer body based on asset type
+      const transferBody: any = {
+        kind: transfer.asset ? 'Erc20' : 'Native',
+        to: transfer.to,
+        amount: transfer.amount,
+      };
+
+      // Add optional fields
+      if (transfer.asset) {
+        transferBody.contract = transfer.asset;
+      }
+      if (transfer.memo) {
+        transferBody.memo = transfer.memo;
+      }
+      if (transfer.externalId) {
+        transferBody.externalId = transfer.externalId;
+      }
+      if (transfer.nonce) {
+        transferBody.nonce = transfer.nonce;
+      }
+      if (transfer.gasLimit) {
+        transferBody.gasLimit = transfer.gasLimit;
+      }
+      if (transfer.gasPrice) {
+        transferBody.gasPrice = transfer.gasPrice;
+      }
+      if (transfer.maxFeePerGas) {
+        transferBody.maxFeePerGas = transfer.maxFeePerGas;
+      }
+      if (transfer.maxPriorityFeePerGas) {
+        transferBody.maxPriorityFeePerGas = transfer.maxPriorityFeePerGas;
+      }
+
+      const response = await this.client.wallets.transferAsset({
+        walletId,
+        body: transferBody
+      });
+
+      return {
+        kind: 'success',
+        data: mapTransferAssetResponseToTransferResponse(response)
+      };
+    } catch (error) {
+      return {
+        kind: 'error',
+        error: {
+          code: 'TRANSFER_FAILED',
+          message: `Failed to transfer asset: ${(error as Error).message}`
+        }
+      };
+    }
   }
 
   /**
@@ -203,7 +389,36 @@ class DfnsManager {
     request: SignatureRequest
   ): Promise<DfnsResponse<SignatureResponse>> {
     this.ensureInitialized();
-    return this.keys.generateSignature(keyId, request);
+    try {
+      // Default to Message kind if not specified
+      const body: any = {
+        kind: 'Message',
+        message: request.message
+      };
+
+      // Add optional fields
+      if (request.externalId) {
+        body.externalId = request.externalId;
+      }
+
+      const response = await this.client.keys.generateSignature({
+        keyId,
+        body
+      });
+
+      return {
+        kind: 'success',
+        data: mapGenerateSignatureResponseToSignatureResponse(response)
+      };
+    } catch (error) {
+      return {
+        kind: 'error',
+        error: {
+          code: 'SIGNATURE_FAILED',
+          message: `Failed to generate signature: ${(error as Error).message}`
+        }
+      };
+    }
   }
 
   // ===== Advanced Service Quick Access =====
@@ -259,8 +474,8 @@ class DfnsManager {
     try {
       // Fetch data from multiple endpoints including new services
       const [walletsResponse, keysResponse, transfersResponse, stakingResponse, exchangesResponse] = await Promise.all([
-        this.wallets.listWallets({ limit: 100 }),
-        this.keys.listKeys({ limit: 100 }),
+        this.listWallets({ limit: 100 }),
+        this.listKeys({ limit: 100 }),
         this.getRecentActivity({ limit: 50 }),
         this.staking.listStakes({ limit: 20 }).catch(() => ({ stakes: [], total: 0 })),
         this.exchanges.listExchangeAccounts().catch(() => [])
@@ -371,15 +586,22 @@ class DfnsManager {
 
     try {
       const results = await Promise.allSettled(
-        requests.map(request => this.wallets.createWallet(request))
+        requests.map(request => this.client.wallets.createWallet({
+          body: {
+            network: request.network as any,
+            name: request.name,
+            tags: request.tags,
+            externalId: request.externalId
+          }
+        }))
       );
 
       const successful: Wallet[] = [];
       const errors: string[] = [];
 
       results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.data) {
-          successful.push(result.value.data);
+        if (result.status === 'fulfilled') {
+          successful.push(mapCreateWalletResponseToWallet(result.value));
         } else {
           errors.push(`Request ${index + 1}: ${result.status === 'rejected' ? result.reason : 'Unknown error'}`);
         }
@@ -420,17 +642,35 @@ class DfnsManager {
 
     try {
       const results = await Promise.allSettled(
-        transfers.map(({ walletId, transfer }) => 
-          this.wallets.transferAsset(walletId, transfer)
-        )
+        transfers.map(({ walletId, transfer }) => {
+          // Build transfer body based on asset type
+          const transferBody: any = {
+            kind: transfer.asset ? 'Erc20' : 'Native',
+            to: transfer.to,
+            amount: transfer.amount,
+          };
+
+          // Add optional fields
+          if (transfer.asset) {
+            transferBody.contract = transfer.asset;
+          }
+          if (transfer.memo) {
+            transferBody.memo = transfer.memo;
+          }
+
+          return this.client.wallets.transferAsset({
+            walletId,
+            body: transferBody
+          });
+        })
       );
 
       const successful: TransferResponse[] = [];
       const errors: string[] = [];
 
       results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.data) {
-          successful.push(result.value.data);
+        if (result.status === 'fulfilled') {
+          successful.push(mapTransferAssetResponseToTransferResponse(result.value));
         } else {
           errors.push(`Transfer ${index + 1}: ${result.status === 'rejected' ? result.reason : 'Unknown error'}`);
         }
@@ -454,17 +694,31 @@ class DfnsManager {
   // ===== Configuration & Management =====
 
   /**
-   * Update client configuration
+   * Update client configuration - recreate client with new config
    */
   updateConfig(updates: Partial<DfnsClientConfig>): void {
-    this.client.updateConfig(updates);
+    // Store updated config
+    const newConfig = { ...this.config, ...updates };
+    
+    // Recreate client with updated configuration
+    this.client = new DfnsApiClient({
+      appId: newConfig.appId || DFNS_CONFIG.appId,
+      baseUrl: newConfig.baseUrl || DFNS_CONFIG.baseUrl,
+      signer: new AsymmetricKeySigner({
+        privateKey: DFNS_CONFIG.serviceAccountPrivateKey!,
+        credId: DFNS_CONFIG.serviceAccountId!,
+      })
+    });
+    
+    // Update stored config
+    this.config = newConfig;
   }
 
   /**
    * Get current configuration
    */
   getConfig(): DfnsClientConfig {
-    return this.client.getConfig();
+    return { ...this.config };
   }
 
   /**
@@ -473,18 +727,8 @@ class DfnsManager {
   async checkHealth(): Promise<DfnsResponse<{ status: string; timestamp: string }>> {
     try {
       // Simple health check - try to list wallets
-      const response = await this.wallets.listWallets({ limit: 1 });
+      await this.client.wallets.listWallets({ query: { limit: '1' } });
       
-      if (response.error) {
-        return {
-          kind: 'error',
-          error: {
-            code: 'HEALTH_CHECK_FAILED',
-            message: 'DFNS services are not accessible'
-          }
-        };
-      }
-
       return {
         kind: 'success',
         data: {
@@ -543,11 +787,12 @@ class DfnsManager {
    */
   private async getActivePoliciesCount(): Promise<number> {
     try {
-      const response = await this.policies.listPolicies({ 
-        status: DfnsPolicyStatus.Active,
-        limit: 100 
+      const response = await this.client.policies.listPolicies({
+        query: {
+          limit: '100'
+        }
       });
-      return response.data?.length || 0;
+      return response.items?.length || 0;
     } catch {
       return 0;
     }
@@ -558,11 +803,12 @@ class DfnsManager {
    */
   private async getPendingApprovalsCount(): Promise<number> {
     try {
-      const response = await this.policies.listApprovals({ 
-        status: DfnsPolicyApprovalStatus.Pending,
-        limit: 100 
+      const response = await this.client.policies.listApprovals({
+        query: {
+          limit: '100'
+        }
       });
-      return response.data?.length || 0;
+      return response.items?.length || 0;
     } catch {
       return 0;
     }

@@ -67,7 +67,6 @@ import SmartContractWalletPage from "@/pages/wallet/smart-contract/SmartContract
 
 // DFNS Components
 import { DfnsWalletDashboard } from "@/components/dfns";
-
 // Investor Portal Pages
 import ProfilePage from "@/components/compliance/portal/ProfilePage";
 import DocumentsPage from "@/components/compliance/portal/DocumentsPage";

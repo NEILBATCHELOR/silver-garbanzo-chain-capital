@@ -12,7 +12,6 @@ export { default as DfnsTransferDialog } from './DfnsTransferDialog';
 export { default as DfnsWalletCreation } from './DfnsWalletCreation';
 export { default as DfnsWalletDashboard } from './DfnsWalletDashboard';
 export { default as DfnsWalletList } from './DfnsWalletList';
-
 // ===== Enhanced Component Exports =====
 export { DfnsAuthentication } from './DfnsAuthentication';
 export { default as DfnsRegistrationWizard } from './DfnsRegistrationWizard';
