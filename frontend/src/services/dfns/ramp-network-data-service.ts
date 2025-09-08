@@ -12,7 +12,7 @@ import type {
   RampPurchase, 
   RampSale, 
   FiatServiceResult,
-  RampNetworkEnhancedConfig 
+  DfnsRampNetworkConfig 
 } from '@/types/dfns/fiat';
 import type { 
   RampAssetCacheEntry as RampAssetCacheEntryType,
@@ -60,16 +60,28 @@ export class RampNetworkDataService {
   private rampManager: RampNetworkManager | null = null;
   private assetSyncInterval: NodeJS.Timeout | null = null;
 
-  constructor(config?: RampNetworkEnhancedConfig) {
+  constructor(config?: DfnsRampNetworkConfig) {
     if (config) {
       this.rampManager = new RampNetworkManager(config);
     }
   }
 
   /**
+   * Helper function to create FiatServiceResult with timestamp
+   */
+  private createResult<T>(success: boolean, data: T | null = null, error?: string): FiatServiceResult<T> {
+    return {
+      success,
+      data,
+      error,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
    * Initialize the service with configuration
    */
-  async initialize(config: RampNetworkEnhancedConfig): Promise<void> {
+  async initialize(config: DfnsRampNetworkConfig): Promise<void> {
     this.rampManager = new RampNetworkManager(config);
     
     // Start periodic asset synchronization
@@ -82,11 +94,7 @@ export class RampNetworkDataService {
    */
   async syncSupportedAssets(currencyCode: string = 'USD'): Promise<FiatServiceResult<void>> {
     if (!this.rampManager) {
-      return {
-        data: null,
-        success: false,
-        error: 'RAMP Network manager not initialized'
-      };
+      return this.createResult<void>(false, null, 'RAMP Network manager not initialized');
     }
 
     try {
@@ -99,37 +107,34 @@ export class RampNetworkDataService {
       ]);
 
       if (!onrampResult.success && !offrampResult.success) {
-        return {
-          data: null,
-          success: false,
-          error: `Failed to fetch assets: ${onrampResult.error || offrampResult.error}`
-        };
+        return this.createResult<void>(false, null, `Failed to fetch assets: ${onrampResult.error || offrampResult.error}`);
       }
 
       // Process on-ramp assets
       if (onrampResult.success && onrampResult.data) {
-        await this.storeAssets(onrampResult.data, 'onramp', currencyCode);
+        const mappedAssets = onrampResult.data.map(asset => ({
+          ...asset,
+          network: asset.chain // Map chain to network
+        }));
+        await this.storeAssets(mappedAssets, 'onramp', currencyCode);
       }
 
       // Process off-ramp assets
       if (offrampResult.success && offrampResult.data) {
-        await this.storeAssets(offrampResult.data, 'offramp', currencyCode);
+        const mappedAssets = offrampResult.data.map(asset => ({
+          ...asset,
+          network: asset.chain // Map chain to network
+        }));
+        await this.storeAssets(mappedAssets, 'offramp', currencyCode);
       }
 
       console.log('RAMP Network assets sync completed successfully');
 
-      return {
-        data: undefined,
-        success: true
-      };
+      return this.createResult<void>(true, undefined);
 
     } catch (error) {
       console.error('Error syncing RAMP Network assets:', error);
-      return {
-        data: null,
-        success: false,
-        error: (error as Error).message
-      };
+      return this.createResult<void>(false, null, (error as Error).message);
     }
   }
 
@@ -219,20 +224,23 @@ export class RampNetworkDataService {
         return {
           data: null,
           success: false,
-          error: error.message
+          error: error.message,
+          timestamp: new Date().toISOString()
         };
       }
 
       return {
         data: (data || []) as RampAssetCacheEntry[],
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
-        error: (error as Error).message
+        error: (error as Error).message,
+        timestamp: new Date().toISOString()
       };
     }
   }
@@ -273,20 +281,23 @@ export class RampNetworkDataService {
         return {
           data: null,
           success: false,
-          error: error.message
+          error: error.message,
+          timestamp: new Date().toISOString()
         };
       }
 
       return {
         data: data as RampTransactionEvent,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
-        error: (error as Error).message
+        error: (error as Error).message,
+        timestamp: new Date().toISOString()
       };
     }
   }
@@ -327,20 +338,23 @@ export class RampNetworkDataService {
         return {
           data: null,
           success: false,
-          error: error.message
+          error: error.message,
+          timestamp: new Date().toISOString()
         };
       }
 
       return {
         data: (data || []) as RampTransactionEvent[],
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
-        error: (error as Error).message
+        error: (error as Error).message,
+        timestamp: new Date().toISOString()
       };
     }
   }
@@ -381,20 +395,23 @@ export class RampNetworkDataService {
         return {
           data: null,
           success: false,
-          error: error.message
+          error: error.message,
+          timestamp: new Date().toISOString()
         };
       }
 
       return {
         data: undefined,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
-        error: (error as Error).message
+        error: (error as Error).message,
+        timestamp: new Date().toISOString()
       };
     }
   }
@@ -450,7 +467,8 @@ export class RampNetworkDataService {
         return {
           data: null,
           success: false,
-          error: error.message
+          error: error.message,
+          timestamp: new Date().toISOString()
         };
       }
 
@@ -459,14 +477,16 @@ export class RampNetworkDataService {
 
       return {
         data: analytics,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
-        error: (error as Error).message
+        error: (error as Error).message,
+        timestamp: new Date().toISOString()
       };
     }
   }
@@ -552,7 +572,7 @@ let rampDataServiceInstance: RampNetworkDataService | null = null;
 /**
  * Get or create RAMP Network data service instance
  */
-export function getRampNetworkDataService(config?: RampNetworkEnhancedConfig): RampNetworkDataService {
+export function getRampNetworkDataService(config?: DfnsRampNetworkConfig): RampNetworkDataService {
   if (!rampDataServiceInstance) {
     rampDataServiceInstance = new RampNetworkDataService(config);
   }

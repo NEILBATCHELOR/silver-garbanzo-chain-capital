@@ -5,7 +5,7 @@
  * Provides comprehensive fiat on/off-ramp functionality through DFNS infrastructure
  */
 
-import type { DfnsResponse, DfnsError } from '@/types/dfns';
+import type { DfnsError } from '@/types/dfns';
 import type {
   FiatOnRampRequest,
   FiatOffRampRequest,
@@ -17,7 +17,9 @@ import type {
   RampNetworkWebhook,
   SupportedCurrency,
   PaymentMethod,
-  FiatServiceResult
+  FiatServiceResult,
+  RampWidgetResponse,
+  DfnsFiatProviderConfig
 } from '@/types/dfns/fiat';
 
 // RAMP Network SDK and API Types
@@ -113,7 +115,7 @@ export interface RampSale {
   };
 }
 
-export interface RampQuote {
+export interface RampNetworkQuote {
   appliedFee: number;
   baseRampFee: number;
   cryptoAmount: string;
@@ -146,7 +148,7 @@ export class RampNetworkManager {
   private baseUrl: string;
   private apiUrl: string;
 
-  constructor(config: RampNetworkConfig) {
+  constructor(config: RampNetworkConfig | DfnsFiatProviderConfig) {
     this.config = {
       webhookSecret: '',
       environment: 'production',
@@ -187,24 +189,24 @@ export class RampNetworkManager {
   /**
    * Create and show RAMP widget for on-ramp
    */
-  async createOnRampWidget(request: FiatOnRampRequest): Promise<DfnsResponse<{ widgetInstance: any }>> {
+  async createOnRampWidget(request: FiatOnRampRequest): Promise<RampWidgetResponse<{ widgetInstance: any }>> {
     try {
       await this.initializeSDK();
       
       const { RampInstantSDK } = await import('@ramp-network/ramp-instant-sdk');
 
       const config: RampInstantSDKConfig = {
-        hostAppName: this.config.hostAppName,
-        hostLogoUrl: this.config.hostLogoUrl,
-        hostApiKey: this.config.apiKey,
-        userAddress: request.walletAddress,
-        swapAsset: this.mapCryptoAssetToRampFormat(request.cryptoAsset),
+        hostAppName: this.config.hostAppName || 'Chain Capital',
+        hostLogoUrl: this.config.hostLogoUrl || '',
+        hostApiKey: this.config.apiKey || '',
+        userAddress: request.wallet_address,
+        swapAsset: this.mapCryptoAssetToRampFormat(request.crypto_asset),
         fiatCurrency: request.currency,
-        fiatValue: request.amount,
+        fiatValue: request.amount.toString(),
         userEmailAddress: request.userEmail,
         enabledFlows: ['ONRAMP'],
         defaultFlow: 'ONRAMP',
-        paymentMethodType: this.mapPaymentMethodToRamp(request.paymentMethod),
+        paymentMethodType: this.mapPaymentMethodToRamp(request.payment_method),
         webhookStatusUrl: `${window.location.origin}/api/webhooks/ramp/onramp`,
         finalUrl: request.returnUrl || `${window.location.origin}/dashboard/wallets`,
         variant: 'auto'
@@ -241,19 +243,19 @@ export class RampNetworkManager {
   /**
    * Create and show RAMP widget for off-ramp
    */
-  async createOffRampWidget(request: FiatOffRampRequest): Promise<DfnsResponse<{ widgetInstance: any }>> {
+  async createOffRampWidget(request: FiatOffRampRequest): Promise<RampWidgetResponse<{ widgetInstance: any }>> {
     try {
       await this.initializeSDK();
       
       const { RampInstantSDK } = await import('@ramp-network/ramp-instant-sdk');
 
       const config: RampInstantSDKConfig = {
-        hostAppName: this.config.hostAppName,
-        hostLogoUrl: this.config.hostLogoUrl,
-        hostApiKey: this.config.apiKey,
-        userAddress: request.walletAddress,
-        offrampAsset: this.mapCryptoAssetToRampFormat(request.cryptoAsset),
-        swapAmount: this.convertToWei(request.amount, request.cryptoAsset),
+        hostAppName: this.config.hostAppName || 'Chain Capital',
+        hostLogoUrl: this.config.hostLogoUrl || '',
+        hostApiKey: this.config.apiKey || '',
+        userAddress: request.wallet_address,
+        offrampAsset: this.mapCryptoAssetToRampFormat(request.crypto_asset),
+        swapAmount: this.convertToWei(request.amount.toString(), request.crypto_asset).toString(),
         fiatCurrency: request.currency,
         userEmailAddress: request.userEmail,
         enabledFlows: ['OFFRAMP'],
@@ -355,13 +357,15 @@ export class RampNetworkManager {
       
       return {
         data: data.assets,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
+        timestamp: new Date().toISOString(),
         error: (error as Error).message
       };
     }
@@ -382,13 +386,15 @@ export class RampNetworkManager {
       
       return {
         data: data.assets,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
+        timestamp: new Date().toISOString(),
         error: (error as Error).message
       };
     }
@@ -397,18 +403,18 @@ export class RampNetworkManager {
   /**
    * Get quote for transaction
    */
-  async getQuote(request: FiatQuoteRequest): Promise<FiatServiceResult<RampQuote>> {
+  async getQuote(request: FiatQuoteRequest): Promise<FiatServiceResult<FiatQuoteResponse>> {
     try {
       const endpoint = request.type === 'onramp' ? 'quote' : 'offramp/quote';
       
       const body = {
-        cryptoAssetSymbol: this.mapCryptoAssetToRampFormat(request.toCurrency),
-        fiatCurrency: request.fromCurrency,
+        cryptoAssetSymbol: this.mapCryptoAssetToRampFormat(request.to_currency),
+        fiatCurrency: request.from_currency,
         ...(request.type === 'onramp' 
-          ? { fiatValue: parseFloat(request.amount) }
-          : { cryptoAmount: this.convertToWei(request.amount, request.toCurrency) }
+          ? { fiatValue: parseFloat(request.from_amount?.toString() || '0') }
+          : { cryptoAmount: this.convertToWei((request.from_amount || 0).toString(), request.to_currency) }
         ),
-        paymentMethodType: this.mapPaymentMethodToRamp(request.paymentMethod)
+        paymentMethodType: this.mapPaymentMethodToRamp(request.payment_method)
       };
 
       const response = await fetch(`${this.apiUrl}/api/host-api/${endpoint}`, {
@@ -428,13 +434,15 @@ export class RampNetworkManager {
       
       return {
         data: data,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
+        timestamp: new Date().toISOString(),
         error: (error as Error).message
       };
     }
@@ -455,13 +463,15 @@ export class RampNetworkManager {
       
       return {
         data: data,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
+        timestamp: new Date().toISOString(),
         error: (error as Error).message
       };
     }
@@ -482,13 +492,15 @@ export class RampNetworkManager {
       
       return {
         data: data,
-        success: true
+        success: true,
+        timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       return {
         data: null,
         success: false,
+        timestamp: new Date().toISOString(),
         error: (error as Error).message
       };
     }

@@ -31,11 +31,15 @@ import {
 
 import { RampNetworkManager } from '@/infrastructure/dfns/fiat/ramp-network-manager';
 import type { 
-  RampNetworkEnhancedConfig, 
   RampQuote, 
+  DfnsFiatQuoteRequest,
+  RampPaymentMethod,
   RampQuoteRequest,
-  RampPaymentMethod 
-} from '@/types/ramp';
+  DfnsFiatProviderConfig
+} from '@/types/dfns/fiat';
+import type {
+  RampNetworkEnhancedConfig 
+} from '@/types/ramp/sdk';
 
 export interface RampQuoteWidgetProps {
   /** RAMP Network configuration */
@@ -116,7 +120,30 @@ export function RampQuoteWidget({
   
   // Initialize RAMP manager
   useEffect(() => {
-    const manager = new RampNetworkManager(config);
+    // Convert RampNetworkEnhancedConfig to DfnsFiatProviderConfig for manager compatibility
+    const providerConfig: DfnsFiatProviderConfig = {
+      id: 'ramp-network-provider',
+      provider: 'ramp_network',
+      configuration: {
+        apiKey: config.apiKey,
+        hostAppName: config.hostAppName,
+        hostLogoUrl: config.hostLogoUrl,
+        enabledFlows: config.enabledFlows,
+        ...config
+      },
+      is_enabled: true,
+      supported_currencies: ['USD', 'EUR', 'GBP', 'CAD'],
+      supported_payment_methods: ['CARD_PAYMENT', 'APPLE_PAY', 'GOOGLE_PAY'],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      webhookSecret: config.webhookSecret,
+      environment: config.environment || 'production',
+      hostAppName: config.hostAppName,
+      hostLogoUrl: config.hostLogoUrl,
+      apiKey: config.apiKey
+    };
+    
+    const manager = new RampNetworkManager(providerConfig);
     rampManagerRef.current = manager;
     
     return () => {
@@ -156,7 +183,7 @@ export function RampQuoteWidget({
       if (!isRefresh) setLoading(true);
       setError(null);
       
-      const request: RampQuoteRequest = {
+      const request = {
         cryptoAssetSymbol: cryptoAsset,
         fiatCurrency,
         paymentMethodType: paymentMethod,
@@ -166,12 +193,16 @@ export function RampQuoteWidget({
         )
       };
       
-      // Convert RampQuoteRequest to FiatQuoteRequest format for the manager
-      const fiatRequest = {
-        amount: amount,
-        fromCurrency: type === 'onramp' ? fiatCurrency : cryptoAsset,
-        toCurrency: type === 'onramp' ? cryptoAsset : fiatCurrency,
-        type: type as 'onramp' | 'offramp'
+      // Convert request to DfnsFiatQuoteRequest format for the manager
+      const fiatRequest: DfnsFiatQuoteRequest = {
+        provider: 'ramp_network',
+        type: type as 'onramp' | 'offramp',
+        from_currency: type === 'onramp' ? fiatCurrency : cryptoAsset,
+        to_currency: type === 'onramp' ? cryptoAsset : fiatCurrency,
+        cryptoAssetSymbol: cryptoAsset,
+        fiatValue: type === 'onramp' ? parseFloat(amount) : undefined,
+        cryptoAmount: type === 'offramp' ? amount : undefined,
+        paymentMethodType: paymentMethod
       };
       
       const result = await manager.getQuote(fiatRequest);
@@ -179,10 +210,42 @@ export function RampQuoteWidget({
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Failed to get quote');
       }
+
+      // Map infrastructure RampQuote to types RampQuote
+      const mappedQuote: RampQuote = {
+        id: `quote-${Date.now()}`,
+        from_amount: result.data.fiatValue || 0,
+        from_currency: result.data.fiatCurrency || fiatCurrency,
+        to_amount: parseFloat(result.data.cryptoAmount || '0'),
+        to_currency: cryptoAsset,
+        exchange_rate: result.data.assetExchangeRate || 1,
+        fees: {
+          total_fee: result.data.appliedFee || 0,
+          currency: result.data.fiatCurrency || fiatCurrency
+        },
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes from now
+        // Infrastructure compatibility (required properties)
+        appliedFee: result.data.appliedFee || 0,
+        baseRampFee: result.data.baseRampFee || 0,
+        networkFee: result.data.networkFee || 0,
+        cryptoAmount: result.data.cryptoAmount || '0',
+        fiatCurrency: result.data.fiatCurrency || fiatCurrency,
+        fiatValue: result.data.fiatValue || 0,
+        asset: result.data.asset ? {
+          ...result.data.asset,
+          network: result.data.asset.chain || 'ETH'
+        } : {
+          symbol: cryptoAsset,
+          name: cryptoAsset,
+          network: 'ETH',
+          decimals: 18
+        },
+        assetExchangeRate: result.data.assetExchangeRate || 1
+      };
       
-      setQuote(result.data);
+      setQuote(mappedQuote);
       setLastUpdated(new Date());
-      onQuote?.(result.data);
+      onQuote?.(mappedQuote);
       
       if (!isRefresh) {
         toast({
@@ -222,13 +285,17 @@ export function RampQuoteWidget({
   const handleProceed = () => {
     if (!quote) return;
     
-    const request: RampQuoteRequest = {
+    const request = {
+      provider: 'ramp_network' as const,
+      type: type as 'onramp' | 'offramp',
+      from_currency: type === 'onramp' ? fiatCurrency : cryptoAsset,
+      to_currency: type === 'onramp' ? cryptoAsset : fiatCurrency,
       cryptoAssetSymbol: cryptoAsset,
       fiatCurrency,
       paymentMethodType: paymentMethod,
       ...(type === 'onramp' 
-        ? { fiatValue: parseFloat(amount) }
-        : { cryptoAmount: amount }
+        ? { fiatValue: parseFloat(amount), from_amount: parseFloat(amount) }
+        : { cryptoAmount: amount, from_amount: parseFloat(amount) }
       )
     };
     
@@ -428,7 +495,7 @@ export function RampQuoteWidget({
                     <span className="text-muted-foreground">Base Fee:</span>
                     <span>{formatCurrency(quote.baseRampFee, quote.fiatCurrency)}</span>
                   </div>
-                  {quote.networkFee && (
+                  {quote.networkFee !== undefined && quote.networkFee > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Network Fee:</span>
                       <span>{formatCurrency(quote.networkFee, quote.fiatCurrency)}</span>

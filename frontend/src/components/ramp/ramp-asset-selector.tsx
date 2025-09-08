@@ -23,9 +23,12 @@ import { Search, Star, TrendingUp, ArrowRight } from 'lucide-react';
 import { getRampNetworkDataService } from '@/services/dfns/ramp-network-data-service';
 import type { 
   RampAssetInfo, 
-  RampNetworkEnhancedConfig,
+  RampNetworkEnhancedConfig
+} from '@/types/ramp/sdk';
+import type { 
   RampAssetCacheEntry 
-} from '@/types/ramp';
+} from '@/types/ramp/database';
+import { toDfnsRampNetworkConfig } from '@/types/dfns/fiat';
 
 export interface RampAssetSelectorProps {
   /** RAMP Network configuration */
@@ -93,7 +96,7 @@ function RampAssetSelector({
   
   // Hooks
   const { toast } = useToast();
-  const dataService = getRampNetworkDataService(config);
+  const dataService = getRampNetworkDataService(toDfnsRampNetworkConfig(config));
   
   // Load assets
   useEffect(() => {
@@ -116,18 +119,19 @@ function RampAssetSelector({
         // Convert cache entries to asset info
         const assetList: RampAssetInfo[] = result.data.map((entry: RampAssetCacheEntry) => ({
           symbol: entry.symbol,
-          chain: entry.chain,
           name: entry.name,
           decimals: entry.decimals,
-          type: entry.type as any,
+          chainId: entry.chain,
           address: entry.address,
           logoUrl: entry.logo_url,
           enabled: entry.enabled,
-          hidden: entry.hidden,
+          minPurchaseAmount: entry.min_purchase_amount?.toString(),
+          maxPurchaseAmount: entry.max_purchase_amount?.toString(),
+          fiatCurrencies: [entry.currency_code],
           price: entry.price_data,
+          type: entry.type as any,
+          hidden: entry.hidden,
           currencyCode: entry.currency_code,
-          minPurchaseAmount: entry.min_purchase_amount || 0,
-          maxPurchaseAmount: entry.max_purchase_amount || -1,
           minPurchaseCryptoAmount: entry.min_purchase_crypto_amount || '0',
           networkFee: entry.network_fee || 0
         }));
@@ -178,13 +182,13 @@ function RampAssetSelector({
       filtered = filtered.filter(asset =>
         asset.symbol.toLowerCase().includes(query) ||
         asset.name.toLowerCase().includes(query) ||
-        asset.chain.toLowerCase().includes(query)
+        (asset.chainId && asset.chainId.toLowerCase().includes(query))
       );
     }
     
     // Apply chain filter
     if (selectedChain) {
-      filtered = filtered.filter(asset => asset.chain === selectedChain);
+      filtered = filtered.filter(asset => asset.chainId === selectedChain);
     }
     
     setFilteredAssets(filtered);
@@ -192,15 +196,15 @@ function RampAssetSelector({
   
   // Get unique chains
   const getChains = () => {
-    const chains = [...new Set(assets.map(asset => asset.chain))];
+    const chains = [...new Set(assets.map(asset => asset.chainId).filter(Boolean))];
     return chains.sort();
   };
   
   // Format price
   const formatPrice = (asset: RampAssetInfo) => {
-    const price = asset.price[currencyCode];
-    if (!price) return null;
+    if (!asset.price || !asset.price[currencyCode]) return null;
     
+    const price = asset.price[currencyCode];
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode,
@@ -326,10 +330,10 @@ function RampAssetSelector({
             ) : (
               filteredAssets.map((asset) => (
                 <div
-                  key={`${asset.chain}-${asset.symbol}`}
+                  key={`${asset.chainId || 'unknown'}-${asset.symbol}`}
                   className={cn(
                     'flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-accent transition-colors',
-                    selectedAsset?.symbol === asset.symbol && selectedAsset?.chain === asset.chain
+                    selectedAsset?.symbol === asset.symbol && selectedAsset?.chainId === asset.chainId
                       ? 'border-primary bg-accent'
                       : 'border-border'
                   )}
@@ -349,9 +353,9 @@ function RampAssetSelector({
                         {isPopular(asset.symbol) && (
                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                         )}
-                        {showChains && (
+                        {showChains && asset.chainId && (
                           <Badge variant="outline" className="text-xs">
-                            {asset.chain}
+                            {asset.chainId}
                           </Badge>
                         )}
                       </div>
@@ -399,15 +403,15 @@ function RampAssetSelector({
             
             {/* Limits */}
             <div className="mt-2 text-xs text-muted-foreground">
-              Min: {new Intl.NumberFormat('en-US', {
+              Min: {selectedAsset.minPurchaseAmount ? new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: currencyCode
-              }).format(selectedAsset.minPurchaseAmount)} • 
-              Max: {selectedAsset.maxPurchaseAmount === -1 ? 'Unlimited' : 
+              }).format(Number(selectedAsset.minPurchaseAmount)) : 'N/A'} • 
+              Max: {!selectedAsset.maxPurchaseAmount || selectedAsset.maxPurchaseAmount === '-1' ? 'Unlimited' : 
                 new Intl.NumberFormat('en-US', {
                   style: 'currency',
                   currency: currencyCode
-                }).format(selectedAsset.maxPurchaseAmount)}
+                }).format(Number(selectedAsset.maxPurchaseAmount))}
             </div>
           </div>
         )}

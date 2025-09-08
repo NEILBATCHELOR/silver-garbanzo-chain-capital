@@ -18,15 +18,20 @@ import { cn } from '@/utils/shared/utils';
 import { RampNetworkManager } from '@/infrastructure/dfns/fiat/ramp-network-manager';
 import type {
   RampSDKConfig,
-  RampNetworkEnhancedConfig,
   RampEventListeners,
   RampPurchaseCreatedEvent,
   RampSaleCreatedEvent,
   RampSendCryptoRequestEvent,
   RampWidgetCloseEvent,
   RampWidgetConfigDoneEvent,
-  RampWidgetConfigFailedEvent
-} from '@/types/ramp';
+  RampWidgetConfigFailedEvent,
+  DfnsCreateFiatTransactionRequest,
+  DfnsRampNetworkConfig,
+  DfnsFiatProviderConfig
+} from '@/types/dfns/fiat';
+import type {
+  RampNetworkEnhancedConfig
+} from '@/types/ramp/sdk';
 
 export interface RampWidgetProps {
   /** RAMP SDK configuration */
@@ -114,18 +119,49 @@ export function RampWidget({
         setWidgetStatus('initializing');
         
         const rampConfig: RampNetworkEnhancedConfig = {
-          apiKey: config.hostApiKey,
+          apiKey: config.apiKey,
           hostAppName: config.hostAppName,
           hostLogoUrl: config.hostLogoUrl,
-          enabledFlows: config.enabledFlows || ['ONRAMP', 'OFFRAMP'],
-          environment: process.env.NODE_ENV === 'production' ? 'production' : 'staging',
-          enableNativeFlow: true,
-          enableQuotes: true,
-          enableWebhooks: true,
-          enableEventTracking: true
+          enabledFlows: ['ONRAMP', 'OFFRAMP'],
+          webhookSecret: config.webhookSecret,
+          environment: config.environment || (process.env.NODE_ENV === 'production' ? 'production' : 'staging'),
+        };
+
+        // Convert to DfnsRampNetworkConfig for the manager (includes api_settings)
+        const dfnsFiatConfig: DfnsRampNetworkConfig = {
+          id: 'ramp-network-provider',
+          provider: 'ramp_network',
+          configuration: {
+            apiKey: config.apiKey,
+            hostAppName: config.hostAppName,
+            hostLogoUrl: config.hostLogoUrl,
+            environment: config.environment || (process.env.NODE_ENV === 'production' ? 'production' : 'staging'),
+            enabledFlows: ['ONRAMP', 'OFFRAMP'],
+            ...config
+          },
+          is_enabled: true,
+          supported_currencies: ['USD', 'EUR', 'GBP'],
+          supported_payment_methods: ['CARD_PAYMENT', 'APPLE_PAY', 'GOOGLE_PAY'],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          webhookSecret: config.webhookSecret,
+          environment: config.environment || (process.env.NODE_ENV === 'production' ? 'production' : 'staging'),
+          hostAppName: config.hostAppName,
+          hostLogoUrl: config.hostLogoUrl,
+          apiKey: config.apiKey,
+          webhooks: {
+            endpoint_url: `${window.location.origin}/api/webhooks/ramp`,
+            secret_key: config.webhookSecret || '',
+            enabled_events: ['CREATED', 'RELEASED', 'EXPIRED', 'CANCELLED']
+          },
+          api_settings: {
+            sandbox_mode: config.environment === 'staging',
+            rate_limits: {},
+            timeout_seconds: 30
+          }
         };
         
-        const manager = new RampNetworkManager(rampConfig);
+        const manager = new RampNetworkManager(dfnsFiatConfig);
         await manager.initializeSDK();
         
         rampManagerRef.current = manager;
@@ -248,26 +284,28 @@ export function RampWidget({
       setIsLoading(true);
       setError(null);
       
-      const request = {
-        walletAddress: config.userAddress || '',
-        cryptoAsset: config.swapAsset || config.offrampAsset || 'ETH',
+      const request: DfnsCreateFiatTransactionRequest = {
+        provider: 'ramp_network',
+        type: config.defaultFlow === 'offramp' ? 'offramp' : 'onramp',
+        amount: parseFloat(String(config.fiatValue || config.swapAmount || '100')),
         currency: config.fiatCurrency || 'USD',
-        amount: config.fiatValue || config.swapAmount || '100',
-        paymentMethod: config.paymentMethodType,
+        crypto_asset: config.swapAsset || 'ETH',
+        wallet_address: config.userAddress || '',
+        payment_method: config.paymentMethodType,
         userEmail: config.userEmailAddress,
         returnUrl: config.finalUrl,
-        bankAccount: {
-          accountNumber: '',
-          accountHolderName: '',
-          bankName: '',
-          country: 'US',
-          currency: config.fiatCurrency || 'USD'
+        bank_account: {
+          account_number: '',
+          account_holder_name: '',
+          bank_name: '',
+          iban: '',
+          swift: ''
         }
       };
       
       let result;
       
-      if (config.defaultFlow === 'OFFRAMP') {
+      if (config.defaultFlow === 'offramp') {
         result = await manager.createOffRampWidget(request);
       } else {
         result = await manager.createOnRampWidget(request);
@@ -321,10 +359,10 @@ export function RampWidget({
   
   // Get flow badge
   const getFlowBadge = () => {
-    const flow = config.defaultFlow || 'ONRAMP';
+    const flow = config.defaultFlow || 'onramp';
     return (
       <Badge variant="outline">
-        {flow === 'ONRAMP' ? 'Buy Crypto' : 'Sell Crypto'}
+        {flow === 'onramp' ? 'Buy Crypto' : 'Sell Crypto'}
       </Badge>
     );
   };
@@ -385,11 +423,11 @@ export function RampWidget({
   // Render hosted mode
   if (mode === 'hosted') {
     const hostedUrl = `https://app.ramp.network/?${new URLSearchParams({
-      hostApiKey: config.hostApiKey,
+      ...(config.apiKey && { hostApiKey: config.apiKey }),
       ...(config.userAddress && { userAddress: config.userAddress }),
       ...(config.swapAsset && { swapAsset: config.swapAsset }),
       ...(config.fiatCurrency && { fiatCurrency: config.fiatCurrency }),
-      ...(config.fiatValue && { fiatValue: config.fiatValue }),
+      ...(config.fiatValue && { fiatValue: String(config.fiatValue) }),
       ...(config.defaultFlow && { defaultFlow: config.defaultFlow }),
       ...(config.finalUrl && { finalUrl: config.finalUrl })
     })}`;
@@ -398,7 +436,7 @@ export function RampWidget({
       <Card className={cn('w-full max-w-md', className)}>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            {config.defaultFlow === 'OFFRAMP' ? 'Sell Crypto' : 'Buy Crypto'}
+            {config.defaultFlow === 'offramp' ? 'Sell Crypto' : 'Buy Crypto'}
             {showStatus && getStatusBadge()}
           </CardTitle>
           <CardDescription>
@@ -411,7 +449,7 @@ export function RampWidget({
             disabled={disabled || widgetStatus !== 'ready'}
             className="w-full"
           >
-            {buttonText || `${config.defaultFlow === 'OFFRAMP' ? 'Sell' : 'Buy'} Crypto`}
+            {buttonText || `${config.defaultFlow === 'offramp' ? 'Sell' : 'Buy'} Crypto`}
           </Button>
         </CardContent>
       </Card>
@@ -423,7 +461,7 @@ export function RampWidget({
     <Card className={cn('w-full max-w-md', className)}>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          {config.defaultFlow === 'OFFRAMP' ? 'Sell Crypto' : 'Buy Crypto'}
+          {config.defaultFlow === 'offramp' ? 'Sell Crypto' : 'Buy Crypto'}
           {showStatus && (
             <div className="flex items-center gap-2">
               {getStatusBadge()}
@@ -458,7 +496,7 @@ export function RampWidget({
             className="flex-1"
           >
             {isLoading && <Spinner className="h-4 w-4 mr-2" />}
-            {buttonText || `${config.defaultFlow === 'OFFRAMP' ? 'Sell' : 'Buy'} Crypto`}
+            {buttonText || `${config.defaultFlow === 'offramp' ? 'Sell' : 'Buy'} Crypto`}
           </Button>
           
           {widgetStatus === 'active' && (

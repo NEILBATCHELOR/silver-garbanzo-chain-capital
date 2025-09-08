@@ -11,6 +11,34 @@ import type {
   RampEnvironment 
 } from './core';
 
+// ===== Asset Information =====
+
+export interface RampAssetInfo {
+  symbol: string;
+  name: string;
+  decimals: number;
+  chainId?: string;
+  address?: string;
+  logoUrl?: string;
+  enabled: boolean;
+  minPurchaseAmount?: string;
+  maxPurchaseAmount?: string;
+  fiatCurrencies?: string[];
+  // Additional properties for pricing and metadata
+  price?: Record<string, number>;
+  type?: 'NATIVE' | 'ERC20' | 'BEP20' | 'SPL' | 'TRC20';
+  hidden?: boolean;
+  currencyCode?: string;
+  minPurchaseCryptoAmount?: string;
+  networkFee?: number;
+}
+
+export interface RampAssetCacheEntry {
+  asset: RampAssetInfo;
+  lastUpdated: string;
+  expiresAt: string;
+}
+
 // ===== SDK Configuration =====
 
 export interface RampSDKConfig {

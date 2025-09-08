@@ -26,14 +26,19 @@ import {
   Copy
 } from 'lucide-react';
 
-import { RampNetworkManager } from '@/infrastructure/dfns/fiat/ramp-network-manager';
+import { 
+  RampNetworkManager,
+  type RampPurchase,
+  type RampSale,
+  type RampInstantSDKConfig
+} from '@/infrastructure/dfns/fiat/ramp-network-manager';
 import type { 
-  RampPurchase, 
-  RampSale, 
-  RampPurchaseStatus as RampPurchaseStatusType, 
-  RampSaleStatus as RampSaleStatusType,
+  DfnsFiatTransactionStatus,
+  DfnsFiatProviderConfig
+} from '@/types/dfns/fiat';
+import type {
   RampNetworkEnhancedConfig 
-} from '@/types/ramp';
+} from '@/types/ramp/sdk';
 
 export interface RampPurchaseStatusProps {
   /** Purchase or sale transaction */
@@ -96,9 +101,34 @@ export function RampPurchaseStatus({
   // Hooks
   const { toast } = useToast();
   
+  // Helper function to convert enhanced config to provider config
+  const convertToProviderConfig = (enhancedConfig: RampNetworkEnhancedConfig): DfnsFiatProviderConfig => {
+    return {
+      id: 'ramp-network-provider',
+      provider: 'ramp_network' as const,
+      configuration: {
+        apiKey: enhancedConfig.apiKey,
+        hostAppName: enhancedConfig.hostAppName,
+        hostLogoUrl: enhancedConfig.hostLogoUrl,
+        enabledFlows: enhancedConfig.enabledFlows || ['ONRAMP', 'OFFRAMP']
+      },
+      is_enabled: true,
+      supported_currencies: ['USD', 'EUR', 'GBP', 'CAD'],
+      supported_payment_methods: ['CARD_PAYMENT', 'BANK_TRANSFER'],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      webhookSecret: enhancedConfig.webhookSecret,
+      environment: enhancedConfig.environment || 'production',
+      hostAppName: enhancedConfig.hostAppName,
+      hostLogoUrl: enhancedConfig.hostLogoUrl,
+      apiKey: enhancedConfig.apiKey
+    };
+  };
+
   // Initialize RAMP manager
   useEffect(() => {
-    const manager = new RampNetworkManager(config);
+    const providerConfig = convertToProviderConfig(config);
+    const manager = new RampNetworkManager(providerConfig);
     rampManagerRef.current = manager;
     
     return () => {
@@ -189,7 +219,7 @@ export function RampPurchaseStatus({
   };
   
   // Get status info
-  const getStatusInfo = (status: RampPurchaseStatusType | RampSaleStatusType) => {
+  const getStatusInfo = (status: string) => {
     const statusMap: Record<string, { label: string; variant: any; icon: React.ReactNode; description: string }> = {
       INITIALIZED: {
         label: 'Initialized',
@@ -312,8 +342,8 @@ export function RampPurchaseStatus({
   };
   
   const statusInfo = getStatusInfo(transaction.status);
-  const isPurchase = type === 'purchase' && 'cryptoAmount' in transaction;
-  const isSale = type === 'sale' && 'crypto' in transaction;
+  const isPurchase = type === 'purchase';
+  const isSale = type === 'sale';
   
   return (
     <Card className={cn('w-full max-w-md', className)}>
@@ -378,32 +408,32 @@ export function RampPurchaseStatus({
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Amount:</span>
                     <span className="text-sm">
-                      {formatCurrency(transaction.fiatValue, transaction.fiatCurrency)}
+                      {formatCurrency((transaction as RampPurchase).fiatValue, (transaction as RampPurchase).fiatCurrency)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Crypto:</span>
                     <span className="text-sm">
-                      {formatCrypto(transaction.cryptoAmount, transaction.asset.symbol)}
+                      {formatCrypto((transaction as RampPurchase).cryptoAmount, (transaction as RampPurchase).asset.symbol)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Fee:</span>
                     <span className="text-sm">
-                      {formatCurrency(transaction.appliedFee, transaction.fiatCurrency)}
+                      {formatCurrency((transaction as RampPurchase).appliedFee, (transaction as RampPurchase).fiatCurrency)}
                     </span>
                   </div>
-                  {transaction.finalTxHash && (
+                  {(transaction as RampPurchase).finalTxHash && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Tx Hash:</span>
                       <div className="flex items-center gap-1">
                         <span className="text-sm font-mono">
-                          {transaction.finalTxHash.slice(0, 10)}...
+                          {(transaction as RampPurchase).finalTxHash!.slice(0, 10)}...
                         </span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => copyToClipboard(transaction.finalTxHash!, 'Transaction hash')}
+                          onClick={() => copyToClipboard((transaction as RampPurchase).finalTxHash!, 'Transaction hash')}
                           className="h-auto p-1"
                         >
                           <Copy className="h-3 w-3" />
@@ -411,7 +441,7 @@ export function RampPurchaseStatus({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => window.open(`https://etherscan.io/tx/${transaction.finalTxHash}`, '_blank')}
+                          onClick={() => window.open(`https://etherscan.io/tx/${(transaction as RampPurchase).finalTxHash}`, '_blank')}
                           className="h-auto p-1"
                         >
                           <ExternalLink className="h-3 w-3" />
@@ -427,25 +457,25 @@ export function RampPurchaseStatus({
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Crypto Amount:</span>
                     <span className="text-sm">
-                      {formatCrypto(transaction.crypto.amount, transaction.crypto.assetInfo.symbol)}
+                      {formatCrypto((transaction as RampSale).crypto.amount, (transaction as RampSale).crypto.assetInfo.symbol)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Fiat Amount:</span>
                     <span className="text-sm">
-                      {formatCurrency(transaction.fiat.amount, transaction.fiat.currencySymbol)}
+                      {formatCurrency((transaction as RampSale).fiat.amount, (transaction as RampSale).fiat.currencySymbol)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm font-medium">Fee:</span>
                     <span className="text-sm">
-                      {formatCurrency(transaction.fees.amount, transaction.fees.currencySymbol)}
+                      {formatCurrency((transaction as RampSale).fees.amount, (transaction as RampSale).fees.currencySymbol)}
                     </span>
                   </div>
-                  {transaction.exchangeRate && (
+                  {(transaction as RampSale).exchangeRate && (
                     <div className="flex justify-between">
                       <span className="text-sm font-medium">Exchange Rate:</span>
-                      <span className="text-sm">{transaction.exchangeRate}</span>
+                      <span className="text-sm">{(transaction as RampSale).exchangeRate}</span>
                     </div>
                   )}
                 </>

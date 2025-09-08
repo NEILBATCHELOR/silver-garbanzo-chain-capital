@@ -34,7 +34,8 @@ import {
 } from 'lucide-react';
 
 import { getRampNetworkDataService } from '@/services/dfns/ramp-network-data-service';
-import type { RampNetworkEnhancedConfig } from '@/types/ramp';
+import type { RampNetworkEnhancedConfig } from '@/types/ramp/sdk';
+import { toDfnsRampNetworkConfig } from '@/types/dfns/fiat';
 
 export interface RampAnalyticsData {
   overview: {
@@ -137,7 +138,7 @@ export function RampAnalyticsDashboard({
   
   // Hooks
   const { toast } = useToast();
-  const dataService = getRampNetworkDataService(config);
+  const dataService = getRampNetworkDataService(toDfnsRampNetworkConfig(config));
   
   // Real-time updates
   useEffect(() => {

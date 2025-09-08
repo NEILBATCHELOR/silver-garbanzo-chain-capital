@@ -1,402 +1,254 @@
 /**
- * DFNS Configuration - Core configuration for DFNS integration
+ * DFNS Configuration
  * 
- * This file contains the configuration settings for the DFNS client,
- * including authentication, API endpoints, and client options.
+ * Configuration settings for DFNS SDK integration
  */
 
-import type { 
-  DfnsClientConfig, 
-  DfnsRetryConfig, 
-  DfnsLoggingConfig,
-  UserVerificationRequirement,
-  ResidentKeyRequirement,
-  AuthenticatorAttachment
-} from '../../types/dfns';
+import type { DfnsSdkConfig, DfnsClientOptions } from '../../types/dfns';
 
-// ===== Environment Variables =====
-
-/**
- * Get environment variable with fallback
- */
-function getEnvVar(name: string, fallback?: string): string {
-  const value = import.meta.env[name] || process.env[name];
-  if (!value && fallback === undefined) {
-    throw new Error(`Environment variable ${name} is required`);
-  }
-  return value || fallback || '';
-}
-
-// ===== DFNS Environment Configuration =====
-
-export const DFNS_CONFIG = {
-  // API Configuration
-  baseUrl: getEnvVar('VITE_DFNS_BASE_URL', 'https://api.dfns.ninja'),
-  appId: getEnvVar('VITE_DFNS_APP_ID'),
-  
-  // Authentication
-  privateKey: getEnvVar('VITE_DFNS_PRIVATE_KEY'),
-  credentialId: getEnvVar('VITE_DFNS_CREDENTIAL_ID'),
-  
-  // Optional Configuration
-  orgId: getEnvVar('VITE_DFNS_ORG_ID', ''),
-  
-  // Environment Settings
-  environment: getEnvVar('VITE_DFNS_ENVIRONMENT', 'sandbox'), // sandbox | production
-  
-  // Service Account (for server-side operations)
-  serviceAccountId: getEnvVar('VITE_DFNS_SERVICE_ACCOUNT_ID', ''),
-  serviceAccountPrivateKey: getEnvVar('VITE_DFNS_SERVICE_ACCOUNT_PRIVATE_KEY', ''),
-  
-  // Webhook Configuration
-  webhookSecret: getEnvVar('VITE_DFNS_WEBHOOK_SECRET', ''),
-  webhookUrl: getEnvVar('VITE_DFNS_WEBHOOK_URL', ''),
-  
-  // Client Settings
-  timeout: parseInt(getEnvVar('VITE_DFNS_TIMEOUT', '30000')), // 30 seconds
-  maxRetries: parseInt(getEnvVar('VITE_DFNS_MAX_RETRIES', '3')),
-  
-  // Feature Flags
-  enableWebhooks: getEnvVar('VITE_DFNS_ENABLE_WEBHOOKS', 'true') === 'true',
-  enablePolicyEngine: getEnvVar('VITE_DFNS_ENABLE_POLICY_ENGINE', 'true') === 'true',
-  enableStaking: getEnvVar('VITE_DFNS_ENABLE_STAKING', 'true') === 'true',
-  enableExchangeIntegration: getEnvVar('VITE_DFNS_ENABLE_EXCHANGE_INTEGRATION', 'false') === 'true',
-  
-  // Development Settings
-  enableDebugLogging: getEnvVar('VITE_DFNS_ENABLE_DEBUG_LOGGING', 'false') === 'true',
-  enableRequestLogging: getEnvVar('VITE_DFNS_ENABLE_REQUEST_LOGGING', 'false') === 'true'
+// Environment variables validation
+const requiredEnvVars = {
+  VITE_DFNS_APP_ID: process.env.VITE_DFNS_APP_ID,
+  VITE_DFNS_APP_ORIGIN: process.env.VITE_DFNS_APP_ORIGIN,
+  VITE_DFNS_RP_ID: process.env.VITE_DFNS_RP_ID,
 } as const;
 
-// ===== Retry Configuration =====
+// Validate required environment variables
+function validateEnvVars() {
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
 
-export const DEFAULT_RETRY_CONFIG: DfnsRetryConfig = {
-  enabled: true,
-  maxAttempts: DFNS_CONFIG.maxRetries,
-  backoffFactor: 2,
-  maxDelay: 10000 // 10 seconds
-};
-
-// ===== Logging Configuration =====
-
-export const DEFAULT_LOGGING_CONFIG: DfnsLoggingConfig = {
-  enabled: DFNS_CONFIG.enableDebugLogging,
-  level: DFNS_CONFIG.environment === 'production' ? 'error' : 'debug',
-  includeRequestBody: DFNS_CONFIG.enableRequestLogging,
-  includeResponseBody: DFNS_CONFIG.enableRequestLogging
-};
-
-// ===== Client Configuration =====
-
-export const DEFAULT_CLIENT_CONFIG: DfnsClientConfig = {
-  baseUrl: DFNS_CONFIG.baseUrl,
-  appId: DFNS_CONFIG.appId,
-  timeout: DFNS_CONFIG.timeout,
-  retryConfig: DEFAULT_RETRY_CONFIG,
-  logging: DEFAULT_LOGGING_CONFIG
-};
-
-// ===== Network Configuration =====
-
-/**
- * Default networks to enable for wallet creation
- */
-export const DEFAULT_NETWORKS = [
-  'Ethereum',
-  'Polygon',
-  'Arbitrum',
-  'Optimism',
-  'Avalanche',
-  'Bitcoin',
-  'Solana'
-] as const;
-
-/**
- * Testnet networks for development
- */
-export const TESTNET_NETWORKS = [
-  'EthereumSepolia',
-  'PolygonMumbai',
-  'ArbitrumSepolia',
-  'OptimismSepolia',
-  'AvalancheFuji',
-  'BitcoinTestnet3',
-  'SolanaDevnet'
-] as const;
-
-/**
- * Get appropriate networks based on environment
- */
-export function getEnabledNetworks(): readonly string[] {
-  return DFNS_CONFIG.environment === 'production' ? DEFAULT_NETWORKS : TESTNET_NETWORKS;
-}
-
-// ===== API Endpoints =====
-
-export const DFNS_ENDPOINTS = {
-  // Authentication
-  auth: {
-    login: '/auth/login',
-    logout: '/auth/logout',
-    refresh: '/auth/refresh',
-    delegatedLogin: '/auth/delegated/login',
-    delegatedRegistration: '/auth/delegated/registration'
-  },
-  
-  // Users
-  users: {
-    list: '/users',
-    create: '/users',
-    get: (id: string) => `/users/${id}`,
-    update: (id: string) => `/users/${id}`,
-    activate: (id: string) => `/users/${id}/activate`,
-    deactivate: (id: string) => `/users/${id}/deactivate`
-  },
-  
-  // Credentials
-  credentials: {
-    list: (userId: string) => `/users/${userId}/credentials`,
-    create: (userId: string) => `/users/${userId}/credentials`,
-    get: (userId: string, credId: string) => `/users/${userId}/credentials/${credId}`,
-    activate: (userId: string, credId: string) => `/users/${userId}/credentials/${credId}/activate`,
-    deactivate: (userId: string, credId: string) => `/users/${userId}/credentials/${credId}/deactivate`
-  },
-  
-  // Wallets
-  wallets: {
-    list: '/wallets',
-    create: '/wallets',
-    get: (id: string) => `/wallets/${id}`,
-    update: (id: string) => `/wallets/${id}`,
-    delegate: (id: string) => `/wallets/${id}/delegate`,
-    export: (id: string) => `/wallets/${id}/export`,
-    import: '/wallets/import',
-    assets: (id: string) => `/wallets/${id}/assets`,
-    nfts: (id: string) => `/wallets/${id}/nfts`,
-    history: (id: string) => `/wallets/${id}/history`,
-    transfer: (id: string) => `/wallets/${id}/transfers`,
-    broadcast: (id: string) => `/wallets/${id}/transactions`
-  },
-  
-  // Keys
-  keys: {
-    list: '/keys',
-    create: '/keys',
-    get: (id: string) => `/keys/${id}`,
-    update: (id: string) => `/keys/${id}`,
-    delegate: (id: string) => `/keys/${id}/delegate`,
-    export: (id: string) => `/keys/${id}/export`,
-    import: '/keys/import',
-    sign: (id: string) => `/keys/${id}/signatures`
-  },
-  
-  // Policies
-  policies: {
-    list: '/policies',
-    create: '/policies',
-    get: (id: string) => `/policies/${id}`,
-    update: (id: string) => `/policies/${id}`,
-    archive: (id: string) => `/policies/${id}/archive`,
-    approvals: '/policies/approvals',
-    approval: (id: string) => `/policies/approvals/${id}`,
-    decision: (id: string) => `/policies/approvals/${id}/decision`
-  },
-  
-  // Permissions
-  permissions: {
-    list: '/permissions',
-    create: '/permissions',
-    get: (id: string) => `/permissions/${id}`,
-    update: (id: string) => `/permissions/${id}`,
-    archive: (id: string) => `/permissions/${id}/archive`,
-    assign: '/permissions/assignments',
-    revoke: (id: string) => `/permissions/assignments/${id}`,
-    assignments: '/permissions/assignments'
-  },
-  
-  // Webhooks
-  webhooks: {
-    list: '/webhooks',
-    create: '/webhooks',
-    get: (id: string) => `/webhooks/${id}`,
-    update: (id: string) => `/webhooks/${id}`,
-    delete: (id: string) => `/webhooks/${id}`,
-    ping: (id: string) => `/webhooks/${id}/ping`,
-    events: '/webhooks/events',
-    event: (id: string) => `/webhooks/events/${id}`
-  },
-  
-  // Exchanges
-  exchanges: {
-    list: '/exchanges',
-    create: '/exchanges',
-    get: (id: string) => `/exchanges/${id}`,
-    delete: (id: string) => `/exchanges/${id}`,
-    accounts: (id: string) => `/exchanges/${id}/accounts`,
-    assets: (id: string, accountId: string) => `/exchanges/${id}/accounts/${accountId}/assets`,
-    deposit: (id: string) => `/exchanges/${id}/deposits`,
-    withdraw: (id: string) => `/exchanges/${id}/withdrawals`
-  },
-  
-  // Staking
-  staking: {
-    stakes: '/staking/stakes',
-    create: '/staking/stakes',
-    actions: '/staking/actions',
-    createAction: '/staking/actions',
-    rewards: '/staking/rewards'
-  },
-  
-  // Fee Sponsors
-  feeSponsors: {
-    list: '/fee-sponsors',
-    create: '/fee-sponsors',
-    get: (id: string) => `/fee-sponsors/${id}`,
-    activate: (id: string) => `/fee-sponsors/${id}/activate`,
-    deactivate: (id: string) => `/fee-sponsors/${id}/deactivate`,
-    delete: (id: string) => `/fee-sponsors/${id}`,
-    fees: '/fee-sponsors/fees'
-  },
-  
-  // Networks
-  networks: {
-    fees: '/networks/fees',
-    read: '/networks/read',
-    validators: '/networks/validators',
-    createValidator: '/networks/validators'
-  }
-} as const;
-
-// ===== Validation =====
-
-/**
- * Validate DFNS configuration
- */
-export function validateDfnsConfig(): void {
-  const requiredVars = ['baseUrl', 'appId'];
-  const missingVars = requiredVars.filter(key => !DFNS_CONFIG[key as keyof typeof DFNS_CONFIG]);
-  
   if (missingVars.length > 0) {
-    throw new Error(`Missing required DFNS configuration: ${missingVars.join(', ')}`);
+    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
   }
+}
+
+// Initialize validation
+validateEnvVars();
+
+// Base configuration
+export const DFNS_CONFIG = {
+  // Core settings from environment
+  baseUrl: process.env.VITE_DFNS_BASE_URL || 'https://api.dfns.ninja',
+  applicationId: requiredEnvVars.VITE_DFNS_APP_ID!,
+  appOrigin: requiredEnvVars.VITE_DFNS_APP_ORIGIN!,
+  rpId: requiredEnvVars.VITE_DFNS_RP_ID!,
   
-  // Validate URL format
-  try {
-    new URL(DFNS_CONFIG.baseUrl);
-  } catch {
-    throw new Error('Invalid DFNS base URL format');
-  }
+  // Optional settings with defaults
+  timeout: parseInt(process.env.VITE_DFNS_TIMEOUT || '30000'),
+  environment: (process.env.VITE_DFNS_ENVIRONMENT || 'sandbox') as 'sandbox' | 'production',
   
-  // Validate environment
-  if (!['sandbox', 'production'].includes(DFNS_CONFIG.environment)) {
-    throw new Error('DFNS environment must be either "sandbox" or "production"');
-  }
-}
+  // Retry configuration
+  retryConfig: {
+    maxRetries: parseInt(process.env.VITE_DFNS_MAX_RETRIES || '3'),
+    baseDelay: parseInt(process.env.VITE_DFNS_BASE_DELAY || '1000'),
+    maxDelay: parseInt(process.env.VITE_DFNS_MAX_DELAY || '10000'),
+  },
+  
+  // Feature flags
+  enableLogging: process.env.VITE_DFNS_ENABLE_LOGGING === 'true',
+  enableAnalytics: process.env.VITE_DFNS_ENABLE_ANALYTICS === 'true',
+} as const;
 
-// ===== Utility Functions =====
-
-/**
- * Get full API URL for endpoint
- */
-export function getApiUrl(endpoint: string): string {
-  return `${DFNS_CONFIG.baseUrl}${endpoint}`;
-}
-
-/**
- * Check if running in production mode
- */
-export function isProduction(): boolean {
-  return DFNS_CONFIG.environment === 'production';
-}
-
-/**
- * Check if feature is enabled
- */
-export function isFeatureEnabled(feature: keyof typeof DFNS_CONFIG): boolean {
-  return Boolean(DFNS_CONFIG[feature]);
-}
-
-/**
- * Get default request headers
- */
-export function getDefaultHeaders(): Record<string, string> {
+// Client options factory
+export function createDfnsClientOptions(overrides?: Partial<DfnsClientOptions>): DfnsClientOptions {
   return {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'X-DFNS-APPID': DFNS_CONFIG.appId,
-    'X-DFNS-VERSION': '1.0.0'
+    environment: DFNS_CONFIG.environment,
+    timeout: DFNS_CONFIG.timeout,
+    retries: DFNS_CONFIG.retryConfig.maxRetries,
+    enableLogging: DFNS_CONFIG.enableLogging,
+    ...overrides,
   };
 }
 
-// ===== Phase 2 Feature Configuration =====
+// SDK configuration factory
+export function createDfnsSdkConfig(overrides?: Partial<DfnsSdkConfig>): Omit<DfnsSdkConfig, 'credentialProvider' | 'signerProvider' | 'userActionSigner'> {
+  return {
+    baseUrl: DFNS_CONFIG.baseUrl,
+    applicationId: DFNS_CONFIG.applicationId,
+    appOrigin: DFNS_CONFIG.appOrigin,
+    rpId: DFNS_CONFIG.rpId,
+    timeout: DFNS_CONFIG.timeout,
+    retryConfig: DFNS_CONFIG.retryConfig,
+    ...overrides,
+  };
+}
 
-export const PHASE2_CONFIG = {
+// WebAuthn configuration
+export const WEBAUTHN_CONFIG = {
+  rpId: DFNS_CONFIG.rpId,
+  rpName: process.env.VITE_DFNS_RP_NAME || 'Chain Capital',
+  origin: DFNS_CONFIG.appOrigin,
+  timeout: parseInt(process.env.VITE_DFNS_WEBAUTHN_TIMEOUT || '60000'),
+  userVerification: 'required' as const,
+  authenticatorAttachment: undefined, // Allow both platform and cross-platform
+  residentKey: 'required' as const,
+  attestation: 'direct' as const,
+} as const;
+
+// API endpoints
+export const DFNS_ENDPOINTS = {
+  // Authentication
+  AUTH_LOGIN_INIT: '/auth/login/init',
+  AUTH_LOGIN_COMPLETE: '/auth/login',
+  AUTH_LOGIN_SOCIAL: '/auth/login/social',
+  AUTH_LOGIN_CODE: '/auth/login/code',
+  AUTH_LOGOUT: '/auth/logout',
+  AUTH_REGISTRATION_DELEGATED: '/auth/registration/delegated',
+  AUTH_REGISTRATION_COMPLETE: '/auth/registration',
+  AUTH_LOGIN_DELEGATED: '/auth/login/delegated',
+  
+  // Standard Registration APIs
+  AUTH_REGISTRATION_INIT: '/auth/registration/init',
+  AUTH_REGISTRATION_ENDUSER: '/auth/registration/enduser',
+  AUTH_REGISTRATION_RESEND: '/auth/registration/code',
+  AUTH_REGISTRATION_SOCIAL: '/auth/registration/social',
+  
   // User Action Signing
-  enableUserActionSigning: getEnvVar('VITE_DFNS_ENABLE_USER_ACTION_SIGNING', 'true') === 'true',
+  AUTH_ACTION_INIT: '/auth/action/init',
+  AUTH_ACTION_COMPLETE: '/auth/action',
   
-  // Passkey Registration
-  enablePasskeyRegistration: getEnvVar('VITE_DFNS_ENABLE_PASSKEY_REGISTRATION', 'true') === 'true',
+  // Users
+  USERS: '/auth/users',
+  USER_BY_ID: '/auth/users/:id',
   
-  // Recovery Mechanisms
-  enableRecoveryMechanisms: getEnvVar('VITE_DFNS_ENABLE_RECOVERY_MECHANISMS', 'true') === 'true',
+  // User Management APIs
+  AUTH_USERS_LIST: '/auth/users',
+  AUTH_USERS_CREATE: '/auth/users',
+  AUTH_USERS_GET: '/auth/users/:userId',
+  AUTH_USERS_ACTIVATE: '/auth/users/:userId/activate',
+  AUTH_USERS_DEACTIVATE: '/auth/users/:userId/deactivate',
+  AUTH_USERS_ARCHIVE: '/auth/users/:userId',
   
-  // Token Management
-  autoTokenRefresh: getEnvVar('VITE_DFNS_AUTO_TOKEN_REFRESH', 'true') === 'true',
-  tokenRefreshThreshold: parseInt(getEnvVar('VITE_DFNS_TOKEN_REFRESH_THRESHOLD', '300')), // 5 minutes
+  // Service Account Management APIs
+  AUTH_SERVICE_ACCOUNTS_LIST: '/auth/service-accounts',
+  AUTH_SERVICE_ACCOUNTS_CREATE: '/auth/service-accounts',
+  AUTH_SERVICE_ACCOUNTS_GET: '/auth/service-accounts/:serviceAccountId',
+  AUTH_SERVICE_ACCOUNTS_UPDATE: '/auth/service-accounts/:serviceAccountId',
+  AUTH_SERVICE_ACCOUNTS_ACTIVATE: '/auth/service-accounts/:serviceAccountId/activate',
+  AUTH_SERVICE_ACCOUNTS_DEACTIVATE: '/auth/service-accounts/:serviceAccountId/deactivate',
+  AUTH_SERVICE_ACCOUNTS_ARCHIVE: '/auth/service-accounts/:serviceAccountId',
   
-  // WebAuthn Enhanced Configuration
-  webAuthn: {
-    rpId: getEnvVar('VITE_DFNS_RP_ID', 'localhost'),
-    origin: getEnvVar('VITE_DFNS_ORIGIN', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
-    timeout: parseInt(getEnvVar('VITE_DFNS_WEBAUTHN_TIMEOUT', '60000')), // 60 seconds
-    userVerification: getEnvVar('VITE_DFNS_USER_VERIFICATION', 'required') as UserVerificationRequirement,
-    residentKey: getEnvVar('VITE_DFNS_RESIDENT_KEY', 'preferred') as ResidentKeyRequirement,
-    authenticatorAttachment: getEnvVar('VITE_DFNS_AUTHENTICATOR_ATTACHMENT', 'platform') as AuthenticatorAttachment,
-  },
+  // Personal Access Token Management APIs
+  AUTH_PATS_LIST: '/auth/pats',
+  AUTH_PATS_CREATE: '/auth/pats',
+  AUTH_PATS_GET: '/auth/pats/:tokenId',
+  AUTH_PATS_UPDATE: '/auth/pats/:tokenId',
+  AUTH_PATS_ACTIVATE: '/auth/pats/:tokenId/activate',
+  AUTH_PATS_DEACTIVATE: '/auth/pats/:tokenId/deactivate',
+  AUTH_PATS_ARCHIVE: '/auth/pats/:tokenId',
   
-  // Enhanced Error Handling
-  retryFailedActions: getEnvVar('VITE_DFNS_RETRY_FAILED_ACTIONS', 'true') === 'true',
-  maxActionRetries: parseInt(getEnvVar('VITE_DFNS_MAX_ACTION_RETRIES', '3')),
-  actionRetryDelay: parseInt(getEnvVar('VITE_DFNS_ACTION_RETRY_DELAY', '1000')), // 1 second
-};
+  // Credential Management APIs
+  AUTH_CREDENTIALS_INIT: '/auth/credentials/init',
+  AUTH_CREDENTIALS_CREATE: '/auth/credentials',
+  AUTH_CREDENTIALS_LIST: '/auth/credentials',
+  AUTH_CREDENTIALS_ACTIVATE: '/auth/credentials/activate',
+  AUTH_CREDENTIALS_DEACTIVATE: '/auth/credentials/deactivate',
+  
+  // Code-Based Credential Management APIs
+  AUTH_CREDENTIALS_CODE_INIT: '/auth/credentials/code/init',
+  AUTH_CREDENTIALS_CODE_VERIFY: '/auth/credentials/code/verify',
+  
+  // User Recovery APIs
+  AUTH_RECOVERY_CODE: '/auth/recover/user/code',
+  AUTH_RECOVERY_INIT: '/auth/recover/user/init',
+  AUTH_RECOVERY_DELEGATED: '/auth/recover/user/delegated',
+  AUTH_RECOVERY_USER: '/auth/recover/user',
+  
+  // Wallets - Core Management
+  WALLETS_LIST: '/wallets',
+  WALLETS_CREATE: '/wallets',
+  WALLETS_GET: '/wallets/:walletId',
+  WALLETS_UPDATE: '/wallets/:walletId',
+  WALLETS_DELETE: '/wallets/:walletId',
+  WALLETS_DELEGATE: '/wallets/:walletId/delegate',
+  
+  // Wallets - Assets & NFTs
+  WALLETS_ASSETS: '/wallets/:walletId/assets',
+  WALLETS_NFTS: '/wallets/:walletId/nfts',
+  WALLETS_HISTORY: '/wallets/:walletId/history',
+  
+  // Wallets - Tags
+  WALLETS_TAGS_ADD: '/wallets/:walletId/tags',
+  WALLETS_TAGS_DELETE: '/wallets/:walletId/tags',
+  
+  // Wallets - Transfers
+  WALLETS_TRANSFERS_CREATE: '/wallets/:walletId/transfers',
+  WALLETS_TRANSFERS_GET: '/wallets/:walletId/transfers/:transferId',
+  WALLETS_TRANSFERS_LIST: '/wallets/:walletId/transfers',
+  
+  // Wallets - Transaction Broadcasting
+  WALLETS_TRANSACTIONS_BROADCAST: '/wallets/:walletId/transactions',
+  WALLETS_TRANSACTIONS_GET: '/wallets/:walletId/transactions/:transactionId',
+  WALLETS_TRANSACTIONS_LIST: '/wallets/:walletId/transactions',
+  
+  // Fee Sponsors Management APIs
+  FEE_SPONSORS_CREATE: '/fee-sponsors',
+  FEE_SPONSORS_LIST: '/fee-sponsors',
+  FEE_SPONSORS_GET: '/fee-sponsors/:feeSponsorId',
+  FEE_SPONSORS_ACTIVATE: '/fee-sponsors/:feeSponsorId/activate',
+  FEE_SPONSORS_DEACTIVATE: '/fee-sponsors/:feeSponsorId/deactivate',
+  FEE_SPONSORS_DELETE: '/fee-sponsors/:feeSponsorId',
+  FEE_SPONSORS_FEES_LIST: '/fee-sponsors/:feeSponsorId/fees',
+  
+  // Keys Management APIs
+  KEYS_CREATE: '/keys',
+  KEYS_LIST: '/keys',
+  KEYS_GET: '/keys/:keyId',
+  KEYS_UPDATE: '/keys/:keyId',
+  KEYS_DELETE: '/keys/:keyId',
+  KEYS_DELEGATE: '/keys/:keyId/delegate',
+  
+  // Keys Signature Generation APIs (NEW)
+  KEYS_SIGNATURE_GENERATE: '/keys/:keyId/signatures',
+  KEYS_SIGNATURE_GET: '/keys/:keyId/signatures/:signatureId',
+  KEYS_SIGNATURE_LIST: '/keys/:keyId/signatures',
+  
+  // Signing Keys
+  SIGNING_KEYS: '/keys',
+  SIGNING_KEY_BY_ID: '/keys/:id',
+  
+  // Signatures
+  SIGNATURES: '/signatures',
+  SIGNATURE_BY_ID: '/signatures/:id',
+  
+  // Policies (v1 - DEPRECATED)
+  POLICIES: '/policies',
+  POLICY_BY_ID: '/policies/:id',
+  POLICY_APPROVALS: '/policy-approvals',
 
-// ===== SDK Configuration =====
+  // Policy Engine APIs (v2 - NEW)
+  POLICIES_V2_CREATE: '/v2/policies',
+  POLICIES_V2_GET: '/v2/policies/:policyId',
+  POLICIES_V2_LIST: '/v2/policies',
+  POLICIES_V2_UPDATE: '/v2/policies/:policyId',
+  POLICIES_V2_ARCHIVE: '/v2/policies/:policyId',
 
-export const DFNS_SDK_CONFIG = {
-  appId: DFNS_CONFIG.appId,
-  baseUrl: DFNS_CONFIG.baseUrl,
-  
-  // Service Account configuration
-  serviceAccount: DFNS_CONFIG.serviceAccountId && DFNS_CONFIG.serviceAccountPrivateKey ? {
-    privateKey: DFNS_CONFIG.serviceAccountPrivateKey,
-    credentialId: DFNS_CONFIG.serviceAccountId,
-  } : undefined,
-  
-  // Enhanced WebAuthn configuration (Phase 2)
-  webAuthn: PHASE2_CONFIG.webAuthn,
-  
-  // Phase 2 feature flags
-  features: {
-    userActionSigning: PHASE2_CONFIG.enableUserActionSigning,
-    passkeyRegistration: PHASE2_CONFIG.enablePasskeyRegistration,
-    recoveryMechanisms: PHASE2_CONFIG.enableRecoveryMechanisms,
-    autoTokenRefresh: PHASE2_CONFIG.autoTokenRefresh,
-  },
-  
-  // Enhanced retry configuration
-  retry: {
-    enabled: PHASE2_CONFIG.retryFailedActions,
-    maxAttempts: PHASE2_CONFIG.maxActionRetries,
-    delay: PHASE2_CONFIG.actionRetryDelay,
-  },
-};
+  // Policy Approvals (v2)
+  POLICY_APPROVALS_V2_GET: '/v2/policy-approvals/:approvalId',
+  POLICY_APPROVALS_V2_LIST: '/v2/policy-approvals',
+  POLICY_APPROVALS_V2_DECISION: '/v2/policy-approvals/:approvalId/decisions',
 
-// ===== Migration Configuration =====
+  // Permissions
+  PERMISSIONS: '/permissions',
+  PERMISSION_ASSIGNMENTS: '/permissions/assignments',
+  
+  // Webhooks Management APIs
+  WEBHOOKS_CREATE: '/webhooks',
+  WEBHOOKS_LIST: '/webhooks',
+  WEBHOOKS_GET: '/webhooks/:webhookId',
+  WEBHOOKS_UPDATE: '/webhooks/:webhookId',
+  WEBHOOKS_DELETE: '/webhooks/:webhookId',
+  WEBHOOKS_PING: '/webhooks/:webhookId/ping',
+  
+  // Webhook Events APIs
+  WEBHOOKS_EVENTS_LIST: '/webhooks/:webhookId/events',
+  WEBHOOKS_EVENTS_GET: '/webhooks/:webhookId/events/:webhookEventId',
+} as const;
 
-export const MIGRATION_CONFIG = {
-  useSdk: getEnvVar('VITE_DFNS_USE_SDK', 'true') === 'true',
-  enableFallback: getEnvVar('VITE_DFNS_ENABLE_FALLBACK', 'true') === 'true',
-  logTransitions: getEnvVar('VITE_DFNS_LOG_TRANSITIONS', 'false') === 'true',
-};
-
-// Validate configuration on import
-validateDfnsConfig();
+// Default headers
+export const DEFAULT_HEADERS = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+} as const;
