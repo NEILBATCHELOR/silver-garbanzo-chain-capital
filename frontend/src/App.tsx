@@ -585,9 +585,8 @@ function App() {
               {/* Guardian Wallet Routes */}
               <Route path="wallet/guardian/test" element={<GuardianTestPageRedesigned />} />
               
-              {/* DFNS Wallet Routes */}
-              <Route path="wallet/dfns" element={<DfnsWalletDashboard />} />
-              <Route path="wallet/dfns/dashboard" element={<DfnsWalletDashboard />} />
+              {/* DFNS Wallet Routes - Enterprise blockchain infrastructure */}
+              <Route path="wallet/dfns/*" element={<DfnsWalletDashboard />} />
               
               {/* Smart Contract Wallet Routes */}
               <Route path="wallet/smart-contract" element={<SmartContractWalletPage />} />

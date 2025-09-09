@@ -7,6 +7,7 @@
 
 // Core DFNS types
 export * from './core';
+export type { NetworkName, DfnsIdentityKind } from './core';
 
 // Authentication types  
 export type {
@@ -47,6 +48,7 @@ export type {
   DfnsCreatePersonalAccessTokenRequest,
   DfnsCreatePersonalAccessTokenResponse,
   DfnsGetPersonalAccessTokenResponse,
+  DfnsPersonalAccessTokenResponse, // Added missing export
   DfnsUpdatePersonalAccessTokenRequest,
   DfnsUpdatePersonalAccessTokenResponse,
   DfnsActivatePersonalAccessTokenResponse,
@@ -82,6 +84,7 @@ export type {
 // User types
 export type * from './users';
 export type * from './serviceAccounts';
+export type { DfnsServiceAccountResponse, DfnsGetServiceAccountResponse } from './serviceAccounts';
 
 // Export the DfnsCredential type specifically for services
 export type { DfnsCredential } from './users';
@@ -101,6 +104,7 @@ export type {
   DfnsUpdatePermissionResponse,
   DfnsArchivePermissionResponse,
   DfnsAssignPermissionRequest,
+  DfnsCreatePermissionAssignmentRequest, // Added missing export
   DfnsAssignPermissionResponse,
   DfnsRevokePermissionAssignmentResponse,
   DfnsListPermissionAssignmentsRequest,

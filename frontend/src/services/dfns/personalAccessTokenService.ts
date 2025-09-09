@@ -63,6 +63,15 @@ export class PersonalAccessTokenService {
   // ===============================
 
   /**
+   * Get all personal access tokens (alias for listPersonalAccessTokens for compatibility)
+   */
+  async getAllPersonalAccessTokens(
+    options: PersonalAccessTokenServiceOptions = {}
+  ): Promise<DfnsPersonalAccessToken[]> {
+    return this.listPersonalAccessTokens(options);
+  }
+
+  /**
    * List all personal access tokens for the current user
    */
   async listPersonalAccessTokens(

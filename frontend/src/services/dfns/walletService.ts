@@ -88,6 +88,7 @@ export interface WalletSummary {
   nftCount: number;
   isActive: boolean;
   lastActivity?: string;
+  dateCreated?: string; // Added for analytics
   tags?: string[];
 }
 

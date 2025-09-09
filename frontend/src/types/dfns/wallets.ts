@@ -117,18 +117,21 @@ export interface DfnsErc20Asset extends DfnsWalletAssetBase {
 // Algorand Standard Asset
 export interface DfnsAsaAsset extends DfnsWalletAssetBase {
   kind: 'Asa';
+  contract?: string;             // For compatibility with contract access
   assetId: string;               // Asset ID
 }
 
 // Aptos Fungible Asset
 export interface DfnsAip21Asset extends DfnsWalletAssetBase {
   kind: 'Aip21';
+  contract?: string;             // For compatibility with contract access
   metadata: string;              // Metadata address
 }
 
 // Solana Token
 export interface DfnsSplAsset extends DfnsWalletAssetBase {
   kind: 'Spl' | 'Spl2022';
+  contract?: string;             // For compatibility with contract access
   mint: string;                  // Mint address
 }
 
@@ -266,11 +269,35 @@ export interface DfnsTransferErc721AssetRequest extends DfnsTransferAssetRequest
   tokenId: string;               // Token ID to transfer
 }
 
+// Algorand Asset Transfer
+export interface DfnsTransferAsaAssetRequest extends DfnsTransferAssetRequestBase {
+  kind: 'Asa';
+  assetId: string;
+  amount: string;
+}
+
+// Aptos Asset Transfer
+export interface DfnsTransferAip21AssetRequest extends DfnsTransferAssetRequestBase {
+  kind: 'Aip21';
+  metadata: string;
+  amount: string;
+}
+
+// Solana Token Transfer
+export interface DfnsTransferSplAssetRequest extends DfnsTransferAssetRequestBase {
+  kind: 'Spl' | 'Spl2022';
+  mint: string;
+  amount: string;
+}
+
 // Union type for all transfer requests
 export type DfnsTransferAssetRequest = 
   | DfnsTransferNativeAssetRequest 
   | DfnsTransferErc20AssetRequest 
-  | DfnsTransferErc721AssetRequest;
+  | DfnsTransferErc721AssetRequest
+  | DfnsTransferAsaAssetRequest
+  | DfnsTransferAip21AssetRequest
+  | DfnsTransferSplAssetRequest;
 
 // Transfer Request Response
 export interface DfnsTransferRequestResponse {

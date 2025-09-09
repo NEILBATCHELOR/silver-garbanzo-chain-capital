@@ -43,7 +43,16 @@ export interface DfnsServiceAccountAccessToken {
 export interface DfnsServiceAccountInfo {
   userInfo: DfnsServiceAccountUserInfo;
   accessTokens: DfnsServiceAccountAccessToken[];
+  // Add missing properties for compatibility
+  userId: string;
+  name: string;
+  isActive: boolean;
+  publicKey: string;
 }
+
+// Service Account Response Aliases for compatibility
+export interface DfnsServiceAccountResponse extends DfnsServiceAccountInfo {}
+export interface DfnsGetServiceAccountResponse extends DfnsServiceAccountInfo {}
 
 // ===== DFNS Service Account Management APIs =====
 

@@ -13,27 +13,36 @@ const requiredEnvVars = {
   VITE_DFNS_RP_ID: process.env.VITE_DFNS_RP_ID,
 } as const;
 
-// Validate required environment variables
-function validateEnvVars() {
+// Check if DFNS is properly configured (non-blocking)
+function isDfnsConfigured(): boolean {
   const missingVars = Object.entries(requiredEnvVars)
     .filter(([_, value]) => !value)
     .map(([key]) => key);
-
-  if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
-  }
+  
+  return missingVars.length === 0;
 }
 
-// Initialize validation
-validateEnvVars();
+// Get missing environment variables for error reporting
+function getMissingEnvVars(): string[] {
+  return Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+}
+
+// Export configuration status
+export const DFNS_STATUS = {
+  isConfigured: isDfnsConfigured(),
+  missingVars: getMissingEnvVars(),
+  canInitialize: isDfnsConfigured(),
+} as const;
 
 // Base configuration
 export const DFNS_CONFIG = {
   // Core settings from environment
   baseUrl: process.env.VITE_DFNS_BASE_URL || 'https://api.dfns.ninja',
-  applicationId: requiredEnvVars.VITE_DFNS_APP_ID!,
-  appOrigin: requiredEnvVars.VITE_DFNS_APP_ORIGIN!,
-  rpId: requiredEnvVars.VITE_DFNS_RP_ID!,
+  applicationId: requiredEnvVars.VITE_DFNS_APP_ID || 'dfns-app-placeholder',
+  appOrigin: requiredEnvVars.VITE_DFNS_APP_ORIGIN || 'http://localhost:5173',
+  rpId: requiredEnvVars.VITE_DFNS_RP_ID || 'localhost',
   
   // Optional settings with defaults
   timeout: parseInt(process.env.VITE_DFNS_TIMEOUT || '30000'),
@@ -53,6 +62,10 @@ export const DFNS_CONFIG = {
 
 // Client options factory
 export function createDfnsClientOptions(overrides?: Partial<DfnsClientOptions>): DfnsClientOptions {
+  if (!DFNS_STATUS.isConfigured) {
+    console.warn('DFNS is not properly configured. Missing environment variables:', DFNS_STATUS.missingVars.join(', '));
+  }
+  
   return {
     environment: DFNS_CONFIG.environment,
     timeout: DFNS_CONFIG.timeout,
@@ -64,6 +77,10 @@ export function createDfnsClientOptions(overrides?: Partial<DfnsClientOptions>):
 
 // SDK configuration factory
 export function createDfnsSdkConfig(overrides?: Partial<DfnsSdkConfig>): Omit<DfnsSdkConfig, 'credentialProvider' | 'signerProvider' | 'userActionSigner'> {
+  if (!DFNS_STATUS.isConfigured) {
+    console.warn('DFNS SDK configuration created with placeholder values. Set proper environment variables for production use.');
+  }
+  
   return {
     baseUrl: DFNS_CONFIG.baseUrl,
     applicationId: DFNS_CONFIG.applicationId,

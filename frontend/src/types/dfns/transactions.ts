@@ -7,6 +7,9 @@
 
 import type { DfnsTransactionStatus, DfnsNetwork } from './core';
 
+// Re-export core types that are commonly used with transactions
+export type { DfnsTransactionStatus, DfnsNetwork };
+
 // DFNS Signature
 export interface DfnsSignature {
   id: string;

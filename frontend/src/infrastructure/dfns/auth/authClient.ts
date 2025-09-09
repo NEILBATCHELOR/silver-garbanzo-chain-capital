@@ -3146,4 +3146,41 @@ export class DfnsAuthClient {
       );
     }
   }
+
+  // ==============================================
+  // DIRECT CLIENT ACCESS METHODS
+  // ==============================================
+
+  /**
+   * Make a direct authenticated API request
+   * Exposes the underlying DfnsClient.makeRequest method
+   */
+  async makeRequest<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+    endpoint: string,
+    data?: any,
+    headers?: Record<string, string>
+  ): Promise<T> {
+    return this.dfnsClient.makeRequest<T>(method, endpoint, data, headers);
+  }
+
+  /**
+   * Make API request with user action signature
+   * Exposes the underlying DfnsClient.makeRequestWithUserAction method
+   */
+  async makeRequestWithUserAction<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+    endpoint: string,
+    data?: any,
+    userActionToken?: string,
+    additionalHeaders?: Record<string, string>
+  ): Promise<T> {
+    return this.dfnsClient.makeRequestWithUserAction<T>(
+      method, 
+      endpoint, 
+      data, 
+      userActionToken, 
+      additionalHeaders
+    );
+  }
 }

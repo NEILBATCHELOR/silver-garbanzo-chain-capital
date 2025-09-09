@@ -163,6 +163,12 @@ export type DfnsNetwork =
   | 'Berachain'
   | 'BerachainBepolia';
 
+// Network Name alias for backward compatibility
+export type NetworkName = DfnsNetwork;
+
+// Identity Kind for Permission Assignments
+export type DfnsIdentityKind = 'User' | 'ServiceAccount' | 'PersonalAccessToken';
+
 // Asset Types
 export interface DfnsAsset {
   symbol: string;

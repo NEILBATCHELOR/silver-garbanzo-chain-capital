@@ -47,6 +47,7 @@ export interface DfnsCredential {
   authenticator_info?: Record<string, any>;
   enrolled_at: string;
   last_used_at?: string;
+  lastUsed?: string; // Alias for analytics components
   dfns_credential_id?: string;
   created_at: string;
   updated_at: string;
@@ -175,6 +176,9 @@ export interface DfnsUserResponse {
   isActive: boolean;
   isRegistered: boolean;
   permissionAssignments: DfnsPermissionAssignment[];
+  // Additional properties for analytics
+  lastLoginAt?: string;
+  dateCreated?: string;
 }
 
 // Permission Assignment (used in user responses)

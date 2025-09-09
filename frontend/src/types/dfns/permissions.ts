@@ -100,6 +100,7 @@ export interface DfnsGetPermissionResponse {
   effect: 'Allow' | 'Deny';
   condition?: Record<string, any>;
   status: 'Active' | 'Inactive';
+  isActive?: boolean; // Computed property for compatibility
   description?: string;
   category?: string;
   dateCreated: string;
@@ -180,6 +181,9 @@ export interface DfnsAssignPermissionRequest {
   identityId: string;
   identityKind: 'User' | 'ServiceAccount' | 'PersonalAccessToken';
 }
+
+// Alias for compatibility
+export interface DfnsCreatePermissionAssignmentRequest extends DfnsAssignPermissionRequest {}
 
 export interface DfnsAssignPermissionResponse {
   id: string;

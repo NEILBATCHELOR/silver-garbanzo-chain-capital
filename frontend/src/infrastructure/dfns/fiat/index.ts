@@ -11,7 +11,7 @@ export type {
   RampAssetInfo,
   RampPurchase,
   RampSale,
-  RampQuote,
+  RampNetworkQuote,
   RampEventPayload,
   RampSendCryptoRequest
 } from './ramp-network-manager';

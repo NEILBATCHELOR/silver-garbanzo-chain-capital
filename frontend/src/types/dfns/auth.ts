@@ -184,6 +184,9 @@ export interface DfnsListPersonalAccessTokensResponse {
 // Get Personal Access Token Response
 export interface DfnsGetPersonalAccessTokenResponse extends DfnsPersonalAccessToken {}
 
+// Alias for compatibility
+export interface DfnsPersonalAccessTokenResponse extends DfnsPersonalAccessToken {}
+
 // Update Personal Access Token Request
 export interface DfnsUpdatePersonalAccessTokenRequest {
   name?: string;
