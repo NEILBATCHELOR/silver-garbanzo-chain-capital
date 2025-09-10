@@ -24,6 +24,9 @@ export * from './feeSponsorService';
 export * from './fiatService';
 export * from './keyService';
 
+// WebAuthn service (wallet-based credentials)
+export * from './webAuthnService';
+
 // Utility services
 // export * from './utils/validationService';
 // export * from './utils/formatService';

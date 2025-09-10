@@ -212,7 +212,9 @@ export class DfnsCredentialService {
    */
   async listCredentials(options: CredentialServiceOptions = {}): Promise<DfnsListCredentialsResponse> {
     try {
-      const response = await this.authClient.listUserCredentials();
+      // Get the API client directly and use the proper DFNS SDK method
+      const apiClient = this.authClient.getDfnsClient().getApiClient();
+      const response = await apiClient.auth.listCredentials();
       
       if (options.syncToDatabase) {
         await Promise.all(

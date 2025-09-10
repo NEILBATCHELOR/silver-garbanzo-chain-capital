@@ -42,6 +42,7 @@ import type {
 } from '../../types/dfns';
 import { DfnsClient } from '../../infrastructure/dfns/client';
 import { DfnsAuthClient } from '../../infrastructure/dfns/auth/authClient';
+import { WorkingDfnsClient, getWorkingDfnsClient } from '../../infrastructure/dfns/working-client';
 import { DfnsUserActionService } from './userActionService';
 import { DfnsAuthenticationError, DfnsValidationError, DfnsWalletError } from '../../types/dfns/errors';
 
@@ -112,6 +113,7 @@ export interface TransferSummary {
 
 export class DfnsWalletService {
   private authClient: DfnsAuthClient;
+  private workingClient: WorkingDfnsClient;
   private userActionService: DfnsUserActionService;
   private options: WalletServiceOptions;
 
@@ -121,6 +123,7 @@ export class DfnsWalletService {
     options: WalletServiceOptions = {}
   ) {
     this.authClient = new DfnsAuthClient(dfnsClient);
+    this.workingClient = getWorkingDfnsClient();
     this.userActionService = userActionService!;
     this.options = {
       enableDatabaseSync: true,
@@ -169,15 +172,22 @@ export class DfnsWalletService {
             { persistToDb: true }
           );
         } catch (error) {
-          throw new DfnsWalletError(
-            `Failed to get user action signature for wallet creation: ${error}`,
-            { network: request.network, name: request.name }
-          );
+          // If User Action Signing fails, provide helpful guidance
+          console.warn(`[DfnsWalletService] User Action Signing failed for wallet creation:`, error);
+          console.warn(`[DfnsWalletService] Note: Wallet creation with PAT tokens may require different permissions or WebAuthn setup`);
+          
+          // Don't throw here - let the API call proceed and return the actual DFNS error
+          // throw new DfnsWalletError(
+          //   `Failed to get user action signature for wallet creation: ${error}`,
+          //   { network: request.network, name: request.name }
+          // );
         }
+      } else {
+        console.warn(`[DfnsWalletService] No User Action Service available - wallet creation may fail`);
       }
 
-      // Create wallet via DFNS API
-      const newWallet = await this.authClient.createWallet(request, userActionToken);
+      // Create wallet via DFNS API using Working Client
+      const newWallet = await this.workingClient.createWallet(request, userActionToken);
 
       // Add tags if specified
       if (options?.createWithTags && options.createWithTags.length > 0) {
@@ -190,7 +200,7 @@ export class DfnsWalletService {
       }
 
       if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Created wallet: ${newWallet.name || newWallet.id}`, {
+        console.log(`[DfnsWalletService] Created wallet: ${newWallet.name || newWallet.id} (using working client)`, {
           walletId: newWallet.id,
           network: newWallet.network,
           address: newWallet.address,
@@ -311,10 +321,10 @@ export class DfnsWalletService {
     try {
       this.validateWalletId(walletId);
       
-      const wallet = await this.authClient.getWallet(walletId);
+      const wallet = await this.workingClient.getWallet(walletId);
 
       if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved wallet: ${wallet.name || walletId}`, {
+        console.log(`[DfnsWalletService] Retrieved wallet: ${wallet.name || walletId} (using working client)`, {
           walletId,
           network: wallet.network,
           address: wallet.address,
@@ -337,30 +347,36 @@ export class DfnsWalletService {
    */
   async listWallets(options?: WalletListOptions): Promise<DfnsListWalletsResponse> {
     try {
-      const request: DfnsListWalletsRequest = {
-        owner: options?.owner,
-        limit: options?.limit || 50,
-        paginationToken: options?.paginationToken,
-      };
-
-      const response = await this.authClient.listWallets(request);
+      // Use working client instead of broken SDK
+      const wallets = await this.workingClient.listWallets();
+      
+      let filteredWallets = wallets;
 
       // Filter by network if specified
       if (options?.filterByNetwork) {
-        response.items = response.items.filter(
+        filteredWallets = filteredWallets.filter(
           wallet => wallet.network === options.filterByNetwork
         );
       }
 
       // Exclude archived if specified
       if (!options?.includeArchived) {
-        response.items = response.items.filter(
+        filteredWallets = filteredWallets.filter(
           wallet => wallet.status === 'Active'
         );
       }
 
+      // Apply pagination manually since working client doesn't support it yet
+      const limit = options?.limit || 50;
+      const paginatedWallets = filteredWallets.slice(0, limit);
+
+      const response: DfnsListWalletsResponse = {
+        items: paginatedWallets,
+        nextPageToken: filteredWallets.length > limit ? 'has_more' : undefined
+      };
+
       if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Listed ${response.items.length} wallets`, {
+        console.log(`[DfnsWalletService] Listed ${response.items.length} wallets (using working client)`, {
           totalWallets: response.items.length,
           hasNextPage: !!response.nextPageToken,
           filterByNetwork: options?.filterByNetwork
@@ -380,22 +396,11 @@ export class DfnsWalletService {
    * Get all wallets (handles pagination automatically)
    */
   async getAllWallets(): Promise<DfnsWallet[]> {
-    const allWallets: DfnsWallet[] = [];
-    let paginationToken: string | undefined;
-
     try {
-      do {
-        const response = await this.listWallets({
-          limit: 100,
-          paginationToken
-        });
-        
-        allWallets.push(...response.items);
-        paginationToken = response.nextPageToken;
-        
-      } while (paginationToken);
+      // Use working client directly for better performance
+      const allWallets = await this.workingClient.listWallets();
 
-      console.log(`[DfnsWalletService] Retrieved ${allWallets.length} total wallets`);
+      console.log(`[DfnsWalletService] Retrieved ${allWallets.length} total wallets (using working client)`);
       return allWallets;
     } catch (error) {
       throw new DfnsWalletError(
@@ -444,15 +449,21 @@ export class DfnsWalletService {
     try {
       this.validateWalletId(walletId);
 
-      const request: DfnsGetWalletAssetsRequest = {
+      const assets = await this.workingClient.getWalletAssets(walletId);
+      
+      // Convert to expected response format
+      const response: DfnsGetWalletAssetsResponse = {
         walletId,
-        includeUsdValue
+        network: 'Unknown', // Will be filled in when working client provides it
+        assets,
+        totalValueUsd: assets.reduce((total, asset) => {
+          const value = parseFloat(asset.valueInUsd || '0');
+          return total + value;
+        }, 0).toString()
       };
 
-      const response = await this.authClient.getWalletAssets(walletId, request);
-
       if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved ${response.assets.length} assets for wallet`, {
+        console.log(`[DfnsWalletService] Retrieved ${response.assets.length} assets for wallet (using working client)`, {
           walletId,
           network: response.network,
           totalValueUsd: response.totalValueUsd,
@@ -477,10 +488,17 @@ export class DfnsWalletService {
     try {
       this.validateWalletId(walletId);
 
-      const response = await this.authClient.getWalletNfts(walletId);
+      const nfts = await this.workingClient.getWalletNfts(walletId);
+      
+      // Convert to expected response format
+      const response: DfnsGetWalletNftsResponse = {
+        walletId,
+        network: 'Unknown', // Will be filled in when working client provides it
+        nfts
+      };
 
       if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved ${response.nfts.length} NFTs for wallet`, {
+        console.log(`[DfnsWalletService] Retrieved ${response.nfts.length} NFTs for wallet (using working client)`, {
           walletId,
           network: response.network,
           nftCount: response.nfts.length
@@ -504,10 +522,17 @@ export class DfnsWalletService {
     try {
       this.validateWalletId(walletId);
 
-      const response = await this.authClient.getWalletHistory(walletId);
+      const history = await this.workingClient.getWalletHistory(walletId);
+      
+      // Convert to expected response format
+      const response: DfnsGetWalletHistoryResponse = {
+        walletId,
+        network: 'Unknown', // Will be filled in when working client provides it
+        history
+      };
 
       if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved ${response.history.length} history entries for wallet`, {
+        console.log(`[DfnsWalletService] Retrieved ${response.history.length} history entries for wallet (using working client)`, {
           walletId,
           network: response.network,
           historyCount: response.history.length
@@ -830,12 +855,12 @@ export class DfnsWalletService {
       throw new DfnsValidationError('Wallet ID is required and must be a string');
     }
 
-    // DFNS wallet IDs follow pattern: wa-xxxx-xxxx-xxxxxxxxxxxxxxxx
-    const walletIdPattern = /^wa-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{16}$/;
+    // DFNS wallet IDs follow pattern: wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx
+    const walletIdPattern = /^wa-[a-z0-9]{5}-[a-z0-9]{5}-[a-z0-9]{16}$/;
     if (!walletIdPattern.test(walletId)) {
       throw new DfnsValidationError(
         `Invalid DFNS wallet ID format: ${walletId}`,
-        { expectedPattern: 'wa-xxxx-xxxx-xxxxxxxxxxxxxxxx' }
+        { expectedPattern: 'wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx' }
       );
     }
   }
@@ -848,12 +873,12 @@ export class DfnsWalletService {
       throw new DfnsValidationError('Transfer ID is required and must be a string');
     }
 
-    // DFNS transfer IDs follow pattern: tr-xxxx-xxxx-xxxxxxxxxxxxxxxx
-    const transferIdPattern = /^tr-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{16}$/;
+    // DFNS transfer IDs follow pattern: tr-xxxxx-xxxxx-xxxxxxxxxxxxxxxx
+    const transferIdPattern = /^tr-[a-z0-9]{5}-[a-z0-9]{5}-[a-z0-9]{16}$/;
     if (!transferIdPattern.test(transferId)) {
       throw new DfnsValidationError(
         `Invalid DFNS transfer ID format: ${transferId}`,
-        { expectedPattern: 'tr-xxxx-xxxx-xxxxxxxxxxxxxxxx' }
+        { expectedPattern: 'tr-xxxxx-xxxxx-xxxxxxxxxxxxxxxx' }
       );
     }
   }

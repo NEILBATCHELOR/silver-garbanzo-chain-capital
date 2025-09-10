@@ -41,7 +41,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { cn } from '@/utils/utils';
-import { DfnsService } from '@/services/dfns';
+import { getDfnsService, initializeDfnsService } from '@/services/dfns';
 import type { 
   DfnsWallet, 
   DfnsNetwork
@@ -153,18 +153,22 @@ export function WalletList({
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // DFNS Service
-  const [dfnsService, setDfnsService] = useState<DfnsService | null>(null);
+  // DFNS Service - using global singleton
+  const [dfnsService, setDfnsService] = useState<any>(null);
 
-  // Initialize DFNS service
+  // Initialize DFNS service using global singleton
   useEffect(() => {
     const initializeDfns = async () => {
       try {
-        const service = new DfnsService();
+        // Get the global service instance and ensure it's initialized
+        const service = await initializeDfnsService();
         setDfnsService(service);
+        
+        console.log('DFNS Service initialized for WalletList');
+        console.log('Authentication status:', service.getAuthenticationStatus());
       } catch (error) {
         console.error('Failed to initialize DFNS service:', error);
-        setError('Failed to initialize DFNS service');
+        setError('Failed to initialize DFNS service. Please check your configuration.');
       }
     };
 

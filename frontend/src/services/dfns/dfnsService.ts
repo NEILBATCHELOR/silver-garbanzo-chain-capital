@@ -50,6 +50,7 @@ export class DfnsService {
   private permissionService: DfnsPermissionService;
   
   private isInitialized = false;
+  private initializationError: Error | null = null;
 
   constructor(config?: Partial<DfnsSdkConfig>) {
     // Initialize core infrastructure
@@ -69,7 +70,7 @@ export class DfnsService {
       this.credentialManager,
       this.sessionManager
     );
-    this.walletService = new DfnsWalletService(this.client);
+    this.walletService = new DfnsWalletService(this.client, this.userActionService);
     this.userService = new DfnsUserService(this.client);
     this.serviceAccountService = new DfnsServiceAccountService(this.authClient);
     this.personalAccessTokenService = new PersonalAccessTokenService(
@@ -116,7 +117,7 @@ export class DfnsService {
   }
 
   /**
-   * Initialize the DFNS service
+   * Initialize the DFNS service with graceful error handling
    */
   async initialize(): Promise<void> {
     try {
@@ -124,15 +125,38 @@ export class DfnsService {
         return;
       }
 
-      // Initialize the client with credential provider
-      await this.client.initialize(
-        this.credentialManager,
-        this.authService.createUserActionSigner()
-      );
+      // Check authentication status
+      const authStatus = this.credentialManager.getAuthStatus();
+      console.log('DFNS Authentication Status:', authStatus);
+
+      // Initialize the client based on available authentication
+      if (authStatus.isAuthenticated) {
+        if (authStatus.method === 'PAT') {
+          // Initialize with PAT token
+          await this.client.initialize();
+          console.log('DFNS service initialized with PAT token');
+        } else if (authStatus.method === 'WebAuthn') {
+          // Initialize with stored WebAuthn credentials
+          await this.client.initialize(
+            this.credentialManager,
+            this.authService.createUserActionSigner()
+          );
+          console.log('DFNS service initialized with WebAuthn credentials');
+        }
+      } else {
+        // No authentication available - initialize in limited mode
+        console.warn('DFNS service initialized in limited mode - no authentication credentials available');
+        console.log('Available operations: Registration, login, credential creation');
+      }
 
       this.isInitialized = true;
+      this.initializationError = null;
     } catch (error) {
-      throw new DfnsError(`Failed to initialize DFNS service: ${error}`, 'INITIALIZATION_ERROR');
+      this.initializationError = error as Error;
+      console.error('DFNS service initialization failed:', error);
+      
+      // Don't throw the error - allow the service to be used in limited mode
+      this.isInitialized = true;
     }
   }
 
@@ -264,25 +288,98 @@ export class DfnsService {
   }
 
   /**
-   * Check if user is authenticated
+   * Get credential manager
    */
-  isAuthenticated(): boolean {
-    return this.sessionManager.isAuthenticated();
+  getCredentialManager(): DfnsCredentialManager {
+    return this.credentialManager;
   }
 
   /**
-   * Check if service is ready
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return this.client.isAuthenticated();
+  }
+
+  /**
+   * Check if service is ready for operations
    */
   isReady(): boolean {
     return this.isInitialized && this.client.isReady();
   }
 
   /**
-   * Get current user from session
+   * Check if service is in limited mode (no authentication)
+   */
+  isLimitedMode(): boolean {
+    return this.isInitialized && !this.isAuthenticated();
+  }
+
+  /**
+   * Get initialization error if any
+   */
+  getInitializationError(): Error | null {
+    return this.initializationError;
+  }
+
+  /**
+   * Get current user from session or environment
    */
   getCurrentUser() {
+    // Try to get from client first (environment variables)
+    const envUser = this.client.getCurrentUser();
+    if (envUser) {
+      return envUser;
+    }
+
+    // Fallback to session
     const session = this.sessionManager.getCurrentSession();
     return session ? { id: session.user_id } : null;
+  }
+
+  /**
+   * Get authentication status and details
+   */
+  getAuthenticationStatus() {
+    const authStatus = this.credentialManager.getAuthStatus();
+    const currentUser = this.getCurrentUser();
+    
+    return {
+      ...authStatus,
+      user: currentUser,
+      isReady: this.isReady(),
+      isLimitedMode: this.isLimitedMode(),
+      initializationError: this.initializationError?.message,
+      credentialCount: 0, // Default value, use getAuthenticationStatusAsync for actual count
+    };
+  }
+  
+  /**
+   * Get authentication status with credential count (async version)
+   */
+  async getAuthenticationStatusAsync() {
+    const authStatus = this.credentialManager.getAuthStatus();
+    const currentUser = this.getCurrentUser();
+    
+    // Get credential count if authenticated
+    let credentialCount = 0;
+    if (authStatus.isAuthenticated) {
+      try {
+        const credentials = await this.credentialService.listCredentials();
+        credentialCount = credentials.items.length;
+      } catch (error) {
+        console.warn('Failed to get credential count:', error);
+      }
+    }
+    
+    return {
+      ...authStatus,
+      user: currentUser,
+      isReady: this.isReady(),
+      isLimitedMode: this.isLimitedMode(),
+      initializationError: this.initializationError?.message,
+      credentialCount,
+    };
   }
 
   /**
@@ -292,7 +389,7 @@ export class DfnsService {
     window.addEventListener('dfns:token-refresh-needed', async (event: any) => {
       try {
         const { refreshToken } = event.detail;
-        if (refreshToken) {
+        if (refreshToken && this.isAuthenticated()) {
           await this.authService.refreshToken(refreshToken);
         }
       } catch (error) {
@@ -309,7 +406,7 @@ export class DfnsService {
   }
 
   /**
-   * Ensure service is initialized
+   * Ensure service is initialized (but don't throw errors)
    */
   private ensureInitialized(): void {
     if (!this.isInitialized) {
@@ -324,6 +421,7 @@ export class DfnsService {
     this.sessionManager.destroy();
     this.client.destroy();
     this.isInitialized = false;
+    this.initializationError = null;
   }
 }
 
@@ -341,7 +439,7 @@ export function getDfnsService(config?: Partial<DfnsSdkConfig>): DfnsService {
 }
 
 /**
- * Initialize the global DFNS service
+ * Initialize the global DFNS service with graceful error handling
  */
 export async function initializeDfnsService(config?: Partial<DfnsSdkConfig>): Promise<DfnsService> {
   const service = getDfnsService(config);

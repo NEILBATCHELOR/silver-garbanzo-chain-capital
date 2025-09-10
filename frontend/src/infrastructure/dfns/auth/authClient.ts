@@ -188,9 +188,17 @@ import type {
 import { DfnsClient } from '../client';
 import { DFNS_ENDPOINTS } from '../config';
 import { DfnsAuthenticationError } from '../../../types/dfns/errors';
+import { getWorkingDfnsClient } from '../working-client';
 
 export class DfnsAuthClient {
   constructor(private dfnsClient: DfnsClient) {}
+
+  /**
+   * Get the underlying DFNS client for direct API access
+   */
+  getDfnsClient(): DfnsClient {
+    return this.dfnsClient;
+  }
 
   /**
    * Initiate delegated registration for a new user
@@ -1167,10 +1175,8 @@ export class DfnsAuthClient {
    */
   async listUserCredentials(): Promise<DfnsListCredentialsResponse> {
     try {
-      const response = await this.dfnsClient.makeRequest<DfnsListCredentialsResponse>(
-        'GET',
-        DFNS_ENDPOINTS.AUTH_CREDENTIALS_LIST
-      );
+      const apiClient = this.dfnsClient.getApiClient();
+      const response = await apiClient.auth.listCredentials();
       
       return response;
     } catch (error) {
@@ -1420,16 +1426,10 @@ export class DfnsAuthClient {
     userActionToken?: string
   ): Promise<DfnsCreateWalletResponse> {
     try {
-      const headers = userActionToken 
-        ? { 'X-DFNS-USERACTION': userActionToken }
-        : {};
-
-      const response = await this.dfnsClient.makeRequest<DfnsCreateWalletResponse>(
-        'POST',
-        DFNS_ENDPOINTS.WALLETS_CREATE,
-        request,
-        headers
-      );
+      const workingClient = getWorkingDfnsClient();
+      
+      // Use working client which already supports User Action Signing
+      const response = await workingClient.createWallet(request, userActionToken);
       
       return response;
     } catch (error) {
@@ -1535,12 +1535,8 @@ export class DfnsAuthClient {
    */
   async getWallet(walletId: string): Promise<DfnsGetWalletResponse> {
     try {
-      const url = DFNS_ENDPOINTS.WALLETS_GET.replace(':walletId', walletId);
-      
-      const response = await this.dfnsClient.makeRequest<DfnsGetWalletResponse>(
-        'GET',
-        url
-      );
+      const workingClient = getWorkingDfnsClient();
+      const response = await workingClient.getWallet(walletId);
       
       return response;
     } catch (error) {
@@ -1557,25 +1553,16 @@ export class DfnsAuthClient {
    */
   async listWallets(request?: DfnsListWalletsRequest): Promise<DfnsListWalletsResponse> {
     try {
-      const params = new URLSearchParams();
-      if (request?.owner) {
-        params.append('owner', request.owner);
-      }
-      if (request?.limit) {
-        params.append('limit', request.limit.toString());
-      }
-      if (request?.paginationToken) {
-        params.append('paginationToken', request.paginationToken);
-      }
-
-      const url = params.toString() 
-        ? `${DFNS_ENDPOINTS.WALLETS_LIST}?${params.toString()}`
-        : DFNS_ENDPOINTS.WALLETS_LIST;
-
-      const response = await this.dfnsClient.makeRequest<DfnsListWalletsResponse>(
-        'GET',
-        url
-      );
+      const workingClient = getWorkingDfnsClient();
+      
+      // Use the working client which returns DfnsWallet[] directly
+      const wallets = await workingClient.listWallets();
+      
+      // Transform to match the expected response format
+      const response: DfnsListWalletsResponse = {
+        items: wallets,
+        nextPageToken: undefined // Working client doesn't support pagination yet
+      };
       
       return response;
     } catch (error) {
@@ -1595,19 +1582,19 @@ export class DfnsAuthClient {
     request?: DfnsGetWalletAssetsRequest
   ): Promise<DfnsGetWalletAssetsResponse> {
     try {
-      const url = DFNS_ENDPOINTS.WALLETS_ASSETS.replace(':walletId', walletId);
+      const workingClient = getWorkingDfnsClient();
       
-      const params = new URLSearchParams();
-      if (request?.includeUsdValue) {
-        params.append('quote', 'true');
-      }
-
-      const finalUrl = params.toString() ? `${url}?${params.toString()}` : url;
-
-      const response = await this.dfnsClient.makeRequest<DfnsGetWalletAssetsResponse>(
-        'GET',
-        finalUrl
-      );
+      // Get wallet details for network information
+      const wallet = await workingClient.getWallet(walletId);
+      const assets = await workingClient.getWalletAssets(walletId);
+      
+      // Transform to match the expected response format
+      const response: DfnsGetWalletAssetsResponse = {
+        walletId,
+        network: wallet.network,
+        assets,
+        totalValueUsd: undefined // Working client doesn't calculate total value yet
+      };
       
       return response;
     } catch (error) {

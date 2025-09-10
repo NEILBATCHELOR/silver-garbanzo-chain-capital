@@ -22,12 +22,26 @@ export class DfnsCredentialManager implements DfnsCredentialProvider {
 
   /**
    * Get stored credential for API operations
+   * Now handles the case where no credentials are stored gracefully
    */
   async getCredential(): Promise<DfnsApiCredential> {
     try {
+      // First check if we have a PAT token - if so, we don't need stored credentials
+      const patToken = import.meta.env.VITE_DFNS_PERSONAL_ACCESS_TOKEN;
+      if (patToken) {
+        // Return a PAT-based credential (no private key needed)
+        return {
+          credentialId: import.meta.env.VITE_DFNS_CREDENTIAL_ID || '',
+          privateKey: '', // Not needed for PAT
+          publicKey: import.meta.env.VITE_DFNS_CREDENTIAL_PUBLIC_KEY_ID || '',
+          algorithm: 'ES256', // Default
+        };
+      }
+
+      // Try to get stored WebAuthn credential
       const stored = this.getStoredCredential();
       if (!stored) {
-        throw new DfnsCredentialError('No stored credential found');
+        throw new DfnsCredentialError('No stored credential found and no PAT token available');
       }
       return stored;
     } catch (error) {
@@ -36,10 +50,63 @@ export class DfnsCredentialManager implements DfnsCredentialProvider {
   }
 
   /**
+   * Check if credentials are available (PAT or stored)
+   */
+  hasCredentials(): boolean {
+    const patToken = import.meta.env.VITE_DFNS_PERSONAL_ACCESS_TOKEN;
+    const storedCredential = this.getStoredCredential();
+    return !!(patToken || storedCredential);
+  }
+
+  /**
+   * Check if using PAT authentication
+   */
+  isUsingPAT(): boolean {
+    return !!import.meta.env.VITE_DFNS_PERSONAL_ACCESS_TOKEN;
+  }
+
+  /**
+   * Get authentication status and method
+   */
+  getAuthStatus(): {
+    isAuthenticated: boolean;
+    method: 'PAT' | 'WebAuthn' | 'None';
+    hasStoredCredentials: boolean;
+  } {
+    const patToken = import.meta.env.VITE_DFNS_PERSONAL_ACCESS_TOKEN;
+    const storedCredential = this.getStoredCredential();
+
+    if (patToken) {
+      return {
+        isAuthenticated: true,
+        method: 'PAT',
+        hasStoredCredentials: !!storedCredential
+      };
+    } else if (storedCredential) {
+      return {
+        isAuthenticated: true,
+        method: 'WebAuthn',
+        hasStoredCredentials: true
+      };
+    } else {
+      return {
+        isAuthenticated: false,
+        method: 'None',
+        hasStoredCredentials: false
+      };
+    }
+  }
+
+  /**
    * Refresh stored credential
    */
   async refreshCredential(): Promise<DfnsApiCredential> {
-    // For now, just return the existing credential
+    // For PAT tokens, just return the current credential
+    if (this.isUsingPAT()) {
+      return this.getCredential();
+    }
+    
+    // For WebAuthn, just return the existing credential
     // In a full implementation, this would handle credential rotation
     return this.getCredential();
   }
@@ -57,6 +124,11 @@ export class DfnsCredentialManager implements DfnsCredentialProvider {
     name?: string
   ): Promise<DfnsCredential> {
     try {
+      // Check WebAuthn support
+      if (!DfnsCredentialManager.isWebAuthnSupported()) {
+        throw new DfnsCredentialError('WebAuthn is not supported in this browser');
+      }
+
       // Create WebAuthn credential options
       const credentialOptions: PublicKeyCredentialCreationOptions = {
         challenge: this.base64ToArrayBuffer(challenge),
@@ -136,6 +208,10 @@ export class DfnsCredentialManager implements DfnsCredentialProvider {
     }>
   ): Promise<AuthenticatorAssertionResponse> {
     try {
+      if (!DfnsCredentialManager.isWebAuthnSupported()) {
+        throw new DfnsCredentialError('WebAuthn is not supported in this browser');
+      }
+
       const credentialOptions: PublicKeyCredentialRequestOptions = {
         challenge: this.base64ToArrayBuffer(challenge),
         rpId: WEBAUTHN_CONFIG.rpId,

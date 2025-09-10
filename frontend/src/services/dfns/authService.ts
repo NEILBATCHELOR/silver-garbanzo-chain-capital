@@ -637,3 +637,94 @@ export class DfnsAuthService {
     return window.btoa(binary);
   }
 }
+
+/**
+ * Get authService from the global DFNS service instance
+ * This provides backward compatibility for components expecting authService
+ */
+export function getAuthService(): DfnsAuthService {
+  const { getDfnsService } = require('./dfnsService');
+  const dfnsService = getDfnsService();
+  return dfnsService.getAuthService();
+}
+
+// Export a singleton instance for backward compatibility
+let authServiceInstance: DfnsAuthService | null = null;
+
+export const authService = {
+  get instance(): DfnsAuthService {
+    if (!authServiceInstance) {
+      authServiceInstance = getAuthService();
+    }
+    return authServiceInstance;
+  },
+
+  // Proxy all methods to the instance
+  async registerUser(email: string, kind: 'EndUser' | 'Employee' = 'EndUser') {
+    return this.instance.registerUser(email, kind);
+  },
+
+  async registerUserWithCode(username: string, registrationCode: string, orgId: string) {
+    return this.instance.registerUserWithCode(username, registrationCode, orgId);
+  },
+
+  async registerEndUserWithWallets(credential: any, walletSpecs: any[], recoveryCredential?: any) {
+    return this.instance.registerEndUserWithWallets(credential, walletSpecs, recoveryCredential);
+  },
+
+  async registerUserWithSocial(idToken: string, provider: 'Oidc' = 'Oidc', orgId?: string) {
+    return this.instance.registerUserWithSocial(idToken, provider, orgId);
+  },
+
+  async resendRegistrationCode(username: string, orgId: string) {
+    return this.instance.resendRegistrationCode(username, orgId);
+  },
+
+  async createWebAuthnCredentialForRegistration(challenge: any, credentialName?: string) {
+    return this.instance.createWebAuthnCredentialForRegistration(challenge, credentialName);
+  },
+
+  async registerWebAuthnCredential(name?: string) {
+    return this.instance.registerWebAuthnCredential(name);
+  },
+
+  async delegatedLogin(username: string, orgId?: string) {
+    return this.instance.delegatedLogin(username, orgId);
+  },
+
+  async login(username: string) {
+    return this.instance.login(username);
+  },
+
+  async refreshToken(refreshToken?: string) {
+    return this.instance.refreshToken(refreshToken);
+  },
+
+  async loginWithSocial(idToken: string, provider: 'Oidc' = 'Oidc', orgId?: string) {
+    return this.instance.loginWithSocial(idToken, provider, orgId);
+  },
+
+  async sendLoginCode(username: string, orgId: string) {
+    return this.instance.sendLoginCode(username, orgId);
+  },
+
+  async logout() {
+    return this.instance.logout();
+  },
+
+  createUserActionSigner() {
+    return this.instance.createUserActionSigner();
+  },
+
+  isAuthenticated() {
+    return this.instance.isAuthenticated();
+  },
+
+  getAuthToken() {
+    return this.instance.getAuthToken();
+  },
+
+  getCurrentSession() {
+    return this.instance.getCurrentSession();
+  }
+};

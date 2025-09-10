@@ -8,9 +8,9 @@ import type { DfnsSdkConfig, DfnsClientOptions } from '../../types/dfns';
 
 // Environment variables validation
 const requiredEnvVars = {
-  VITE_DFNS_APP_ID: process.env.VITE_DFNS_APP_ID,
-  VITE_DFNS_APP_ORIGIN: process.env.VITE_DFNS_APP_ORIGIN,
-  VITE_DFNS_RP_ID: process.env.VITE_DFNS_RP_ID,
+  VITE_DFNS_APP_ID: import.meta.env.VITE_DFNS_APP_ID,
+  VITE_DFNS_APP_ORIGIN: import.meta.env.VITE_DFNS_APP_ORIGIN,
+  VITE_DFNS_RP_ID: import.meta.env.VITE_DFNS_RP_ID,
 } as const;
 
 // Check if DFNS is properly configured (non-blocking)
@@ -39,8 +39,8 @@ export const DFNS_STATUS = {
 // Base configuration
 export const DFNS_CONFIG = {
   // Core settings from environment
-  baseUrl: process.env.VITE_DFNS_BASE_URL || 'https://api.dfns.ninja',
-  applicationId: requiredEnvVars.VITE_DFNS_APP_ID || 'dfns-app-placeholder',
+  baseUrl: import.meta.env.VITE_DFNS_BASE_URL || 'https://api.dfns.io',
+  applicationId: requiredEnvVars.VITE_DFNS_APP_ID || 'or-4ogth-rni0d-83vreosehqn1nns5',
   appOrigin: requiredEnvVars.VITE_DFNS_APP_ORIGIN || 'http://localhost:5173',
   rpId: requiredEnvVars.VITE_DFNS_RP_ID || 'localhost',
   

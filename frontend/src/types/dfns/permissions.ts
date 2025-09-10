@@ -242,6 +242,7 @@ export interface DfnsPermissionResponse {
   effect: 'Allow' | 'Deny';
   condition?: Record<string, any>;
   status: 'Active' | 'Inactive';
+  isActive?: boolean; // Computed property for compatibility
   description?: string;
   category?: string;
   dateCreated: string;

@@ -4,9 +4,8 @@
  * Main client for DFNS SDK integration with proper error handling and authentication
  */
 
-// Note: Actual DFNS SDK imports may differ - commenting out until SDK is properly configured
-// import { DfnsApi } from '@dfns/sdk';
-// import { DfnsBrowserClient } from '@dfns/sdk-browser';
+import { DfnsApiClient } from '@dfns/sdk';
+import { AsymmetricKeySigner } from '@dfns/sdk-keysigner';
 import type { 
   DfnsSdkConfig, 
   DfnsApiConfig,
@@ -21,8 +20,7 @@ import { DFNS_CONFIG, createDfnsSdkConfig, DEFAULT_HEADERS } from './config';
  * DFNS Client wrapper with enhanced error handling and utilities
  */
 export class DfnsClient {
-  private api: any | null = null;
-  private browserClient: any | null = null;
+  private api: DfnsApiClient | null = null;
   private config: DfnsSdkConfig;
   private isInitialized = false;
 
@@ -34,7 +32,7 @@ export class DfnsClient {
   }
 
   /**
-   * Initialize the DFNS client with required providers
+   * Initialize the DFNS client with PAT authentication
    */
   async initialize(
     credentialProvider?: DfnsCredentialProvider,
@@ -45,25 +43,19 @@ export class DfnsClient {
         return;
       }
 
-      // Update config with providers if provided
-      if (credentialProvider) {
+      // Check if we have a PAT token
+      const patToken = import.meta.env.VITE_DFNS_PERSONAL_ACCESS_TOKEN;
+      if (patToken) {
+        // Initialize with PAT token authentication
+        await this.initializeWithPAT(patToken);
+      } else if (credentialProvider) {
+        // Update config with providers if provided
         this.config.credentialProvider = credentialProvider;
-      }
-      if (userActionSigner) {
         this.config.userActionSigner = userActionSigner;
-      }
-
-      // Initialize browser client for WebAuthn operations
-      // TODO: Initialize actual DFNS browser client when SDK is properly configured
-      this.browserClient = {
-        appId: this.config.applicationId,
-        baseUrl: this.config.baseUrl,
-        rpId: this.config.rpId,
-      };
-
-      // Initialize API client if we have credentials
-      if (this.config.credentialProvider) {
+        // Initialize API client with WebAuthn credentials
         await this.initializeApiClient();
+      } else {
+        throw new DfnsAuthenticationError('No authentication method available - need PAT token or credential provider');
       }
 
       this.isInitialized = true;
@@ -73,7 +65,25 @@ export class DfnsClient {
   }
 
   /**
-   * Initialize the API client with credentials
+   * Initialize with Personal Access Token
+   */
+  private async initializeWithPAT(patToken: string): Promise<void> {
+    try {
+      // For PAT tokens, we don't need a signer, just the auth token
+      this.api = new DfnsApiClient({
+        appId: this.config.applicationId,
+        authToken: patToken,
+        baseUrl: this.config.baseUrl,
+      });
+
+      console.log('DFNS client initialized with PAT token authentication');
+    } catch (error) {
+      throw new DfnsAuthenticationError(`Failed to initialize with PAT token: ${error}`);
+    }
+  }
+
+  /**
+   * Initialize the API client with WebAuthn credentials
    */
   private async initializeApiClient(): Promise<void> {
     if (!this.config.credentialProvider) {
@@ -83,35 +93,29 @@ export class DfnsClient {
     try {
       const credential = await this.config.credentialProvider.getCredential();
       
-      // TODO: Initialize actual DFNS API client when SDK is properly configured
-      this.api = {
+      // Create key signer for WebAuthn authentication
+      const signer = new AsymmetricKeySigner({
+        privateKey: credential.privateKey,
+        credId: credential.credentialId,
+      });
+
+      this.api = new DfnsApiClient({
         appId: this.config.applicationId,
+        authToken: '', // No token for WebAuthn
         baseUrl: this.config.baseUrl,
-        signer: {
-          credId: credential.credentialId,
-          privateKey: credential.privateKey,
-        },
-        userActionSigner: this.config.userActionSigner,
-      };
+        signer,
+      });
+
+      console.log('DFNS client initialized with WebAuthn credentials');
     } catch (error) {
       throw new DfnsAuthenticationError(`Failed to initialize API client: ${error}`);
     }
   }
 
   /**
-   * Get the browser client for WebAuthn operations
-   */
-  getBrowserClient(): any {
-    if (!this.browserClient) {
-      throw new DfnsError('DFNS client not initialized', 'CLIENT_NOT_INITIALIZED');
-    }
-    return this.browserClient;
-  }
-
-  /**
    * Get the API client for authenticated operations
    */
-  getApiClient(): any {
+  getApiClient(): DfnsApiClient {
     if (!this.api) {
       throw new DfnsAuthenticationError('API client not initialized - credentials required');
     }
@@ -122,7 +126,7 @@ export class DfnsClient {
    * Check if the client is properly initialized
    */
   isReady(): boolean {
-    return this.isInitialized && this.browserClient !== null;
+    return this.isInitialized && this.api !== null;
   }
 
   /**
@@ -133,34 +137,8 @@ export class DfnsClient {
   }
 
   /**
-   * Refresh the API client with new credentials
-   */
-  async refreshCredentials(): Promise<void> {
-    if (!this.config.credentialProvider?.refreshCredential) {
-      throw new DfnsAuthenticationError('Credential refresh not supported');
-    }
-
-    try {
-      const newCredential = await this.config.credentialProvider.refreshCredential();
-      
-      // Reinitialize API client with new credentials
-      // TODO: Initialize actual DFNS API client when SDK is properly configured
-      this.api = {
-        appId: this.config.applicationId,
-        baseUrl: this.config.baseUrl,
-        signer: {
-          credId: newCredential.credentialId,
-          privateKey: newCredential.privateKey,
-        },
-        userActionSigner: this.config.userActionSigner,
-      };
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  /**
    * Make an authenticated API request with proper error handling
+   * @deprecated Use getApiClient() and call specific DFNS SDK methods instead
    */
   async makeRequest<T>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
@@ -168,27 +146,10 @@ export class DfnsClient {
     data?: any,
     headers?: Record<string, string>
   ): Promise<T> {
-    if (!this.api) {
-      throw new DfnsAuthenticationError('API client not available');
-    }
-
-    try {
-      const requestConfig = {
-        method,
-        url: endpoint,
-        data,
-        headers: {
-          ...DEFAULT_HEADERS,
-          ...headers,
-        },
-      };
-
-      // Use the DFNS API client's internal request method
-      const response = await (this.api as any).request(requestConfig);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
+    throw new DfnsError(
+      'makeRequest is deprecated. Use getApiClient() and call specific DFNS SDK methods like client.auth.listCredentials() instead',
+      'DEPRECATED_METHOD'
+    );
   }
 
   /**
@@ -256,7 +217,6 @@ export class DfnsClient {
    */
   destroy(): void {
     this.api = null;
-    this.browserClient = null;
     this.isInitialized = false;
   }
 
@@ -265,6 +225,31 @@ export class DfnsClient {
    */
   getConfig(): Readonly<DfnsSdkConfig> {
     return Object.freeze({ ...this.config });
+  }
+
+  /**
+   * Check authentication status
+   */
+  isAuthenticated(): boolean {
+    return this.isReady();
+  }
+
+  /**
+   * Get current user info from environment
+   */
+  getCurrentUser() {
+    const userId = import.meta.env.VITE_DFNS_USER_ID;
+    const username = import.meta.env.VITE_DFNS_USERNAME;
+    
+    if (userId && username) {
+      return {
+        id: userId,
+        username: username,
+        isAuthenticated: this.isAuthenticated()
+      };
+    }
+    
+    return null;
   }
 }
 

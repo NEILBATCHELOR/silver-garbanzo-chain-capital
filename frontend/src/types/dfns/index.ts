@@ -218,6 +218,24 @@ export type * from './webhooks';
 // API types
 export type * from './api';
 
+// WebAuthn types
+export type * from './webauthn';
+export type {
+  WebAuthnCredential,
+  WebAuthnChallenge,
+  CreateWebAuthnCredentialRequest,
+  CreateWebAuthnCredentialResponse,
+  ListWebAuthnCredentialsRequest,
+  ListWebAuthnCredentialsResponse,
+  WebAuthnRegistrationOptions,
+  WebAuthnAuthenticationOptions,
+  WebAuthnRegistrationResult,
+  WebAuthnAuthenticationResult,
+  WebAuthnCredentialSummary,
+  WalletCredentialSummary,
+  WebAuthnServiceOptions,
+} from './webauthn';
+
 // Error classes (these are classes, not types, so use regular export)
 export { 
   DfnsError,

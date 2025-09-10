@@ -143,12 +143,42 @@ export type DfnsWalletAsset =
   | DfnsAip21Asset 
   | DfnsSplAsset;
 
+// Extended asset with balance information for display purposes
+export interface DfnsWalletAssetWithBalance extends DfnsWalletAssetBase {
+  balanceInUsd?: string;         // USD value of balance
+  pricePerUnit?: string;         // Price per unit in USD
+  change24h?: string;            // 24h price change percentage
+}
+
 // Get Wallet Assets Response
 export interface DfnsGetWalletAssetsResponse {
   walletId: string;
   network: DfnsNetwork;
   assets: DfnsWalletAsset[];
   totalValueUsd?: string;        // Total portfolio value in USD
+}
+
+// ===============================
+// WALLET SUMMARY TYPES
+// ===============================
+
+// Wallet Summary for dashboard and list views
+export interface DfnsWalletSummary {
+  walletId: string;
+  name?: string;
+  network: DfnsNetwork;
+  address: string;
+  totalValueUsd?: string;
+  assetCount: number;
+  nftCount: number;               // Added for compatibility with WalletSummary
+  isActive: boolean;
+  dateCreated?: string;           // Made optional to match WalletSummary
+  lastActivity?: string;          // Added for compatibility
+  tags?: string[];
+  recentActivity?: {
+    lastTransaction?: string;
+    transactionCount24h: number;
+  };
 }
 
 // ===============================

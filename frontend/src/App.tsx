@@ -67,6 +67,7 @@ import SmartContractWalletPage from "@/pages/wallet/smart-contract/SmartContract
 
 // DFNS Components
 import { DfnsWalletDashboard } from "@/components/dfns";
+import { initializeDfnsService } from "@/services/dfns";
 // Investor Portal Pages
 import ProfilePage from "@/components/compliance/portal/ProfilePage";
 import DocumentsPage from "@/components/compliance/portal/DocumentsPage";
@@ -473,6 +474,20 @@ function App() {
   useEffect(() => {
     // Initialize browser error handling for console cleanup
     initializeBrowserErrorHandling();
+    
+    // Initialize DFNS Service with graceful error handling
+    const initializeDfns = async () => {
+      try {
+        const dfnsService = await initializeDfnsService();
+        console.log('🏦 DFNS Service initialized successfully');
+        console.log('Authentication status:', dfnsService.getAuthenticationStatus());
+      } catch (error) {
+        console.warn('⚠️ DFNS Service initialization failed:', error);
+        console.log('📝 DFNS will run in limited mode - some features may not be available');
+      }
+    };
+    
+    initializeDfns();
     
     // Initialize Enhanced Activity Service v2
     console.log('✅ Enhanced Activity Service v2 initialized - Performance monitoring active');

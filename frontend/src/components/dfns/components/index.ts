@@ -8,7 +8,7 @@
 export * from './core';
 
 // Wallet components (from parent dfns level)
-export * from '../wallets';
+export * from './wallets';
 
 // Authentication components
 export * from './authentication';

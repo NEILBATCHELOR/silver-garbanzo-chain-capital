@@ -6,9 +6,9 @@
 
 // Base DFNS Status Types
 export type DfnsStatus = 'Active' | 'Inactive' | 'Pending' | 'Suspended' | 'Archived';
-export type DfnsTransactionStatus = 'Pending' | 'Broadcasted' | 'Confirmed' | 'Failed' | 'Cancelled';
-export type DfnsCredentialKind = 'Fido2' | 'Key' | 'PasswordProtectedKey' | 'RecoveryKey';
-export type DfnsUserKind = 'EndUser' | 'Employee' | 'PatientUser';
+export type DfnsTransactionStatus = 'Pending' | 'Broadcasted' | 'Confirmed' | 'Failed' | 'Cancelled' | 'Completed' | 'Executing';
+export type DfnsCredentialKind = 'Fido2' | 'Key' | 'PasswordProtectedKey' | 'RecoveryKey' | 'Password' | 'Totp';
+export type DfnsUserKind = 'EndUser' | 'Employee' | 'PatientUser' | 'CustomerEmployee';
 
 // DFNS Organization
 export interface DfnsOrganization {
@@ -126,12 +126,13 @@ export interface DfnsServiceAccount {
   updated_at: string;
 }
 
-// Network Types
+// Network Types - Comprehensive list matching DFNS SDK
 export type DfnsNetwork = 
   | 'Ethereum' 
   | 'Polygon' 
   | 'Bitcoin' 
-  | 'Arbitrum' 
+  | 'Arbitrum'
+  | 'ArbitrumOne'  // DFNS SDK compatibility
   | 'Base'
   | 'Optimism'
   | 'Avalanche'
@@ -149,6 +150,12 @@ export type DfnsNetwork =
   | 'Stargaze'
   | 'Aptos'
   | 'Sui'
+  | 'Tron'
+  | 'XrpLedger'
+  | 'Hedera'
+  | 'KeyECDSA'
+  | 'KeyECDSAStark'
+  | 'KeyEdDSA'
   // Testnet Networks
   | 'EthereumSepolia'
   | 'EthereumHolesky'
@@ -160,8 +167,51 @@ export type DfnsNetwork =
   | 'AvalancheFuji'
   | 'SolanaDevnet'
   | 'StellarTestnet'
+  | 'AlgorandTestnet'
+  | 'CardanoTestnet'
+  | 'TronTestnet'
+  | 'XrpLedgerTestnet'
+  | 'HederaTestnet'
   | 'Berachain'
-  | 'BerachainBepolia';
+  | 'BerachainBepolia'
+  // Additional DFNS SDK Networks
+  | 'AptosTestnet'
+  | 'SuiTestnet'
+  | 'TronShasta'
+  | 'CosmosTestnet'
+  | 'NearTestnet'
+  | 'PolkadotTestnet'
+  | 'KusamaTestnet'
+  | 'Westend'
+  | 'Rococo'
+  | 'Moonbeam'
+  | 'Moonriver'
+  | 'Astar'
+  | 'Shiden'
+  | 'Acala'
+  | 'Karura'
+  | 'Parallel'
+  | 'Basilisk'
+  | 'Calamari'
+  | 'Subsocial'
+  | 'Zeitgeist'
+  | 'Bifrost'
+  | 'Centrifuge'
+  | 'Composable'
+  | 'Picasso'
+  | 'HydraDX'
+  | 'Interlay'
+  | 'Kintsugi'
+  | 'Litentry'
+  | 'Manta'
+  | 'Nodle'
+  | 'Origintrail'
+  | 'Pendulum'
+  | 'Phala'
+  | 'Robonomics'
+  | 'Turing'
+  | 'Unique'
+  | 'Unknown'; // Fallback for unknown networks
 
 // Network Name alias for backward compatibility
 export type NetworkName = DfnsNetwork;
