@@ -51,6 +51,10 @@ const NON_CRITICAL_PATTERNS = [
   /Found orphaned profile records after deletion/i,
   /Auth user deletion requires database admin privileges/i,
   /Failed to initialize Universal Database Audit Service/i,
+  // DFNS authentication errors that are expected in certain conditions - Added September 10, 2025
+  /DFNS API Error.*SERVICE_ACCOUNT.*401/i,
+  /Credentials endpoint not accessible for Service Account.*expected/i,
+  /DFNS.*Authentication failed.*token may be expired/i,
 ];
 
 // Enhanced console.error that filters non-critical messages

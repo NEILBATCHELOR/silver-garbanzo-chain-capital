@@ -1,417 +1,393 @@
-/**
- * DFNS Authentication Page
- * 
- * Comprehensive authentication page with login, registration, WebAuthn setup, and management
- */
-
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   Shield, 
-  UserPlus, 
-  LogIn, 
-  Settings, 
   Users, 
   Key, 
-  Fingerprint,
-  Info,
-  CheckCircle,
-  AlertCircle
+  UserCheck,
+  RefreshCw,
+  Plus,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
-// Import new authentication components
-import { DfnsLoginForm } from '../authentication/dfns-login-form';
-import { DfnsRegistrationWizard } from '../authentication/dfns-registration-wizard';
-import { AuthStatusDisplay, useAuth } from '../authentication/dfns-auth-guard';
+// Import DFNS services and types
+import { getDfnsService, initializeDfnsService } from '@/services/dfns';
+import type { 
+  DfnsUser, 
+  DfnsServiceAccount, 
+  DfnsPersonalAccessToken, 
+  DfnsCredential
+} from '@/types/dfns';
 
-// Import existing components
-import { WebAuthnSetup } from '../auth/webauthn-setup';
+// Import auth components (to be created)
 import { AuthStatusCard } from '../authentication/auth-status-card';
-import { UserList } from '../authentication/user-list';
-import { CredentialManager } from '../authentication/credential-manager';
+import { UserManagementTable } from '../authentication/user-management-table';
 import { ServiceAccountList } from '../authentication/service-account-list';
 import { PersonalTokenList } from '../authentication/personal-token-list';
+import { CredentialManager } from '../authentication/credential-manager';
 
-import type { WebAuthnCredential } from '@/types/dfns/webauthn';
-import type { DfnsAuthTokenResponse } from '@/types/dfns/auth';
+/**
+ * DFNS Authentication Page - User and identity management
+ * Following the climateReceivables pattern with real DFNS integration
+ */
+export function DfnsAuthPage() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-interface DfnsAuthPageProps {
-  defaultTab?: 'login' | 'register' | 'webauthn' | 'management';
-  className?: string;
-}
+  // Real authentication data from DFNS
+  const [authData, setAuthData] = useState({
+    currentUser: null as DfnsUser | null,
+    totalUsers: 0,
+    serviceAccounts: 0,
+    personalTokens: 0,
+    activeCredentials: 0,
+    isAuthenticated: false,
+    users: [] as DfnsUser[],
+    tokens: [] as DfnsPersonalAccessToken[],
+    credentials: [] as DfnsCredential[],
+    isLoading: true
+  });
 
-export function DfnsAuthPage({ defaultTab = 'login', className }: DfnsAuthPageProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab);
-  const [registrationType, setRegistrationType] = useState<'delegated' | 'standard' | 'endUser' | 'social'>('delegated');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // Try to use auth context if available, otherwise use local state
-  let isAuthenticated = false;
-  let authUser = null;
-  
-  try {
-    const auth = useAuth();
-    isAuthenticated = auth.isAuthenticated;
-    authUser = auth.user;
-  } catch (error) {
-    // useAuth not available, use local state checking
-    const storedToken = localStorage.getItem('dfns_auth_token');
-    const storedUser = localStorage.getItem('dfns_auth_user');
-    isAuthenticated = !!(storedToken && storedUser);
-    if (storedUser) {
-      try {
-        authUser = JSON.parse(storedUser);
-      } catch (e) {
-        // Invalid stored user data
+  const refreshAuthData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const dfnsService = await initializeDfnsService();
+      const authStatus = await dfnsService.getAuthenticationStatus();
+      
+      if (!authStatus.isAuthenticated) {
+        setError('Authentication required to view user management');
+        setAuthData(prev => ({ 
+          ...prev, 
+          isAuthenticated: false, 
+          isLoading: false 
+        }));
+        return;
       }
+
+      // Get authentication data from various services with proper method names
+      const [usersResult, tokensResult, credentialsResult] = await Promise.all([
+        dfnsService.getUserManagementService().listUsers().then(result => result?.data?.items || []).catch(() => []),
+        dfnsService.getPersonalAccessTokenManagementService().listPersonalAccessTokens().then(result => result?.data?.items || []).catch(() => []),
+        dfnsService.getCredentialManagementService().listCredentials().then(result => result || []).catch(() => [])
+      ]);
+
+      setAuthData({
+        currentUser: authStatus.user || null,
+        totalUsers: usersResult.length,
+        serviceAccounts: 0, // TODO: Add when service account service is ready
+        personalTokens: tokensResult.length,
+        activeCredentials: credentialsResult.length,
+        isAuthenticated: authStatus.isAuthenticated,
+        users: usersResult as DfnsUser[], // Type assertion for API compatibility
+        tokens: tokensResult as DfnsPersonalAccessToken[], // Type assertion for API compatibility
+        credentials: credentialsResult as DfnsCredential[], // Type assertion for API compatibility
+        isLoading: false
+      });
+
+      toast({
+        title: "Success",
+        description: `Loaded authentication data: ${usersResult.length} users, ${credentialsResult.length} credentials`,
+      });
+
+    } catch (error: any) {
+      console.error("Error loading authentication data:", error);
+      setError(`Failed to load authentication data: ${error.message}`);
+      setAuthData(prev => ({ ...prev, isLoading: false }));
+      
+      toast({
+        title: "Error",
+        description: "Failed to load authentication data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  }
-
-  /**
-   * Handle successful login
-   */
-  const handleLoginSuccess = (tokenResponse: DfnsAuthTokenResponse) => {
-    setSuccessMessage(`Successfully logged in as ${tokenResponse.user.username}!`);
-    setShowSuccess(true);
-    
-    // Auto-hide success message after 5 seconds
-    setTimeout(() => setShowSuccess(false), 5000);
-    
-    console.log('✅ Login successful:', tokenResponse);
   };
 
-  /**
-   * Handle login error
-   */
-  const handleLoginError = (error: string) => {
-    console.error('❌ Login error:', error);
-  };
-
-  /**
-   * Handle successful registration
-   */
-  const handleRegistrationSuccess = (response: DfnsAuthTokenResponse) => {
-    setSuccessMessage(`Registration completed successfully! Welcome ${response.user.username}!`);
-    setShowSuccess(true);
-    
-    // Switch to login tab after successful registration
-    setTimeout(() => {
-      setActiveTab('login');
-      setShowSuccess(false);
-    }, 3000);
-    
-    console.log('✅ Registration successful:', response);
-  };
-
-  /**
-   * Handle registration error
-   */
-  const handleRegistrationError = (error: string) => {
-    console.error('❌ Registration error:', error);
-  };
-
-  /**
-   * Handle WebAuthn credential creation
-   */
-  const handleCredentialCreated = (credential: WebAuthnCredential) => {
-    setSuccessMessage(`WebAuthn credential "${credential.device_name}" created successfully!`);
-    setShowSuccess(true);
-    
-    setTimeout(() => setShowSuccess(false), 5000);
-    
-    console.log('✅ WebAuthn credential created:', credential);
-  };
-
-  /**
-   * Get tab badge counts (placeholder - would normally come from data)
-   */
-  const getTabBadges = () => {
-    return {
-      users: 0, // Would come from actual data
-      credentials: 0,
-      serviceAccounts: 0,
-      tokens: 0
-    };
-  };
-
-  const badges = getTabBadges();
+  useEffect(() => {
+    refreshAuthData();
+  }, []);
 
   return (
-    <div className={`container mx-auto py-6 space-y-6 ${className}`}>
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50">
+      {/* Page Header */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold flex items-center space-x-3">
-              <Shield className="h-8 w-8" />
-              <span>DFNS Authentication</span>
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Comprehensive DFNS authentication, registration, and credential management
+            <h1 className="text-2xl font-bold text-gray-900">Authentication & Identity</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              User management, credentials, and access control
             </p>
           </div>
-          
-          {/* Authentication Status */}
-          <AuthStatusDisplay showDetails={true} />
+          <div className="flex items-center space-x-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshAuthData}
+              disabled={loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              {loading ? "Refreshing..." : "Refresh"}
+            </Button>
+            <Button size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add User
+            </Button>
+          </div>
         </div>
-
-        {/* Success Message */}
-        {showSuccess && (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Success</AlertTitle>
-            <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
-          </Alert>
-        )}
       </div>
 
-      <Separator />
+      <div className="p-6">
+        {/* Error Alert */}
+        {error && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-800">Error</AlertTitle>
+            <AlertDescription className="text-red-700">{error}</AlertDescription>
+          </Alert>
+        )}
 
-      {/* Authentication Tabs */}
-      <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as 'login' | 'register' | 'webauthn' | 'management')} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="login" className="flex items-center space-x-2">
-            <LogIn className="h-4 w-4" />
-            <span>Login</span>
-          </TabsTrigger>
-          <TabsTrigger value="register" className="flex items-center space-x-2">
-            <UserPlus className="h-4 w-4" />
-            <span>Register</span>
-          </TabsTrigger>
-          <TabsTrigger value="webauthn" className="flex items-center space-x-2">
-            <Fingerprint className="h-4 w-4" />
-            <span>WebAuthn</span>
-          </TabsTrigger>
-          <TabsTrigger value="management" className="flex items-center space-x-2">
-            <Settings className="h-4 w-4" />
-            <span>Management</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Login Tab */}
-        <TabsContent value="login" className="space-y-4">
-          <div className="grid gap-6">
-            <DfnsLoginForm
-              onLoginSuccess={handleLoginSuccess}
-              onLoginError={handleLoginError}
-              defaultTab="standard"
-            />
-
-            {/* Quick Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Info className="h-5 w-5" />
-                  <span>Authentication Methods</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm space-y-2">
-                  <p><strong>Standard Login:</strong> Uses delegated authentication with WebAuthn for secure access</p>
-                  <p><strong>Social Login:</strong> OAuth/OIDC integration with identity providers like Google</p>
-                  <p><strong>Code Login:</strong> Email verification code authentication for password-less access</p>
+        {/* Authentication Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="border-none shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-sm font-medium">Users</CardTitle>
+                <div className="p-1.5 rounded-md bg-blue-100">
+                  <Users className="h-4 w-4 text-blue-600" />
                 </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">{authData.totalUsers}</div>
+              <div className="text-xs text-muted-foreground">
+                Organization members
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-sm font-medium">Service Accounts</CardTitle>
+                <div className="p-1.5 rounded-md bg-green-100">
+                  <UserCheck className="h-4 w-4 text-green-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">{authData.serviceAccounts}</div>
+              <div className="text-xs text-muted-foreground">
+                API access accounts
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-sm font-medium">Personal Tokens</CardTitle>
+                <div className="p-1.5 rounded-md bg-purple-100">
+                  <Key className="h-4 w-4 text-purple-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">{authData.personalTokens}</div>
+              <div className="text-xs text-muted-foreground">
+                Active tokens
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-sm font-medium">Credentials</CardTitle>
+                <div className="p-1.5 rounded-md bg-green-100">
+                  <Shield className="h-4 w-4 text-green-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">{authData.activeCredentials}</div>
+              <div className="text-xs text-muted-foreground">
+                WebAuthn credentials
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Authentication Management Tabs */}
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="w-full max-w-2xl grid grid-cols-5">
+            <TabsTrigger value="overview" className="gap-1.5">
+              <Shield className="h-4 w-4" />
+              <span>Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-1.5">
+              <Users className="h-4 w-4" />
+              <span>Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="service-accounts" className="gap-1.5">
+              <UserCheck className="h-4 w-4" />
+              <span>Service</span>
+            </TabsTrigger>
+            <TabsTrigger value="tokens" className="gap-1.5">
+              <Key className="h-4 w-4" />
+              <span>Tokens</span>
+            </TabsTrigger>
+            <TabsTrigger value="credentials" className="gap-1.5">
+              <Shield className="h-4 w-4" />
+              <span>Credentials</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="border-none shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle>Authentication Status</CardTitle>
+                  <CardDescription>
+                    Current authentication and security status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AuthStatusCard />
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle>Security Overview</CardTitle>
+                  <CardDescription>
+                    Organization security metrics and status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Authentication Status</span>
+                      <Badge variant={authData.isAuthenticated ? "secondary" : "destructive"} 
+                             className={authData.isAuthenticated ? "bg-green-50 text-green-700" : ""}>
+                        {authData.isAuthenticated ? "Authenticated" : "Not Authenticated"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">WebAuthn Enabled</span>
+                      <Badge variant="secondary" className="bg-green-50 text-green-700">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Active
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">User Action Signing</span>
+                      <Badge variant="secondary" className="bg-green-50 text-green-700">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Required
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Organization Users</span>
+                      <Badge variant="outline">{authData.totalUsers}</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <Card className="border-none shadow-sm">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Organization Users</CardTitle>
+                    <CardDescription>
+                      Manage users and their access to the organization
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline">{authData.totalUsers} Users</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <UserManagementTable 
+                  users={authData.users}
+                  onUserUpdated={refreshAuthData}
+                />
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        {/* Registration Tab */}
-        <TabsContent value="register" className="space-y-4">
-          <div className="grid gap-6">
-            {/* Registration Type Selection */}
-            <Card>
+          <TabsContent value="service-accounts" className="space-y-6">
+            <Card className="border-none shadow-sm">
               <CardHeader>
-                <CardTitle>Registration Type</CardTitle>
+                <CardTitle>Service Accounts</CardTitle>
                 <CardDescription>
-                  Choose the type of registration that matches your needs
+                  API access accounts for automated systems
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant={registrationType === 'delegated' ? 'default' : 'outline'}
-                    onClick={() => setRegistrationType('delegated')}
-                    className="justify-start"
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    Delegated Registration
-                  </Button>
-                  <Button
-                    variant={registrationType === 'standard' ? 'default' : 'outline'}
-                    onClick={() => setRegistrationType('standard')}
-                    className="justify-start"
-                  >
-                    <Key className="mr-2 h-4 w-4" />
-                    Standard Registration
-                  </Button>
-                  <Button
-                    variant={registrationType === 'endUser' ? 'default' : 'outline'}
-                    onClick={() => setRegistrationType('endUser')}
-                    className="justify-start"
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    End User Registration
-                  </Button>
-                  <Button
-                    variant={registrationType === 'social' ? 'default' : 'outline'}
-                    onClick={() => setRegistrationType('social')}
-                    className="justify-start"
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Social Registration
-                  </Button>
-                </div>
+                <ServiceAccountList 
+                  onAccountUpdated={refreshAuthData}
+                />
               </CardContent>
             </Card>
+          </TabsContent>
 
-            {/* Registration Wizard */}
-            <DfnsRegistrationWizard
-              registrationType={registrationType}
-              onRegistrationSuccess={handleRegistrationSuccess}
-              onRegistrationError={handleRegistrationError}
-            />
-          </div>
-        </TabsContent>
+          <TabsContent value="tokens" className="space-y-6">
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle>Personal Access Tokens</CardTitle>
+                <CardDescription>
+                  Manage personal API access tokens
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PersonalTokenList 
+                  tokens={authData.tokens}
+                  onTokenUpdated={refreshAuthData}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* WebAuthn Tab */}
-        <TabsContent value="webauthn" className="space-y-4">
-          <div className="grid gap-6">
-            <WebAuthnSetup 
-              onCredentialCreated={handleCredentialCreated}
-            />
-          </div>
-        </TabsContent>
+          <TabsContent value="credentials" className="space-y-6">
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle>WebAuthn Credentials</CardTitle>
+                <CardDescription>
+                  Manage WebAuthn devices and credentials
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CredentialManager 
+                  credentials={authData.credentials}
+                  onCredentialUpdated={refreshAuthData}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
-        {/* Management Tab */}
-        <TabsContent value="management" className="space-y-4">
-          <div className="grid gap-6">
-            {/* Authentication Status Overview */}
-            <AuthStatusCard />
-
-            {/* Management Sections */}
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* User Management */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="h-5 w-5" />
-                    <span>User Management</span>
-                    {badges.users > 0 && (
-                      <Badge variant="secondary">{badges.users}</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Manage organization users and their access
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <UserList />
-                </CardContent>
-              </Card>
-
-              {/* Credential Management */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Fingerprint className="h-5 w-5" />
-                    <span>Credentials</span>
-                    {badges.credentials > 0 && (
-                      <Badge variant="secondary">{badges.credentials}</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Manage WebAuthn and other authentication credentials
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <CredentialManager />
-                </CardContent>
-              </Card>
-
-              {/* Service Accounts */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Shield className="h-5 w-5" />
-                    <span>Service Accounts</span>
-                    {badges.serviceAccounts > 0 && (
-                      <Badge variant="secondary">{badges.serviceAccounts}</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Manage machine users and automated access
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ServiceAccountList />
-                </CardContent>
-              </Card>
-
-              {/* Personal Access Tokens */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Key className="h-5 w-5" />
-                    <span>Access Tokens</span>
-                    {badges.tokens > 0 && (
-                      <Badge variant="secondary">{badges.tokens}</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    Manage personal access tokens for API access
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <PersonalTokenList />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Additional Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Info className="h-5 w-5" />
-            <span>DFNS Authentication Overview</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <h4 className="font-semibold">Security Features</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• WebAuthn-based authentication</li>
-                <li>• User Action Signing for sensitive operations</li>
-                <li>• Multi-factor authentication support</li>
-                <li>• OAuth/OIDC social authentication</li>
-                <li>• Service account management</li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-semibold">Management Capabilities</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• User lifecycle management</li>
-                <li>• Credential rotation and recovery</li>
-                <li>• Personal access token scoping</li>
-                <li>• Permission-based access control</li>
-                <li>• Audit trail and compliance</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Nested routes for detailed views */}
+      <Routes>
+        <Route path="/users/:userId" element={<div>User Details View</div>} />
+        <Route path="/service-accounts/:accountId" element={<div>Service Account Details</div>} />
+        <Route path="*" element={<Navigate to="/wallet/dfns/auth" replace />} />
+      </Routes>
     </div>
   );
 }
-
-export default DfnsAuthPage;

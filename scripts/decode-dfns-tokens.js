@@ -1,0 +1,12 @@
+// Quick JWT token decoder - let's see what's actually in your tokens
+const serviceAccountToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSJ9.eyJpc3MiOiJhdXRoLmRmbnMuaW8iLCJhdWQiOiJkZm5zOmF1dGg6dXNlciIsInN1YiI6Im9yLTRvZ3RoLXJuaTBkLTgzdnJlb3NlaHFuMW5uczUiLCJqdGkiOiJ0by0wZWE4YS0yYzRxdS04bjBiMWdmbHBrb3Y4OGQ0IiwiaHR0cHM6Ly9jdXN0b20vdXNlcm5hbWUiOiJDQzIiLCJodHRwczovL2N1c3RvbS9hcHBfbWV0YWRhdGEiOnsidXNlcklkIjoidXMtMTEybTktZ2pldmMtOWxtb2tjanY4cmdnOHR0NCIsIm9yZ0lkIjoib3ItNG9ndGgtcm5pMGQtODN2cmVvc2VocW4xbm5zNSIsInRva2VuS2luZCI6IlNlcnZpY2VBY2NvdW50In0sImlhdCI6MTc1NzUwNjE0MiwiZXhwIjoxODIwNTc4MTQyfQ";
+
+// Decode the JWT payload (middle part)
+const payload = JSON.parse(atob(serviceAccountToken.split('.')[1]));
+console.log("Service Account JWT Payload:", JSON.stringify(payload, null, 2));
+
+const patToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSJ9.eyJpc3MiOiJhdXRoLmRmbnMuaW8iLCJhdWQiOiJkZm5zOmF1dGg6dXNlciIsInN1YiI6Im9yLTRvZ3RoLXJuaTBkLTgzdnJlb3NlaHFuMW5uczUiLCJqdGkiOiJ0by00dTBqYy0wbzJuaC04NjNyaTVtcHA4ZThzZjJxIiwiaHR0cHM6Ly9jdXN0b20vYXBwX21ldGFkYXRhIjp7InVzZXJJZCI6InVzLTdvM3IyLTllN2ZlLTkyMGEzYW0zZW5pdjBhbXQiLCJvcmdJZCI6Im9yLTRvZ3RoLXJuaTBkLTgzdnJlb3NlaHFuMW5uczUiLCJ0b2tlbktpbmQiOiJQYXQifSwiaWF0IjoxNzU3NTA2MzIxLCJleHAiOjE4MjA1NzgzMjF9";
+
+// Decode the PAT payload 
+const patPayload = JSON.parse(atob(patToken.split('.')[1]));
+console.log("PAT JWT Payload:", JSON.stringify(patPayload, null, 2));

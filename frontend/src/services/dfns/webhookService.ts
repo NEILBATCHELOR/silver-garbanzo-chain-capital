@@ -1,128 +1,58 @@
 /**
  * DFNS Webhook Service
  * 
- * High-level service for DFNS webhook management operations
- * Provides business logic layer over DFNS Webhooks APIs
+ * Comprehensive webhook management service for DFNS integration
+ * Supports current DFNS Webhook API with full CRUD operations
  * 
- * Implementation: Complete Webhook Management
- * - Webhook Creation, Listing, Retrieval, Updates, and Deletion
- * - Webhook Event Management and History
- * - Webhook Testing (Ping functionality)
- * - Database Synchronization
+ * Features:
+ * - Create, read, update, delete webhooks
+ * - Event subscription management
+ * - Webhook validation and testing
+ * - Database synchronization
+ * - User Action Signing support
+ * - HMAC signature verification
  */
 
-import type {
+import type { WorkingDfnsClient } from '../../infrastructure/dfns/working-client';
+import type { 
   DfnsCreateWebhookRequest,
   DfnsCreateWebhookResponse,
-  DfnsUpdateWebhookRequest,
-  DfnsUpdateWebhookResponse,
+  DfnsGetWebhookResponse,
   DfnsListWebhooksRequest,
   DfnsListWebhooksResponse,
-  DfnsGetWebhookResponse,
+  DfnsUpdateWebhookRequest,
+  DfnsUpdateWebhookResponse,
   DfnsDeleteWebhookResponse,
   DfnsPingWebhookResponse,
-  DfnsListWebhookEventsRequest,
-  DfnsListWebhookEventsResponse,
-  DfnsWebhookEventResponse,
   DfnsWebhookEvent,
   DfnsWebhookStatus,
   WebhookConfig,
-  WebhookEvent,
-  WebhookServiceOptions,
-  WebhookCreationOptions,
-  WebhookEventFilterOptions,
   WebhookSummary,
-  WebhookEventSummary,
+  WebhookCreationOptions,
+  WebhookServiceOptions,
   WebhookUrlValidation,
-  WebhookEventData,
-  WebhookSupportedNetwork,
-} from '../../types/dfns';
-import {
-  isValidWebhookUrl,
-  validateWebhookEvents,
-  isWebhookSupportedNetwork,
-  getSupportedWebhookEvents,
-  WEBHOOK_EVENT_RETENTION_DAYS
-} from '../../types/dfns';
-import { DfnsClient } from '../../infrastructure/dfns/client';
-import { DfnsAuthClient } from '../../infrastructure/dfns/auth/authClient';
-import { DfnsUserActionService } from './userActionService';
-import { DfnsAuthenticationError, DfnsValidationError, DfnsWebhookError } from '../../types/dfns/errors';
+  WebhookSignatureVerification
+} from '../../types/dfns/webhooks';
+import { DfnsError, DfnsAuthenticationError } from '../../types/dfns/errors';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../types/core/database';
 
-export interface WebhookListOptions {
-  limit?: number;
-  paginationToken?: string;
-  includeInactive?: boolean;
-  sortBy?: 'name' | 'createdAt' | 'status' | 'url';
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface WebhookUpdateOptions {
-  syncToDatabase?: boolean;
-  validateUrl?: boolean;
-  testWebhook?: boolean;
-}
-
-export interface WebhookDeletionOptions {
-  syncToDatabase?: boolean;
-  archiveEvents?: boolean;
-}
-
-export interface WebhookEventListOptions {
-  webhookId: string;
-  deliveryFailed?: boolean;
-  eventType?: DfnsWebhookEvent;
-  dateFrom?: string;
-  dateTo?: string;
-  limit?: number;
-  paginationToken?: string;
-}
-
-export interface WebhookTestOptions {
-  includeEventHistory?: boolean;
-  validateResponse?: boolean;
-  timeoutMs?: number;
-}
-
-// Batch operation interfaces
-export interface BatchWebhookOperation {
-  webhookId: string;
-  action: 'enable' | 'disable' | 'delete' | 'ping';
-}
-
-export interface BatchWebhookResult {
-  successful: string[];
-  failed: Array<{
-    webhookId: string;
-    error: string;
-  }>;
-}
+// Database client for webhook operations
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 /**
  * DFNS Webhook Service
  * 
- * Provides comprehensive webhook management operations:
- * - CRUD operations for webhooks
- * - Event management and history
- * - URL validation and testing
- * - Database synchronization
- * - Batch operations
+ * Manages DFNS webhooks using current API methods and authentication patterns
  */
 export class DfnsWebhookService {
-  private dfnsClient: DfnsClient;
-  private authClient: DfnsAuthClient;
-  private userActionService: DfnsUserActionService;
+  private client: WorkingDfnsClient;
   private options: WebhookServiceOptions;
 
-  constructor(
-    dfnsClient: DfnsClient,
-    authClient: DfnsAuthClient,
-    userActionService: DfnsUserActionService,
-    options: WebhookServiceOptions = {}
-  ) {
-    this.dfnsClient = dfnsClient;
-    this.authClient = authClient;
-    this.userActionService = userActionService;
+  constructor(client: WorkingDfnsClient, options: WebhookServiceOptions = {}) {
+    this.client = client;
     this.options = {
       enableDatabaseSync: true,
       enableEventLogging: true,
@@ -132,735 +62,715 @@ export class DfnsWebhookService {
     };
   }
 
-  // =============================================================================
-  // CORE WEBHOOK MANAGEMENT OPERATIONS
-  // =============================================================================
+  // ==============================================
+  // WEBHOOK CRUD OPERATIONS
+  // ==============================================
 
   /**
-   * Create a new webhook
-   * Requires User Action Signing and Webhooks:Create permission
+   * Create a new webhook with User Action Signing
+   * 
+   * @param request - Webhook creation request
+   * @param userActionToken - Optional User Action token for sensitive operations
+   * @param options - Creation options
+   * @returns Created webhook with secret
    */
   async createWebhook(
     request: DfnsCreateWebhookRequest,
+    userActionToken?: string,
     options: WebhookCreationOptions = {}
   ): Promise<DfnsCreateWebhookResponse> {
     try {
-      // Validation
-      this.validateWebhookCreationRequest(request);
+      // Validate webhook URL format
+      if (this.options.validateWebhookUrls && !this.isValidWebhookUrl(request.url)) {
+        throw new DfnsError('INVALID_WEBHOOK_URL', `Invalid webhook URL format: ${request.url}`);
+      }
 
-      if (this.options.validateWebhookUrls) {
+      // Validate events array
+      if (!this.validateWebhookEvents(request.events)) {
+        throw new DfnsError('INVALID_WEBHOOK_EVENTS', 'Invalid webhook events configuration');
+      }
+
+      // Test webhook URL accessibility if requested
+      if (options.validateUrl) {
         const validation = await this.validateWebhookUrl(request.url);
-        if (!validation.isValid) {
-          throw new DfnsValidationError(
-            `Invalid webhook URL: ${validation.error}`,
-            { url: request.url, validation }
-          );
+        if (!validation.isReachable) {
+          throw new DfnsError('WEBHOOK_URL_UNREACHABLE', `Webhook URL is not reachable: ${validation.error}`);
         }
       }
 
-      // User Action Signing required for webhook creation
-      const userActionToken = await this.userActionService.signUserAction(
-        'CreateWebhook',
-        request
+      console.log('🎣 Creating DFNS webhook:', {
+        url: request.url,
+        eventCount: request.events.length,
+        description: request.description
+      });
+
+      // Make authenticated request to DFNS API
+      const response = await this.client.makeRequest<DfnsCreateWebhookResponse>(
+        'POST',
+        '/webhooks',
+        request,
+        userActionToken
       );
 
-      // Create webhook via DFNS API
-      const response = await this.authClient.createWebhook(request, userActionToken);
+      console.log('✅ DFNS webhook created successfully:', {
+        id: response.id,
+        url: response.url,
+        secretProvided: !!response.secret
+      });
 
-      // Database synchronization
-      if (options.syncToDatabase && this.options.enableDatabaseSync) {
+      // Sync to database if enabled
+      if (options.syncToDatabase !== false && this.options.enableDatabaseSync) {
         await this.syncWebhookToDatabase(response);
       }
 
-      // Test webhook if requested
+      // Test webhook with ping if requested
       if (options.testWebhook) {
         try {
           await this.pingWebhook(response.id);
+          console.log('🔔 Webhook ping test successful');
         } catch (error) {
-          console.warn(`Webhook created but ping test failed: ${error}`);
+          console.warn('⚠️ Webhook ping test failed:', error);
+          // Don't fail creation if ping fails
         }
       }
 
-      // Log activity
-      if (this.options.enableEventLogging) {
-        console.log(`Webhook created: ${response.id} -> ${response.url}`);
-      }
-
       return response;
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to create webhook: ${error}`,
-        { request, options }
-      );
+      console.error('❌ Failed to create DFNS webhook:', error);
+      
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
+      // Handle specific DFNS API errors
+      if (error instanceof Error) {
+        if (error.message.includes('webhook limit')) {
+          throw new DfnsError('WEBHOOK_LIMIT_EXCEEDED', 'Organization webhook limit exceeded (5 max)');
+        }
+        if (error.message.includes('permission')) {
+          throw new DfnsAuthenticationError('Webhooks:Create permission required', { code: 'INSUFFICIENT_PERMISSIONS' });
+        }
+      }
+      
+      throw new DfnsError('WEBHOOK_CREATION_FAILED', `Failed to create webhook: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
-   * Get a specific webhook by ID
-   * Requires Webhooks:Read permission
+   * Get webhook details by ID
+   * 
+   * @param webhookId - DFNS webhook ID
+   * @returns Webhook details (without secret)
    */
   async getWebhook(webhookId: string): Promise<DfnsGetWebhookResponse> {
     try {
-      this.validateWebhookId(webhookId);
+      console.log('🔍 Getting DFNS webhook:', webhookId);
 
-      const response = await this.authClient.getWebhook(webhookId);
-      
+      const response = await this.client.makeRequest<DfnsGetWebhookResponse>(
+        'GET',
+        `/webhooks/${webhookId}`
+      );
+
+      console.log('✅ DFNS webhook retrieved:', {
+        id: response.id,
+        url: response.url,
+        status: response.status,
+        eventCount: response.events.length
+      });
+
       return response;
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get webhook: ${error}`,
-        { webhookId }
-      );
-    }
-  }
-
-  /**
-   * Find webhook by URL
-   */
-  async getWebhookByUrl(url: string): Promise<DfnsGetWebhookResponse | null> {
-    try {
-      const webhooks = await this.getAllWebhooks();
-      return webhooks.find(webhook => webhook.url === url) || null;
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to find webhook by URL: ${error}`,
-        { url }
-      );
+      console.error('❌ Failed to get DFNS webhook:', error);
+      
+      if (error instanceof Error && error.message.includes('not found')) {
+        throw new DfnsError('WEBHOOK_NOT_FOUND', `Webhook not found: ${webhookId}`);
+      }
+      
+      throw new DfnsError('WEBHOOK_FETCH_FAILED', `Failed to get webhook: ${error}`);
     }
   }
 
   /**
    * List all webhooks with pagination
-   * Requires Webhooks:Read permission
+   * 
+   * @param request - List request with pagination
+   * @returns Paginated webhook list
    */
-  async listWebhooks(
-    request: DfnsListWebhooksRequest = {},
-    options: WebhookListOptions = {}
-  ): Promise<DfnsListWebhooksResponse> {
+  async listWebhooks(request: DfnsListWebhooksRequest = {}): Promise<DfnsListWebhooksResponse> {
     try {
-      const response = await this.authClient.listWebhooks(request);
-      
-      // Apply client-side filtering if needed
-      let filteredItems = response.items;
-      
-      if (!options.includeInactive) {
-        filteredItems = filteredItems.filter(webhook => webhook.status === 'Enabled');
-      }
+      console.log('📋 Listing DFNS webhooks:', request);
 
-      // Apply sorting
-      if (options.sortBy) {
-        filteredItems = this.sortWebhooks(filteredItems, options.sortBy, options.sortOrder);
-      }
+      const queryParams = new URLSearchParams();
+      if (request.limit) queryParams.append('limit', request.limit.toString());
+      if (request.paginationToken) queryParams.append('paginationToken', request.paginationToken);
 
-      return {
-        ...response,
-        items: filteredItems
-      };
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to list webhooks: ${error}`,
-        { request, options }
+      const endpoint = `/webhooks${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      const response = await this.client.makeRequest<DfnsListWebhooksResponse>(
+        'GET',
+        endpoint
       );
+
+      console.log('✅ DFNS webhooks listed:', {
+        count: response.items.length,
+        hasNextPage: !!response.nextPageToken
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to list DFNS webhooks:', error);
+      throw new DfnsError('WEBHOOK_LIST_FAILED', `Failed to list webhooks: ${error}`);
     }
   }
 
   /**
-   * Get all webhooks (handles pagination automatically)
-   */
-  async getAllWebhooks(): Promise<DfnsGetWebhookResponse[]> {
-    try {
-      const allWebhooks: DfnsGetWebhookResponse[] = [];
-      let paginationToken: string | undefined;
-
-      do {
-        const response = await this.listWebhooks({ 
-          limit: 100, 
-          paginationToken 
-        });
-        
-        allWebhooks.push(...response.items);
-        paginationToken = response.nextPageToken;
-      } while (paginationToken);
-
-      return allWebhooks;
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get all webhooks: ${error}`
-      );
-    }
-  }
-
-  /**
-   * Update a webhook
-   * Requires User Action Signing and Webhooks:Update permission
+   * Update webhook configuration with User Action Signing
+   * 
+   * @param webhookId - DFNS webhook ID
+   * @param request - Update request
+   * @param userActionToken - Optional User Action token
+   * @returns Updated webhook details
    */
   async updateWebhook(
     webhookId: string,
     request: DfnsUpdateWebhookRequest,
-    options: WebhookUpdateOptions = {}
+    userActionToken?: string
   ): Promise<DfnsUpdateWebhookResponse> {
     try {
-      this.validateWebhookId(webhookId);
-      this.validateWebhookUpdateRequest(request);
-
-      // Validate URL if being updated
-      if (request.url && this.options.validateWebhookUrls) {
-        const validation = await this.validateWebhookUrl(request.url);
-        if (!validation.isValid) {
-          throw new DfnsValidationError(
-            `Invalid webhook URL: ${validation.error}`,
-            { url: request.url, validation }
-          );
-        }
+      // Validate webhook URL if provided
+      if (request.url && this.options.validateWebhookUrls && !this.isValidWebhookUrl(request.url)) {
+        throw new DfnsError('INVALID_WEBHOOK_URL', `Invalid webhook URL format: ${request.url}`);
       }
 
-      // User Action Signing required for webhook updates
-      const userActionToken = await this.userActionService.signUserAction(
-        'UpdateWebhook',
-        { webhookId, ...request }
+      // Validate events array if provided
+      if (request.events && !this.validateWebhookEvents(request.events)) {
+        throw new DfnsError('INVALID_WEBHOOK_EVENTS', 'Invalid webhook events configuration');
+      }
+
+      console.log('🔄 Updating DFNS webhook:', {
+        webhookId,
+        updates: Object.keys(request)
+      });
+
+      const response = await this.client.makeRequest<DfnsUpdateWebhookResponse>(
+        'PUT',
+        `/webhooks/${webhookId}`,
+        request,
+        userActionToken
       );
 
-      // Update webhook via DFNS API
-      const response = await this.authClient.updateWebhook(webhookId, request, userActionToken);
+      console.log('✅ DFNS webhook updated successfully:', {
+        id: response.id,
+        status: response.status
+      });
 
-      // Database synchronization
-      if (options.syncToDatabase && this.options.enableDatabaseSync) {
-        await this.syncWebhookToDatabase(response);
-      }
-
-      // Test webhook if requested
-      if (options.testWebhook) {
-        try {
-          await this.pingWebhook(webhookId);
-        } catch (error) {
-          console.warn(`Webhook updated but ping test failed: ${error}`);
-        }
-      }
-
-      // Log activity
-      if (this.options.enableEventLogging) {
-        console.log(`Webhook updated: ${webhookId}`);
+      // Sync to database if enabled
+      if (this.options.enableDatabaseSync) {
+        await this.updateWebhookInDatabase(webhookId, response);
       }
 
       return response;
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to update webhook: ${error}`,
-        { webhookId, request, options }
-      );
+      console.error('❌ Failed to update DFNS webhook:', error);
+      
+      if (error instanceof Error && error.message.includes('not found')) {
+        throw new DfnsError('WEBHOOK_NOT_FOUND', `Webhook not found: ${webhookId}`);
+      }
+      
+      throw new DfnsError('WEBHOOK_UPDATE_FAILED', `Failed to update webhook: ${error}`);
     }
   }
 
   /**
-   * Delete a webhook
-   * Requires User Action Signing and Webhooks:Delete permission
+   * Delete webhook with User Action Signing
+   * 
+   * @param webhookId - DFNS webhook ID
+   * @param userActionToken - Optional User Action token
+   * @returns Deletion confirmation
    */
   async deleteWebhook(
     webhookId: string,
-    options: WebhookDeletionOptions = {}
+    userActionToken?: string
   ): Promise<DfnsDeleteWebhookResponse> {
     try {
-      this.validateWebhookId(webhookId);
+      console.log('🗑️ Deleting DFNS webhook:', webhookId);
 
-      // User Action Signing required for webhook deletion
-      const userActionToken = await this.userActionService.signUserAction(
-        'DeleteWebhook',
-        { webhookId }
+      const response = await this.client.makeRequest<DfnsDeleteWebhookResponse>(
+        'DELETE',
+        `/webhooks/${webhookId}`,
+        undefined,
+        userActionToken
       );
 
-      // Delete webhook via DFNS API
-      const response = await this.authClient.deleteWebhook(webhookId, userActionToken);
+      console.log('✅ DFNS webhook deleted successfully:', webhookId);
 
-      // Archive events if requested
-      if (options.archiveEvents) {
-        await this.archiveWebhookEvents(webhookId);
-      }
-
-      // Database cleanup
-      if (options.syncToDatabase && this.options.enableDatabaseSync) {
+      // Remove from database if enabled
+      if (this.options.enableDatabaseSync) {
         await this.removeWebhookFromDatabase(webhookId);
       }
 
-      // Log activity
-      if (this.options.enableEventLogging) {
-        console.log(`Webhook deleted: ${webhookId}`);
-      }
-
       return response;
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to delete webhook: ${error}`,
-        { webhookId, options }
-      );
+      console.error('❌ Failed to delete DFNS webhook:', error);
+      
+      if (error instanceof Error && error.message.includes('not found')) {
+        throw new DfnsError('WEBHOOK_NOT_FOUND', `Webhook not found: ${webhookId}`);
+      }
+      
+      throw new DfnsError('WEBHOOK_DELETE_FAILED', `Failed to delete webhook: ${error}`);
     }
   }
 
   /**
-   * Test a webhook by sending a ping
-   * Requires Webhooks:Ping permission
+   * Ping webhook to test connectivity
+   * 
+   * @param webhookId - DFNS webhook ID
+   * @returns Ping response with status
    */
-  async pingWebhook(
-    webhookId: string,
-    options: WebhookTestOptions = {}
-  ): Promise<DfnsPingWebhookResponse> {
+  async pingWebhook(webhookId: string): Promise<DfnsPingWebhookResponse> {
     try {
-      this.validateWebhookId(webhookId);
+      console.log('🔔 Pinging DFNS webhook:', webhookId);
 
-      const response = await this.authClient.pingWebhook(webhookId);
+      const response = await this.client.makeRequest<DfnsPingWebhookResponse>(
+        'POST',
+        `/webhooks/${webhookId}/ping`
+      );
 
-      // Log test result
-      if (this.options.enableEventLogging) {
-        const success = response.status === '200';
-        console.log(
-          `Webhook ping ${success ? 'successful' : 'failed'}: ${webhookId} -> ${response.status}`
-        );
-        if (!success && response.error) {
-          console.warn(`Ping error: ${response.error}`);
+      console.log('✅ DFNS webhook ping response:', {
+        webhookId,
+        status: response.status,
+        hasError: !!response.error
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ Failed to ping DFNS webhook:', error);
+      throw new DfnsError('WEBHOOK_PING_FAILED', `Failed to ping webhook: ${error}`);
+    }
+  }
+
+  // ==============================================
+  // WEBHOOK MANAGEMENT CONVENIENCE METHODS
+  // ==============================================
+
+  /**
+   * Get all webhooks for dashboard overview
+   * 
+   * @returns Array of webhook summaries
+   */
+  async getAllWebhookSummaries(): Promise<WebhookSummary[]> {
+    try {
+      const webhooks = await this.listWebhooks({ limit: 50 });
+      const summaries: WebhookSummary[] = [];
+
+      for (const webhook of webhooks.items) {
+        try {
+          const summary = await this.getWebhookSummary(webhook.id);
+          summaries.push(summary);
+        } catch (error) {
+          console.warn(`⚠️ Failed to get summary for webhook ${webhook.id}:`, error);
+          // Create basic summary from webhook data
+          summaries.push({
+            webhookId: webhook.id,
+            url: webhook.url,
+            status: webhook.status,
+            isActive: webhook.status === 'Enabled',
+            eventCount: 0,
+            eventTypes: webhook.events,
+            successfulDeliveries: 0,
+            failedDeliveries: 0,
+            description: webhook.description,
+            dateCreated: webhook.dateCreated,
+            dateUpdated: webhook.dateUpdated
+          });
         }
       }
 
-      return response;
+      return summaries;
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to ping webhook: ${error}`,
-        { webhookId, options }
-      );
+      console.error('❌ Failed to get webhook summaries:', error);
+      throw new DfnsError('WEBHOOK_SUMMARIES_FAILED', `Failed to get webhook summaries: ${error}`);
     }
   }
 
-  // =============================================================================
-  // WEBHOOK EVENT MANAGEMENT
-  // =============================================================================
-
   /**
-   * List webhook events with filtering
-   * Requires Webhooks:Events:Read permission
+   * Get comprehensive webhook summary with analytics
+   * 
+   * @param webhookId - DFNS webhook ID
+   * @returns Webhook summary with metrics
    */
-  async listWebhookEvents(
-    options: WebhookEventListOptions
-  ): Promise<DfnsListWebhookEventsResponse> {
+  async getWebhookSummary(webhookId: string): Promise<WebhookSummary> {
     try {
-      this.validateWebhookId(options.webhookId);
-
-      const request: DfnsListWebhookEventsRequest = {
-        limit: options.limit,
-        paginationToken: options.paginationToken,
-        deliveryFailed: options.deliveryFailed
+      // Get webhook details from DFNS
+      const webhook = await this.getWebhook(webhookId);
+      
+      // Get analytics from database if available
+      let analytics: {
+        eventCount: number;
+        successfulDeliveries: number;
+        failedDeliveries: number;
+        lastEventAt?: string;
+        lastSuccessfulDeliveryAt?: string;
+      } = {
+        eventCount: 0,
+        successfulDeliveries: 0,
+        failedDeliveries: 0
       };
 
-      const response = await this.authClient.listWebhookEvents(options.webhookId, request);
-      
-      // Apply client-side filtering if needed
-      let filteredItems = response.items;
-      
-      if (options.eventType) {
-        filteredItems = filteredItems.filter(event => event.kind === options.eventType);
-      }
-
-      if (options.dateFrom || options.dateTo) {
-        filteredItems = filteredItems.filter(event => {
-          const eventDate = new Date(event.date);
-          if (options.dateFrom && eventDate < new Date(options.dateFrom)) return false;
-          if (options.dateTo && eventDate > new Date(options.dateTo)) return false;
-          return true;
-        });
+      if (this.options.enableDatabaseSync) {
+        try {
+          analytics = await this.getWebhookAnalytics(webhookId);
+        } catch (error) {
+          console.warn(`⚠️ Failed to get analytics for webhook ${webhookId}:`, error);
+        }
       }
 
       return {
-        ...response,
-        items: filteredItems
+        webhookId: webhook.id,
+        url: webhook.url,
+        status: webhook.status,
+        isActive: webhook.status === 'Enabled',
+        eventTypes: webhook.events,
+        description: webhook.description,
+        dateCreated: webhook.dateCreated,
+        dateUpdated: webhook.dateUpdated,
+        ...analytics
       };
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to list webhook events: ${error}`,
-        { options }
-      );
+      console.error(`❌ Failed to get webhook summary for ${webhookId}:`, error);
+      throw new DfnsError('WEBHOOK_SUMMARY_FAILED', `Failed to get webhook summary: ${error}`);
     }
   }
 
   /**
-   * Get all webhook events (handles pagination automatically)
+   * Alias for getWebhookSummary (component compatibility)
    */
-  async getAllWebhookEvents(webhookId: string): Promise<DfnsWebhookEventResponse[]> {
-    try {
-      this.validateWebhookId(webhookId);
-
-      const allEvents: DfnsWebhookEventResponse[] = [];
-      let paginationToken: string | undefined;
-
-      do {
-        const response = await this.listWebhookEvents({
-          webhookId,
-          limit: 100,
-          paginationToken
-        });
-        
-        allEvents.push(...response.items);
-        paginationToken = response.nextPageToken;
-      } while (paginationToken);
-
-      return allEvents;
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get all webhook events: ${error}`,
-        { webhookId }
-      );
-    }
+  async getWebhooksSummary(webhookId: string): Promise<WebhookSummary> {
+    return this.getWebhookSummary(webhookId);
   }
 
   /**
-   * Get a specific webhook event by ID
-   * Requires Webhooks:Events:Read permission
+   * Get webhook events summary (alias for webhook events analytics)
    */
-  async getWebhookEvent(
+  async getWebhookEventsSummary(webhookId: string) {
+    return this.getWebhookAnalytics(webhookId);
+  }
+
+  /**
+   * Create webhook for specific events with validation
+   * 
+   * @param url - Webhook endpoint URL
+   * @param events - Array of event types to subscribe to
+   * @param description - Optional description
+   * @param userActionToken - Optional User Action token
+   * @returns Created webhook
+   */
+  async createEventWebhook(
+    url: string,
+    events: DfnsWebhookEvent[],
+    description?: string,
+    userActionToken?: string
+  ): Promise<DfnsCreateWebhookResponse> {
+    const request: DfnsCreateWebhookRequest = {
+      url,
+      events,
+      description,
+      status: 'Enabled'
+    };
+
+    return this.createWebhook(request, userActionToken, {
+      validateUrl: true,
+      testWebhook: true,
+      syncToDatabase: true
+    });
+  }
+
+  /**
+   * Toggle webhook status (enable/disable)
+   * 
+   * @param webhookId - DFNS webhook ID
+   * @param userActionToken - Optional User Action token
+   * @returns Updated webhook
+   */
+  async toggleWebhookStatus(
     webhookId: string,
-    webhookEventId: string
-  ): Promise<DfnsWebhookEventResponse> {
+    userActionToken?: string
+  ): Promise<DfnsUpdateWebhookResponse> {
     try {
-      this.validateWebhookId(webhookId);
-      this.validateWebhookEventId(webhookEventId);
+      const webhook = await this.getWebhook(webhookId);
+      const newStatus: DfnsWebhookStatus = webhook.status === 'Enabled' ? 'Disabled' : 'Enabled';
 
-      const response = await this.authClient.getWebhookEvent(webhookId, webhookEventId);
-      
-      return response;
+      return this.updateWebhook(webhookId, { status: newStatus }, userActionToken);
     } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get webhook event: ${error}`,
-        { webhookId, webhookEventId }
-      );
+      console.error(`❌ Failed to toggle webhook status for ${webhookId}:`, error);
+      throw new DfnsError('WEBHOOK_TOGGLE_FAILED', `Failed to toggle webhook status: ${error}`);
     }
   }
 
-  /**
-   * Get failed webhook events for a webhook
-   */
-  async getFailedWebhookEvents(webhookId: string): Promise<DfnsWebhookEventResponse[]> {
-    try {
-      const response = await this.listWebhookEvents({
-        webhookId,
-        deliveryFailed: true
-      });
-      
-      return response.items;
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get failed webhook events: ${error}`,
-        { webhookId }
-      );
-    }
-  }
-
-  // =============================================================================
-  // UTILITY METHODS
-  // =============================================================================
+  // ==============================================
+  // WEBHOOK VALIDATION AND SECURITY
+  // ==============================================
 
   /**
-   * Validate webhook URL
+   * Validate webhook URL format and accessibility
+   * 
+   * @param url - Webhook URL to validate
+   * @returns Validation result
    */
   async validateWebhookUrl(url: string): Promise<WebhookUrlValidation> {
-    const validation: WebhookUrlValidation = {
+    const result: WebhookUrlValidation = {
       url,
-      isValid: isValidWebhookUrl(url),
+      isValid: false,
       isReachable: false
     };
 
-    if (!validation.isValid) {
-      validation.error = 'Invalid URL format';
-      return validation;
-    }
-
-    // Optional: Test URL reachability
     try {
+      // Validate URL format
+      result.isValid = this.isValidWebhookUrl(url);
+      if (!result.isValid) {
+        result.error = 'Invalid URL format';
+        return result;
+      }
+
+      // Test URL accessibility with HEAD request
       const startTime = Date.now();
       const response = await fetch(url, {
         method: 'HEAD',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
-      
-      validation.isReachable = response.ok || response.status < 500;
-      validation.responseTime = Date.now() - startTime;
-      
-      if (!validation.isReachable) {
-        validation.error = `HTTP ${response.status}`;
+
+      result.responseTime = Date.now() - startTime;
+      result.isReachable = response.status < 500; // Accept any status except server errors
+
+      if (!result.isReachable) {
+        result.error = `Server returned ${response.status}`;
       }
     } catch (error) {
-      validation.error = `Connection failed: ${error}`;
-    }
-
-    return validation;
-  }
-
-  /**
-   * Get supported webhook events for a network
-   */
-  getSupportedEventsForNetwork(network: string): DfnsWebhookEvent[] {
-    return getSupportedWebhookEvents(network);
-  }
-
-  /**
-   * Check if network supports webhooks
-   */
-  isNetworkSupported(network: string): boolean {
-    return isWebhookSupportedNetwork(network);
-  }
-
-  /**
-   * Get webhook retention information
-   */
-  getWebhookRetentionInfo(): { days: number; description: string } {
-    return {
-      days: WEBHOOK_EVENT_RETENTION_DAYS,
-      description: `Webhook events are retained for ${WEBHOOK_EVENT_RETENTION_DAYS} days`
-    };
-  }
-
-  // =============================================================================
-  // BATCH OPERATIONS
-  // =============================================================================
-
-  /**
-   * Enable multiple webhooks
-   */
-  async enableWebhooks(webhookIds: string[]): Promise<BatchWebhookResult> {
-    return this.performBatchWebhookOperation(
-      webhookIds.map(id => ({ webhookId: id, action: 'enable' as const }))
-    );
-  }
-
-  /**
-   * Disable multiple webhooks
-   */
-  async disableWebhooks(webhookIds: string[]): Promise<BatchWebhookResult> {
-    return this.performBatchWebhookOperation(
-      webhookIds.map(id => ({ webhookId: id, action: 'disable' as const }))
-    );
-  }
-
-  /**
-   * Delete multiple webhooks
-   */
-  async deleteWebhooks(webhookIds: string[]): Promise<BatchWebhookResult> {
-    return this.performBatchWebhookOperation(
-      webhookIds.map(id => ({ webhookId: id, action: 'delete' as const }))
-    );
-  }
-
-  /**
-   * Ping multiple webhooks
-   */
-  async pingWebhooks(webhookIds: string[]): Promise<BatchWebhookResult> {
-    return this.performBatchWebhookOperation(
-      webhookIds.map(id => ({ webhookId: id, action: 'ping' as const }))
-    );
-  }
-
-  // =============================================================================
-  // DASHBOARD ANALYTICS
-  // =============================================================================
-
-  /**
-   * Get webhook summaries for dashboard
-   */
-  async getWebhooksSummary(): Promise<WebhookSummary[]> {
-    try {
-      const webhooks = await this.getAllWebhooks();
-      
-      const summaries: WebhookSummary[] = [];
-      
-      for (const webhook of webhooks) {
-        const events = await this.getAllWebhookEvents(webhook.id);
-        
-        const successfulDeliveries = events.filter(e => !e.deliveryFailed).length;
-        const failedDeliveries = events.filter(e => e.deliveryFailed).length;
-        const lastEvent = events.sort((a, b) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        )[0];
-        const lastSuccessfulEvent = events
-          .filter(e => !e.deliveryFailed)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
-        summaries.push({
-          webhookId: webhook.id,
-          url: webhook.url,
-          status: webhook.status,
-          isActive: webhook.status === 'Enabled',
-          eventCount: events.length,
-          eventTypes: webhook.events,
-          successfulDeliveries,
-          failedDeliveries,
-          lastEventAt: lastEvent?.date,
-          lastSuccessfulDeliveryAt: lastSuccessfulEvent?.date,
-          description: webhook.description,
-          dateCreated: webhook.dateCreated,
-          dateUpdated: webhook.dateUpdated
-        });
-      }
-      
-      return summaries;
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get webhooks summary: ${error}`
-      );
-    }
-  }
-
-  /**
-   * Get webhook event summaries for dashboard
-   */
-  async getWebhookEventsSummary(webhookId: string): Promise<WebhookEventSummary[]> {
-    try {
-      const events = await this.getAllWebhookEvents(webhookId);
-      
-      return events.map(event => ({
-        eventId: event.id,
-        webhookId,
-        eventType: event.kind,
-        deliveryStatus: event.deliveryFailed 
-          ? (event.nextAttemptDate ? 'retrying' : 'failed')
-          : 'delivered',
-        deliveryAttempts: event.deliveryAttempt,
-        responseStatus: event.status,
-        lastAttemptAt: new Date(event.timestampSent * 1000).toISOString(),
-        nextAttemptAt: event.nextAttemptDate,
-        eventDate: event.date,
-        hasError: !!event.error,
-        error: event.error
-      }));
-    } catch (error) {
-      throw new DfnsWebhookError(
-        `Failed to get webhook events summary: ${error}`,
-        { webhookId }
-      );
-    }
-  }
-
-  // =============================================================================
-  // PRIVATE HELPER METHODS
-  // =============================================================================
-
-  private validateWebhookId(webhookId: string): void {
-    if (!webhookId || typeof webhookId !== 'string') {
-      throw new DfnsValidationError('Invalid webhook ID', { webhookId });
-    }
-  }
-
-  private validateWebhookEventId(webhookEventId: string): void {
-    if (!webhookEventId || typeof webhookEventId !== 'string') {
-      throw new DfnsValidationError('Invalid webhook event ID', { webhookEventId });
-    }
-  }
-
-  private validateWebhookCreationRequest(request: DfnsCreateWebhookRequest): void {
-    if (!request.url || !isValidWebhookUrl(request.url)) {
-      throw new DfnsValidationError('Invalid webhook URL', { url: request.url });
-    }
-
-    if (!validateWebhookEvents(request.events)) {
-      throw new DfnsValidationError('Invalid webhook events', { events: request.events });
-    }
-
-    if (request.status && !['Enabled', 'Disabled'].includes(request.status)) {
-      throw new DfnsValidationError('Invalid webhook status', { status: request.status });
-    }
-  }
-
-  private validateWebhookUpdateRequest(request: DfnsUpdateWebhookRequest): void {
-    if (request.url && !isValidWebhookUrl(request.url)) {
-      throw new DfnsValidationError('Invalid webhook URL', { url: request.url });
-    }
-
-    if (request.events && !validateWebhookEvents(request.events)) {
-      throw new DfnsValidationError('Invalid webhook events', { events: request.events });
-    }
-
-    if (request.status && !['Enabled', 'Disabled'].includes(request.status)) {
-      throw new DfnsValidationError('Invalid webhook status', { status: request.status });
-    }
-  }
-
-  private sortWebhooks(
-    webhooks: DfnsGetWebhookResponse[],
-    sortBy: string,
-    sortOrder: 'asc' | 'desc' = 'asc'
-  ): DfnsGetWebhookResponse[] {
-    return webhooks.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortBy) {
-        case 'name':
-          // Webhooks don't have names in the API, sort by URL
-          comparison = a.url.localeCompare(b.url);
-          break;
-        case 'createdAt':
-          comparison = new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
-          break;
-        case 'status':
-          comparison = a.status.localeCompare(b.status);
-          break;
-        case 'url':
-          comparison = a.url.localeCompare(b.url);
-          break;
-        default:
-          return 0;
-      }
-      
-      return sortOrder === 'desc' ? -comparison : comparison;
-    });
-  }
-
-  private async performBatchWebhookOperation(
-    operations: BatchWebhookOperation[]
-  ): Promise<BatchWebhookResult> {
-    const result: BatchWebhookResult = {
-      successful: [],
-      failed: []
-    };
-
-    for (const operation of operations) {
-      try {
-        switch (operation.action) {
-          case 'enable':
-            await this.updateWebhook(operation.webhookId, { status: 'Enabled' });
-            break;
-          case 'disable':
-            await this.updateWebhook(operation.webhookId, { status: 'Disabled' });
-            break;
-          case 'delete':
-            await this.deleteWebhook(operation.webhookId);
-            break;
-          case 'ping':
-            await this.pingWebhook(operation.webhookId);
-            break;
-        }
-        
-        result.successful.push(operation.webhookId);
-      } catch (error) {
-        result.failed.push({
-          webhookId: operation.webhookId,
-          error: String(error)
-        });
-      }
+      result.error = error instanceof Error ? error.message : 'Network error';
     }
 
     return result;
   }
 
-  // Database synchronization methods (implement as needed)
-  private async syncWebhookToDatabase(webhook: DfnsCreateWebhookResponse | DfnsUpdateWebhookResponse): Promise<void> {
-    // TODO: Implement database synchronization
-    // This would sync the webhook to the dfns_webhooks table
-    console.log(`TODO: Sync webhook to database: ${webhook.id}`);
+  /**
+   * Verify DFNS webhook signature
+   * 
+   * @param payload - Raw webhook payload
+   * @param signature - X-DFNS-WEBHOOK-SIGNATURE header value
+   * @param secret - Webhook secret from creation
+   * @returns Signature verification result
+   */
+  async verifyWebhookSignature(
+    payload: string,
+    signature: string,
+    secret: string
+  ): Promise<WebhookSignatureVerification> {
+    try {
+      const crypto = await import('crypto');
+      
+      // Parse timestamp from payload
+      const payloadObj = JSON.parse(payload);
+      const timestamp = payloadObj.timestampSent || Date.now() / 1000;
+
+      // Generate expected signature
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+
+      const expectedSig = `sha256=${expectedSignature}`;
+      
+      // Constant-time comparison
+      const isValid = crypto.timingSafeEqual(
+        Buffer.from(signature, 'ascii'),
+        Buffer.from(expectedSig, 'ascii')
+      );
+
+      // Check for replay attacks (5 minute tolerance)
+      const now = Date.now() / 1000;
+      const timeDiff = Math.abs(now - timestamp);
+      const isTimestampValid = timeDiff < 300; // 5 minutes
+
+      return {
+        isValid: isValid && isTimestampValid,
+        timestamp,
+        signature,
+        payload,
+        secret: '***' // Don't return actual secret
+      };
+    } catch (error) {
+      console.error('❌ Failed to verify webhook signature:', error);
+      return {
+        isValid: false,
+        timestamp: 0,
+        signature,
+        payload,
+        secret: '***'
+      };
+    }
   }
 
+  // ==============================================
+  // DATABASE SYNCHRONIZATION
+  // ==============================================
+
+  /**
+   * Sync webhook to local database
+   */
+  private async syncWebhookToDatabase(webhook: DfnsCreateWebhookResponse): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('dfns_webhooks')
+        .upsert({
+          webhook_id: webhook.id,
+          name: webhook.description || webhook.url,
+          url: webhook.url,
+          description: webhook.description,
+          events: webhook.events,
+          status: webhook.status === 'Enabled' ? 'Active' : 'Inactive',
+          secret: webhook.secret,
+          dfns_webhook_id: webhook.id,
+          created_at: webhook.dateCreated,
+          updated_at: webhook.dateUpdated
+        });
+
+      if (error) {
+        console.error('❌ Failed to sync webhook to database:', error);
+      } else {
+        console.log('✅ Webhook synced to database successfully');
+      }
+    } catch (error) {
+      console.error('❌ Database sync error:', error);
+    }
+  }
+
+  /**
+   * Update webhook in database
+   */
+  private async updateWebhookInDatabase(
+    webhookId: string,
+    webhook: DfnsUpdateWebhookResponse
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('dfns_webhooks')
+        .update({
+          url: webhook.url,
+          description: webhook.description,
+          events: webhook.events,
+          status: webhook.status === 'Enabled' ? 'Active' : 'Inactive',
+          updated_at: webhook.dateUpdated
+        })
+        .eq('dfns_webhook_id', webhookId);
+
+      if (error) {
+        console.error('❌ Failed to update webhook in database:', error);
+      }
+    } catch (error) {
+      console.error('❌ Database update error:', error);
+    }
+  }
+
+  /**
+   * Remove webhook from database
+   */
   private async removeWebhookFromDatabase(webhookId: string): Promise<void> {
-    // TODO: Implement database cleanup
-    // This would remove/archive the webhook from the dfns_webhooks table
-    console.log(`TODO: Remove webhook from database: ${webhookId}`);
+    try {
+      const { error } = await supabase
+        .from('dfns_webhooks')
+        .delete()
+        .eq('dfns_webhook_id', webhookId);
+
+      if (error) {
+        console.error('❌ Failed to remove webhook from database:', error);
+      }
+    } catch (error) {
+      console.error('❌ Database removal error:', error);
+    }
   }
 
-  private async archiveWebhookEvents(webhookId: string): Promise<void> {
-    // TODO: Implement event archival
-    // This would archive webhook events from the dfns_webhook_deliveries table
-    console.log(`TODO: Archive webhook events: ${webhookId}`);
+  /**
+   * Get webhook analytics from database
+   */
+  private async getWebhookAnalytics(webhookId: string): Promise<{
+    eventCount: number;
+    successfulDeliveries: number;
+    failedDeliveries: number;
+    lastEventAt?: string;
+    lastSuccessfulDeliveryAt?: string;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('dfns_webhook_deliveries')
+        .select('*')
+        .eq('webhook_id', webhookId);
+
+      if (error) {
+        throw error;
+      }
+
+      const events = data || [];
+      const successful = events.filter(e => e.status === 'Delivered');
+      const failed = events.filter(e => e.status === 'Failed');
+
+      return {
+        eventCount: events.length,
+        successfulDeliveries: successful.length,
+        failedDeliveries: failed.length,
+        lastEventAt: events.length > 0 ? events[0].created_at : undefined,
+        lastSuccessfulDeliveryAt: successful.length > 0 ? successful[0].delivered_at : undefined
+      };
+    } catch (error) {
+      console.error('❌ Failed to get webhook analytics:', error);
+      return {
+        eventCount: 0,
+        successfulDeliveries: 0,
+        failedDeliveries: 0
+      };
+    }
+  }
+
+  // ==============================================
+  // VALIDATION HELPERS
+  // ==============================================
+
+  /**
+   * Validate webhook URL format
+   */
+  private isValidWebhookUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Validate webhook events array
+   */
+  private validateWebhookEvents(events: (DfnsWebhookEvent | '*')[]): boolean {
+    if (!Array.isArray(events) || events.length === 0) {
+      return false;
+    }
+    
+    // If contains '*', it should be the only element
+    if (events.includes('*')) {
+      return events.length === 1;
+    }
+    
+    return true;
   }
 }
+
+/**
+ * Factory function to create DfnsWebhookService instance
+ */
+export function getDfnsWebhookService(
+  client: WorkingDfnsClient,
+  options?: WebhookServiceOptions
+): DfnsWebhookService {
+  return new DfnsWebhookService(client, options);
+}
+
+export default DfnsWebhookService;

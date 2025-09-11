@@ -140,6 +140,7 @@ export type DfnsNetwork =
   | 'Cosmos'
   | 'Near'
   | 'Binance'
+  | 'BnbSmartChain' // Fix: Add missing network
   | 'Stellar'
   | 'Algorand'
   | 'Cardano'
@@ -153,6 +154,9 @@ export type DfnsNetwork =
   | 'Tron'
   | 'XrpLedger'
   | 'Hedera'
+  | 'Fantom' // Fix: Add missing network
+  | 'Tezos' // Fix: Add missing network
+  | 'Iota' // Fix: Add missing network
   | 'KeyECDSA'
   | 'KeyECDSAStark'
   | 'KeyEdDSA'

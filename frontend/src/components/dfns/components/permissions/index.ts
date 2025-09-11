@@ -1,9 +1,8 @@
-/**
- * DFNS Permissions Components
- * 
- * Components for managing DFNS permissions and access control
- */
+// DFNS Permissions Component Exports
+// This file provides a central export point for all permissions-related components
 
 export { PermissionManager } from './permission-manager';
-export { PermissionAssignment } from './permission-assignment';
-export { RoleTemplates } from './role-templates';
+
+// TODO: Add additional permission components as they are implemented
+// export { PermissionAssignment } from './permission-assignment';
+// export { RoleTemplates } from './role-templates';

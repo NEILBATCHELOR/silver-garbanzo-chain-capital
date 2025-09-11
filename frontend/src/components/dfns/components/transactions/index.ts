@@ -1,15 +1,8 @@
-/**
- * DFNS Transaction Components
- * 
- * This module exports all transaction-related components for the DFNS dashboard.
- * These components handle transaction history, details, and broadcasting across multiple networks.
- */
+// DFNS Transactions Component Exports
+// This file provides a central export point for all transaction-related components
 
-// Transaction History and Management
 export { TransactionList } from './transaction-list';
 
-// Transaction Details Viewer
-export { TransactionDetails } from './transaction-details';
-
-// Transaction Broadcasting
-export { BroadcastDialog } from './broadcast-dialog';
+// TODO: Add additional transaction components as they are implemented
+// export { TransactionDetails } from './transaction-details';
+// export { BroadcastDialog } from './broadcast-dialog';

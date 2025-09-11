@@ -1,213 +1,44 @@
 /**
- * DFNS Keys API Types
+ * DFNS Keys API - Extended Types & Integration
  * 
- * Complete TypeScript type definitions for DFNS Keys API
- * Supports multichain key management and delegated signing
+ * This file extends the core Keys API types with additional functionality:
+ * - Signature generation integration
+ * - Database mappings  
+ * - UI component props
+ * - Service layer extensions
+ * 
+ * Core Keys API types are imported from './key.ts'
  */
+
+// Import core Keys API types from focused implementation
+export * from './key';
+import type {
+  Key,
+  KeyScheme, 
+  KeyCurve,
+  KeyStatus,
+  CreateKeyRequest,
+  UpdateKeyRequest,
+  DelegateKeyRequest,
+  ListKeysResponse,
+  KeyFormat,
+  KeyStatistics
+} from './key';
 
 // ===============================
-// Core Key Types
-// ===============================
-
-/**
- * Supported key schemes in DFNS
- */
-export type DfnsKeyScheme = 'ECDSA' | 'EdDSA' | 'Schnorr';
-
-/**
- * Supported key curves for each scheme
- */
-export type DfnsKeyCurve = 'secp256k1' | 'ed25519' | 'stark';
-
-/**
- * Key status values
- */
-export type DfnsKeyStatus = 'Active' | 'Archived';
-
-/**
- * Key store types
- */
-export type DfnsKeyStoreKind = 'Mpc' | 'Hsm';
-
-/**
- * Core DFNS Key entity
- */
-export interface DfnsKey {
-  /** Unique identifier of the key */
-  id: string;
-  /** Key name (optional) */
-  name?: string;
-  /** Key scheme (ECDSA, EdDSA, Schnorr) */
-  scheme: DfnsKeyScheme;
-  /** Key curve (secp256k1, ed25519, stark) */
-  curve: DfnsKeyCurve;
-  /** Hex-encoded public key */
-  publicKey: string;
-  /** Key status */
-  status: DfnsKeyStatus;
-  /** Whether key is custodial (org-owned) or non-custodial (user-owned) */
-  custodial: boolean;
-  /** ISO 8601 date when key was created */
-  dateCreated: string;
-  /** True if key was imported from external source */
-  imported?: boolean;
-  /** True if key was exported at least once */
-  exported?: boolean;
-  /** ISO 8601 date when key was first exported */
-  dateExported?: string;
-  /** End user ID if key is delegated */
-  delegatedTo?: string;
-}
-
-/**
- * Wallet information associated with a key
- */
-export interface DfnsKeyWalletInfo {
-  /** Wallet ID */
-  id: string;
-  /** Blockchain network */
-  network: string;
-}
-
-/**
- * Key store information
- */
-export interface DfnsKeyStoreInfo {
-  /** Type of key store */
-  kind: DfnsKeyStoreKind;
-  /** Internal key identifier for Layer 4 backup */
-  keyId: string;
-}
-
-/**
- * Enhanced key entity with associated wallets and store info
- */
-export interface DfnsKeyWithDetails extends DfnsKey {
-  /** List of wallets using this key */
-  wallets: DfnsKeyWalletInfo[];
-  /** Key store information */
-  store: DfnsKeyStoreInfo;
-}
-
-// ===============================
-// Create Key API
+// Extended Service Layer Types
 // ===============================
 
 /**
- * Request to create a new key
+ * Extended key creation options with UI/service features
  */
-export interface DfnsCreateKeyRequest {
-  /** Key scheme */
-  scheme: DfnsKeyScheme;
-  /** Key curve compatible with chosen scheme */
-  curve: DfnsKeyCurve;
-  /** Optional name for the key */
-  name?: string;
-  /** ID of end user to delegate key to upon creation */
-  delegateTo?: string;
-  /** Create key for later delegation (requires delayDelegation: true) */
-  delayDelegation?: boolean;
-}
-
-/**
- * Response from creating a key
- */
-export interface DfnsCreateKeyResponse extends DfnsKey {}
-
-// ===============================
-// Update Key API
-// ===============================
-
-/**
- * Request to update a key
- */
-export interface DfnsUpdateKeyRequest {
-  /** New name for the key */
-  name: string;
-}
-
-/**
- * Response from updating a key
- */
-export interface DfnsUpdateKeyResponse extends DfnsKey {}
-
-// ===============================
-// Delete Key API
-// ===============================
-
-/**
- * Response from deleting a key (no request body)
- */
-export interface DfnsDeleteKeyResponse extends DfnsKey {
-  /** Status will be 'Archived' after deletion */
-  status: 'Archived';
-}
-
-// ===============================
-// Get Key API
-// ===============================
-
-/**
- * Response from getting a key by ID
- */
-export interface DfnsGetKeyResponse extends DfnsKeyWithDetails {}
-
-// ===============================
-// List Keys API
-// ===============================
-
-/**
- * Request parameters for listing keys
- */
-export interface DfnsListKeysRequest {
-  /** Get delegated keys owned by specific user (userId or username) */
-  owner?: string;
-  /** Maximum number of items to return (default: 100) */
-  limit?: number;
-  /** Pagination token from previous request */
-  paginationToken?: string;
-}
-
-/**
- * Response from listing keys
- */
-export interface DfnsListKeysResponse {
-  /** Array of keys */
-  items: DfnsKey[];
-  /** Token for next page of results */
-  nextPageToken?: string;
-}
-
-// ===============================
-// Delegate Key API
-// ===============================
-
-/**
- * Request to delegate a key to an end user
- */
-export interface DfnsDelegateKeyRequest {
-  /** ID of the end user to delegate the key to */
-  userId: string;
-}
-
-/**
- * Response from delegating a key
- */
-export interface DfnsDelegateKeyResponse {
-  /** Key ID that was delegated */
-  keyId: string;
-  /** Status of the delegation operation */
-  status: 'Delegated';
-}
-
-// ===============================
-// Service Layer Types
-// ===============================
-
-/**
- * Options for key service operations
- */
-export interface DfnsKeyServiceOptions {
+export interface ExtendedKeyCreationOptions {
+  /** Auto-create wallets for specified networks */
+  autoCreateWallets?: string[];
+  /** Tags to apply to created wallets */
+  walletTags?: string[];
+  /** External ID for tracking */
+  externalId?: string;
   /** Sync operation to database */
   syncToDatabase?: boolean;
   /** Auto-activate after creation */
@@ -219,29 +50,17 @@ export interface DfnsKeyServiceOptions {
 }
 
 /**
- * Key creation options with enhanced features
+ * Enhanced key summary for dashboard display
  */
-export interface DfnsCreateKeyOptions extends DfnsKeyServiceOptions {
-  /** Auto-create wallets for specified networks */
-  autoCreateWallets?: string[];
-  /** Tags to apply to created wallets */
-  walletTags?: string[];
-  /** External ID for tracking */
-  externalId?: string;
-}
-
-/**
- * Key summary for dashboard display
- */
-export interface DfnsKeySummary {
+export interface KeySummaryForDashboard {
   /** Key ID */
   keyId: string;
   /** Key name */
   name?: string;
   /** Key scheme */
-  scheme: DfnsKeyScheme;
+  scheme: KeyScheme;
   /** Key curve */
-  curve: DfnsKeyCurve;
+  curve: KeyCurve;
   /** Network compatibility count */
   compatibleNetworks: number;
   /** Associated wallet count */
@@ -263,44 +82,23 @@ export interface DfnsKeySummary {
 }
 
 /**
- * Batch operation result
+ * Batch operation result for keys
  */
-export interface DfnsKeyBatchResult<T> {
+export interface KeyBatchOperationResult<T> {
   /** Successfully processed items */
   successful: T[];
   /** Failed items with error details */
   failed: Array<{
     keyId: string;
     error: string;
+    details?: any;
   }>;
-}
-
-/**
- * Network compatibility information
- */
-export interface DfnsNetworkCompatibility {
-  /** Network name */
-  network: string;
-  /** Whether network supports this key scheme/curve */
-  compatible: boolean;
-  /** Supported schemes for this network */
-  supportedSchemes: DfnsKeyScheme[];
-  /** Supported curves for this network */
-  supportedCurves: DfnsKeyCurve[];
-}
-
-/**
- * Key validation result
- */
-export interface DfnsKeyValidation {
-  /** Whether key is valid */
-  isValid: boolean;
-  /** Validation errors */
-  errors: string[];
-  /** Warnings */
-  warnings: string[];
-  /** Network compatibility */
-  networkCompatibility: DfnsNetworkCompatibility[];
+  /** Total operations attempted */
+  total: number;
+  /** Success count */
+  successCount: number;
+  /** Failure count */
+  failureCount: number;
 }
 
 // ===============================
@@ -308,45 +106,31 @@ export interface DfnsKeyValidation {
 // ===============================
 
 /**
- * Database representation of DFNS key
- * Maps to dfns_signing_keys table
+ * Database representation of DFNS key (Supabase schema)
+ * Maps to dfns_keys table
  */
-export interface DfnsKeyDatabaseRecord {
+export interface KeyDatabaseRecord {
   id: string;
-  key_id: string;
-  public_key: string;
-  network: string;
-  curve: string;
+  dfns_key_id: string;
+  name?: string;
   scheme: string;
+  curve: string;
+  public_key: string;
   status: string;
-  delegated: boolean;
-  delegated_to?: string;
-  external_id?: string;
-  tags?: string[];
+  custodial: boolean;
   imported: boolean;
   exported: boolean;
   date_exported?: string;
+  delegated_to?: string;
+  store_kind?: string;
+  store_key_id?: string;
+  wallet_count: number;
   organization_id?: string;
-  dfns_key_id: string;
+  external_id?: string;
+  tags?: string[];
+  date_created: string;
   created_at: string;
   updated_at: string;
-  name?: string;
-}
-
-// ===============================
-// Error Types
-// ===============================
-
-/**
- * Key-specific error context
- */
-export interface DfnsKeyErrorContext {
-  keyId?: string;
-  scheme?: DfnsKeyScheme;
-  curve?: DfnsKeyCurve;
-  operation?: string;
-  network?: string;
-  userId?: string;
 }
 
 // ===============================
@@ -354,61 +138,109 @@ export interface DfnsKeyErrorContext {
 // ===============================
 
 /**
- * Props for key creation form
+ * Props for key creation form component
  */
-export interface DfnsKeyCreationFormProps {
+export interface KeyCreationFormProps {
   /** Callback when key is created */
-  onKeyCreated?: (key: DfnsKey) => void;
+  onKeyCreated?: (key: Key) => void;
   /** Initial scheme selection */
-  defaultScheme?: DfnsKeyScheme;
+  defaultScheme?: KeyScheme;
   /** Initial curve selection */
-  defaultCurve?: DfnsKeyCurve;
+  defaultCurve?: KeyCurve;
   /** Whether to show advanced options */
   showAdvancedOptions?: boolean;
   /** Available networks for wallet creation */
   availableNetworks?: string[];
   /** Whether form is disabled */
   disabled?: boolean;
+  /** Loading state */
+  loading?: boolean;
 }
 
 /**
  * Props for key management dashboard
  */
-export interface DfnsKeyManagementProps {
+export interface KeyManagementDashboardProps {
   /** Optional user ID to filter delegated keys */
   userId?: string;
   /** Callback when key is selected */
-  onKeySelected?: (key: DfnsKey) => void;
+  onKeySelected?: (key: Key) => void;
   /** Whether to show delegation controls */
   showDelegationControls?: boolean;
   /** Whether to show multichain features */
   showMultichainFeatures?: boolean;
+  /** Current page for pagination */
+  currentPage?: number;
+  /** Items per page */
+  itemsPerPage?: number;
 }
 
 /**
  * Props for key delegation dialog
  */
-export interface DfnsKeyDelegationProps {
+export interface KeyDelegationDialogProps {
   /** Key to delegate */
   keyId: string;
   /** Current key details */
-  keyDetails?: DfnsKey;
+  keyDetails?: Key;
   /** Available users for delegation */
   availableUsers?: Array<{ id: string; name: string; email: string }>;
   /** Callback when delegation is complete */
-  onDelegationComplete?: (result: DfnsDelegateKeyResponse) => void;
+  onDelegationComplete?: (key: Key) => void;
   /** Callback when dialog is cancelled */
   onCancel?: () => void;
+  /** Whether dialog is open */
+  open?: boolean;
+  /** Loading state */
+  loading?: boolean;
+}
+
+/**
+ * Props for key list component
+ */
+export interface KeyListProps {
+  /** Keys to display */
+  keys: Key[];
+  /** Loading state */
+  loading?: boolean;
+  /** Error state */
+  error?: string;
+  /** Callback when key is selected */
+  onKeySelect?: (key: Key) => void;
+  /** Callback when key is deleted */
+  onKeyDelete?: (keyId: string) => void;
+  /** Callback when key is delegated */
+  onKeyDelegate?: (keyId: string, userId: string) => void;
+  /** Whether to show actions */
+  showActions?: boolean;
+  /** Whether user can delete keys */
+  canDelete?: boolean;
+  /** Whether user can delegate keys */
+  canDelegate?: boolean;
+}
+
+/**
+ * Props for key statistics card
+ */
+export interface KeyStatisticsCardProps {
+  /** Key statistics */
+  statistics: KeyStatistics;
+  /** Loading state */
+  loading?: boolean;
+  /** Callback when card is clicked */
+  onClick?: () => void;
+  /** Card variant */
+  variant?: 'default' | 'compact' | 'detailed';
 }
 
 // ===============================
-// Keys Signature Generation APIs
+// Keys Signature Generation Types
 // ===============================
 
 /**
  * Blockchain kinds for signature generation
  */
-export type DfnsBlockchainKind = 
+export type BlockchainKind = 
   | 'Evm'
   | 'Bitcoin' 
   | 'Solana'
@@ -424,9 +256,9 @@ export type DfnsBlockchainKind =
   | 'Sui';
 
 /**
- * Signature kinds supported by DFNS
+ * Signature kinds supported by DFNS Keys API
  */
-export type DfnsSignatureKind = 
+export type SignatureKind = 
   | 'Transaction'   // Raw transaction signing
   | 'Hash'          // Hash signing  
   | 'Message'       // Message signing
@@ -437,16 +269,16 @@ export type DfnsSignatureKind =
 /**
  * Signature status values
  */
-export type DfnsSignatureStatus = 'Pending' | 'Signed' | 'Failed' | 'Cancelled';
+export type SignatureStatus = 'Pending' | 'Signed' | 'Failed' | 'Cancelled';
 
 /**
  * Request to generate a signature with a key
  */
-export interface DfnsGenerateSignatureRequest {
+export interface GenerateSignatureRequest {
   /** Blockchain hint for interpreting data format */
-  blockchainKind?: DfnsBlockchainKind;
+  blockchainKind?: BlockchainKind;
   /** Type of signature to generate */
-  kind: DfnsSignatureKind;
+  kind: SignatureKind;
   /** Raw transaction hex (for Transaction kind) */
   transaction?: string;
   /** Hash to sign (for Hash kind) */
@@ -466,7 +298,7 @@ export interface DfnsGenerateSignatureRequest {
 /**
  * Signature data returned from DFNS
  */
-export interface DfnsSignatureData {
+export interface SignatureData {
   /** R component of signature */
   r: string;
   /** S component of signature */
@@ -480,79 +312,30 @@ export interface DfnsSignatureData {
 }
 
 /**
- * Request requester information
- */
-export interface DfnsRequester {
-  /** User ID */
-  userId?: string;
-  /** Token ID (for PAT requests) */
-  tokenId?: string;
-  /** Application ID */
-  appId: string;
-  /** IP address */
-  clientIp?: string;
-}
-
-/**
  * Response from generating a signature
  */
-export interface DfnsGenerateSignatureResponse {
+export interface GenerateSignatureResponse {
   /** Unique signature request ID */
   id: string;
   /** Key ID used for signing */
   keyId: string;
   /** Blockchain network context */
   network?: string;
-  /** Request metadata */
-  requester: DfnsRequester;
   /** Original request body */
-  requestBody: DfnsGenerateSignatureRequest;
+  requestBody: GenerateSignatureRequest;
   /** Current status */
-  status: DfnsSignatureStatus;
+  status: SignatureStatus;
   /** Signature data (if signed) */
-  signature?: DfnsSignatureData;
+  signature?: SignatureData;
   /** Signed data (encoded result) */
   signedData?: string;
   /** ISO 8601 date when request was made */
   dateRequested: string;
   /** ISO 8601 date when signature was completed */
   dateSigned?: string;
-  /** ISO 8601 date when request was cancelled */
-  dateCancelled?: string;
   /** Error message if failed */
   error?: string;
 }
-
-/**
- * Request parameters for listing signature requests
- */
-export interface DfnsListSignatureRequestsRequest {
-  /** Maximum number of items to return */
-  limit?: number;
-  /** Pagination token from previous request */
-  paginationToken?: string;
-  /** Filter by signature status */
-  status?: DfnsSignatureStatus;
-  /** Filter by blockchain kind */
-  blockchainKind?: DfnsBlockchainKind;
-  /** Filter by signature kind */
-  kind?: DfnsSignatureKind;
-}
-
-/**
- * Response from listing signature requests
- */
-export interface DfnsListSignatureRequestsResponse {
-  /** Array of signature requests */
-  items: DfnsGenerateSignatureResponse[];
-  /** Token for next page of results */
-  nextPageToken?: string;
-}
-
-/**
- * Response from getting a signature request by ID
- */
-export interface DfnsGetSignatureRequestResponse extends DfnsGenerateSignatureResponse {}
 
 // ===============================
 // Network-Specific Signature Types
@@ -561,161 +344,61 @@ export interface DfnsGetSignatureRequestResponse extends DfnsGenerateSignatureRe
 /**
  * EVM-specific signature request
  */
-export interface DfnsEvmSignatureRequest {
-  /** Always 'Evm' for EVM chains */
+export interface EvmSignatureRequest extends GenerateSignatureRequest {
   blockchainKind: 'Evm';
-  /** Transaction, Hash, Message, or Eip712 */
   kind: 'Transaction' | 'Hash' | 'Message' | 'Eip712';
-  /** Unsigned transaction hex (for Transaction) */
-  transaction?: string;
-  /** Hash to sign (for Hash) */
-  hash?: string;
-  /** Message to sign (for Message) */
-  message?: string;
-  /** EIP-712 types (for Eip712) */
-  types?: Record<string, Array<{ name: string; type: string }>>;
-  /** EIP-712 domain (for Eip712) */
-  domain?: {
-    name?: string;
-    version?: string;
-    chainId?: number;
-    verifyingContract?: string;
-  };
-  /** EIP-712 message data (for Eip712) */
-  data?: Record<string, any>;
-  /** External ID for tracking */
-  externalId?: string;
 }
 
 /**
  * Bitcoin-specific signature request
  */
-export interface DfnsBitcoinSignatureRequest {
-  /** Always 'Bitcoin' for Bitcoin/Litecoin */
+export interface BitcoinSignatureRequest extends GenerateSignatureRequest {
   blockchainKind: 'Bitcoin';
-  /** Psbt, Hash, or Bip322 */
   kind: 'Psbt' | 'Hash' | 'Bip322';
-  /** PSBT hex (for Psbt) */
-  psbt?: string;
-  /** Hash to sign (for Hash) */
-  hash?: string;
-  /** Message for BIP-322 signing (for Bip322) */
-  message?: string;
-  /** External ID for tracking */
-  externalId?: string;
 }
 
 /**
  * Solana-specific signature request
  */
-export interface DfnsSolanaSignatureRequest {
-  /** Always 'Solana' for Solana network */
+export interface SolanaSignatureRequest extends GenerateSignatureRequest {
   blockchainKind: 'Solana';
-  /** Transaction, Hash, or Message */
   kind: 'Transaction' | 'Hash' | 'Message';
-  /** Unsigned transaction hex (for Transaction) */
-  transaction?: string;
-  /** Hash to sign (for Hash) */
-  hash?: string;
-  /** Message to sign (for Message) */
-  message?: string;
-  /** External ID for tracking */
-  externalId?: string;
-}
-
-/**
- * XRP Ledger-specific signature request
- */
-export interface DfnsXrpLedgerSignatureRequest {
-  /** Always 'XrpLedger' for XRP Ledger */
-  blockchainKind: 'XrpLedger';
-  /** Transaction, Hash, or Message */
-  kind: 'Transaction' | 'Hash' | 'Message';
-  /** Unsigned transaction hex (for Transaction) */
-  transaction?: string;
-  /** Hash to sign (for Hash) */
-  hash?: string;
-  /** Message to sign (for Message) */
-  message?: string;
-  /** External ID for tracking */
-  externalId?: string;
 }
 
 // ===============================
-// Service Layer Signature Types
+// Validation & Utility Types
 // ===============================
 
 /**
- * Options for signature generation operations
+ * Key validation result with detailed feedback
  */
-export interface DfnsSignatureServiceOptions {
-  /** Sync operation to database */
-  syncToDatabase?: boolean;
-  /** Wait for signature completion */
-  waitForCompletion?: boolean;
-  /** Timeout for waiting (milliseconds) */
-  timeout?: number;
-  /** Auto-retry failed signatures */
-  autoRetry?: boolean;
-  /** Maximum retry attempts */
-  maxRetries?: number;
-}
-
-/**
- * Signature summary for dashboard display
- */
-export interface DfnsSignatureSummary {
-  /** Signature request ID */
-  signatureId: string;
-  /** Key ID used */
-  keyId: string;
-  /** Blockchain kind */
-  blockchainKind?: DfnsBlockchainKind;
-  /** Signature kind */
-  kind: DfnsSignatureKind;
-  /** Network context */
-  network?: string;
-  /** Current status */
-  status: DfnsSignatureStatus;
-  /** Whether signature is completed */
-  isCompleted: boolean;
-  /** Whether signature is pending */
-  isPending: boolean;
-  /** Whether signature failed */
-  isFailed: boolean;
-  /** Request date */
-  dateRequested: string;
-  /** Completion date */
-  dateSigned?: string;
-  /** External ID */
-  externalId?: string;
-  /** Error message if failed */
-  error?: string;
-}
-
-/**
- * Batch signature operation result
- */
-export interface DfnsSignatureBatchResult<T> {
-  /** Successfully processed signatures */
-  successful: T[];
-  /** Failed signatures with error details */
-  failed: Array<{
-    signatureId: string;
-    error: string;
+export interface KeyValidationResult {
+  /** Whether key is valid */
+  isValid: boolean;
+  /** Validation errors */
+  errors: string[];
+  /** Warnings */
+  warnings: string[];
+  /** Network compatibility analysis */
+  networkCompatibility: Array<{
+    network: string;
+    compatible: boolean;
+    reason?: string;
   }>;
+  /** Recommended networks for this key */
+  recommendedNetworks: string[];
 }
 
 /**
- * Network signature capabilities
+ * Network signature capabilities analysis
  */
-export interface DfnsNetworkSignatureCapabilities {
+export interface NetworkSignatureCapabilities {
   /** Network name */
   network: string;
   /** Supported blockchain kinds */
-  supportedBlockchainKinds: DfnsBlockchainKind[];
+  supportedBlockchainKinds: BlockchainKind[];
   /** Supported signature kinds */
-  supportedSignatureKinds: DfnsSignatureKind[];
+  supportedSignatureKinds: SignatureKind[];
   /** Whether network supports EIP-712 */
   supportsEip712: boolean;
   /** Whether network supports message signing */
@@ -724,95 +407,93 @@ export interface DfnsNetworkSignatureCapabilities {
   supportsHashSigning: boolean;
 }
 
-/**
- * Component props for signature generation
- */
-export interface DfnsSignatureGenerationProps {
-  /** Key ID to use for signing */
-  keyId: string;
-  /** Key details */
-  keyDetails?: DfnsKey;
-  /** Available networks for signing */
-  availableNetworks?: string[];
-  /** Callback when signature is generated */
-  onSignatureGenerated?: (signature: DfnsGenerateSignatureResponse) => void;
-  /** Callback when signature fails */
-  onSignatureFailed?: (error: string) => void;
-  /** Whether form is disabled */
-  disabled?: boolean;
-}
-
 // ===============================
-// Database Integration Types for Signatures
+// Legacy Compatibility Types
 // ===============================
 
 /**
- * Database representation of DFNS signature request
- * Maps to dfns_signature_requests table
+ * @deprecated Use Key from './key' instead
  */
-export interface DfnsSignatureDatabaseRecord {
-  id: string;
-  signature_id: string;
-  key_id: string;
-  blockchain_kind?: string;
-  signature_kind: string;
-  network?: string;
-  status: string;
-  request_body: Record<string, any>;
-  signature_data?: Record<string, any>;
-  signed_data?: string;
-  requester_user_id?: string;
-  requester_app_id: string;
-  external_id?: string;
-  error_message?: string;
-  date_requested: string;
-  date_signed?: string;
-  date_cancelled?: string;
-  organization_id?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type DfnsKey = Key;
+
+/**
+ * @deprecated Use KeyScheme from './key' instead
+ */
+export type DfnsKeyScheme = KeyScheme;
+
+/**
+ * @deprecated Use KeyCurve from './key' instead
+ */
+export type DfnsKeyCurve = KeyCurve;
+
+/**
+ * @deprecated Use CreateKeyRequest from './key' instead
+ */
+export type DfnsCreateKeyRequest = CreateKeyRequest;
+
+/**
+ * @deprecated Use UpdateKeyRequest from './key' instead
+ */
+export type DfnsUpdateKeyRequest = UpdateKeyRequest;
+
+/**
+ * @deprecated Use DelegateKeyRequest from './key' instead
+ */
+export type DfnsDelegateKeyRequest = DelegateKeyRequest;
 
 // ===============================
-// Utility Types
+// Constants & Mappings
 // ===============================
 
 /**
- * Supported networks by scheme and curve
+ * Extended network compatibility mapping (includes legacy networks)
  */
-export const DFNS_KEY_NETWORK_COMPATIBILITY: Record<DfnsKeyScheme, Record<DfnsKeyCurve, string[]>> = {
-  ECDSA: {
-    secp256k1: [
-      'Ethereum', 'Bitcoin', 'BitcoinCash', 'Cosmos', 'Kaspa', 'Tron', 'Xrpl'
-    ],
-    stark: [
-      // Starknet and other STARK-based networks
-    ],
-    ed25519: [] // ECDSA doesn't use ed25519
+export const EXTENDED_NETWORK_COMPATIBILITY: Record<string, KeyFormat[]> = {
+  // Modern networks (from core implementation)
+  ...require('./key').NETWORK_KEY_COMPATIBILITY,
+  
+  // Legacy network names for backward compatibility
+  'BinanceSmartChain': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'BSC': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'Matic': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'AVAX': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'FTM': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  
+  // Additional test networks
+  'EthereumGoerli': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'EthereumSepolia': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'BitcoinTestnet': [
+    { scheme: 'ECDSA', curve: 'secp256k1' },
+    { scheme: 'Schnorr', curve: 'secp256k1' }
+  ]
+} as const;
+
+/**
+ * Default signature capabilities by network
+ */
+export const DEFAULT_SIGNATURE_CAPABILITIES: Record<string, NetworkSignatureCapabilities> = {
+  'Ethereum': {
+    network: 'Ethereum',
+    supportedBlockchainKinds: ['Evm'],
+    supportedSignatureKinds: ['Transaction', 'Hash', 'Message', 'Eip712'],
+    supportsEip712: true,
+    supportsMessageSigning: true,
+    supportsHashSigning: true
   },
-  EdDSA: {
-    ed25519: [
-      'Algorand', 'Aptos', 'Canton', 'Cardano', 'Icp', 'Iota', 'Polymesh',
-      'Solana', 'Stellar', 'Substrate', 'Sui', 'Tezos', 'Ton', 'Xrpl'
-    ],
-    secp256k1: [], // EdDSA doesn't use secp256k1
-    stark: [] // EdDSA doesn't use stark
+  'Bitcoin': {
+    network: 'Bitcoin',
+    supportedBlockchainKinds: ['Bitcoin'],
+    supportedSignatureKinds: ['Psbt', 'Hash', 'Bip322'],
+    supportsEip712: false,
+    supportsMessageSigning: true,
+    supportsHashSigning: true
   },
-  Schnorr: {
-    secp256k1: [
-      'Bitcoin' // Bitcoin supports both ECDSA and Schnorr
-    ],
-    ed25519: [], // Schnorr doesn't use ed25519
-    stark: [] // Schnorr doesn't use stark
+  'Solana': {
+    network: 'Solana',
+    supportedBlockchainKinds: ['Solana'],
+    supportedSignatureKinds: ['Transaction', 'Hash', 'Message'],
+    supportsEip712: false,
+    supportsMessageSigning: true,
+    supportsHashSigning: true
   }
-};
-
-/**
- * Helper type for scheme/curve validation
- */
-export type DfnsValidSchemeCurvePair = 
-  | { scheme: 'ECDSA'; curve: 'secp256k1' | 'stark' }
-  | { scheme: 'EdDSA'; curve: 'ed25519' }
-  | { scheme: 'Schnorr'; curve: 'secp256k1' };
-
-// Note: All types are exported individually above where they are defined
+} as const;

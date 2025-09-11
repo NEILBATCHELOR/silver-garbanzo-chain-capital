@@ -5,11 +5,29 @@
  * Using selective exports to avoid naming conflicts
  */
 
-// Core DFNS types
-export * from './core';
-export type { NetworkName, DfnsIdentityKind } from './core';
+// ===== Core DFNS types =====
+export type {
+  DfnsStatus,
+  DfnsTransactionStatus,
+  DfnsCredentialKind,
+  DfnsUserKind,
+  DfnsOrganization,
+  DfnsApplication,
+  DfnsSigningKey,
+  DfnsPolicy,
+  DfnsPermission,
+  DfnsWebhook,
+  DfnsServiceAccount as DfnsServiceAccountFromCore,
+  DfnsNetwork,
+  NetworkName,
+  DfnsIdentityKind,
+  DfnsAsset,
+  DfnsMetadata,
+  DfnsApiResponse,
+  DfnsError as DfnsErrorInterface,
+} from './core';
 
-// Authentication types  
+// ===== Authentication types =====
 export type {
   DfnsCredentialInfo,
   DfnsFido2CredentialInfo,
@@ -22,7 +40,13 @@ export type {
   DfnsUserRegistrationRequest,
   DfnsDelegatedRegistrationRequest,
   DfnsDelegatedRegistrationResponse,
+  DfnsLoginChallengeRequest,
   DfnsLoginChallengeResponse,
+  DfnsCompleteLoginRequest,
+  DfnsCompleteLoginResponse,
+  DfnsFido2LoginAssertion,
+  DfnsKeyLoginAssertion,
+  DfnsPasswordProtectedKeyLoginAssertion,
   DfnsDelegatedLoginRequest,
   DfnsUserActionChallenge,
   DfnsUserActionSignature,
@@ -48,7 +72,7 @@ export type {
   DfnsCreatePersonalAccessTokenRequest,
   DfnsCreatePersonalAccessTokenResponse,
   DfnsGetPersonalAccessTokenResponse,
-  DfnsPersonalAccessTokenResponse, // Added missing export
+  DfnsPersonalAccessTokenResponse,
   DfnsUpdatePersonalAccessTokenRequest,
   DfnsUpdatePersonalAccessTokenResponse,
   DfnsActivatePersonalAccessTokenResponse,
@@ -81,18 +105,61 @@ export type {
   DfnsWalletCreationSpec,
 } from './auth';
 
-// User types
-export type * from './users';
-export type * from './serviceAccounts';
-export type { DfnsServiceAccountResponse, DfnsGetServiceAccountResponse } from './serviceAccounts';
+// ===== User types =====
+export type {
+  DfnsUser,
+  DfnsCredential,
+  DfnsGenericUserCreationRequest,
+  DfnsCredentialRegistrationRequest,
+  DfnsUserSession,
+  DfnsUserProfileUpdate,
+  DfnsUserStatusUpdate,
+  DfnsUserRecoverySetup,
+  DfnsUserMfaSetup,
+  DfnsUserActivityLog,
+  DfnsListUsersRequest,
+  DfnsListUsersResponse,
+  DfnsCreateUserRequest,
+  DfnsCreateUserResponse,
+  DfnsGetUserResponse,
+  DfnsUserResponse,
+  DfnsPermissionAssignment,
+  DfnsActivateUserResponse,
+  DfnsDeactivateUserResponse,
+  DfnsArchiveUserResponse,
+} from './users';
 
-// Export the DfnsCredential type specifically for services
-export type { DfnsCredential } from './users';
+// ===== Service Account types =====
+export type {
+  DfnsServiceAccountUserInfo,
+  DfnsServiceAccountAccessToken,
+  DfnsServiceAccountResponse,
+  DfnsListServiceAccountsRequest,
+  DfnsListServiceAccountsResponse,
+  DfnsCreateServiceAccountRequest,
+  DfnsCreateServiceAccountResponse,
+  DfnsGetServiceAccountResponse,
+  DfnsUpdateServiceAccountRequest,
+  DfnsUpdateServiceAccountResponse,
+  DfnsActivateServiceAccountResponse,
+  DfnsDeactivateServiceAccountResponse,
+  DfnsArchiveServiceAccountResponse,
+  ServiceAccountListFilters,
+  ServiceAccountStatistics,
+  ServiceAccountOperationResult,
+  CreateServiceAccountOptions,
+  ServiceAccountSummary,
+  ServiceAccountValidationResult,
+} from './serviceAccounts';
 
-// Permissions types (database/API layer)
+// Create missing alias for DfnsServiceAccount (commonly referenced)
+// Note: DfnsServiceAccount from core.ts is different from DfnsServiceAccountResponse from serviceAccounts.ts
+export type { DfnsServiceAccountResponse as DfnsServiceAccount } from './serviceAccounts';
+
+// ===== Permission types =====
 export type {
   DfnsPermissionRequest,
-  DfnsPermissionAssignment,
+  DfnsPermissionAssignment as DfnsPermissionAssignmentFromPermissions,
   DfnsPermissionOperation,
   DfnsPermissionResource,
   DfnsListPermissionsRequest,
@@ -104,7 +171,7 @@ export type {
   DfnsUpdatePermissionResponse,
   DfnsArchivePermissionResponse,
   DfnsAssignPermissionRequest,
-  DfnsCreatePermissionAssignmentRequest, // Added missing export
+  DfnsCreatePermissionAssignmentRequest,
   DfnsAssignPermissionResponse,
   DfnsRevokePermissionAssignmentResponse,
   DfnsListPermissionAssignmentsRequest,
@@ -115,8 +182,8 @@ export type {
   DfnsPermissionAssignmentResponse,
 } from './permissions';
 
-// Policies types (domain/UI layer) - preferred for components
-// Export enums and constants as values, interfaces as types
+// ===== Policy types =====
+// Export enums and constants as values
 export {
   DfnsActivityKind,
   DfnsApprovalStatus,
@@ -125,11 +192,12 @@ export {
 } from './policies';
 
 export type {
-  DfnsPolicy,
-  DfnsPolicyApproval, // Domain type with camelCase
+  DfnsPolicy as DfnsPolicyFromPolicies,
+  DfnsPolicyApproval,
   DfnsPolicyRule,
   DfnsPolicyAction,
   DfnsActivity,
+  DfnsActivity as DfnsActivityLog,
   DfnsPolicySummary,
   DfnsApprovalSummary,
   DfnsCreatePolicyRequest,
@@ -145,32 +213,63 @@ export type {
   DfnsGetApprovalResponse,
   DfnsCreateApprovalDecisionRequest,
   DfnsCreateApprovalDecisionResponse,
-  // Missing service types
   DfnsPolicyServiceOptions,
   DfnsPolicyFilters,
 } from './policies';
 
-// Wallet types
+// ===== Wallet types =====
 export type * from './wallets';
+
+// ===== Transaction types =====
 export type * from './transactions';
 
-// Keys - Export constants and utility functions as values, types as types
+// ===== Wallet types (additional exports) =====
+export type {
+  DfnsTransferRequestResponse as DfnsTransfer,
+  DfnsGetWalletHistoryResponse as DfnsTransactionHistory,
+  DfnsWalletHistoryEntry,
+} from './wallets';
+
+// ===== Transaction types (additional exports) =====
+export type {
+  DfnsTransactionRequestResponse as DfnsBroadcastTransaction,
+} from './transactions';
+
+// ===== Network types =====
+export type {
+  DfnsNetworkInfo,
+  DfnsFeeEstimationRequest,
+  DfnsFeeEstimationResponse,
+  DfnsEip1559FeeEstimation,
+  DfnsLegacyFeeEstimation,
+  DfnsFeePriority,
+  DfnsContractReadRequest,
+  DfnsContractReadResponse,
+  DfnsValidator,
+  DfnsValidatorKind,
+  DfnsOAuth2Config,
+  DfnsCreateValidatorRequest,
+  DfnsCreateValidatorResponse,
+  DfnsListValidatorsResponse,
+  DfnsNetworkCapabilities
+} from './networks';
+
+// ===== Key types =====
 export {
-  DFNS_KEY_NETWORK_COMPATIBILITY,
+  EXTENDED_NETWORK_COMPATIBILITY,
 } from './keys';
 
 export type * from './keys';
 
-// Fiat and Fee Sponsors
+// ===== Fiat types =====
 export type * from './fiat';
 
-// Export specific fiat types that might be needed individually
 export type {
   DfnsFiatProviderConfig,
   DfnsRampNetworkConfig,
 } from './fiat';
 
-// Fee Sponsors - Export utility functions as values, types as types
+// ===== Fee Sponsor types =====
 export {
   isFeeSponsorSupportedNetwork,
   isValidFeeSponsorId,
@@ -196,7 +295,6 @@ export type {
   DfnsFeeSponsorSummary,
   DfnsFeeSponsorSupportedNetwork,
   DfnsFeeSponsorStatus,
-  // Missing service options types
   DfnsFeeSponsorServiceOptions,
   DfnsBatchFeeSponsorOptions,
   DfnsSponsoredFeeSummary,
@@ -204,7 +302,7 @@ export type {
   DfnsFeeSponsorErrorReason,
 } from './feeSponsors';
 
-// Webhooks - Export utility functions and constants as values, types as types
+// ===== Webhook types =====
 export {
   isValidWebhookUrl,
   getSupportedWebhookEvents,
@@ -215,11 +313,10 @@ export {
 
 export type * from './webhooks';
 
-// API types
+// ===== API types =====
 export type * from './api';
 
-// WebAuthn types
-export type * from './webauthn';
+// ===== WebAuthn types =====
 export type {
   WebAuthnCredential,
   WebAuthnChallenge,
@@ -236,14 +333,15 @@ export type {
   WebAuthnServiceOptions,
 } from './webauthn';
 
-// Error classes (these are classes, not types, so use regular export)
+// ===== Error classes =====
+// Export error classes as classes (not types)
 export { 
   DfnsError,
   DfnsAuthenticationError,
   DfnsAuthorizationError,
   DfnsValidationError,
-  DfnsNetworkError,
   DfnsRateLimitError,
+  DfnsNetworkError,
   DfnsWalletError,
   DfnsTransactionError,
   DfnsCredentialError,
@@ -252,3 +350,18 @@ export {
   DfnsErrorFactory,
   DFNS_ERROR_CODES,
 } from './errors';
+
+// ===== Compatibility aliases =====
+// Import specific types for aliases
+import type { DfnsWallet, DfnsWalletAsset } from './wallets';
+import type { DfnsUser, DfnsCredential } from './users';
+import type { DfnsServiceAccountResponse } from './serviceAccounts';
+import type { DfnsPersonalAccessToken } from './auth';
+
+// Create aliases for commonly used types to avoid breaking changes
+export type WalletData = DfnsWallet;
+export type WalletAsset = DfnsWalletAsset;
+export type User = DfnsUser;
+export type ServiceAccount = DfnsServiceAccountResponse;
+export type PersonalAccessToken = DfnsPersonalAccessToken;
+export type Credential = DfnsCredential;

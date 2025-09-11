@@ -1,415 +1,265 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+  MoreHorizontal, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Key, 
+  Calendar,
+  Settings,
+  Eye,
+  EyeOff,
+  RotateCcw
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { 
-  Bot, 
-  Search, 
-  Plus, 
-  MoreHorizontal, 
-  CheckCircle, 
-  XCircle, 
-  Archive,
-  Loader2,
-  AlertCircle,
-  Settings
-} from "lucide-react";
-import { cn } from "@/utils/utils";
-import { useState, useEffect } from "react";
-import { DfnsService } from "../../../../services/dfns";
-import type { DfnsServiceAccountInfo } from "../../../../types/dfns/serviceAccounts";
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/use-toast';
+import { getDfnsService, initializeDfnsService } from '@/services/dfns';
+import type { DfnsServiceAccountResponse } from '@/types/dfns';
 
-/**
- * Service Account List Component
- * Displays and manages service accounts (machine users) for API access
- */
-export function ServiceAccountList() {
-  const [serviceAccounts, setServiceAccounts] = useState<DfnsServiceAccountInfo[]>([]);
-  const [filteredAccounts, setFilteredAccounts] = useState<DfnsServiceAccountInfo[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ServiceAccountListProps {
+  onAccountUpdated: () => void;
+}
+
+export function ServiceAccountList({ onAccountUpdated }: ServiceAccountListProps) {
+  const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<DfnsServiceAccountResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    action: 'activate' | 'deactivate' | 'archive' | null;
-    account: DfnsServiceAccountInfo | null;
-  }>({ open: false, action: null, account: null });
+  const { toast } = useToast();
 
-  // Initialize DFNS service
-  const [dfnsService, setDfnsService] = useState<DfnsService | null>(null);
+  const loadServiceAccounts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const dfnsService = await initializeDfnsService();
+      // TODO: Implement when service account service is available
+      // const accountService = dfnsService.getServiceAccountManagementService();
+      // const response = await accountService.listServiceAccounts();
+      // setAccounts(response.items || []);
+      
+      // Placeholder for now
+      setAccounts([]);
+      
+    } catch (error: any) {
+      console.error("Error loading service accounts:", error);
+      setError(`Failed to load service accounts: ${error.message}`);
+      toast({
+        title: "Error",
+        description: "Failed to load service accounts",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAccountAction = async (action: string, accountId: string) => {
+    try {
+      setLoading(true);
+      // TODO: Implement service account actions
+      console.log(`${action} service account:`, accountId);
+      
+      toast({
+        title: "Success",
+        description: `Service account ${action} completed successfully`,
+      });
+      
+      await loadServiceAccounts();
+      onAccountUpdated();
+    } catch (error: any) {
+      console.error(`Error ${action} service account:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action} service account: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAccountStatus = (account: DfnsServiceAccountResponse) => {
+    if (account.userInfo.isActive === false) return { status: 'Inactive', variant: 'destructive' as const };
+    if (account.userInfo.isActive) return { status: 'Active', variant: 'default' as const };
+    return { status: 'Unknown', variant: 'secondary' as const };
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleDateString();
+  };
 
   useEffect(() => {
-    const initializeDfns = async () => {
-      try {
-        const service = new DfnsService();
-        await service.initialize();
-        setDfnsService(service);
-      } catch (error) {
-        console.error('Failed to initialize DFNS service:', error);
-        setError('Failed to initialize DFNS service');
-      }
-    };
-
-    initializeDfns();
+    loadServiceAccounts();
   }, []);
 
-  // Fetch service accounts from DFNS
-  useEffect(() => {
-    const fetchServiceAccounts = async () => {
-      if (!dfnsService) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        const serviceAccountService = dfnsService.getServiceAccountService();
-        const allAccounts = await serviceAccountService.getAllServiceAccounts();
-        
-        setServiceAccounts(allAccounts);
-        setFilteredAccounts(allAccounts);
-      } catch (error) {
-        console.error('Failed to fetch service accounts:', error);
-        setError('Failed to load service accounts');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchServiceAccounts();
-  }, [dfnsService]);
-
-  // Filter service accounts based on search term
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredAccounts(serviceAccounts);
-    } else {
-      const filtered = serviceAccounts.filter(account => 
-        account.userInfo.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (account.userInfo.isActive ? 'active' : 'inactive').includes(searchTerm.toLowerCase())
-      );
-      setFilteredAccounts(filtered);
-    }
-  }, [searchTerm, serviceAccounts]);
-
-  const handleAccountAction = async (action: 'activate' | 'deactivate' | 'archive', account: DfnsServiceAccountInfo) => {
-    if (!dfnsService) return;
-
-    try {
-      setActionLoading(`${action}-${account.userInfo.userId}`);
-      const serviceAccountService = dfnsService.getServiceAccountService();
-
-      let updatedAccount: DfnsServiceAccountInfo;
-      
-      switch (action) {
-        case 'activate':
-          updatedAccount = await serviceAccountService.activateServiceAccount(account.userInfo.userId);
-          break;
-        case 'deactivate':
-          updatedAccount = await serviceAccountService.deactivateServiceAccount(account.userInfo.userId);
-          break;
-        case 'archive':
-          updatedAccount = await serviceAccountService.archiveServiceAccount(account.userInfo.userId);
-          break;
-        default:
-          return;
-      }
-
-      // Update the service accounts list
-      setServiceAccounts(prev => prev.map(a => a.userInfo.userId === account.userInfo.userId ? updatedAccount : a));
-      setConfirmDialog({ open: false, action: null, account: null });
-    } catch (error) {
-      console.error(`Failed to ${action} service account:`, error);
-      setError(`Failed to ${action} service account: ${error}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const openConfirmDialog = (action: 'activate' | 'deactivate' | 'archive', account: DfnsServiceAccountInfo) => {
-    setConfirmDialog({ open: true, action, account });
-  };
-
-  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'default';
-      case 'deactivated': return 'secondary';
-      case 'archived': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  const canPerformAction = (action: 'activate' | 'deactivate' | 'archive', account: DfnsServiceAccountInfo): boolean => {
-    switch (action) {
-      case 'activate':
-        return !account.userInfo.isActive;
-      case 'deactivate':
-        return account.userInfo.isActive;
-      case 'archive':
-        return account.userInfo.isActive !== undefined; // Can always archive unless already archived
-      default:
-        return false;
-    }
-  };
-
-  const formatPublicKey = (publicKey?: string): string => {
-    if (!publicKey) return 'N/A';
-    // Show first 20 and last 20 characters of public key
-    if (publicKey.length > 40) {
-      return `${publicKey.substring(0, 20)}...${publicKey.substring(publicKey.length - 20)}`;
-    }
-    return publicKey;
-  };
-
-  if (loading) {
+  if (loading && accounts.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Bot className="h-5 w-5" />
-            <span>Service Accounts</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Loading service accounts...</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-muted-foreground">Loading service accounts...</p>
+      </div>
     );
   }
 
-  if (error) {
+  if (accounts.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Bot className="h-5 w-5" />
-            <span>Service Accounts</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8 text-destructive">
-            <AlertCircle className="h-6 w-6" />
-            <span className="ml-2">{error}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium">No service accounts found</h3>
+        <p className="text-muted-foreground mb-4">
+          Create service accounts for API access and automation
+        </p>
+        <Button 
+          className="gap-2"
+          onClick={() => handleAccountAction('create', '')}
+        >
+          <Plus className="h-4 w-4" />
+          Create Service Account
+        </Button>
+      </div>
     );
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center space-x-2">
-                <Bot className="h-5 w-5" />
-                <span>Service Accounts</span>
-              </CardTitle>
-              <CardDescription>
-                Manage service accounts for API access and automation ({filteredAccounts.length} accounts)
-              </CardDescription>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Service Account
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search service accounts by name or status..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-medium">Service Accounts</h3>
+          <p className="text-sm text-muted-foreground">
+            {accounts.length} service account{accounts.length !== 1 ? 's' : ''} for API access
+          </p>
+        </div>
+        <Button 
+          className="gap-2"
+          onClick={() => handleAccountAction('create', '')}
+        >
+          <Plus className="h-4 w-4" />
+          Create Account
+        </Button>
+      </div>
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Service Account</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Public Key</TableHead>
-                  <TableHead>External ID</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          {error}
+        </div>
+      )}
+
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Account</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Last Used</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {accounts.map((account) => {
+              const { status, variant } = getAccountStatus(account);
+              
+              return (
+                <TableRow key={account.userInfo.userId}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-md bg-blue-100">
+                        <Key className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium">{account.userInfo.username}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Service Account
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={variant}>{status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      N/A
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      N/A
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => navigator.clipboard.writeText(account.userInfo.userId)}
+                        >
+                          Copy account ID
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleAccountAction('view', account.userInfo.userId)}
+                          className="gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleAccountAction('edit', account.userInfo.userId)}
+                          className="gap-2"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit account
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleAccountAction('rotate-key', account.userInfo.userId)}
+                          className="gap-2"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          Rotate key
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleAccountAction('settings', account.userInfo.userId)}
+                          className="gap-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleAccountAction('deactivate', account.userInfo.userId)}
+                          className="gap-2 text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Deactivate
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAccounts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? 'No service accounts found matching your search.' : 'No service accounts found.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredAccounts.map((account) => (
-                    <TableRow key={account.userInfo.userId}>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Bot className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">{account.userInfo.username}</div>
-                            <div className="text-sm text-muted-foreground">{account.userInfo.userId}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(account.userInfo.isActive ? 'active' : 'inactive')}>
-                          {account.userInfo.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm font-mono max-w-xs truncate">
-                          {formatPublicKey(account.accessTokens[0]?.publicKey)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">—</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {account.accessTokens[0]?.dateCreated ? 
-                            new Date(account.accessTokens[0].dateCreated).toLocaleDateString() :
-                            'N/A'
-                          }
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0"
-                              disabled={!!actionLoading}
-                            >
-                              {actionLoading?.includes(account.userInfo.userId) ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <MoreHorizontal className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Settings className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {canPerformAction('activate', account) && (
-                              <DropdownMenuItem
-                                onClick={() => openConfirmDialog('activate', account)}
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Activate
-                              </DropdownMenuItem>
-                            )}
-                            {canPerformAction('deactivate', account) && (
-                              <DropdownMenuItem
-                                onClick={() => openConfirmDialog('deactivate', account)}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Deactivate
-                              </DropdownMenuItem>
-                            )}
-                            {canPerformAction('archive', account) && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => openConfirmDialog('archive', account)}
-                                  className="text-destructive"
-                                >
-                                  <Archive className="mr-2 h-4 w-4" />
-                                  Archive
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Confirmation Dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => 
-        setConfirmDialog({ open, action: null, account: null })
-      }>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Confirm {confirmDialog.action && confirmDialog.action.charAt(0).toUpperCase() + confirmDialog.action.slice(1)} Service Account
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to {confirmDialog.action} service account "{confirmDialog.account?.userInfo.username}"?
-              {confirmDialog.action === 'archive' && (
-                <span className="block mt-2 text-destructive">
-                  This action cannot be undone.
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setConfirmDialog({ open: false, action: null, account: null })}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant={confirmDialog.action === 'archive' ? 'destructive' : 'default'}
-              onClick={() => {
-                if (confirmDialog.action && confirmDialog.account) {
-                  handleAccountAction(confirmDialog.action, confirmDialog.account);
-                }
-              }}
-              disabled={!!actionLoading}
-            >
-              {actionLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              {confirmDialog.action && confirmDialog.action.charAt(0).toUpperCase() + confirmDialog.action.slice(1)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }

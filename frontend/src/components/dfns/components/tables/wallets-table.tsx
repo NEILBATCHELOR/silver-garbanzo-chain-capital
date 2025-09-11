@@ -1,206 +1,243 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+  Wallet,
+  ExternalLink,
+  ArrowRightLeft,
+  MoreHorizontal,
+  Loader2,
+  AlertTriangle
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  Wallet, 
-  Search, 
-  Plus, 
-  MoreHorizontal, 
-  Send,
-  Eye,
-  Settings,
-  Copy,
-  ExternalLink,
-  Loader2,
-  AlertCircle,
-  Filter
-} from "lucide-react";
-import { cn } from "@/utils/utils";
-import { useState, useEffect, useMemo } from "react";
-import { DfnsService } from "../../../../services/dfns";
-import type { DfnsWalletSummary } from "../../../../types/dfns/wallets";
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/use-toast';
+
+// Import DFNS services and types
+import { getDfnsService, initializeDfnsService } from '@/services/dfns';
+import type { WalletData, DfnsWalletAsset, DfnsGetWalletAssetsResponse } from '@/types/dfns';
+
+// Enhanced wallet with computed properties
+interface EnhancedWallet extends WalletData {
+  totalValue?: number;
+  assetCount?: number;
+  assets?: DfnsWalletAsset[];
+  assetsResponse?: DfnsGetWalletAssetsResponse;
+}
+
+interface WalletsTableProps {
+  className?: string;
+  onWalletSelected?: (wallet: WalletData) => void;
+  maxItems?: number;
+}
 
 /**
- * Comprehensive Wallets Table Component
- * Advanced wallet listing with filtering, search, and management actions
+ * DFNS Wallets Table Component
+ * Comprehensive table view of all wallets with real DFNS integration
  */
-export function WalletsTable() {
-  const [wallets, setWallets] = useState<DfnsWalletSummary[]>([]);
+export function WalletsTable({ className, onWalletSelected, maxItems }: WalletsTableProps) {
+  const [wallets, setWallets] = useState<EnhancedWallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [networkFilter, setNetworkFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  // Initialize DFNS service
-  const [dfnsService, setDfnsService] = useState<DfnsService | null>(null);
+  // Table columns definition
+  const columns: ColumnDef<EnhancedWallet>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Wallet Name',
+      cell: ({ row }) => {
+        const wallet = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <div className="font-medium">{wallet.name}</div>
+              <div className="text-sm text-muted-foreground">{wallet.network}</div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'network',
+      header: 'Network',
+      cell: ({ row }) => {
+        const network = row.getValue('network') as string;
+        return (
+          <Badge variant="outline">
+            {network}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'address',
+      header: 'Address',
+      cell: ({ row }) => {
+        const address = row.getValue('address') as string;
+        return (
+          <div className="font-mono text-sm">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'totalValue',
+      header: 'Portfolio Value',
+      cell: ({ row }) => {
+        const value = row.getValue('totalValue') as number;
+        return (
+          <div className="text-right">
+            {value ? `$${value.toLocaleString()}` : '-'}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'assetCount',
+      header: 'Assets',
+      cell: ({ row }) => {
+        const count = row.getValue('assetCount') as number;
+        return (
+          <div className="text-center">
+            {count || 0}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = row.getValue('status') as string;
+        return (
+          <Badge variant={status === 'Active' ? 'default' : 'secondary'}>
+            {status || 'Active'}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const wallet = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onWalletSelected?.(wallet)}>
+                <Wallet className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Transfer Assets
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View on Explorer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
 
+  // Load wallets from DFNS
   useEffect(() => {
-    const initializeDfns = async () => {
-      try {
-        const service = new DfnsService();
-        await service.initialize();
-        setDfnsService(service);
-      } catch (error) {
-        console.error('Failed to initialize DFNS service:', error);
-        setError('Failed to initialize DFNS service');
-      }
-    };
-
-    initializeDfns();
-  }, []);
-
-  // Fetch wallets from DFNS
-  useEffect(() => {
-    const fetchWallets = async () => {
-      if (!dfnsService) return;
-
+    const loadWallets = async () => {
       try {
         setLoading(true);
         setError(null);
 
+        const dfnsService = await initializeDfnsService();
+        const authService = dfnsService.getAuthenticationService();
+        const authStatus = await authService.getAuthenticationStatus();
+
+        if (!authStatus.isAuthenticated) {
+          setError('Authentication required to view wallets');
+          return;
+        }
+
         const walletService = dfnsService.getWalletService();
-        const walletSummaries = await walletService.getWalletsSummary();
+        const walletAssetService = dfnsService.getWalletAssetsService();
         
-        setWallets(walletSummaries);
-      } catch (error) {
-        console.error('Failed to fetch wallets:', error);
-        setError('Failed to load wallets');
+        const walletsData = await walletService.getAllWallets();
+        
+        // Enhance wallets with asset data
+        const enhancedWallets: EnhancedWallet[] = await Promise.all(
+          walletsData.map(async (wallet) => {
+            try {
+              const assetsResponse = await walletAssetService.getWalletAssets(wallet.id);
+              const assets = assetsResponse.assets || [];
+              const totalValue = assets.reduce((sum, asset) => sum + (parseFloat(asset.valueInUsd || '0') || 0), 0);
+              
+              return {
+                ...wallet,
+                assetsResponse,
+                assets,
+                assetCount: assets.length,
+                totalValue
+              };
+            } catch (err) {
+              // If asset loading fails, return wallet without asset data
+              return {
+                ...wallet,
+                assets: [],
+                assetCount: 0,
+                totalValue: 0
+              };
+            }
+          })
+        );
+
+        // Apply maxItems limit if specified
+        const finalWallets = maxItems ? enhancedWallets.slice(0, maxItems) : enhancedWallets;
+        setWallets(finalWallets);
+
+      } catch (err: any) {
+        console.error('Error loading wallets:', err);
+        setError(err.message || 'Failed to load wallets');
+        toast({
+          title: "Error",
+          description: "Failed to load wallets. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchWallets();
-  }, [dfnsService]);
-
-  // Get unique networks for filter
-  const availableNetworks = useMemo(() => {
-    const networks = Array.from(new Set(wallets.map(wallet => wallet.network)));
-    return networks.sort();
-  }, [wallets]);
-
-  // Filter wallets based on search and filters
-  const filteredWallets = useMemo(() => {
-    return wallets.filter(wallet => {
-      const matchesSearch = !searchTerm.trim() || 
-        wallet.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        wallet.walletId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        wallet.network.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        wallet.address?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesNetwork = networkFilter === "all" || wallet.network === networkFilter;
-      
-      const matchesStatus = statusFilter === "all" || 
-        (statusFilter === "active" && wallet.isActive) ||
-        (statusFilter === "inactive" && !wallet.isActive);
-
-      return matchesSearch && matchesNetwork && matchesStatus;
-    });
-  }, [wallets, searchTerm, networkFilter, statusFilter]);
-
-  const copyToClipboard = async (text: string, type: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // You could add a toast notification here
-    } catch (error) {
-      console.error(`Failed to copy ${type}:`, error);
-    }
-  };
-
-  const getExplorerUrl = (network: string, address: string): string | null => {
-    const explorers: Record<string, string> = {
-      'Ethereum': `https://etherscan.io/address/${address}`,
-      'Bitcoin': `https://blockstream.info/address/${address}`,
-      'Polygon': `https://polygonscan.com/address/${address}`,
-      'Arbitrum': `https://arbiscan.io/address/${address}`,
-      'Optimism': `https://optimistic.etherscan.io/address/${address}`,
-      'Avalanche': `https://snowtrace.io/address/${address}`,
-      'Binance': `https://bscscan.com/address/${address}`,
-      'Solana': `https://explorer.solana.com/address/${address}`,
-    };
-
-    return explorers[network] || null;
-  };
-
-  const getNetworkIcon = (network: string): string => {
-    const icons: Record<string, string> = {
-      'Ethereum': '⟠',
-      'Bitcoin': '₿',
-      'Polygon': '⬠',
-      'Arbitrum': '▲',
-      'Optimism': '🔴',
-      'Avalanche': '❄️',
-      'Binance': '🟡',
-      'Solana': '◎',
-    };
-
-    return icons[network] || '🌐';
-  };
-
-  const getStatusBadgeVariant = (isActive: boolean): "default" | "secondary" => {
-    return isActive ? 'default' : 'secondary';
-  };
-
-  const formatBalance = (balance: string | number | null): string => {
-    if (!balance || balance === '0') return '$0.00';
-    
-    try {
-      const numBalance = typeof balance === 'string' ? parseFloat(balance) : balance;
-      if (numBalance >= 1000000) {
-        return `$${(numBalance / 1000000).toFixed(2)}M`;
-      } else if (numBalance >= 1000) {
-        return `$${(numBalance / 1000).toFixed(2)}K`;
-      } else {
-        return `$${numBalance.toFixed(2)}`;
-      }
-    } catch {
-      return '$0.00';
-    }
-  };
-
-  const formatAddress = (address: string): string => {
-    if (address.length <= 12) return address;
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-  };
+    loadWallets();
+  }, [maxItems, toast]);
 
   if (loading) {
     return (
-      <Card>
+      <Card className={className}>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Wallet className="h-5 w-5" />
-            <span>Wallets</span>
-          </CardTitle>
+          <CardTitle>Wallets</CardTitle>
+          <CardDescription>Loading wallet data...</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Loading wallets...</span>
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Loading wallets...</span>
           </div>
         </CardContent>
       </Card>
@@ -209,242 +246,37 @@ export function WalletsTable() {
 
   if (error) {
     return (
-      <Card>
+      <Card className={className}>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Wallet className="h-5 w-5" />
-            <span>Wallets</span>
-          </CardTitle>
+          <CardTitle>Wallets</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center py-8 text-destructive">
-            <AlertCircle className="h-6 w-6" />
-            <span className="ml-2">{error}</span>
-          </div>
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-700">{error}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center space-x-2">
-              <Wallet className="h-5 w-5" />
-              <span>Wallets</span>
-            </CardTitle>
-            <CardDescription>
-              Comprehensive wallet management ({filteredWallets.length} of {wallets.length} wallets)
-            </CardDescription>
-          </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Wallet
-          </Button>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Wallet className="h-5 w-5" />
+          Wallets ({wallets.length})
+        </CardTitle>
+        <CardDescription>
+          {maxItems ? `Showing latest ${maxItems} wallets` : 'All wallets across networks'}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search wallets by name, address, network..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          
-          {/* Network Filter */}
-          <Select value={networkFilter} onValueChange={setNetworkFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="All Networks" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Networks</SelectItem>
-              {availableNetworks.map((network) => (
-                <SelectItem key={network} value={network}>
-                  <span className="flex items-center">
-                    <span className="mr-2">{getNetworkIcon(network)}</span>
-                    {network}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[150px]">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Wallet</TableHead>
-                <TableHead>Network</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Assets</TableHead>
-                <TableHead>Balance (USD)</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredWallets.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {searchTerm || networkFilter !== "all" || statusFilter !== "all" 
-                      ? 'No wallets found matching your filters.' 
-                      : 'No wallets found. Create your first wallet to get started.'
-                    }
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredWallets.map((wallet) => (
-                  <TableRow key={wallet.walletId}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <div className="font-medium">
-                          {wallet.name || 'Unnamed Wallet'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          ID: {wallet.walletId.substring(0, 12)}...
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">{getNetworkIcon(wallet.network)}</span>
-                        <span className="font-medium">{wallet.network}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {wallet.address ? (
-                        <div className="flex items-center space-x-2">
-                          <code className="text-sm bg-muted px-2 py-1 rounded">
-                            {formatAddress(wallet.address)}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(wallet.address!, 'address')}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                          {getExplorerUrl(wallet.network, wallet.address) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(getExplorerUrl(wallet.network, wallet.address!)!, '_blank')}
-                              className="h-6 w-6 p-0"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">N/A</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <div className="font-medium">{wallet.assetCount || 0}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {wallet.nftCount ? `+ ${wallet.nftCount} NFTs` : ''}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">
-                        {formatBalance(wallet.totalValueUsd)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(wallet.isActive)}>
-                        {wallet.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            className="h-8 w-8 p-0"
-                            disabled={!!actionLoading}
-                          >
-                            {actionLoading?.includes(wallet.walletId) ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Send className="mr-2 h-4 w-4" />
-                            Transfer Assets
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Settings
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <div className="text-sm text-muted-foreground">Total Wallets</div>
-            <div className="text-2xl font-bold">{wallets.length}</div>
-          </div>
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <div className="text-sm text-muted-foreground">Active Wallets</div>
-            <div className="text-2xl font-bold">
-              {wallets.filter(w => w.isActive).length}
-            </div>
-          </div>
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <div className="text-sm text-muted-foreground">Networks</div>
-            <div className="text-2xl font-bold">{availableNetworks.length}</div>
-          </div>
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <div className="text-sm text-muted-foreground">Total Value</div>
-            <div className="text-2xl font-bold">
-              {formatBalance(
-                wallets.reduce((sum, wallet) => 
-                  sum + (parseFloat(wallet.totalValueUsd?.toString() || '0') || 0), 0
-                )
-              )}
-            </div>
-          </div>
-        </div>
+        <DataTable 
+          columns={columns} 
+          data={wallets}
+          searchKey="name"
+        />
       </CardContent>
     </Card>
   );

@@ -1,10 +1,25 @@
 /**
  * DFNS User Recovery Service
  * 
- * High-level service for DFNS User Recovery operations
- * Provides business logic, validation, and WebAuthn integration for user account recovery
+ * Implements current DFNS User Recovery API endpoints
+ * Supports Service Account and PAT token authentication (no private keys required)
+ * 
+ * API Documentation: https://docs.dfns.co/d/api-docs/authentication/user-recovery
+ * 
+ * Endpoints:
+ * - PUT /auth/recover/user/code - Send Recovery Code Email
+ * - POST /auth/recover/user/init - Create Recovery Challenge
+ * - POST /auth/recover/user/delegated - Create Delegated Recovery Challenge (Service Account only)
+ * - POST /auth/recover/user - Recover User
+ * 
+ * Authentication: Works with Service Account tokens and PAT tokens
+ * Permissions: Delegated recovery requires Auth:Recover:Delegated permission
  */
 
+import type { WorkingDfnsClient } from '../../infrastructure/dfns/working-client';
+import { DfnsError, DfnsAuthenticationError, DfnsValidationError } from '../../types/dfns/errors';
+
+// Import existing recovery types from auth.ts (current DFNS API)
 import type {
   DfnsSendRecoveryCodeRequest,
   DfnsSendRecoveryCodeResponse,
@@ -17,700 +32,424 @@ import type {
   DfnsRecoveryCredentialAssertion,
   DfnsRecoveryObject,
   DfnsNewCredentials,
-  DfnsCredentialInfo,
-  DfnsFido2CredentialInfo,
-  DfnsKeyCredentialInfo,
-  DfnsPasswordProtectedKeyCredentialInfo,
-  DfnsRecoveryKeyCredentialInfo,
-  DfnsCredentialKind,
-} from '../../types/dfns';
-import { DfnsAuthClient } from '../../infrastructure/dfns/auth/authClient';
-import { 
-  DfnsValidationError, 
-  DfnsAuthenticationError,
-  DfnsNetworkError 
-} from '../../types/dfns/errors';
+  DfnsCredentialInfo
+} from '../../types/dfns/auth';
 
-// Service Options
-export interface DfnsUserRecoveryServiceOptions {
-  syncToDatabase?: boolean;
-  validateInput?: boolean;
-  enableLogging?: boolean;
-}
+// Export types for use in index.ts
+export type {
+  DfnsSendRecoveryCodeRequest,
+  DfnsSendRecoveryCodeResponse,
+  DfnsCreateRecoveryRequest,
+  DfnsCreateRecoveryResponse,
+  DfnsDelegatedRecoveryRequest,
+  DfnsDelegatedRecoveryResponse,
+  DfnsRecoverUserRequest,
+  DfnsRecoverUserResponse,
+  DfnsRecoveryCredentialAssertion,
+  DfnsNewCredentials
+};
 
-// Recovery Flow Status
-export interface DfnsRecoveryFlowStatus {
-  step: 'code_sent' | 'challenge_created' | 'recovery_complete';
-  temporaryAuthenticationToken?: string;
-  challenge?: string;
-  allowedRecoveryCredentials?: Array<{
-    id: string;
-    encryptedRecoveryKey: string;
-  }>;
-}
-
-// Recovery Summary
-export interface DfnsRecoverySummary {
-  username: string;
-  orgId: string;
-  credentialId: string;
-  recoveryFlow: 'standard' | 'delegated';
-  status: 'initiated' | 'in_progress' | 'completed' | 'failed';
-  timestamp: string;
-  invalidatedCredentialCount?: number;
-}
+// =====================================================
+// USER RECOVERY SERVICE IMPLEMENTATION
+// =====================================================
 
 export class DfnsUserRecoveryService {
-  constructor(
-    private authClient: DfnsAuthClient,
-    private defaultOptions: DfnsUserRecoveryServiceOptions = {}
-  ) {}
+  private workingClient: WorkingDfnsClient;
 
-  // ===============================
-  // STANDARD RECOVERY FLOW METHODS
-  // ===============================
-
-  /**
-   * Complete standard user recovery flow
-   * 1. Send recovery code to email
-   * 2. Create recovery challenge with verification code
-   * 3. Sign new credentials with recovery credential
-   * 4. Complete recovery
-   */
-  async recoverUserAccount(
-    username: string,
-    orgId: string,
-    verificationCode: string,
-    credentialId: string,
-    newCredentials: DfnsNewCredentials,
-    recoveryCredentialAssertion: DfnsRecoveryCredentialAssertion,
-    options: DfnsUserRecoveryServiceOptions = {}
-  ): Promise<{
-    recoveryResponse: DfnsRecoverUserResponse;
-    summary: DfnsRecoverySummary;
-  }> {
-    const opts = { ...this.defaultOptions, ...options };
-
-    try {
-      if (opts.validateInput) {
-        this.validateRecoveryInput(username, orgId, verificationCode, credentialId);
-        this.validateNewCredentials(newCredentials);
-        this.validateRecoveryAssertion(recoveryCredentialAssertion);
-      }
-
-      // Step 1: Create recovery challenge
-      const challengeResponse = await this.createRecoveryChallenge({
-        username,
-        verificationCode,
-        orgId,
-        credentialId
-      }, opts);
-
-      // Step 2: Construct recovery object
-      const recovery: DfnsRecoveryObject = {
-        kind: 'RecoveryKey',
-        credentialAssertion: recoveryCredentialAssertion
-      };
-
-      // Step 3: Complete recovery
-      const recoveryResponse = await this.recoverUser({
-        recovery,
-        newCredentials
-      }, opts);
-
-      // Step 4: Create summary
-      const summary: DfnsRecoverySummary = {
-        username,
-        orgId,
-        credentialId,
-        recoveryFlow: 'standard',
-        status: 'completed',
-        timestamp: new Date().toISOString(),
-        invalidatedCredentialCount: undefined // This info isn't returned by DFNS API
-      };
-
-      if (opts.enableLogging) {
-        console.log('User recovery completed successfully:', summary);
-      }
-
-      return { recoveryResponse, summary };
-
-    } catch (error) {
-      const summary: DfnsRecoverySummary = {
-        username,
-        orgId,
-        credentialId,
-        recoveryFlow: 'standard',
-        status: 'failed',
-        timestamp: new Date().toISOString()
-      };
-
-      if (opts.enableLogging) {
-        console.error('User recovery failed:', { error, summary });
-      }
-
-      throw new DfnsAuthenticationError(
-        `Failed to recover user account: ${error}`,
-        { username, orgId, credentialId }
-      );
-    }
+  constructor(workingClient: WorkingDfnsClient) {
+    this.workingClient = workingClient;
   }
 
-  /**
-   * Send recovery code to user's email
-   * First step in standard recovery flow
-   */
-  async sendRecoveryCode(
-    username: string,
-    orgId: string,
-    options: DfnsUserRecoveryServiceOptions = {}
-  ): Promise<DfnsSendRecoveryCodeResponse> {
-    const opts = { ...this.defaultOptions, ...options };
-
-    try {
-      if (opts.validateInput) {
-        this.validateEmail(username);
-        this.validateOrgId(orgId);
-      }
-
-      const request: DfnsSendRecoveryCodeRequest = {
-        username,
-        orgId
-      };
-
-      const response = await this.authClient.sendRecoveryCode(request);
-
-      if (opts.enableLogging) {
-        console.log('Recovery code sent successfully:', { username, orgId });
-      }
-
-      return response;
-
-    } catch (error) {
-      if (opts.enableLogging) {
-        console.error('Failed to send recovery code:', { error, username, orgId });
-      }
-
-      throw new DfnsAuthenticationError(
-        `Failed to send recovery code to ${username}: ${error}`,
-        { username, orgId }
-      );
-    }
-  }
+  // =====================================================
+  // RECOVERY CODE EMAIL
+  // =====================================================
 
   /**
-   * Create recovery challenge with verification code
-   * Second step in standard recovery flow
+   * Send Recovery Code Email
+   * PUT /auth/recover/user/code
+   * 
+   * Sends the user a recovery verification code via email.
+   * This code is used as a second factor to verify the user initiated the recovery request.
+   * 
+   * @param request - Recovery code request with username and orgId
+   * @returns Promise with success confirmation
    */
-  async createRecoveryChallenge(
-    request: DfnsCreateRecoveryRequest,
-    options: DfnsUserRecoveryServiceOptions = {}
-  ): Promise<DfnsCreateRecoveryResponse> {
-    const opts = { ...this.defaultOptions, ...options };
-
+  async sendRecoveryCode(request: DfnsSendRecoveryCodeRequest): Promise<DfnsSendRecoveryCodeResponse> {
     try {
-      if (opts.validateInput) {
-        this.validateEmail(request.username);
-        this.validateOrgId(request.orgId);
-        this.validateVerificationCode(request.verificationCode);
-        this.validateCredentialId(request.credentialId);
+      this.validateSendRecoveryCodeRequest(request);
+
+      const response = await this.workingClient.makeRequest(
+        'PUT',
+        '/auth/recover/user/code',
+        request
+      ) as { message: string };
+
+      if (!response.message) {
+        throw new DfnsError('Invalid response format from DFNS API', 'INVALID_RESPONSE');
       }
 
-      const response = await this.authClient.createRecoveryChallenge(request);
-
-      if (opts.enableLogging) {
-        console.log('Recovery challenge created successfully:', {
-          username: request.username,
-          orgId: request.orgId,
-          credentialId: request.credentialId,
-          challengeLength: response.challenge.length,
-          allowedCredentialsCount: response.allowedRecoveryCredentials.length
-        });
-      }
-
-      return response;
-
-    } catch (error) {
-      if (opts.enableLogging) {
-        console.error('Failed to create recovery challenge:', { error, request });
-      }
-
-      throw new DfnsAuthenticationError(
-        `Failed to create recovery challenge for ${request.username}: ${error}`,
-        { 
-          username: request.username, 
-          orgId: request.orgId,
-          credentialId: request.credentialId 
-        }
-      );
-    }
-  }
-
-  // ===============================
-  // DELEGATED RECOVERY FLOW METHODS
-  // ===============================
-
-  /**
-   * Complete delegated user recovery flow
-   * Service account initiated recovery for custom branded UX
-   */
-  async recoverUserAccountDelegated(
-    username: string,
-    credentialId: string,
-    newCredentials: DfnsNewCredentials,
-    recoveryCredentialAssertion: DfnsRecoveryCredentialAssertion,
-    options: DfnsUserRecoveryServiceOptions = {}
-  ): Promise<{
-    recoveryResponse: DfnsRecoverUserResponse;
-    summary: DfnsRecoverySummary;
-  }> {
-    const opts = { ...this.defaultOptions, ...options };
-
-    try {
-      if (opts.validateInput) {
-        this.validateEmail(username);
-        this.validateCredentialId(credentialId);
-        this.validateNewCredentials(newCredentials);
-        this.validateRecoveryAssertion(recoveryCredentialAssertion);
-      }
-
-      // Step 1: Create delegated recovery challenge
-      const challengeResponse = await this.createDelegatedRecoveryChallenge({
-        username,
-        credentialId
-      }, opts);
-
-      // Step 2: Construct recovery object
-      const recovery: DfnsRecoveryObject = {
-        kind: 'RecoveryKey',
-        credentialAssertion: recoveryCredentialAssertion
-      };
-
-      // Step 3: Complete recovery
-      const recoveryResponse = await this.recoverUser({
-        recovery,
-        newCredentials
-      }, opts);
-
-      // Step 4: Create summary
-      const summary: DfnsRecoverySummary = {
-        username,
-        orgId: 'delegated', // Org ID not required for delegated flow
-        credentialId,
-        recoveryFlow: 'delegated',
-        status: 'completed',
-        timestamp: new Date().toISOString()
-      };
-
-      if (opts.enableLogging) {
-        console.log('Delegated user recovery completed successfully:', summary);
-      }
-
-      return { recoveryResponse, summary };
-
-    } catch (error) {
-      const summary: DfnsRecoverySummary = {
-        username,
-        orgId: 'delegated',
-        credentialId,
-        recoveryFlow: 'delegated',
-        status: 'failed',
-        timestamp: new Date().toISOString()
-      };
-
-      if (opts.enableLogging) {
-        console.error('Delegated user recovery failed:', { error, summary });
-      }
-
-      throw new DfnsAuthenticationError(
-        `Failed to recover user account via delegated flow: ${error}`,
-        { username, credentialId }
-      );
-    }
-  }
-
-  /**
-   * Create delegated recovery challenge
-   * Service account initiated recovery
-   */
-  async createDelegatedRecoveryChallenge(
-    request: DfnsDelegatedRecoveryRequest,
-    options: DfnsUserRecoveryServiceOptions = {}
-  ): Promise<DfnsDelegatedRecoveryResponse> {
-    const opts = { ...this.defaultOptions, ...options };
-
-    try {
-      if (opts.validateInput) {
-        this.validateEmail(request.username);
-        this.validateCredentialId(request.credentialId);
-      }
-
-      const response = await this.authClient.createDelegatedRecoveryChallenge(request);
-
-      if (opts.enableLogging) {
-        console.log('Delegated recovery challenge created successfully:', {
-          username: request.username,
-          credentialId: request.credentialId,
-          challengeLength: response.challenge.length,
-          allowedCredentialsCount: response.allowedRecoveryCredentials.length
-        });
-      }
-
-      return response;
-
-    } catch (error) {
-      if (opts.enableLogging) {
-        console.error('Failed to create delegated recovery challenge:', { error, request });
-      }
-
-      throw new DfnsAuthenticationError(
-        `Failed to create delegated recovery challenge for ${request.username}: ${error}`,
-        { 
-          username: request.username,
-          credentialId: request.credentialId 
-        }
-      );
-    }
-  }
-
-  // ===============================
-  // CORE RECOVERY METHODS
-  // ===============================
-
-  /**
-   * Complete user recovery using recovery credential
-   * Final step in both standard and delegated recovery flows
-   */
-  async recoverUser(
-    request: DfnsRecoverUserRequest,
-    options: DfnsUserRecoveryServiceOptions = {}
-  ): Promise<DfnsRecoverUserResponse> {
-    const opts = { ...this.defaultOptions, ...options };
-
-    try {
-      if (opts.validateInput) {
-        this.validateRecoveryRequest(request);
-      }
-
-      const response = await this.authClient.recoverUser(request);
-
-      if (opts.enableLogging) {
-        console.log('User recovery completed successfully:', {
-          userId: response.user.id,
-          username: response.user.username,
-          orgId: response.user.orgId,
-          newCredentialUuid: response.credential.uuid,
-          newCredentialKind: response.credential.kind
-        });
-      }
-
-      return response;
-
-    } catch (error) {
-      if (opts.enableLogging) {
-        console.error('Failed to recover user:', { 
-          error, 
-          recoveryKind: request.recovery.kind,
-          firstFactorKind: request.newCredentials.firstFactorCredential.credentialKind
-        });
-      }
-
-      throw new DfnsAuthenticationError(
-        `Failed to complete user recovery: ${error}`,
-        { 
-          recoveryKind: request.recovery.kind,
-          firstFactorKind: request.newCredentials.firstFactorCredential.credentialKind
-        }
-      );
-    }
-  }
-
-  // ===============================
-  // WEBAUTHN HELPER METHODS
-  // ===============================
-
-  /**
-   * Create WebAuthn credential for recovery
-   * Helper method to create Fido2 credentials during recovery
-   */
-  async createWebAuthnCredentialForRecovery(
-    challenge: string,
-    credentialName: string = 'Recovery Credential'
-  ): Promise<DfnsCredentialInfo> {
-    try {
-      // Check WebAuthn support
-      if (!this.isWebAuthnSupported()) {
-        throw new DfnsValidationError(
-          'WebAuthn is not supported in this browser',
-          { userAgent: navigator.userAgent }
-        );
-      }
-
-      // Create WebAuthn credential
-      const credential = await navigator.credentials.create({
-        publicKey: {
-          challenge: new TextEncoder().encode(challenge),
-          rp: {
-            name: 'Chain Capital',
-            id: window.location.hostname
-          },
-          user: {
-            id: new TextEncoder().encode('recovery-user'),
-            name: 'Recovery User',
-            displayName: 'Recovery User'
-          },
-          pubKeyCredParams: [
-            { alg: -7, type: 'public-key' }, // ES256
-            { alg: -257, type: 'public-key' } // RS256
-          ],
-          authenticatorSelection: {
-            userVerification: 'required',
-            residentKey: 'required'
-          },
-          timeout: 60000,
-          attestation: 'direct'
-        }
-      }) as PublicKeyCredential;
-
-      if (!credential) {
-        throw new DfnsAuthenticationError('Failed to create WebAuthn credential');
-      }
-
-      const response = credential.response as AuthenticatorAttestationResponse;
+      console.log('✅ Recovery code sent successfully to:', request.username);
       
-      const credentialInfo: DfnsFido2CredentialInfo = {
-        credId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))),
-        clientData: btoa(String.fromCharCode(...new Uint8Array(response.clientDataJSON))),
-        attestationData: btoa(String.fromCharCode(...new Uint8Array(response.attestationObject)))
-      };
-
       return {
-        credentialKind: 'Fido2',
-        credentialInfo
+        message: 'success' as const
       };
-
     } catch (error) {
-      throw new DfnsAuthenticationError(
-        `Failed to create WebAuthn credential for recovery: ${error}`
-      );
+      console.error('❌ Failed to send recovery code:', error);
+      throw this.handleRecoveryError(error, 'sendRecoveryCode');
     }
   }
 
+  // =====================================================
+  // RECOVERY CHALLENGE CREATION
+  // =====================================================
+
   /**
-   * Sign recovery challenge with WebAuthn
-   * Helper method to create recovery credential assertion
+   * Create Recovery Challenge
+   * POST /auth/recover/user/init
+   * 
+   * Starts a user recovery session, returning a challenge that will be used 
+   * to verify the user's identity. Requires the verification code from email.
+   * 
+   * @param request - Recovery challenge request with username, verificationCode, orgId, credentialId
+   * @returns Promise with challenge data for WebAuthn recovery process
    */
-  async signRecoveryChallenge(
-    challenge: string,
-    credentialId: string,
-    allowedCredentials: Array<{ id: string; encryptedRecoveryKey: string }>
-  ): Promise<DfnsRecoveryCredentialAssertion> {
+  async createRecoveryChallenge(request: DfnsCreateRecoveryRequest): Promise<DfnsCreateRecoveryResponse> {
     try {
-      // Check WebAuthn support
-      if (!this.isWebAuthnSupported()) {
-        throw new DfnsValidationError(
-          'WebAuthn is not supported in this browser',
-          { userAgent: navigator.userAgent }
-        );
-      }
+      this.validateCreateRecoveryRequest(request);
 
-      // Find the matching recovery credential
-      const recoveryCredential = allowedCredentials.find(cred => cred.id === credentialId);
-      if (!recoveryCredential) {
-        throw new DfnsValidationError(
-          'Recovery credential not found in allowed credentials',
-          { credentialId, allowedCount: allowedCredentials.length }
-        );
-      }
+      const response = await this.workingClient.makeRequest(
+        'POST',
+        '/auth/recover/user/init',
+        request
+      ) as any;
 
-      // Create WebAuthn assertion
-      const assertion = await navigator.credentials.get({
-        publicKey: {
-          challenge: new TextEncoder().encode(challenge),
-          allowCredentials: [{
-            type: 'public-key',
-            id: new TextEncoder().encode(credentialId)
-          }],
-          userVerification: 'required',
-          timeout: 60000
-        }
-      }) as PublicKeyCredential;
+      this.validateRecoveryResponse(response);
 
-      if (!assertion) {
-        throw new DfnsAuthenticationError('Failed to create WebAuthn assertion');
-      }
-
-      const response = assertion.response as AuthenticatorAssertionResponse;
-
-      return {
-        credId: btoa(String.fromCharCode(...new Uint8Array(assertion.rawId))),
-        clientData: btoa(String.fromCharCode(...new Uint8Array(response.clientDataJSON))),
-        signature: btoa(String.fromCharCode(...new Uint8Array(response.signature)))
-      };
-
+      console.log('✅ Recovery challenge created for user:', request.username);
+      console.log(`🔐 Challenge includes ${response.allowedRecoveryCredentials?.length || 0} recovery credentials`);
+      
+      return response as DfnsCreateRecoveryResponse;
     } catch (error) {
-      throw new DfnsAuthenticationError(
-        `Failed to sign recovery challenge: ${error}`,
-        { credentialId }
-      );
+      console.error('❌ Failed to create recovery challenge:', error);
+      throw this.handleRecoveryError(error, 'createRecoveryChallenge');
     }
   }
 
-  // ===============================
+  /**
+   * Create Delegated Recovery Challenge
+   * POST /auth/recover/user/delegated
+   * 
+   * Service Account only endpoint. Enables setting up a recovery workflow 
+   * for Delegated Signing without sending user an email from DFNS.
+   * 
+   * Requires Service Account with Auth:Recover:Delegated permission.
+   * 
+   * @param request - Delegated recovery request with username and credentialId
+   * @returns Promise with challenge data for delegated recovery process
+   */
+  async createDelegatedRecoveryChallenge(request: DfnsDelegatedRecoveryRequest): Promise<DfnsDelegatedRecoveryResponse> {
+    try {
+      // Verify Service Account authentication
+      const authMethod = this.workingClient.getAuthMethod();
+      if (!authMethod.includes('SERVICE_ACCOUNT')) {
+        throw new DfnsAuthenticationError(
+          'Delegated recovery requires Service Account authentication with Auth:Recover:Delegated permission'
+        );
+      }
+
+      this.validateCreateDelegatedRecoveryRequest(request);
+
+      const response = await this.workingClient.makeRequest(
+        'POST',
+        '/auth/recover/user/delegated',
+        request
+      ) as any;
+
+      this.validateRecoveryResponse(response);
+
+      console.log('✅ Delegated recovery challenge created for user:', request.username);
+      console.log(`🔐 Challenge includes ${response.allowedRecoveryCredentials?.length || 0} recovery credentials`);
+      
+      return response as DfnsDelegatedRecoveryResponse;
+    } catch (error) {
+      console.error('❌ Failed to create delegated recovery challenge:', error);
+      throw this.handleRecoveryError(error, 'createDelegatedRecoveryChallenge');
+    }
+  }
+
+  // =====================================================
+  // USER RECOVERY COMPLETION
+  // =====================================================
+
+  /**
+   * Recover User
+   * POST /auth/recover/user
+   * 
+   * Recovers a user using a recovery credential. After successfully recovering,
+   * all previous credentials and personal access tokens will be invalidated.
+   * 
+   * Requires cryptographic validation of newly created credential(s) using 
+   * a recovery credential.
+   * 
+   * @param request - Recovery request with recovery assertion and new credentials
+   * @returns Promise with recovered user information
+   */
+  async recoverUser(request: DfnsRecoverUserRequest): Promise<DfnsRecoverUserResponse> {
+    try {
+      this.validateRecoverUserRequest(request);
+
+      const response = await this.workingClient.makeRequest(
+        'POST',
+        '/auth/recover/user',
+        request
+      ) as any;
+
+      this.validateRecoverUserResponse(response);
+
+      console.log('✅ User recovery completed successfully');
+      console.log(`👤 Recovered user: ${response.user.username} (${response.user.id})`);
+      console.log(`🔑 New credential: ${response.credential.name} (${response.credential.kind})`);
+      console.log('⚠️ All previous credentials and PATs have been invalidated');
+      
+      return response as DfnsRecoverUserResponse;
+    } catch (error) {
+      console.error('❌ Failed to recover user:', error);
+      throw this.handleRecoveryError(error, 'recoverUser');
+    }
+  }
+
+  // =====================================================
+  // HELPER METHODS
+  // =====================================================
+
+  // =====================================================
+  // HELPER METHODS & UTILITIES
+  // =====================================================
+
+  /**
+   * Create recovery credential assertion for signing new credentials
+   * 
+   * This helper method constructs the challenge string needed for the 
+   * recovery credential assertion based on the new credentials being created.
+   * 
+   * @param newCredentials - The new credentials being registered
+   * @returns Base64url-encoded challenge string
+   */
+  createRecoveryChallengeFromCredentials(newCredentials: DfnsNewCredentials): string {
+    try {
+      // Serialize the newCredentials object to JSON
+      const credentialsJson = JSON.stringify(newCredentials);
+      
+      // Base64url encode the JSON string (this becomes the challenge)
+      const challenge = btoa(credentialsJson)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+      
+      return challenge;
+    } catch (error) {
+      throw new DfnsValidationError('Failed to create recovery challenge from new credentials');
+    }
+  }
+
+  /**
+   * Validate recovery credential for WebAuthn operations
+   */
+  async validateRecoveryCredential(credentialId: string): Promise<boolean> {
+    try {
+      // Basic validation - credential ID should be base64url encoded
+      if (!credentialId || credentialId.length < 16) {
+        return false;
+      }
+      
+      // Check if credential ID contains valid base64url characters
+      const base64urlPattern = /^[A-Za-z0-9_-]+$/;
+      return base64urlPattern.test(credentialId);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get recovery status for a user (basic implementation)
+   * Note: DFNS doesn't provide direct endpoint for this, would need credential listing
+   */
+  async getRecoveryStatus(username: string, orgId: string): Promise<{
+    hasRecoveryCredentials: boolean;
+    recoveryCredentialCount: number;
+    canInitiateRecovery: boolean;
+  }> {
+    try {
+      // Note: This would need to be implemented through credential listing endpoints
+      // For now, return a basic structure indicating limited information available
+      
+      console.log('ℹ️ Recovery status check - limited information available without credential access');
+      console.log(`👤 Checking recovery status for: ${username} in org: ${orgId}`);
+      
+      return {
+        hasRecoveryCredentials: false,
+        recoveryCredentialCount: 0,
+        canInitiateRecovery: true // Basic recovery flow is always available
+      };
+    } catch (error) {
+      console.error('❌ Failed to get recovery status:', error);
+      return {
+        hasRecoveryCredentials: false,
+        recoveryCredentialCount: 0,
+        canInitiateRecovery: false
+      };
+    }
+  }
+
+  /**
+   * Check if current authentication supports delegated recovery
+   */
+  canPerformDelegatedRecovery(): boolean {
+    const authMethod = this.workingClient.getAuthMethod();
+    return authMethod.includes('SERVICE_ACCOUNT');
+  }
+
+  /**
+   * Get recovery workflow information
+   */
+  getRecoveryWorkflowInfo(): {
+    supportedFlows: string[];
+    authenticationRequired: boolean;
+    permissionsRequired: string[];
+  } {
+    const canDelegated = this.canPerformDelegatedRecovery();
+    
+    return {
+      supportedFlows: [
+        'Standard Recovery (Email verification)',
+        ...(canDelegated ? ['Delegated Recovery (Service Account)'] : [])
+      ],
+      authenticationRequired: false,
+      permissionsRequired: canDelegated ? ['Auth:Recover:Delegated (for delegated recovery only)'] : []
+    };
+  }
+
+  // =====================================================
   // VALIDATION METHODS
-  // ===============================
+  // =====================================================
 
-  private validateRecoveryInput(
-    username: string,
-    orgId: string,
-    verificationCode: string,
-    credentialId: string
-  ): void {
-    this.validateEmail(username);
-    this.validateOrgId(orgId);
-    this.validateVerificationCode(verificationCode);
-    this.validateCredentialId(credentialId);
-  }
-
-  private validateEmail(email: string): void {
-    if (!email || typeof email !== 'string' || email.trim().length === 0) {
-      throw new DfnsValidationError('Email is required');
+  private validateSendRecoveryCodeRequest(request: DfnsSendRecoveryCodeRequest): void {
+    if (!request.username || !request.username.includes('@')) {
+      throw new DfnsValidationError('Valid email address (username) is required');
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new DfnsValidationError('Invalid email format');
+    
+    if (!request.orgId || request.orgId.length < 10) {
+      throw new DfnsValidationError('Valid organization ID is required');
     }
   }
 
-  private validateOrgId(orgId: string): void {
-    if (!orgId || typeof orgId !== 'string' || orgId.trim().length === 0) {
-      throw new DfnsValidationError('Organization ID is required');
+  private validateCreateRecoveryRequest(request: DfnsCreateRecoveryRequest): void {
+    if (!request.username || !request.username.includes('@')) {
+      throw new DfnsValidationError('Valid email address (username) is required');
     }
-
-    // DFNS org IDs typically follow the pattern: or-xxxxx-xxxxx-xxxxxxxxxxxx
-    if (!orgId.startsWith('or-')) {
-      throw new DfnsValidationError('Invalid organization ID format');
+    
+    if (!request.verificationCode || request.verificationCode.length < 4) {
+      throw new DfnsValidationError('Valid verification code is required');
     }
-  }
-
-  private validateVerificationCode(code: string): void {
-    if (!code || typeof code !== 'string' || code.trim().length === 0) {
-      throw new DfnsValidationError('Verification code is required');
+    
+    if (!request.orgId || request.orgId.length < 10) {
+      throw new DfnsValidationError('Valid organization ID is required');
     }
-
-    // DFNS verification codes are typically in format: 1234-1234-1234-1234
-    const codeRegex = /^\d{4}-\d{4}-\d{4}-\d{4}$/;
-    if (!codeRegex.test(code)) {
-      throw new DfnsValidationError('Invalid verification code format. Expected: XXXX-XXXX-XXXX-XXXX');
+    
+    if (!request.credentialId || request.credentialId.length < 16) {
+      throw new DfnsValidationError('Valid recovery credential ID is required');
     }
   }
 
-  private validateCredentialId(credentialId: string): void {
-    if (!credentialId || typeof credentialId !== 'string' || credentialId.trim().length === 0) {
-      throw new DfnsValidationError('Credential ID is required');
+  private validateCreateDelegatedRecoveryRequest(request: DfnsDelegatedRecoveryRequest): void {
+    if (!request.username || !request.username.includes('@')) {
+      throw new DfnsValidationError('Valid email address (username) is required');
     }
-
-    // Basic length validation for base64url encoded credential IDs
-    if (credentialId.length < 16) {
-      throw new DfnsValidationError('Credential ID appears to be too short');
-    }
-  }
-
-  private validateNewCredentials(newCredentials: DfnsNewCredentials): void {
-    if (!newCredentials.firstFactorCredential) {
-      throw new DfnsValidationError('First factor credential is required');
-    }
-
-    this.validateCredentialInfo(newCredentials.firstFactorCredential);
-
-    if (newCredentials.secondFactorCredential) {
-      this.validateCredentialInfo(newCredentials.secondFactorCredential);
-    }
-
-    if (newCredentials.recoveryCredential) {
-      this.validateCredentialInfo(newCredentials.recoveryCredential);
+    
+    if (!request.credentialId || request.credentialId.length < 16) {
+      throw new DfnsValidationError('Valid recovery credential ID is required');
     }
   }
 
-  private validateCredentialInfo(credentialInfo: DfnsCredentialInfo): void {
-    if (!credentialInfo.credentialKind) {
-      throw new DfnsValidationError('Credential kind is required');
-    }
-
-    const validKinds: DfnsCredentialKind[] = ['Fido2', 'Key', 'PasswordProtectedKey', 'RecoveryKey'];
-    if (!validKinds.includes(credentialInfo.credentialKind)) {
-      throw new DfnsValidationError(`Invalid credential kind: ${credentialInfo.credentialKind}`);
-    }
-
-    if (!credentialInfo.credentialInfo) {
-      throw new DfnsValidationError('Credential info is required');
-    }
-
-    const info = credentialInfo.credentialInfo;
-    if (!info.credId || !info.clientData || !info.attestationData) {
-      throw new DfnsValidationError('Credential info must include credId, clientData, and attestationData');
-    }
-  }
-
-  private validateRecoveryAssertion(assertion: DfnsRecoveryCredentialAssertion): void {
-    if (!assertion.credId || !assertion.clientData || !assertion.signature) {
-      throw new DfnsValidationError('Recovery credential assertion must include credId, clientData, and signature');
-    }
-  }
-
-  private validateRecoveryRequest(request: DfnsRecoverUserRequest): void {
+  private validateRecoverUserRequest(request: DfnsRecoverUserRequest): void {
     if (!request.recovery || request.recovery.kind !== 'RecoveryKey') {
-      throw new DfnsValidationError('Recovery object must have kind "RecoveryKey"');
+      throw new DfnsValidationError('Recovery must use RecoveryKey kind');
     }
-
-    this.validateRecoveryAssertion(request.recovery.credentialAssertion);
-    this.validateNewCredentials(request.newCredentials);
+    
+    if (!request.recovery.credentialAssertion) {
+      throw new DfnsValidationError('Recovery credential assertion is required');
+    }
+    
+    if (!request.recovery.credentialAssertion.credId || 
+        !request.recovery.credentialAssertion.clientData || 
+        !request.recovery.credentialAssertion.signature) {
+      throw new DfnsValidationError('Complete recovery credential assertion (credId, clientData, signature) is required');
+    }
+    
+    if (!request.newCredentials || !request.newCredentials.firstFactorCredential) {
+      throw new DfnsValidationError('At least a first factor credential is required for recovery');
+    }
+    
+    const firstFactor = request.newCredentials.firstFactorCredential;
+    if (!['Fido2', 'Key'].includes(firstFactor.credentialKind)) {
+      throw new DfnsValidationError('First factor credential must be Fido2 or Key');
+    }
+    
+    if (!firstFactor.credentialInfo || 
+        !firstFactor.credentialInfo.credId || 
+        !firstFactor.credentialInfo.clientData || 
+        !firstFactor.credentialInfo.attestationData) {
+      throw new DfnsValidationError('Complete first factor credential info is required');
+    }
   }
 
-  // ===============================
-  // UTILITY METHODS
-  // ===============================
-
-  /**
-   * Check if WebAuthn is supported in the current browser
-   */
-  static isWebAuthnSupported(): boolean {
-    return !!(
-      navigator.credentials &&
-      navigator.credentials.create &&
-      navigator.credentials.get &&
-      window.PublicKeyCredential
-    );
+  private validateRecoveryResponse(response: any): void {
+    if (!response.temporaryAuthenticationToken) {
+      throw new DfnsError('Invalid recovery challenge response: missing temporary auth token', 'INVALID_RESPONSE');
+    }
+    
+    if (!response.challenge) {
+      throw new DfnsError('Invalid recovery challenge response: missing challenge', 'INVALID_RESPONSE');
+    }
+    
+    if (!response.allowedRecoveryCredentials || !Array.isArray(response.allowedRecoveryCredentials)) {
+      throw new DfnsError('Invalid recovery challenge response: missing recovery credentials', 'INVALID_RESPONSE');
+    }
   }
 
-  private isWebAuthnSupported(): boolean {
-    return DfnsUserRecoveryService.isWebAuthnSupported();
+  private validateRecoverUserResponse(response: any): void {
+    if (!response.user || !response.user.id || !response.user.username) {
+      throw new DfnsError('Invalid recover user response: missing user data', 'INVALID_RESPONSE');
+    }
+    
+    if (!response.credential || !response.credential.uuid || !response.credential.kind) {
+      throw new DfnsError('Invalid recover user response: missing credential data', 'INVALID_RESPONSE');
+    }
   }
 
-  /**
-   * Create recovery flow status
-   */
-  createRecoveryFlowStatus(
-    step: 'code_sent' | 'challenge_created' | 'recovery_complete',
-    additionalData?: Partial<DfnsRecoveryFlowStatus>
-  ): DfnsRecoveryFlowStatus {
-    return {
-      step,
-      ...additionalData
-    };
-  }
-
-  /**
-   * Get recovery options with defaults
-   */
-  getOptionsWithDefaults(options?: DfnsUserRecoveryServiceOptions): DfnsUserRecoveryServiceOptions {
-    return {
-      syncToDatabase: false,
-      validateInput: true,
-      enableLogging: false,
-      ...this.defaultOptions,
-      ...options
-    };
+  private handleRecoveryError(error: unknown, operation: string): Error {
+    if (error instanceof DfnsError) {
+      return error;
+    }
+    
+    const errorObj = error as any;
+    const message = errorObj?.message || 'Unknown error occurred';
+    const statusCode = errorObj?.status || errorObj?.statusCode;
+    
+    // Handle specific HTTP status codes
+    switch (statusCode) {
+      case 400:
+        return new DfnsValidationError(`${operation}: ${message}`);
+      case 401:
+        return new DfnsAuthenticationError(`${operation}: Authentication failed - ${message}`);
+      case 403:
+        return new DfnsAuthenticationError(`${operation}: Insufficient permissions - ${message}`);
+      case 404:
+        return new DfnsError(`${operation}: User or credential not found - ${message}`, 'NOT_FOUND');
+      case 429:
+        return new DfnsError(`${operation}: Rate limit exceeded - ${message}`, 'RATE_LIMIT');
+      default:
+        return new DfnsError(`${operation}: ${message}`, 'RECOVERY_ERROR');
+    }
   }
 }

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict yPiJWDC8xQw23cDZLZOODjzwU2XW0bcDNtV7lGuKltSKMX4apbnbiqTtTZuQ6gy
+\restrict o7HYh1WsB4tW20Fbhd9ABogMGBngi2gRKUahmxsY93eM6PRfgPwk1aE51G1gfRA
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -8213,7 +8213,7 @@ CREATE TABLE public.dfns_policies (
     policy_id text NOT NULL,
     name text NOT NULL,
     description text,
-    rule jsonb NOT NULL,
+    rule_legacy jsonb NOT NULL,
     activity_kind text NOT NULL,
     status text DEFAULT 'Active'::text NOT NULL,
     external_id text,
@@ -8221,8 +8221,72 @@ CREATE TABLE public.dfns_policies (
     dfns_policy_id text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT dfns_policies_status_check CHECK ((status = ANY (ARRAY['Active'::text, 'Inactive'::text])))
+    rule_kind text,
+    rule_configuration jsonb,
+    action_kind text,
+    action_configuration jsonb,
+    filters jsonb,
+    metadata jsonb,
+    CONSTRAINT dfns_policies_action_kind_check CHECK (((action_kind IS NULL) OR (action_kind = ANY (ARRAY['Block'::text, 'RequestApproval'::text, 'NoAction'::text])))),
+    CONSTRAINT dfns_policies_activity_kind_check CHECK ((activity_kind = ANY (ARRAY['Wallets:Sign'::text, 'Wallets:IncomingTransaction'::text, 'Permissions:Assign'::text, 'Permissions:Modify'::text, 'Policies:Modify'::text]))),
+    CONSTRAINT dfns_policies_rule_kind_check CHECK (((rule_kind IS NULL) OR (rule_kind = ANY (ARRAY['AlwaysTrigger'::text, 'TransactionAmountLimit'::text, 'TransactionAmountVelocity'::text, 'TransactionCountVelocity'::text, 'TransactionRecipientWhitelist'::text, 'ChainalysisTransactionPrescreening'::text, 'ChainalysisTransactionScreening'::text])))),
+    CONSTRAINT dfns_policies_status_check CHECK ((status = ANY (ARRAY['Active'::text, 'Archived'::text])))
 );
+
+
+--
+-- Name: TABLE dfns_policies; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dfns_policies IS 'DFNS Policy Engine policies with rules, actions, and filters (enhanced from existing table)';
+
+
+--
+-- Name: dfns_policy_approval_decisions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dfns_policy_approval_decisions (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    approval_id uuid,
+    dfns_approval_id text NOT NULL,
+    user_id text NOT NULL,
+    decision_value text NOT NULL,
+    reason text,
+    date_actioned timestamp with time zone DEFAULT now(),
+    organization_id text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT dfns_policy_approval_decisions_decision_value_check CHECK ((decision_value = ANY (ARRAY['Approved'::text, 'Denied'::text])))
+);
+
+
+--
+-- Name: TABLE dfns_policy_approval_decisions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dfns_policy_approval_decisions IS 'Individual approval/denial decisions by users';
+
+
+--
+-- Name: dfns_policy_approval_groups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dfns_policy_approval_groups (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    policy_id uuid,
+    dfns_policy_id text NOT NULL,
+    group_name text,
+    quorum integer DEFAULT 1 NOT NULL,
+    approvers jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE dfns_policy_approval_groups; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dfns_policy_approval_groups IS 'Approval groups for RequestApproval policy actions';
 
 
 --
@@ -8245,8 +8309,75 @@ CREATE TABLE public.dfns_policy_approvals (
     dfns_approval_id text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT dfns_policy_approvals_status_check CHECK ((status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Rejected'::text, 'Failed'::text])))
+    dfns_policy_id text,
+    initiator_id text,
+    expiration_date timestamp with time zone,
+    activity_details jsonb,
+    evaluated_policies jsonb,
+    CONSTRAINT dfns_policy_approvals_status_check CHECK ((status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Denied'::text, 'AutoApproved'::text, 'Expired'::text])))
 );
+
+
+--
+-- Name: TABLE dfns_policy_approvals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dfns_policy_approvals IS 'DFNS approval processes (enhanced from existing table)';
+
+
+--
+-- Name: dfns_policy_change_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dfns_policy_change_requests (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    dfns_change_request_id text NOT NULL,
+    kind text DEFAULT 'Policy'::text NOT NULL,
+    operation_kind text NOT NULL,
+    status text DEFAULT 'Pending'::text NOT NULL,
+    requester_user_id text NOT NULL,
+    entity_id text NOT NULL,
+    dfns_approval_id text,
+    request_body jsonb NOT NULL,
+    organization_id text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT dfns_policy_change_requests_operation_kind_check CHECK ((operation_kind = ANY (ARRAY['Update'::text, 'Archive'::text]))),
+    CONSTRAINT dfns_policy_change_requests_status_check CHECK ((status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Denied'::text, 'Executed'::text])))
+);
+
+
+--
+-- Name: TABLE dfns_policy_change_requests; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dfns_policy_change_requests IS 'Policy modification requests requiring approval';
+
+
+--
+-- Name: dfns_policy_evaluations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dfns_policy_evaluations (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    dfns_policy_id text NOT NULL,
+    activity_id text NOT NULL,
+    trigger_status text NOT NULL,
+    reason text,
+    evaluation_timestamp timestamp with time zone DEFAULT now(),
+    activity_kind text NOT NULL,
+    activity_details jsonb,
+    organization_id text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT dfns_policy_evaluations_trigger_status_check CHECK ((trigger_status = ANY (ARRAY['Triggered'::text, 'Skipped'::text])))
+);
+
+
+--
+-- Name: TABLE dfns_policy_evaluations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dfns_policy_evaluations IS 'History of policy evaluations and triggers';
 
 
 --
@@ -17258,6 +17389,22 @@ ALTER TABLE ONLY public.dfns_policies
 
 
 --
+-- Name: dfns_policy_approval_decisions dfns_policy_approval_decisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_approval_decisions
+    ADD CONSTRAINT dfns_policy_approval_decisions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dfns_policy_approval_groups dfns_policy_approval_groups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_approval_groups
+    ADD CONSTRAINT dfns_policy_approval_groups_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: dfns_policy_approvals dfns_policy_approvals_approval_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -17279,6 +17426,30 @@ ALTER TABLE ONLY public.dfns_policy_approvals
 
 ALTER TABLE ONLY public.dfns_policy_approvals
     ADD CONSTRAINT dfns_policy_approvals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dfns_policy_change_requests dfns_policy_change_requests_dfns_change_request_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_change_requests
+    ADD CONSTRAINT dfns_policy_change_requests_dfns_change_request_id_key UNIQUE (dfns_change_request_id);
+
+
+--
+-- Name: dfns_policy_change_requests dfns_policy_change_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_change_requests
+    ADD CONSTRAINT dfns_policy_change_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dfns_policy_evaluations dfns_policy_evaluations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_evaluations
+    ADD CONSTRAINT dfns_policy_evaluations_pkey PRIMARY KEY (id);
 
 
 --
@@ -21054,10 +21225,31 @@ CREATE INDEX idx_dfns_fiat_transactions_wallet_type ON public.dfns_fiat_transact
 
 
 --
+-- Name: idx_dfns_policies_action_kind; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policies_action_kind ON public.dfns_policies USING btree (action_kind);
+
+
+--
 -- Name: idx_dfns_policies_activity_kind; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_dfns_policies_activity_kind ON public.dfns_policies USING btree (activity_kind);
+
+
+--
+-- Name: idx_dfns_policies_dfns_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policies_dfns_id ON public.dfns_policies USING btree (dfns_policy_id);
+
+
+--
+-- Name: idx_dfns_policies_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policies_org ON public.dfns_policies USING btree (organization_id);
 
 
 --
@@ -21068,10 +21260,136 @@ CREATE INDEX idx_dfns_policies_policy_id ON public.dfns_policies USING btree (po
 
 
 --
+-- Name: idx_dfns_policies_rule_kind; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policies_rule_kind ON public.dfns_policies USING btree (rule_kind);
+
+
+--
 -- Name: idx_dfns_policies_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_dfns_policies_status ON public.dfns_policies USING btree (status);
+
+
+--
+-- Name: idx_dfns_policy_approval_decisions_approval; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approval_decisions_approval ON public.dfns_policy_approval_decisions USING btree (approval_id);
+
+
+--
+-- Name: idx_dfns_policy_approval_decisions_dfns_approval; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approval_decisions_dfns_approval ON public.dfns_policy_approval_decisions USING btree (dfns_approval_id);
+
+
+--
+-- Name: idx_dfns_policy_approval_decisions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approval_decisions_user ON public.dfns_policy_approval_decisions USING btree (user_id);
+
+
+--
+-- Name: idx_dfns_policy_approval_groups_dfns_policy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approval_groups_dfns_policy ON public.dfns_policy_approval_groups USING btree (dfns_policy_id);
+
+
+--
+-- Name: idx_dfns_policy_approval_groups_policy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approval_groups_policy ON public.dfns_policy_approval_groups USING btree (policy_id);
+
+
+--
+-- Name: idx_dfns_policy_approvals_activity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approvals_activity ON public.dfns_policy_approvals USING btree (activity_id);
+
+
+--
+-- Name: idx_dfns_policy_approvals_dfns_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approvals_dfns_id ON public.dfns_policy_approvals USING btree (dfns_approval_id);
+
+
+--
+-- Name: idx_dfns_policy_approvals_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approvals_org ON public.dfns_policy_approvals USING btree (organization_id);
+
+
+--
+-- Name: idx_dfns_policy_approvals_policy_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approvals_policy_id ON public.dfns_policy_approvals USING btree (policy_id);
+
+
+--
+-- Name: idx_dfns_policy_approvals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_approvals_status ON public.dfns_policy_approvals USING btree (status);
+
+
+--
+-- Name: idx_dfns_policy_change_requests_dfns_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_change_requests_dfns_id ON public.dfns_policy_change_requests USING btree (dfns_change_request_id);
+
+
+--
+-- Name: idx_dfns_policy_change_requests_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_change_requests_entity ON public.dfns_policy_change_requests USING btree (entity_id);
+
+
+--
+-- Name: idx_dfns_policy_change_requests_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_change_requests_status ON public.dfns_policy_change_requests USING btree (status);
+
+
+--
+-- Name: idx_dfns_policy_evaluations_activity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_evaluations_activity ON public.dfns_policy_evaluations USING btree (activity_id);
+
+
+--
+-- Name: idx_dfns_policy_evaluations_policy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_evaluations_policy ON public.dfns_policy_evaluations USING btree (dfns_policy_id);
+
+
+--
+-- Name: idx_dfns_policy_evaluations_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_evaluations_timestamp ON public.dfns_policy_evaluations USING btree (evaluation_timestamp);
+
+
+--
+-- Name: idx_dfns_policy_evaluations_trigger_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dfns_policy_evaluations_trigger_status ON public.dfns_policy_evaluations USING btree (trigger_status);
 
 
 --
@@ -25772,6 +26090,34 @@ CREATE TRIGGER update_commodities_products_updated_at BEFORE UPDATE ON public.co
 
 
 --
+-- Name: dfns_policies update_dfns_policies_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_dfns_policies_updated_at BEFORE UPDATE ON public.dfns_policies FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: dfns_policy_approval_groups update_dfns_policy_approval_groups_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_dfns_policy_approval_groups_updated_at BEFORE UPDATE ON public.dfns_policy_approval_groups FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: dfns_policy_approvals update_dfns_policy_approvals_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_dfns_policy_approvals_updated_at BEFORE UPDATE ON public.dfns_policy_approvals FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: dfns_policy_change_requests update_dfns_policy_change_requests_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_dfns_policy_change_requests_updated_at BEFORE UPDATE ON public.dfns_policy_change_requests FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: digital_tokenised_funds update_digital_tokenised_funds_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -26549,6 +26895,22 @@ ALTER TABLE ONLY public.dfns_permission_assignments
 
 ALTER TABLE ONLY public.dfns_personal_access_tokens
     ADD CONSTRAINT dfns_personal_access_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.dfns_users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dfns_policy_approval_decisions dfns_policy_approval_decisions_approval_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_approval_decisions
+    ADD CONSTRAINT dfns_policy_approval_decisions_approval_id_fkey FOREIGN KEY (approval_id) REFERENCES public.dfns_policy_approvals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dfns_policy_approval_groups dfns_policy_approval_groups_policy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dfns_policy_approval_groups
+    ADD CONSTRAINT dfns_policy_approval_groups_policy_id_fkey FOREIGN KEY (policy_id) REFERENCES public.dfns_policies(id) ON DELETE CASCADE;
 
 
 --
@@ -31111,6 +31473,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.df
 
 
 --
+-- Name: TABLE dfns_policy_approval_decisions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO prisma;
+
+
+--
+-- Name: TABLE dfns_policy_approval_groups; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO prisma;
+
+
+--
 -- Name: TABLE dfns_policy_approvals; Type: ACL; Schema: public; Owner: -
 --
 
@@ -31118,6 +31500,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.df
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO prisma;
+
+
+--
+-- Name: TABLE dfns_policy_change_requests; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO prisma;
+
+
+--
+-- Name: TABLE dfns_policy_evaluations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO prisma;
 
 
 --
@@ -33658,5 +34060,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict yPiJWDC8xQw23cDZLZOODjzwU2XW0bcDNtV7lGuKltSKMX4apbnbiqTtTZuQ6gy
+\unrestrict o7HYh1WsB4tW20Fbhd9ABogMGBngi2gRKUahmxsY93eM6PRfgPwk1aE51G1gfRA
 

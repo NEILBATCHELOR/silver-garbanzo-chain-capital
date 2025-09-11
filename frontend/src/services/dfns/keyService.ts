@@ -1,942 +1,867 @@
 /**
- * DFNS Key Service
+ * DFNS Key Service - Current DFNS Keys API Implementation
  * 
- * High-level service for DFNS Keys API operations with enhanced business logic
- * Supports multichain key management, validation, and delegation
+ * Implements the modern DFNS Keys API endpoints that replace deprecated wallet operations.
+ * Supports key management for multi-chain signatures across 30+ blockchain networks.
+ * 
+ * Key Features:
+ * - Create/Update/Delete keys with scheme/curve configuration
+ * - Delegate keys to end users for non-custodial operations  
+ * - List and retrieve keys with pagination and filtering
+ * - Support for ECDSA, EdDSA, and Schnorr key formats
+ * - User Action Signing for all mutating operations
+ * - Database synchronization for local storage
+ * 
+ * Reference: https://docs.dfns.co/d/api-docs/keys
  */
 
-import type {
-  DfnsCreateKeyRequest,
-  DfnsCreateKeyResponse,
-  DfnsUpdateKeyRequest,
-  DfnsUpdateKeyResponse,
-  DfnsDeleteKeyResponse,
-  DfnsGetKeyResponse,
-  DfnsListKeysRequest,
-  DfnsListKeysResponse,
-  DfnsDelegateKeyRequest,
-  DfnsDelegateKeyResponse,
-  DfnsKey,
-  DfnsKeyScheme,
-  DfnsKeyCurve,
-  DfnsKeyServiceOptions,
-  DfnsCreateKeyOptions,
-  DfnsKeySummary,
-  DfnsKeyBatchResult,
-  DfnsNetworkCompatibility,
-  DfnsKeyValidation,
-  DfnsValidSchemeCurvePair,
-  // Signature Generation Types
-  DfnsGenerateSignatureRequest,
-  DfnsGenerateSignatureResponse,
-  DfnsGetSignatureRequestResponse,
-  DfnsListSignatureRequestsRequest,
-  DfnsListSignatureRequestsResponse,
-  DfnsSignatureKind,
-  DfnsBlockchainKind,
-  DfnsSignatureStatus,
-  DfnsSignatureSummary,
-  DfnsSignatureBatchResult,
-  DfnsSignatureServiceOptions,
-  DfnsNetworkSignatureCapabilities,
-  DfnsEvmSignatureRequest,
-  DfnsBitcoinSignatureRequest,
-  DfnsSolanaSignatureRequest,
-  DfnsXrpLedgerSignatureRequest
-} from '../../types/dfns';
-import { DFNS_KEY_NETWORK_COMPATIBILITY } from '../../types/dfns';
-import { DfnsAuthClient } from '../../infrastructure/dfns/auth/authClient';
-import { DfnsUserActionService } from './userActionService';
-import { 
-  DfnsError, 
-  DfnsValidationError, 
-  DfnsAuthorizationError,
-  DfnsNetworkError 
-} from '../../types/dfns/errors';
+import type { WorkingDfnsClient } from '../../infrastructure/dfns/working-client';
+import { DfnsError } from '../../types/dfns/errors';
+
+// ==============================================
+// DFNS Keys API Types (Current API)
+// ==============================================
+
+/**
+ * Supported key schemes in DFNS
+ */
+export type DfnsKeyScheme = 'ECDSA' | 'EdDSA' | 'Schnorr';
+
+/**
+ * Supported key curves by scheme
+ */
+export type DfnsKeyCurve = 
+  | 'secp256k1'  // ECDSA, Schnorr
+  | 'stark'      // ECDSA  
+  | 'ed25519';   // EdDSA
+
+/**
+ * Key status values
+ */
+export type DfnsKeyStatus = 'Active' | 'Archived';
+
+/**
+ * Key store types
+ */
+export type DfnsKeyStoreKind = 'Mpc' | 'Hsm';
+
+/**
+ * Wallet info attached to key
+ */
+export interface DfnsKeyWalletInfo {
+  id: string;
+  network: string;
+}
+
+/**
+ * Key store information
+ */
+export interface DfnsKeyStoreInfo {
+  kind: DfnsKeyStoreKind;
+  keyId: string; // Internal key identifier for Layer 4 backup
+}
+
+/**
+ * Core key entity (matches DFNS API response)
+ */
+export interface DfnsKey {
+  id: string;
+  name?: string;
+  scheme: DfnsKeyScheme;
+  curve: DfnsKeyCurve;
+  publicKey: string; // Hex-encoded public key
+  status: DfnsKeyStatus;
+  custodial: boolean;
+  dateCreated: string; // ISO 8601 date
+  imported?: boolean;
+  exported?: boolean;
+  dateExported?: string; // ISO 8601 date
+  wallets?: DfnsKeyWalletInfo[]; // Only returned by getKey
+  store?: DfnsKeyStoreInfo; // Only returned by getKey
+}
+
+/**
+ * Create key request parameters
+ */
+export interface CreateKeyRequest {
+  scheme: DfnsKeyScheme;
+  curve: DfnsKeyCurve;
+  name?: string;
+  delegateTo?: string; // End user ID for delegation
+  delayDelegation?: boolean; // Create for later delegation
+}
+
+/**
+ * Update key request parameters
+ */
+export interface UpdateKeyRequest {
+  name: string;
+}
+
+/**
+ * Delegate key request parameters
+ */
+export interface DelegateKeyRequest {
+  userId: string; // End user ID to delegate to
+}
+
+/**
+ * List keys query parameters
+ */
+export interface ListKeysParams {
+  owner?: string; // Get delegated keys by userId or username
+  limit?: number; // Max items to return (default: 100)
+  paginationToken?: string; // Token for next page
+}
+
+/**
+ * List keys response
+ */
+export interface ListKeysResponse {
+  items: DfnsKey[];
+  nextPageToken?: string;
+}
+
+/**
+ * Key operation options
+ */
+export interface KeyOperationOptions {
+  syncToDatabase?: boolean;
+  retries?: number;
+  timeout?: number;
+}
+
+/**
+ * Key statistics for dashboard
+ */
+export interface KeyStatistics {
+  totalKeys: number;
+  activeKeys: number;
+  archivedKeys: number;
+  delegatedKeys: number;
+  custodialKeys: number;
+  byScheme: Record<DfnsKeyScheme, number>;
+  byCurve: Record<DfnsKeyCurve, number>;
+  walletsPerKey: Record<string, number>; // keyId -> wallet count
+}
+
+/**
+ * Supported scheme/curve combinations
+ */
+export const SUPPORTED_KEY_FORMATS: Record<DfnsKeyScheme, DfnsKeyCurve[]> = {
+  'ECDSA': ['secp256k1', 'stark'],
+  'EdDSA': ['ed25519'],
+  'Schnorr': ['secp256k1']
+};
+
+/**
+ * Network compatibility by key format
+ */
+export const NETWORK_KEY_COMPATIBILITY: Record<string, { scheme: DfnsKeyScheme; curve: DfnsKeyCurve }[]> = {
+  'Ethereum': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'Bitcoin': [
+    { scheme: 'ECDSA', curve: 'secp256k1' },
+    { scheme: 'Schnorr', curve: 'secp256k1' }
+  ],
+  'Solana': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'Aptos': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'Cosmos': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'Polygon': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'Stellar': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'Cardano': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'Tezos': [
+    { scheme: 'EdDSA', curve: 'ed25519' },
+    { scheme: 'ECDSA', curve: 'secp256k1' }
+  ],
+  'Algorand': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'NEAR': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'Sui': [{ scheme: 'EdDSA', curve: 'ed25519' }],
+  'TRON': [{ scheme: 'ECDSA', curve: 'secp256k1' }],
+  'XrpLedger': [
+    { scheme: 'ECDSA', curve: 'secp256k1' },
+    { scheme: 'EdDSA', curve: 'ed25519' }
+  ]
+};
+
+// ==============================================
+// DFNS Key Service Implementation
+// ==============================================
 
 export class DfnsKeyService {
-  constructor(
-    private authClient: DfnsAuthClient,
-    private userActionService: DfnsUserActionService
-  ) {}
+  private client: WorkingDfnsClient;
+  private requestCount = 0;
+  private errorCount = 0;
 
-  // ===============================
-  // Core Key Management
-  // ===============================
+  constructor(client: WorkingDfnsClient) {
+    this.client = client;
+  }
+
+  // ==============================================
+  // Core Key Management Operations
+  // ==============================================
 
   /**
-   * Create a new cryptographic key
-   * Requires User Action Signing for security compliance
+   * Create a new cryptographic key with specified scheme and curve
+   * 
+   * @param request - Key creation parameters
+   * @param userActionToken - Required User Action token for security
+   * @param options - Operation options
+   * @returns Created key entity
    */
   async createKey(
-    request: DfnsCreateKeyRequest,
-    options: DfnsCreateKeyOptions = {}
-  ): Promise<DfnsCreateKeyResponse> {
+    request: CreateKeyRequest,
+    userActionToken?: string,
+    options: KeyOperationOptions = {}
+  ): Promise<DfnsKey> {
     try {
-      // Validate scheme/curve compatibility
-      this.validateSchemeCurvePair(request.scheme, request.curve);
-
-      // Validate network compatibility if autoCreateWallets specified
-      if (options.autoCreateWallets?.length) {
-        this.validateNetworkCompatibility(request.scheme, request.curve, options.autoCreateWallets);
-      }
-
-      // Sign user action for key creation (always required)
-      const userActionToken = await this.userActionService.signUserAction(
-        'CreateKey',
-        {
-          scheme: request.scheme,
-          curve: request.curve,
-          name: request.name,
-          delegateTo: request.delegateTo,
-          delayDelegation: request.delayDelegation
-        }
+      this.validateKeyFormat(request.scheme, request.curve);
+      
+      const response = await this.client.makeRequest<DfnsKey>(
+        'POST',
+        '/keys',
+        request,
+        userActionToken
       );
 
-      // Create the key
-      const keyResponse = await this.authClient.createKey(request, userActionToken);
-
-      // Auto-create wallets if requested
-      if (options.autoCreateWallets?.length && keyResponse.id) {
-        await this.autoCreateWalletsForKey(
-          keyResponse.id, 
-          options.autoCreateWallets,
-          options.walletTags
-        );
-      }
+      this.requestCount++;
 
       // Sync to database if requested
       if (options.syncToDatabase) {
-        await this.syncKeyToDatabase(keyResponse);
+        await this.syncKeyToDatabase(response);
       }
 
-      return keyResponse;
+      console.log(`✅ Key created: ${response.id} (${response.scheme}/${response.curve})`);
+      return response;
+
     } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to create key: ${error}`, 'KEY_CREATION_FAILED');
+      this.errorCount++;
+      console.error('❌ Create key failed:', error);
+      throw new DfnsError(
+        `Failed to create key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_CREATE_FAILED',
+        { request, error }
+      );
     }
   }
 
   /**
-   * Update a key's name
+   * Update an existing key's name
+   * 
+   * @param keyId - Key ID to update
+   * @param request - Update parameters (name only)
+   * @param userActionToken - Required User Action token
+   * @param options - Operation options
+   * @returns Updated key entity
    */
   async updateKey(
     keyId: string,
-    request: DfnsUpdateKeyRequest,
-    options: DfnsKeyServiceOptions = {}
-  ): Promise<DfnsUpdateKeyResponse> {
+    request: UpdateKeyRequest,
+    userActionToken?: string,
+    options: KeyOperationOptions = {}
+  ): Promise<DfnsKey> {
     try {
-      this.validateKeyId(keyId);
-      this.validateKeyName(request.name);
+      if (!keyId?.trim()) {
+        throw new Error('Key ID is required');
+      }
 
-      const response = await this.authClient.updateKey(keyId, request);
+      if (!request.name?.trim()) {
+        throw new Error('Key name is required');
+      }
 
+      const response = await this.client.makeRequest<DfnsKey>(
+        'PUT',
+        `/keys/${keyId}`,
+        request,
+        userActionToken
+      );
+
+      this.requestCount++;
+
+      // Sync to database if requested
+      if (options.syncToDatabase) {
+        await this.syncKeyToDatabase(response);
+      }
+
+      console.log(`✅ Key updated: ${keyId} -> "${request.name}"`);
+      return response;
+
+    } catch (error) {
+      this.errorCount++;
+      console.error('❌ Update key failed:', error);
+      throw new DfnsError(
+        `Failed to update key ${keyId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_UPDATE_FAILED',
+        { keyId, request, error }
+      );
+    }
+  }
+
+  /**
+   * Delete a key and all associated wallets
+   * WARNING: This operation is irreversible and deletes all wallets using this key
+   * 
+   * @param keyId - Key ID to delete
+   * @param userActionToken - Required User Action token
+   * @param options - Operation options
+   * @returns Archived key entity
+   */
+  async deleteKey(
+    keyId: string,
+    userActionToken?: string,
+    options: KeyOperationOptions = {}
+  ): Promise<DfnsKey> {
+    try {
+      if (!keyId?.trim()) {
+        throw new Error('Key ID is required');
+      }
+
+      // Get key info first to warn about wallet deletion
+      const keyInfo = await this.getKey(keyId);
+      const walletCount = keyInfo.wallets?.length || 0;
+      
+      if (walletCount > 0) {
+        console.warn(`⚠️ WARNING: Deleting key ${keyId} will also delete ${walletCount} associated wallet(s)`);
+      }
+
+      const response = await this.client.makeRequest<DfnsKey>(
+        'DELETE',
+        `/keys/${keyId}`,
+        undefined,
+        userActionToken
+      );
+
+      this.requestCount++;
+
+      // Sync to database if requested
+      if (options.syncToDatabase) {
+        await this.syncKeyToDatabase(response);
+      }
+
+      console.log(`✅ Key deleted: ${keyId} (${walletCount} wallets also deleted)`);
+      return response;
+
+    } catch (error) {
+      this.errorCount++;
+      console.error('❌ Delete key failed:', error);
+      throw new DfnsError(
+        `Failed to delete key ${keyId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_DELETE_FAILED',
+        { keyId, error }
+      );
+    }
+  }
+
+  /**
+   * Delegate a key to an end user (irreversible operation)
+   * 
+   * @param keyId - Key ID to delegate
+   * @param request - Delegation parameters
+   * @param userActionToken - Required User Action token
+   * @param options - Operation options
+   * @returns Updated key entity
+   */
+  async delegateKey(
+    keyId: string,
+    request: DelegateKeyRequest,
+    userActionToken?: string,
+    options: KeyOperationOptions = {}
+  ): Promise<DfnsKey> {
+    try {
+      if (!keyId?.trim()) {
+        throw new Error('Key ID is required');
+      }
+
+      if (!request.userId?.trim()) {
+        throw new Error('User ID is required for delegation');
+      }
+
+      console.warn(`⚠️ WARNING: Key delegation is irreversible. Key ${keyId} will be transferred to user ${request.userId}`);
+
+      const response = await this.client.makeRequest<DfnsKey>(
+        'POST',
+        `/keys/${keyId}/delegate`,
+        { userId: request.userId },
+        userActionToken
+      );
+
+      this.requestCount++;
+
+      // Sync to database if requested
+      if (options.syncToDatabase) {
+        await this.syncKeyToDatabase(response);
+      }
+
+      console.log(`✅ Key delegated: ${keyId} -> user ${request.userId}`);
+      return response;
+
+    } catch (error) {
+      this.errorCount++;
+      console.error('❌ Delegate key failed:', error);
+      throw new DfnsError(
+        `Failed to delegate key ${keyId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_DELEGATE_FAILED',
+        { keyId, request, error }
+      );
+    }
+  }
+
+  // ==============================================
+  // Key Retrieval Operations
+  // ==============================================
+
+  /**
+   * Get a key by ID with complete details including wallets and store info
+   * 
+   * @param keyId - Key ID to retrieve
+   * @param options - Operation options
+   * @returns Key entity with extended information
+   */
+  async getKey(keyId: string, options: KeyOperationOptions = {}): Promise<DfnsKey> {
+    try {
+      if (!keyId?.trim()) {
+        throw new Error('Key ID is required');
+      }
+
+      const response = await this.client.makeRequest<DfnsKey>(
+        'GET',
+        `/keys/${keyId}`
+      );
+
+      this.requestCount++;
+
+      // Sync to database if requested
       if (options.syncToDatabase) {
         await this.syncKeyToDatabase(response);
       }
 
       return response;
+
     } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to update key: ${error}`, 'KEY_UPDATE_FAILED');
-    }
-  }
-
-  /**
-   * Delete (archive) a key and all associated wallets
-   * Requires User Action Signing - this is a destructive operation
-   */
-  async deleteKey(
-    keyId: string,
-    options: DfnsKeyServiceOptions = {}
-  ): Promise<DfnsDeleteKeyResponse> {
-    try {
-      this.validateKeyId(keyId);
-
-      // Get key details to understand impact
-      const keyDetails = await this.getKey(keyId);
-      const walletCount = keyDetails.wallets?.length || 0;
-
-      // Sign user action for key deletion
-      const userActionToken = await this.userActionService.signUserAction(
-        'DeleteKey',
-        {
-          keyId,
-          walletCount,
-          scheme: keyDetails.scheme,
-          curve: keyDetails.curve
-        }
+      this.errorCount++;
+      console.error('❌ Get key failed:', error);
+      throw new DfnsError(
+        `Failed to get key ${keyId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_GET_FAILED',
+        { keyId, error }
       );
-
-      const response = await this.authClient.deleteKey(keyId, userActionToken);
-
-      if (options.syncToDatabase) {
-        await this.markKeyAsDeletedInDatabase(keyId);
-      }
-
-      return response;
-    } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to delete key: ${error}`, 'KEY_DELETION_FAILED');
     }
   }
 
   /**
-   * Get a key by its ID
-   */
-  async getKey(keyId: string): Promise<DfnsGetKeyResponse> {
-    try {
-      this.validateKeyId(keyId);
-      return await this.authClient.getKey(keyId);
-    } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to get key: ${error}`, 'KEY_RETRIEVAL_FAILED');
-    }
-  }
-
-  /**
-   * List all keys with optional filtering
+   * List keys with pagination and filtering
+   * 
+   * @param params - Query parameters for filtering and pagination
+   * @param options - Operation options
+   * @returns Paginated list of keys
    */
   async listKeys(
-    request: DfnsListKeysRequest = {},
-    options: DfnsKeyServiceOptions = {}
-  ): Promise<DfnsListKeysResponse> {
+    params: ListKeysParams = {},
+    options: KeyOperationOptions = {}
+  ): Promise<ListKeysResponse> {
     try {
-      const response = await this.authClient.listKeys(request);
+      const queryParams = new URLSearchParams();
+      
+      if (params.owner) {
+        queryParams.append('owner', params.owner);
+      }
+      if (params.limit) {
+        queryParams.append('limit', params.limit.toString());
+      }
+      if (params.paginationToken) {
+        queryParams.append('paginationToken', params.paginationToken);
+      }
 
-      if (options.syncToDatabase) {
-        await Promise.all(
+      const path = `/keys${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+      const response = await this.client.makeRequest<ListKeysResponse>(
+        'GET',
+        path
+      );
+
+      this.requestCount++;
+
+      // Sync all keys to database if requested
+      if (options.syncToDatabase && response.items.length > 0) {
+        await Promise.allSettled(
           response.items.map(key => this.syncKeyToDatabase(key))
         );
       }
 
+      console.log(`📋 Listed ${response.items.length} keys`);
       return response;
+
     } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to list keys: ${error}`, 'KEY_LISTING_FAILED');
+      this.errorCount++;
+      console.error('❌ List keys failed:', error);
+      throw new DfnsError(
+        `Failed to list keys: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_LIST_FAILED',
+        { params, error }
+      );
     }
   }
 
+  // ==============================================
+  // Convenience Methods
+  // ==============================================
+
   /**
    * Get all keys (handles pagination automatically)
+   * 
+   * @param owner - Optional owner filter
+   * @param options - Operation options
+   * @returns All keys matching criteria
    */
-  async getAllKeys(): Promise<DfnsKey[]> {
+  async getAllKeys(owner?: string, options: KeyOperationOptions = {}): Promise<DfnsKey[]> {
     const allKeys: DfnsKey[] = [];
     let paginationToken: string | undefined;
 
     do {
-      const response = await this.listKeys({ 
-        limit: 100, 
-        paginationToken 
-      });
-      
+      const response = await this.listKeys({
+        owner,
+        limit: 100,
+        paginationToken
+      }, options);
+
       allKeys.push(...response.items);
       paginationToken = response.nextPageToken;
+
     } while (paginationToken);
 
+    console.log(`📋 Retrieved ${allKeys.length} total keys`);
     return allKeys;
   }
 
   /**
-   * Delegate a key to an end user
-   * Requires User Action Signing - transfers ownership
+   * Get keys by scheme and curve
+   * 
+   * @param scheme - Key scheme filter
+   * @param curve - Key curve filter
+   * @param options - Operation options
+   * @returns Keys matching the specified format
    */
-  async delegateKey(
-    keyId: string,
-    request: DfnsDelegateKeyRequest,
-    options: DfnsKeyServiceOptions = {}
-  ): Promise<DfnsDelegateKeyResponse> {
-    try {
-      this.validateKeyId(keyId);
-      this.validateUserId(request.userId);
-
-      // Get key details to understand delegation impact
-      const keyDetails = await this.getKey(keyId);
-      if (keyDetails.delegatedTo) {
-        throw new DfnsValidationError('Key is already delegated');
-      }
-
-      // Sign user action for key delegation
-      const userActionToken = await this.userActionService.signUserAction(
-        'DelegateKey',
-        {
-          keyId,
-          userId: request.userId,
-          scheme: keyDetails.scheme,
-          curve: keyDetails.curve,
-          walletCount: keyDetails.wallets?.length || 0
-        }
-      );
-
-      const response = await this.authClient.delegateKey(keyId, request, userActionToken);
-
-      if (options.syncToDatabase) {
-        await this.updateKeyDelegationInDatabase(keyId, request.userId);
-      }
-
-      return response;
-    } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to delegate key: ${error}`, 'KEY_DELEGATION_FAILED');
-    }
-  }
-
-  // ===============================
-  // Enhanced Features
-  // ===============================
-
-  /**
-   * Find a key by name
-   */
-  async getKeyByName(name: string): Promise<DfnsKey | null> {
-    const allKeys = await this.getAllKeys();
-    return allKeys.find(key => key.name === name) || null;
-  }
-
-  /**
-   * Get keys summary for dashboard display
-   */
-  async getKeysSummary(): Promise<DfnsKeySummary[]> {
-    const keys = await this.getAllKeys();
+  async getKeysByFormat(
+    scheme: DfnsKeyScheme, 
+    curve: DfnsKeyCurve, 
+    options: KeyOperationOptions = {}
+  ): Promise<DfnsKey[]> {
+    this.validateKeyFormat(scheme, curve);
     
-    return Promise.all(
-      keys.map(async (key) => {
-        const details = await this.getKey(key.id);
-        const compatibleNetworks = this.getCompatibleNetworks(key.scheme, key.curve);
-        
-        return {
-          keyId: key.id,
-          name: key.name,
-          scheme: key.scheme,
-          curve: key.curve,
-          compatibleNetworks: compatibleNetworks.length,
-          walletCount: details.wallets?.length || 0,
-          isActive: key.status === 'Active',
-          isCustodial: key.custodial,
-          isDelegated: !!key.delegatedTo,
-          delegatedTo: key.delegatedTo,
-          dateCreated: key.dateCreated,
-          isImported: key.imported || false,
-          wasExported: key.exported || false
-        };
-      })
+    const allKeys = await this.getAllKeys(undefined, options);
+    return allKeys.filter(key => key.scheme === scheme && key.curve === curve);
+  }
+
+  /**
+   * Get keys compatible with a specific network
+   * 
+   * @param network - Network name (e.g., 'Ethereum', 'Bitcoin')
+   * @param options - Operation options
+   * @returns Keys that can be used with the specified network
+   */
+  async getKeysForNetwork(network: string, options: KeyOperationOptions = {}): Promise<DfnsKey[]> {
+    const supportedFormats = NETWORK_KEY_COMPATIBILITY[network];
+    if (!supportedFormats || supportedFormats.length === 0) {
+      throw new Error(`Network "${network}" is not supported or has no compatible key formats`);
+    }
+
+    const allKeys = await this.getAllKeys(undefined, options);
+    
+    return allKeys.filter(key => 
+      supportedFormats.some(format => 
+        key.scheme === format.scheme && key.curve === format.curve
+      )
     );
   }
 
   /**
-   * Validate key configuration
+   * Get custodial vs non-custodial key breakdown
+   * 
+   * @param options - Operation options
+   * @returns Categorized keys by custodial status
    */
-  validateKeyConfiguration(
-    scheme: DfnsKeyScheme,
-    curve: DfnsKeyCurve,
-    targetNetworks?: string[]
-  ): DfnsKeyValidation {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    // Validate scheme/curve compatibility
-    try {
-      this.validateSchemeCurvePair(scheme, curve);
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : 'Invalid scheme/curve pair');
-    }
-
-    // Validate network compatibility
-    const networkCompatibility = this.getNetworkCompatibilityDetails(scheme, curve);
+  async getKeysByCustodialStatus(options: KeyOperationOptions = {}): Promise<{
+    custodial: DfnsKey[];
+    nonCustodial: DfnsKey[];
+    total: number;
+  }> {
+    const allKeys = await this.getAllKeys(undefined, options);
     
-    if (targetNetworks?.length) {
-      const incompatibleNetworks = targetNetworks.filter(
-        network => !this.isNetworkCompatible(scheme, curve, network)
-      );
-      
-      if (incompatibleNetworks.length > 0) {
-        errors.push(`Networks not compatible with ${scheme}/${curve}: ${incompatibleNetworks.join(', ')}`);
-      }
-    }
-
-    // Performance warnings
-    if (scheme === 'ECDSA' && curve === 'stark') {
-      warnings.push('STARK curve is specialized for StarkNet - may have limited network support');
-    }
+    const custodial = allKeys.filter(key => key.custodial);
+    const nonCustodial = allKeys.filter(key => !key.custodial);
 
     return {
-      isValid: errors.length === 0,
-      errors,
-      warnings,
-      networkCompatibility
+      custodial,
+      nonCustodial,
+      total: allKeys.length
     };
   }
 
-  /**
-   * Get compatible networks for a scheme/curve pair
-   */
-  getCompatibleNetworks(scheme: DfnsKeyScheme, curve: DfnsKeyCurve): string[] {
-    return DFNS_KEY_NETWORK_COMPATIBILITY[scheme]?.[curve] || [];
-  }
+  // ==============================================
+  // Statistics & Analytics
+  // ==============================================
 
   /**
-   * Check if a network is compatible with scheme/curve
+   * Get comprehensive key statistics for dashboard
+   * 
+   * @param options - Operation options
+   * @returns Detailed key statistics
    */
-  isNetworkCompatible(scheme: DfnsKeyScheme, curve: DfnsKeyCurve, network: string): boolean {
-    const compatibleNetworks = this.getCompatibleNetworks(scheme, curve);
-    return compatibleNetworks.includes(network);
-  }
-
-  /**
-   * Get network compatibility details
-   */
-  getNetworkCompatibilityDetails(scheme: DfnsKeyScheme, curve: DfnsKeyCurve): DfnsNetworkCompatibility[] {
-    const allNetworks = [
-      'Ethereum', 'Bitcoin', 'Solana', 'Polygon', 'Arbitrum', 'Optimism',
-      'Avalanche', 'Binance', 'Cosmos', 'Stellar', 'Algorand', 'Cardano',
-      'Polkadot', 'Near', 'Aptos', 'Sui', 'Tezos', 'Kaspa', 'Tron'
-    ];
-
-    return allNetworks.map(network => ({
-      network,
-      compatible: this.isNetworkCompatible(scheme, curve, network),
-      supportedSchemes: this.getSupportedSchemesForNetwork(network),
-      supportedCurves: this.getSupportedCurvesForNetwork(network)
-    }));
-  }
-
-  // ===============================
-  // Batch Operations
-  // ===============================
-
-  /**
-   * Delete multiple keys
-   */
-  async deleteKeys(keyIds: string[]): Promise<DfnsKeyBatchResult<DfnsDeleteKeyResponse>> {
-    const successful: DfnsDeleteKeyResponse[] = [];
-    const failed: Array<{ keyId: string; error: string }> = [];
-
-    for (const keyId of keyIds) {
-      try {
-        const result = await this.deleteKey(keyId);
-        successful.push(result);
-      } catch (error) {
-        failed.push({
-          keyId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }
-
-    return { successful, failed };
-  }
-
-  // ===============================
-  // Static Utilities
-  // ===============================
-
-  /**
-   * Check if scheme/curve pair is valid
-   */
-  static isValidSchemeCurvePair(scheme: DfnsKeyScheme, curve: DfnsKeyCurve): boolean {
-    const validPairs: DfnsValidSchemeCurvePair[] = [
-      { scheme: 'ECDSA', curve: 'secp256k1' },
-      { scheme: 'ECDSA', curve: 'stark' },
-      { scheme: 'EdDSA', curve: 'ed25519' },
-      { scheme: 'Schnorr', curve: 'secp256k1' }
-    ];
-
-    return validPairs.some(pair => pair.scheme === scheme && pair.curve === curve);
-  }
-
-  /**
-   * Get default curve for a scheme
-   */
-  static getDefaultCurveForScheme(scheme: DfnsKeyScheme): DfnsKeyCurve {
-    switch (scheme) {
-      case 'ECDSA':
-        return 'secp256k1';
-      case 'EdDSA':
-        return 'ed25519';
-      case 'Schnorr':
-        return 'secp256k1';
-      default:
-        throw new DfnsValidationError(`Unknown scheme: ${scheme}`);
-    }
-  }
-
-  /**
-   * Get supported schemes for a network
-   */
-  static getSupportedSchemesForNetwork(network: string): DfnsKeyScheme[] {
-    const schemes: DfnsKeyScheme[] = [];
-    
-    Object.entries(DFNS_KEY_NETWORK_COMPATIBILITY).forEach(([scheme, curveMap]) => {
-      Object.values(curveMap).forEach(networks => {
-        if (networks.includes(network)) {
-          schemes.push(scheme as DfnsKeyScheme);
-        }
-      });
-    });
-
-    return [...new Set(schemes)]; // Remove duplicates
-  }
-
-  // ===============================
-  // Private Helper Methods
-  // ===============================
-
-  private validateKeyId(keyId: string): void {
-    if (!keyId || typeof keyId !== 'string' || keyId.trim().length === 0) {
-      throw new DfnsValidationError('Key ID is required');
-    }
-  }
-
-  private validateUserId(userId: string): void {
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
-      throw new DfnsValidationError('User ID is required');
-    }
-  }
-
-  private validateKeyName(name: string): void {
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      throw new DfnsValidationError('Key name is required');
-    }
-    if (name.length > 100) {
-      throw new DfnsValidationError('Key name must be 100 characters or less');
-    }
-  }
-
-  private validateSchemeCurvePair(scheme: DfnsKeyScheme, curve: DfnsKeyCurve): void {
-    if (!DfnsKeyService.isValidSchemeCurvePair(scheme, curve)) {
-      throw new DfnsValidationError(`Invalid scheme/curve combination: ${scheme}/${curve}`);
-    }
-  }
-
-  private validateNetworkCompatibility(
-    scheme: DfnsKeyScheme, 
-    curve: DfnsKeyCurve, 
-    networks: string[]
-  ): void {
-    const incompatibleNetworks = networks.filter(
-      network => !this.isNetworkCompatible(scheme, curve, network)
-    );
-    
-    if (incompatibleNetworks.length > 0) {
-      throw new DfnsValidationError(
-        `Networks not compatible with ${scheme}/${curve}: ${incompatibleNetworks.join(', ')}`
-      );
-    }
-  }
-
-  private getSupportedSchemesForNetwork(network: string): DfnsKeyScheme[] {
-    return DfnsKeyService.getSupportedSchemesForNetwork(network);
-  }
-
-  private getSupportedCurvesForNetwork(network: string): DfnsKeyCurve[] {
-    const curves: DfnsKeyCurve[] = [];
-    
-    Object.entries(DFNS_KEY_NETWORK_COMPATIBILITY).forEach(([_, curveMap]) => {
-      Object.entries(curveMap).forEach(([curve, networks]) => {
-        if (networks.includes(network)) {
-          curves.push(curve as DfnsKeyCurve);
-        }
-      });
-    });
-
-    return [...new Set(curves)]; // Remove duplicates
-  }
-
-  private async autoCreateWalletsForKey(
-    keyId: string,
-    networks: string[],
-    tags?: string[]
-  ): Promise<void> {
-    // TODO: Implement wallet auto-creation
-    // This would integrate with the wallet service to create wallets
-    // using the specified key across multiple networks
-    console.log(`Auto-creating wallets for key ${keyId} on networks:`, networks);
-  }
-
-  private async syncKeyToDatabase(key: DfnsKey): Promise<void> {
-    // TODO: Implement database synchronization
-    // This would sync key data to the local dfns_signing_keys table
-    console.log(`Syncing key ${key.id} to database`);
-  }
-
-  private async markKeyAsDeletedInDatabase(keyId: string): Promise<void> {
-    // TODO: Implement database deletion marking
-    console.log(`Marking key ${keyId} as deleted in database`);
-  }
-
-  private async updateKeyDelegationInDatabase(keyId: string, userId: string): Promise<void> {
-    // TODO: Implement database delegation update
-    console.log(`Updating key ${keyId} delegation to user ${userId} in database`);
-  }
-
-  // ===============================
-  // Signature Generation Methods
-  // ===============================
-
-  /**
-   * Generate a signature using a key
-   * Requires User Action Signing for security compliance
-   */
-  async generateSignature(
-    keyId: string,
-    request: DfnsGenerateSignatureRequest,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse> {
+  async getKeyStatistics(options: KeyOperationOptions = {}): Promise<KeyStatistics> {
     try {
-      // Validate signature request
-      this.validateSignatureRequest(request);
+      const allKeys = await this.getAllKeys(undefined, options);
 
-      // Sign user action for signature generation (always required)
-      const userActionToken = await this.userActionService.signUserAction(
-        'GenerateSignature',
-        {
-          keyId,
-          kind: request.kind,
-          blockchainKind: request.blockchainKind,
-          externalId: request.externalId
-        }
-      );
+      const stats: KeyStatistics = {
+        totalKeys: allKeys.length,
+        activeKeys: 0,
+        archivedKeys: 0,
+        delegatedKeys: 0,
+        custodialKeys: 0,
+        byScheme: { 'ECDSA': 0, 'EdDSA': 0, 'Schnorr': 0 },
+        byCurve: { 'secp256k1': 0, 'stark': 0, 'ed25519': 0 },
+        walletsPerKey: {}
+      };
 
-      // Generate the signature
-      const signatureResponse = await this.authClient.generateKeySignature(
-        keyId,
-        request,
-        userActionToken
-      );
-
-      // Wait for completion if requested
-      if (options.waitForCompletion) {
-        const completedSignature = await this.waitForSignatureCompletion(
-          keyId,
-          signatureResponse.id,
-          options.timeout || 30000
-        );
+      // Calculate statistics
+      for (const key of allKeys) {
+        // Status counts
+        if (key.status === 'Active') stats.activeKeys++;
+        if (key.status === 'Archived') stats.archivedKeys++;
         
-        // Sync to database if requested
-        if (options.syncToDatabase) {
-          await this.syncSignatureToDatabase(completedSignature);
-        }
+        // Custodial counts
+        if (key.custodial) stats.custodialKeys++;
+        if (!key.custodial) stats.delegatedKeys++;
 
-        return completedSignature;
-      }
+        // Scheme/curve counts
+        stats.byScheme[key.scheme]++;
+        stats.byCurve[key.curve]++;
 
-      // Sync to database if requested
-      if (options.syncToDatabase) {
-        await this.syncSignatureToDatabase(signatureResponse);
-      }
-
-      return signatureResponse;
-    } catch (error) {
-      if (error instanceof DfnsError) throw error;
-      throw new DfnsError(`Failed to generate signature: ${error}`, 'SIGNATURE_GENERATION_FAILED');
-    }
-  }
-
-  /**
-   * Generate EVM signature (Ethereum, Polygon, Arbitrum, etc.)
-   */
-  async generateEvmSignature(
-    keyId: string,
-    request: DfnsEvmSignatureRequest,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse> {
-    return this.generateSignature(keyId, request, options);
-  }
-
-  /**
-   * Generate Bitcoin signature (Bitcoin, Litecoin)
-   */
-  async generateBitcoinSignature(
-    keyId: string,
-    request: DfnsBitcoinSignatureRequest,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse> {
-    return this.generateSignature(keyId, request, options);
-  }
-
-  /**
-   * Generate Solana signature
-   */
-  async generateSolanaSignature(
-    keyId: string,
-    request: DfnsSolanaSignatureRequest,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse> {
-    return this.generateSignature(keyId, request, options);
-  }
-
-  /**
-   * Generate XRP Ledger signature
-   */
-  async generateXrpLedgerSignature(
-    keyId: string,
-    request: DfnsXrpLedgerSignatureRequest,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse> {
-    return this.generateSignature(keyId, request, options);
-  }
-
-  /**
-   * Get a signature request by ID
-   */
-  async getSignatureRequest(
-    keyId: string,
-    signatureId: string
-  ): Promise<DfnsGetSignatureRequestResponse> {
-    try {
-      return await this.authClient.getKeySignatureRequest(keyId, signatureId);
-    } catch (error) {
-      throw new DfnsError(`Failed to get signature request: ${error}`, 'GET_SIGNATURE_REQUEST_FAILED');
-    }
-  }
-
-  /**
-   * List signature requests for a key
-   */
-  async listSignatureRequests(
-    keyId: string,
-    request?: DfnsListSignatureRequestsRequest,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsListSignatureRequestsResponse> {
-    try {
-      const response = await this.authClient.listKeySignatureRequests(keyId, request);
-
-      // Sync to database if requested
-      if (options.syncToDatabase) {
-        for (const signature of response.items) {
-          await this.syncSignatureToDatabase(signature);
+        // Wallet count per key (if available)
+        if (key.wallets) {
+          stats.walletsPerKey[key.id] = key.wallets.length;
         }
       }
 
-      return response;
+      console.log(`📊 Key statistics: ${stats.totalKeys} total, ${stats.activeKeys} active, ${stats.delegatedKeys} delegated`);
+      return stats;
+
     } catch (error) {
-      throw new DfnsError(`Failed to list signature requests: ${error}`, 'LIST_SIGNATURE_REQUESTS_FAILED');
-    }
-  }
-
-  /**
-   * Get all signature requests for a key (handles pagination)
-   */
-  async getAllSignatureRequests(
-    keyId: string,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse[]> {
-    const allSignatures: DfnsGenerateSignatureResponse[] = [];
-    let paginationToken: string | undefined;
-
-    do {
-      const response = await this.listSignatureRequests(
-        keyId,
-        { limit: 100, paginationToken },
-        options
+      console.error('❌ Get key statistics failed:', error);
+      throw new DfnsError(
+        `Failed to get key statistics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'KEY_STATS_FAILED',
+        { error }
       );
-      
-      allSignatures.push(...response.items);
-      paginationToken = response.nextPageToken;
-    } while (paginationToken);
-
-    return allSignatures;
+    }
   }
 
   /**
-   * Get pending signature requests for a key
+   * Get active keys ready for wallet creation
+   * 
+   * @param options - Operation options
+   * @returns Active keys that can be used for wallet creation
    */
-  async getPendingSignatureRequests(
-    keyId: string,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsGenerateSignatureResponse[]> {
-    const response = await this.listSignatureRequests(
-      keyId,
-      { status: 'Pending' },
-      options
+  async getActiveKeysForWalletCreation(options: KeyOperationOptions = {}): Promise<DfnsKey[]> {
+    const allKeys = await this.getAllKeys(undefined, options);
+    
+    return allKeys.filter(key => 
+      key.status === 'Active' && 
+      key.custodial // Only custodial keys can create new wallets
     );
+  }
+
+  /**
+   * Get delegated keys by user
+   * 
+   * @param userId - User ID or username
+   * @param options - Operation options
+   * @returns Keys delegated to the specified user
+   */
+  async getDelegatedKeysByUser(userId: string, options: KeyOperationOptions = {}): Promise<DfnsKey[]> {
+    if (!userId?.trim()) {
+      throw new Error('User ID is required');
+    }
+
+    const response = await this.listKeys({ owner: userId }, options);
     return response.items;
   }
 
-  /**
-   * Get signature summaries for dashboard display
-   */
-  async getSignaturesSummary(
-    keyId: string,
-    options: DfnsSignatureServiceOptions = {}
-  ): Promise<DfnsSignatureSummary[]> {
-    const signatures = await this.getAllSignatureRequests(keyId, options);
+  // ==============================================
+  // Validation & Utility Methods
+  // ==============================================
 
-    return signatures.map(signature => ({
-      signatureId: signature.id,
-      keyId: signature.keyId,
-      blockchainKind: signature.requestBody.blockchainKind,
-      kind: signature.requestBody.kind,
-      network: signature.network,
-      status: signature.status,
-      isCompleted: signature.status === 'Signed',
-      isPending: signature.status === 'Pending',
-      isFailed: signature.status === 'Failed',
-      dateRequested: signature.dateRequested,
-      dateSigned: signature.dateSigned,
-      externalId: signature.requestBody.externalId,
-      error: signature.error
-    }));
+  /**
+   * Validate key scheme and curve combination
+   * 
+   * @param scheme - Key scheme
+   * @param curve - Key curve
+   * @throws Error if combination is not supported
+   */
+  validateKeyFormat(scheme: DfnsKeyScheme, curve: DfnsKeyCurve): void {
+    const supportedCurves = SUPPORTED_KEY_FORMATS[scheme];
+    if (!supportedCurves || !supportedCurves.includes(curve)) {
+      throw new Error(`Invalid key format: ${scheme}/${curve}. Supported combinations: ${JSON.stringify(SUPPORTED_KEY_FORMATS)}`);
+    }
   }
 
-  // ===============================
-  // Network Signature Capabilities
-  // ===============================
+  /**
+   * Check if a key format is compatible with a network
+   * 
+   * @param network - Network name
+   * @param scheme - Key scheme
+   * @param curve - Key curve
+   * @returns Whether the key format is compatible
+   */
+  isKeyFormatCompatibleWithNetwork(
+    network: string, 
+    scheme: DfnsKeyScheme, 
+    curve: DfnsKeyCurve
+  ): boolean {
+    const supportedFormats = NETWORK_KEY_COMPATIBILITY[network];
+    if (!supportedFormats) return false;
+
+    return supportedFormats.some(format => 
+      format.scheme === scheme && format.curve === curve
+    );
+  }
 
   /**
-   * Get signature capabilities for a network
+   * Get supported networks for a key format
+   * 
+   * @param scheme - Key scheme
+   * @param curve - Key curve
+   * @returns Networks that support this key format
    */
-  static getNetworkSignatureCapabilities(network: string): DfnsNetworkSignatureCapabilities {
-    const evmNetworks = ['Ethereum', 'Polygon', 'Arbitrum', 'Optimism', 'Base', 'Avalanche', 'Binance'];
-    const bitcoinNetworks = ['Bitcoin', 'BitcoinCash', 'Litecoin'];
+  getSupportedNetworksForKeyFormat(scheme: DfnsKeyScheme, curve: DfnsKeyCurve): string[] {
+    this.validateKeyFormat(scheme, curve);
 
-    if (evmNetworks.includes(network)) {
-      return {
-        network,
-        supportedBlockchainKinds: ['Evm'],
-        supportedSignatureKinds: ['Transaction', 'Hash', 'Message', 'Eip712'],
-        supportsEip712: true,
-        supportsMessageSigning: true,
-        supportsHashSigning: true
-      };
+    return Object.entries(NETWORK_KEY_COMPATIBILITY)
+      .filter(([_, formats]) => 
+        formats.some(format => format.scheme === scheme && format.curve === curve)
+      )
+      .map(([network]) => network);
+  }
+
+  /**
+   * Get recommended key format for a network
+   * 
+   * @param network - Network name
+   * @returns Recommended key format (first in compatibility list)
+   */
+  getRecommendedKeyFormatForNetwork(network: string): { scheme: DfnsKeyScheme; curve: DfnsKeyCurve } | null {
+    const supportedFormats = NETWORK_KEY_COMPATIBILITY[network];
+    return supportedFormats?.[0] || null;
+  }
+
+  // ==============================================
+  // Database Synchronization
+  // ==============================================
+
+  /**
+   * Sync key data to local database
+   * 
+   * @param key - Key entity to sync
+   */
+  private async syncKeyToDatabase(key: DfnsKey): Promise<void> {
+    try {
+      // Note: This would sync to your Supabase tables
+      // Implementation depends on your database schema
+      console.log(`💾 Syncing key ${key.id} to database...`);
+      
+      // Example sync logic (adjust based on your schema):
+      /*
+      await supabase
+        .from('dfns_keys')
+        .upsert({
+          id: key.id,
+          name: key.name,
+          scheme: key.scheme,
+          curve: key.curve,
+          public_key: key.publicKey,
+          status: key.status,
+          custodial: key.custodial,
+          date_created: key.dateCreated,
+          imported: key.imported,
+          exported: key.exported,
+          date_exported: key.dateExported,
+          store_kind: key.store?.kind,
+          store_key_id: key.store?.keyId,
+          updated_at: new Date().toISOString()
+        });
+      */
+
+    } catch (error) {
+      console.error('❌ Database sync failed for key:', key.id, error);
+      // Don't throw - database sync failures shouldn't break the main operation
     }
+  }
 
-    if (bitcoinNetworks.includes(network)) {
-      return {
-        network,
-        supportedBlockchainKinds: ['Bitcoin'],
-        supportedSignatureKinds: ['Psbt', 'Hash', 'Bip322'],
-        supportsEip712: false,
-        supportsMessageSigning: true,
-        supportsHashSigning: true
-      };
-    }
+  // ==============================================
+  // Service Status & Metrics
+  // ==============================================
 
-    if (network === 'Solana') {
-      return {
-        network,
-        supportedBlockchainKinds: ['Solana'],
-        supportedSignatureKinds: ['Transaction', 'Hash', 'Message'],
-        supportsEip712: false,
-        supportsMessageSigning: true,
-        supportsHashSigning: true
-      };
-    }
-
-    if (network === 'Xrpl') {
-      return {
-        network,
-        supportedBlockchainKinds: ['XrpLedger'],
-        supportedSignatureKinds: ['Transaction', 'Hash', 'Message'],
-        supportsEip712: false,
-        supportsMessageSigning: true,
-        supportsHashSigning: true
-      };
-    }
-
-    // Default capabilities for other networks
+  /**
+   * Get service metrics
+   */
+  getMetrics() {
     return {
-      network,
-      supportedBlockchainKinds: [],
-      supportedSignatureKinds: ['Hash'],
-      supportsEip712: false,
-      supportsMessageSigning: false,
-      supportsHashSigning: true
+      requestCount: this.requestCount,
+      errorCount: this.errorCount,
+      successRate: this.requestCount > 0 ? ((this.requestCount - this.errorCount) / this.requestCount) * 100 : 0
     };
   }
 
   /**
-   * Check if a signature kind is supported by a network
+   * Reset service metrics
    */
-  static isSignatureKindSupported(network: string, kind: DfnsSignatureKind): boolean {
-    const capabilities = DfnsKeyService.getNetworkSignatureCapabilities(network);
-    return capabilities.supportedSignatureKinds.includes(kind);
+  resetMetrics(): void {
+    this.requestCount = 0;
+    this.errorCount = 0;
   }
 
   /**
-   * Check if a blockchain kind is supported by a network
+   * Test key service connection
    */
-  static isBlockchainKindSupported(network: string, blockchainKind: DfnsBlockchainKind): boolean {
-    const capabilities = DfnsKeyService.getNetworkSignatureCapabilities(network);
-    return capabilities.supportedBlockchainKinds.includes(blockchainKind);
-  }
-
-  // ===============================
-  // Private Signature Helper Methods
-  // ===============================
-
-  private validateSignatureRequest(request: DfnsGenerateSignatureRequest): void {
-    // Validate signature kind
-    const validKinds: DfnsSignatureKind[] = ['Transaction', 'Hash', 'Message', 'Eip712', 'Psbt', 'Bip322'];
-    if (!validKinds.includes(request.kind)) {
-      throw new DfnsValidationError(`Invalid signature kind: ${request.kind}`);
-    }
-
-    // Validate blockchain kind if provided
-    if (request.blockchainKind) {
-      const validBlockchainKinds: DfnsBlockchainKind[] = [
-        'Evm', 'Bitcoin', 'Solana', 'XrpLedger', 'Tezos', 'Stellar',
-        'Algorand', 'Aptos', 'Cardano', 'Cosmos', 'Near', 'Polkadot', 'Sui'
-      ];
-      if (!validBlockchainKinds.includes(request.blockchainKind)) {
-        throw new DfnsValidationError(`Invalid blockchain kind: ${request.blockchainKind}`);
-      }
-    }
-
-    // Validate request has required data for signature kind
-    switch (request.kind) {
-      case 'Transaction':
-        if (!request.transaction) {
-          throw new DfnsValidationError('Transaction hex required for Transaction signature kind');
-        }
-        break;
-      case 'Hash':
-        if (!request.hash) {
-          throw new DfnsValidationError('Hash required for Hash signature kind');
-        }
-        break;
-      case 'Message':
-        if (!request.message) {
-          throw new DfnsValidationError('Message required for Message signature kind');
-        }
-        break;
-      case 'Psbt':
-        if (!request.psbt) {
-          throw new DfnsValidationError('PSBT hex required for Psbt signature kind');
-        }
-        break;
-      case 'Eip712':
-        if (!request.types || !request.domain) {
-          throw new DfnsValidationError('EIP-712 types and domain required for Eip712 signature kind');
-        }
-        break;
+  async testConnection(): Promise<{ success: boolean; keyCount: number; error?: string }> {
+    try {
+      const response = await this.listKeys({ limit: 1 });
+      return {
+        success: true,
+        keyCount: response.items.length
+      };
+    } catch (error) {
+      return {
+        success: false,
+        keyCount: 0,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
+}
 
-  private async waitForSignatureCompletion(
-    keyId: string,
-    signatureId: string,
-    timeout: number
-  ): Promise<DfnsGenerateSignatureResponse> {
-    const startTime = Date.now();
-    const pollInterval = 2000; // Poll every 2 seconds
+// ==============================================
+// Factory Function
+// ==============================================
 
-    while (Date.now() - startTime < timeout) {
-      const signature = await this.getSignatureRequest(keyId, signatureId);
-      
-      if (signature.status === 'Signed' || signature.status === 'Failed' || signature.status === 'Cancelled') {
-        return signature;
-      }
+let globalKeyService: DfnsKeyService | null = null;
 
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-    }
-
-    throw new DfnsError(`Signature request ${signatureId} timed out after ${timeout}ms`, 'SIGNATURE_TIMEOUT');
+/**
+ * Get or create the global DFNS Key service instance
+ */
+export function getDfnsKeyService(client?: WorkingDfnsClient): DfnsKeyService {
+  if (!globalKeyService && client) {
+    globalKeyService = new DfnsKeyService(client);
   }
-
-  private async syncSignatureToDatabase(signature: DfnsGenerateSignatureResponse): Promise<void> {
-    // TODO: Implement database synchronization
-    // This would sync signature data to the local dfns_signature_requests table
-    console.log(`Syncing signature ${signature.id} to database`);
+  
+  if (!globalKeyService) {
+    throw new DfnsError('DfnsKeyService not initialized', 'SERVICE_NOT_INITIALIZED');
   }
+  
+  return globalKeyService;
+}
+
+/**
+ * Reset the global key service instance (useful for testing)
+ */
+export function resetDfnsKeyService(): void {
+  globalKeyService = null;
 }

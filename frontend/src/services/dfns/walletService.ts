@@ -1,17 +1,16 @@
 /**
  * DFNS Wallet Service
  * 
- * High-level service for DFNS wallet management operations
- * Provides business logic layer over DFNS Wallet APIs
+ * Implements current DFNS Wallet API methods
+ * Based on: https://docs.dfns.co/d/api-docs/wallets
  * 
- * Phase 1 Implementation: Foundation (Core Wallet Management)
- * - Wallet Creation, Listing, Retrieval, and Updates
- * - Asset Management (balances, NFTs, history)
- * - Transfer Operations
- * - Tag Management
+ * Supports both Service Account and PAT token authentication
+ * User Action Signing required for write operations
  */
 
+import type { WorkingDfnsClient } from '../../infrastructure/dfns/working-client';
 import type {
+  DfnsWallet,
   DfnsCreateWalletRequest,
   DfnsCreateWalletResponse,
   DfnsUpdateWalletRequest,
@@ -19,1033 +18,670 @@ import type {
   DfnsListWalletsRequest,
   DfnsListWalletsResponse,
   DfnsGetWalletResponse,
-  DfnsDeleteWalletResponse,
   DfnsDelegateWalletRequest,
   DfnsDelegateWalletResponse,
-  DfnsGetWalletAssetsRequest,
-  DfnsGetWalletAssetsResponse,
-  DfnsGetWalletNftsResponse,
-  DfnsGetWalletHistoryResponse,
-  DfnsAddWalletTagsRequest,
-  DfnsAddWalletTagsResponse,
-  DfnsDeleteWalletTagsRequest,
-  DfnsDeleteWalletTagsResponse,
-  DfnsTransferAssetRequest,
-  DfnsTransferRequestResponse,
-  DfnsListTransferRequestsResponse,
-  DfnsGetTransferRequestResponse,
-  DfnsWallet,
-  DfnsNetwork,
-  DfnsWalletAsset,
-  DfnsWalletNft,
-  DfnsWalletHistoryEntry,
-} from '../../types/dfns';
-import { DfnsClient } from '../../infrastructure/dfns/client';
-import { DfnsAuthClient } from '../../infrastructure/dfns/auth/authClient';
-import { WorkingDfnsClient, getWorkingDfnsClient } from '../../infrastructure/dfns/working-client';
-import { DfnsUserActionService } from './userActionService';
-import { DfnsAuthenticationError, DfnsValidationError, DfnsWalletError } from '../../types/dfns/errors';
-
-export interface WalletServiceOptions {
-  enableDatabaseSync?: boolean;
-  enableAuditLogging?: boolean;
-  validateNetwork?: boolean;
-  includeMetadata?: boolean;
-  autoRefreshBalances?: boolean;
-}
-
-export interface WalletListOptions {
-  owner?: string;
-  limit?: number;
-  paginationToken?: string;
-  includeArchived?: boolean;
-  filterByNetwork?: DfnsNetwork;
-  sortBy?: 'name' | 'createdAt' | 'network' | 'balance';
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface WalletCreationOptions {
-  syncToDatabase?: boolean;
-  autoActivate?: boolean;
-  delegateToUser?: string;
-  createWithTags?: string[];
-}
-
-export interface TransferOptions {
-  syncToDatabase?: boolean;
-  includeGasEstimation?: boolean;
-  validateBalance?: boolean;
-  waitForConfirmation?: boolean;
-}
-
-// Summary interfaces for dashboard functionality
-export interface WalletSummary {
-  walletId: string;
-  name?: string;
-  network: DfnsNetwork;
-  address: string;
-  totalValueUsd?: string;
-  assetCount: number;
-  nftCount: number;
-  isActive: boolean;
-  lastActivity?: string;
-  dateCreated?: string; // Added for analytics
-  tags?: string[];
-}
-
-export interface AssetSummary {
-  symbol: string;
-  balance: string;
-  valueInUsd?: string;
-  kind: string;
-}
-
-export interface TransferSummary {
-  transferId: string;
-  walletId: string;
-  status: string;
-  amount: string;
-  asset: string;
-  direction: 'outgoing';
-  dateRequested: string;
-  txHash?: string;
-}
+  DfnsWalletServiceOptions,
+  DfnsPaginationOptions
+} from '../../types/dfns/wallets';
+import type { DfnsNetwork } from '../../types/dfns/core';
+import { DfnsError, DfnsValidationError, DfnsWalletError } from '../../types/dfns/errors';
+import { getDfnsDatabaseSyncService } from './databaseSyncService';
+import { getDfnsWalletAssetsService } from './walletAssetsService';
+import { getDfnsWalletTransfersService } from './walletTransfersService';
 
 export class DfnsWalletService {
-  private authClient: DfnsAuthClient;
-  private workingClient: WorkingDfnsClient;
-  private userActionService: DfnsUserActionService;
-  private options: WalletServiceOptions;
+  private client: WorkingDfnsClient;
+  private databaseSyncService = getDfnsDatabaseSyncService();
 
-  constructor(
-    dfnsClient: DfnsClient,
-    userActionService?: DfnsUserActionService,
-    options: WalletServiceOptions = {}
-  ) {
-    this.authClient = new DfnsAuthClient(dfnsClient);
-    this.workingClient = getWorkingDfnsClient();
-    this.userActionService = userActionService!;
-    this.options = {
-      enableDatabaseSync: true,
-      enableAuditLogging: true,
-      validateNetwork: true,
-      includeMetadata: true,
-      autoRefreshBalances: false,
-      ...options
-    };
+  constructor(client: WorkingDfnsClient) {
+    this.client = client;
   }
 
   // ===============================
-  // CORE WALLET MANAGEMENT
+  // WALLET CRUD OPERATIONS
   // ===============================
 
   /**
-   * Create a new wallet with User Action Signing
-   * Requires Wallets:Create permission
+   * Create a new wallet
+   * 
+   * @param request - Wallet creation parameters
+   * @param userActionToken - Required for User Action Signing
+   * @param options - Service options
+   * @returns Created wallet
+   * 
+   * API: POST /wallets
+   * Requires: Wallets:Create permission + User Action Signing
    */
   async createWallet(
     request: DfnsCreateWalletRequest,
-    options?: WalletCreationOptions
+    userActionToken?: string,
+    options: DfnsWalletServiceOptions = {}
   ): Promise<DfnsCreateWalletResponse> {
     try {
-      // Validate input
+      // Validate request
       this.validateCreateWalletRequest(request);
 
-      // Check if wallet name already exists (if provided)
-      if (request.name) {
-        const existingWallet = await this.getWalletByName(request.name);
-        if (existingWallet) {
-          throw new DfnsValidationError(
-            `Wallet with name "${request.name}" already exists`,
-            { existingWalletId: existingWallet.id }
-          );
-        }
+      // Warn if no User Action token (will likely fail)
+      if (!userActionToken) {
+        console.warn('⚠️ Creating wallet without User Action token - this will likely fail with 403');
+        console.log('💡 Create a WebAuthn credential or register a Key credential for User Action Signing');
       }
 
-      // Get User Action Token for wallet creation (sensitive operation)
-      let userActionToken: string | undefined;
-      if (this.userActionService) {
-        try {
-          userActionToken = await this.userActionService.signUserAction(
-            'CreateWallet',
-            request,
-            { persistToDb: true }
-          );
-        } catch (error) {
-          // If User Action Signing fails, provide helpful guidance
-          console.warn(`[DfnsWalletService] User Action Signing failed for wallet creation:`, error);
-          console.warn(`[DfnsWalletService] Note: Wallet creation with PAT tokens may require different permissions or WebAuthn setup`);
-          
-          // Don't throw here - let the API call proceed and return the actual DFNS error
-          // throw new DfnsWalletError(
-          //   `Failed to get user action signature for wallet creation: ${error}`,
-          //   { network: request.network, name: request.name }
-          // );
-        }
-      } else {
-        console.warn(`[DfnsWalletService] No User Action Service available - wallet creation may fail`);
-      }
-
-      // Create wallet via DFNS API using Working Client
-      const newWallet = await this.workingClient.createWallet(request, userActionToken);
-
-      // Add tags if specified
-      if (options?.createWithTags && options.createWithTags.length > 0) {
-        await this.addWalletTags(newWallet.id, { tags: options.createWithTags });
-      }
-
-      // Sync to database if enabled
-      if (options?.syncToDatabase && this.options.enableDatabaseSync) {
-        await this.syncWalletToDatabase(newWallet);
-      }
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Created wallet: ${newWallet.name || newWallet.id} (using working client)`, {
-          walletId: newWallet.id,
-          network: newWallet.network,
-          address: newWallet.address,
-          custodial: newWallet.custodial
-        });
-      }
-
-      return newWallet;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to create wallet: ${error}`,
-        { network: request.network, name: request.name }
+      // Make API request
+      const wallet = await this.client.makeRequest<DfnsCreateWalletResponse>(
+        'POST',
+        '/wallets',
+        request,
+        userActionToken
       );
+
+      console.log(`✅ Wallet created successfully: ${wallet.id} (${wallet.network})`);
+      
+      // Sync to database if requested
+      if (options.syncToDatabase) {
+        try {
+          await this.databaseSyncService.syncWallet(wallet, {}); // Fix: add required options parameter
+        } catch (syncError) {
+          console.warn('⚠️ Database sync failed for wallet:', syncError);
+        }
+      }
+
+      return wallet;
+    } catch (error) {
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
+      // Enhanced error messages for common issues
+      if (error instanceof Error) {
+        if (error.message.includes('403')) {
+          throw new DfnsWalletError(
+            `Wallet creation failed: ${userActionToken ? 'Insufficient permissions or User Action Signing failed' : 'User Action Signing required'}. Check Wallets:Create permission.`,
+            { 
+              network: request.network, 
+              name: request.name,
+              hasUserAction: !!userActionToken,
+              requiredPermission: 'Wallets:Create'
+            }
+          );
+        }
+        if (error.message.includes('400')) {
+          throw new DfnsValidationError('Invalid wallet creation request', { request });
+        }
+      }
+      
+      throw new DfnsWalletError(`Failed to create wallet: ${error}`, { network: request.network, name: request.name , code: 'WALLET_CREATE_FAILED'});
     }
   }
 
   /**
-   * Update wallet name
-   * Requires Wallets:Update permission
+   * Update wallet details
+   * 
+   * @param walletId - Wallet ID
+   * @param request - Update parameters
+   * @param userActionToken - Required for User Action Signing
+   * @param options - Service options
+   * @returns Updated wallet
+   * 
+   * API: PUT /wallets/{walletId}
+   * Requires: Wallets:Update permission + User Action Signing
    */
   async updateWallet(
     walletId: string,
-    request: DfnsUpdateWalletRequest
+    request: DfnsUpdateWalletRequest,
+    userActionToken?: string,
+    options: DfnsWalletServiceOptions = {}
   ): Promise<DfnsUpdateWalletResponse> {
     try {
+      // Validate inputs
       this.validateWalletId(walletId);
       this.validateUpdateWalletRequest(request);
 
-      // Check if new name already exists
-      const existingWallet = await this.getWalletByName(request.name);
-      if (existingWallet && existingWallet.id !== walletId) {
-        throw new DfnsValidationError(
-          `Wallet with name "${request.name}" already exists`,
-          { existingWalletId: existingWallet.id, requestedWalletId: walletId }
-        );
+      if (!userActionToken) {
+        console.warn('⚠️ Updating wallet without User Action token - this will likely fail');
       }
 
-      const updatedWallet = await this.authClient.updateWallet(walletId, request);
-
-      // Sync to database if enabled
-      if (this.options.enableDatabaseSync) {
-        await this.syncWalletToDatabase(updatedWallet);
-      }
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Updated wallet: ${updatedWallet.name}`, {
-          walletId,
-          newName: request.name
-        });
-      }
-
-      return updatedWallet;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to update wallet: ${error}`,
-        { walletId, name: request.name }
+      const wallet = await this.client.makeRequest<DfnsUpdateWalletResponse>(
+        'PUT',
+        `/wallets/${walletId}`,
+        request,
+        userActionToken
       );
-    }
-  }
 
-  /**
-   * Delete (archive) a wallet with User Action Signing
-   * Requires Wallets:Delete permission
-   */
-  async deleteWallet(walletId: string): Promise<DfnsDeleteWalletResponse> {
-    try {
-      this.validateWalletId(walletId);
-
-      // Get wallet info for logging
-      const wallet = await this.getWallet(walletId);
-
-      // Get User Action Token for wallet deletion (sensitive operation)
-      let userActionToken: string | undefined;
-      if (this.userActionService) {
+      console.log(`✅ Wallet updated successfully: ${walletId}`);
+      
+      // Sync to database if requested
+      if (options.syncToDatabase) {
         try {
-          userActionToken = await this.userActionService.signUserAction(
-            'DeleteWallet',
-            { walletId },
-            { persistToDb: true }
-          );
-        } catch (error) {
-          throw new DfnsWalletError(
-            `Failed to get user action signature for wallet deletion: ${error}`,
-            { walletId }
-          );
+          await this.databaseSyncService.syncWallet(wallet, {});
+        } catch (syncError) {
+          console.warn('⚠️ Database sync failed for updated wallet:', syncError);
         }
       }
 
-      const deletedWallet = await this.authClient.deleteWallet(walletId, userActionToken);
-
-      // Update database status if enabled
-      if (this.options.enableDatabaseSync) {
-        await this.syncWalletStatusToDatabase(walletId, 'Archived');
-      }
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Deleted wallet: ${wallet.name || walletId}`, {
-          walletId,
-          network: wallet.network,
-          address: wallet.address
-        });
-      }
-
-      return deletedWallet;
+      return wallet;
     } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to delete wallet: ${error}`,
-        { walletId }
-      );
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
+      if (error instanceof Error && error.message.includes('403')) {
+        throw new DfnsWalletError(`Wallet update failed: ${userActionToken ? 'Insufficient permissions or User Action Signing failed' : 'User Action Signing required'}`, { walletId, hasUserAction: !!userActionToken , code: 'WALLET_UPDATE_UNAUTHORIZED'});
+      }
+      
+      throw new DfnsWalletError(`Failed to update wallet ${walletId}: ${error}`, { walletId , code: 'WALLET_UPDATE_FAILED'});
     }
   }
 
   /**
    * Get wallet by ID
-   * Requires Wallets:Read permission
+   * 
+   * @param walletId - Wallet ID
+   * @param options - Service options
+   * @returns Wallet details
+   * 
+   * API: GET /wallets/{walletId}
+   * Requires: Wallets:Read permission
    */
-  async getWallet(walletId: string): Promise<DfnsGetWalletResponse> {
+  async getWallet(
+    walletId: string,
+    options: DfnsWalletServiceOptions = {}
+  ): Promise<DfnsGetWalletResponse> {
     try {
       this.validateWalletId(walletId);
-      
-      const wallet = await this.workingClient.getWallet(walletId);
 
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved wallet: ${wallet.name || walletId} (using working client)`, {
-          walletId,
-          network: wallet.network,
-          address: wallet.address,
-          status: wallet.status
-        });
+      const wallet = await this.client.makeRequest<DfnsGetWalletResponse>(
+        'GET',
+        `/wallets/${walletId}`
+      );
+
+      console.log(`✅ Retrieved wallet: ${walletId} (${wallet.network})`);
+      
+      // Sync to database if requested
+      if (options.syncToDatabase) {
+        try {
+          await this.databaseSyncService.syncWallet(wallet, {});
+        } catch (syncError) {
+          console.warn('⚠️ Database sync failed for retrieved wallet:', syncError);
+        }
       }
 
       return wallet;
     } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get wallet: ${error}`,
-        { walletId }
-      );
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
+      throw new DfnsWalletError(`Failed to get wallet ${walletId}: ${error}`, { walletId , code: 'WALLET_GET_FAILED'});
     }
   }
 
   /**
-   * List wallets with enhanced filtering
-   * Requires Wallets:Read permission
+   * List wallets with filtering and pagination
+   * 
+   * @param request - List parameters
+   * @param options - Service options
+   * @returns List of wallets
+   * 
+   * API: GET /wallets
+   * Requires: Wallets:Read permission
    */
-  async listWallets(options?: WalletListOptions): Promise<DfnsListWalletsResponse> {
+  async listWallets(
+    request: DfnsListWalletsRequest = {},
+    options: DfnsWalletServiceOptions = {}
+  ): Promise<DfnsListWalletsResponse> {
     try {
-      // Use working client instead of broken SDK
-      const wallets = await this.workingClient.listWallets();
+      // Build query parameters
+      const queryParams = new URLSearchParams();
       
-      let filteredWallets = wallets;
-
-      // Filter by network if specified
-      if (options?.filterByNetwork) {
-        filteredWallets = filteredWallets.filter(
-          wallet => wallet.network === options.filterByNetwork
-        );
+      if (request.owner) {
+        queryParams.append('owner', request.owner);
+      }
+      if (request.limit) {
+        queryParams.append('limit', request.limit.toString());
+      }
+      if (request.paginationToken) {
+        queryParams.append('paginationToken', request.paginationToken);
       }
 
-      // Exclude archived if specified
-      if (!options?.includeArchived) {
-        filteredWallets = filteredWallets.filter(
-          wallet => wallet.status === 'Active'
-        );
-      }
+      const queryString = queryParams.toString();
+      const endpoint = queryString ? `/wallets?${queryString}` : '/wallets';
 
-      // Apply pagination manually since working client doesn't support it yet
-      const limit = options?.limit || 50;
-      const paginatedWallets = filteredWallets.slice(0, limit);
+      const response = await this.client.makeRequest<DfnsListWalletsResponse>(
+        'GET',
+        endpoint
+      );
 
-      const response: DfnsListWalletsResponse = {
-        items: paginatedWallets,
-        nextPageToken: filteredWallets.length > limit ? 'has_more' : undefined
-      };
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Listed ${response.items.length} wallets (using working client)`, {
-          totalWallets: response.items.length,
-          hasNextPage: !!response.nextPageToken,
-          filterByNetwork: options?.filterByNetwork
-        });
+      console.log(`✅ Retrieved ${response.items.length} wallets`);
+      
+      // Sync to database if requested
+      if (options.syncToDatabase && response.items.length > 0) {
+        try {
+          await this.databaseSyncService.syncWalletsBatch(response.items, {});
+        } catch (syncError) {
+          console.warn('⚠️ Database sync failed for wallet list:', syncError);
+        }
       }
 
       return response;
     } catch (error) {
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
       throw new DfnsWalletError(
         `Failed to list wallets: ${error}`,
-        { options }
+        { code: 'WALLET_LIST_FAILED' }
       );
     }
   }
 
   /**
    * Get all wallets (handles pagination automatically)
+   * 
+   * @param owner - Optional owner filter
+   * @param options - Service options
+   * @returns All wallets
    */
-  async getAllWallets(): Promise<DfnsWallet[]> {
+  async getAllWallets(
+    owner?: string,
+    options: DfnsWalletServiceOptions = {}
+  ): Promise<DfnsWallet[]> {
     try {
-      // Use working client directly for better performance
-      const allWallets = await this.workingClient.listWallets();
+      const allWallets: DfnsWallet[] = [];
+      let nextPageToken: string | undefined = undefined;
 
-      console.log(`[DfnsWalletService] Retrieved ${allWallets.length} total wallets (using working client)`);
+      do {
+        const response = await this.listWallets({
+          owner,
+          limit: 100,
+          paginationToken: nextPageToken
+        }, options);
+
+        allWallets.push(...response.items);
+        nextPageToken = response.nextPageToken;
+      } while (nextPageToken);
+
+      console.log(`✅ Retrieved all ${allWallets.length} wallets`);
       return allWallets;
     } catch (error) {
       throw new DfnsWalletError(
-        `Failed to get all wallets: ${error}`
+        `Failed to get all wallets: ${error}`,
+        { code: 'WALLET_GET_ALL_FAILED' }
       );
     }
   }
 
   /**
-   * Get wallet by name (searches through all wallets)
+   * Archive/delete wallet (sets status to Archived)
+   * 
+   * @param walletId - Wallet ID
+   * @param userActionToken - Required for User Action Signing
+   * @param options - Service options
+   * @returns Archived wallet
+   * 
+   * API: DELETE /wallets/{walletId} (Archives wallet)
+   * Requires: Wallets:Archive permission + User Action Signing
    */
-  async getWalletByName(name: string): Promise<DfnsWallet | null> {
-    try {
-      const allWallets = await this.getAllWallets();
-      const wallet = allWallets.find(w => w.name === name);
-      
-      if (this.options.enableAuditLogging && wallet) {
-        console.log(`[DfnsWalletService] Found wallet by name: ${name}`, {
-          walletId: wallet.id,
-          network: wallet.network,
-          address: wallet.address
-        });
-      }
-
-      return wallet || null;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get wallet by name: ${error}`,
-        { name }
-      );
-    }
-  }
-
-  // ===============================
-  // WALLET ASSET MANAGEMENT
-  // ===============================
-
-  /**
-   * Get wallet assets (balances) with USD valuation
-   * Requires Wallets:Read permission
-   */
-  async getWalletAssets(
+  async archiveWallet(
     walletId: string,
-    includeUsdValue: boolean = true
-  ): Promise<DfnsGetWalletAssetsResponse> {
+    userActionToken?: string,
+    options: DfnsWalletServiceOptions = {}
+  ): Promise<DfnsWallet> {
     try {
       this.validateWalletId(walletId);
 
-      const assets = await this.workingClient.getWalletAssets(walletId);
+      if (!userActionToken) {
+        console.warn('⚠️ Archiving wallet without User Action token - this will likely fail');
+      }
+
+      const wallet = await this.client.makeRequest<DfnsWallet>(
+        'DELETE',
+        `/wallets/${walletId}`,
+        undefined,
+        userActionToken
+      );
+
+      console.log(`✅ Wallet archived successfully: ${walletId}`);
       
-      // Convert to expected response format
-      const response: DfnsGetWalletAssetsResponse = {
-        walletId,
-        network: 'Unknown', // Will be filled in when working client provides it
-        assets,
-        totalValueUsd: assets.reduce((total, asset) => {
-          const value = parseFloat(asset.valueInUsd || '0');
-          return total + value;
-        }, 0).toString()
-      };
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved ${response.assets.length} assets for wallet (using working client)`, {
-          walletId,
-          network: response.network,
-          totalValueUsd: response.totalValueUsd,
-          assetCount: response.assets.length
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get wallet assets: ${error}`,
-        { walletId }
-      );
-    }
-  }
-
-  /**
-   * Get wallet NFTs
-   * Requires Wallets:Read permission
-   */
-  async getWalletNfts(walletId: string): Promise<DfnsGetWalletNftsResponse> {
-    try {
-      this.validateWalletId(walletId);
-
-      const nfts = await this.workingClient.getWalletNfts(walletId);
-      
-      // Convert to expected response format
-      const response: DfnsGetWalletNftsResponse = {
-        walletId,
-        network: 'Unknown', // Will be filled in when working client provides it
-        nfts
-      };
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved ${response.nfts.length} NFTs for wallet (using working client)`, {
-          walletId,
-          network: response.network,
-          nftCount: response.nfts.length
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get wallet NFTs: ${error}`,
-        { walletId }
-      );
-    }
-  }
-
-  /**
-   * Get wallet transaction history
-   * Requires Wallets:Read permission
-   */
-  async getWalletHistory(walletId: string): Promise<DfnsGetWalletHistoryResponse> {
-    try {
-      this.validateWalletId(walletId);
-
-      const history = await this.workingClient.getWalletHistory(walletId);
-      
-      // Convert to expected response format
-      const response: DfnsGetWalletHistoryResponse = {
-        walletId,
-        network: 'Unknown', // Will be filled in when working client provides it
-        history
-      };
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved ${response.history.length} history entries for wallet (using working client)`, {
-          walletId,
-          network: response.network,
-          historyCount: response.history.length
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get wallet history: ${error}`,
-        { walletId }
-      );
-    }
-  }
-
-  // ===============================
-  // WALLET TAG MANAGEMENT
-  // ===============================
-
-  /**
-   * Add tags to wallet
-   * Requires Wallets:Tags:Add permission
-   */
-  async addWalletTags(
-    walletId: string,
-    request: DfnsAddWalletTagsRequest
-  ): Promise<DfnsAddWalletTagsResponse> {
-    try {
-      this.validateWalletId(walletId);
-      this.validateTags(request.tags);
-
-      const response = await this.authClient.addWalletTags(walletId, request);
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Added ${request.tags.length} tags to wallet`, {
-          walletId,
-          tags: request.tags
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to add wallet tags: ${error}`,
-        { walletId, tags: request.tags }
-      );
-    }
-  }
-
-  /**
-   * Delete tags from wallet
-   * Requires Wallets:Tags:Delete permission
-   */
-  async deleteWalletTags(
-    walletId: string,
-    request: DfnsDeleteWalletTagsRequest
-  ): Promise<DfnsDeleteWalletTagsResponse> {
-    try {
-      this.validateWalletId(walletId);
-      this.validateTags(request.tags);
-
-      const response = await this.authClient.deleteWalletTags(walletId, request);
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Deleted ${request.tags.length} tags from wallet`, {
-          walletId,
-          tags: request.tags
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to delete wallet tags: ${error}`,
-        { walletId, tags: request.tags }
-      );
-    }
-  }
-
-  // ===============================
-  // TRANSFER OPERATIONS
-  // ===============================
-
-  /**
-   * Transfer asset from wallet with User Action Signing
-   * Requires Wallets:Transfer permission
-   */
-  async transferAsset(
-    walletId: string,
-    request: DfnsTransferAssetRequest,
-    options?: TransferOptions
-  ): Promise<DfnsTransferRequestResponse> {
-    try {
-      this.validateWalletId(walletId);
-      this.validateTransferRequest(request);
-
-      // Validate balance if requested
-      if (options?.validateBalance) {
-        await this.validateSufficientBalance(walletId, request);
-      }
-
-      // Get User Action Token for transfer (sensitive operation)
-      let userActionToken: string | undefined;
-      if (this.userActionService) {
+      // Sync to database if requested
+      if (options.syncToDatabase) {
         try {
-          userActionToken = await this.userActionService.signUserAction(
-            'Transfer',
-            { walletId, ...request },
-            { persistToDb: true }
-          );
-        } catch (error) {
-          throw new DfnsWalletError(
-            `Failed to get user action signature for transfer: ${error}`,
-            { walletId, to: request.to, kind: request.kind }
-          );
+          await this.databaseSyncService.syncWallet(wallet);
+        } catch (syncError) {
+          console.warn('⚠️ Database sync failed for archived wallet:', syncError);
         }
       }
 
-      const transferResponse = await this.authClient.transferAsset(
-        walletId,
+      return wallet;
+    } catch (error) {
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
+      if (error instanceof Error && error.message.includes('403')) {
+        throw new DfnsWalletError(`Wallet archive failed: ${userActionToken ? 'Insufficient permissions or User Action Signing failed' : 'User Action Signing required'}`, { walletId, hasUserAction: !!userActionToken , code: 'WALLET_ARCHIVE_UNAUTHORIZED'});
+      }
+      
+      throw new DfnsWalletError(`Failed to archive wallet ${walletId}: ${error}`, { walletId , code: 'WALLET_ARCHIVE_FAILED'});
+    }
+  }
+
+  // ===============================
+  // DELEGATION OPERATIONS
+  // ===============================
+
+  /**
+   * Delegate wallet to end user (DEPRECATED - use delegateTo in createWallet)
+   * 
+   * @param walletId - Wallet ID
+   * @param request - Delegation parameters
+   * @param userActionToken - Required for User Action Signing
+   * @param options - Service options
+   * @returns Delegated wallet
+   * 
+   * API: PUT /wallets/{walletId}/delegate
+   * Requires: Wallets:Delegate permission + User Action Signing
+   * 
+   * @deprecated Use delegateTo parameter in createWallet instead
+   */
+  async delegateWallet(
+    walletId: string,
+    request: DfnsDelegateWalletRequest,
+    userActionToken?: string,
+    options: DfnsWalletServiceOptions = {}
+  ): Promise<DfnsDelegateWalletResponse> {
+    try {
+      console.warn('⚠️ delegateWallet is deprecated. Use delegateTo parameter in createWallet instead.');
+      
+      this.validateWalletId(walletId);
+      
+      if (!request.endUserId) {
+        throw new DfnsValidationError('endUserId is required for wallet delegation');
+      }
+
+      if (!userActionToken) {
+        console.warn('⚠️ Delegating wallet without User Action token - this will likely fail');
+      }
+
+      const wallet = await this.client.makeRequest<DfnsDelegateWalletResponse>(
+        'PUT',
+        `/wallets/${walletId}/delegate`,
         request,
         userActionToken
       );
 
-      // Sync to database if enabled
-      if (options?.syncToDatabase && this.options.enableDatabaseSync) {
-        await this.syncTransferToDatabase(transferResponse);
-      }
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Initiated transfer from wallet`, {
-          walletId,
-          transferId: transferResponse.id,
-          kind: request.kind,
-          to: request.to,
-          status: transferResponse.status
-        });
-      }
-
-      return transferResponse;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to transfer asset: ${error}`,
-        { walletId, to: request.to, kind: request.kind }
-      );
-    }
-  }
-
-  /**
-   * Get transfer request by ID
-   * Requires Wallets:Transfer:Read permission
-   */
-  async getTransferRequest(
-    walletId: string,
-    transferId: string
-  ): Promise<DfnsGetTransferRequestResponse> {
-    try {
-      this.validateWalletId(walletId);
-      this.validateTransferId(transferId);
-
-      const response = await this.authClient.getTransferRequest(walletId, transferId);
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Retrieved transfer request`, {
-          walletId,
-          transferId,
-          status: response.status,
-          txHash: response.txHash
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get transfer request: ${error}`,
-        { walletId, transferId }
-      );
-    }
-  }
-
-  /**
-   * List transfer requests for wallet
-   * Requires Wallets:Transfer:Read permission
-   */
-  async listTransferRequests(
-    walletId: string,
-    limit?: number,
-    paginationToken?: string
-  ): Promise<DfnsListTransferRequestsResponse> {
-    try {
-      this.validateWalletId(walletId);
-
-      const response = await this.authClient.listTransferRequests(
-        walletId,
-        limit,
-        paginationToken
-      );
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Listed ${response.items.length} transfer requests`, {
-          walletId,
-          transferCount: response.items.length,
-          hasNextPage: !!response.nextPageToken
-        });
-      }
-
-      return response;
-    } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to list transfer requests: ${error}`,
-        { walletId }
-      );
-    }
-  }
-
-  // ===============================
-  // LEGACY/DEPRECATED OPERATIONS
-  // ===============================
-
-  /**
-   * Delegate wallet to end user (DEPRECATED - use Delegate Key instead)
-   * Requires Wallets:Delegate permission and User Action Signing
-   */
-  async delegateWallet(
-    walletId: string,
-    request: DfnsDelegateWalletRequest
-  ): Promise<DfnsDelegateWalletResponse> {
-    try {
-      this.validateWalletId(walletId);
-
-      console.warn('[DfnsWalletService] DEPRECATED: Use Delegate Key instead of Delegate Wallet');
-
-      // Get User Action Token for delegation (sensitive operation)
-      let userActionToken: string | undefined;
-      if (this.userActionService) {
+      console.log(`✅ Wallet delegated successfully: ${walletId} → ${request.endUserId}`);
+      
+      // Sync to database if requested
+      if (options.syncToDatabase) {
         try {
-          userActionToken = await this.userActionService.signUserAction(
-            'DelegateWallet',
-            { walletId, ...request },
-            { persistToDb: true }
-          );
-        } catch (error) {
-          throw new DfnsWalletError(
-            `Failed to get user action signature for wallet delegation: ${error}`,
-            { walletId, endUserId: request.endUserId }
-          );
+          await this.databaseSyncService.syncWallet(wallet);
+        } catch (syncError) {
+          console.warn('⚠️ Database sync failed for delegated wallet:', syncError);
         }
       }
 
-      const response = await this.authClient.delegateWallet(walletId, request, userActionToken);
-
-      if (this.options.enableAuditLogging) {
-        console.log(`[DfnsWalletService] Delegated wallet (DEPRECATED)`, {
-          walletId,
-          endUserId: request.endUserId
-        });
-      }
-
-      return response;
+      return wallet;
     } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to delegate wallet: ${error}`,
-        { walletId, endUserId: request.endUserId }
-      );
+      if (error instanceof DfnsError) {
+        throw error;
+      }
+      
+      if (error instanceof Error && error.message.includes('403')) {
+        throw new DfnsWalletError(`Wallet delegation failed: ${userActionToken ? 'Insufficient permissions or User Action Signing failed' : 'User Action Signing required'}`, { walletId, endUserId: request.endUserId, hasUserAction: !!userActionToken , code: 'WALLET_DELEGATE_UNAUTHORIZED'});
+      }
+      
+      throw new DfnsWalletError(`Failed to delegate wallet ${walletId}: ${error}`, { walletId, endUserId: request.endUserId , code: 'WALLET_DELEGATE_FAILED'});
     }
   }
 
   // ===============================
-  // ENHANCED DASHBOARD METHODS
+  // UTILITY METHODS
   // ===============================
 
   /**
-   * Get wallet summaries for dashboard display
+   * Check if a wallet exists
+   * 
+   * @param walletId - Wallet ID
+   * @returns True if wallet exists
    */
-  async getWalletsSummary(): Promise<WalletSummary[]> {
+  async walletExists(walletId: string): Promise<boolean> {
     try {
-      const wallets = await this.getAllWallets();
-      const summaries: WalletSummary[] = [];
-
-      for (const wallet of wallets) {
-        try {
-          // Get assets for each wallet
-          const assets = await this.getWalletAssets(wallet.id, true);
-          const nfts = await this.getWalletNfts(wallet.id);
-          
-          summaries.push({
-            walletId: wallet.id,
-            name: wallet.name,
-            network: wallet.network,
-            address: wallet.address,
-            totalValueUsd: assets.totalValueUsd,
-            assetCount: assets.assets.length,
-            nftCount: nfts.nfts.length,
-            isActive: wallet.status === 'Active',
-            tags: wallet.tags
-          });
-        } catch (error) {
-          // Continue processing other wallets if one fails
-          console.warn(`[DfnsWalletService] Failed to get summary for wallet ${wallet.id}:`, error);
-        }
-      }
-
-      return summaries;
+      await this.getWallet(walletId);
+      return true;
     } catch (error) {
-      throw new DfnsWalletError(
-        `Failed to get wallets summary: ${error}`
-      );
+      if (error instanceof DfnsWalletError && error.code === 'WALLET_GET_FAILED') {
+        return false;
+      }
+      throw error;
     }
+  }
+
+  /**
+   * Get wallet summary for dashboard display
+   * 
+   * @param walletId - Wallet ID
+   * @returns Basic wallet information
+   */
+  async getWalletSummary(walletId: string) {
+    try {
+      const wallet = await this.getWallet(walletId);
+      
+      return {
+        id: wallet.id,
+        name: wallet.name,
+        network: wallet.network,
+        address: wallet.address,
+        status: wallet.status,
+        custodial: wallet.custodial,
+        dateCreated: wallet.dateCreated,
+        tags: wallet.tags || []
+      };
+    } catch (error) {
+      throw new DfnsWalletError(`Failed to get wallet summary for ${walletId}: ${error}`, { walletId , code: 'WALLET_SUMMARY_FAILED'});
+    }
+  }
+
+  /**
+   * Alias for getWalletSummary (component compatibility)
+   */
+  async getWalletsSummary(walletId: string) {
+    return this.getWalletSummary(walletId);
+  }
+
+  /**
+   * Get wallet assets (alias for wallet assets service)
+   */
+  async getWalletAssets(walletId: string) {
+    // This method should delegate to wallet assets service
+    const walletAssetsService = getDfnsWalletAssetsService();
+    return walletAssetsService.getWalletAssets(walletId);
+  }
+
+  /**
+   * Get wallet NFTs (alias for wallet assets service)
+   */
+  async getWalletNfts(walletId: string) {
+    // This method should delegate to wallet assets service
+    const walletAssetsService = getDfnsWalletAssetsService();
+    return walletAssetsService.getWalletNfts(walletId);
+  }
+
+  /**
+   * Get wallet history/transactions (alias for wallet transfers service)
+   */
+  async getWalletHistory(walletId: string) {
+    // This method should delegate to wallet transfers service
+    const walletTransfersService = getDfnsWalletTransfersService();
+    return walletTransfersService.listTransferRequests(walletId);
+  }
+
+  /**
+   * Transfer asset (alias for wallet transfers service)
+   */
+  async transferAsset(
+    walletId: string, 
+    to: string, 
+    amount: string, 
+    userActionToken?: string
+  ) {
+    // This method should delegate to wallet transfers service
+    const walletTransfersService = getDfnsWalletTransfersService();
+    return walletTransfersService.transferNativeAsset(
+      walletId, to, amount, userActionToken, { syncToDatabase: true }
+    );
+  }
+
+  /**
+   * Get wallet count for analytics
+   * 
+   * @param owner - Optional owner filter
+   * @returns Wallet count
+   */
+  async getWalletCount(owner?: string): Promise<number> {
+    try {
+      // Use limit 1 to get count efficiently
+      const response = await this.listWallets({ owner, limit: 1 });
+      
+      // If there's pagination, we'd need to count all pages
+      // For now, return the count from first page or total if available
+      let count = response.items.length;
+      
+      // If there's a next page, we need to count all
+      if (response.nextPageToken) {
+        const allWallets = await this.getAllWallets(owner);
+        count = allWallets.length;
+      }
+      
+      return count;
+    } catch (error) {
+      console.warn('Failed to get wallet count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Validate supported networks
+   * 
+   * @param network - Network to validate
+   * @returns True if supported
+   */
+  isSupportedNetwork(network: DfnsNetwork): boolean {
+    // This could be enhanced to check against DFNS API for current supported networks
+    const supportedNetworks: DfnsNetwork[] = [
+      'Ethereum', 'Bitcoin', 'Polygon', 'Arbitrum', 'Optimism', 'Base',
+      'Solana', 'Avalanche', 'BnbSmartChain', 'Fantom', 'Algorand',
+      'Cardano', 'Cosmos', 'Near', 'Polkadot', 'Stellar', 'Tezos',
+      'Tron', 'XrpLedger', 'Aptos', 'Sui', 'Iota'
+    ];
+    
+    return supportedNetworks.includes(network);
   }
 
   // ===============================
   // VALIDATION METHODS
   // ===============================
 
-  /**
-   * Validate wallet ID format
-   */
   private validateWalletId(walletId: string): void {
-    if (!walletId || typeof walletId !== 'string') {
-      throw new DfnsValidationError('Wallet ID is required and must be a string');
+    if (!walletId) {
+      throw new DfnsValidationError('Wallet ID is required');
     }
-
-    // DFNS wallet IDs follow pattern: wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx
-    const walletIdPattern = /^wa-[a-z0-9]{5}-[a-z0-9]{5}-[a-z0-9]{16}$/;
-    if (!walletIdPattern.test(walletId)) {
-      throw new DfnsValidationError(
-        `Invalid DFNS wallet ID format: ${walletId}`,
-        { expectedPattern: 'wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx' }
-      );
+    if (!walletId.startsWith('wa-')) {
+      throw new DfnsValidationError('Invalid wallet ID format. Expected format: wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx');
     }
   }
 
-  /**
-   * Validate transfer ID format
-   */
-  private validateTransferId(transferId: string): void {
-    if (!transferId || typeof transferId !== 'string') {
-      throw new DfnsValidationError('Transfer ID is required and must be a string');
-    }
-
-    // DFNS transfer IDs follow pattern: tr-xxxxx-xxxxx-xxxxxxxxxxxxxxxx
-    const transferIdPattern = /^tr-[a-z0-9]{5}-[a-z0-9]{5}-[a-z0-9]{16}$/;
-    if (!transferIdPattern.test(transferId)) {
-      throw new DfnsValidationError(
-        `Invalid DFNS transfer ID format: ${transferId}`,
-        { expectedPattern: 'tr-xxxxx-xxxxx-xxxxxxxxxxxxxxxx' }
-      );
-    }
-  }
-
-  /**
-   * Validate create wallet request
-   */
   private validateCreateWalletRequest(request: DfnsCreateWalletRequest): void {
-    if (!request.network || typeof request.network !== 'string') {
-      throw new DfnsValidationError('Network is required and must be a string');
+    if (!request.network) {
+      throw new DfnsValidationError('Network is required for wallet creation');
     }
-
-    // Validate network support if enabled
-    if (this.options.validateNetwork) {
-      this.validateNetworkSupport(request.network);
+    
+    if (!this.isSupportedNetwork(request.network)) {
+      throw new DfnsValidationError(`Unsupported network: ${request.network}`);
     }
-
+    
     if (request.name && request.name.length > 100) {
       throw new DfnsValidationError('Wallet name must be 100 characters or less');
     }
+    
+    if (request.tags && request.tags.length > 10) {
+      throw new DfnsValidationError('Maximum 10 tags allowed per wallet');
+    }
   }
 
-  /**
-   * Validate update wallet request
-   */
   private validateUpdateWalletRequest(request: DfnsUpdateWalletRequest): void {
-    if (!request.name || typeof request.name !== 'string') {
-      throw new DfnsValidationError('Name is required and must be a string');
+    if (!request.name) {
+      throw new DfnsValidationError('Name is required for wallet update');
     }
-
+    
     if (request.name.length > 100) {
       throw new DfnsValidationError('Wallet name must be 100 characters or less');
     }
   }
 
-  /**
-   * Validate transfer request
-   */
-  private validateTransferRequest(request: DfnsTransferAssetRequest): void {
-    if (!request.kind || typeof request.kind !== 'string') {
-      throw new DfnsValidationError('Asset kind is required');
-    }
-
-    if (!request.to || typeof request.to !== 'string') {
-      throw new DfnsValidationError('Destination address is required');
-    }
-
-    // Validate based on asset type
-    if (request.kind === 'Native' || request.kind === 'Erc20') {
-      if (!('amount' in request) || !request.amount) {
-        throw new DfnsValidationError('Amount is required for fungible asset transfers');
-      }
-    }
-
-    if (request.kind === 'Erc721') {
-      if (!('tokenId' in request) || !request.tokenId) {
-        throw new DfnsValidationError('Token ID is required for NFT transfers');
-      }
-    }
-  }
-
-  /**
-   * Validate network support
-   */
-  private validateNetworkSupport(network: DfnsNetwork): void {
-    // DFNS supports 30+ blockchains - validate against known networks
-    const supportedNetworks: DfnsNetwork[] = [
-      'Ethereum', 'Bitcoin', 'Polygon', 'Avalanche', 'Binance',
-      'Arbitrum', 'Optimism', 'Solana', 'Near', 'Algorand',
-      'Stellar', 'Cardano', 'Polkadot', 'Kusama', 'Cosmos',
-      'Osmosis', 'Juno', 'Stargaze', 'Aptos', 'Sui'
-    ];
-
-    if (!supportedNetworks.includes(network)) {
-      throw new DfnsValidationError(
-        `Unsupported network: ${network}`,
-        { supportedNetworks }
-      );
-    }
-  }
-
-  /**
-   * Validate wallet tags
-   */
-  private validateTags(tags: string[]): void {
-    if (!Array.isArray(tags)) {
-      throw new DfnsValidationError('Tags must be an array');
-    }
-
-    if (tags.length === 0) {
-      throw new DfnsValidationError('At least one tag is required');
-    }
-
-    if (tags.length > 20) {
-      throw new DfnsValidationError('Maximum 20 tags allowed');
-    }
-
-    for (const tag of tags) {
-      if (typeof tag !== 'string' || tag.length === 0) {
-        throw new DfnsValidationError('Each tag must be a non-empty string');
-      }
-      if (tag.length > 50) {
-        throw new DfnsValidationError('Each tag must be 50 characters or less');
-      }
-    }
-  }
-
-  /**
-   * Validate sufficient balance for transfer (placeholder)
-   */
-  private async validateSufficientBalance(
-    walletId: string,
-    request: DfnsTransferAssetRequest
-  ): Promise<void> {
-    // TODO: Implement balance validation logic
-    if (this.options.enableAuditLogging) {
-      console.log(`[DfnsWalletService] TODO: Validate sufficient balance`, {
-        walletId,
-        kind: request.kind,
-        amount: 'amount' in request ? request.amount : 'N/A'
-      });
-    }
-  }
-
   // ===============================
-  // DATABASE SYNC METHODS (PLACEHOLDERS)
+  // SERVICE STATUS
   // ===============================
 
   /**
-   * Sync wallet data to local database (placeholder)
-   * TODO: Implement database sync using Supabase client
+   * Test wallet service connectivity
+   * 
+   * @returns Service status
    */
-  private async syncWalletToDatabase(wallet: DfnsWallet): Promise<void> {
-    if (this.options.enableAuditLogging) {
-      console.log(`[DfnsWalletService] TODO: Sync wallet to database`, {
-        walletId: wallet.id,
-        network: wallet.network,
-        address: wallet.address
-      });
+  async testWalletService() {
+    try {
+      const startTime = Date.now();
+      
+      // Test basic list operation
+      const response = await this.listWallets({ limit: 1 });
+      
+      const responseTime = Date.now() - startTime;
+      
+      return {
+        success: true,
+        responseTime,
+        walletCount: response.items.length,
+        canCreateWallet: false, // Requires User Action Signing
+        canReadWallets: true,
+        message: 'Wallet service is operational'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        responseTime: 0,
+        walletCount: 0,
+        canCreateWallet: false,
+        canReadWallets: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        message: 'Wallet service is not accessible'
+      };
     }
-    // TODO: Implement Supabase insert/update to dfns_wallets table
   }
+}
 
-  /**
-   * Sync wallet status to local database (placeholder)
-   */
-  private async syncWalletStatusToDatabase(walletId: string, status: string): Promise<void> {
-    if (this.options.enableAuditLogging) {
-      console.log(`[DfnsWalletService] TODO: Sync wallet status to database`, {
-        walletId,
-        status
-      });
-    }
-    // TODO: Implement Supabase update to dfns_wallets table
-  }
+// ===============================
+// GLOBAL SERVICE INSTANCE
+// ===============================
 
-  /**
-   * Sync transfer to local database (placeholder)
-   */
-  private async syncTransferToDatabase(transfer: DfnsTransferRequestResponse): Promise<void> {
-    if (this.options.enableAuditLogging) {
-      console.log(`[DfnsWalletService] TODO: Sync transfer to database`, {
-        transferId: transfer.id,
-        walletId: transfer.walletId,
-        status: transfer.status
-      });
+let globalWalletService: DfnsWalletService | null = null;
+
+/**
+ * Get or create the global DFNS wallet service instance
+ */
+export function getDfnsWalletService(client?: WorkingDfnsClient): DfnsWalletService {
+  if (!globalWalletService) {
+    if (!client) {
+      throw new DfnsError('WorkingDfnsClient is required to create DfnsWalletService', 'MISSING_CLIENT');
     }
-    // TODO: Implement Supabase insert to dfns_transfers table
+    globalWalletService = new DfnsWalletService(client);
   }
+  return globalWalletService;
+}
+
+/**
+ * Reset the global wallet service instance
+ */
+export function resetDfnsWalletService(): void {
+  globalWalletService = null;
 }

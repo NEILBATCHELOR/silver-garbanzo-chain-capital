@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   RefreshCw, 
   Wallet, 
@@ -14,7 +15,8 @@ import {
   AlertTriangle,
   TrendingUp,
   Activity,
-  Plus
+  Plus,
+  ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -54,7 +56,7 @@ export function DfnsDashboard() {
       const dfnsService = await initializeDfnsService();
       
       // Get real data from DFNS services
-      const authStatus = dfnsService.getAuthenticationStatus();
+      const authStatus = await dfnsService.getAuthenticationStatus();
       
       let walletCount = 0;
       let pendingTxCount = 0;
@@ -81,7 +83,7 @@ export function DfnsDashboard() {
         totalWallets: walletCount,
         activeUsers: 1, // Current user
         pendingTransactions: pendingTxCount,
-        activeCredentials: authStatus.credentialCount || 0,
+        activeCredentials: authStatus.credentialsCount || 0,
         totalPermissions: 0, // TODO: Add when permission service is ready
         securityScore: authStatus.isAuthenticated ? 100 : 50,
         isAuthenticated: authStatus.isAuthenticated,
@@ -153,14 +155,36 @@ export function DfnsDashboard() {
       </div>
 
       <div className="p-6">
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 border border-red-200 rounded-lg bg-red-50">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
-              <span className="text-red-700">{error}</span>
-            </div>
-          </div>
+        {/* Token Expiry Alert - Higher Priority */}
+        {error && error.includes('Invalid or expired token') && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-800">DFNS Token Expired</AlertTitle>
+            <AlertDescription className="text-red-700 space-y-2">
+              <p>Your DFNS Personal Access Token has expired and needs to be renewed.</p>
+              <div className="flex items-center space-x-2 mt-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => window.open('https://app.dfns.io', '_blank')}
+                  className="border-red-200 text-red-700 hover:bg-red-100"
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Renew Token
+                </Button>
+                <span className="text-xs">Go to DFNS Dashboard → Settings → API Keys</span>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* General Error Alert */}
+        {error && !error.includes('Invalid or expired token') && (
+          <Alert className="mb-6 border-yellow-200 bg-yellow-50">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertTitle className="text-yellow-800">Connection Issue</AlertTitle>
+            <AlertDescription className="text-yellow-700">{error}</AlertDescription>
+          </Alert>
         )}
 
         {/* Summary Cards */}

@@ -3093,58 +3093,166 @@ export type Database = {
       }
       dfns_policies: {
         Row: {
+          action_configuration: Json | null
+          action_kind: string | null
           activity_kind: string
           created_at: string | null
           description: string | null
           dfns_policy_id: string | null
           external_id: string | null
+          filters: Json | null
           id: string
+          metadata: Json | null
           name: string
           organization_id: string | null
           policy_id: string
-          rule: Json
+          rule_configuration: Json | null
+          rule_kind: string | null
+          rule_legacy: Json
           status: string
           updated_at: string | null
         }
         Insert: {
+          action_configuration?: Json | null
+          action_kind?: string | null
           activity_kind: string
           created_at?: string | null
           description?: string | null
           dfns_policy_id?: string | null
           external_id?: string | null
+          filters?: Json | null
           id?: string
+          metadata?: Json | null
           name: string
           organization_id?: string | null
           policy_id: string
-          rule: Json
+          rule_configuration?: Json | null
+          rule_kind?: string | null
+          rule_legacy: Json
           status?: string
           updated_at?: string | null
         }
         Update: {
+          action_configuration?: Json | null
+          action_kind?: string | null
           activity_kind?: string
           created_at?: string | null
           description?: string | null
           dfns_policy_id?: string | null
           external_id?: string | null
+          filters?: Json | null
           id?: string
+          metadata?: Json | null
           name?: string
           organization_id?: string | null
           policy_id?: string
-          rule?: Json
+          rule_configuration?: Json | null
+          rule_kind?: string | null
+          rule_legacy?: Json
           status?: string
           updated_at?: string | null
         }
         Relationships: []
       }
+      dfns_policy_approval_decisions: {
+        Row: {
+          approval_id: string | null
+          created_at: string | null
+          date_actioned: string | null
+          decision_value: string
+          dfns_approval_id: string
+          id: string
+          organization_id: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          approval_id?: string | null
+          created_at?: string | null
+          date_actioned?: string | null
+          decision_value: string
+          dfns_approval_id: string
+          id?: string
+          organization_id?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          approval_id?: string | null
+          created_at?: string | null
+          date_actioned?: string | null
+          decision_value?: string
+          dfns_approval_id?: string
+          id?: string
+          organization_id?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dfns_policy_approval_decisions_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "dfns_policy_approvals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dfns_policy_approval_groups: {
+        Row: {
+          approvers: Json
+          created_at: string | null
+          dfns_policy_id: string
+          group_name: string | null
+          id: string
+          policy_id: string | null
+          quorum: number
+          updated_at: string | null
+        }
+        Insert: {
+          approvers: Json
+          created_at?: string | null
+          dfns_policy_id: string
+          group_name?: string | null
+          id?: string
+          policy_id?: string | null
+          quorum?: number
+          updated_at?: string | null
+        }
+        Update: {
+          approvers?: Json
+          created_at?: string | null
+          dfns_policy_id?: string
+          group_name?: string | null
+          id?: string
+          policy_id?: string | null
+          quorum?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dfns_policy_approval_groups_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "dfns_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dfns_policy_approvals: {
         Row: {
+          activity_details: Json | null
           activity_id: string
           approval_id: string
           approved_at: string | null
           approved_by: string | null
           created_at: string | null
           dfns_approval_id: string | null
+          dfns_policy_id: string | null
+          evaluated_policies: Json | null
+          expiration_date: string | null
           id: string
+          initiator_id: string | null
           metadata: Json | null
           organization_id: string | null
           policy_id: string | null
@@ -3155,13 +3263,18 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          activity_details?: Json | null
           activity_id: string
           approval_id: string
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
           dfns_approval_id?: string | null
+          dfns_policy_id?: string | null
+          evaluated_policies?: Json | null
+          expiration_date?: string | null
           id?: string
+          initiator_id?: string | null
           metadata?: Json | null
           organization_id?: string | null
           policy_id?: string | null
@@ -3172,13 +3285,18 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          activity_details?: Json | null
           activity_id?: string
           approval_id?: string
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
           dfns_approval_id?: string | null
+          dfns_policy_id?: string | null
+          evaluated_policies?: Json | null
+          expiration_date?: string | null
           id?: string
+          initiator_id?: string | null
           metadata?: Json | null
           organization_id?: string | null
           policy_id?: string | null
@@ -3197,6 +3315,90 @@ export type Database = {
             referencedColumns: ["policy_id"]
           },
         ]
+      }
+      dfns_policy_change_requests: {
+        Row: {
+          created_at: string | null
+          dfns_approval_id: string | null
+          dfns_change_request_id: string
+          entity_id: string
+          id: string
+          kind: string
+          operation_kind: string
+          organization_id: string | null
+          request_body: Json
+          requester_user_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dfns_approval_id?: string | null
+          dfns_change_request_id: string
+          entity_id: string
+          id?: string
+          kind?: string
+          operation_kind: string
+          organization_id?: string | null
+          request_body: Json
+          requester_user_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dfns_approval_id?: string | null
+          dfns_change_request_id?: string
+          entity_id?: string
+          id?: string
+          kind?: string
+          operation_kind?: string
+          organization_id?: string | null
+          request_body?: Json
+          requester_user_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      dfns_policy_evaluations: {
+        Row: {
+          activity_details: Json | null
+          activity_id: string
+          activity_kind: string
+          created_at: string | null
+          dfns_policy_id: string
+          evaluation_timestamp: string | null
+          id: string
+          organization_id: string | null
+          reason: string | null
+          trigger_status: string
+        }
+        Insert: {
+          activity_details?: Json | null
+          activity_id: string
+          activity_kind: string
+          created_at?: string | null
+          dfns_policy_id: string
+          evaluation_timestamp?: string | null
+          id?: string
+          organization_id?: string | null
+          reason?: string | null
+          trigger_status: string
+        }
+        Update: {
+          activity_details?: Json | null
+          activity_id?: string
+          activity_kind?: string
+          created_at?: string | null
+          dfns_policy_id?: string
+          evaluation_timestamp?: string | null
+          id?: string
+          organization_id?: string | null
+          reason?: string | null
+          trigger_status?: string
+        }
+        Relationships: []
       }
       dfns_service_accounts: {
         Row: {

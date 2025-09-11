@@ -74,7 +74,7 @@ class MockDfnsClient implements DfnsClientInstance {
 
 // Default configuration from environment variables
 const getDefaultConfig = (): DfnsConfig => ({
-  appId: import.meta.env.VITE_DFNS_APP_ID || 'chain-capital-app',
+  appId: import.meta.env.VITE_DFNS_ORG_ID || 'chain-capital-app',
   appOrigin: import.meta.env.VITE_DFNS_APP_ORIGIN || window.location.origin,
   baseUrl: import.meta.env.VITE_DFNS_BASE_URL || 'https://api.dfns.ninja',
   authToken: import.meta.env.VITE_DFNS_AUTH_TOKEN,

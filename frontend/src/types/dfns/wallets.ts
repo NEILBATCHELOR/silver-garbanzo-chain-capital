@@ -7,6 +7,9 @@
 
 import type { DfnsStatus, DfnsNetwork } from './core';
 
+// Re-export commonly used types
+export type { DfnsNetwork } from './core';
+
 // ===============================
 // CORE WALLET TYPES
 // ===============================

@@ -8,7 +8,7 @@ import type { DfnsSdkConfig, DfnsClientOptions } from '../../types/dfns';
 
 // Environment variables validation
 const requiredEnvVars = {
-  VITE_DFNS_APP_ID: import.meta.env.VITE_DFNS_APP_ID,
+  VITE_DFNS_ORG_ID: import.meta.env.VITE_DFNS_ORG_ID,
   VITE_DFNS_APP_ORIGIN: import.meta.env.VITE_DFNS_APP_ORIGIN,
   VITE_DFNS_RP_ID: import.meta.env.VITE_DFNS_RP_ID,
 } as const;
@@ -40,7 +40,7 @@ export const DFNS_STATUS = {
 export const DFNS_CONFIG = {
   // Core settings from environment
   baseUrl: import.meta.env.VITE_DFNS_BASE_URL || 'https://api.dfns.io',
-  applicationId: requiredEnvVars.VITE_DFNS_APP_ID || 'or-4ogth-rni0d-83vreosehqn1nns5',
+  applicationId: requiredEnvVars.VITE_DFNS_ORG_ID || 'or-4ogth-rni0d-83vreosehqn1nns5',
   appOrigin: requiredEnvVars.VITE_DFNS_APP_ORIGIN || 'http://localhost:5173',
   rpId: requiredEnvVars.VITE_DFNS_RP_ID || 'localhost',
   

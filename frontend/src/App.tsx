@@ -475,12 +475,28 @@ function App() {
     // Initialize browser error handling for console cleanup
     initializeBrowserErrorHandling();
     
-    // Initialize DFNS Service with graceful error handling
+    // Initialize DFNS Service with enhanced authentication detection
     const initializeDfns = async () => {
       try {
         const dfnsService = await initializeDfnsService();
-        console.log('🏦 DFNS Service initialized successfully');
-        console.log('Authentication status:', dfnsService.getAuthenticationStatus());
+        
+        // Get the working client to check auth method
+        const workingClient = dfnsService.getWorkingClient?.() || null;
+        if (workingClient) {
+          const config = workingClient.getConfig();
+          const status = await workingClient.getConnectionStatus();
+          
+          console.log(`🏦 DFNS Service initialized successfully (${config.authMethod})`);
+          console.log('📊 DFNS Status:', {
+            connected: status.connected,
+            authMethod: status.authMethod,
+            wallets: status.walletsCount,
+            credentials: status.credentialsCount,
+            user: status.user?.username || 'Unknown'
+          });
+        } else {
+          console.log('🏦 DFNS Service initialized successfully (Legacy SDK)');
+        }
       } catch (error) {
         console.warn('⚠️ DFNS Service initialization failed:', error);
         console.log('📝 DFNS will run in limited mode - some features may not be available');

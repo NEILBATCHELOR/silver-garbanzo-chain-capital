@@ -4,8 +4,11 @@
  * Types for DFNS authentication, delegated auth, and credentials
  */
 
-import type { DfnsStatus, DfnsCredentialKind, DfnsUserKind } from './core';
+import type { DfnsStatus, DfnsCredentialKind, DfnsUserKind, DfnsNetwork } from './core';
 import type { DfnsPermissionAssignment } from './permissions';
+
+// Re-export commonly used types
+export type { DfnsCredentialKind, DfnsUserKind } from './core';
 
 // Authentication Challenge Types
 export interface DfnsAuthChallenge {
@@ -67,7 +70,18 @@ export interface DfnsUserRegistrationRequest {
   };
 }
 
-// Login Challenge Response
+// ================================
+// LOGIN API TYPES (Current DFNS API)
+// ================================
+
+// Login Challenge Request (POST /auth/login/init)
+export interface DfnsLoginChallengeRequest {
+  username: string; // Email address of the user (optional for usernameless WebAuthn)
+  orgId: string; // ID of the target Org
+  loginCode?: string; // Optional OTP for PasswordProtectedKey credentials
+}
+
+// Login Challenge Response (POST /auth/login/init)
 export interface DfnsLoginChallengeResponse {
   supportedCredentialKinds: Array<{
     kind: DfnsCredentialKind;
@@ -77,14 +91,70 @@ export interface DfnsLoginChallengeResponse {
   challenge: string;
   challengeIdentifier: string;
   externalAuthenticationUrl?: string;
-  allowedCredentials: Array<{
-    type: 'public-key';
-    id: string;
-    transports?: string[];
-  }>;
+  allowCredentials: {
+    key: Array<{
+      type: 'public-key';
+      id: string;
+    }>;
+    passwordProtectedKey: Array<{
+      type: 'public-key';
+      id: string;
+      encryptedPrivateKey: string;
+    }>;
+    webauthn: Array<{
+      type: 'public-key';
+      id: string;
+      transports?: string[];
+    }>;
+  };
 }
 
-// Login Request
+// Login Credential Assertion (for different credential types)
+export interface DfnsFido2LoginAssertion {
+  credId: string; // base64url encoded credential ID
+  clientData: string; // base64url encoded client data
+  authenticatorData: string; // base64url encoded authenticator data
+  signature: string; // base64url encoded signature
+  userHandle: string; // base64url encoded user handle
+}
+
+export interface DfnsKeyLoginAssertion {
+  credId: string; // base64url encoded credential ID
+  clientData: string; // base64url encoded client data
+  signature: string; // base64url encoded signature
+}
+
+export interface DfnsPasswordProtectedKeyLoginAssertion {
+  credId: string; // base64url encoded credential ID
+  clientData: string; // base64url encoded client data
+  signature: string; // base64url encoded signature
+}
+
+// Complete Login Request (POST /auth/login)
+export interface DfnsCompleteLoginRequest {
+  challengeIdentifier: string;
+  firstFactor: {
+    kind: 'Fido2';
+    credentialAssertion: DfnsFido2LoginAssertion;
+  } | {
+    kind: 'Key';
+    credentialAssertion: DfnsKeyLoginAssertion;
+  } | {
+    kind: 'PasswordProtectedKey';
+    credentialAssertion: DfnsPasswordProtectedKeyLoginAssertion;
+  };
+  secondFactor?: {
+    kind: DfnsCredentialKind;
+    credentialAssertion: DfnsFido2LoginAssertion | DfnsKeyLoginAssertion | DfnsPasswordProtectedKeyLoginAssertion;
+  };
+}
+
+// Complete Login Response (POST /auth/login)
+export interface DfnsCompleteLoginResponse {
+  token: string;
+}
+
+// Legacy Login Request (for backward compatibility)
 export interface DfnsLoginRequest {
   challengeIdentifier: string;
   firstFactor: {
@@ -284,7 +354,7 @@ export type DfnsCredentialInfo = {
 
 // Wallet Creation Specification for End User Registration
 export interface DfnsWalletCreationSpec {
-  network: string;
+  network: DfnsNetwork;
   name?: string;
 }
 

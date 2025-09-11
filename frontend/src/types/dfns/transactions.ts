@@ -1,348 +1,397 @@
 /**
- * DFNS Transactions Types
+ * DFNS Transaction Broadcasting Types
  * 
- * Types for DFNS transaction handling, signatures, and broadcasting
- * Includes network-specific transaction types for all supported blockchains
+ * Comprehensive types for DFNS transaction broadcasting across all supported networks
+ * Based on: https://docs.dfns.co/d/api-docs/wallets/broadcast-transaction
+ * 
+ * Supports: Algorand, Aptos, Bitcoin, Canton, Cardano, EVM, Solana, Stellar, Tezos, TRON, XRP Ledger
  */
 
-import type { DfnsTransactionStatus, DfnsNetwork } from './core';
+// ===============================
+// COMMON TRANSACTION TYPES
+// ===============================
 
-// Re-export core types that are commonly used with transactions
-export type { DfnsTransactionStatus, DfnsNetwork };
+/**
+ * Transaction request status
+ */
+export type DfnsTransactionStatus = 
+  | 'Pending'     // Pending approval due to policy
+  | 'Executing'   // Approved and being executed
+  | 'Broadcasted' // Successfully written to mempool
+  | 'Confirmed'   // Confirmed on-chain
+  | 'Failed'      // System failure or on-chain failure
+  | 'Rejected';   // Rejected by policy approval
 
-// DFNS Signature
-export interface DfnsSignature {
-  id: string;
-  signature_id: string;
-  key_id?: string;
-  kind: string;
-  message: string;
-  external_id?: string;
-  status: DfnsTransactionStatus;
-  signature?: string;
-  public_key: string;
-  date_created: string;
-  date_completed?: string;
-  error_message?: string;
-  dfns_signature_id: string;
-  created_at: string;
-  updated_at: string;
+/**
+ * Transaction requester information
+ */
+export interface DfnsTransactionRequester {
+  userId: string;
+  tokenId?: string;
 }
 
-// Signature Request
-export interface DfnsSignatureRequest {
-  kind: 'Transaction' | 'Message' | 'Hash';
-  message: string;
-  external_id?: string;
-  key_id?: string;
-}
-
-// Transaction Request Base
-export interface DfnsBaseTransactionRequest {
-  walletId: string;
-  kind: string;
-  to?: string;
-  value?: string;
-  data?: string;
-  nonce?: number;
-  gasLimit?: string;
-  gasPrice?: string;
-  maxFeePerGas?: string;
-  maxPriorityFeePerGas?: string;
-  externalId?: string;
-}
-
-// Ethereum Transaction Request
-export interface DfnsEthereumTransactionRequest extends DfnsBaseTransactionRequest {
-  kind: 'Evm';
-  to: string;
-  value: string;
-  data?: string;
-}
-
-// Transaction Response
-export interface DfnsTransactionResponse {
-  id: string;
-  walletId: string;
-  status: DfnsTransactionStatus;
-  txHash?: string;
-  signature?: string;
-  signedTransaction?: string;
-  fee?: {
-    amount: string;
-    unit: string;
-  };
-  dateCreated: string;
-  dateBroadcast?: string;
-  dateConfirmed?: string;
-  estimatedConfirmationTime?: string;
-}
-
-// Message Signing Request
-export interface DfnsMessageSignRequest {
-  walletId: string;
-  message: string;
-  messageKind: 'String' | 'Hex' | 'Hash';
-  externalId?: string;
-}
-
-// Message Signature Response
-export interface DfnsMessageSignResponse {
-  signature: string;
-  publicKey: string;
-  signedMessage?: string;
-}
-
-// Fee Estimation Request
-export interface DfnsFeeEstimationRequest {
-  network: string;
-  kind: string;
-  to?: string;
-  value?: string;
-  data?: string;
-}
-
-// Fee Estimation Response
-export interface DfnsFeeEstimationResponse {
-  low: {
-    gasPrice?: string;
-    gasLimit?: string;
-    maxFeePerGas?: string;
-    maxPriorityFeePerGas?: string;
-    total: string;
-  };
-  medium: {
-    gasPrice?: string;
-    gasLimit?: string;
-    maxFeePerGas?: string;
-    maxPriorityFeePerGas?: string;
-    total: string;
-  };
-  high: {
-    gasPrice?: string;
-    gasLimit?: string;
-    maxFeePerGas?: string;
-    maxPriorityFeePerGas?: string;
-    total: string;
-  };
-}
-
-// ==============================================
-// TRANSACTION BROADCASTING API TYPES (COMPLETE)
-// ==============================================
-
-// Transaction Request Base Type
-export interface DfnsTransactionRequest {
-  kind: 'Transaction' | 'Evm' | 'Eip1559' | 'Psbt' | 'UserOperation' | 'Btc' | 'Solana';
-  externalId?: string;
-}
-
-// Generic Transaction Broadcasting (Raw Transaction Hex)
-export interface DfnsGenericTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Transaction';
-  transaction: string; // Hex-encoded signed transaction (0x...)
-}
-
-// Broadcast Transaction Request (Main API Request)
-export interface DfnsBroadcastTransactionApiRequest {
-  body: DfnsBroadcastTransactionRequest;
-  userAction?: string; // User Action Signature token
-}
-
-// List Transaction Requests Query Parameters
-export interface DfnsListTransactionRequestsParams {
-  limit?: number; // Default 100, max 1000
-  paginationToken?: string;
-}
-
-// ==============================================
-// EVM TRANSACTION TYPES
-// ==============================================
-
-// EVM Template Transaction (High-level)
-export interface DfnsEvmTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Evm';
-  to: string;
-  value?: string; // Amount in wei
-  data?: string; // ABI-encoded function call data
-  nonce?: number;
-}
-
-// EIP-1559 Transaction (Type 2)
-export interface DfnsEip1559TransactionRequest extends DfnsTransactionRequest {
-  kind: 'Eip1559';
-  to: string;
-  value?: string; // Amount in wei
-  data?: string; // ABI-encoded function call data
-  nonce?: number;
-  gasLimit?: string;
-  maxPriorityFeePerGas?: string;
-  maxFeePerGas?: string;
-}
-
-// User Operation (Account Abstraction)
-export interface DfnsUserOperationRequest extends DfnsTransactionRequest {
-  kind: 'UserOperation';
-  userOperations: DfnsUserOperation[];
-  feeSponsorId?: string;
-}
-
-export interface DfnsUserOperation {
-  sender: string;
-  nonce: string;
-  initCode: string;
-  callData: string;
-  callGasLimit: string;
-  verificationGasLimit: string;
-  preVerificationGas: string;
-  maxFeePerGas: string;
-  maxPriorityFeePerGas: string;
-  paymasterAndData: string;
-  signature: string;
-}
-
-// ==============================================
-// BITCOIN TRANSACTION TYPES
-// ==============================================
-
-// Bitcoin PSBT Transaction
-export interface DfnsBitcoinTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Psbt';
-  psbt: string; // Hex-encoded PSBT
-}
-
-// ==============================================
-// SOLANA TRANSACTION TYPES
-// ==============================================
-
-// Solana Transaction
-export interface DfnsSolanaTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Transaction';
-  transaction: string; // Hex-encoded transaction
-}
-
-// ==============================================
-// OTHER BLOCKCHAIN TRANSACTION TYPES
-// ==============================================
-
-// Aptos Transaction
-export interface DfnsAptosTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Transaction';
-  transaction: string; // Hex-encoded transaction
-}
-
-// XRP Ledger Transaction
-export interface DfnsXrpTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Transaction';
-  transaction: string; // Hex-encoded transaction
-}
-
-// Canton Transaction
-export interface DfnsCantonTransactionRequest extends DfnsTransactionRequest {
-  kind: 'Transaction';
-  transaction: string; // Hex-encoded transaction
-}
-
-// Union type for all transaction request types
-export type DfnsBroadcastTransactionRequest = 
-  | DfnsGenericTransactionRequest
-  | DfnsEvmTransactionRequest
-  | DfnsEip1559TransactionRequest
-  | DfnsUserOperationRequest
-  | DfnsBitcoinTransactionRequest
-  | DfnsSolanaTransactionRequest
-  | DfnsAptosTransactionRequest
-  | DfnsXrpTransactionRequest
-  | DfnsCantonTransactionRequest;
-
-// ==============================================
-// TRANSACTION RESPONSE TYPES
-// ==============================================
-
-// Transaction Request Response (from broadcast)
+/**
+ * Base transaction request response
+ */
 export interface DfnsTransactionRequestResponse {
-  id: string; // Transaction request ID (tx-xxxx-xxxx-xxxxxxxxxxxxxxxx)
+  id: string;
   walletId: string;
-  network: DfnsNetwork;
-  requester: {
-    userId?: string;
-    tokenId?: string;
-    appId?: string;
-  };
-  requestBody: DfnsBroadcastTransactionRequest;
+  network: string;
+  requester: DfnsTransactionRequester;
+  requestBody: any; // Network-specific request body
+  externalId?: string;
+  dateRequested: string;
   status: DfnsTransactionStatus;
   txHash?: string;
-  fee?: string;
-  dateRequested: string;
   dateBroadcasted?: string;
+  approvalId?: string;
+  datePolicyResolved?: string;
+  reason?: string;
+  fee?: string;
   dateConfirmed?: string;
-  errorMessage?: string;
 }
 
-// Get Transaction Request Response
-export interface DfnsGetTransactionRequestResponse extends DfnsTransactionRequestResponse {}
-
-// List Transaction Requests Response
+/**
+ * List transaction requests response
+ */
 export interface DfnsListTransactionRequestsResponse {
-  walletId: string;
   items: DfnsTransactionRequestResponse[];
   nextPageToken?: string;
 }
 
-// ==============================================
-// NETWORK-SPECIFIC HELPERS
-// ==============================================
+// ===============================
+// EVM NETWORKS (Ethereum, Polygon, Base, etc.)
+// ===============================
 
-// Network Support Matrix
-export interface DfnsNetworkTransactionSupport {
-  network: DfnsNetwork;
-  supportedKinds: Array<'Transaction' | 'Evm' | 'Eip1559' | 'Psbt' | 'UserOperation'>;
-  requiresUserAction: boolean;
-  feeTokenSymbol: string;
-  confirmationBlocks: number;
+/**
+ * EVM Authorization for EIP-7702 transactions
+ */
+export interface DfnsEvmAuthorization {
+  chainId: number;
+  address: string;
+  nonce: number;
+  signature: string;
 }
 
-// Transaction Builder Options
-export interface DfnsTransactionBuilderOptions {
-  network: DfnsNetwork;
-  gasEstimation?: 'low' | 'medium' | 'high';
-  priorityFee?: string;
-  maxFee?: string;
-  nonce?: number;
+/**
+ * EVM Transaction JSON format
+ */
+export interface DfnsEvmTransactionJson {
+  type?: number; // 0 = legacy, 2 = EIP-1559, 4 = EIP-7702
+  to?: string;
+  value?: string;
+  data?: string;
+  nonce?: number | string;
+  gasLimit?: string;
+  gasPrice?: string; // Only for type 0 (legacy)
+  maxFeePerGas?: string; // For type 2 and 4
+  maxPriorityFeePerGas?: string; // For type 2 and 4
+  authorizationList?: DfnsEvmAuthorization[]; // Only for type 4
+}
+
+/**
+ * EVM User Operation for fee sponsorship
+ */
+export interface DfnsEvmUserOperation {
+  to: string;
+  value?: string;
+  data?: string;
+}
+
+/**
+ * EVM Transaction request
+ */
+export interface DfnsEvmTransactionRequest {
+  kind: 'Transaction';
+  transaction: string | DfnsEvmTransactionJson; // Hex string or JSON
   externalId?: string;
 }
 
-// ==============================================
-// TRANSACTION STATUS TRACKING
-// ==============================================
-
-// Transaction Status Details
-export interface DfnsTransactionStatusDetails {
-  status: DfnsTransactionStatus;
-  confirmations: number;
-  requiredConfirmations: number;
-  estimatedConfirmationTime?: string;
-  blockNumber?: number;
-  blockHash?: string;
-  gasUsed?: string;
-  effectiveGasPrice?: string;
+/**
+ * EVM User Operations request (fee sponsored)
+ */
+export interface DfnsEvmUserOperationsRequest {
+  kind: 'UserOperations';
+  userOperations: DfnsEvmUserOperation[];
+  feeSponsorId: string;
+  externalId?: string;
 }
 
-// ==============================================
-// ERROR TYPES
-// ==============================================
+export type DfnsEvmBroadcastRequest = DfnsEvmTransactionRequest | DfnsEvmUserOperationsRequest;
 
-// Transaction Error
-export interface DfnsTransactionError {
-  code: string;
-  message: string;
-  details?: {
-    network?: DfnsNetwork;
-    walletId?: string;
-    transactionId?: string;
-    txHash?: string;
-    gasLimit?: string;
-    gasPrice?: string;
-    nonce?: number;
+// ===============================
+// BITCOIN / LITECOIN
+// ===============================
+
+/**
+ * Bitcoin PSBT (Partially Signed Bitcoin Transaction) request
+ */
+export interface DfnsBitcoinTransactionRequest {
+  kind: 'Psbt';
+  psbt: string; // Hex encoded PSBT
+  externalId?: string;
+}
+
+// ===============================
+// SOLANA
+// ===============================
+
+/**
+ * Solana transaction request
+ */
+export interface DfnsSolanaTransactionRequest {
+  kind: 'Transaction';
+  transaction: string; // Hex encoded unsigned transaction
+  externalId?: string;
+}
+
+// ===============================
+// ALGORAND
+// ===============================
+
+/**
+ * Algorand transaction request
+ */
+export interface DfnsAlgorandTransactionRequest {
+  kind: 'Transaction';
+  transaction: string; // Base64 encoded unsigned transaction
+  externalId?: string;
+}
+
+// ===============================
+// APTOS
+// ===============================
+
+/**
+ * Aptos transaction request
+ */
+export interface DfnsAptosTransactionRequest {
+  kind: 'Transaction';
+  transaction: object; // Aptos transaction object
+  externalId?: string;
+}
+
+// ===============================
+// CARDANO
+// ===============================
+
+/**
+ * Cardano transaction request
+ */
+export interface DfnsCardanoTransactionRequest {
+  kind: 'Transaction';
+  transaction: string; // CBOR hex encoded transaction
+  externalId?: string;
+}
+
+// ===============================
+// STELLAR
+// ===============================
+
+/**
+ * Stellar transaction request
+ */
+export interface DfnsStellarTransactionRequest {
+  kind: 'Transaction';
+  transaction: string; // Base64 encoded transaction envelope
+  externalId?: string;
+}
+
+// ===============================
+// TEZOS
+// ===============================
+
+/**
+ * Tezos transaction request
+ */
+export interface DfnsTezosTransactionRequest {
+  kind: 'Transaction';
+  transaction: object; // Tezos transaction object
+  externalId?: string;
+}
+
+// ===============================
+// TRON
+// ===============================
+
+/**
+ * TRON transaction request
+ */
+export interface DfnsTronTransactionRequest {
+  kind: 'Transaction';
+  transaction: object; // TRON transaction object
+  externalId?: string;
+}
+
+// ===============================
+// XRP LEDGER
+// ===============================
+
+/**
+ * XRP Ledger transaction request
+ */
+export interface DfnsXrpLedgerTransactionRequest {
+  kind: 'Transaction';
+  transaction: object; // XRP transaction object
+  externalId?: string;
+}
+
+// ===============================
+// CANTON
+// ===============================
+
+/**
+ * Canton transaction request
+ */
+export interface DfnsCantonTransactionRequest {
+  kind: 'Transaction';
+  transaction: object; // Canton transaction object
+  externalId?: string;
+}
+
+// ===============================
+// UNION TYPE FOR ALL NETWORKS
+// ===============================
+
+/**
+ * Union type for all supported transaction request types
+ */
+export type DfnsBroadcastTransactionRequest = 
+  | DfnsEvmTransactionRequest
+  | DfnsEvmUserOperationsRequest
+  | DfnsBitcoinTransactionRequest
+  | DfnsSolanaTransactionRequest
+  | DfnsAlgorandTransactionRequest
+  | DfnsAptosTransactionRequest
+  | DfnsCardanoTransactionRequest
+  | DfnsStellarTransactionRequest
+  | DfnsTezosTransactionRequest
+  | DfnsTronTransactionRequest
+  | DfnsXrpLedgerTransactionRequest
+  | DfnsCantonTransactionRequest;
+
+// ===============================
+// NETWORK DETECTION
+// ===============================
+
+/**
+ * Supported networks for transaction broadcasting
+ */
+export type DfnsTransactionNetwork = 
+  // EVM Networks
+  | 'Ethereum' | 'EthereumGoerli' | 'EthereumSepolia'
+  | 'Polygon' | 'PolygonMumbai'
+  | 'Arbitrum' | 'ArbitrumGoerli' | 'ArbitrumSepolia'
+  | 'Optimism' | 'OptimismGoerli' | 'OptimismSepolia'
+  | 'Base' | 'BaseGoerli' | 'BaseSepolia'
+  | 'Avalanche' | 'AvalancheFuji'
+  | 'Bsc' | 'BscTestnet'
+  // Bitcoin Networks
+  | 'Bitcoin' | 'BitcoinTestnet3'
+  | 'Litecoin' | 'LitecoinTestnet'
+  // Other Networks
+  | 'Solana' | 'SolanaDevnet'
+  | 'Algorand' | 'AlgorandTestnet'
+  | 'Aptos' | 'AptosTestnet'
+  | 'Cardano' | 'CardanoTestnet'
+  | 'Stellar' | 'StellarTestnet'
+  | 'Tezos' | 'TezosTestnet'
+  | 'Tron' | 'TronTestnet'
+  | 'XrpLedger' | 'XrpLedgerTestnet'
+  | 'Canton' | 'CantonTestnet';
+
+/**
+ * Network category for request type detection
+ */
+export type DfnsNetworkCategory = 
+  | 'evm'
+  | 'bitcoin'
+  | 'solana'
+  | 'algorand'
+  | 'aptos'
+  | 'cardano'
+  | 'stellar'
+  | 'tezos'
+  | 'tron'
+  | 'xrp'
+  | 'canton';
+
+// ===============================
+// SERVICE OPTIONS
+// ===============================
+
+/**
+ * Transaction service options
+ */
+export interface DfnsTransactionServiceOptions {
+  syncToDatabase?: boolean;
+  validateRequest?: boolean;
+  retryOptions?: {
+    maxRetries?: number;
+    retryDelay?: number;
   };
+}
+
+/**
+ * Pagination options for listing transactions
+ */
+export interface DfnsTransactionPaginationOptions {
+  limit?: number;
+  paginationToken?: string;
+}
+
+// ===============================
+// TRANSACTION ANALYTICS
+// ===============================
+
+/**
+ * Transaction statistics
+ */
+export interface DfnsTransactionStatistics {
+  total: number;
+  byStatus: Record<DfnsTransactionStatus, number>;
+  byNetwork: Record<string, number>;
+  byTimeframe: {
+    last24h: number;
+    lastWeek: number;
+    lastMonth: number;
+  };
+  totalFeesPaid: string;
+  successRate: number;
+  lastTransaction: string | null;
+}
+
+// ===============================
+// HELPER TYPES
+// ===============================
+
+/**
+ * Transaction validation result
+ */
+export interface DfnsTransactionValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  networkCategory: DfnsNetworkCategory;
+  estimatedNetwork?: DfnsTransactionNetwork;
+}
+
+/**
+ * Transaction broadcast options
+ */
+export interface DfnsTransactionBroadcastOptions extends DfnsTransactionServiceOptions {
+  userActionToken?: string;
+  externalId?: string;
+  feeSponsorId?: string; // For supported networks
+}
+
+/**
+ * Network detection result
+ */
+export interface DfnsNetworkDetectionResult {
+  category: DfnsNetworkCategory;
+  networks: DfnsTransactionNetwork[];
+  isSupported: boolean;
+  requiresUserAction: boolean;
+  supportsFeeSponsor: boolean;
 }

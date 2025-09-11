@@ -1,442 +1,546 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import React, { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+  ArrowRightLeft,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Search,
+  Filter,
+  MoreHorizontal,
+  ExternalLink,
+  Copy,
+  Eye,
+  RefreshCw,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  ArrowRightLeft, 
-  Search, 
-  Plus, 
-  MoreHorizontal, 
-  ExternalLink, 
-  Copy,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  Filter
-} from "lucide-react";
-import { cn } from "@/utils/utils";
-import { useState, useEffect } from "react";
-import { DfnsService } from "@/services/dfns";
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/utils/utils';
+
+// Import DFNS types
 import type { 
-  DfnsTransactionRequestResponse,
-  DfnsTransactionStatus,
-  DfnsNetwork 
-} from "@/types/dfns/transactions";
+  DfnsTransfer,
+  DfnsBroadcastTransaction,
+  DfnsTransactionHistory,
+  DfnsWalletHistoryEntry,
+  WalletData
+} from '@/types/dfns';
+
+interface TransactionListProps {
+  transfers: DfnsTransfer[];
+  broadcasts: DfnsBroadcastTransaction[];
+  history: DfnsTransactionHistory[];
+  wallets: WalletData[];
+  onTransactionUpdated: () => void;
+  className?: string;
+}
+
+// Combined transaction type for unified display
+interface CombinedTransaction {
+  id: string;
+  type: 'transfer' | 'broadcast' | 'history';
+  status: string;
+  direction?: 'incoming' | 'outgoing';
+  amount?: string;
+  asset?: string;
+  fromAddress?: string;
+  toAddress?: string;
+  txHash?: string;
+  network?: string;
+  fee?: string;
+  timestamp: string;
+  walletId?: string;
+  originalData: DfnsTransfer | DfnsBroadcastTransaction | DfnsTransactionHistory | DfnsWalletHistoryEntry;
+}
 
 /**
- * Transaction List Component
- * Displays transaction history and management for DFNS wallets
+ * Enhanced Transaction List Component
+ * Unified display of all DFNS transaction types with real integration
  */
-export function TransactionList({ walletId }: { walletId?: string }) {
-  const [transactions, setTransactions] = useState<DfnsTransactionRequestResponse[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<DfnsTransactionRequestResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [networkFilter, setNetworkFilter] = useState<string>("all");
-  const [selectedTransaction, setSelectedTransaction] = useState<DfnsTransactionRequestResponse | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+export function TransactionList({ 
+  transfers, 
+  broadcasts, 
+  history, 
+  wallets,
+  onTransactionUpdated,
+  className 
+}: TransactionListProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const { toast } = useToast();
 
-  // Initialize DFNS service
-  const [dfnsService, setDfnsService] = useState<DfnsService | null>(null);
+  // Combine all transactions into unified format
+  const combineTransactions = (): CombinedTransaction[] => {
+    const combined: CombinedTransaction[] = [];
 
-  useEffect(() => {
-    const initializeDfns = async () => {
-      try {
-        const service = new DfnsService();
-        await service.initialize();
-        setDfnsService(service);
-      } catch (error) {
-        console.error('Failed to initialize DFNS service:', error);
-        setError('Failed to initialize DFNS service');
+    // Add transfers
+    transfers.forEach(transfer => {
+      // Handle amount based on transfer type
+      let amount: string | undefined;
+      if (transfer.requestBody) {
+        const requestBody = transfer.requestBody;
+        if ('amount' in requestBody) {
+          amount = requestBody.amount;
+        }
       }
-    };
 
-    initializeDfns();
-  }, []);
+      combined.push({
+        id: transfer.id || `transfer-${Math.random()}`,
+        type: 'transfer',
+        status: transfer.status,
+        direction: 'outgoing', // Transfers are outgoing by default
+        amount,
+        asset: transfer.requestBody?.kind || 'Unknown',
+        toAddress: transfer.requestBody?.to,
+        txHash: transfer.txHash,
+        fee: transfer.fee,
+        timestamp: transfer.dateRequested || new Date().toISOString(),
+        walletId: transfer.walletId,
+        originalData: transfer
+      });
+    });
 
-  // Fetch transactions from DFNS
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      if (!dfnsService) return;
+    // Add broadcast transactions
+    broadcasts.forEach(broadcast => {
+      combined.push({
+        id: broadcast.id || `broadcast-${Math.random()}`,
+        type: 'broadcast',
+        status: broadcast.status,
+        txHash: broadcast.txHash,
+        timestamp: broadcast.dateRequested || new Date().toISOString(),
+        walletId: broadcast.walletId,
+        originalData: broadcast
+      });
+    });
 
-      try {
-        setLoading(true);
-        setError(null);
+    // Add transaction history
+    history.forEach(historyResponse => {
+      // historyResponse is DfnsGetWalletHistoryResponse, so we need to iterate through its history array
+      historyResponse.history?.forEach(tx => {
+        combined.push({
+          id: tx.txHash || `history-${Math.random()}`,
+          type: 'history',
+          status: tx.status,
+          direction: tx.direction?.toLowerCase() as 'incoming' | 'outgoing',
+          amount: tx.amount,
+          asset: tx.asset?.symbol,
+          fromAddress: tx.fromAddress,
+          toAddress: tx.toAddress,
+          txHash: tx.txHash,
+          fee: tx.fee,
+          timestamp: tx.timestamp || new Date().toISOString(),
+          walletId: historyResponse.walletId,
+          originalData: tx
+        });
+      });
+    });
 
-        const transactionService = dfnsService.getTransactionService();
-        
-        let allTransactions: DfnsTransactionRequestResponse[] = [];
-        
-        if (walletId) {
-          // Get transactions for specific wallet
-          allTransactions = await transactionService.getAllTransactionRequests(walletId);
-        } else {
-          // Get transactions for all wallets
-          const walletService = dfnsService.getWalletService();
-          const wallets = await walletService.getAllWallets();
-          
-          for (const wallet of wallets) {
-            try {
-              const walletTransactions = await transactionService.getAllTransactionRequests(wallet.id);
-              allTransactions.push(...walletTransactions);
-            } catch (error) {
-              console.warn(`Failed to fetch transactions for wallet ${wallet.id}:`, error);
-            }
+    return combined.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  };
+
+  const allTransactions = combineTransactions();
+
+  // Filter transactions
+  const filteredTransactions = allTransactions.filter(tx => {
+    const matchesSearch = tx.txHash?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          tx.toAddress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          tx.fromAddress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          tx.asset?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = filterStatus === 'all' || tx.status.toLowerCase() === filterStatus.toLowerCase();
+    const matchesType = filterType === 'all' || tx.type === filterType;
+    
+    return matchesSearch && matchesStatus && matchesType;
+  });
+
+  // Get wallet name by ID
+  const getWalletName = (walletId?: string): string => {
+    if (!walletId) return 'Unknown Wallet';
+    const wallet = wallets.find(w => w.id === walletId);
+    return wallet?.name || wallet?.address?.slice(0, 10) + '...' || 'Unknown';
+  };
+
+  // Get network from wallet
+  const getNetwork = (walletId?: string): string => {
+    if (!walletId) return 'Unknown';
+    const wallet = wallets.find(w => w.id === walletId);
+    return wallet?.network || 'Unknown';
+  };
+
+  // Format timestamp
+  const formatTimestamp = (timestamp: string): string => {
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  // Get status badge
+  const getStatusBadge = (status: string) => {
+    const normalizedStatus = status.toLowerCase();
+    
+    switch (normalizedStatus) {
+      case 'confirmed':
+      case 'completed':
+      case 'broadcasted':
+        return (
+          <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+            <Clock className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
+      case 'failed':
+      case 'cancelled':
+        return (
+          <Badge variant="destructive">
+            <XCircle className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            {status}
+          </Badge>
+        );
+    }
+  };
+
+  // Get transaction type badge
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case 'transfer':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700">Transfer</Badge>;
+      case 'broadcast':
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700">Broadcast</Badge>;
+      case 'history':
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700">History</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  // Get direction icon
+  const getDirectionIcon = (direction?: string) => {
+    switch (direction) {
+      case 'incoming':
+        return <ArrowDownLeft className="h-4 w-4 text-green-600" />;
+      case 'outgoing':
+        return <ArrowUpRight className="h-4 w-4 text-blue-600" />;
+      default:
+        return <ArrowRightLeft className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  // Handle transaction actions
+  const handleTransactionAction = (action: string, transaction: CombinedTransaction) => {
+    switch (action) {
+      case 'copy-hash':
+        if (transaction.txHash) {
+          navigator.clipboard.writeText(transaction.txHash);
+          toast({
+            title: "Copied",
+            description: "Transaction hash copied to clipboard",
+          });
+        }
+        break;
+      
+      case 'view-explorer':
+        if (transaction.txHash) {
+          const network = getNetwork(transaction.walletId);
+          const explorerUrl = getExplorerUrl(network, transaction.txHash);
+          if (explorerUrl) {
+            window.open(explorerUrl, '_blank');
+          } else {
+            toast({
+              title: "Explorer Not Available",
+              description: "No explorer URL available for this network",
+              variant: "destructive",
+            });
           }
         }
-        
-        // Sort by date (newest first)
-        allTransactions.sort((a, b) => 
-          new Date(b.dateRequested).getTime() - new Date(a.dateRequested).getTime()
-        );
-        
-        setTransactions(allTransactions);
-        setFilteredTransactions(allTransactions);
-      } catch (error) {
-        console.error('Failed to fetch transactions:', error);
-        setError('Failed to load transactions');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, [dfnsService, walletId]);
-
-  // Filter transactions based on search, status, and network
-  useEffect(() => {
-    let filtered = transactions;
-
-    // Search filter
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(tx => 
-        tx.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tx.walletId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tx.txHash?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tx.network.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tx.requestBody.kind.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(tx => tx.status.toLowerCase() === statusFilter.toLowerCase());
-    }
-
-    // Network filter
-    if (networkFilter !== 'all') {
-      filtered = filtered.filter(tx => tx.network === networkFilter);
-    }
-
-    setFilteredTransactions(filtered);
-  }, [searchTerm, statusFilter, networkFilter, transactions]);
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (error) {
-      console.warn('Failed to copy to clipboard:', error);
+        break;
+      
+      case 'retry':
+        // TODO: Implement transaction retry
+        toast({
+          title: "Retry Transaction",
+          description: "Transaction retry functionality will be implemented",
+        });
+        break;
+      
+      case 'details':
+        // TODO: Open transaction details modal
+        toast({
+          title: "Transaction Details",
+          description: "Opening detailed view for transaction",
+        });
+        break;
+      
+      default:
+        console.log(`Unknown action: ${action}`);
     }
   };
 
-  const openBlockExplorer = (txHash: string, network: DfnsNetwork) => {
-    // Simple block explorer URL mapping
+  // Get explorer URL for transaction hash
+  const getExplorerUrl = (network: string, txHash: string): string | null => {
     const explorers: Record<string, string> = {
       'Ethereum': `https://etherscan.io/tx/${txHash}`,
-      'Bitcoin': `https://blockstream.info/tx/${txHash}`,
       'Polygon': `https://polygonscan.com/tx/${txHash}`,
+      'Bitcoin': `https://blockstream.info/tx/${txHash}`,
       'Arbitrum': `https://arbiscan.io/tx/${txHash}`,
-      'Optimism': `https://optimistic.etherscan.io/tx/${txHash}`,
       'Base': `https://basescan.org/tx/${txHash}`,
-      'Avalanche': `https://snowtrace.io/tx/${txHash}`,
-      'Binance': `https://bscscan.com/tx/${txHash}`,
-      'Solana': `https://solscan.io/tx/${txHash}`,
+      'Optimism': `https://optimistic.etherscan.io/tx/${txHash}`,
     };
-
-    const url = explorers[network] || `https://etherscan.io/tx/${txHash}`;
-    window.open(url, '_blank');
+    return explorers[network] || null;
   };
 
-  const getStatusBadgeVariant = (status: DfnsTransactionStatus): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Confirmed': 
-        return 'default';
-      case 'Pending':
-      case 'Broadcasted':
-        return 'secondary';
-      case 'Failed':
-        return 'destructive';
-      default: 
-        return 'outline';
-    }
+  // Format amount with asset
+  const formatAmount = (amount?: string, asset?: string): string => {
+    if (!amount) return 'N/A';
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount)) return amount;
+    
+    const formatted = numAmount.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 6 
+    });
+    
+    return asset ? `${formatted} ${asset}` : formatted;
   };
 
-  const getStatusIcon = (status: DfnsTransactionStatus) => {
-    switch (status) {
-      case 'Confirmed':
-        return <CheckCircle className="h-3 w-3" />;
-      case 'Pending':
-      case 'Broadcasted':
-        return <Clock className="h-3 w-3" />;
-      case 'Failed':
-        return <XCircle className="h-3 w-3" />;
-      default:
-        return <Clock className="h-3 w-3" />;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const truncateHash = (hash: string, startChars = 6, endChars = 4) => {
-    if (hash.length <= startChars + endChars) return hash;
-    return `${hash.slice(0, startChars)}...${hash.slice(-endChars)}`;
-  };
-
-  // Get unique networks and statuses for filters
-  const uniqueNetworks = [...new Set(transactions.map(tx => tx.network))];
-  const uniqueStatuses = [...new Set(transactions.map(tx => tx.status))];
-
-  if (loading) {
+  if (allTransactions.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <ArrowRightLeft className="h-5 w-5" />
-            <span>Transaction History</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Loading transactions...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <ArrowRightLeft className="h-5 w-5" />
-            <span>Transaction History</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8 text-destructive">
-            <AlertCircle className="h-6 w-6" />
-            <span className="ml-2">{error}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-12">
+        <ArrowRightLeft className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium mb-2">No transactions found</h3>
+        <p className="text-muted-foreground mb-6">
+          No transaction history available. Create some transactions to see them here.
+        </p>
+        <Button variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center space-x-2">
-              <ArrowRightLeft className="h-5 w-5" />
-              <span>Transaction History</span>
-            </CardTitle>
-            <CardDescription>
-              {walletId ? `Transactions for wallet ${walletId}` : 'All wallet transactions'} ({filteredTransactions.length} transactions)
-            </CardDescription>
-          </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Broadcast Transaction
-          </Button>
+    <div className={cn("space-y-4", className)}>
+      {/* Header with Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4">
+        <div>
+          <h3 className="text-lg font-medium">Transaction History</h3>
+          <p className="text-sm text-muted-foreground">
+            {filteredTransactions.length} of {allTransactions.length} transactions
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center space-x-2 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by transaction ID, wallet ID, hash, or network..."
+              placeholder="Search by hash, address, or asset..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
+              className="pl-9"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {uniqueStatuses.map(status => (
-                <SelectItem key={status} value={status.toLowerCase()}>
-                  {status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={networkFilter} onValueChange={setNetworkFilter}>
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Network" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Networks</SelectItem>
-              {uniqueNetworks.map(network => (
-                <SelectItem key={network} value={network}>
-                  {network}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setFilterStatus('all')}>
+                All Statuses
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus('confirmed')}>
+                Confirmed
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus('pending')}>
+                Pending
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus('failed')}>
+                Failed
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setFilterType('all')}>
+                All Types
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterType('transfer')}>
+                Transfers
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterType('history')}>
+                History
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterType('broadcast')}>
+                Broadcasts
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </div>
 
-        <div className="rounded-md border">
+      {/* Transactions Table */}
+      {filteredTransactions.length === 0 ? (
+        <div className="text-center py-12">
+          <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">No matching transactions</h3>
+          <p className="text-muted-foreground mb-6">
+            Try adjusting your search or filter criteria
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Transaction</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Network</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Hash</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Network</TableHead>
+                <TableHead>Timestamp</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTransactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {searchTerm || statusFilter !== 'all' || networkFilter !== 'all' 
-                      ? 'No transactions found matching your filters.' 
-                      : 'No transactions found.'
-                    }
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredTransactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{truncateHash(tx.id)}</div>
-                        <div className="text-sm text-muted-foreground">
-                          Wallet: {truncateHash(tx.walletId)}
+              {filteredTransactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        {getDirectionIcon(transaction.direction)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm">
+                          {transaction.txHash ? (
+                            <code className="text-xs bg-gray-100 px-1 rounded">
+                              {transaction.txHash.slice(0, 10)}...{transaction.txHash.slice(-6)}
+                            </code>
+                          ) : (
+                            'Pending Transaction'
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {transaction.direction === 'incoming' ? 'From' : 'To'}: {' '}
+                          {transaction.direction === 'incoming' 
+                            ? transaction.fromAddress?.slice(0, 10) + '...' 
+                            : transaction.toAddress?.slice(0, 10) + '...'
+                          }
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Wallet: {getWalletName(transaction.walletId)}
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {tx.requestBody.kind}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{tx.network}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(tx.status)} className="flex items-center space-x-1 w-fit">
-                        {getStatusIcon(tx.status)}
-                        <span>{tx.status}</span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {tx.txHash ? (
-                        <div className="flex items-center space-x-2">
-                          <code className="text-sm">{truncateHash(tx.txHash)}</code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(tx.txHash!)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{formatDate(tx.dateRequested)}</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            className="h-8 w-8 p-0"
-                            disabled={!!actionLoading}
-                          >
-                            {actionLoading?.includes(tx.id) ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {getTypeBadge(transaction.type)}
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(transaction.status)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {formatAmount(transaction.amount, transaction.asset)}
+                    </div>
+                    {transaction.fee && (
+                      <div className="text-xs text-muted-foreground">
+                        Fee: {transaction.fee}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {getNetwork(transaction.walletId)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {formatTimestamp(transaction.timestamp)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        {transaction.txHash && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handleTransactionAction('copy-hash', transaction)}
+                              className="gap-2"
+                            >
+                              <Copy className="h-4 w-4" />
+                              Copy hash
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleTransactionAction('view-explorer', transaction)}
+                              className="gap-2"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              View in explorer
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => handleTransactionAction('details', transaction)}
+                          className="gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View details
+                        </DropdownMenuItem>
+                        {(transaction.status === 'Failed' || transaction.status === 'Cancelled') && (
                           <DropdownMenuItem
-                            onClick={() => copyToClipboard(tx.id)}
+                            onClick={() => handleTransactionAction('retry', transaction)}
+                            className="gap-2"
                           >
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy ID
+                            <RefreshCw className="h-4 w-4" />
+                            Retry transaction
                           </DropdownMenuItem>
-                          {tx.txHash && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => copyToClipboard(tx.txHash!)}
-                              >
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copy Hash
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => openBlockExplorer(tx.txHash!, tx.network)}
-                              >
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Block Explorer
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

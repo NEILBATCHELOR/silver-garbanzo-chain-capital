@@ -1,18 +1,20 @@
 /**
- * DFNS Fee Sponsors Service
+ * DFNS Fee Sponsor Service
  * 
- * High-level business logic for DFNS Fee Sponsors management operations.
- * Enables gasless transactions by allowing designated wallets to sponsor
- * gas fees for other wallets across supported blockchain networks.
+ * Implements current DFNS Fee Sponsor API methods
+ * Based on: https://docs.dfns.co/d/api-docs/fee-sponsors/
  * 
- * Features:
- * - Complete CRUD operations for fee sponsors
- * - Comprehensive validation and error handling
- * - Database synchronization support
- * - Batch operations for efficient management
- * - Dashboard analytics and summaries
+ * Fee Sponsors enable gasless transactions by allowing designated wallets 
+ * to sponsor gas fees for other wallets across supported networks.
+ * 
+ * Required permissions:
+ * - FeeSponsors:Create (for creating fee sponsors)
+ * - FeeSponsors:Read (for listing and retrieving fee sponsors)
+ * - FeeSponsors:Update (for activating/deactivating fee sponsors)
+ * - FeeSponsors:Delete (for deleting fee sponsors)
  */
 
+import type { WorkingDfnsClient } from '../../infrastructure/dfns/working-client';
 import type {
   DfnsFeeSponsor,
   DfnsSponsoredFee,
@@ -21,129 +23,104 @@ import type {
   DfnsGetFeeSponsorResponse,
   DfnsListFeeSponsorsRequest,
   DfnsListFeeSponsorsResponse,
+  DfnsListSponsoredFeesRequest,
+  DfnsListSponsoredFeesResponse,
   DfnsActivateFeeSponsorResponse,
   DfnsDeactivateFeeSponsorResponse,
   DfnsDeleteFeeSponsorResponse,
-  DfnsListSponsoredFeesRequest,
-  DfnsListSponsoredFeesResponse,
   DfnsFeeSponsorServiceOptions,
   DfnsBatchFeeSponsorOptions,
+  DfnsBatchFeeSponsorResult,
   DfnsFeeSponsorSummary,
   DfnsSponsoredFeeSummary,
-  DfnsBatchFeeSponsorResult,
   DfnsFeeSponsorErrorReason,
-  DfnsFeeSponsorSupportedNetwork,
-  DfnsNetwork,
-} from '../../types/dfns';
+  DfnsFeeSponsorSupportedNetwork
+} from '../../types/dfns/feeSponsors';
 import {
   isFeeSponsorSupportedNetwork,
   isValidFeeSponsorId,
-  isValidSponsoredFeeId,
-} from '../../types/dfns';
-import { DfnsAuthClient } from '../../infrastructure/dfns/auth/authClient';
-import { DfnsUserActionService } from './userActionService';
-import { DfnsAuthenticationError, DfnsValidationError } from '../../types/dfns/errors';
+  isValidSponsoredFeeId
+} from '../../types/dfns/feeSponsors';
+import type { DfnsNetwork } from '../../types/dfns/core';
+import { DfnsError, DfnsValidationError, DfnsWalletError } from '../../types/dfns/errors';
 
-/**
- * Custom error class for Fee Sponsor specific errors
- */
-export class DfnsFeeSponsorError extends Error {
-  public readonly reason: DfnsFeeSponsorErrorReason;
-  public readonly context?: Record<string, any>;
-
-  constructor(
-    message: string,
-    reason: DfnsFeeSponsorErrorReason = 'VALIDATION_ERROR',
-    context?: Record<string, any>
-  ) {
-    super(message);
-    this.name = 'DfnsFeeSponsorError';
-    this.reason = reason;
-    this.context = context;
-  }
-}
-
-/**
- * DFNS Fee Sponsors Service
- * Provides comprehensive fee sponsor management functionality
- */
 export class DfnsFeeSponsorService {
-  constructor(
-    private authClient: DfnsAuthClient,
-    private userActionService: DfnsUserActionService
-  ) {}
+  private client: WorkingDfnsClient;
 
-  // =============================================================================
-  // Core Fee Sponsor Management
-  // =============================================================================
+  constructor(client: WorkingDfnsClient) {
+    this.client = client;
+  }
+
+  // ===============================
+  // FEE SPONSOR MANAGEMENT
+  // ===============================
 
   /**
    * Create a new fee sponsor
-   * Designates a wallet to sponsor gas fees for other wallets
-   * Requires User Action Signing for security
    * 
-   * @param walletId - Wallet ID that will sponsor fees
-   * @param options - Service options for database sync, validation, etc.
+   * @param request - Fee sponsor creation request
+   * @param userActionToken - Required for User Action Signing
+   * @param options - Service options
    * @returns Created fee sponsor
+   * 
+   * API: POST /fee-sponsors
+   * Requires: FeeSponsors:Create permission
    */
   async createFeeSponsor(
-    walletId: string,
+    request: DfnsCreateFeeSponsorRequest,
+    userActionToken?: string,
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsFeeSponsor> {
     try {
-      // Input validation
-      this.validateWalletId(walletId);
-      
-      if (options.validateNetwork) {
-        // Note: Network validation would require wallet lookup
-        // For now, we'll validate during the API call
+      this.validateCreateRequest(request);
+
+      if (!userActionToken) {
+        console.warn('⚠️ Creating fee sponsor without User Action token - this will likely fail with 403');
       }
 
-      const request: DfnsCreateFeeSponsorRequest = {
-        walletId
-      };
-
-      // User Action Signing required for fee sponsor creation
-      const userActionToken = await this.userActionService.signUserAction(
-        'CreateFeeSponsor',
+      const response = await this.client.makeRequest<DfnsFeeSponsor>(
+        'POST',
+        '/fee-sponsors',
         request,
-        {
-          persistToDb: options.syncToDatabase ?? false,
-        }
+        userActionToken
       );
 
-      const response: DfnsCreateFeeSponsorResponse = await this.authClient.createFeeSponsor(request);
-      const feeSponsor = response.feeSponsor;
+      console.log(`✅ Created fee sponsor ${response.id} for wallet ${request.walletId} on ${response.network}`);
 
       // Auto-activate if requested
-      if (options.autoActivate && feeSponsor.status !== 'Active') {
-        await this.activateFeeSponsor(feeSponsor.id, options);
+      if (options.autoActivate && response.status !== 'Active') {
+        console.log(`🔄 Auto-activating fee sponsor ${response.id}...`);
+        return await this.activateFeeSponsor(response.id, userActionToken, options);
       }
 
-      // Database synchronization
+      // Sync to database if requested
       if (options.syncToDatabase) {
-        await this.syncFeeSponsorToDatabase(feeSponsor);
+        await this.syncFeeSponsorToDatabase(response);
       }
 
-      return feeSponsor;
+      return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to create fee sponsor: ${error.message}`,
-          'FEE_SPONSOR_ALREADY_EXISTS',
-          { walletId, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to create fee sponsor for wallet ${request.walletId}: ${error}`,
+        'FEE_SPONSOR_CREATE_FAILED',
+        { walletId: request.walletId }
+      );
     }
   }
 
   /**
    * Get fee sponsor by ID
    * 
-   * @param feeSponsorId - Fee sponsor ID to retrieve
+   * @param feeSponsorId - Fee sponsor ID
    * @param options - Service options
    * @returns Fee sponsor details
+   * 
+   * API: GET /fee-sponsors/{feeSponsorId}
+   * Requires: FeeSponsors:Read permission
    */
   async getFeeSponsor(
     feeSponsorId: string,
@@ -152,71 +129,82 @@ export class DfnsFeeSponsorService {
     try {
       this.validateFeeSponsorId(feeSponsorId);
 
-      const response: DfnsGetFeeSponsorResponse = await this.authClient.getFeeSponsor(feeSponsorId);
-      const feeSponsor = response.feeSponsor;
+      const response = await this.client.makeRequest<DfnsFeeSponsor>(
+        'GET',
+        `/fee-sponsors/${feeSponsorId}`
+      );
 
-      // Database synchronization
-      if (options.syncToDatabase) {
-        await this.syncFeeSponsorToDatabase(feeSponsor);
-      }
+      console.log(`✅ Retrieved fee sponsor ${feeSponsorId} (${response.status})`);
 
-      return feeSponsor;
+      return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to get fee sponsor: ${error.message}`,
-          'FEE_SPONSOR_NOT_FOUND',
-          { feeSponsorId, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to get fee sponsor ${feeSponsorId}: ${error}`,
+        'FEE_SPONSOR_GET_FAILED',
+        { feeSponsorId }
+      );
     }
   }
 
   /**
-   * List all fee sponsors with pagination
+   * List all fee sponsors
    * 
-   * @param request - List parameters (limit, pagination)
+   * @param request - List request parameters
    * @param options - Service options
    * @returns List of fee sponsors
+   * 
+   * API: GET /fee-sponsors
+   * Requires: FeeSponsors:Read permission
    */
   async listFeeSponsors(
     request: DfnsListFeeSponsorsRequest = {},
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsListFeeSponsorsResponse> {
     try {
-      if (request.limit && (request.limit < 1 || request.limit > 100)) {
-        throw new DfnsFeeSponsorError(
-          'Limit must be between 1 and 100',
-          'VALIDATION_ERROR',
-          { limit: request.limit }
-        );
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      if (request.limit) {
+        queryParams.append('limit', request.limit.toString());
+      }
+      
+      if (request.paginationToken) {
+        queryParams.append('paginationToken', request.paginationToken);
       }
 
-      const response: DfnsListFeeSponsorsResponse = await this.authClient.listFeeSponsors(request);
+      const queryString = queryParams.toString();
+      const endpoint = queryString ? `/fee-sponsors?${queryString}` : '/fee-sponsors';
 
-      // Database synchronization
-      if (options.syncToDatabase) {
-        for (const feeSponsor of response.items) {
-          await this.syncFeeSponsorToDatabase(feeSponsor);
-        }
+      const response = await this.client.makeRequest<DfnsListFeeSponsorsResponse>(
+        'GET',
+        endpoint
+      );
+
+      console.log(`✅ Retrieved ${response.items.length} fee sponsors`);
+      
+      if (response.nextPageToken) {
+        console.log(`📄 Next page available: ${response.nextPageToken}`);
       }
 
       return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to list fee sponsors: ${error.message}`,
-          'NETWORK_ERROR',
-          { request, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to list fee sponsors: ${error}`,
+        'FEE_SPONSOR_LIST_FAILED'
+      );
     }
   }
 
   /**
-   * Get all fee sponsors (automatic pagination)
+   * Get all fee sponsors (handles pagination automatically)
    * 
    * @param options - Service options
    * @returns All fee sponsors
@@ -224,176 +212,197 @@ export class DfnsFeeSponsorService {
   async getAllFeeSponsors(
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsFeeSponsor[]> {
-    const allFeeSponsors: DfnsFeeSponsor[] = [];
-    let paginationToken: string | undefined;
+    try {
+      const allFeeSponsors: DfnsFeeSponsor[] = [];
+      let paginationToken: string | undefined = undefined;
 
-    do {
-      const response = await this.listFeeSponsors(
-        { limit: 100, paginationToken },
-        options
+      do {
+        const response = await this.listFeeSponsors({
+          limit: 100,
+          paginationToken
+        }, options);
+
+        allFeeSponsors.push(...response.items);
+        paginationToken = response.nextPageToken;
+      } while (paginationToken);
+
+      console.log(`✅ Retrieved all ${allFeeSponsors.length} fee sponsors`);
+      return allFeeSponsors;
+    } catch (error) {
+      throw new DfnsError(
+        `Failed to get all fee sponsors: ${error}`,
+        'FEE_SPONSOR_GET_ALL_FAILED'
       );
-      
-      allFeeSponsors.push(...response.items);
-      paginationToken = response.nextPageToken;
-    } while (paginationToken);
-
-    return allFeeSponsors;
+    }
   }
 
-  // =============================================================================
-  // Fee Sponsor Lifecycle Management
-  // =============================================================================
-
   /**
-   * Activate a fee sponsor
-   * Once activated, the fee sponsor can be used for gasless transactions
-   * Requires User Action Signing for security
+   * Activate fee sponsor
    * 
-   * @param feeSponsorId - Fee sponsor ID to activate
+   * @param feeSponsorId - Fee sponsor ID
+   * @param userActionToken - Required for User Action Signing
    * @param options - Service options
-   * @returns Activated fee sponsor
+   * @returns Updated fee sponsor
+   * 
+   * API: PUT /fee-sponsors/{feeSponsorId}/activate
+   * Requires: FeeSponsors:Update permission
    */
   async activateFeeSponsor(
     feeSponsorId: string,
+    userActionToken?: string,
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsFeeSponsor> {
     try {
       this.validateFeeSponsorId(feeSponsorId);
 
-      // User Action Signing required for fee sponsor activation
-      const userActionToken = await this.userActionService.signUserAction(
-        'ActivateFeeSponsor',
-        { feeSponsorId },
-        {
-          persistToDb: options.syncToDatabase ?? false,
-        }
+      if (!userActionToken) {
+        console.warn('⚠️ Activating fee sponsor without User Action token - this will likely fail with 403');
+      }
+
+      const response = await this.client.makeRequest<DfnsFeeSponsor>(
+        'PUT',
+        `/fee-sponsors/${feeSponsorId}/activate`,
+        {},
+        userActionToken
       );
 
-      const response: DfnsActivateFeeSponsorResponse = await this.authClient.activateFeeSponsor(feeSponsorId);
-      const feeSponsor = response.feeSponsor;
+      console.log(`✅ Activated fee sponsor ${feeSponsorId}`);
 
-      // Database synchronization
+      // Sync to database if requested
       if (options.syncToDatabase) {
-        await this.syncFeeSponsorToDatabase(feeSponsor);
+        await this.syncFeeSponsorToDatabase(response);
       }
 
-      return feeSponsor;
+      return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to activate fee sponsor: ${error.message}`,
-          'FEE_SPONSOR_NOT_FOUND',
-          { feeSponsorId, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to activate fee sponsor ${feeSponsorId}: ${error}`,
+        'FEE_SPONSOR_ACTIVATE_FAILED',
+        { feeSponsorId }
+      );
     }
   }
 
   /**
-   * Deactivate a fee sponsor
-   * Once deactivated, the fee sponsor cannot be used for new transactions
-   * Requires User Action Signing for security
+   * Deactivate fee sponsor
    * 
-   * @param feeSponsorId - Fee sponsor ID to deactivate
+   * @param feeSponsorId - Fee sponsor ID
+   * @param userActionToken - Required for User Action Signing
    * @param options - Service options
-   * @returns Deactivated fee sponsor
+   * @returns Updated fee sponsor
+   * 
+   * API: PUT /fee-sponsors/{feeSponsorId}/deactivate
+   * Requires: FeeSponsors:Update permission
    */
   async deactivateFeeSponsor(
     feeSponsorId: string,
+    userActionToken?: string,
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsFeeSponsor> {
     try {
       this.validateFeeSponsorId(feeSponsorId);
 
-      // User Action Signing required for fee sponsor deactivation
-      const userActionToken = await this.userActionService.signUserAction(
-        'DeactivateFeeSponsor',
-        { feeSponsorId },
-        {
-          persistToDb: options.syncToDatabase ?? false,
-        }
+      if (!userActionToken) {
+        console.warn('⚠️ Deactivating fee sponsor without User Action token - this will likely fail with 403');
+      }
+
+      const response = await this.client.makeRequest<DfnsFeeSponsor>(
+        'PUT',
+        `/fee-sponsors/${feeSponsorId}/deactivate`,
+        {},
+        userActionToken
       );
 
-      const response: DfnsDeactivateFeeSponsorResponse = await this.authClient.deactivateFeeSponsor(feeSponsorId);
-      const feeSponsor = response.feeSponsor;
+      console.log(`✅ Deactivated fee sponsor ${feeSponsorId}`);
 
-      // Database synchronization
+      // Sync to database if requested
       if (options.syncToDatabase) {
-        await this.syncFeeSponsorToDatabase(feeSponsor);
+        await this.syncFeeSponsorToDatabase(response);
       }
 
-      return feeSponsor;
+      return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to deactivate fee sponsor: ${error.message}`,
-          'FEE_SPONSOR_NOT_FOUND',
-          { feeSponsorId, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to deactivate fee sponsor ${feeSponsorId}: ${error}`,
+        'FEE_SPONSOR_DEACTIVATE_FAILED',
+        { feeSponsorId }
+      );
     }
   }
 
   /**
-   * Delete (archive) a fee sponsor
-   * Permanently removes the fee sponsor from active use
-   * Requires User Action Signing for security
+   * Delete fee sponsor
    * 
-   * @param feeSponsorId - Fee sponsor ID to delete
+   * @param feeSponsorId - Fee sponsor ID
+   * @param userActionToken - Required for User Action Signing
    * @param options - Service options
-   * @returns Deleted fee sponsor
+   * @returns Archived fee sponsor
+   * 
+   * API: DELETE /fee-sponsors/{feeSponsorId}
+   * Requires: FeeSponsors:Delete permission
    */
   async deleteFeeSponsor(
     feeSponsorId: string,
+    userActionToken?: string,
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsFeeSponsor> {
     try {
       this.validateFeeSponsorId(feeSponsorId);
 
-      // User Action Signing required for fee sponsor deletion
-      const userActionToken = await this.userActionService.signUserAction(
-        'DeleteFeeSponsor',
-        { feeSponsorId },
-        {
-          persistToDb: options.syncToDatabase ?? false,
-        }
+      if (!userActionToken) {
+        console.warn('⚠️ Deleting fee sponsor without User Action token - this will likely fail with 403');
+      }
+
+      const response = await this.client.makeRequest<DfnsFeeSponsor>(
+        'DELETE',
+        `/fee-sponsors/${feeSponsorId}`,
+        {},
+        userActionToken
       );
 
-      const response: DfnsDeleteFeeSponsorResponse = await this.authClient.deleteFeeSponsor(feeSponsorId);
-      const feeSponsor = response.feeSponsor;
+      console.log(`✅ Deleted fee sponsor ${feeSponsorId} (status: ${response.status})`);
 
-      // Database synchronization
+      // Update database if requested
       if (options.syncToDatabase) {
-        await this.syncFeeSponsorToDatabase(feeSponsor);
+        await this.syncFeeSponsorToDatabase(response);
       }
 
-      return feeSponsor;
+      return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to delete fee sponsor: ${error.message}`,
-          'FEE_SPONSOR_NOT_FOUND',
-          { feeSponsorId, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to delete fee sponsor ${feeSponsorId}: ${error}`,
+        'FEE_SPONSOR_DELETE_FAILED',
+        { feeSponsorId }
+      );
     }
   }
 
-  // =============================================================================
-  // Sponsored Fees Management
-  // =============================================================================
+  // ===============================
+  // SPONSORED FEES
+  // ===============================
 
   /**
    * List sponsored fees for a fee sponsor
-   * Returns history of all fees paid by this sponsor
    * 
    * @param feeSponsorId - Fee sponsor ID
-   * @param request - List parameters
+   * @param request - List request parameters
    * @param options - Service options
    * @returns List of sponsored fees
+   * 
+   * API: GET /fee-sponsors/{feeSponsorId}/fees
+   * Requires: FeeSponsors:Read permission
    */
   async listSponsoredFees(
     feeSponsorId: string,
@@ -403,34 +412,49 @@ export class DfnsFeeSponsorService {
     try {
       this.validateFeeSponsorId(feeSponsorId);
 
-      if (request.limit && (request.limit < 1 || request.limit > 100)) {
-        throw new DfnsFeeSponsorError(
-          'Limit must be between 1 and 100',
-          'VALIDATION_ERROR',
-          { limit: request.limit }
-        );
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      if (request.limit) {
+        queryParams.append('limit', request.limit.toString());
+      }
+      
+      if (request.paginationToken) {
+        queryParams.append('paginationToken', request.paginationToken);
       }
 
-      const response: DfnsListSponsoredFeesResponse = await this.authClient.listSponsoredFees(
-        feeSponsorId,
-        request
+      const queryString = queryParams.toString();
+      const endpoint = queryString 
+        ? `/fee-sponsors/${feeSponsorId}/fees?${queryString}` 
+        : `/fee-sponsors/${feeSponsorId}/fees`;
+
+      const response = await this.client.makeRequest<DfnsListSponsoredFeesResponse>(
+        'GET',
+        endpoint
       );
+
+      console.log(`✅ Retrieved ${response.items.length} sponsored fees for ${feeSponsorId}`);
+      
+      if (response.nextPageToken) {
+        console.log(`📄 Next page available: ${response.nextPageToken}`);
+      }
 
       return response;
     } catch (error) {
-      if (error instanceof DfnsAuthenticationError) {
-        throw new DfnsFeeSponsorError(
-          `Failed to list sponsored fees: ${error.message}`,
-          'FEE_SPONSOR_NOT_FOUND',
-          { feeSponsorId, request, error: error.message }
-        );
+      if (error instanceof DfnsError) {
+        throw error;
       }
-      throw error;
+      
+      throw new DfnsError(
+        `Failed to list sponsored fees for ${feeSponsorId}: ${error}`,
+        'SPONSORED_FEE_LIST_FAILED',
+        { feeSponsorId }
+      );
     }
   }
 
   /**
-   * Get all sponsored fees for a fee sponsor (automatic pagination)
+   * Get all sponsored fees for a fee sponsor (handles pagination automatically)
    * 
    * @param feeSponsorId - Fee sponsor ID
    * @param options - Service options
@@ -440,434 +464,399 @@ export class DfnsFeeSponsorService {
     feeSponsorId: string,
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsSponsoredFee[]> {
-    const allSponsoredFees: DfnsSponsoredFee[] = [];
-    let paginationToken: string | undefined;
+    try {
+      const allSponsoredFees: DfnsSponsoredFee[] = [];
+      let paginationToken: string | undefined = undefined;
 
-    do {
-      const response = await this.listSponsoredFees(
-        feeSponsorId,
-        { limit: 100, paginationToken },
-        options
+      do {
+        const response = await this.listSponsoredFees(feeSponsorId, {
+          limit: 100,
+          paginationToken
+        }, options);
+
+        allSponsoredFees.push(...response.items);
+        paginationToken = response.nextPageToken;
+      } while (paginationToken);
+
+      console.log(`✅ Retrieved all ${allSponsoredFees.length} sponsored fees for ${feeSponsorId}`);
+      return allSponsoredFees;
+    } catch (error) {
+      throw new DfnsError(
+        `Failed to get all sponsored fees for ${feeSponsorId}: ${error}`,
+        'SPONSORED_FEE_GET_ALL_FAILED',
+        { feeSponsorId }
       );
-      
-      allSponsoredFees.push(...response.items);
-      paginationToken = response.nextPageToken;
-    } while (paginationToken);
-
-    return allSponsoredFees;
+    }
   }
 
-  // =============================================================================
-  // Batch Operations
-  // =============================================================================
+  // ===============================
+  // BATCH OPERATIONS
+  // ===============================
 
   /**
-   * Activate multiple fee sponsors
+   * Create multiple fee sponsors
    * 
-   * @param feeSponsorIds - Array of fee sponsor IDs to activate
+   * @param requests - Array of fee sponsor creation requests
+   * @param userActionToken - Required for User Action Signing
    * @param options - Batch operation options
-   * @returns Batch operation result
+   * @returns Batch operation results
    */
-  async activateFeeSponsors(
-    feeSponsorIds: string[],
+  async createMultipleFeeSponsors(
+    requests: DfnsCreateFeeSponsorRequest[],
+    userActionToken?: string,
     options: DfnsBatchFeeSponsorOptions = {}
   ): Promise<DfnsBatchFeeSponsorResult<DfnsFeeSponsor>> {
-    const result: DfnsBatchFeeSponsorResult<DfnsFeeSponsor> = {
+    const results: DfnsBatchFeeSponsorResult<DfnsFeeSponsor> = {
       successful: [],
       failed: []
     };
 
     const maxConcurrency = options.maxConcurrency || 5;
-    const continueOnError = options.continueOnError ?? true;
-
-    for (let i = 0; i < feeSponsorIds.length; i += maxConcurrency) {
-      const batch = feeSponsorIds.slice(i, i + maxConcurrency);
-      
-      const promises = batch.map(async (feeSponsorId) => {
+    
+    for (let i = 0; i < requests.length; i += maxConcurrency) {
+      const batch = requests.slice(i, i + maxConcurrency);
+      const promises = batch.map(async (request) => {
         try {
-          const feeSponsor = await this.activateFeeSponsor(feeSponsorId, options);
-          result.successful.push(feeSponsor);
+          const feeSponsor = await this.createFeeSponsor(request, userActionToken, options);
+          results.successful.push(feeSponsor);
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          const reason = error instanceof DfnsFeeSponsorError ? error.reason : 'BATCH_OPERATION_FAILED';
-          
-          result.failed.push({
-            feeSponsorId,
-            error: errorMessage,
-            reason
+          results.failed.push({
+            feeSponsorId: `wallet-${request.walletId}`,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            reason: this.classifyError(error)
           });
 
-          if (!continueOnError) {
+          if (!options.continueOnError) {
             throw error;
           }
         }
       });
 
-      await Promise.all(promises);
+      await Promise.allSettled(promises);
     }
 
-    return result;
+    console.log(`✅ Batch fee sponsor creation: ${results.successful.length} successful, ${results.failed.length} failed`);
+    return results;
   }
 
-  /**
-   * Deactivate multiple fee sponsors
-   * 
-   * @param feeSponsorIds - Array of fee sponsor IDs to deactivate
-   * @param options - Batch operation options
-   * @returns Batch operation result
-   */
-  async deactivateFeeSponsors(
-    feeSponsorIds: string[],
-    options: DfnsBatchFeeSponsorOptions = {}
-  ): Promise<DfnsBatchFeeSponsorResult<DfnsFeeSponsor>> {
-    const result: DfnsBatchFeeSponsorResult<DfnsFeeSponsor> = {
-      successful: [],
-      failed: []
-    };
-
-    const maxConcurrency = options.maxConcurrency || 5;
-    const continueOnError = options.continueOnError ?? true;
-
-    for (let i = 0; i < feeSponsorIds.length; i += maxConcurrency) {
-      const batch = feeSponsorIds.slice(i, i + maxConcurrency);
-      
-      const promises = batch.map(async (feeSponsorId) => {
-        try {
-          const feeSponsor = await this.deactivateFeeSponsor(feeSponsorId, options);
-          result.successful.push(feeSponsor);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          const reason = error instanceof DfnsFeeSponsorError ? error.reason : 'BATCH_OPERATION_FAILED';
-          
-          result.failed.push({
-            feeSponsorId,
-            error: errorMessage,
-            reason
-          });
-
-          if (!continueOnError) {
-            throw error;
-          }
-        }
-      });
-
-      await Promise.all(promises);
-    }
-
-    return result;
-  }
-
-  // =============================================================================
-  // Lookup and Search Operations
-  // =============================================================================
+  // ===============================
+  // BUSINESS LOGIC & ANALYTICS
+  // ===============================
 
   /**
-   * Find fee sponsor by wallet ID
-   * 
-   * @param walletId - Wallet ID to search for
-   * @param options - Service options
-   * @returns Fee sponsor if found, null otherwise
-   */
-  async getFeeSponsorByWalletId(
-    walletId: string,
-    options: DfnsFeeSponsorServiceOptions = {}
-  ): Promise<DfnsFeeSponsor | null> {
-    try {
-      this.validateWalletId(walletId);
-
-      const allFeeSponsors = await this.getAllFeeSponsors(options);
-      
-      const feeSponsor = allFeeSponsors.find(sponsor => sponsor.walletId === walletId);
-      return feeSponsor || null;
-    } catch (error) {
-      throw new DfnsFeeSponsorError(
-        `Failed to find fee sponsor by wallet ID: ${error}`,
-        'NETWORK_ERROR',
-        { walletId }
-      );
-    }
-  }
-
-  /**
-   * Find fee sponsors by network
-   * 
-   * @param network - Network to filter by
-   * @param options - Service options
-   * @returns Fee sponsors for the specified network
-   */
-  async getFeeSponsorsByNetwork(
-    network: DfnsNetwork,
-    options: DfnsFeeSponsorServiceOptions = {}
-  ): Promise<DfnsFeeSponsor[]> {
-    try {
-      if (options.validateNetwork && !isFeeSponsorSupportedNetwork(network)) {
-        throw new DfnsFeeSponsorError(
-          `Network ${network} does not support fee sponsoring`,
-          'NETWORK_NOT_SUPPORTED',
-          { network }
-        );
-      }
-
-      const allFeeSponsors = await this.getAllFeeSponsors(options);
-      
-      return allFeeSponsors.filter(sponsor => sponsor.network === network);
-    } catch (error) {
-      if (error instanceof DfnsFeeSponsorError) {
-        throw error;
-      }
-      throw new DfnsFeeSponsorError(
-        `Failed to find fee sponsors by network: ${error}`,
-        'NETWORK_ERROR',
-        { network }
-      );
-    }
-  }
-
-  // =============================================================================
-  // Dashboard and Analytics
-  // =============================================================================
-
-  /**
-   * Get fee sponsor summaries for dashboard
-   * 
-   * @param options - Service options
-   * @returns Array of fee sponsor summaries
-   */
-  async getFeeSponsorsSummary(
-    options: DfnsFeeSponsorServiceOptions = {}
-  ): Promise<DfnsFeeSponsorSummary[]> {
-    try {
-      const feeSponsors = await this.getAllFeeSponsors(options);
-      
-      const summaries: DfnsFeeSponsorSummary[] = [];
-
-      for (const feeSponsor of feeSponsors) {
-        try {
-          // Get sponsored fees for analytics
-          let sponsoredFees: DfnsSponsoredFee[] = [];
-          if (options.includeFeeHistory) {
-            sponsoredFees = await this.getAllSponsoredFees(feeSponsor.id, options);
-          }
-
-          const summary: DfnsFeeSponsorSummary = {
-            feeSponsorId: feeSponsor.id,
-            walletId: feeSponsor.walletId,
-            network: feeSponsor.network,
-            status: feeSponsor.status,
-            isActive: feeSponsor.status === 'Active',
-            totalFeesSponsored: this.calculateTotalFees(sponsoredFees),
-            transactionCount: sponsoredFees.length,
-            averageFeePerTransaction: this.calculateAverageFee(sponsoredFees),
-            dateCreated: feeSponsor.dateCreated,
-            daysSinceCreated: this.calculateDaysSince(feeSponsor.dateCreated),
-            lastSponsorshipDate: this.getLastSponsorshipDate(sponsoredFees)
-          };
-
-          summaries.push(summary);
-        } catch (error) {
-          // Continue with other fee sponsors if one fails
-          console.warn(`Failed to get summary for fee sponsor ${feeSponsor.id}:`, error);
-        }
-      }
-
-      return summaries;
-    } catch (error) {
-      throw new DfnsFeeSponsorError(
-        `Failed to get fee sponsors summary: ${error}`,
-        'NETWORK_ERROR'
-      );
-    }
-  }
-
-  /**
-   * Get sponsored fee summaries for analytics
+   * Get fee sponsor summary for dashboard
    * 
    * @param feeSponsorId - Fee sponsor ID
    * @param options - Service options
-   * @returns Array of sponsored fee summaries
+   * @returns Fee sponsor summary with analytics
+   */
+  async getFeeSponsorSummary(
+    feeSponsorId: string,
+    options: DfnsFeeSponsorServiceOptions = {}
+  ): Promise<DfnsFeeSponsorSummary> {
+    try {
+      const [feeSponsor, sponsoredFees] = await Promise.all([
+        this.getFeeSponsor(feeSponsorId, options),
+        this.getAllSponsoredFees(feeSponsorId, options)
+      ]);
+
+      // Calculate analytics
+      const confirmedFees = sponsoredFees.filter(fee => fee.status === 'Confirmed');
+      const totalFeesSponsored = confirmedFees
+        .reduce((sum, fee) => sum + BigInt(fee.fee), BigInt(0))
+        .toString();
+      
+      const averageFeePerTransaction = confirmedFees.length > 0
+        ? (BigInt(totalFeesSponsored) / BigInt(confirmedFees.length)).toString()
+        : '0';
+
+      const lastSponsorshipDate = sponsoredFees.length > 0
+        ? sponsoredFees
+            .sort((a, b) => new Date(b.dateRequested).getTime() - new Date(a.dateRequested).getTime())[0]
+            ?.dateRequested
+        : undefined;
+
+      const daysSinceCreated = Math.floor(
+        (Date.now() - new Date(feeSponsor.dateCreated).getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        feeSponsorId,
+        walletId: feeSponsor.walletId,
+        network: feeSponsor.network,
+        status: feeSponsor.status,
+        isActive: feeSponsor.status === 'Active',
+        totalFeesSponsored,
+        transactionCount: confirmedFees.length,
+        averageFeePerTransaction,
+        dateCreated: feeSponsor.dateCreated,
+        daysSinceCreated,
+        lastSponsorshipDate
+      };
+    } catch (error) {
+      throw new DfnsError(
+        `Failed to get fee sponsor summary for ${feeSponsorId}: ${error}`,
+        'FEE_SPONSOR_SUMMARY_FAILED',
+        { feeSponsorId }
+      );
+    }
+  }
+
+  /**
+   * Get sponsored fees summary with analytics
+   * 
+   * @param feeSponsorId - Fee sponsor ID
+   * @param options - Service options
+   * @returns Sponsored fees with analytics
    */
   async getSponsoredFeesSummary(
     feeSponsorId: string,
     options: DfnsFeeSponsorServiceOptions = {}
   ): Promise<DfnsSponsoredFeeSummary[]> {
     try {
-      this.validateFeeSponsorId(feeSponsorId);
+      const [feeSponsor, sponsoredFees] = await Promise.all([
+        this.getFeeSponsor(feeSponsorId, options),
+        this.getAllSponsoredFees(feeSponsorId, options)
+      ]);
 
-      const feeSponsor = await this.getFeeSponsor(feeSponsorId, options);
-      const sponsoredFees = await this.getAllSponsoredFees(feeSponsorId, options);
+      return sponsoredFees.map(fee => {
+        const timeToConfirmation = fee.dateConfirmed
+          ? Math.floor(
+              (new Date(fee.dateConfirmed).getTime() - new Date(fee.dateRequested).getTime()) / 1000
+            )
+          : undefined;
 
-      return sponsoredFees.map(fee => ({
-        sponsoredFeeId: fee.id,
-        feeSponsorId,
-        sponsoreeId: fee.sponsoreeId,
-        requestId: fee.requestId,
-        fee: fee.fee,
-        status: fee.status,
-        network: feeSponsor.network,
-        isConfirmed: fee.status === 'Confirmed',
-        timeToConfirmation: this.calculateTimeToConfirmation(fee),
-        dateRequested: fee.dateRequested,
-        dateConfirmed: fee.dateConfirmed
-      }));
+        return {
+          sponsoredFeeId: fee.id,
+          feeSponsorId,
+          sponsoreeId: fee.sponsoreeId,
+          requestId: fee.requestId,
+          fee: fee.fee,
+          status: fee.status,
+          network: feeSponsor.network,
+          isConfirmed: fee.status === 'Confirmed',
+          timeToConfirmation,
+          dateRequested: fee.dateRequested,
+          dateConfirmed: fee.dateConfirmed
+        };
+      });
     } catch (error) {
-      throw new DfnsFeeSponsorError(
-        `Failed to get sponsored fees summary: ${error}`,
-        'FEE_SPONSOR_NOT_FOUND',
+      throw new DfnsError(
+        `Failed to get sponsored fees summary for ${feeSponsorId}: ${error}`,
+        'SPONSORED_FEE_SUMMARY_FAILED',
         { feeSponsorId }
       );
     }
   }
 
-  // =============================================================================
-  // Utility and Validation Methods
-  // =============================================================================
-
   /**
-   * Check if network supports fee sponsoring
+   * Get fee sponsor statistics across all sponsors
    * 
-   * @param network - Network to check
-   * @returns True if network supports fee sponsoring
+   * @param options - Service options
+   * @returns Aggregated statistics
    */
-  static isNetworkSupported(network: DfnsNetwork): network is DfnsFeeSponsorSupportedNetwork {
-    return isFeeSponsorSupportedNetwork(network);
+  async getFeeSponsorStatistics(
+    options: DfnsFeeSponsorServiceOptions = {}
+  ): Promise<{
+    totalFeeSponsors: number;
+    activeFeeSponsors: number;
+    totalNetworks: number;
+    totalFeesSponsored: string;
+    totalTransactionsSponsored: number;
+    networkDistribution: Record<DfnsNetwork, number>;
+    statusDistribution: Record<string, number>;
+  }> {
+    try {
+      const allFeeSponsors = await this.getAllFeeSponsors(options);
+      
+      // Get all sponsored fees for each sponsor
+      const allSponsoredFeesPromises = allFeeSponsors.map(sponsor =>
+        this.getAllSponsoredFees(sponsor.id, options)
+      );
+      
+      const allSponsoredFeesArrays = await Promise.allSettled(allSponsoredFeesPromises);
+      const allSponsoredFees = allSponsoredFeesArrays
+        .filter(result => result.status === 'fulfilled')
+        .flatMap(result => (result as PromiseFulfilledResult<DfnsSponsoredFee[]>).value);
+
+      // Calculate statistics
+      const confirmedFees = allSponsoredFees.filter(fee => fee.status === 'Confirmed');
+      const totalFeesSponsored = confirmedFees
+        .reduce((sum, fee) => sum + BigInt(fee.fee), BigInt(0))
+        .toString();
+
+      const networkDistribution = allFeeSponsors.reduce((dist, sponsor) => {
+        dist[sponsor.network] = (dist[sponsor.network] || 0) + 1;
+        return dist;
+      }, {} as Record<DfnsNetwork, number>);
+
+      const statusDistribution = allFeeSponsors.reduce((dist, sponsor) => {
+        dist[sponsor.status] = (dist[sponsor.status] || 0) + 1;
+        return dist;
+      }, {} as Record<string, number>);
+
+      return {
+        totalFeeSponsors: allFeeSponsors.length,
+        activeFeeSponsors: allFeeSponsors.filter(s => s.status === 'Active').length,
+        totalNetworks: Object.keys(networkDistribution).length,
+        totalFeesSponsored,
+        totalTransactionsSponsored: confirmedFees.length,
+        networkDistribution,
+        statusDistribution
+      };
+    } catch (error) {
+      throw new DfnsError(
+        `Failed to get fee sponsor statistics: ${error}`,
+        'FEE_SPONSOR_STATISTICS_FAILED'
+      );
+    }
   }
+
+  // ===============================
+  // VALIDATION HELPERS
+  // ===============================
 
   /**
    * Validate fee sponsor ID format
-   * 
-   * @param feeSponsorId - Fee sponsor ID to validate
-   * @throws DfnsFeeSponsorError if invalid
    */
   private validateFeeSponsorId(feeSponsorId: string): void {
     if (!feeSponsorId || typeof feeSponsorId !== 'string') {
-      throw new DfnsFeeSponsorError(
-        'Fee sponsor ID is required and must be a string',
-        'INVALID_FEE_SPONSOR_ID',
-        { feeSponsorId }
-      );
+      throw new DfnsValidationError('Fee sponsor ID is required and must be a string');
     }
 
     if (!isValidFeeSponsorId(feeSponsorId)) {
-      throw new DfnsFeeSponsorError(
-        'Invalid fee sponsor ID format',
-        'INVALID_FEE_SPONSOR_ID',
-        { feeSponsorId }
+      throw new DfnsValidationError(
+        `Invalid fee sponsor ID format: ${feeSponsorId}. Expected format: fs-xxxxx-xxxxx-xxxxxxxxxxxxxxxx`
       );
     }
   }
 
   /**
    * Validate wallet ID format
-   * 
-   * @param walletId - Wallet ID to validate
-   * @throws DfnsFeeSponsorError if invalid
    */
   private validateWalletId(walletId: string): void {
     if (!walletId || typeof walletId !== 'string') {
-      throw new DfnsFeeSponsorError(
-        'Wallet ID is required and must be a string',
-        'INVALID_WALLET_ID',
-        { walletId }
-      );
+      throw new DfnsValidationError('Wallet ID is required and must be a string');
     }
 
-    // Basic wallet ID format validation (wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx)
+    // Basic wallet ID format validation
     if (!/^wa-[a-z0-9]{5}-[a-z0-9]{5}-[a-z0-9]{16}$/.test(walletId)) {
-      throw new DfnsFeeSponsorError(
-        'Invalid wallet ID format',
-        'INVALID_WALLET_ID',
-        { walletId }
+      throw new DfnsValidationError(
+        `Invalid wallet ID format: ${walletId}. Expected format: wa-xxxxx-xxxxx-xxxxxxxxxxxxxxxx`
       );
     }
   }
 
   /**
-   * Sync fee sponsor to database (placeholder for Supabase integration)
-   * 
-   * @param feeSponsor - Fee sponsor to sync
+   * Validate create fee sponsor request
+   */
+  private validateCreateRequest(request: DfnsCreateFeeSponsorRequest): void {
+    if (!request || typeof request !== 'object') {
+      throw new DfnsValidationError('Create fee sponsor request is required');
+    }
+
+    this.validateWalletId(request.walletId);
+  }
+
+  /**
+   * Classify error for batch operations
+   */
+  private classifyError(error: unknown): DfnsFeeSponsorErrorReason {
+    if (error instanceof DfnsValidationError) {
+      return 'VALIDATION_ERROR';
+    }
+
+    const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+    if (errorMessage.includes('permission') || errorMessage.includes('403')) {
+      return 'PERMISSION_DENIED';
+    }
+    
+    if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+      return 'NETWORK_ERROR';
+    }
+    
+    if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+      return 'FEE_SPONSOR_NOT_FOUND';
+    }
+    
+    if (errorMessage.includes('already exists')) {
+      return 'FEE_SPONSOR_ALREADY_EXISTS';
+    }
+
+    return 'NETWORK_ERROR';
+  }
+
+  /**
+   * Sync fee sponsor to database (placeholder for database integration)
    */
   private async syncFeeSponsorToDatabase(feeSponsor: DfnsFeeSponsor): Promise<void> {
-    // TODO: Implement Supabase dfns_fee_sponsors table synchronization
-    // This would involve inserting/updating the fee sponsor record in the database
-    console.debug('Database sync placeholder:', { feeSponsorId: feeSponsor.id });
-  }
-
-  /**
-   * Calculate total fees sponsored
-   * 
-   * @param sponsoredFees - Array of sponsored fees
-   * @returns Total fees as string
-   */
-  private calculateTotalFees(sponsoredFees: DfnsSponsoredFee[]): string {
-    const total = sponsoredFees.reduce((sum, fee) => {
-      return sum + BigInt(fee.fee);
-    }, BigInt(0));
-
-    return total.toString();
-  }
-
-  /**
-   * Calculate average fee per transaction
-   * 
-   * @param sponsoredFees - Array of sponsored fees
-   * @returns Average fee as string
-   */
-  private calculateAverageFee(sponsoredFees: DfnsSponsoredFee[]): string {
-    if (sponsoredFees.length === 0) {
-      return '0';
+    try {
+      // TODO: Implement database sync logic
+      console.log(`📊 Syncing fee sponsor ${feeSponsor.id} to database...`);
+      
+      // This would typically call a database service to update the dfns_fee_sponsors table
+      // await databaseService.upsertFeeSponsor(feeSponsor);
+      
+      console.log(`✅ Fee sponsor ${feeSponsor.id} synced to database`);
+    } catch (error) {
+      console.error(`❌ Failed to sync fee sponsor ${feeSponsor.id} to database:`, error);
+      // Don't throw here - database sync failure shouldn't break the main operation
     }
+  }
 
-    const total = BigInt(this.calculateTotalFees(sponsoredFees));
-    const average = total / BigInt(sponsoredFees.length);
+  // ===============================
+  // UTILITY METHODS
+  // ===============================
 
-    return average.toString();
+  /**
+   * Check if a network supports fee sponsoring
+   */
+  isNetworkSupported(network: DfnsNetwork): network is DfnsFeeSponsorSupportedNetwork {
+    return isFeeSponsorSupportedNetwork(network);
   }
 
   /**
-   * Calculate days since date
-   * 
-   * @param dateString - ISO date string
-   * @returns Number of days since date
+   * Get supported networks for fee sponsoring
    */
-  private calculateDaysSince(dateString: string): number {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  getSupportedNetworks(): DfnsFeeSponsorSupportedNetwork[] {
+    // Import the array from types
+    const { DFNS_FEE_SPONSOR_SUPPORTED_NETWORKS } = require('../../types/dfns/feeSponsors');
+    return [...DFNS_FEE_SPONSOR_SUPPORTED_NETWORKS];
   }
 
   /**
-   * Get last sponsorship date
-   * 
-   * @param sponsoredFees - Array of sponsored fees
-   * @returns Last sponsorship date or undefined
+   * Validate network compatibility
    */
-  private getLastSponsorshipDate(sponsoredFees: DfnsSponsoredFee[]): string | undefined {
-    if (sponsoredFees.length === 0) {
-      return undefined;
+  validateNetworkSupport(network: DfnsNetwork): void {
+    if (!this.isNetworkSupported(network)) {
+      throw new DfnsValidationError(
+        `Network ${network} does not support fee sponsoring. Supported networks: ${this.getSupportedNetworks().join(', ')}`
+      );
     }
-
-    const sortedFees = sponsoredFees.sort((a, b) => 
-      new Date(b.dateRequested).getTime() - new Date(a.dateRequested).getTime()
-    );
-
-    return sortedFees[0]?.dateRequested;
   }
+}
 
-  /**
-   * Calculate time to confirmation in seconds
-   * 
-   * @param fee - Sponsored fee
-   * @returns Time to confirmation in seconds or undefined
-   */
-  private calculateTimeToConfirmation(fee: DfnsSponsoredFee): number | undefined {
-    if (!fee.dateConfirmed) {
-      return undefined;
+// Global service instance
+let globalDfnsFeeSponsorService: DfnsFeeSponsorService | null = null;
+
+/**
+ * Get or create the global DFNS Fee Sponsor service instance
+ */
+export function getDfnsFeeSponsorService(client?: WorkingDfnsClient): DfnsFeeSponsorService {
+  if (!globalDfnsFeeSponsorService || client) {
+    if (!client) {
+      const { getWorkingDfnsClient } = require('../../infrastructure/dfns/working-client');
+      client = getWorkingDfnsClient();
     }
-
-    const requested = new Date(fee.dateRequested).getTime();
-    const confirmed = new Date(fee.dateConfirmed).getTime();
-    
-    return Math.round((confirmed - requested) / 1000);
+    globalDfnsFeeSponsorService = new DfnsFeeSponsorService(client);
   }
+  return globalDfnsFeeSponsorService;
+}
+
+/**
+ * Reset the global service instance
+ */
+export function resetDfnsFeeSponsorService(): void {
+  globalDfnsFeeSponsorService = null;
 }

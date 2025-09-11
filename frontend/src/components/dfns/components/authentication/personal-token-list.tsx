@@ -1,432 +1,299 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+  MoreHorizontal, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Key, 
+  Calendar,
+  Eye,
+  EyeOff,
+  Copy,
+  Shield
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { 
-  Key, 
-  Search, 
-  Plus, 
-  MoreHorizontal, 
-  CheckCircle, 
-  XCircle, 
-  Archive,
-  Loader2,
-  AlertCircle,
-  Settings,
-  Clock,
-  AlertTriangle
-} from "lucide-react";
-import { cn } from "@/utils/utils";
-import { useState, useEffect } from "react";
-import { DfnsService } from "../../../../services/dfns";
-import type { DfnsPersonalAccessToken } from "../../../../types/dfns";
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/use-toast';
+import { getDfnsService, initializeDfnsService } from '@/services/dfns';
+import type { DfnsPersonalAccessToken } from '@/types/dfns';
 
-/**
- * Personal Access Token List Component
- * Displays and manages personal access tokens for API access
- */
-export function PersonalTokenList() {
-  const [tokens, setTokens] = useState<DfnsPersonalAccessToken[]>([]);
-  const [filteredTokens, setFilteredTokens] = useState<DfnsPersonalAccessToken[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    action: 'activate' | 'deactivate' | 'archive' | null;
-    token: DfnsPersonalAccessToken | null;
-  }>({ open: false, action: null, token: null });
+interface PersonalTokenListProps {
+  tokens: DfnsPersonalAccessToken[];
+  onTokenUpdated: () => void;
+}
 
-  // Initialize DFNS service
-  const [dfnsService, setDfnsService] = useState<DfnsService | null>(null);
+export function PersonalTokenList({ tokens, onTokenUpdated }: PersonalTokenListProps) {
+  const [loading, setLoading] = useState(false);
+  const [visibleTokens, setVisibleTokens] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const initializeDfns = async () => {
-      try {
-        const service = new DfnsService();
-        await service.initialize();
-        setDfnsService(service);
-      } catch (error) {
-        console.error('Failed to initialize DFNS service:', error);
-        setError('Failed to initialize DFNS service');
-      }
-    };
-
-    initializeDfns();
-  }, []);
-
-  // Fetch personal access tokens from DFNS
-  useEffect(() => {
-    const fetchTokens = async () => {
-      if (!dfnsService) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        const tokenService = dfnsService.getPersonalAccessTokenService();
-        const allTokens = await tokenService.listPersonalAccessTokens({
-          syncToDatabase: true
-        });
-        
-        setTokens(allTokens);
-        setFilteredTokens(allTokens);
-      } catch (error) {
-        console.error('Failed to fetch personal access tokens:', error);
-        setError('Failed to load personal access tokens');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTokens();
-  }, [dfnsService]);
-
-  // Filter tokens based on search term
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredTokens(tokens);
-    } else {
-      const filtered = tokens.filter(token => 
-        token.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (token.isActive ? 'active' : 'inactive').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (token.externalId && token.externalId.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-      setFilteredTokens(filtered);
-    }
-  }, [searchTerm, tokens]);
-
-  const handleTokenAction = async (action: 'activate' | 'deactivate' | 'archive', token: DfnsPersonalAccessToken) => {
-    if (!dfnsService) return;
-
+  const handleTokenAction = async (action: string, tokenId: string) => {
     try {
-      setActionLoading(`${action}-${token.tokenId}`);
-      const tokenService = dfnsService.getPersonalAccessTokenService();
-
-      let updatedToken: DfnsPersonalAccessToken;
+      setLoading(true);
+      
+      const dfnsService = await initializeDfnsService();
+      const tokenService = dfnsService.getPersonalAccessTokenManagementService();
       
       switch (action) {
         case 'activate':
-          updatedToken = await tokenService.activatePersonalAccessToken(token.tokenId);
+          await tokenService.activatePersonalAccessToken(tokenId);
           break;
         case 'deactivate':
-          updatedToken = await tokenService.deactivatePersonalAccessToken(token.tokenId);
+          await tokenService.deactivatePersonalAccessToken(tokenId);
           break;
         case 'archive':
-          updatedToken = await tokenService.archivePersonalAccessToken(token.tokenId);
+          await tokenService.archivePersonalAccessToken(tokenId);
+          break;
+        case 'update':
+          // TODO: Implement update dialog
+          console.log('Update token:', tokenId);
           break;
         default:
-          return;
+          console.log(`${action} token:`, tokenId);
       }
-
-      // Update the tokens list
-      setTokens(prev => prev.map(t => t.tokenId === token.tokenId ? updatedToken : t));
-      setConfirmDialog({ open: false, action: null, token: null });
-    } catch (error) {
-      console.error(`Failed to ${action} token:`, error);
-      setError(`Failed to ${action} token: ${error}`);
+      
+      toast({
+        title: "Success",
+        description: `Token ${action} completed successfully`,
+      });
+      
+      onTokenUpdated();
+    } catch (error: any) {
+      console.error(`Error ${action} token:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action} token: ${error.message}`,
+        variant: "destructive",
+      });
     } finally {
-      setActionLoading(null);
+      setLoading(false);
     }
   };
 
-  const openConfirmDialog = (action: 'activate' | 'deactivate' | 'archive', token: DfnsPersonalAccessToken) => {
-    setConfirmDialog({ open: true, action, token });
-  };
-
-  const getStatusBadgeVariant = (isActive: boolean): "default" | "secondary" => {
-    return isActive ? 'default' : 'secondary';
-  };
-
-  const canPerformAction = (action: 'activate' | 'deactivate' | 'archive', token: DfnsPersonalAccessToken): boolean => {
-    switch (action) {
-      case 'activate':
-        return !token.isActive;
-      case 'deactivate':
-        return token.isActive;
-      case 'archive':
-        return true; // Can always archive
-      default:
-        return false;
+  const toggleTokenVisibility = (tokenId: string) => {
+    const newVisible = new Set(visibleTokens);
+    if (newVisible.has(tokenId)) {
+      newVisible.delete(tokenId);
+    } else {
+      newVisible.add(tokenId);
     }
+    setVisibleTokens(newVisible);
   };
 
-  const getExpiryStatus = (token: DfnsPersonalAccessToken) => {
-    // Personal access tokens don't have expiry info in the current API response
-    return null;
+  const copyTokenValue = (tokenValue: string) => {
+    navigator.clipboard.writeText(tokenValue);
+    toast({
+      title: "Copied",
+      description: "Token value copied to clipboard",
+    });
   };
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Key className="h-5 w-5" />
-            <span>Personal Access Tokens</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Loading tokens...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const getTokenStatus = (token: DfnsPersonalAccessToken) => {
+    if (token.isActive === false) return { status: 'Inactive', variant: 'destructive' as const };
+    if (token.isActive) return { status: 'Active', variant: 'default' as const };
+    return { status: 'Unknown', variant: 'secondary' as const };
+  };
 
-  if (error) {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const maskToken = (token: string) => {
+    if (token.length <= 8) return '••••••••';
+    return token.slice(0, 4) + '••••' + token.slice(-4);
+  };
+
+  if (tokens.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Key className="h-5 w-5" />
-            <span>Personal Access Tokens</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8 text-destructive">
-            <AlertCircle className="h-6 w-6" />
-            <span className="ml-2">{error}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8">
+        <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium">No personal access tokens found</h3>
+        <p className="text-muted-foreground mb-4">
+          Create personal access tokens for API access and integrations
+        </p>
+        <Button 
+          className="gap-2"
+          onClick={() => handleTokenAction('create', '')}
+        >
+          <Plus className="h-4 w-4" />
+          Create Token
+        </Button>
+      </div>
     );
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center space-x-2">
-                <Key className="h-5 w-5" />
-                <span>Personal Access Tokens</span>
-              </CardTitle>
-              <CardDescription>
-                Manage personal access tokens for API authentication ({filteredTokens.length} tokens)
-              </CardDescription>
-            </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Token
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tokens by name or status..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-medium">Personal Access Tokens</h3>
+          <p className="text-sm text-muted-foreground">
+            {tokens.length} token{tokens.length !== 1 ? 's' : ''} for API access
+          </p>
+        </div>
+        <Button 
+          className="gap-2"
+          onClick={() => handleTokenAction('create', '')}
+        >
+          <Plus className="h-4 w-4" />
+          Create Token
+        </Button>
+      </div>
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Token</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>External ID</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Token</TableHead>
+              <TableHead>Value</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Last Used</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tokens.map((token) => {
+              const { status, variant } = getTokenStatus(token);
+              const isVisible = visibleTokens.has(token.tokenId);
+              
+              return (
+                <TableRow key={token.tokenId}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-md bg-purple-100">
+                        <Key className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium">{token.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {token.externalId || 'No external ID'}
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <code className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                        {isVisible ? token.tokenId || 'Hidden' : maskToken(token.tokenId || '')}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleTokenVisibility(token.tokenId)}
+                        className="h-6 w-6 p-0"
+                      >
+                        {isVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                      </Button>
+                      {isVisible && token.tokenId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyTokenValue(token.tokenId)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={variant}>{status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {formatDate(token.dateCreated)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      N/A
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => navigator.clipboard.writeText(token.tokenId)}
+                        >
+                          Copy token ID
+                        </DropdownMenuItem>
+                        {token.tokenId && (
+                          <DropdownMenuItem
+                            onClick={() => copyTokenValue(token.tokenId)}
+                            className="gap-2"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copy token value
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleTokenAction('update', token.tokenId)}
+                          className="gap-2"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit token
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleTokenAction('permissions', token.tokenId)}
+                          className="gap-2"
+                        >
+                          <Shield className="h-4 w-4" />
+                          Manage permissions
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {token.isActive ? (
+                          <DropdownMenuItem
+                            onClick={() => handleTokenAction('deactivate', token.tokenId)}
+                            className="gap-2 text-orange-600"
+                          >
+                            <EyeOff className="h-4 w-4" />
+                            Deactivate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => handleTokenAction('activate', token.tokenId)}
+                            className="gap-2 text-green-600"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Activate
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => handleTokenAction('archive', token.tokenId)}
+                          className="gap-2 text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Archive
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTokens.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? 'No tokens found matching your search.' : 'No personal access tokens found.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTokens.map((token) => {
-                    const expiryStatus = getExpiryStatus(token);
-                    return (
-                      <TableRow key={token.tokenId}>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Key className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <div className="font-medium">{token.name}</div>
-                              <div className="text-sm text-muted-foreground font-mono">
-                                {token.tokenId}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(token.isActive)}>
-                            {token.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {expiryStatus ? (
-                            <div className="flex items-center space-x-2">
-                              <Badge variant={expiryStatus.badge as any}>
-                                {expiryStatus.text}
-                              </Badge>
-                              {expiryStatus.status === 'expiring' && (
-                                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                              )}
-                              {expiryStatus.status === 'expired' && (
-                                <AlertCircle className="h-4 w-4 text-red-500" />
-                              )}
-                            </div>
-                          ) : (
-                            <Badge variant="outline">
-                              <Clock className="h-3 w-3 mr-1" />
-                              No expiry
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {token.externalId ? (
-                            <div className="text-sm">{token.externalId}</div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {new Date(token.dateCreated).toLocaleDateString()}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0"
-                                disabled={!!actionLoading}
-                              >
-                                {actionLoading?.includes(token.tokenId) ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <MoreHorizontal className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Settings className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {canPerformAction('activate', token) && (
-                                <DropdownMenuItem
-                                  onClick={() => openConfirmDialog('activate', token)}
-                                >
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Activate
-                                </DropdownMenuItem>
-                              )}
-                              {canPerformAction('deactivate', token) && (
-                                <DropdownMenuItem
-                                  onClick={() => openConfirmDialog('deactivate', token)}
-                                >
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Deactivate
-                                </DropdownMenuItem>
-                              )}
-                              {canPerformAction('archive', token) && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => openConfirmDialog('archive', token)}
-                                    className="text-destructive"
-                                  >
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    Archive
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Confirmation Dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => 
-        setConfirmDialog({ open, action: null, token: null })
-      }>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Confirm {confirmDialog.action && confirmDialog.action.charAt(0).toUpperCase() + confirmDialog.action.slice(1)} Token
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to {confirmDialog.action} token "{confirmDialog.token?.name}"?
-              {confirmDialog.action === 'archive' && (
-                <span className="block mt-2 text-destructive">
-                  This action cannot be undone and will invalidate the token permanently.
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setConfirmDialog({ open: false, action: null, token: null })}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant={confirmDialog.action === 'archive' ? 'destructive' : 'default'}
-              onClick={() => {
-                if (confirmDialog.action && confirmDialog.token) {
-                  handleTokenAction(confirmDialog.action, confirmDialog.token);
-                }
-              }}
-              disabled={!!actionLoading}
-            >
-              {actionLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              {confirmDialog.action && confirmDialog.action.charAt(0).toUpperCase() + confirmDialog.action.slice(1)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
