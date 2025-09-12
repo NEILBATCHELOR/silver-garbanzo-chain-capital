@@ -23,7 +23,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { useIntegratedClimateValuation } from "../../hooks/useIntegratedClimateValuation";
-import type { IntegratedValuationResult } from "../../services/business-logic/integrated-climate-receivables-valuation-engine";
+import type { IntegratedValuationResult } from '@/services/climateReceivables/simplifiedValuationService';
 
 interface ValuationReconciliationViewProps {
   receivableIds: string[];

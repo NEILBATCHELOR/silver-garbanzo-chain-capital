@@ -8,12 +8,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { EnhancedAutomatedRiskCalculationEngine } from '../services/business-logic/enhanced-automated-risk-calculation-engine';
+import { supabase } from '@/infrastructure/database/client';
+import { EnhancedRiskCalculationEngine } from '@/services/climateReceivables/enhancedRiskCalculationEngine';
 import type { 
-  EnhancedRiskAssessmentResult, 
-  AlertItem
-} from '../services/business-logic/enhanced-types';
-import { RiskLevel } from '../services/business-logic/enhanced-types';
+  ClimateRiskAssessmentResult as EnhancedRiskAssessmentResult, 
+  ClimateAlert as AlertItem,
+  AlertSeverity as RiskLevel
+} from '@/types/domain/climate/receivables';
 
 // Type for what the statistics service actually returns
 type ActualStatisticsResult = {
@@ -71,23 +72,35 @@ export function useEnhancedRiskCalculation({
     try {
       setState(prev => ({ ...prev, calculating: true, error: null }));
       
-      const result = await EnhancedAutomatedRiskCalculationEngine
-        .performRiskCalculation(receivableId, forceRecalculation);
+      const result = await EnhancedRiskCalculationEngine
+        .calculateEnhancedRisk({
+          receivableId,
+          payerId: '', // Will be fetched by the service
+          assetId: '', // Will be fetched by the service
+          amount: 0,
+          dueDate: ''
+        }, forceRecalculation);
+      
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Risk calculation failed');
+      }
+
+      const riskResult = result.data;
       
       setState(prev => ({
         ...prev,
         results: prev.results.map(r => 
-          r.receivableId === receivableId ? result : r
+          r.receivableId === receivableId ? riskResult : r
         ),
         lastUpdate: new Date().toISOString()
       }));
       
       toast({
         title: "Risk Calculation Complete",
-        description: `Risk score: ${result.compositeRisk.score} (${result.compositeRisk.level})`
+        description: `Risk score: ${riskResult.riskScore} (${riskResult.riskTier})`
       });
       
-      return result;
+      return riskResult;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setState(prev => ({ ...prev, error: errorMessage }));
@@ -112,40 +125,50 @@ export function useEnhancedRiskCalculation({
     try {
       setState(prev => ({ ...prev, calculating: true, error: null }));
       
-      const result = receivableIds.length > 0
-        ? await EnhancedAutomatedRiskCalculationEngine
-            .performBatchRiskCalculation(receivableIds, maxConcurrency)
-        : await EnhancedAutomatedRiskCalculationEngine
-            .runScheduledCalculations();
+      // For now, process sequentially since we don't have batch methods
+      const results: EnhancedRiskAssessmentResult[] = [];
+      let successful = 0;
+      let failed = 0;
       
-      // Handle batch calculation result
-      if ('successful' in result && Array.isArray(result.successful) && 'summary' in result) {
-        const allAlerts = result.successful.flatMap(r => r.alerts);
-        setState(prev => ({
-          ...prev,
-          results: result.successful,
-          alerts: allAlerts,
-          lastUpdate: new Date().toISOString()
-        }));
-        
-        toast({
-          title: "Batch Risk Calculation Complete",
-          description: `Processed ${result.summary.successful} receivables. ${allAlerts.length} alerts generated.`
-        });
-      } else if ('processed' in result) {
-        // Handle scheduled calculation result
-        setState(prev => ({ 
-          ...prev, 
-          lastUpdate: new Date().toISOString() 
-        }));
-        
-        toast({
-          title: "Scheduled Calculations Complete",
-          description: `Processed ${result.processed} receivables. ${result.successful} successful, ${result.failed} failed.`
-        });
+      for (const receivableId of receivableIds) {
+        try {
+          const result = await EnhancedRiskCalculationEngine
+            .calculateEnhancedRisk({
+              receivableId,
+              payerId: '',
+              assetId: '',
+              amount: 0,
+              dueDate: ''
+            });
+          
+          if (result.success && result.data) {
+            results.push(result.data);
+            successful++;
+          } else {
+            failed++;
+          }
+        } catch (error) {
+          failed++;
+        }
       }
       
-      return result;
+      setState(prev => ({
+        ...prev,
+        results: [...prev.results, ...results],
+        lastUpdate: new Date().toISOString()
+      }));
+      
+      toast({
+        title: "Batch Risk Calculation Complete",
+        description: `Processed ${receivableIds.length} receivables. ${successful} successful, ${failed} failed.`
+      });
+      
+      return {
+        successful: results,
+        failed: failed,
+        summary: { successful, failed, processed: receivableIds.length }
+      };
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setState(prev => ({ ...prev, error: errorMessage }));
@@ -167,8 +190,39 @@ export function useEnhancedRiskCalculation({
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
       
-      const result = await EnhancedAutomatedRiskCalculationEngine
-        .initializeAutomatedCalculation();
+      // Get all receivables and calculate risk for each
+      const { data: receivables, error } = await supabase
+        .from('climate_receivables')
+        .select('receivable_id')
+        .limit(50); // Process in batches
+
+      if (error) throw error;
+
+      let initialized = 0;
+      let errors = 0;
+
+      if (receivables) {
+        for (const receivable of receivables) {
+          try {
+            const result = await EnhancedRiskCalculationEngine
+              .calculateEnhancedRisk({
+                receivableId: receivable.receivable_id,
+                payerId: '',
+                assetId: '',
+                amount: 0,
+                dueDate: ''
+              });
+
+            if (result.success) {
+              initialized++;
+            } else {
+              errors++;
+            }
+          } catch (err) {
+            errors++;
+          }
+        }
+      }
       
       setState(prev => ({
         ...prev,
@@ -177,10 +231,10 @@ export function useEnhancedRiskCalculation({
       
       toast({
         title: "Risk Calculation Initialized",
-        description: `Processed ${result.initialized} receivables. ${result.errors} errors occurred.`
+        description: `Processed ${initialized} receivables. ${errors} errors occurred.`
       });
         
-      return result;
+      return { initialized, errors };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setState(prev => ({ ...prev, error: errorMessage }));
@@ -200,8 +254,28 @@ export function useEnhancedRiskCalculation({
   // Fetch risk calculation statistics
   const fetchStatistics = useCallback(async (days: number = 30) => {
     try {
-      const statistics = await EnhancedAutomatedRiskCalculationEngine
-        .getRiskCalculationStatistics(days);
+      // Since the engine doesn't have a statistics method, create basic stats from results
+      const statistics: ActualStatisticsResult = {
+        totalCalculations: state.results.length,
+        averageRiskScore: state.results.length > 0 
+          ? state.results.reduce((sum, r) => sum + r.riskScore, 0) / state.results.length 
+          : 0,
+        riskDistribution: {
+          LOW: state.results.filter(r => r.riskScore <= 25).length,
+          MEDIUM: state.results.filter(r => r.riskScore > 25 && r.riskScore <= 50).length,
+          HIGH: state.results.filter(r => r.riskScore > 50 && r.riskScore <= 75).length,
+          CRITICAL: state.results.filter(r => r.riskScore > 75).length,
+        },
+        trends: {
+          dailyCalculations: [],
+          riskLevelTrends: {
+            LOW: [],
+            MEDIUM: [],
+            HIGH: [],
+            CRITICAL: []
+          }
+        }
+      };
       
       setState(prev => ({
         ...prev,
@@ -214,7 +288,7 @@ export function useEnhancedRiskCalculation({
       console.error('Failed to fetch risk statistics:', error);
       return null;
     }
-  }, []);
+  }, [state.results]);
 
   // Get risk level distribution
   const getRiskDistribution = useCallback(() => {
@@ -226,7 +300,26 @@ export function useEnhancedRiskCalculation({
     };
     
     state.results.forEach(result => {
-      const level = result.compositeRisk.level as RiskLevel;
+      // Map riskTier to RiskLevel (AlertSeverity)
+      let level: RiskLevel;
+      switch (result.riskTier) {
+        case 'Prime':
+        case 'Investment Grade':
+          level = 'LOW';
+          break;
+        case 'Speculative':
+          level = 'MEDIUM';
+          break;
+        case 'High Risk':
+          level = 'HIGH';
+          break;
+        case 'Default Risk':
+          level = 'CRITICAL';
+          break;
+        default:
+          level = 'MEDIUM';
+      }
+      
       if (level in distribution) {
         distribution[level]++;
       }
@@ -238,14 +331,14 @@ export function useEnhancedRiskCalculation({
   // Get high-priority alerts
   const getHighPriorityAlerts = useCallback(() => {
     return state.alerts.filter(alert => 
-      alert.level === 'critical' || alert.level === 'warning'
+      alert.severity === 'CRITICAL' || alert.severity === 'HIGH'
     );
   }, [state.alerts]);
 
   // Get recent risk changes
   const getRecentRiskChanges = useCallback(() => {
     return state.results
-      .filter(result => result.alerts && result.alerts.length > 0)
+      .filter(result => result.riskScore > 60) // High risk threshold
       .sort((a, b) => new Date(b.calculatedAt).getTime() - new Date(a.calculatedAt).getTime())
       .slice(0, 10);
   }, [state.results]);
@@ -310,10 +403,10 @@ export function useEnhancedRiskCalculation({
     // Helper values
     totalReceivables: state.results.length,
     averageRiskScore: state.results.length > 0 
-      ? state.results.reduce((sum, r) => sum + r.compositeRisk.score, 0) / state.results.length 
+      ? state.results.reduce((sum, r) => sum + r.riskScore, 0) / state.results.length 
       : 0,
     highRiskCount: state.results.filter(r => 
-      r.compositeRisk.level === RiskLevel.HIGH || r.compositeRisk.level === RiskLevel.CRITICAL
+      r.riskScore > 60 // Using risk score > 60 as high risk threshold
     ).length
   };
 }
@@ -334,10 +427,20 @@ export function useReceivableRiskMonitor(receivableId: string) {
       setLoading(true);
       setError(null);
       
-      const result = await EnhancedAutomatedRiskCalculationEngine
-        .performRiskCalculation(receivableId, forceRecalculation);
+      const result = await EnhancedRiskCalculationEngine
+        .calculateEnhancedRisk({
+          receivableId,
+          payerId: '',
+          assetId: '',
+          amount: 0,
+          dueDate: ''
+        }, forceRecalculation);
       
-      setRiskResult(result);
+      if (result.success && result.data) {
+        setRiskResult(result.data);
+      } else {
+        throw new Error(result.error || 'Risk calculation failed');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
@@ -363,9 +466,9 @@ export function useReceivableRiskMonitor(receivableId: string) {
     loading,
     error,
     refreshRisk,
-    hasHighRisk: riskResult?.compositeRisk.level === RiskLevel.HIGH || riskResult?.compositeRisk.level === RiskLevel.CRITICAL,
-    riskScore: riskResult?.compositeRisk.score || 0,
-    discountRate: riskResult?.discountRate.calculated || 0,
-    confidence: riskResult?.compositeRisk.confidence || 0
+    hasHighRisk: riskResult?.riskScore ? riskResult.riskScore > 60 : false,
+    riskScore: riskResult?.riskScore || 0,
+    discountRate: riskResult?.discountRate || 0,
+    confidence: riskResult?.confidenceLevel || 0
   };
 }

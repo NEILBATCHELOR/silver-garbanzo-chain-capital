@@ -49,6 +49,7 @@ export {
 // Type exports for external use
 export type {
   EnhancedRiskAssessmentResult,
-  RiskLevel,
+  ClimateRiskLevel,
+  AlertSeverity,
   AlertItem
-} from '../services/business-logic/enhanced-types';
+} from '@/types/domain/climate/receivables';

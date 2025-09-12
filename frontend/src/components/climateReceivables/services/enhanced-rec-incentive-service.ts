@@ -1,6 +1,6 @@
 import { recsService } from './recsService';
 import { incentivesService } from './incentivesService';
-import { RECIncentiveOrchestrator } from './business-logic/rec-incentive-orchestrator';
+import { RECIncentiveOrchestrator } from '@/services/climateReceivables/rec-incentive-orchestrator';
 import { 
   RenewableEnergyCredit, 
   InsertRenewableEnergyCredit, 

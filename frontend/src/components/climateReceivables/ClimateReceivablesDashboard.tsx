@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/infrastructure/database/client";
 import { toast } from "@/components/ui/use-toast";
-import { 
-  ClimateReceivable, 
-  EnergyAsset, 
-  ClimateTokenizationPool, 
-  ClimateIncentive, 
-  CarbonOffset, 
-  RenewableEnergyCredit 
-} from "./types";
 
 interface ClimateReceivablesDashboardProps {
   projectId: string;
@@ -27,7 +18,6 @@ const ClimateReceivablesDashboard: React.FC<ClimateReceivablesDashboardProps> = 
   console.log("ProjectID:", projectId);
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     receivableCount: 0,
@@ -252,173 +242,7 @@ const ClimateReceivablesDashboard: React.FC<ClimateReceivablesDashboardProps> = 
         </Card>
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground mb-4">
-          <TabsTrigger value="overview" className="px-3 py-1.5">Overview</TabsTrigger>
-          <TabsTrigger value="receivables" className="px-3 py-1.5">Receivables</TabsTrigger>
-          <TabsTrigger value="assets" className="px-3 py-1.5">Energy Assets</TabsTrigger>
-          <TabsTrigger value="pools" className="px-3 py-1.5">Tokenization Pools</TabsTrigger>
-          <TabsTrigger value="incentives" className="px-3 py-1.5">Incentives</TabsTrigger>
-          <TabsTrigger value="carbonOffsets" className="px-3 py-1.5">Carbon Offsets</TabsTrigger>
-          <TabsTrigger value="recs" className="px-3 py-1.5">RECs</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Overview</CardTitle>
-              <CardDescription>
-                Summary of climate receivables, energy assets, and financial incentives
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>The Climate Receivables module enables management of renewable energy receivables, carbon offsets, and renewable energy credits (RECs). Use this dashboard to track receivables, energy assets, and various financial incentives.</p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-                  <div className="text-sm font-medium text-muted-foreground">Tokenization Pools</div>
-                  <div className="text-xl font-bold">{stats.poolCount}</div>
-                </div>
-                
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-                  <div className="text-sm font-medium text-muted-foreground">Tokenized Value</div>
-                  <div className="text-xl font-bold">${stats.totalTokenizedValue.toLocaleString()}</div>
-                </div>
-                
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-                  <div className="text-sm font-medium text-muted-foreground">Carbon Offsets</div>
-                  <div className="text-xl font-bold">{stats.carbonOffsetCount}</div>
-                </div>
-                
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-                  <div className="text-sm font-medium text-muted-foreground">RECs</div>
-                  <div className="text-xl font-bold">{stats.recCount}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="receivables">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Receivables</CardTitle>
-                <CardDescription>Manage renewable energy receivables</CardDescription>
-              </div>
-              <Button 
-                onClick={() => navigate(getProjectUrl("/receivables"))}
-                variant="outline"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <p>Receivable management section coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="assets">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Energy Assets</CardTitle>
-                <CardDescription>Manage renewable energy assets</CardDescription>
-              </div>
-              <Button 
-                onClick={() => navigate(getProjectUrl("/assets"))}
-                variant="outline"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <p>Energy asset management section coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="pools">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Tokenization Pools</CardTitle>
-                <CardDescription>Manage pools of receivables</CardDescription>
-              </div>
-              <Button 
-                onClick={() => navigate(getProjectUrl("/pools"))}
-                variant="outline"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <p>Pool management section coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="incentives">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Financial Incentives</CardTitle>
-                <CardDescription>Manage tax credits, grants, and subsidies</CardDescription>
-              </div>
-              <Button 
-                onClick={() => navigate(getProjectUrl("/incentives"))}
-                variant="outline"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <p>Incentive management section coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="carbonOffsets">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Carbon Offsets</CardTitle>
-                <CardDescription>Manage carbon credit projects</CardDescription>
-              </div>
-              <Button 
-                onClick={() => navigate(getProjectUrl("/carbon-offsets"))}
-                variant="outline"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <p>Carbon offset management section coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="recs">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Renewable Energy Credits (RECs)</CardTitle>
-                <CardDescription>Manage renewable energy certificates</CardDescription>
-              </div>
-              <Button 
-                onClick={() => navigate(getProjectUrl("/recs"))}
-                variant="outline"
-              >
-                View All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <p>REC management section coming soon...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Tabs and tab content have been removed per user request */}
     </div>
   );
 };

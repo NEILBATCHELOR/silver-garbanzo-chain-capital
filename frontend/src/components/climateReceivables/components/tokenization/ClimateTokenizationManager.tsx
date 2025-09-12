@@ -21,6 +21,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { debounce, throttle, memoize, processInChunks } from "../../utils/performance";
 import { walletManager } from "@/services/wallet/WalletManager";
 import { ClimateTokenizationPool, ClimateReceivable, RiskLevel, ClimateToken } from "../../types";
+import type { ClimateRiskLevel } from "@/types/domain/climate/receivables";
 
 interface ClimateTokenizationManagerProps {
   projectId: string;

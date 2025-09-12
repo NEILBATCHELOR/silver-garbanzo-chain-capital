@@ -7,3 +7,4 @@ export * from './wallet/transactionTypes';
 export * from './transaction';
 export * from './notification';
 export * from './compliance';
+export * from './climate';

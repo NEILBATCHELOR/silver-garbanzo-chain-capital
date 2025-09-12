@@ -1,5 +1,5 @@
 import { supabase } from '@/infrastructure/database/client';
-import { AutomatedRiskCalculationEngine } from './business-logic/automated-risk-calculation-engine';
+import { EnhancedRiskCalculationEngine } from '@/services/climateReceivables/enhancedRiskCalculationEngine';
 import { 
   ClimateReceivable, 
   InsertClimateReceivable, 
@@ -315,10 +315,13 @@ export const climateReceivablesService = {
     // This runs asynchronously without blocking the creation response
     setTimeout(async () => {
       try {
-        await AutomatedRiskCalculationEngine.performAutomatedRiskCalculation(
-          createdReceivable.receivableId,
-          false // Don't force recalculation for new receivables
-        );
+        await EnhancedRiskCalculationEngine.calculateEnhancedRisk({
+          receivableId: createdReceivable.receivableId,
+          payerId: createdReceivable.payerId,
+          assetId: createdReceivable.assetId,
+          amount: createdReceivable.amount,
+          dueDate: createdReceivable.dueDate
+        }, false); // Don't force recalculation for new receivables
         console.log(`Advanced risk calculation completed for new receivable: ${createdReceivable.receivableId}`);
       } catch (error) {
         console.warn(`Background risk calculation failed for receivable ${createdReceivable.receivableId}:`, error);

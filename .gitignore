@@ -154,3 +154,8 @@ patches/.tmp/
 
 # CI/CD specific
 .github/workflows/.tmp/
+
+# Testing scripts and specifics
+scripts/
+test-data/
+fix/

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/infrastructure/database/client";
 import { ClimateReceivable, ClimateRiskFactor, RiskLevel } from "../../types";
+import type { ClimateRiskLevel } from "@/types/domain/climate/receivables";
 
 interface RiskAssessmentDashboardProps {
   // Remove projectId as it doesn't exist in our schema
@@ -51,14 +52,14 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
   const [riskFactors, setRiskFactors] = useState<ClimateRiskFactor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [riskProfileFilter, setRiskProfileFilter] = useState<RiskLevel | "">("");
+  const [riskProfileFilter, setRiskProfileFilter] = useState<ClimateRiskLevel | "">("");
 
   // Color constants
   const COLORS = ["#4CAF50", "#FFC107", "#F44336", "#9C27B0"];
   const RISK_COLORS = {
-    [RiskLevel.LOW]: "#4CAF50",
-    [RiskLevel.MEDIUM]: "#FFC107",
-    [RiskLevel.HIGH]: "#F44336"
+    "LOW": "#4CAF50",
+    "MEDIUM": "#FFC107",
+    "HIGH": "#F44336"
   };
 
   // Fetch data on component mount
@@ -124,10 +125,10 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
   /**
    * Get risk level based on risk score
    */
-  const getRiskLevel = (riskScore: number): RiskLevel => {
-    if (riskScore <= 30) return RiskLevel.LOW;
-    if (riskScore <= 70) return RiskLevel.MEDIUM;
-    return RiskLevel.HIGH;
+  const getRiskLevel = (riskScore: number): ClimateRiskLevel => {
+    if (riskScore <= 30) return "LOW";
+    if (riskScore <= 70) return "MEDIUM";
+    return "HIGH";
   };
 
   /**
@@ -135,9 +136,9 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
    */
   const getRiskDistributionData = () => {
     const distribution = {
-      [RiskLevel.LOW]: 0,
-      [RiskLevel.MEDIUM]: 0,
-      [RiskLevel.HIGH]: 0
+      "LOW": 0,
+      "MEDIUM": 0,
+      "HIGH": 0
     };
 
     receivables.forEach(receivable => {
@@ -158,9 +159,9 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
    */
   const getRiskValueData = () => {
     const distribution = {
-      [RiskLevel.LOW]: 0,
-      [RiskLevel.MEDIUM]: 0,
-      [RiskLevel.HIGH]: 0
+      "LOW": 0,
+      "MEDIUM": 0,
+      "HIGH": 0
     };
 
     receivables.forEach(receivable => {
@@ -639,7 +640,7 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                     />
                     <Tooltip content={<CustomScatterTooltip />} />
                     <Legend />
-                    {[RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH].map(
+                    {["LOW", "MEDIUM", "HIGH"].map(
                       (riskLevel) => (
                         <Scatter
                           key={riskLevel}

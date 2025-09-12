@@ -11,8 +11,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/infrastructure/database/client';
-import { IntegratedClimateReceivablesValuationEngine } from '../services/business-logic/integrated-climate-receivables-valuation-engine';
-import type { IntegratedValuationResult, PortfolioValuationSummary } from '../services/business-logic/integrated-climate-receivables-valuation-engine';
+import { simplifiedValuationService, IntegratedClimateReceivablesValuationEngine } from '@/services/climateReceivables/simplifiedValuationService';
+import type { IntegratedValuationResult, PortfolioValuationSummary } from '@/services/climateReceivables/simplifiedValuationService';
 import { ClimateNAVResult } from '../types/climate-nav-types';
 
 interface ValuationMetrics {
@@ -168,12 +168,16 @@ export function useIntegratedClimateValuation({
         
         try {
           // Perform integrated valuation with progress tracking
-          const result = await IntegratedClimateReceivablesValuationEngine
-            .performIntegratedValuation(receivableId, includeStressTesting);
+          const result = await simplifiedValuationService
+            .performSimplifiedValuation(receivableId);
           
-          valuationResults.push(result);
-          
-          console.log(`✅ Completed valuation for ${receivableId}: $${result.valuationComparison.recommendedValue.toLocaleString()}`);
+          if (result.success && result.data) {
+            valuationResults.push(result.data);
+            
+            console.log(`✅ Completed valuation for ${receivableId}: $${result.data.recommendedValue?.toLocaleString() || 'N/A'}`);
+          } else {
+            throw new Error(result.error || 'Valuation failed');
+          }
           
         } catch (error) {
           console.error(`❌ Failed to value receivable ${receivableId}:`, error);

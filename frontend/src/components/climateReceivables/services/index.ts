@@ -13,11 +13,12 @@ import { WeatherDataService, CarbonMarketPriceService } from './api';
 import { ClimateIncentivesService } from './climateIncentivesService';
 
 // REC-Incentive Synchronization Services
-import { RECIncentiveOrchestrator } from './business-logic/rec-incentive-orchestrator';
+import { RECIncentiveOrchestrator } from '@/services/climateReceivables/rec-incentive-orchestrator';
 import { enhancedRECService, enhancedIncentiveService } from './enhanced-rec-incentive-service';
 
 // Enhanced Business Logic Services (using consolidated climate NAV types)
-export * from './business-logic';
+// Export all services from the migrated climateReceivables services directory
+export * from '@/services/climateReceivables';
 
 export {
   productionDataService,

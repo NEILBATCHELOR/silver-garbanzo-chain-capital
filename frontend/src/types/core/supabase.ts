@@ -1584,6 +1584,45 @@ export type Database = {
           },
         ]
       }
+      climate_reports: {
+        Row: {
+          created_at: string | null
+          download_count: number | null
+          expires_at: string | null
+          file_path: string
+          file_size: number | null
+          generated_by: string | null
+          parameters: Json
+          report_id: string
+          report_type: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          download_count?: number | null
+          expires_at?: string | null
+          file_path: string
+          file_size?: number | null
+          generated_by?: string | null
+          parameters: Json
+          report_id?: string
+          report_type: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          download_count?: number | null
+          expires_at?: string | null
+          file_path?: string
+          file_size?: number | null
+          generated_by?: string | null
+          parameters?: Json
+          report_id?: string
+          report_type?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       climate_risk_calculations: {
         Row: {
           alerts: Json
@@ -21277,6 +21316,23 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      calculate_batch_climate_risk: {
+        Args: { p_calculation_metadata?: Json; p_receivable_ids: string[] }
+        Returns: {
+          discount_rate: number
+          error_message: string
+          receivable_id: string
+          risk_score: number
+          status: string
+        }[]
+      }
+      calculate_portfolio_climate_valuation: {
+        Args: { p_calculation_mode?: string; p_receivable_ids: string[] }
+        Returns: {
+          individual_valuations: Json[]
+          portfolio_summary: Json
+        }[]
+      }
       calculate_project_weighted_nav: {
         Args: { p_date: string; p_project_id: string }
         Returns: number
@@ -21337,6 +21393,10 @@ export type Database = {
       cleanup_orphaned_policy_approvers: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      climate_receivables_health_check: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       column_exists: {
         Args: {
@@ -21729,6 +21789,10 @@ export type Database = {
           p_status?: string
         }
         Returns: boolean
+      }
+      update_climate_cash_flow_projections: {
+        Args: { p_projections: Json }
+        Returns: Json
       }
       update_redemption_window_statistics: {
         Args: { window_uuid: string }

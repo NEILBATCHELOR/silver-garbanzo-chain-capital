@@ -35,7 +35,7 @@ import { Slider } from '@/components/ui/slider';
 import { climateReceivablesService, energyAssetsService, climatePayersService } from '../../../services';
 import { EnergyAsset, ClimatePayer, EnergyAssetType } from '../../../types';
 import { RiskAssessmentService } from '../../../utils/risk-assessment-service';
-import { AutomatedRiskCalculationEngine } from '../../../services/business-logic/automated-risk-calculation-engine';
+import { EnhancedRiskCalculationEngine } from '@/services/climateReceivables/enhancedRiskCalculationEngine';
 import { PayerFormDialog } from '../climate-payers';
 import AutoRiskAssessmentCard from '../../risk-assessment/AutoRiskAssessmentCard';
 import { RiskAssessmentResult } from '@/services/climateReceivables/payerRiskAssessmentService';
@@ -247,32 +247,38 @@ const ClimateReceivableForm: React.FC<ClimateReceivableFormProps> = ({ isEditing
 
     setAdvancedCalculationLoading(true);
     try {
-      const result = await AutomatedRiskCalculationEngine.performAutomatedRiskCalculation(id, true);
+      const result = await EnhancedRiskCalculationEngine.calculateEnhancedRisk({
+        receivableId: id,
+        payerId: form.getValues('payerId'),
+        assetId: form.getValues('assetId'),
+        amount: form.getValues('amount'),
+        dueDate: form.getValues('dueDate')
+      }, true);
       
       // Update form with calculated values
-      form.setValue('riskScore', result.compositeRisk.score);
-      form.setValue('discountRate', result.discountRate.calculated);
+      if (result.success && result.data) {
+        form.setValue('riskScore', result.data.riskScore);
+        form.setValue('discountRate', result.data.discountRate);
 
-      toast({
-        title: "Advanced Risk Calculation Complete",
-        description: `Risk score: ${result.compositeRisk.score}%, Discount rate: ${(result.discountRate.calculated * 100).toFixed(2)}%`
-      });
+        toast({
+          title: "Advanced Risk Calculation Complete",
+          description: `Risk score: ${result.data.riskScore}%, Discount rate: ${result.data.discountRate.toFixed(2)}%`
+        });
 
-      // Show recommendations if any
-      if (result.recommendations.length > 0) {
-        console.log('Risk Management Recommendations:', result.recommendations);
+        // Show methodology info
+        console.log('Risk Assessment Methodology:', result.data.methodology);
+        console.log('Factors Considered:', result.data.factorsConsidered);
+      } else {
+        throw new Error(result.error || 'Risk calculation failed');
       }
 
-      // Show alerts if any
-      if (result.alerts.length > 0) {
-        const criticalAlerts = result.alerts.filter(alert => alert.level === 'critical');
-        if (criticalAlerts.length > 0) {
-          toast({
-            title: "Critical Risk Alert",
-            description: criticalAlerts[0].message,
-            variant: "destructive"
-          });
-        }
+      // Show risk level warnings if needed
+      if (result.data && result.data.riskScore > 80) {
+        toast({
+          title: "Critical Risk Alert",
+          description: `High risk detected (${result.data.riskScore}%). Review recommended.`,
+          variant: "destructive"
+        });
       }
 
     } catch (error) {

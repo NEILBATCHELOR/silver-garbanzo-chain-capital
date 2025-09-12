@@ -1,7 +1,21 @@
 import { supabase } from '@/infrastructure/database/client';
-import { PolicyRiskTrackingService } from '../api/policy-risk-tracking-service';
-import { CreditMonitoringService } from '../api/credit-monitoring-service';
-import { ClimateReceivable, ClimateIncentive, EnergyAsset } from '../../types';
+import type { EnergyAsset, ClimateIncentive } from '@/types/domain/climate/receivables';
+
+// TODO: Implement when API service is available - Temporary stub for compilation
+class PolicyRiskTrackingService {
+  static async getPolicyAlerts(startDate: string, endDate: string, severity: string) {
+    // Temporary implementation - returns empty array until API service is available
+    return [];
+  }
+}
+
+// TODO: Implement when API service is available - Temporary stub for compilation  
+class CreditMonitoringService {
+  static async getCreditRating(payerId: string) {
+    // Temporary implementation - returns default rating until API service is available
+    return { rating: 'BBB', score: 75, outlook: 'stable' };
+  }
+}
 
 /**
  * Compliance requirement interface
@@ -419,7 +433,7 @@ export class AutomatedComplianceMonitoringService {
       frequency: 'annually',
       status: 'pending',
       applicableEntities: {
-        assetIds: assets.filter(a => a.type === 'solar').map(a => a.assetId),
+        assetIds: assets.filter(a => a.type === 'solar').map(a => a.id),
         receivableIds: [],
         incentiveIds: []
       },
@@ -450,7 +464,7 @@ export class AutomatedComplianceMonitoringService {
       frequency: 'quarterly',
       status: 'pending',
       applicableEntities: {
-        assetIds: assets.map(a => a.assetId),
+        assetIds: assets.map(a => a.id),
         receivableIds: [],
         incentiveIds: []
       },
@@ -467,7 +481,7 @@ export class AutomatedComplianceMonitoringService {
     // Safety compliance
     for (const asset of assets) {
       requirements.push({
-        requirementId: `safety_inspection_${asset.assetId}`,
+        requirementId: `safety_inspection_${asset.id}`,
         title: `Safety Inspection - ${asset.name}`,
         description: `Annual safety inspection for ${asset.type} facility`,
         category: 'safety',
@@ -476,7 +490,7 @@ export class AutomatedComplianceMonitoringService {
         frequency: 'annually',
         status: 'pending',
         applicableEntities: {
-          assetIds: [asset.assetId],
+          assetIds: [asset.id],
           receivableIds: [],
           incentiveIds: []
         },

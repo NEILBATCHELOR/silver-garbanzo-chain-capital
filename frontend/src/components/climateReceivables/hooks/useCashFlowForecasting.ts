@@ -11,7 +11,7 @@ import { supabase } from '@/infrastructure/database/client';
 import type { 
   ClimateCashFlowProjectionTable,
   ClimateCashFlowProjectionInsert 
-} from '../services/business-logic/enhanced-types';
+} from '@/types/domain/climate/receivables';
 
 interface CashFlowProjection {
   id: string;
