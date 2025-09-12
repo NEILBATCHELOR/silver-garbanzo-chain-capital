@@ -47,13 +47,14 @@ export interface EnhancedEnergyAsset extends EnergyAssetTable {
 }
 
 /**
- * Risk Level Enum aligned with database
+ * Risk Level Enum aligned with database constraint
+ * Database constraint supports: 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
  */
 export enum RiskLevel {
-  LOW = 'low',
-  MEDIUM = 'medium', 
-  HIGH = 'high',
-  CRITICAL = 'critical'
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM', 
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL'
 }
 
 /**
@@ -315,7 +316,6 @@ export interface RiskCalculationStatistics {
     low: number;
     medium: number;
     high: number;
-    critical: number;
   };
   lastCalculationTime: string;
   calculationFrequency: number;

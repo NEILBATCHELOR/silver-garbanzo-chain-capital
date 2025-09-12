@@ -5,7 +5,7 @@
  * Provides comprehensive financial projections, scenario analysis, and forecast monitoring.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/infrastructure/database/client';
 import type { 
@@ -68,6 +68,9 @@ export function useCashFlowForecasting({
 }: UseCashFlowForecastingProps = {}) {
   const { toast } = useToast();
   
+  // Memoize receivableIds to prevent infinite loops
+  const memoizedReceivableIds = useMemo(() => receivableIds, [JSON.stringify(receivableIds)]);
+  
   const [state, setState] = useState<CashFlowState>({
     projections: [],
     forecasts: [],
@@ -77,56 +80,76 @@ export function useCashFlowForecasting({
     lastUpdate: null
   });
 
-  // Fetch existing cash flow projections
+  // Fetch existing cash flow projections with retry logic
   const fetchProjections = useCallback(async () => {
-    try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      let query = supabase
-        .from('climate_cash_flow_projections')
-        .select('*')
-        .order('projection_date', { ascending: true });
-      
-      if (receivableIds.length > 0) {
-        query = query.in('receivable_id', receivableIds);
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        setState(prev => ({ ...prev, loading: true, error: null }));
+        
+        // Add small delay for subsequent retries
+        if (retryCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+        
+        let query = supabase
+          .from('climate_cash_flow_projections')
+          .select('*')
+          .order('projection_date', { ascending: true });
+        
+        if (memoizedReceivableIds.length > 0) {
+          query = query.in('receivable_id', memoizedReceivableIds);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        const projections: CashFlowProjection[] = (data || []).map(item => ({
+          id: item.id,
+          receivableId: item.receivable_id,
+          projectionDate: item.projection_date,
+          projectedAmount: item.projected_amount,
+          confidenceLevel: item.confidence_level || 0.8,
+          scenarioType: (item.scenario_type as any) || 'base',
+          factors: Array.isArray(item.risk_factors) ? item.risk_factors : [],
+          createdAt: item.created_at || new Date().toISOString()
+        }));
+        
+        setState(prev => ({
+          ...prev,
+          projections,
+          lastUpdate: new Date().toISOString()
+        }));
+        
+        return projections;
+      } catch (error) {
+        retryCount++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        if (retryCount >= maxRetries) {
+          setState(prev => ({ ...prev, error: errorMessage }));
+          console.error('Failed to fetch cash flow projections:', error);
+          return [];
+        }
+        
+        // Log retry attempt
+        console.warn(`Retry attempt ${retryCount}/${maxRetries} for cash flow projections:`, errorMessage);
+      } finally {
+        if (retryCount >= maxRetries || retryCount === 0) {
+          setState(prev => ({ ...prev, loading: false }));
+        }
       }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      const projections: CashFlowProjection[] = (data || []).map(item => ({
-        id: item.id,
-        receivableId: item.receivable_id,
-        projectionDate: item.projection_date,
-        projectedAmount: item.projected_amount,
-        confidenceLevel: item.confidence_level || 0.8,
-        scenarioType: (item.scenario_type as any) || 'base',
-        factors: Array.isArray(item.risk_factors) ? item.risk_factors : [],
-        createdAt: item.created_at || new Date().toISOString()
-      }));
-      
-      setState(prev => ({
-        ...prev,
-        projections,
-        lastUpdate: new Date().toISOString()
-      }));
-      
-      return projections;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setState(prev => ({ ...prev, error: errorMessage }));
-      
-      console.error('Failed to fetch cash flow projections:', error);
-      return [];
-    } finally {
-      setState(prev => ({ ...prev, loading: false }));
     }
-  }, [receivableIds]);
+    
+    return [];
+  }, [memoizedReceivableIds]);
 
   // Generate cash flow forecast for specific receivables
   const generateForecast = useCallback(async (
-    targetReceivableIds: string[] = receivableIds,
+    targetReceivableIds: string[] = memoizedReceivableIds,
     periods: number = forecastPeriod
   ) => {
     try {
@@ -264,7 +287,7 @@ export function useCashFlowForecasting({
     } finally {
       setState(prev => ({ ...prev, calculating: false }));
     }
-  }, [receivableIds, forecastPeriod, fetchProjections, toast]);
+  }, [memoizedReceivableIds, forecastPeriod, fetchProjections, toast]);
 
   // Get aggregated portfolio forecast
   const getPortfolioForecast = useCallback(() => {

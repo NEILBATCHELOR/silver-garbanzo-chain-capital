@@ -176,13 +176,23 @@ export class WorkingDfnsClient {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error(`❌ DFNS API Error:`, {
-          status: response.status,
-          statusText: response.statusText,
-          url,
-          error: errorData,
-          authMethod: this.getAuthMethod()
-        });
+        
+        // Don't log 401 errors for /auth/credentials when using service accounts - this is expected
+        const isCredentialsEndpoint = endpoint.includes('/auth/credentials');
+        const isServiceAccount = this.getAuthMethod().startsWith('SERVICE_ACCOUNT');
+        const is401Error = response.status === 401;
+        
+        const shouldSuppressError = isCredentialsEndpoint && isServiceAccount && is401Error;
+        
+        if (!shouldSuppressError) {
+          console.error(`❌ DFNS API Error:`, {
+            status: response.status,
+            statusText: response.statusText,
+            url,
+            error: errorData,
+            authMethod: this.getAuthMethod()
+          });
+        }
         
         // Provide specific error messages for common issues
         let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
@@ -191,10 +201,14 @@ export class WorkingDfnsClient {
         if (response.status === 401) {
           switch (authMethod) {
             case 'SERVICE_ACCOUNT_TOKEN':
-              errorMessage = `Authentication failed: Invalid or expired Service Account token. Please check VITE_DFNS_SERVICE_ACCOUNT_TOKEN.`;
+              errorMessage = shouldSuppressError 
+                ? `Service account lacks permission to access ${endpoint} - this is normal`
+                : `Authentication failed: Invalid or expired Service Account token. Please check VITE_DFNS_SERVICE_ACCOUNT_TOKEN.`;
               break;
             case 'SERVICE_ACCOUNT_KEY':
-              errorMessage = `Authentication failed: Invalid Service Account key-based authentication. Please check credentials.`;
+              errorMessage = shouldSuppressError
+                ? `Service account lacks permission to access ${endpoint} - this is normal`
+                : `Authentication failed: Invalid Service Account key-based authentication. Please check credentials.`;
               break;
             case 'PAT':
               errorMessage = `Authentication failed: Invalid or expired PAT token. Please check VITE_DFNS_PERSONAL_ACCESS_TOKEN.`;
@@ -392,11 +406,19 @@ export class WorkingDfnsClient {
       let credentialError = null;
       
       // Try to get credentials (service accounts may not have access)
+      // Note: Many service accounts don't have /auth/credentials access - this is normal
       try {
         credentials = await this.listCredentials();
       } catch (error) {
         credentialError = error;
-        console.log(`⚠️ Credentials access not available (${this.getAuthMethod()}):`, error instanceof Error ? error.message : error);
+        const errorMessage = error instanceof Error ? error.message : error;
+        
+        // Don't log 401 errors for credentials as warnings - service accounts often lack this permission
+        if (errorMessage.includes('401') || errorMessage.includes('Authentication failed')) {
+          console.log(`ℹ️ Credentials access not available for ${this.getAuthMethod()} - this is normal for service accounts`);
+        } else {
+          console.log(`⚠️ Credentials access failed (${this.getAuthMethod()}):`, errorMessage);
+        }
       }
       
       const wallets = await this.listWallets();

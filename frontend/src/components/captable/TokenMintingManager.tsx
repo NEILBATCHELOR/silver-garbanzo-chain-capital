@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -165,51 +165,52 @@ const TokenMintingManager = ({
     }
   }, [projectId]);
 
+  // Recalculate status for all token summaries to ensure it's up to date
+  const updateTokenStatus = useCallback(() => {
+    setTokenSummaries(currentSummaries => {
+      const updatedSummaries = currentSummaries.map((summary) => {
+        const isPartiallyMinted =
+          summary.mintedAmount > 0 && summary.remainingToMint > 0;
+        let status = "pending";
+
+        if (summary.confirmedAmount === 0) {
+          status = "pending";
+        } else if (isPartiallyMinted) {
+          status = "partially_minted";
+        } else if (summary.mintedAmount > 0 && summary.remainingToMint <= 0) {
+          status = "minted";
+        } else if (summary.confirmedAmount > 0) {
+          status = "ready_to_mint";
+        }
+
+        if (summary.status !== status || 
+            summary.readyToMint !== (summary.confirmedAmount > summary.mintedAmount) ||
+            summary.isMinted !== (summary.mintedAmount > 0) ||
+            summary.isPartiallyMinted !== isPartiallyMinted) {
+          return {
+            ...summary,
+            status,
+            readyToMint: summary.confirmedAmount > summary.mintedAmount,
+            isMinted: summary.mintedAmount > 0,
+            isPartiallyMinted,
+          };
+        }
+        
+        return summary;
+      });
+      
+      // Only return new array if there are actual changes
+      const hasChanges = updatedSummaries.some((updated, index) => updated !== currentSummaries[index]);
+      return hasChanges ? updatedSummaries : currentSummaries;
+    });
+  }, []);
+
   // Update token status whenever token summaries change
   useEffect(() => {
     if (tokenSummaries.length > 0) {
       updateTokenStatus();
     }
-  }, []); // Using empty dependency array to run only once on mount to avoid infinite loop
-
-  // Recalculate status for all token summaries to ensure it's up to date
-  const updateTokenStatus = () => {
-    const updatedSummaries = tokenSummaries.map((summary) => {
-      const isPartiallyMinted =
-        summary.mintedAmount > 0 && summary.remainingToMint > 0;
-      let status = "pending";
-
-      if (summary.confirmedAmount === 0) {
-        status = "pending";
-      } else if (isPartiallyMinted) {
-        status = "partially_minted";
-      } else if (summary.mintedAmount > 0 && summary.remainingToMint <= 0) {
-        status = "minted";
-      } else if (summary.confirmedAmount > 0) {
-        status = "ready_to_mint";
-      }
-
-      if (summary.status !== status || 
-          summary.readyToMint !== (summary.confirmedAmount > summary.mintedAmount) ||
-          summary.isMinted !== (summary.mintedAmount > 0) ||
-          summary.isPartiallyMinted !== isPartiallyMinted) {
-        return {
-          ...summary,
-          status,
-          readyToMint: summary.confirmedAmount > summary.mintedAmount,
-          isMinted: summary.mintedAmount > 0,
-          isPartiallyMinted,
-        };
-      }
-      
-      return summary;
-    });
-    
-    const hasChanges = updatedSummaries.some((updated, index) => updated !== tokenSummaries[index]);
-    if (hasChanges) {
-      setTokenSummaries(updatedSummaries);
-    }
-  };
+  }, [tokenSummaries, updateTokenStatus]);
 
   const fetchTokenAllocations = async () => {
     try {

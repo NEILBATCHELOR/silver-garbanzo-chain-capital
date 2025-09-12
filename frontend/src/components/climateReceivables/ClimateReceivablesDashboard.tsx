@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, TrendingUp, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/infrastructure/database/client";
 import { toast } from "@/components/ui/use-toast";
-import { AutomatedRiskCalculationEngine } from "./services/business-logic/automated-risk-calculation-engine";
 import { 
   ClimateReceivable, 
   EnergyAsset, 
@@ -41,7 +40,6 @@ const ClimateReceivablesDashboard: React.FC<ClimateReceivablesDashboardProps> = 
     totalIncentiveValue: 0,
     totalTokenizedValue: 0,
   });
-  const [batchRiskCalculationLoading, setBatchRiskCalculationLoading] = useState(false);
 
   console.log("ClimateReceivablesDashboard rendered with projectId:", projectId);
 
@@ -49,31 +47,6 @@ const ClimateReceivablesDashboard: React.FC<ClimateReceivablesDashboardProps> = 
     console.log("ClimateReceivablesDashboard useEffect triggered for projectId:", projectId);
     fetchStats();
   }, [projectId]);
-
-  // Handle batch risk calculation for all receivables
-  const handleBatchRiskCalculation = async () => {
-    setBatchRiskCalculationLoading(true);
-    try {
-      const summary = await AutomatedRiskCalculationEngine.runScheduledCalculations();
-      
-      toast({
-        title: "Batch Risk Calculation Complete",
-        description: `Processed ${summary.successful} receivables successfully. ${summary.alerts} alerts generated.`
-      });
-
-      // Refresh stats after calculation
-      fetchStats();
-    } catch (error) {
-      console.error('Batch risk calculation failed:', error);
-      toast({
-        title: "Batch Calculation Failed",
-        description: "Unable to complete batch risk calculation. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setBatchRiskCalculationLoading(false);
-    }
-  };
 
   // Fetch dashboard stats with project filtering
   const fetchStats = async () => {
@@ -227,23 +200,6 @@ const ClimateReceivablesDashboard: React.FC<ClimateReceivablesDashboardProps> = 
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             {loading ? "Refreshing..." : "Refresh"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleBatchRiskCalculation}
-            disabled={batchRiskCalculationLoading}
-          >
-            {batchRiskCalculationLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Calculating Risks...
-              </>
-            ) : (
-              <>
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Batch Risk Calculation
-              </>
-            )}
           </Button>
           <Button 
             variant="outline" 

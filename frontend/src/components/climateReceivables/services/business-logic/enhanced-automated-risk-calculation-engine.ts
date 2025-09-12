@@ -36,6 +36,7 @@ interface RiskCalculationConfig {
     low: number;
     medium: number;
     high: number;
+    critical: number;
   };
   alertThresholds: {
     scoreChange: number;
@@ -65,6 +66,7 @@ export class EnhancedAutomatedRiskCalculationEngine {
       low: 30,
       medium: 70,
       high: 90,
+      critical: 95,
     },
     alertThresholds: {
       scoreChange: 15,
@@ -89,8 +91,8 @@ export class EnhancedAutomatedRiskCalculationEngine {
         .from('climate_receivables')
         .select(`
           *,
-          energy_assets!climate_receivables_asset_id_fkey(*),
-          climate_payers!climate_receivables_payer_id_fkey(*)
+          energy_assets!asset_id(*),
+          climate_payers!payer_id(*)
         `)
         .not('amount', 'is', null)
         .order('created_at', { ascending: false });
@@ -281,8 +283,8 @@ export class EnhancedAutomatedRiskCalculationEngine {
         .from('climate_receivables')
         .select(`
           *,
-          energy_assets!climate_receivables_asset_id_fkey(*),
-          climate_payers!climate_receivables_payer_id_fkey(*)
+          energy_assets!asset_id(*),
+          climate_payers!payer_id(*)
         `)
         .eq('receivable_id', receivableId)
         .single();
@@ -451,7 +453,7 @@ export class EnhancedAutomatedRiskCalculationEngine {
     }
 
     return {
-      score: Math.min(riskScore, 100),
+      score: Math.min(riskScore, 100) / 100, // Normalize to 0-1 range for database
       factors,
       confidence,
       lastWeatherUpdate: new Date().toISOString(),
@@ -671,7 +673,7 @@ export class EnhancedAutomatedRiskCalculationEngine {
     }
 
     return {
-      score: Math.min(riskScore, 100),
+      score: Math.min(riskScore, 100) / 100, // Normalize to 0-1 range for database
       factors,
       confidence,
       lastCreditUpdate: new Date().toISOString(),
@@ -927,7 +929,7 @@ export class EnhancedAutomatedRiskCalculationEngine {
     }
 
     return {
-      score: Math.min(riskScore, 100),
+      score: Math.min(riskScore, 100) / 100, // Normalize to 0-1 range for database
       factors,
       confidence,
       lastPolicyUpdate: new Date().toISOString(),
@@ -1180,6 +1182,10 @@ export class EnhancedAutomatedRiskCalculationEngine {
       policyRisk.confidence * weights.policyRisk
     );
 
+    // Normalize composite score to 0-1 range for database storage
+    // The thresholds are in 0-100 range, so divide by 100 for normalization
+    const normalizedScore = compositeScore / 100;
+
     let level: RiskLevel;
     const thresholds = this.DEFAULT_CONFIG.thresholds;
     
@@ -1194,9 +1200,9 @@ export class EnhancedAutomatedRiskCalculationEngine {
     }
 
     return {
-      score: Math.round(compositeScore),
+      score: normalizedScore, // Store normalized score (0-1 range)
       level,
-      confidence: Math.round(compositeConfidence * 100) / 100,
+      confidence: compositeConfidence / 100, // Normalize confidence to 0-1 range
     };
   }
 
@@ -1212,7 +1218,7 @@ export class EnhancedAutomatedRiskCalculationEngine {
       [RiskLevel.LOW]: 0.02,
       [RiskLevel.MEDIUM]: 0.035,
       [RiskLevel.HIGH]: 0.05,
-      [RiskLevel.CRITICAL]: 0.075,
+      [RiskLevel.CRITICAL]: 0.08,
     };
 
     let discountRate = baseRates[compositeRisk.level];
@@ -1256,13 +1262,10 @@ export class EnhancedAutomatedRiskCalculationEngine {
 
     // Risk level based recommendations
     switch (compositeRisk.level) {
-      case RiskLevel.CRITICAL:
-        recommendations.push('URGENT: Consider immediate factoring or additional security');
-        recommendations.push('Implement daily monitoring of all risk factors');
-        break;
       case RiskLevel.HIGH:
+        recommendations.push('HIGH RISK: Consider immediate factoring or additional security');
+        recommendations.push('Implement daily monitoring of all risk factors');
         recommendations.push('Consider factoring this receivable within 30 days');
-        recommendations.push('Increase monitoring frequency to weekly reviews');
         break;
       case RiskLevel.MEDIUM:
         recommendations.push('Monitor receivable with bi-weekly reviews');
@@ -1304,11 +1307,11 @@ export class EnhancedAutomatedRiskCalculationEngine {
     const alerts: AlertItem[] = [];
     const thresholds = this.DEFAULT_CONFIG.alertThresholds;
 
-    // Critical risk level alert
-    if (compositeRisk.level === RiskLevel.CRITICAL) {
+    // High risk level alert
+    if (compositeRisk.level === RiskLevel.HIGH && compositeRisk.score >= 85) {
       alerts.push({
         level: 'critical',
-        message: `Critical risk level detected (score: ${compositeRisk.score})`,
+        message: `High risk level detected (score: ${compositeRisk.score})`,
         action: 'Consider immediate factoring or additional security measures',
         timestamp: new Date().toISOString(),
       });
@@ -1367,13 +1370,31 @@ export class EnhancedAutomatedRiskCalculationEngine {
   private static calculateNextReviewDate(riskLevel: RiskLevel): string {
     const now = new Date();
     const days = {
-      [RiskLevel.CRITICAL]: 1,
-      [RiskLevel.HIGH]: 3,
+      [RiskLevel.CRITICAL]: 0.5, // 12 hours for critical
+      [RiskLevel.HIGH]: 1,
       [RiskLevel.MEDIUM]: 7,
       [RiskLevel.LOW]: 30,
     }[riskLevel];
 
     return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  /**
+   * Clamp numeric values to fit database precision constraints
+   * NUMERIC(5,4) can store values from -9.9999 to 9.9999
+   */
+  private static clampNumericValue(value: number | null): number | null {
+    if (value === null || value === undefined || isNaN(value)) return null;
+    return Math.max(-9.9999, Math.min(9.9999, Number(value)));
+  }
+
+  /**
+   * Clamp risk score and confidence values to database constraint range (0-1)
+   * All risk scores and confidence values must be between 0 and 1
+   */
+  private static clampRiskValue(value: number | null): number | null {
+    if (value === null || value === undefined || isNaN(value)) return null;
+    return Math.max(0, Math.min(1, Number(value)));
   }
 
   /**
@@ -1386,24 +1407,24 @@ export class EnhancedAutomatedRiskCalculationEngine {
       const insertData: ClimateRiskCalculationInsert = {
         receivable_id: result.receivableId,
         calculated_at: result.calculatedAt,
-        production_risk_score: result.riskComponents.productionRisk.score,
+        production_risk_score: this.clampRiskValue(result.riskComponents.productionRisk.score),
         production_risk_factors: result.riskComponents.productionRisk.factors,
-        production_risk_confidence: result.riskComponents.productionRisk.confidence,
+        production_risk_confidence: this.clampRiskValue(result.riskComponents.productionRisk.confidence),
         last_weather_update: result.riskComponents.productionRisk.lastWeatherUpdate,
-        credit_risk_score: result.riskComponents.creditRisk.score,
+        credit_risk_score: this.clampRiskValue(result.riskComponents.creditRisk.score),
         credit_risk_factors: result.riskComponents.creditRisk.factors,
-        credit_risk_confidence: result.riskComponents.creditRisk.confidence,
+        credit_risk_confidence: this.clampRiskValue(result.riskComponents.creditRisk.confidence),
         last_credit_update: result.riskComponents.creditRisk.lastCreditUpdate,
-        policy_risk_score: result.riskComponents.policyRisk.score,
+        policy_risk_score: this.clampRiskValue(result.riskComponents.policyRisk.score),
         policy_risk_factors: result.riskComponents.policyRisk.factors,
-        policy_risk_confidence: result.riskComponents.policyRisk.confidence,
+        policy_risk_confidence: this.clampRiskValue(result.riskComponents.policyRisk.confidence),
         last_policy_update: result.riskComponents.policyRisk.lastPolicyUpdate,
-        composite_risk_score: result.compositeRisk.score,
+        composite_risk_score: this.clampRiskValue(result.compositeRisk.score),
         composite_risk_level: result.compositeRisk.level,
-        composite_risk_confidence: result.compositeRisk.confidence,
-        discount_rate_calculated: result.discountRate.calculated,
-        discount_rate_previous: result.discountRate.previous,
-        discount_rate_change: result.discountRate.change,
+        composite_risk_confidence: this.clampRiskValue(result.compositeRisk.confidence),
+        discount_rate_calculated: this.clampNumericValue(result.discountRate.calculated),
+        discount_rate_previous: this.clampNumericValue(result.discountRate.previous),
+        discount_rate_change: this.clampNumericValue(result.discountRate.change),
         discount_rate_reason: result.discountRate.reason,
         recommendations: result.recommendations,
         alerts: JSON.parse(JSON.stringify(result.alerts)),

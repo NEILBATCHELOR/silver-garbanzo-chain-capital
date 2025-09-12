@@ -366,12 +366,9 @@ export function useClimateReceivablesServices({
     updateSystemMetrics();
   }, [updateSystemMetrics]);
 
-  // Initial system initialization
-  useEffect(() => {
-    if (projectId) {
-      initializeAllServices();
-    }
-  }, [projectId, initializeAllServices]);
+  // Manual system initialization only (removed automatic initialization)
+  // User must explicitly call initializeAllServices() - NO AUTO-LOAD
+  // Note: Previously had automatic useEffect here that ran on projectId change
 
   return {
     // Service instances

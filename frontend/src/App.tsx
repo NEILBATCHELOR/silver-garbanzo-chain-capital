@@ -66,33 +66,6 @@ import GuardianTestPageRedesigned from "@/pages/wallet/GuardianTestPageRedesigne
 // Smart Contract Wallet Components
 import SmartContractWalletPage from "@/pages/wallet/smart-contract/SmartContractWalletPage";
 
-// DFNS Components
-import { DfnsWalletDashboard } from "@/components/dfns";
-import { initializeDfnsService } from "@/services/dfns";
-// Investor Portal Pages
-import ProfilePage from "@/components/compliance/portal/ProfilePage";
-import DocumentsPage from "@/components/compliance/portal/DocumentsPage";
-
-// ✅ Import Onboarding Components
-import InvestorOnboarding from "@/components/compliance/investor/InvestorOnboarding";
-
-// ✅ Import Auth Components
-import LoginPage from "@/components/auth/pages/LoginPage";
-import {
-  WelcomeScreen,
-  SignupPage,
-  MagicLinkPage,
-  PhoneOtpPage,
-  AuthCallbackPage,
-  EmailVerificationPage,
-  TOTPSetupPage,
-  SecuritySettingsPage,
-  OAuthLoginPage,
-  AnonymousLoginPage,
-  AdminDashboardPage,
-  IdentityManagementPage
-} from "@/components/auth/pages";
-
 // Import Enhanced Activity Service for performance monitoring
 import { enhancedActivityService, ActivitySource, ActivityCategory, ActivitySeverity } from '@/services/activity';
 
@@ -136,11 +109,38 @@ import { NotificationProvider } from "@/infrastructure/utils/helpers/Notificatio
 // Import Audit Provider for comprehensive user action tracking
 import { AuditProvider } from "@/providers/audit/AuditProvider";
 
-// AppKit imports removed - will be used selectively per component
-// import ConditionalAppKitProvider from "@/infrastructure/blockchain/web3/appkit/ConditionalAppKitProvider";
-
 // Import conditional Wagmi wrapper for selective Web3 functionality
 import { WagmiRouteWrapper } from "@/infrastructure/web3/conditional";
+
+// Import Conditional DFNS Provider for lazy DFNS initialization
+import { ConditionalDfnsWrapper } from "@/infrastructure/dfns/ConditionalDfnsProvider";
+
+// DFNS Components
+import { DfnsWalletDashboard } from "@/components/dfns";
+
+// Investor Portal Pages
+import ProfilePage from "@/components/compliance/portal/ProfilePage";
+import DocumentsPage from "@/components/compliance/portal/DocumentsPage";
+
+// ✅ Import Onboarding Components
+import InvestorOnboarding from "@/components/compliance/investor/InvestorOnboarding";
+
+// ✅ Import Auth Components
+import LoginPage from "@/components/auth/pages/LoginPage";
+import {
+  WelcomeScreen,
+  SignupPage,
+  MagicLinkPage,
+  PhoneOtpPage,
+  AuthCallbackPage,
+  EmailVerificationPage,
+  TOTPSetupPage,
+  SecuritySettingsPage,
+  OAuthLoginPage,
+  AnonymousLoginPage,
+  AdminDashboardPage,
+  IdentityManagementPage
+} from "@/components/auth/pages";
 
 // Add this import
 const IssuerOnboardingFlow = lazy(() => import('@/components/compliance/issuer/onboarding/IssuerOnboardingFlow'));
@@ -475,36 +475,6 @@ function App() {
   useEffect(() => {
     // Initialize browser error handling for console cleanup
     initializeBrowserErrorHandling();
-    
-    // Initialize DFNS Service with enhanced authentication detection
-    const initializeDfns = async () => {
-      try {
-        const dfnsService = await initializeDfnsService();
-        
-        // Get the working client to check auth method
-        const workingClient = dfnsService.getWorkingClient?.() || null;
-        if (workingClient) {
-          const config = workingClient.getConfig();
-          const status = await workingClient.getConnectionStatus();
-          
-          console.log(`🏦 DFNS Service initialized successfully (${config.authMethod})`);
-          console.log('📊 DFNS Status:', {
-            connected: status.connected,
-            authMethod: status.authMethod,
-            wallets: status.walletsCount,
-            credentials: status.credentialsCount,
-            user: status.user?.username || 'Unknown'
-          });
-        } else {
-          console.log('🏦 DFNS Service initialized successfully (Legacy SDK)');
-        }
-      } catch (error) {
-        console.warn('⚠️ DFNS Service initialization failed:', error);
-        console.log('📝 DFNS will run in limited mode - some features may not be available');
-      }
-    };
-    
-    initializeDfns();
     
     // Initialize Enhanced Activity Service v2
     console.log('✅ Enhanced Activity Service v2 initialized - Performance monitoring active');

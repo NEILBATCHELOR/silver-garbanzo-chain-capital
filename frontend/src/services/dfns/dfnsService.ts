@@ -202,24 +202,47 @@ export class DfnsService {
         return;
       }
 
+      console.log('🔄 Initializing DFNS service...');
+
       // Test the connection to verify environment variables are set correctly
       const connectionStatus = await this.workingClient.getConnectionStatus();
-      console.log('🔌 DFNS Connection Status:', connectionStatus);
+      console.log('🔌 DFNS Connection Status:', {
+        connected: connectionStatus.connected,
+        authMethod: connectionStatus.authMethod,
+        walletsCount: connectionStatus.walletsCount,
+        credentialsCount: connectionStatus.credentialsCount,
+        hasCredentialAccess: connectionStatus.hasCredentialAccess
+      });
 
       if (connectionStatus.connected) {
         console.log(`✅ DFNS service initialized successfully using ${connectionStatus.authMethod}`);
         console.log(`📊 Connected with ${connectionStatus.walletsCount} wallets`);
         
-        // Test authentication service
-        const authStatus = await this.authenticationService.getAuthenticationStatus();
-        console.log('🔐 Authentication Status:', {
-          method: authStatus.method,
-          authenticated: authStatus.isAuthenticated,
-          user: authStatus.user?.username || 'Unknown'
-        });
+        // Test authentication service with enhanced error handling
+        try {
+          const authStatus = await this.authenticationService.getAuthenticationStatus();
+          console.log('🔐 Authentication Status:', {
+            method: authStatus.method,
+            authenticated: authStatus.isAuthenticated,
+            user: authStatus.user?.username || 'Unknown',
+            ready: authStatus.isReady
+          });
+          
+          if (!authStatus.isAuthenticated) {
+            console.warn('⚠️ Authentication validation failed, but connection succeeded - running in limited mode');
+          }
+        } catch (authError) {
+          console.warn('⚠️ Authentication status check failed:', authError);
+          console.log('💡 This may be due to limited service account permissions - basic functionality should still work');
+        }
       } else {
         console.warn('⚠️ DFNS service initialized with connection issues:', connectionStatus.error);
-        console.log('💡 Please check your environment variables (VITE_DFNS_SERVICE_ACCOUNT_TOKEN, VITE_DFNS_PERSONAL_ACCESS_TOKEN, etc.)');
+        console.log('💡 Please check your environment variables:');
+        console.log('  - VITE_DFNS_SERVICE_ACCOUNT_TOKEN (preferred)');
+        console.log('  - VITE_DFNS_PERSONAL_ACCESS_TOKEN (fallback)');
+        console.log('  - VITE_DFNS_BASE_URL (should be https://api.dfns.io)');
+        console.log('  - VITE_DFNS_ORG_ID');
+        console.log('📝 Note: Service accounts may have limited API access - this is normal');
       }
 
       this.isInitialized = true;
@@ -228,8 +251,19 @@ export class DfnsService {
       this.initializationError = error as Error;
       console.error('❌ DFNS service initialization failed:', error);
       
+      // Provide specific guidance based on error type
+      if (error instanceof Error && error.message.includes('401')) {
+        console.log('🔑 Authentication Error Detected:');
+        console.log('  1. Check if VITE_DFNS_SERVICE_ACCOUNT_TOKEN is valid and not expired');
+        console.log('  2. Verify token has required permissions for your organization');
+        console.log('  3. Consider regenerating the token if it\'s old');
+        console.log('  4. Check if VITE_DFNS_PERSONAL_ACCESS_TOKEN is available as fallback');
+        console.log('  📝 Note: Some 401 errors are expected for service accounts with limited permissions');
+      }
+      
       // Don't throw the error - allow the service to be used in limited mode
       this.isInitialized = true;
+      console.log('📝 DFNS will continue in limited mode - some features may not be available');
     }
   }
 

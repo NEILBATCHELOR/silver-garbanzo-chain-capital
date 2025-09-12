@@ -136,25 +136,45 @@ export class DfnsAuthenticationService {
       let testEndpoint = '';
       
       try {
-        // Try wallets first (most service accounts have this)
+        // Try wallets first (most service accounts have this access)
         testResponse = await this.workingClient.makeRequest('GET', '/wallets?limit=1');
         testEndpoint = 'wallets';
+        console.log(`✅ Token validated successfully via ${testEndpoint} endpoint (${authMethod})`);
       } catch (walletError) {
+        console.log(`ℹ️ Wallet access test failed for ${authMethod}, trying alternative endpoints`);
+        
         try {
           // Try organizations as fallback
           testResponse = await this.workingClient.makeRequest('GET', '/auth/whoami');
           testEndpoint = 'whoami';
+          console.log(`✅ Token validated successfully via ${testEndpoint} endpoint (${authMethod})`);
         } catch (orgError) {
-          // If both fail, the token is likely invalid
-          return {
-            isValid: false,
-            method: authMethod,
-            error: `Token validation failed on both test endpoints: ${walletError} | ${orgError}`
-          };
+          // If both fail, check if it's a 401 (auth failure) or just permission issue
+          const wallet401 = walletError instanceof Error && walletError.message.includes('401');
+          const org401 = orgError instanceof Error && orgError.message.includes('401');
+          
+          if (wallet401 || org401) {
+            console.error(`❌ Authentication failed - token appears to be invalid or expired (${authMethod})`);
+            return {
+              isValid: false,
+              method: authMethod,
+              error: `Authentication failed: Invalid or expired ${authMethod} token. Please check your environment variables.`
+            };
+          } else {
+            // Both endpoints failed but not with 401 - permissions issue, but token might be valid
+            console.warn(`⚠️ Limited API access for ${authMethod} - endpoints failed with permissions errors, not auth errors`);
+            return {
+              isValid: true, // Assume valid since not 401
+              method: authMethod,
+              user: {
+                id: this.workingClient.getConfig().userId || 'unknown',
+                username: this.workingClient.getConfig().username || 'Service Account (Limited Access)'
+              },
+              error: 'Limited API access - service account may have restricted permissions'
+            };
+          }
         }
       }
-
-      console.log(`✅ Token validated successfully via ${testEndpoint} endpoint`);
 
       return {
         isValid: true,

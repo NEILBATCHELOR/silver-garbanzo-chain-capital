@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict o7HYh1WsB4tW20Fbhd9ABogMGBngi2gRKUahmxsY93eM6PRfgPwk1aE51G1gfRA
+\restrict VeDc0zd7nCSV2hKOMqFKmbqMrPhLxwGq9vmZX2PCXc98jegtJ6amIJ8mdF34rn0
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -7404,7 +7404,7 @@ CREATE TABLE public.climate_risk_calculations (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     project_id uuid,
     CONSTRAINT climate_risk_calculations_composite_risk_confidence_check CHECK (((composite_risk_confidence >= (0)::numeric) AND (composite_risk_confidence <= (1)::numeric))),
-    CONSTRAINT climate_risk_calculations_composite_risk_level_check CHECK ((composite_risk_level = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text]))),
+    CONSTRAINT climate_risk_calculations_composite_risk_level_check CHECK ((composite_risk_level = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))),
     CONSTRAINT climate_risk_calculations_composite_risk_score_check CHECK (((composite_risk_score >= (0)::numeric) AND (composite_risk_score <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_credit_risk_confidence_check CHECK (((credit_risk_confidence >= (0)::numeric) AND (credit_risk_confidence <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_credit_risk_score_check CHECK (((credit_risk_score >= (0)::numeric) AND (credit_risk_score <= (1)::numeric))),
@@ -34060,5 +34060,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict o7HYh1WsB4tW20Fbhd9ABogMGBngi2gRKUahmxsY93eM6PRfgPwk1aE51G1gfRA
+\unrestrict VeDc0zd7nCSV2hKOMqFKmbqMrPhLxwGq9vmZX2PCXc98jegtJ6amIJ8mdF34rn0
 

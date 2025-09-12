@@ -1,133 +1,132 @@
 /**
- * Safe Connect Wallet Button Component
+ * Safe Connect Wallet Button
  * 
- * This wrapper safely handles wallet connection when AppKit is not available.
- * Falls back to basic functionality without breaking the app.
+ * This component prevents automatic wallet connections and only triggers 
+ * connections when the user explicitly clicks the button.
+ * 
+ * Fixes EIP-1193 error code 4001 by ensuring user-initiated connections only.
  */
 
-'use client'
-
-import React from 'react'
-import { Button } from '@/components/ui/button'
-import { useAccount, useDisconnect } from 'wagmi'
-import { Wallet, LogOut, AlertTriangle } from 'lucide-react'
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Wallet, AlertCircle, Loader2 } from 'lucide-react';
+import { 
+  useEnhancedWalletManager, 
+  WalletType, 
+  WalletConnectionStatus 
+} from '@/hooks/wallet/useEnhancedWalletManager';
 
 interface SafeConnectWalletButtonProps {
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
-  size?: 'default' | 'sm' | 'lg' | 'icon'
-  className?: string
-  showIcon?: boolean
-  connectText?: string
-  disconnectText?: string
-}
-
-// Check if AppKit is available
-function isAppKitAvailable(): boolean {
-  try {
-    // Check if the AppKit context exists
-    const projectId = import.meta.env.VITE_PUBLIC_PROJECT_ID
-    return !!projectId
-  } catch {
-    return false
-  }
+  walletType?: WalletType;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  className?: string;
+  children?: React.ReactNode;
 }
 
 export function SafeConnectWalletButton({
+  walletType = WalletType.METAMASK,
   variant = 'default',
   size = 'default',
-  className = '',
-  showIcon = true,
-  connectText = 'Connect Wallet',
-  disconnectText = 'Disconnect',
+  className,
+  children
 }: SafeConnectWalletButtonProps) {
-  const { address, isConnected } = useAccount()
-  const { disconnect } = useDisconnect()
-  const appKitAvailable = isAppKitAvailable()
+  const { 
+    connection, 
+    connectWallet, 
+    disconnectWallet, 
+    isConnecting 
+  } = useEnhancedWalletManager();
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-  }
+  /**
+   * Handle wallet connection with explicit user initiation
+   */
+  const handleConnect = async () => {
+    // CRITICAL: Always pass userInitiated=true for button clicks
+    await connectWallet(walletType, true);
+  };
 
-  const handleConnect = () => {
-    if (appKitAvailable) {
-      // When AppKit is available, we would normally call open()
-      // For now, show a message that wallet connection is temporarily disabled
-      console.log('Wallet connection temporarily disabled - AppKit not initialized')
-    } else {
-      console.log('AppKit not available - please configure wallet connection')
-    }
-  }
+  /**
+   * Handle wallet disconnection
+   */
+  const handleDisconnect = async () => {
+    await disconnectWallet();
+  };
 
-  if (isConnected && address) {
+  // Show loading state during connection
+  if (isConnecting) {
     return (
-      <Button
-        variant={variant}
-        size={size}
+      <Button 
+        variant={variant} 
+        size={size} 
         className={className}
-        onClick={() => disconnect()}
+        disabled
       >
-        {showIcon && <LogOut className="w-4 h-4 mr-2" />}
-        {formatAddress(address)}
+        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        Connecting...
       </Button>
-    )
+    );
   }
 
+  // Show connected state with address
+  if (connection.status === WalletConnectionStatus.CONNECTED && connection.address) {
+    const shortAddress = `${connection.address.slice(0, 6)}...${connection.address.slice(-4)}`;
+    
+    return (
+      <Button 
+        variant="outline" 
+        size={size} 
+        className={className}
+        onClick={handleDisconnect}
+      >
+        <Wallet className="w-4 h-4 mr-2" />
+        {shortAddress}
+      </Button>
+    );
+  }
+
+  // Show error state
+  if (connection.status === WalletConnectionStatus.ERROR) {
+    return (
+      <Button 
+        variant="destructive" 
+        size={size} 
+        className={className}
+        onClick={handleConnect}
+      >
+        <AlertCircle className="w-4 h-4 mr-2" />
+        Retry Connection
+      </Button>
+    );
+  }
+
+  // Show user rejected state (less prominent - this is normal)
+  if (connection.status === WalletConnectionStatus.USER_REJECTED) {
+    return (
+      <Button 
+        variant="outline" 
+        size={size} 
+        className={className}
+        onClick={handleConnect}
+      >
+        <Wallet className="w-4 h-4 mr-2" />
+        Connect Wallet
+      </Button>
+    );
+  }
+
+  // Default: Show connect button
   return (
-    <Button
-      variant={variant === 'default' ? 'outline' : variant}
-      size={size}
+    <Button 
+      variant={variant} 
+      size={size} 
       className={className}
       onClick={handleConnect}
-      disabled={!appKitAvailable}
     >
-      {showIcon && (
-        appKitAvailable ? 
-          <Wallet className="w-4 h-4 mr-2" /> : 
-          <AlertTriangle className="w-4 h-4 mr-2" />
-      )}
-      {appKitAvailable ? connectText : 'Wallet Setup Required'}
+      <Wallet className="w-4 h-4 mr-2" />
+      {children || `Connect ${walletType}`}
     </Button>
-  )
-}
-
-// Safe version of WalletAccount component
-export function SafeWalletAccount() {
-  const { address, isConnected } = useAccount()
-
-  if (!isConnected || !address) {
-    return (
-      <SafeConnectWalletButton 
-        variant="outline" 
-        connectText="Connect to get started"
-      />
-    )
-  }
-
-  return (
-    <Button
-      variant="outline"
-      disabled
-      className="flex items-center gap-2"
-    >
-      <div className="w-2 h-2 bg-green-500 rounded-full" />
-      {address.slice(0, 6)}...{address.slice(-4)}
-    </Button>
-  )
-}
-
-// Safe network selector (disabled when AppKit not available)
-export function SafeNetworkSelector() {
-  const appKitAvailable = isAppKitAvailable()
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={!appKitAvailable}
-    >
-      Networks
-    </Button>
-  )
+  );
 }
 
 export default SafeConnectWalletButton;

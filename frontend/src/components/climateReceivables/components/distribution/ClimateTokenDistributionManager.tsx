@@ -110,7 +110,7 @@ const ClimateTokenDistributionManager: React.FC<ClimateTokenDistributionManagerP
 
   useEffect(() => {
     walletManager.getConnectedAddress().then(addr => setConnectedAddress(addr));
-  }, []);
+  }, [walletManager]); // Added walletManager dependency for clarity
 
   const handleConnectWallet = async () => {
     setWalletLoading(true);
