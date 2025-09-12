@@ -10,14 +10,18 @@ import type { Tables, InsertTables, UpdateTables } from '../../core/database';
 // Energy Asset Types (commonly referenced by services)
 export interface EnergyAsset {
   id: string;
+  assetId: string;  // Alias for id - used by business logic services
   name: string;
   type: 'solar' | 'wind' | 'hydro' | 'geothermal' | 'biomass';
   capacity: number;
   location: string;
   commissioning_date: string;
   efficiency_rating: number;
+  ownerId?: string;  // Added for service compatibility
   created_at: string;
   updated_at: string;
+  createdAt?: string;  // Alias for compatibility
+  updatedAt?: string;  // Alias for compatibility
 }
 
 // Renewable Energy Credit Types (Based on actual database schema)
@@ -41,6 +45,11 @@ export interface RenewableEnergyCredit {
   price_per_rec: number;
   total_value: number;
   certification?: string;
+  certification_body?: string;  // Added for service compatibility
+  registry_id?: string;  // Added for service compatibility
+  serial_number?: string;  // Added for service compatibility
+  retirement_account?: string;  // Added for service compatibility
+  retirement_date?: string;  // Added for service compatibility
   status: string;
   created_at?: string;
   updated_at?: string;
@@ -81,6 +90,9 @@ export interface ClimateIncentive {
   asset_id?: string;
   receivable_id?: string;
   expected_receipt_date?: string;
+  actual_receipt_date?: string;  // Added for service compatibility
+  notes?: string;  // Added for service compatibility
+  metadata?: Record<string, any>;  // Added for service compatibility
   created_at?: string;
   updated_at?: string;
   project_id?: string;
@@ -94,9 +106,13 @@ export interface WeatherData {
   temperature: number;
   humidity: number;
   wind_speed: number;
+  windSpeed?: number;  // Alias for compatibility
+  sunlightHours?: number;  // Added for service compatibility
   solar_irradiance: number;
   precipitation: number;
+  precipitationMm?: number;  // Alias for compatibility
   cloud_cover: number;
+  cloudCover?: number;  // Alias for compatibility
 }
 
 // Production Data Types (alias for existing ProductionDataPoint)
@@ -226,6 +242,7 @@ export interface ServiceConfig {
 // Production Analytics Types
 export interface ProductionDataPoint {
   date: string;
+  productionDate?: string;  // Alias for compatibility
   outputMwh: number;
   efficiency: number;
   weatherConditions: {

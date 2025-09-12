@@ -1,26 +1,35 @@
 import { WeatherData } from '../../types';
 import { supabase } from '@/infrastructure/database/client';
+import { EnhancedFreeWeatherService, WeatherAPIResponse } from './enhanced-free-weather-service';
 
 /**
- * Service for managing weather data, primarily using the database
- * and falling back to OpenWeather API when necessary
+ * Enhanced Weather Data Service using Free APIs
+ * 
+ * Priority hierarchy:
+ * 1. Open-Meteo (free, no API key) - Primary
+ * 2. NOAA Weather.gov (free, no API key) - US locations
+ * 3. WeatherAPI.com (free tier 1M calls/month) - International backup
+ * 
+ * Replaces paid OpenWeather API with cost-effective free alternatives
  */
 export class WeatherDataService {
-  private static readonly API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
-  private static readonly BASE_URL = 'https://api.openweathermap.org/data/2.5';
-  private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private static readonly CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours in milliseconds (reduced for free APIs)
 
   /**
-   * Get weather data for a location and date, prioritizing database records
+   * Get weather data for a location and date using FREE APIs ONLY
    * @param location The location to get weather data for
    * @param date The date to get weather data for (defaults to today)
-   * @returns Weather data
+   * @param coordinates Optional latitude/longitude for more precise API calls
+   * @returns Weather data using free API hierarchy
    */
   public static async getWeatherData(
     location: string, 
-    date: string = new Date().toISOString().split('T')[0]
+    date: string = new Date().toISOString().split('T')[0],
+    coordinates?: { latitude: number; longitude: number }
   ): Promise<WeatherData> {
     try {
+      console.log(`[BATCH] Getting weather data for ${location} on ${date} using FREE APIs`);
+      
       // First, try to get data from the database
       const dbData = await this.getWeatherFromDatabase(location, date);
       
@@ -33,94 +42,133 @@ export class WeatherDataService {
           
           // If data is fresh, return it
           if (now - updatedAt <= this.CACHE_DURATION) {
+            console.log(`[BATCH] Using cached weather data for ${location}`);
             return dbData;
           }
-          // Otherwise, refresh from API for today's data
         } else {
-          // For historical dates, always use the database
+          // For historical dates, always use the database first
+          console.log(`[BATCH] Using historical weather data from database for ${location}`);
           return dbData;
         }
       }
       
-      // If we don't have data in the database or it's stale, try to fetch from API
-      // For today's date
+      // If coordinates not provided, try to geocode the location
+      if (!coordinates) {
+        coordinates = await this.geocodeLocation(location);
+      }
+      
+      // If we don't have data in the database or it's stale, fetch from FREE APIs
       if (date === new Date().toISOString().split('T')[0]) {
-        const apiData = await this.fetchWeatherFromAPI(location);
-        return apiData;
-      } 
-      // For historical dates, use historical approximation
-      else {
-        const historicalData = await this.getClimatologicalAverage(location, date);
-        return historicalData;
+        // For today's date, use current weather API
+        const freeApiData = await EnhancedFreeWeatherService.getCurrentWeather(
+          coordinates.latitude, 
+          coordinates.longitude, 
+          location
+        );
+        
+        // Convert to our WeatherData format and save
+        const weatherData = this.convertApiResponseToWeatherData(freeApiData, location, date);
+        const savedData = await this.saveWeatherData(weatherData);
+        console.log(`[BATCH] Fetched current weather from ${freeApiData.provider} for ${location}`);
+        return savedData;
+      } else {
+        // For historical dates, try historical API first, then climatological average
+        try {
+          const historicalData = await EnhancedFreeWeatherService.getHistoricalWeather(
+            coordinates.latitude,
+            coordinates.longitude,
+            date
+          );
+          
+          const weatherData = this.convertApiResponseToWeatherData(historicalData, location, date);
+          const savedData = await this.saveWeatherData(weatherData);
+          console.log(`[BATCH] Fetched historical weather from ${historicalData.provider} for ${location} on ${date}`);
+          return savedData;
+        } catch (error) {
+          console.log(`[BATCH] Historical data unavailable, using climatological average for ${location}`);
+          return this.getClimatologicalAverage(location, date);
+        }
       }
     } catch (error) {
-      console.error(`Error getting weather data for ${location} on ${date}:`, error);
-      throw error;
+      console.error(`[BATCH] Error getting weather data for ${location} on ${date}:`, error);
+      // Fallback to climatological average
+      return this.getClimatologicalAverage(location, date);
     }
   }
 
   /**
-   * Get forecast weather data for future dates
+   * Get forecast weather data using FREE APIs ONLY
    * @param location The location to get weather data for
-   * @param days Number of days to forecast (max 7)
+   * @param days Number of days to forecast (max 16 with Open-Meteo)
+   * @param coordinates Optional latitude/longitude for more precise API calls
    * @returns Array of weather data for each day
    */
   public static async getForecastWeather(
     location: string, 
-    days: number = 5
+    days: number = 5,
+    coordinates?: { latitude: number; longitude: number }
   ): Promise<WeatherData[]> {
     try {
-      // Limit days to maximum of 7 (API limitation)
-      const forecastDays = Math.min(days, 7);
+      console.log(`[BATCH] Getting ${days}-day forecast for ${location} using FREE APIs`);
       
-      // Get the date range for the forecast
-      const startDate = new Date();
-      const forecastDates: string[] = [];
+      // Limit days to maximum of 16 (Open-Meteo limitation)
+      const forecastDays = Math.min(days, 16);
       
-      for (let i = 0; i < forecastDays; i++) {
-        const date = new Date(startDate);
-        date.setDate(date.getDate() + i);
-        forecastDates.push(date.toISOString().split('T')[0]);
+      // Get coordinates if not provided
+      if (!coordinates) {
+        coordinates = await this.geocodeLocation(location);
       }
       
-      // Check if we already have forecast data in the database
-      const existingForecasts: WeatherData[] = [];
-      const datesNeeded: string[] = [];
+      // Use Enhanced Free Weather Service for forecast
+      const freeApiForecast = await EnhancedFreeWeatherService.getWeatherForecast(
+        coordinates.latitude,
+        coordinates.longitude,
+        forecastDays
+      );
       
-      for (const date of forecastDates) {
-        const dbData = await this.getWeatherFromDatabase(location, date);
-        if (dbData) {
-          existingForecasts.push(dbData);
-        } else {
-          datesNeeded.push(date);
+      // Convert to our WeatherData format and save to database
+      const forecasts: WeatherData[] = [];
+      const startDate = new Date();
+      
+      for (let i = 0; i < freeApiForecast.length; i++) {
+        const forecastDate = new Date(startDate);
+        forecastDate.setDate(forecastDate.getDate() + i);
+        const dateString = forecastDate.toISOString().split('T')[0];
+        
+        const weatherData = this.convertApiResponseToWeatherData(
+          freeApiForecast[i], 
+          location, 
+          dateString
+        );
+        
+        // Save to database for future use
+        const savedData = await this.saveWeatherData(weatherData);
+        forecasts.push(savedData);
+      }
+      
+      console.log(`[BATCH] Fetched ${forecasts.length}-day forecast using free APIs for ${location}`);
+      return forecasts;
+    } catch (error) {
+      console.error(`[BATCH] Error getting forecast weather data for ${location}:`, error);
+      
+      // Fallback to historical averages
+      const forecasts: WeatherData[] = [];
+      const startDate = new Date();
+      
+      for (let i = 0; i < Math.min(days, 7); i++) {
+        const forecastDate = new Date(startDate);
+        forecastDate.setDate(forecastDate.getDate() + i);
+        const dateString = forecastDate.toISOString().split('T')[0];
+        
+        try {
+          const fallbackData = await this.getClimatologicalAverage(location, dateString);
+          forecasts.push(fallbackData);
+        } catch (fallbackError) {
+          console.error(`Error getting fallback data for ${dateString}:`, fallbackError);
         }
       }
       
-      // If we have all the data we need, return it
-      if (datesNeeded.length === 0) {
-        return existingForecasts.sort((a, b) => 
-          new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-      }
-      
-      // Otherwise, fetch missing data from API
-      const apiForecasts = await this.fetchForecastFromAPI(location, forecastDays);
-      
-      // Filter to only include dates we need
-      const filteredApiForecasts = apiForecasts.filter(forecast => 
-        datesNeeded.includes(forecast.date)
-      );
-      
-      // Combine existing and new forecasts
-      const allForecasts = [...existingForecasts, ...filteredApiForecasts];
-      
-      // Sort by date
-      return allForecasts.sort((a, b) => 
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-    } catch (error) {
-      console.error(`Error getting forecast weather data for ${location}:`, error);
-      throw error;
+      return forecasts;
     }
   }
 
@@ -171,118 +219,63 @@ export class WeatherDataService {
   }
 
   /**
-   * Fetch current weather data from OpenWeather API
-   * @param location The location to get weather data for
-   * @returns Weather data
+   * Geocode location to coordinates for API calls
+   * @param location Location string to geocode
+   * @returns Latitude and longitude coordinates
    */
-  private static async fetchWeatherFromAPI(location: string): Promise<WeatherData> {
+  private static async geocodeLocation(location: string): Promise<{ latitude: number; longitude: number }> {
     try {
-      const url = `${this.BASE_URL}/weather?q=${encodeURIComponent(location)}&units=metric&appid=${this.API_KEY}`;
-      const response = await fetch(url);
+      // Simple geocoding using Open-Meteo's geocoding API (free)
+      const response = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`
+      );
       
       if (!response.ok) {
-        throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
+        throw new Error(`Geocoding API error: ${response.status}`);
       }
       
       const data = await response.json();
       
-      // Convert API response to our WeatherData format
-      const weatherData: WeatherData = {
-        weatherId: '', // Will be assigned when saved to database
-        location: location,
-        date: new Date().toISOString().split('T')[0],
-        sunlightHours: this.calculateSunlightHours(data.sys.sunrise, data.sys.sunset),
-        windSpeed: data.wind.speed,
-        temperature: data.main.temp,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      if (data.results && data.results.length > 0) {
+        return {
+          latitude: data.results[0].latitude,
+          longitude: data.results[0].longitude
+        };
+      }
       
-      // Save to database
-      const savedData = await this.saveWeatherData(weatherData);
-      return savedData;
+      throw new Error(`No coordinates found for location: ${location}`);
     } catch (error) {
-      console.error(`Error fetching weather data from API for ${location}:`, error);
-      throw error;
+      console.error(`Error geocoding location ${location}:`, error);
+      // Fallback coordinates (approximately US center)
+      return { latitude: 39.8283, longitude: -98.5795 };
     }
   }
 
   /**
-   * Fetch forecast weather data from OpenWeather API
-   * @param location The location to get weather data for
-   * @param days Number of days to forecast
-   * @returns Array of weather data for each day
+   * Convert WeatherAPIResponse to WeatherData format
+   * @param apiResponse Response from free weather API
+   * @param location Location string
+   * @param date Date string
+   * @returns WeatherData in our format
    */
-  private static async fetchForecastFromAPI(
-    location: string, 
-    days: number
-  ): Promise<WeatherData[]> {
-    try {
-      // Fetch from API
-      const url = `${this.BASE_URL}/forecast?q=${encodeURIComponent(location)}&units=metric&cnt=${days * 8}&appid=${this.API_KEY}`;
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Process forecast data (OpenWeather returns data in 3-hour increments)
-      const forecasts: WeatherData[] = [];
-      const dailyData: Record<string, { temps: number[], winds: number[], sunriseTime?: number, sunsetTime?: number }> = {};
-      
-      // Group data by day
-      data.list.forEach((item: any) => {
-        const date = new Date(item.dt * 1000).toISOString().split('T')[0];
-        
-        if (!dailyData[date]) {
-          dailyData[date] = { temps: [], winds: [] };
-        }
-        
-        dailyData[date].temps.push(item.main.temp);
-        dailyData[date].winds.push(item.wind.speed);
-      });
-      
-      // Get sunrise/sunset data from the first day (used for approximation)
-      if (data.city && data.city.sunrise && data.city.sunset) {
-        const firstDay = Object.keys(dailyData)[0];
-        dailyData[firstDay].sunriseTime = data.city.sunrise;
-        dailyData[firstDay].sunsetTime = data.city.sunset;
-      }
-      
-      // Convert to our WeatherData format
-      for (const [date, dayData] of Object.entries(dailyData)) {
-        const avgTemp = dayData.temps.reduce((sum, temp) => sum + temp, 0) / dayData.temps.length;
-        const avgWind = dayData.winds.reduce((sum, wind) => sum + wind, 0) / dayData.winds.length;
-        
-        let sunlightHours = 12; // Default fallback
-        if (dayData.sunriseTime && dayData.sunsetTime) {
-          sunlightHours = this.calculateSunlightHours(dayData.sunriseTime, dayData.sunsetTime);
-        }
-        
-        const weatherData: WeatherData = {
-          weatherId: '', // Will be assigned when saved to database
-          location: location,
-          date: date,
-          sunlightHours: sunlightHours,
-          windSpeed: avgWind,
-          temperature: avgTemp,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        
-        // Save to database
-        const savedData = await this.saveWeatherData(weatherData);
-        forecasts.push(savedData);
-      }
-      
-      return forecasts;
-    } catch (error) {
-      console.error(`Error fetching forecast from API for ${location}:`, error);
-      throw error;
-    }
+  private static convertApiResponseToWeatherData(
+    apiResponse: WeatherAPIResponse,
+    location: string,
+    date: string
+  ): WeatherData {
+    return {
+      weatherId: '', // Will be assigned when saved to database
+      location: location,
+      date: date,
+      sunlightHours: apiResponse.sunlightHours,
+      windSpeed: apiResponse.windSpeed,
+      temperature: apiResponse.temperature,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
   }
+
+
 
   /**
    * Save weather data to the database
@@ -355,53 +348,86 @@ export class WeatherDataService {
   }
 
   /**
-   * Calculate sunlight hours from sunrise and sunset timestamps
-   * @param sunrise Sunrise timestamp in seconds
-   * @param sunset Sunset timestamp in seconds
-   * @returns Sunlight hours
-   */
-  private static calculateSunlightHours(sunrise: number, sunset: number): number {
-    const sunriseDate = new Date(sunrise * 1000);
-    const sunsetDate = new Date(sunset * 1000);
-    const diffMs = sunsetDate.getTime() - sunriseDate.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    return parseFloat(diffHours.toFixed(2));
-  }
-
-  /**
-   * Get climatological average for a location and date (for historical data)
+   * Get climatological average for a location and date (ENHANCED FALLBACK)
    * @param location The location to get climate data for
    * @param date The date to get climate data for
    * @returns Estimated weather data based on climatological averages
    */
   private static async getClimatologicalAverage(location: string, date: string): Promise<WeatherData> {
     try {
-      // In a real implementation, this would query a climate database
-      // For this example, we'll use a simple approximation based on the month
+      console.log(`[BATCH] Using climatological average for ${location} on ${date}`);
+      
+      // Check if we have historical averages in database first
+      const { data: historicalAvg } = await supabase
+        .from('weather_historical_averages')
+        .select('*')
+        .eq('location', location)
+        .single();
+
+      if (historicalAvg) {
+        return {
+          weatherId: '', // Will be assigned when saved to database
+          location: location,
+          date: date,
+          sunlightHours: historicalAvg.avg_sunlight_hours,
+          windSpeed: historicalAvg.avg_wind_speed,
+          temperature: historicalAvg.avg_temperature,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      // Fallback to seasonal approximation if no historical data
       const month = new Date(date).getMonth(); // 0-11
       
-      // Seasonal approximations (very simplified)
+      // Enhanced seasonal approximations with location-based adjustments
       let tempEstimate = 20; // Default moderate temperature
       let sunlightEstimate = 12; // Default equinox hours
       let windSpeedEstimate = 5; // Default moderate wind
       
-      // Northern hemisphere seasonal adjustments (reversed for southern hemisphere)
-      if (month >= 11 || month <= 1) { // Winter
-        tempEstimate = 5;
-        sunlightEstimate = 9;
-        windSpeedEstimate = 7;
-      } else if (month >= 2 && month <= 4) { // Spring
-        tempEstimate = 15;
-        sunlightEstimate = 12;
-        windSpeedEstimate = 6;
-      } else if (month >= 5 && month <= 7) { // Summer
-        tempEstimate = 25;
-        sunlightEstimate = 15;
-        windSpeedEstimate = 4;
-      } else if (month >= 8 && month <= 10) { // Fall
-        tempEstimate = 15;
-        sunlightEstimate = 11;
-        windSpeedEstimate = 5;
+      // Basic latitude estimation for temperature adjustment
+      const isNorthernLocation = !location.toLowerCase().includes('australia') && 
+                                !location.toLowerCase().includes('south africa') &&
+                                !location.toLowerCase().includes('argentina');
+      
+      // Northern hemisphere seasonal adjustments
+      if (isNorthernLocation) {
+        if (month >= 11 || month <= 1) { // Winter
+          tempEstimate = 5;
+          sunlightEstimate = 9;
+          windSpeedEstimate = 7;
+        } else if (month >= 2 && month <= 4) { // Spring
+          tempEstimate = 15;
+          sunlightEstimate = 12;
+          windSpeedEstimate = 6;
+        } else if (month >= 5 && month <= 7) { // Summer
+          tempEstimate = 25;
+          sunlightEstimate = 15;
+          windSpeedEstimate = 4;
+        } else if (month >= 8 && month <= 10) { // Fall
+          tempEstimate = 15;
+          sunlightEstimate = 11;
+          windSpeedEstimate = 5;
+        }
+      } else {
+        // Southern hemisphere (reversed seasons)
+        if (month >= 5 && month <= 7) { // Winter
+          tempEstimate = 10;
+          sunlightEstimate = 9;
+          windSpeedEstimate = 7;
+        } else if (month >= 8 && month <= 10) { // Spring
+          tempEstimate = 18;
+          sunlightEstimate = 12;
+          windSpeedEstimate = 6;
+        } else if (month >= 11 || month <= 1) { // Summer
+          tempEstimate = 28;
+          sunlightEstimate = 15;
+          windSpeedEstimate = 4;
+        } else if (month >= 2 && month <= 4) { // Fall
+          tempEstimate = 18;
+          sunlightEstimate = 11;
+          windSpeedEstimate = 5;
+        }
       }
       
       // Create and return estimated weather data
@@ -416,11 +442,11 @@ export class WeatherDataService {
         updatedAt: new Date().toISOString()
       };
       
-      // Save to database
+      // Save to database for future use
       const savedData = await this.saveWeatherData(weatherData);
       return savedData;
     } catch (error) {
-      console.error('Error generating climatological average:', error);
+      console.error('[BATCH] Error generating climatological average:', error);
       throw error;
     }
   }

@@ -21,6 +21,7 @@ import type {
 } from '../../types/domain/climate';
 
 import { supabase } from '../../infrastructure/database/client';
+import { EnhancedFreeWeatherService } from '../../components/climateReceivables/services/api/enhanced-free-weather-service';
 
 export interface WeatherData {
   temperature: number;
@@ -49,6 +50,19 @@ export interface MarketConditions {
   seasonalFactor: number; // 0.5-2.0 multiplier
 }
 
+export interface FederalRegisterResponse {
+  results: {
+    title: string;
+    abstract: string;
+    document_number: string;
+    html_url: string;
+    publication_date: string;
+    agencies: Array<{ name: string }>;
+    type: string;
+  }[];
+  count: number;
+}
+
 /**
  * Enhanced risk calculation with multiple data sources and statistical analysis
  */
@@ -69,8 +83,90 @@ export class EnhancedRiskCalculationEngine {
   };
 
   /**
-   * Calculate comprehensive risk assessment for a climate receivable
+   * Batch process risk calculations for multiple receivables
+   * Supports batch processing as requested in requirements
    */
+  public static async calculateBatchRisk(
+    receivableIds: string[],
+    includeRealTimeData: boolean = true
+  ): Promise<ServiceResponse<ClimateRiskAssessmentResult[]>> {
+    try {
+      const results: ClimateRiskAssessmentResult[] = [];
+      const errors: string[] = [];
+
+      // Process in chunks to avoid overwhelming APIs
+      const chunkSize = 5;
+      for (let i = 0; i < receivableIds.length; i += chunkSize) {
+        const chunk = receivableIds.slice(i, i + chunkSize);
+        
+        const chunkPromises = chunk.map(async (receivableId) => {
+          try {
+            // First fetch the receivable data to get all required fields
+            const { data: receivable, error: fetchError } = await supabase
+              .from('climate_receivables')
+              .select('*')
+              .eq('receivable_id', receivableId)
+              .single();
+
+            if (fetchError || !receivable) {
+              errors.push(`${receivableId}: Failed to fetch receivable data`);
+              return null;
+            }
+
+            // Construct the full input object required by calculateEnhancedRisk
+            const riskInput: ClimateRiskAssessmentInput = {
+              receivableId: receivable.receivable_id,
+              payerId: receivable.payer_id,
+              assetId: receivable.asset_id || '',
+              amount: receivable.amount,
+              dueDate: receivable.due_date
+            };
+
+            const result = await this.calculateEnhancedRisk(
+              riskInput, 
+              includeRealTimeData
+            );
+            
+            if (result.success && result.data) {
+              return result.data;
+            } else {
+              errors.push(`${receivableId}: ${result.error}`);
+              return null;
+            }
+          } catch (error) {
+            errors.push(`${receivableId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return null;
+          }
+        });
+
+        const chunkResults = await Promise.all(chunkPromises);
+        results.push(...chunkResults.filter(result => result !== null));
+
+        // Add small delay between chunks to respect API rate limits
+        if (i + chunkSize < receivableIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      return {
+        success: true,
+        data: results,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          totalRequested: receivableIds.length,
+          successfulCalculations: results.length,
+          errors: errors.length > 0 ? errors : undefined
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Batch risk calculation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
   public static async calculateEnhancedRisk(
     input: ClimateRiskAssessmentInput,
     includeRealTimeData: boolean = true
@@ -144,14 +240,26 @@ export class EnhancedRiskCalculationEngine {
   }
 
   /**
-   * Calculate production-based risk using historical data
+   * Calculate production-based risk using historical data and real weather integration
    */
   private static async calculateProductionRisk(assetId: string): Promise<{
     score: number;
     variability: number;
     trend: 'increasing' | 'stable' | 'decreasing';
+    weatherImpact?: number;
   }> {
     try {
+      // Get asset details and location for weather integration
+      const { data: assetData, error: assetError } = await supabase
+        .from('energy_assets')
+        .select('name, asset_type, capacity_mw, location, latitude, longitude')
+        .eq('asset_id', assetId)
+        .single();
+
+      if (assetError) {
+        console.warn(`Asset not found for ID ${assetId}, using fallback`);
+      }
+
       // Get production history for the asset
       const { data: productionData, error } = await supabase
         .from('climate_pool_energy_assets')
@@ -171,11 +279,17 @@ export class EnhancedRiskCalculationEngine {
       if (error) throw error;
 
       if (!productionData || productionData.length < 7) {
-        // Insufficient data - use conservative estimate
+        // Insufficient data - use conservative estimate with weather check if available
+        let weatherRisk = 0;
+        if (assetData?.latitude && assetData?.longitude) {
+          weatherRisk = await this.calculateWeatherRisk(assetData.latitude, assetData.longitude, assetData.asset_type);
+        }
+        
         return {
-          score: 60, // Medium risk due to lack of data
+          score: 60 + weatherRisk, // Medium risk due to lack of data, adjusted for weather
           variability: 0.3,
-          trend: 'stable'
+          trend: 'stable',
+          weatherImpact: weatherRisk
         };
       }
 
@@ -196,13 +310,21 @@ export class EnhancedRiskCalculationEngine {
         riskScore = 80; // High risk
       }
 
+      // Integrate real weather data if asset location is available
+      let weatherRisk = 0;
+      if (assetData?.latitude && assetData?.longitude) {
+        weatherRisk = await this.calculateWeatherRisk(assetData.latitude, assetData.longitude, assetData.asset_type);
+        riskScore = Math.min(riskScore + weatherRisk, 100);
+      }
+
       // Determine trend (simple linear regression on recent data)
       const trend = this.calculateProductionTrend(outputs);
 
       return {
         score: riskScore,
         variability: coefficientOfVariation,
-        trend
+        trend,
+        weatherImpact: weatherRisk
       };
 
     } catch (error) {
@@ -266,53 +388,69 @@ export class EnhancedRiskCalculationEngine {
   }
 
   /**
-   * Calculate policy and regulatory risk
+   * Calculate policy and regulatory risk using Federal Register API and database
    */
   private static async calculatePolicyRisk(): Promise<{
     score: number;
     impacts: PolicyImpactData[];
+    recentChanges?: number;
   }> {
     try {
-      // Get relevant policy impacts from database
-      const { data: policies, error } = await supabase
+      // Get current policies from database
+      const { data: existingPolicies, error: dbError } = await supabase
         .from('climate_policy_impacts')
         .select('*')
         .gte('effective_date', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
         .order('impact_level', { ascending: false });
 
-      if (error) throw error;
+      // Fetch recent regulatory changes from Federal Register API (free, no key required)
+      const recentChanges = await this.fetchFederalRegisterData();
+      let policyScore = 30; // Base policy risk
 
-      if (!policies || policies.length === 0) {
-        return {
-          score: 30, // Low policy risk when no major policies
-          impacts: []
-        };
-      }
-
-      // Calculate weighted policy risk
-      const policyImpacts: PolicyImpactData[] = policies.map(p => ({
+      // Process existing policies from database
+      const policyImpacts: PolicyImpactData[] = existingPolicies?.map(p => ({
         policyType: p.policy_type || 'Unknown',
         impactLevel: p.impact_level || 'medium',
         effectiveDate: p.effective_date,
         expirationDate: p.expiration_date,
         impactOnReceivables: p.impact_on_receivables || 0
-      }));
+      })) || [];
 
-      const totalImpact = policyImpacts.reduce((sum, impact) => {
-        const levelMultiplier = impact.impactLevel === 'high' ? 3 : 
-                              impact.impactLevel === 'medium' ? 2 : 1;
-        return sum + (Math.abs(impact.impactOnReceivables) * levelMultiplier);
-      }, 0);
+      // Process recent regulatory changes
+      if (recentChanges && recentChanges.results.length > 0) {
+        const recentImpacts = recentChanges.results.map(article => ({
+          policyType: this.categorizeRegulation(article.title, article.abstract),
+          impactLevel: this.assessRegulationImpact(article.title, article.abstract, article.type),
+          effectiveDate: article.publication_date,
+          impactOnReceivables: this.estimateFinancialImpact(article.title, article.abstract)
+        }));
 
-      const avgImpact = totalImpact / Math.max(policyImpacts.length, 1);
-      const riskScore = Math.min(avgImpact * 50, 100); // Scale to 0-100
+        policyImpacts.push(...recentImpacts);
+        
+        // Increase policy risk if many recent changes
+        policyScore += Math.min(recentChanges.results.length * 5, 30);
+      }
+
+      // Calculate weighted policy risk
+      if (policyImpacts.length > 0) {
+        const totalImpact = policyImpacts.reduce((sum, impact) => {
+          const levelMultiplier = impact.impactLevel === 'high' ? 3 : 
+                                impact.impactLevel === 'medium' ? 2 : 1;
+          return sum + (Math.abs(impact.impactOnReceivables) * levelMultiplier);
+        }, 0);
+
+        const avgImpact = totalImpact / policyImpacts.length;
+        policyScore = Math.min(policyScore + (avgImpact * 50), 100);
+      }
 
       return {
-        score: riskScore,
-        impacts: policyImpacts
+        score: policyScore,
+        impacts: policyImpacts,
+        recentChanges: recentChanges?.results.length || 0
       };
 
     } catch (error) {
+      console.error('Policy risk calculation failed:', error);
       return {
         score: 40, // Moderate policy risk as fallback
         impacts: []
@@ -459,6 +597,218 @@ export class EnhancedRiskCalculationEngine {
       console.error('Failed to persist risk calculation:', error);
       throw error;
     }
+  }
+
+  /**
+   * NEW METHODS: Weather Risk Integration and Policy API Integration
+   */
+
+  /**
+   * Calculate weather-based risk for renewable energy assets
+   */
+  private static async calculateWeatherRisk(
+    latitude: number, 
+    longitude: number, 
+    assetType: string
+  ): Promise<number> {
+    try {
+      // Get current weather conditions and 7-day forecast
+      const weatherData = await EnhancedFreeWeatherService.getCurrentWeather(latitude, longitude);
+      const forecast = await EnhancedFreeWeatherService.getWeatherForecast(latitude, longitude, 7);
+
+      let weatherRisk = 0;
+
+      // Asset-specific weather risk calculations
+      switch (assetType?.toLowerCase()) {
+        case 'solar':
+        case 'photovoltaic':
+          weatherRisk = this.calculateSolarWeatherRisk(weatherData, forecast);
+          break;
+        case 'wind':
+          weatherRisk = this.calculateWindWeatherRisk(weatherData, forecast);
+          break;
+        case 'hydro':
+        case 'hydroelectric':
+          weatherRisk = this.calculateHydroWeatherRisk(weatherData, forecast);
+          break;
+        default:
+          weatherRisk = this.calculateGeneralWeatherRisk(weatherData, forecast);
+      }
+
+      return Math.min(weatherRisk, 30); // Cap weather risk contribution at 30 points
+    } catch (error) {
+      console.warn('Weather risk calculation failed, using default:', error);
+      return 5; // Small weather risk as fallback
+    }
+  }
+
+  /**
+   * Calculate solar-specific weather risk
+   */
+  private static calculateSolarWeatherRisk(weatherData: any, forecast: any[]): number {
+    let risk = 0;
+    
+    // Current conditions
+    if (weatherData.cloudCover > 70) risk += 10; // Heavy cloud cover
+    if (weatherData.sunlightHours < 6) risk += 10; // Limited sunlight
+    if (weatherData.precipitationMm > 10) risk += 5; // Rain affects efficiency
+    
+    // Forecast analysis
+    const avgCloudCover = forecast.reduce((sum, day) => sum + (day.cloudCover || 50), 0) / forecast.length;
+    if (avgCloudCover > 60) risk += 8;
+    
+    return risk;
+  }
+
+  /**
+   * Calculate wind-specific weather risk
+   */
+  private static calculateWindWeatherRisk(weatherData: any, forecast: any[]): number {
+    let risk = 0;
+    
+    // Current conditions - wind turbines need consistent wind (3-25 m/s optimal)
+    if (weatherData.windSpeed < 3) risk += 15; // Too little wind
+    if (weatherData.windSpeed > 25) risk += 10; // Too much wind (turbines shut down)
+    
+    // Forecast analysis
+    const avgWindSpeed = forecast.reduce((sum, day) => sum + (day.windSpeed || 5), 0) / forecast.length;
+    if (avgWindSpeed < 4) risk += 12;
+    if (avgWindSpeed > 20) risk += 8;
+    
+    return risk;
+  }
+
+  /**
+   * Calculate hydro-specific weather risk
+   */
+  private static calculateHydroWeatherRisk(weatherData: any, forecast: any[]): number {
+    let risk = 0;
+    
+    // Precipitation is crucial for hydro - too little or too much is problematic
+    const totalPrecipitation = forecast.reduce((sum, day) => sum + (day.precipitationMm || 0), 0);
+    
+    if (totalPrecipitation < 10) risk += 15; // Drought conditions
+    if (totalPrecipitation > 100) risk += 10; // Flooding risk
+    
+    return risk;
+  }
+
+  /**
+   * Calculate general weather risk for mixed or unknown asset types
+   */
+  private static calculateGeneralWeatherRisk(weatherData: any, forecast: any[]): number {
+    let risk = 0;
+    
+    // General extreme weather conditions
+    if (weatherData.temperature < -10 || weatherData.temperature > 40) risk += 8;
+    if (weatherData.windSpeed > 20) risk += 5;
+    if (weatherData.precipitationMm > 25) risk += 5;
+    
+    return risk;
+  }
+
+  /**
+   * Fetch regulatory data from Federal Register API (free, no API key required)
+   */
+  private static async fetchFederalRegisterData(): Promise<FederalRegisterResponse | null> {
+    try {
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      // Search for renewable energy, tax credit, and climate-related regulations
+      const searchTerms = [
+        'renewable energy',
+        'investment tax credit', 
+        'production tax credit',
+        'clean energy',
+        'solar tax credit',
+        'wind energy credit'
+      ];
+
+      const searchQuery = searchTerms.join(' OR ');
+      const apiUrl = `https://www.federalregister.gov/api/v1/articles.json?conditions[term]=${encodeURIComponent(searchQuery)}&conditions[publication_date][gte]=${thirtyDaysAgo.toISOString().split('T')[0]}&per_page=20&order=relevance`;
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ClimateReceivablesApp/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Federal Register API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      return {
+        results: data.results || [],
+        count: data.count || 0
+      };
+    } catch (error) {
+      console.warn('Federal Register API failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Categorize regulation type based on title and abstract
+   */
+  private static categorizeRegulation(title: string, abstract?: string): string {
+    const text = `${title} ${abstract || ''}`.toLowerCase();
+    
+    if (text.includes('tax credit') || text.includes('investment tax')) return 'Tax Credit';
+    if (text.includes('production tax') || text.includes('ptc')) return 'Production Tax Credit';
+    if (text.includes('renewable') || text.includes('clean energy')) return 'Renewable Energy Policy';
+    if (text.includes('solar')) return 'Solar Policy';
+    if (text.includes('wind')) return 'Wind Energy Policy';
+    if (text.includes('tariff') || text.includes('trade')) return 'Trade Policy';
+    if (text.includes('environmental') || text.includes('emission')) return 'Environmental Regulation';
+    
+    return 'General Energy Policy';
+  }
+
+  /**
+   * Assess regulation impact level
+   */
+  private static assessRegulationImpact(title: string, abstract?: string, type?: string): 'low' | 'medium' | 'high' {
+    const text = `${title} ${abstract || ''}`.toLowerCase();
+    
+    // High impact indicators
+    if (text.includes('final rule') && (text.includes('tax credit') || text.includes('investment tax'))) return 'high';
+    if (text.includes('phase out') || text.includes('elimination') || text.includes('termination')) return 'high';
+    if (text.includes('major') || text.includes('significant') || text.includes('substantial')) return 'high';
+    
+    // Medium impact indicators
+    if (text.includes('modification') || text.includes('amendment') || text.includes('revision')) return 'medium';
+    if (text.includes('proposed rule')) return 'medium';
+    
+    // Low impact indicators (notices, requests for comment, etc.)
+    if (type?.includes('notice') || text.includes('comment') || text.includes('hearing')) return 'low';
+    
+    return 'medium'; // Default
+  }
+
+  /**
+   * Estimate financial impact on receivables (-1 to 1 scale)
+   */
+  private static estimateFinancialImpact(title: string, abstract?: string): number {
+    const text = `${title} ${abstract || ''}`.toLowerCase();
+    
+    // Positive impacts (benefits to renewable energy)
+    if (text.includes('extension') && text.includes('tax credit')) return 0.3;
+    if (text.includes('increase') && (text.includes('credit') || text.includes('incentive'))) return 0.2;
+    if (text.includes('new') && text.includes('incentive')) return 0.25;
+    
+    // Negative impacts (costs or restrictions)
+    if (text.includes('reduction') && text.includes('credit')) return -0.3;
+    if (text.includes('phase out') || text.includes('elimination')) return -0.5;
+    if (text.includes('restriction') || text.includes('limitation')) return -0.2;
+    
+    // Neutral or unclear impacts
+    if (text.includes('study') || text.includes('review') || text.includes('comment')) return 0.0;
+    
+    return 0.1; // Slight positive default for renewable energy regulations
   }
 }
 

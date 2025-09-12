@@ -60,16 +60,14 @@ interface PolicyImpactAssessment {
  * Monitors regulatory news feeds and provides risk assessments
  */
 export class PolicyRiskTrackingService {
-  // API Configuration
-  private static readonly REGULATORY_NEWS_API_KEY = import.meta.env.VITE_REGULATORY_NEWS_API_KEY;
-  private static readonly GOVINFO_API_KEY = import.meta.env.VITE_GOVINFO_API_KEY;
-  private static readonly FEDERAL_REGISTER_API_KEY = import.meta.env.VITE_FEDERAL_REGISTER_API_KEY;
-  
-  // API Endpoints
-  private static readonly REGULATORY_NEWS_BASE_URL = 'https://api.regulatorynews.com/v1';
-  private static readonly GOVINFO_BASE_URL = 'https://api.govinfo.gov';
+  // FREE API Endpoints (NO API KEYS REQUIRED)
   private static readonly FEDERAL_REGISTER_BASE_URL = 'https://www.federalregister.gov/api/v1';
   private static readonly CONGRESS_BASE_URL = 'https://api.congress.gov/v3';
+  
+  // OPTIONAL API Endpoints (FREE TIER AVAILABLE)
+  private static readonly GOVINFO_API_KEY = import.meta.env.VITE_GOVINFO_API_KEY; // Optional
+  private static readonly LEGISCAN_API_KEY = import.meta.env.VITE_LEGISCAN_API_KEY; // Optional
+  private static readonly GOVINFO_BASE_URL = 'https://api.govinfo.gov';
   
   // Cache and monitoring settings
   private static readonly CACHE_DURATION = 60 * 60 * 1000; // 1 hour
@@ -81,7 +79,7 @@ export class PolicyRiskTrackingService {
   ];
 
   /**
-   * Monitor regulatory changes and generate policy alerts
+   * Monitor regulatory changes using FREE APIs with batch processing
    * @param regions Array of regions to monitor (e.g., ['federal', 'california', 'texas'])
    * @returns Array of new policy alerts
    */
@@ -89,10 +87,12 @@ export class PolicyRiskTrackingService {
     regions: string[] = ['federal']
   ): Promise<PolicyAlert[]> {
     try {
+      console.log(`[BATCH] Monitoring regulatory changes for regions: ${regions.join(', ')}`);
       const alerts: PolicyAlert[] = [];
       
-      // Fetch regulatory news from multiple sources
-      const newsItems = await this.fetchRegulatoryNews(regions);
+      // Fetch regulatory news from FREE sources only
+      const newsItems = await this.fetchRegulatoryNewsFromFreeAPIs(regions);
+      console.log(`[BATCH] Found ${newsItems.length} regulatory news items`);
       
       // Analyze news items for policy impacts
       for (const newsItem of newsItems) {
@@ -107,11 +107,12 @@ export class PolicyRiskTrackingService {
       // Save alerts to database
       if (alerts.length > 0) {
         await this.saveAlertsToDatabase(alerts);
+        console.log(`[BATCH] Generated ${alerts.length} policy alerts`);
       }
       
       return alerts;
     } catch (error) {
-      console.error('Error monitoring regulatory changes:', error);
+      console.error('[BATCH] Error monitoring regulatory changes:', error);
       return [];
     }
   }
@@ -238,7 +239,7 @@ export class PolicyRiskTrackingService {
   ): Promise<any[]> {
     try {
       // Get recent regulatory news
-      const newsItems = await this.fetchRegulatoryNews(['federal']);
+      const newsItems = await this.fetchRegulatoryNewsFromFreeAPIs(['federal']);
       
       // Analyze trending topics
       const trendingTopics = this.analyzeTrendingTopics(newsItems, timeframe);
@@ -253,96 +254,159 @@ export class PolicyRiskTrackingService {
   // Private methods for external API integration
 
   /**
-   * Fetch regulatory news from multiple sources
+   * Fetch regulatory news from FREE APIs ONLY
    */
-  private static async fetchRegulatoryNews(regions: string[]): Promise<RegulatoryNewsItem[]> {
+  private static async fetchRegulatoryNewsFromFreeAPIs(regions: string[]): Promise<RegulatoryNewsItem[]> {
     const newsItems: RegulatoryNewsItem[] = [];
     
     try {
-      // Fetch from Federal Register API
+      console.log('[BATCH] Fetching from FREE regulatory APIs');
+      
+      // Priority 1: Federal Register API (FREE, no API key required)
       if (regions.includes('federal')) {
         const federalNews = await this.fetchFederalRegisterNews();
         newsItems.push(...federalNews);
+        console.log(`[BATCH] Federal Register: ${federalNews.length} items`);
       }
       
-      // Fetch from GovInfo API
-      const govInfoNews = await this.fetchGovInfoNews();
-      newsItems.push(...govInfoNews);
-      
-      // Fetch from regulatory news API (if available)
-      if (this.REGULATORY_NEWS_API_KEY) {
-        const regulatoryNews = await this.fetchRegulatoryNewsAPI();
-        newsItems.push(...regulatoryNews);
+      // Priority 2: GovInfo API (FREE with registration, optional)
+      if (this.GOVINFO_API_KEY && regions.includes('federal')) {
+        const govInfoNews = await this.fetchGovInfoNews();
+        newsItems.push(...govInfoNews);
+        console.log(`[BATCH] GovInfo: ${govInfoNews.length} items`);
       }
       
-      // If no external APIs available, use simulated news
+      // Priority 3: LegiScan API (FREE tier available, optional)
+      if (this.LEGISCAN_API_KEY) {
+        const legiScanNews = await this.fetchLegiScanNews(regions);
+        newsItems.push(...legiScanNews);
+        console.log(`[BATCH] LegiScan: ${legiScanNews.length} items`);
+      }
+      
+      // If no external APIs available or no data found, use simulated news for development
       if (newsItems.length === 0) {
+        console.log('[BATCH] No external API data available, using simulated news');
         return this.getSimulatedRegulatoryNews();
       }
       
-      return newsItems;
+      // Remove duplicates based on title
+      const uniqueItems = newsItems.filter((item, index, self) => 
+        index === self.findIndex(other => other.title === item.title)
+      );
+      
+      console.log(`[BATCH] Total unique regulatory news items: ${uniqueItems.length}`);
+      return uniqueItems;
     } catch (error) {
-      console.error('Error fetching regulatory news:', error);
+      console.error('[BATCH] Error fetching regulatory news from free APIs:', error);
       return this.getSimulatedRegulatoryNews();
     }
   }
 
   /**
-   * Fetch news from Federal Register API
+   * Fetch news from Federal Register API (FREE - No API key required)
+   * Enhanced with better keyword targeting and date filtering
    */
   private static async fetchFederalRegisterNews(): Promise<RegulatoryNewsItem[]> {
     try {
-      const keywordQuery = this.MONITORING_KEYWORDS.join(' OR ');
-      const response = await fetch(
-        `${this.FEDERAL_REGISTER_BASE_URL}/documents.json?conditions[term]=${encodeURIComponent(keywordQuery)}&conditions[publication_date][gte]=${this.getLastWeekDate()}`
-      );
+      console.log('[BATCH] Fetching from Federal Register API (free)');
       
-      if (!response.ok) {
-        throw new Error(`Federal Register API error: ${response.status}`);
+      // Use specific renewable energy search terms for better results
+      const searchTerms = [
+        'renewable energy tax credit',
+        'investment tax credit renewable',
+        'production tax credit',
+        'solar wind energy policy',
+        'clean energy standard'
+      ];
+      
+      const allResults: RegulatoryNewsItem[] = [];
+      
+      // Search for each term to get comprehensive coverage
+      for (const term of searchTerms) {
+        try {
+          const response = await fetch(
+            `${this.FEDERAL_REGISTER_BASE_URL}/documents.json?conditions[term]=${encodeURIComponent(term)}&conditions[publication_date][gte]=${this.getLastMonthDate()}&per_page=20`
+          );
+          
+          if (!response.ok) {
+            console.log(`[BATCH] Federal Register API warning for term "${term}": ${response.status}`);
+            continue;
+          }
+          
+          const data = await response.json();
+          
+          if (data.results) {
+            const items = data.results.map((item: any) => ({
+              id: `federal_register_${item.document_number}`,
+              title: item.title,
+              description: item.abstract || item.title,
+              source: 'Federal Register',
+              publishedDate: item.publication_date,
+              impactLevel: this.assessImpactLevel(item.title + ' ' + (item.abstract || '')),
+              categories: [item.type || 'regulation'],
+              regions: ['federal'],
+              affectedSectors: this.identifyAffectedSectors(item.title + ' ' + (item.abstract || '')),
+              url: item.html_url,
+              summary: item.abstract || 'Federal Register document - see full text for details'
+            }));
+            
+            allResults.push(...items);
+          }
+        } catch (termError) {
+          console.error(`[BATCH] Error fetching Federal Register for term "${term}":`, termError);
+        }
       }
       
-      const data = await response.json();
+      // Remove duplicates and sort by publication date
+      const uniqueResults = allResults.filter((item, index, self) => 
+        index === self.findIndex(other => other.id === item.id)
+      );
       
-      return data.results?.map((item: any) => ({
-        id: `federal_register_${item.document_number}`,
-        title: item.title,
-        description: item.abstract || item.title,
-        source: 'Federal Register',
-        publishedDate: item.publication_date,
-        impactLevel: this.assessImpactLevel(item.title + ' ' + (item.abstract || '')),
-        categories: [item.type || 'regulation'],
-        regions: ['federal'],
-        affectedSectors: this.identifyAffectedSectors(item.title + ' ' + (item.abstract || '')),
-        url: item.html_url,
-        summary: item.abstract || 'No summary available'
-      })) || [];
+      console.log(`[BATCH] Federal Register API returned ${uniqueResults.length} unique items`);
+      return uniqueResults;
     } catch (error) {
-      console.error('Error fetching Federal Register news:', error);
+      console.error('[BATCH] Error fetching Federal Register news:', error);
       return [];
     }
   }
 
   /**
-   * Fetch news from GovInfo API
+   * Fetch news from GovInfo API (FREE with registration)
+   * Enhanced with better error handling
    */
   private static async fetchGovInfoNews(): Promise<RegulatoryNewsItem[]> {
     try {
+      console.log('[BATCH] Fetching from GovInfo API (free with registration)');
+      
       if (!this.GOVINFO_API_KEY) {
-        console.log('GovInfo API key not configured');
+        console.log('[BATCH] GovInfo API key not configured - skipping');
         return [];
       }
 
+      const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `${this.GOVINFO_BASE_URL}/collections/FR/2024-01-01/2024-12-31?offset=0&pageSize=100&api_key=${this.GOVINFO_API_KEY}`
+        `${this.GOVINFO_BASE_URL}/collections/FR/${currentYear}-01-01/${currentYear}-12-31?offset=0&pageSize=50&api_key=${this.GOVINFO_API_KEY}`
       );
       
       if (!response.ok) {
-        throw new Error(`GovInfo API error: ${response.status}`);
+        console.log(`[BATCH] GovInfo API warning: ${response.status}`);
+        return [];
       }
       
       const data = await response.json();
       
-      return data.packages?.map((item: any) => ({
+      if (!data.packages) {
+        return [];
+      }
+      
+      // Filter for renewable energy related documents
+      const renewableEnergyDocs = data.packages.filter((item: any) => 
+        this.MONITORING_KEYWORDS.some(keyword => 
+          item.title.toLowerCase().includes(keyword.toLowerCase())
+        )
+      );
+      
+      const results = renewableEnergyDocs.map((item: any) => ({
         id: `govinfo_${item.packageId}`,
         title: item.title,
         description: item.title,
@@ -353,52 +417,108 @@ export class PolicyRiskTrackingService {
         regions: ['federal'],
         affectedSectors: this.identifyAffectedSectors(item.title),
         url: `https://www.govinfo.gov/app/details/${item.packageId}`,
-        summary: 'Government document - see full text for details'
-      })) || [];
+        summary: 'Government document - access full text via link'
+      }));
+      
+      console.log(`[BATCH] GovInfo API returned ${results.length} relevant items`);
+      return results;
     } catch (error) {
-      console.error('Error fetching GovInfo news:', error);
+      console.error('[BATCH] Error fetching GovInfo news:', error);
       return [];
     }
   }
 
   /**
-   * Fetch news from regulatory news API
+   * Fetch news from LegiScan API (FREE tier available)
+   * NEW: State and federal legislation tracking
    */
-  private static async fetchRegulatoryNewsAPI(): Promise<RegulatoryNewsItem[]> {
+  private static async fetchLegiScanNews(regions: string[]): Promise<RegulatoryNewsItem[]> {
     try {
-      const response = await fetch(
-        `${this.REGULATORY_NEWS_BASE_URL}/news?keywords=${encodeURIComponent(this.MONITORING_KEYWORDS.join(','))}&since=${this.getLastWeekDate()}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${this.REGULATORY_NEWS_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      console.log('[BATCH] Fetching from LegiScan API (free tier)');
       
-      if (!response.ok) {
-        throw new Error(`Regulatory News API error: ${response.status}`);
+      if (!this.LEGISCAN_API_KEY) {
+        console.log('[BATCH] LegiScan API key not configured - skipping');
+        return [];
+      }
+
+      const results: RegulatoryNewsItem[] = [];
+      
+      // Search for renewable energy bills in specified states
+      const searchKeywords = ['renewable energy', 'solar', 'wind', 'clean energy'];
+      
+      for (const keyword of searchKeywords) {
+        try {
+          const response = await fetch(
+            `https://api.legiscan.com/?key=${this.LEGISCAN_API_KEY}&op=search&query=${encodeURIComponent(keyword)}&year=2024`
+          );
+          
+          if (!response.ok) continue;
+          
+          const data = await response.json();
+          
+          if (data.searchresult && data.searchresult.summary) {
+            // Process each bill found
+            for (const bill of data.searchresult.summary) {
+              if (bill && bill.bill_id) {
+                results.push({
+                  id: `legiscan_${bill.bill_id}`,
+                  title: bill.title || `${bill.state} ${bill.bill_number}`,
+                  description: bill.description || bill.title || 'Legislative bill',
+                  source: 'LegiScan',
+                  publishedDate: bill.last_action_date || new Date().toISOString().split('T')[0],
+                  impactLevel: this.assessBillImpactLevel(bill),
+                  categories: ['legislation'],
+                  regions: [bill.state?.toLowerCase() || 'federal'],
+                  affectedSectors: this.identifyAffectedSectors(bill.title || ''),
+                  url: bill.url || `https://legiscan.com/bill/${bill.bill_id}`,
+                  summary: `${bill.state} legislative bill ${bill.bill_number} - ${bill.status || 'in progress'}`
+                });
+              }
+            }
+          }
+        } catch (keywordError) {
+          console.error(`[BATCH] LegiScan error for keyword "${keyword}":`, keywordError);
+        }
       }
       
-      const data = await response.json();
-      
-      return data.articles?.map((item: any) => ({
-        id: `reg_news_${item.id}`,
-        title: item.title,
-        description: item.description,
-        source: item.source || 'Regulatory News API',
-        publishedDate: item.publishedDate,
-        impactLevel: item.impactLevel || this.assessImpactLevel(item.title + ' ' + item.description),
-        categories: item.categories || ['regulatory'],
-        regions: item.regions || ['federal'],
-        affectedSectors: item.affectedSectors || this.identifyAffectedSectors(item.title + ' ' + item.description),
-        url: item.url,
-        summary: item.summary || item.description
-      })) || [];
+      console.log(`[BATCH] LegiScan API returned ${results.length} legislative items`);
+      return results;
     } catch (error) {
-      console.error('Error fetching regulatory news API:', error);
+      console.error('[BATCH] Error fetching LegiScan news:', error);
       return [];
     }
+  }
+
+  // Helper methods for enhanced free API integration
+
+  private static assessBillImpactLevel(bill: any): 'low' | 'medium' | 'high' | 'critical' {
+    if (!bill.title) return 'low';
+    
+    const title = bill.title.toLowerCase();
+    const status = bill.status?.toLowerCase() || '';
+    
+    // Critical: Bills that are passed or very close to passing
+    if (status.includes('passed') || status.includes('enacted') || status.includes('signed')) {
+      return 'critical';
+    }
+    
+    // High: Tax credits, major renewable energy bills
+    if (title.includes('tax credit') || title.includes('renewable portfolio') || title.includes('clean energy standard')) {
+      return 'high';
+    }
+    
+    // Medium: Other renewable energy legislation
+    if (title.includes('renewable') || title.includes('solar') || title.includes('wind') || title.includes('clean energy')) {
+      return 'medium';
+    }
+    
+    return 'low';
+  }
+
+  private static getLastMonthDate(): string {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    return date.toISOString().split('T')[0];
   }
 
   // Helper methods
