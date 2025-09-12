@@ -13,7 +13,9 @@ import {
   ExternalLink,
   Loader2,
   Clock,
-  Fingerprint
+  Fingerprint,
+  Users,
+  UserCheck
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -21,22 +23,33 @@ import { useToast } from '@/components/ui/use-toast';
 import { getDfnsService, initializeDfnsService } from '@/services/dfns';
 import type { AuthenticationStatus, AuthenticationMethod } from '@/services/dfns/authenticationService';
 
-interface AuthStatusProps {
+interface EnhancedAuthData {
+  serviceAccounts: number;
+  personalTokens: number;
+  credentials: number;
+  users: number;
+  loading: boolean;
+  error: string | null;
+}
+
+interface AuthStatusCardProps {
   showRefreshButton?: boolean;
   showActions?: boolean;
   compact?: boolean;
+  showCounts?: boolean;
 }
 
 /**
  * DFNS Authentication Status Card
- * Shows current authentication state and credentials
- * Includes User Action Signing status
+ * Shows current authentication state AND real counts from all DFNS services
+ * Includes Service Accounts, Personal Tokens, Credentials, and Users
  */
 export function AuthStatusCard({ 
   showRefreshButton = true, 
   showActions = true,
-  compact = false 
-}: AuthStatusProps) {
+  compact = false,
+  showCounts = true
+}: AuthStatusCardProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthenticationStatus>({
@@ -55,41 +68,142 @@ export function AuthStatusCard({
     permissions: []
   });
 
+  const [enhancedData, setEnhancedData] = useState<EnhancedAuthData>({
+    serviceAccounts: 0,
+    personalTokens: 0,
+    credentials: 0,
+    users: 0,
+    loading: true,
+    error: null
+  });
+
   const { toast } = useToast();
 
-  // Load authentication status
-  const loadAuthStatus = async () => {
+  // Load authentication status and enhanced data
+  const loadAuthData = async () => {
     try {
       setLoading(true);
       
+      console.log('🔄 Loading enhanced auth data...');
       const dfnsService = await initializeDfnsService();
+      
+      // Get basic auth status
       const authService = dfnsService.getAuthenticationService();
       const status = await authService.getAuthenticationStatus();
       
       setAuthStatus(status);
 
+      if (status.isAuthenticated && showCounts) {
+        // Fetch real data from all DFNS services
+        console.log('📊 Fetching data from DFNS services...');
+        
+        const [serviceAccountsResult, personalTokensResult, credentialsResult, usersResult] = await Promise.allSettled([
+          // Service Accounts
+          dfnsService.getServiceAccountManagementService()
+            .getAllServiceAccounts()
+            .then(result => result.success ? result.data?.length || 0 : 0)
+            .catch(error => {
+              console.warn('Service accounts fetch failed:', error);
+              return 0;
+            }),
+          
+          // Personal Access Tokens
+          dfnsService.getPersonalAccessTokenManagementService()
+            .listPersonalAccessTokens()
+            .then(result => result.success ? result.data?.items?.length || 0 : 0)
+            .catch(error => {
+              console.warn('Personal tokens fetch failed:', error);
+              return 0;
+            }),
+          
+          // Credentials
+          dfnsService.getCredentialManagementService()
+            .listCredentials()
+            .then(result => result.length || 0)
+            .catch(error => {
+              console.warn('Credentials fetch failed:', error);
+              return 0;
+            }),
+          
+          // Users
+          dfnsService.getUserManagementService()
+            .listUsers()
+            .then(result => result.success ? result.data?.items?.length || 0 : 0)
+            .catch(error => {
+              console.warn('Users fetch failed:', error);
+              return 0;
+            })
+        ]);
+
+        const serviceAccounts = serviceAccountsResult.status === 'fulfilled' ? serviceAccountsResult.value : 0;
+        const personalTokens = personalTokensResult.status === 'fulfilled' ? personalTokensResult.value : 0;
+        const credentials = credentialsResult.status === 'fulfilled' ? credentialsResult.value : 0;
+        const users = usersResult.status === 'fulfilled' ? usersResult.value : 0;
+
+        console.log('✅ Enhanced auth data loaded:', {
+          serviceAccounts,
+          personalTokens, 
+          credentials,
+          users
+        });
+
+        setEnhancedData({
+          serviceAccounts,
+          personalTokens,
+          credentials,
+          users,
+          loading: false,
+          error: null
+        });
+
+        // Show success toast with real numbers
+        toast({
+          title: "Auth Data Loaded",
+          description: `${serviceAccounts} service accounts, ${personalTokens} tokens, ${credentials} credentials`,
+        });
+
+      } else {
+        // Not authenticated or counts not requested
+        setEnhancedData({
+          serviceAccounts: 0,
+          personalTokens: 0,
+          credentials: 0,
+          users: 0,
+          loading: false,
+          error: status.isAuthenticated ? null : 'Authentication required'
+        });
+      }
+
     } catch (error: any) {
-      console.error('Failed to load auth status:', error);
+      console.error('❌ Failed to load enhanced auth data:', error);
       setAuthStatus(prev => ({
         ...prev,
         error: error.message,
         isAuthenticated: false,
         connected: false
       }));
+      setEnhancedData({
+        serviceAccounts: 0,
+        personalTokens: 0,
+        credentials: 0,
+        users: 0,
+        loading: false,
+        error: error.message
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Refresh authentication status
-  const refreshAuthStatus = async () => {
+  // Refresh authentication status and data
+  const refreshAuthData = async () => {
     setRefreshing(true);
-    await loadAuthStatus();
+    await loadAuthData();
     setRefreshing(false);
     
     toast({
       title: "Status Updated",
-      description: "Authentication status refreshed successfully",
+      description: "Authentication status and data refreshed successfully",
     });
   };
 
@@ -115,7 +229,7 @@ export function AuthStatusCard({
         });
       }
       
-      await loadAuthStatus();
+      await loadAuthData();
       
     } catch (error: any) {
       toast({
@@ -129,7 +243,7 @@ export function AuthStatusCard({
   };
 
   useEffect(() => {
-    loadAuthStatus();
+    loadAuthData();
   }, []);
 
   // Get status color and icon
@@ -196,7 +310,7 @@ export function AuthStatusCard({
           <Button
             variant="ghost"
             size="sm"
-            onClick={refreshAuthStatus}
+            onClick={refreshAuthData}
             disabled={refreshing}
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -220,17 +334,17 @@ export function AuthStatusCard({
           </Badge>
         </div>
         <CardDescription>
-          Current DFNS authentication and connection status
+          Current DFNS authentication and connection status with real data
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {/* Error Alert */}
-        {authStatus.error && (
+        {(authStatus.error || enhancedData.error) && (
           <Alert className="border-red-200 bg-red-50">
             <AlertTriangle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-700">
-              {authStatus.error}
+              {authStatus.error || enhancedData.error}
             </AlertDescription>
           </Alert>
         )}
@@ -252,13 +366,69 @@ export function AuthStatusCard({
             </div>
           )}
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Credentials:</span>
-            <div className="flex items-center space-x-2">
-              <Key className="h-3 w-3" />
-              <span className="font-medium">{authStatus.credentialsCount}</span>
-            </div>
-          </div>
+          {showCounts && authStatus.isAuthenticated && (
+            <>
+              {/* Service Accounts */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Service Accounts:</span>
+                <div className="flex items-center space-x-2">
+                  <UserCheck className="h-3 w-3" />
+                  <span className="font-medium">
+                    {enhancedData.loading ? (
+                      <Loader2 className="h-3 w-3 animate-spin inline" />
+                    ) : (
+                      enhancedData.serviceAccounts
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Personal Tokens */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Personal Tokens:</span>
+                <div className="flex items-center space-x-2">
+                  <Key className="h-3 w-3" />
+                  <span className="font-medium">
+                    {enhancedData.loading ? (
+                      <Loader2 className="h-3 w-3 animate-spin inline" />
+                    ) : (
+                      enhancedData.personalTokens
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Credentials */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Credentials:</span>
+                <div className="flex items-center space-x-2">
+                  <Fingerprint className="h-3 w-3" />
+                  <span className="font-medium">
+                    {enhancedData.loading ? (
+                      <Loader2 className="h-3 w-3 animate-spin inline" />
+                    ) : (
+                      enhancedData.credentials
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Users */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Organization Users:</span>
+                <div className="flex items-center space-x-2">
+                  <Users className="h-3 w-3" />
+                  <span className="font-medium">
+                    {enhancedData.loading ? (
+                      <Loader2 className="h-3 w-3 animate-spin inline" />
+                    ) : (
+                      enhancedData.users
+                    )}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Wallets:</span>
@@ -322,7 +492,7 @@ export function AuthStatusCard({
             <Button
               variant="outline"
               size="sm"
-              onClick={refreshAuthStatus}
+              onClick={refreshAuthData}
               disabled={refreshing}
               className="gap-1"
             >

@@ -15,15 +15,20 @@ import {
   AlertTriangle,
   TrendingUp,
   Activity,
-  Plus,
   ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 // Import DFNS components
 import { AuthStatusCard } from '../authentication/auth-status-card';
-import { WalletCreationWizard } from '../dialogs/wallet-creation-wizard';
 import { WalletList } from '../wallets/wallet-list';
+import { 
+  QuickActionsDropdown, 
+  UserInvitationDialog, 
+  PermissionAssignmentDialog, 
+  TransactionBroadcastDialog,
+  WalletCreationWizard
+} from '../dialogs';
 import { getDfnsService, initializeDfnsService } from '@/services/dfns';
 
 /**
@@ -146,10 +151,7 @@ export function DfnsDashboard() {
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
-            <Button size="sm" className="gap-2">
-              <Plus className="h-4 w-4" />
-              Quick Create
-            </Button>
+            <QuickActionsDropdown onActionCompleted={refreshData} />
           </div>
         </div>
       </div>
@@ -320,19 +322,30 @@ export function DfnsDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <WalletCreationWizard />
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <Users className="h-4 w-4 mr-2" />
-                      Add Organization User
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <Key className="h-4 w-4 mr-2" />
-                      Create Permission
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <ArrowRightLeft className="h-4 w-4 mr-2" />
-                      Broadcast Transaction
-                    </Button>
+                    <WalletCreationWizard onWalletCreated={refreshData}>
+                      <Button variant="outline" className="w-full justify-start" size="sm">
+                        <Wallet className="h-4 w-4 mr-2" />
+                        Create Wallet
+                      </Button>
+                    </WalletCreationWizard>
+                    <UserInvitationDialog onUserInvited={refreshData}>
+                      <Button variant="outline" className="w-full justify-start" size="sm">
+                        <Users className="h-4 w-4 mr-2" />
+                        Add Organization User
+                      </Button>
+                    </UserInvitationDialog>
+                    <PermissionAssignmentDialog onPermissionAssigned={refreshData}>
+                      <Button variant="outline" className="w-full justify-start" size="sm">
+                        <Key className="h-4 w-4 mr-2" />
+                        Create Permission
+                      </Button>
+                    </PermissionAssignmentDialog>
+                    <TransactionBroadcastDialog onTransactionBroadcast={refreshData}>
+                      <Button variant="outline" className="w-full justify-start" size="sm">
+                        <ArrowRightLeft className="h-4 w-4 mr-2" />
+                        Broadcast Transaction
+                      </Button>
+                    </TransactionBroadcastDialog>
                   </div>
                 </CardContent>
               </Card>

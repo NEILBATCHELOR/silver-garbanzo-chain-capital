@@ -31,6 +31,7 @@ import { RedemptionRequestDetailsPage } from "@/components/redemption/requests/R
 import PasswordResetPage from "@/components/auth/pages/PasswordResetPage";
 import MFALoginPage from "@/components/auth/pages/MFALoginPage";
 import UserMFAControls from "@/components/UserManagement/security/UserMFAControls";
+import { MobileAuthPage } from "@/components/dfns/components/pages/mobile-auth-page";
 import EnhancedApprovalDashboard from "@/components/rules/EnhancedApprovalDashboard";
 import ProjectDetailsPage from "@/components/projects/ProjectDetails";
 import OfferingsPageWrapper from "@/pages/OfferingsPage";
@@ -565,6 +566,9 @@ function App() {
             <Route path="/auth/setup-totp" element={<TOTPSetupPage />} />
             <Route path="/auth/forgot-password" element={<PasswordResetPage />} />
             <Route path="/auth/reset-password" element={<PasswordResetPage />} />
+            
+            {/* DFNS Mobile Authentication Route */}
+            <Route path="/mobile-auth" element={<MobileAuthPage />} />
             
             {/* Settings Routes */}
             <Route path="/settings/security" element={<SecuritySettingsPage />} />

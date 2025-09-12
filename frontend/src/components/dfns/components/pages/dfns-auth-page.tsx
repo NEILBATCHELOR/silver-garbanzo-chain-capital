@@ -75,16 +75,17 @@ export function DfnsAuthPage() {
       }
 
       // Get authentication data from various services with proper method names
-      const [usersResult, tokensResult, credentialsResult] = await Promise.all([
+      const [usersResult, tokensResult, credentialsResult, serviceAccountsResult] = await Promise.all([
         dfnsService.getUserManagementService().listUsers().then(result => result?.data?.items || []).catch(() => []),
         dfnsService.getPersonalAccessTokenManagementService().listPersonalAccessTokens().then(result => result?.data?.items || []).catch(() => []),
-        dfnsService.getCredentialManagementService().listCredentials().then(result => result || []).catch(() => [])
+        dfnsService.getCredentialManagementService().listCredentials().then(result => result || []).catch(() => []),
+        dfnsService.getServiceAccountManagementService().getAllServiceAccounts().then(result => result.success ? result.data || [] : []).catch(() => [])
       ]);
 
       setAuthData({
         currentUser: authStatus.user || null,
         totalUsers: usersResult.length,
-        serviceAccounts: 0, // TODO: Add when service account service is ready
+        serviceAccounts: serviceAccountsResult.length,
         personalTokens: tokensResult.length,
         activeCredentials: credentialsResult.length,
         isAuthenticated: authStatus.isAuthenticated,
@@ -96,7 +97,7 @@ export function DfnsAuthPage() {
 
       toast({
         title: "Success",
-        description: `Loaded authentication data: ${usersResult.length} users, ${credentialsResult.length} credentials`,
+        description: `Loaded authentication data: ${usersResult.length} users, ${serviceAccountsResult.length} service accounts, ${tokensResult.length} tokens, ${credentialsResult.length} credentials`,
       });
 
     } catch (error: any) {
