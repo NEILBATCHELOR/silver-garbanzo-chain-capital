@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict J5LfvzoYHnTiTUKOrtUEd4qeFhfT1Ms4uAgf7vawW3gN1guO39fRSeQpMrbugna
+\restrict NndQ3fZbjROJKKhCz3MHN20CvlB2ejZT3y8eEw4mq2BZnpkvQlghun6IgZqoukj
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -1899,6 +1899,54 @@ $$;
 
 
 --
+-- Name: cleanup_expired_cache_data(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.cleanup_expired_cache_data() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  deleted_count INTEGER := 0;
+  temp_count INTEGER;
+BEGIN
+  -- Clean up external API cache
+  DELETE FROM external_api_cache WHERE expires_at < NOW();
+  GET DIAGNOSTICS temp_count = ROW_COUNT;
+  deleted_count := deleted_count + temp_count;
+
+  -- Clean up weather cache (if exists)
+  BEGIN
+    DELETE FROM weather_cache WHERE expires_at < NOW();
+    GET DIAGNOSTICS temp_count = ROW_COUNT;
+    deleted_count := deleted_count + temp_count;
+  EXCEPTION WHEN others THEN
+    -- Table doesn't exist yet, skip
+    NULL;
+  END;
+
+  -- Clean up user data cache (if exists)
+  BEGIN
+    DELETE FROM climate_user_data_cache WHERE expires_at < NOW();
+    GET DIAGNOSTICS temp_count = ROW_COUNT;
+    deleted_count := deleted_count + temp_count;
+  EXCEPTION WHEN others THEN
+    -- Table doesn't exist yet, skip
+    NULL;
+  END;
+
+  RETURN deleted_count;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION cleanup_expired_cache_data(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.cleanup_expired_cache_data() IS 'Clean up expired cache entries to maintain performance';
+
+
+--
 -- Name: cleanup_expired_transaction_drafts(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2930,6 +2978,82 @@ COMMENT ON FUNCTION public.get_audit_statistics(p_hours_back integer) IS 'Return
 
 
 --
+-- Name: get_enhanced_risk_assessment(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  receivable_data RECORD;
+  latest_calculation RECORD;
+  result JSONB;
+BEGIN
+  -- Get receivable and payer data
+  SELECT 
+    r.*,
+    p.name as payer_name, 
+    p.credit_rating, 
+    p.financial_health_score, 
+    p.payment_history, 
+    p.esg_score
+  INTO receivable_data
+  FROM climate_receivables r
+  LEFT JOIN climate_payers p ON r.payer_id = p.payer_id
+  WHERE r.receivable_id = p_receivable_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Receivable not found');
+  END IF;
+
+  -- Get latest risk calculation
+  SELECT *
+  INTO latest_calculation
+  FROM climate_risk_calculations
+  WHERE receivable_id = p_receivable_id
+  ORDER BY calculation_date DESC
+  LIMIT 1;
+
+  -- Build result
+  result := jsonb_build_object(
+    'receivable_id', receivable_data.receivable_id,
+    'payer_id', receivable_data.payer_id,
+    'payer_name', receivable_data.payer_name,
+    'credit_profile', jsonb_build_object(
+      'credit_rating', receivable_data.credit_rating,
+      'financial_health_score', receivable_data.financial_health_score,
+      'payment_history', receivable_data.payment_history,
+      'esg_score', receivable_data.esg_score
+    ),
+    'latest_calculation', CASE 
+      WHEN latest_calculation IS NOT NULL THEN
+        jsonb_build_object(
+          'risk_score', COALESCE(latest_calculation.credit_risk_score, latest_calculation.risk_score),
+          'discount_rate', COALESCE(latest_calculation.discount_rate_calculated, latest_calculation.discount_rate),
+          'confidence_level', COALESCE(latest_calculation.credit_risk_confidence, 85.0),
+          'data_completeness', COALESCE(latest_calculation.data_completeness, 'basic'),
+          'calculation_date', latest_calculation.calculation_date,
+          'market_adjustments', COALESCE(latest_calculation.market_adjustments, '{}'),
+          'user_data_sources', COALESCE(latest_calculation.user_data_sources, '[]'),
+          'recommendations', COALESCE(latest_calculation.recommendations, '[]')
+        )
+      ELSE NULL
+    END
+  );
+
+  RETURN result;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_enhanced_risk_assessment(p_receivable_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) IS 'Get comprehensive risk assessment for a receivable - fixes missing function error';
+
+
+--
 -- Name: get_moonpay_webhook_stats(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2953,6 +3077,164 @@ BEGIN
     FROM moonpay_webhook_config;
 END;
 $$;
+
+
+--
+-- Name: get_payer_risk_assessment(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_payer_risk_assessment(p_payer_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  payer_data RECORD;
+  recent_calculations JSONB;
+  result JSONB;
+BEGIN
+  -- Get payer data
+  SELECT *
+  INTO payer_data
+  FROM climate_payers
+  WHERE payer_id = p_payer_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Payer not found');
+  END IF;
+
+  -- Get recent risk calculations for this payer
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'calculation_id', calculation_id,
+      'receivable_id', receivable_id,
+      'risk_score', COALESCE(credit_risk_score, risk_score),
+      'discount_rate', COALESCE(discount_rate_calculated, discount_rate),
+      'confidence_level', COALESCE(credit_risk_confidence, 85.0),
+      'data_completeness', COALESCE(data_completeness, 'basic'),
+      'calculation_date', COALESCE(calculation_date, created_at)
+    )
+  )
+  INTO recent_calculations
+  FROM (
+    SELECT *
+    FROM climate_risk_calculations
+    WHERE payer_id = p_payer_id
+    ORDER BY COALESCE(calculation_date, created_at) DESC
+    LIMIT 5
+  ) recent;
+
+  -- Build result
+  result := jsonb_build_object(
+    'payer_id', payer_data.payer_id,
+    'payer_name', payer_data.name,
+    'credit_rating', payer_data.credit_rating,
+    'financial_health_score', payer_data.financial_health_score,
+    'payment_history', payer_data.payment_history,
+    'esg_score', payer_data.esg_score,
+    'recent_calculations', COALESCE(recent_calculations, '[]'::jsonb),
+    'last_updated', payer_data.updated_at
+  );
+
+  RETURN result;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_payer_risk_assessment(p_payer_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_payer_risk_assessment(p_payer_id uuid) IS 'Get payer risk profile with calculation history';
+
+
+--
+-- Name: get_payer_risk_assessment_with_user_data(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_payer_risk_assessment_with_user_data(p_payer_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  payer_data RECORD;
+  user_data_sources JSONB;
+  recent_calculations JSONB;
+  result JSONB;
+BEGIN
+  -- Get payer data
+  SELECT *
+  INTO payer_data
+  FROM climate_payers
+  WHERE payer_id = p_payer_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Payer not found');
+  END IF;
+
+  -- Get user data sources for this payer (if table exists)
+  BEGIN
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'source_id', uds.source_id,
+        'source_name', uds.source_name,
+        'source_type', uds.source_type,
+        'processing_status', uds.processing_status,
+        'data_quality_score', COALESCE(udc.data_quality_score, 0),
+        'last_processed', uds.last_processed
+      )
+    )
+    INTO user_data_sources
+    FROM climate_user_data_sources uds
+    LEFT JOIN climate_user_data_cache udc ON uds.source_id = udc.source_id AND udc.entity_id = p_payer_id::text
+    WHERE uds.is_active = true 
+      AND uds.processing_status = 'completed'
+      AND uds.source_type IN ('credit_report', 'financial_statement');
+  EXCEPTION WHEN others THEN
+    user_data_sources := '[]'::jsonb;
+  END;
+
+  -- Get recent risk calculations for this payer
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'calculation_id', calculation_id,
+      'receivable_id', receivable_id,
+      'risk_score', COALESCE(credit_risk_score, risk_score),
+      'discount_rate', COALESCE(discount_rate_calculated, discount_rate),
+      'confidence_level', COALESCE(credit_risk_confidence, 85.0),
+      'data_completeness', COALESCE(data_completeness, 'basic'),
+      'calculation_date', COALESCE(calculation_date, created_at)
+    )
+  )
+  INTO recent_calculations
+  FROM (
+    SELECT *
+    FROM climate_risk_calculations
+    WHERE payer_id = p_payer_id
+    ORDER BY COALESCE(calculation_date, created_at) DESC
+    LIMIT 5
+  ) recent;
+
+  -- Build result
+  result := jsonb_build_object(
+    'payer_id', payer_data.payer_id,
+    'payer_name', payer_data.name,
+    'credit_rating', payer_data.credit_rating,
+    'financial_health_score', payer_data.financial_health_score,
+    'payment_history', payer_data.payment_history,
+    'esg_score', payer_data.esg_score,
+    'user_data_sources', COALESCE(user_data_sources, '[]'::jsonb),
+    'recent_calculations', COALESCE(recent_calculations, '[]'::jsonb),
+    'last_updated', payer_data.updated_at
+  );
+
+  RETURN result;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_payer_risk_assessment_with_user_data(p_payer_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_payer_risk_assessment_with_user_data(p_payer_id uuid) IS 'Get payer risk profile enhanced with user uploaded data';
 
 
 --
@@ -4928,6 +5210,73 @@ $$;
 
 
 --
+-- Name: save_enhanced_risk_calculation(uuid, integer, numeric, numeric, jsonb, jsonb, character varying, text, jsonb, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric DEFAULT 85.0, p_market_adjustments jsonb DEFAULT '{}'::jsonb, p_user_data_sources jsonb DEFAULT '[]'::jsonb, p_data_completeness character varying DEFAULT 'basic'::character varying, p_methodology text DEFAULT ''::text, p_factors_considered jsonb DEFAULT '[]'::jsonb, p_policy_impacts jsonb DEFAULT '[]'::jsonb, p_recommendations jsonb DEFAULT '[]'::jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  calculation_id UUID;
+  payer_id_val UUID;
+BEGIN
+  -- Get payer_id from receivable
+  SELECT payer_id INTO payer_id_val
+  FROM climate_receivables
+  WHERE receivable_id = p_receivable_id;
+
+  -- Insert risk calculation
+  INSERT INTO climate_risk_calculations (
+    receivable_id,
+    payer_id,
+    credit_risk_score,
+    credit_risk_confidence,
+    discount_rate_calculated,
+    market_adjustments,
+    user_data_sources,
+    data_completeness,
+    methodology_used,
+    factors_considered,
+    policy_impact_assessment,
+    recommendations,
+    calculation_date
+  ) VALUES (
+    p_receivable_id,
+    payer_id_val,
+    p_risk_score,
+    p_confidence_level,
+    p_discount_rate,
+    p_market_adjustments,
+    p_user_data_sources,
+    p_data_completeness,
+    p_methodology,
+    p_factors_considered,
+    p_policy_impacts,
+    p_recommendations,
+    NOW()
+  ) RETURNING calculation_id INTO calculation_id;
+
+  -- Update receivable with latest risk data
+  UPDATE climate_receivables
+  SET 
+    risk_score = p_risk_score,
+    discount_rate = p_discount_rate,
+    updated_at = NOW()
+  WHERE receivable_id = p_receivable_id;
+
+  RETURN calculation_id;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb) IS 'Save enhanced risk calculation with market data';
+
+
+--
 -- Name: set_distribution_standard(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6148,8 +6497,8 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 
@@ -7659,6 +8008,8 @@ CREATE TABLE public.climate_payers (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     project_id uuid,
+    esg_score integer,
+    CONSTRAINT climate_payers_esg_score_check CHECK (((esg_score >= 0) AND (esg_score <= 100))),
     CONSTRAINT climate_payers_financial_health_score_check CHECK (((financial_health_score >= 0) AND (financial_health_score <= 100)))
 );
 
@@ -7785,11 +8136,19 @@ CREATE TABLE public.climate_risk_calculations (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     project_id uuid,
+    market_adjustments jsonb DEFAULT '{}'::jsonb,
+    user_data_sources jsonb DEFAULT '[]'::jsonb,
+    data_completeness character varying(20) DEFAULT 'basic'::character varying,
+    methodology_used text,
+    factors_considered jsonb DEFAULT '[]'::jsonb,
+    policy_impact_assessment jsonb DEFAULT '[]'::jsonb,
+    calculation_date timestamp with time zone DEFAULT now(),
     CONSTRAINT climate_risk_calculations_composite_risk_confidence_check CHECK (((composite_risk_confidence >= (0)::numeric) AND (composite_risk_confidence <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_composite_risk_level_check CHECK ((composite_risk_level = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))),
     CONSTRAINT climate_risk_calculations_composite_risk_score_check CHECK (((composite_risk_score >= (0)::numeric) AND (composite_risk_score <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_credit_risk_confidence_check CHECK (((credit_risk_confidence >= (0)::numeric) AND (credit_risk_confidence <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_credit_risk_score_check CHECK (((credit_risk_score >= (0)::numeric) AND (credit_risk_score <= (1)::numeric))),
+    CONSTRAINT climate_risk_calculations_data_completeness_check CHECK (((data_completeness)::text = ANY ((ARRAY['basic'::character varying, 'enhanced'::character varying, 'comprehensive'::character varying])::text[]))),
     CONSTRAINT climate_risk_calculations_policy_risk_confidence_check CHECK (((policy_risk_confidence >= (0)::numeric) AND (policy_risk_confidence <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_policy_risk_score_check CHECK (((policy_risk_score >= (0)::numeric) AND (policy_risk_score <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_production_risk_confidence_check CHECK (((production_risk_confidence >= (0)::numeric) AND (production_risk_confidence <= (1)::numeric))),
@@ -7899,6 +8258,70 @@ CREATE VIEW public.climate_token_summary AS
    FROM ((public.tokens t
      JOIN public.token_climate_properties tcp ON ((t.id = tcp.token_id)))
      JOIN public.climate_tokenization_pools ctp ON ((tcp.pool_id = ctp.pool_id)));
+
+
+--
+-- Name: climate_user_data_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.climate_user_data_cache (
+    cache_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    source_id uuid,
+    entity_id character varying(255) NOT NULL,
+    data_type character varying(50) NOT NULL,
+    processed_data jsonb NOT NULL,
+    extracted_at timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone NOT NULL,
+    data_quality_score numeric(3,2) DEFAULT 0.5,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT climate_user_data_cache_data_quality_score_check CHECK (((data_quality_score >= (0)::numeric) AND (data_quality_score <= 1.0))),
+    CONSTRAINT climate_user_data_cache_data_type_check CHECK (((data_type)::text = ANY ((ARRAY['credit_score'::character varying, 'financial_metrics'::character varying, 'payment_history'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE climate_user_data_cache; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.climate_user_data_cache IS 'Processed and cached data extracted from user uploads';
+
+
+--
+-- Name: climate_user_data_sources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.climate_user_data_sources (
+    source_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    user_id uuid,
+    project_id uuid,
+    source_name character varying(255) NOT NULL,
+    source_type character varying(50) NOT NULL,
+    data_format character varying(20) NOT NULL,
+    file_path text NOT NULL,
+    file_size bigint NOT NULL,
+    data_schema jsonb DEFAULT '{}'::jsonb,
+    upload_date timestamp with time zone DEFAULT now(),
+    last_processed timestamp with time zone,
+    processing_status character varying(20) DEFAULT 'pending'::character varying,
+    validation_errors jsonb DEFAULT '[]'::jsonb,
+    refresh_frequency character varying(20) DEFAULT 'manual'::character varying,
+    is_active boolean DEFAULT true,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT climate_user_data_sources_data_format_check CHECK (((data_format)::text = ANY ((ARRAY['csv'::character varying, 'xlsx'::character varying, 'json'::character varying, 'xml'::character varying, 'pdf'::character varying])::text[]))),
+    CONSTRAINT climate_user_data_sources_file_size_check CHECK ((file_size > 0)),
+    CONSTRAINT climate_user_data_sources_processing_status_check CHECK (((processing_status)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'error'::character varying])::text[]))),
+    CONSTRAINT climate_user_data_sources_refresh_frequency_check CHECK (((refresh_frequency)::text = ANY ((ARRAY['manual'::character varying, 'daily'::character varying, 'weekly'::character varying, 'monthly'::character varying])::text[]))),
+    CONSTRAINT climate_user_data_sources_source_type_check CHECK (((source_type)::text = ANY ((ARRAY['credit_report'::character varying, 'financial_statement'::character varying, 'market_data'::character varying, 'custom'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE climate_user_data_sources; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.climate_user_data_sources IS 'User-uploaded data sources for enhanced risk assessment';
 
 
 --
@@ -8040,6 +8463,28 @@ CREATE TABLE public.credential_usage_logs (
     ip_address text,
     user_agent text
 );
+
+
+--
+-- Name: data_source_mappings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_source_mappings (
+    mapping_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    source_id uuid,
+    source_field character varying(255) NOT NULL,
+    target_field character varying(255) NOT NULL,
+    data_transform text DEFAULT ''::text,
+    validation_rules jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE data_source_mappings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.data_source_mappings IS 'Field mappings for standardizing user uploaded data';
 
 
 --
@@ -9463,6 +9908,30 @@ CREATE TABLE public.equity_products (
 
 
 --
+-- Name: external_api_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.external_api_cache (
+    cache_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    cache_key character varying(255) NOT NULL,
+    data jsonb NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone NOT NULL,
+    api_source character varying(100),
+    request_count integer DEFAULT 1,
+    last_accessed timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE external_api_cache; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.external_api_cache IS 'Cache for external API calls used by PayerRiskAssessmentService';
+
+
+--
 -- Name: facet_registry; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10352,6 +10821,31 @@ CREATE VIEW public.latest_nav_by_fund AS
     fund_nav_data.created_at
    FROM public.fund_nav_data
   ORDER BY fund_nav_data.fund_id, fund_nav_data.date DESC;
+
+
+--
+-- Name: market_data_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.market_data_snapshots (
+    snapshot_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    snapshot_date timestamp with time zone DEFAULT now(),
+    treasury_rates jsonb,
+    credit_spreads jsonb,
+    energy_prices jsonb,
+    policy_changes_count integer DEFAULT 0,
+    api_call_count integer DEFAULT 0,
+    cache_hit_rate numeric(5,4) DEFAULT 0,
+    data_sources_used jsonb DEFAULT '[]'::jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE market_data_snapshots; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.market_data_snapshots IS 'Historical market data snapshots for tracking and analysis';
 
 
 --
@@ -16902,6 +17396,29 @@ COMMENT ON COLUMN public.wallets.status IS 'Wallet status (pending, active, inac
 
 
 --
+-- Name: weather_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.weather_cache (
+    cache_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    cache_key character varying(255) NOT NULL,
+    weather_data jsonb NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    provider character varying(50) DEFAULT 'open-meteo'::character varying,
+    location_lat numeric(10,7),
+    location_lon numeric(10,7),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE weather_cache; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.weather_cache IS 'Cache for free weather API data';
+
+
+--
 -- Name: weather_data; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -17333,6 +17850,22 @@ ALTER TABLE ONLY public.climate_tokenization_pools
 
 
 --
+-- Name: climate_user_data_cache climate_user_data_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_user_data_cache
+    ADD CONSTRAINT climate_user_data_cache_pkey PRIMARY KEY (cache_id);
+
+
+--
+-- Name: climate_user_data_sources climate_user_data_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_user_data_sources
+    ADD CONSTRAINT climate_user_data_sources_pkey PRIMARY KEY (source_id);
+
+
+--
 -- Name: collectibles_products collectibles_products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -17440,6 +17973,14 @@ ALTER TABLE ONLY public.consensus_settings
 
 ALTER TABLE ONLY public.credential_usage_logs
     ADD CONSTRAINT credential_usage_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_source_mappings data_source_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_source_mappings
+    ADD CONSTRAINT data_source_mappings_pkey PRIMARY KEY (mapping_id);
 
 
 --
@@ -18328,6 +18869,22 @@ COMMENT ON CONSTRAINT equity_products_project_id_key ON public.equity_products I
 
 
 --
+-- Name: external_api_cache external_api_cache_cache_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.external_api_cache
+    ADD CONSTRAINT external_api_cache_cache_key_key UNIQUE (cache_key);
+
+
+--
+-- Name: external_api_cache external_api_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.external_api_cache
+    ADD CONSTRAINT external_api_cache_pkey PRIMARY KEY (cache_id);
+
+
+--
 -- Name: facet_registry facet_registry_address_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18635,6 +19192,14 @@ ALTER TABLE ONLY public.issuer_documents
 
 ALTER TABLE ONLY public.kyc_screening_logs
     ADD CONSTRAINT kyc_screening_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: market_data_snapshots market_data_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_data_snapshots
+    ADD CONSTRAINT market_data_snapshots_pkey PRIMARY KEY (snapshot_id);
 
 
 --
@@ -20576,6 +21141,22 @@ ALTER TABLE ONLY public.wallets
 
 
 --
+-- Name: weather_cache weather_cache_cache_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.weather_cache
+    ADD CONSTRAINT weather_cache_cache_key_key UNIQUE (cache_key);
+
+
+--
+-- Name: weather_cache weather_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.weather_cache
+    ADD CONSTRAINT weather_cache_pkey PRIMARY KEY (cache_id);
+
+
+--
 -- Name: weather_data weather_data_location_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21244,6 +21825,48 @@ CREATE INDEX idx_climate_tokenization_pools_project_id ON public.climate_tokeniz
 
 
 --
+-- Name: idx_climate_user_data_cache_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_user_data_cache_entity ON public.climate_user_data_cache USING btree (entity_id);
+
+
+--
+-- Name: idx_climate_user_data_cache_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_user_data_cache_expires ON public.climate_user_data_cache USING btree (expires_at);
+
+
+--
+-- Name: idx_climate_user_data_cache_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_user_data_cache_type ON public.climate_user_data_cache USING btree (data_type);
+
+
+--
+-- Name: idx_climate_user_data_sources_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_user_data_sources_active ON public.climate_user_data_sources USING btree (is_active);
+
+
+--
+-- Name: idx_climate_user_data_sources_type_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_user_data_sources_type_status ON public.climate_user_data_sources USING btree (source_type, processing_status);
+
+
+--
+-- Name: idx_climate_user_data_sources_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_user_data_sources_user_id ON public.climate_user_data_sources USING btree (user_id);
+
+
+--
 -- Name: idx_collectibles_products_asset_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -21318,6 +21941,13 @@ CREATE INDEX idx_compliance_reports_status ON public.compliance_reports USING bt
 --
 
 CREATE INDEX idx_credential_usage_logs_credential_id ON public.credential_usage_logs USING btree (credential_id);
+
+
+--
+-- Name: idx_data_source_mappings_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_data_source_mappings_source ON public.data_source_mappings USING btree (source_id);
 
 
 --
@@ -22427,6 +23057,20 @@ CREATE INDEX idx_erc721_whitelist_sale ON public.token_erc721_properties USING b
 
 
 --
+-- Name: idx_external_api_cache_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_external_api_cache_expires ON public.external_api_cache USING btree (expires_at);
+
+
+--
+-- Name: idx_external_api_cache_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_external_api_cache_key ON public.external_api_cache USING btree (cache_key);
+
+
+--
 -- Name: idx_facet_registry_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -22984,6 +23628,13 @@ CREATE INDEX idx_jurisdictions_sanctions ON public.geographic_jurisdictions USIN
 --
 
 CREATE INDEX idx_lifecycle_events_product_id ON public.product_lifecycle_events USING btree (product_id);
+
+
+--
+-- Name: idx_market_data_snapshots_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_data_snapshots_date ON public.market_data_snapshots USING btree (snapshot_date);
 
 
 --
@@ -25444,6 +26095,27 @@ CREATE INDEX idx_wallets_wallet_type ON public.wallets USING btree (wallet_type)
 
 
 --
+-- Name: idx_weather_cache_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_weather_cache_expires ON public.weather_cache USING btree (expires_at);
+
+
+--
+-- Name: idx_weather_cache_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_weather_cache_key ON public.weather_cache USING btree (cache_key);
+
+
+--
+-- Name: idx_weather_cache_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_weather_cache_location ON public.weather_cache USING btree (location_lat, location_lon);
+
+
+--
 -- Name: idx_webauthn_challenges_challenge; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -26466,6 +27138,13 @@ CREATE TRIGGER update_climate_pool_recs_updated_at BEFORE UPDATE ON public.clima
 
 
 --
+-- Name: climate_user_data_sources update_climate_user_data_sources_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_climate_user_data_sources_updated_at BEFORE UPDATE ON public.climate_user_data_sources FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: collectibles_products update_collectibles_products_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -27192,6 +27871,22 @@ ALTER TABLE ONLY public.climate_risk_factors
 
 
 --
+-- Name: climate_user_data_cache climate_user_data_cache_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_user_data_cache
+    ADD CONSTRAINT climate_user_data_cache_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.climate_user_data_sources(source_id) ON DELETE CASCADE;
+
+
+--
+-- Name: climate_user_data_sources climate_user_data_sources_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_user_data_sources
+    ADD CONSTRAINT climate_user_data_sources_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: compliance_checks compliance_checks_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -27229,6 +27924,14 @@ ALTER TABLE ONLY public.compliance_reports
 
 ALTER TABLE ONLY public.credential_usage_logs
     ADD CONSTRAINT credential_usage_logs_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: data_source_mappings data_source_mappings_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_source_mappings
+    ADD CONSTRAINT data_source_mappings_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.climate_user_data_sources(source_id) ON DELETE CASCADE;
 
 
 --
@@ -29388,6 +30091,49 @@ CREATE POLICY "Users can view their organization's sidebar sections" ON public.s
 ALTER TABLE public.climate_risk_calculations ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: climate_user_data_cache; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.climate_user_data_cache ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: climate_user_data_cache climate_user_data_cache_user_policy; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY climate_user_data_cache_user_policy ON public.climate_user_data_cache USING ((source_id IN ( SELECT climate_user_data_sources.source_id
+   FROM public.climate_user_data_sources
+  WHERE (climate_user_data_sources.user_id = auth.uid()))));
+
+
+--
+-- Name: climate_user_data_sources; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.climate_user_data_sources ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: climate_user_data_sources climate_user_data_sources_user_policy; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY climate_user_data_sources_user_policy ON public.climate_user_data_sources USING ((auth.uid() = user_id));
+
+
+--
+-- Name: data_source_mappings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_source_mappings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: data_source_mappings data_source_mappings_user_policy; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY data_source_mappings_user_policy ON public.data_source_mappings USING ((source_id IN ( SELECT climate_user_data_sources.source_id
+   FROM public.climate_user_data_sources
+  WHERE (climate_user_data_sources.user_id = auth.uid()))));
+
+
+--
 -- Name: project_organization_assignments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -29741,6 +30487,16 @@ GRANT ALL ON FUNCTION public.cleanup_expired_asset_cache() TO prisma;
 
 
 --
+-- Name: FUNCTION cleanup_expired_cache_data(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.cleanup_expired_cache_data() TO anon;
+GRANT ALL ON FUNCTION public.cleanup_expired_cache_data() TO authenticated;
+GRANT ALL ON FUNCTION public.cleanup_expired_cache_data() TO service_role;
+GRANT ALL ON FUNCTION public.cleanup_expired_cache_data() TO prisma;
+
+
+--
 -- Name: FUNCTION cleanup_expired_transaction_drafts(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -30011,6 +30767,16 @@ GRANT ALL ON FUNCTION public.get_audit_statistics(p_hours_back integer) TO prism
 
 
 --
+-- Name: FUNCTION get_enhanced_risk_assessment(p_receivable_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) TO prisma;
+
+
+--
 -- Name: FUNCTION get_moonpay_webhook_stats(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -30018,6 +30784,26 @@ GRANT ALL ON FUNCTION public.get_moonpay_webhook_stats() TO anon;
 GRANT ALL ON FUNCTION public.get_moonpay_webhook_stats() TO authenticated;
 GRANT ALL ON FUNCTION public.get_moonpay_webhook_stats() TO service_role;
 GRANT ALL ON FUNCTION public.get_moonpay_webhook_stats() TO prisma;
+
+
+--
+-- Name: FUNCTION get_payer_risk_assessment(p_payer_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment(p_payer_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment(p_payer_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment(p_payer_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment(p_payer_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_payer_risk_assessment_with_user_data(p_payer_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment_with_user_data(p_payer_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment_with_user_data(p_payer_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment_with_user_data(p_payer_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_payer_risk_assessment_with_user_data(p_payer_id uuid) TO prisma;
 
 
 --
@@ -30538,6 +31324,16 @@ GRANT ALL ON FUNCTION public.save_consensus_config(p_consensus_type text, p_requ
 GRANT ALL ON FUNCTION public.save_consensus_config(p_consensus_type text, p_required_approvals integer, p_eligible_roles text[]) TO authenticated;
 GRANT ALL ON FUNCTION public.save_consensus_config(p_consensus_type text, p_required_approvals integer, p_eligible_roles text[]) TO service_role;
 GRANT ALL ON FUNCTION public.save_consensus_config(p_consensus_type text, p_required_approvals integer, p_eligible_roles text[]) TO prisma;
+
+
+--
+-- Name: FUNCTION save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb) TO anon;
+GRANT ALL ON FUNCTION public.save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb) TO service_role;
+GRANT ALL ON FUNCTION public.save_enhanced_risk_calculation(p_receivable_id uuid, p_risk_score integer, p_discount_rate numeric, p_confidence_level numeric, p_market_adjustments jsonb, p_user_data_sources jsonb, p_data_completeness character varying, p_methodology text, p_factors_considered jsonb, p_policy_impacts jsonb, p_recommendations jsonb) TO prisma;
 
 
 --
@@ -31641,6 +32437,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cl
 
 
 --
+-- Name: TABLE climate_user_data_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO prisma;
+
+
+--
+-- Name: TABLE climate_user_data_sources; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO prisma;
+
+
+--
 -- Name: TABLE collectibles_products; Type: ACL; Schema: public; Owner: -
 --
 
@@ -31708,6 +32524,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cr
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO prisma;
+
+
+--
+-- Name: TABLE data_source_mappings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO prisma;
 
 
 --
@@ -32241,6 +33067,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.eq
 
 
 --
+-- Name: TABLE external_api_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO prisma;
+
+
+--
 -- Name: TABLE facet_registry; Type: ACL; Schema: public; Owner: -
 --
 
@@ -32508,6 +33344,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.la
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO prisma;
+
+
+--
+-- Name: TABLE market_data_snapshots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO prisma;
 
 
 --
@@ -34372,6 +35218,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wa
 
 
 --
+-- Name: TABLE weather_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO prisma;
+
+
+--
 -- Name: TABLE weather_data; Type: ACL; Schema: public; Owner: -
 --
 
@@ -34508,5 +35364,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict J5LfvzoYHnTiTUKOrtUEd4qeFhfT1Ms4uAgf7vawW3gN1guO39fRSeQpMrbugna
+\unrestrict NndQ3fZbjROJKKhCz3MHN20CvlB2ejZT3y8eEw4mq2BZnpkvQlghun6IgZqoukj
 

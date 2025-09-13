@@ -1215,6 +1215,7 @@ export type Database = {
         Row: {
           created_at: string | null
           credit_rating: string | null
+          esg_score: number | null
           financial_health_score: number | null
           name: string
           payer_id: string
@@ -1225,6 +1226,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           credit_rating?: string | null
+          esg_score?: number | null
           financial_health_score?: number | null
           name: string
           payer_id?: string
@@ -1235,6 +1237,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           credit_rating?: string | null
+          esg_score?: number | null
           financial_health_score?: number | null
           name?: string
           payer_id?: string
@@ -1627,6 +1630,7 @@ export type Database = {
         Row: {
           alerts: Json
           calculated_at: string
+          calculation_date: string | null
           composite_risk_confidence: number
           composite_risk_level: string
           composite_risk_score: number
@@ -1634,15 +1638,20 @@ export type Database = {
           credit_risk_confidence: number
           credit_risk_factors: string[]
           credit_risk_score: number
+          data_completeness: string | null
           discount_rate_calculated: number
           discount_rate_change: number | null
           discount_rate_previous: number | null
           discount_rate_reason: string | null
+          factors_considered: Json | null
           id: string
           last_credit_update: string | null
           last_policy_update: string | null
           last_weather_update: string | null
+          market_adjustments: Json | null
+          methodology_used: string | null
           next_review_date: string
+          policy_impact_assessment: Json | null
           policy_risk_confidence: number
           policy_risk_factors: string[]
           policy_risk_score: number
@@ -1653,10 +1662,12 @@ export type Database = {
           receivable_id: string
           recommendations: string[]
           updated_at: string
+          user_data_sources: Json | null
         }
         Insert: {
           alerts?: Json
           calculated_at?: string
+          calculation_date?: string | null
           composite_risk_confidence: number
           composite_risk_level: string
           composite_risk_score: number
@@ -1664,15 +1675,20 @@ export type Database = {
           credit_risk_confidence: number
           credit_risk_factors?: string[]
           credit_risk_score: number
+          data_completeness?: string | null
           discount_rate_calculated: number
           discount_rate_change?: number | null
           discount_rate_previous?: number | null
           discount_rate_reason?: string | null
+          factors_considered?: Json | null
           id?: string
           last_credit_update?: string | null
           last_policy_update?: string | null
           last_weather_update?: string | null
+          market_adjustments?: Json | null
+          methodology_used?: string | null
           next_review_date: string
+          policy_impact_assessment?: Json | null
           policy_risk_confidence: number
           policy_risk_factors?: string[]
           policy_risk_score: number
@@ -1683,10 +1699,12 @@ export type Database = {
           receivable_id: string
           recommendations?: string[]
           updated_at?: string
+          user_data_sources?: Json | null
         }
         Update: {
           alerts?: Json
           calculated_at?: string
+          calculation_date?: string | null
           composite_risk_confidence?: number
           composite_risk_level?: string
           composite_risk_score?: number
@@ -1694,15 +1712,20 @@ export type Database = {
           credit_risk_confidence?: number
           credit_risk_factors?: string[]
           credit_risk_score?: number
+          data_completeness?: string | null
           discount_rate_calculated?: number
           discount_rate_change?: number | null
           discount_rate_previous?: number | null
           discount_rate_reason?: string | null
+          factors_considered?: Json | null
           id?: string
           last_credit_update?: string | null
           last_policy_update?: string | null
           last_weather_update?: string | null
+          market_adjustments?: Json | null
+          methodology_used?: string | null
           next_review_date?: string
+          policy_impact_assessment?: Json | null
           policy_risk_confidence?: number
           policy_risk_factors?: string[]
           policy_risk_score?: number
@@ -1713,6 +1736,7 @@ export type Database = {
           receivable_id?: string
           recommendations?: string[]
           updated_at?: string
+          user_data_sources?: Json | null
         }
         Relationships: [
           {
@@ -1792,6 +1816,113 @@ export type Database = {
           risk_profile?: string | null
           total_value?: number
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      climate_user_data_cache: {
+        Row: {
+          cache_id: string
+          created_at: string | null
+          data_quality_score: number | null
+          data_type: string
+          entity_id: string
+          expires_at: string
+          extracted_at: string | null
+          processed_data: Json
+          source_id: string | null
+        }
+        Insert: {
+          cache_id?: string
+          created_at?: string | null
+          data_quality_score?: number | null
+          data_type: string
+          entity_id: string
+          expires_at: string
+          extracted_at?: string | null
+          processed_data: Json
+          source_id?: string | null
+        }
+        Update: {
+          cache_id?: string
+          created_at?: string | null
+          data_quality_score?: number | null
+          data_type?: string
+          entity_id?: string
+          expires_at?: string
+          extracted_at?: string | null
+          processed_data?: Json
+          source_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "climate_user_data_cache_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "climate_user_data_sources"
+            referencedColumns: ["source_id"]
+          },
+        ]
+      }
+      climate_user_data_sources: {
+        Row: {
+          created_at: string | null
+          data_format: string
+          data_schema: Json | null
+          file_path: string
+          file_size: number
+          is_active: boolean | null
+          last_processed: string | null
+          metadata: Json | null
+          processing_status: string | null
+          project_id: string | null
+          refresh_frequency: string | null
+          source_id: string
+          source_name: string
+          source_type: string
+          updated_at: string | null
+          upload_date: string | null
+          user_id: string | null
+          validation_errors: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_format: string
+          data_schema?: Json | null
+          file_path: string
+          file_size: number
+          is_active?: boolean | null
+          last_processed?: string | null
+          metadata?: Json | null
+          processing_status?: string | null
+          project_id?: string | null
+          refresh_frequency?: string | null
+          source_id?: string
+          source_name: string
+          source_type: string
+          updated_at?: string | null
+          upload_date?: string | null
+          user_id?: string | null
+          validation_errors?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          data_format?: string
+          data_schema?: Json | null
+          file_path?: string
+          file_size?: number
+          is_active?: boolean | null
+          last_processed?: string | null
+          metadata?: Json | null
+          processing_status?: string | null
+          project_id?: string | null
+          refresh_frequency?: string | null
+          source_id?: string
+          source_name?: string
+          source_type?: string
+          updated_at?: string | null
+          upload_date?: string | null
+          user_id?: string | null
+          validation_errors?: Json | null
         }
         Relationships: []
       }
@@ -2137,6 +2268,44 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      data_source_mappings: {
+        Row: {
+          created_at: string | null
+          data_transform: string | null
+          mapping_id: string
+          source_field: string
+          source_id: string | null
+          target_field: string
+          validation_rules: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_transform?: string | null
+          mapping_id?: string
+          source_field: string
+          source_id?: string | null
+          target_field: string
+          validation_rules?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          data_transform?: string | null
+          mapping_id?: string
+          source_field?: string
+          source_id?: string | null
+          target_field?: string
+          validation_rules?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_source_mappings_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "climate_user_data_sources"
+            referencedColumns: ["source_id"]
+          },
+        ]
       }
       deployment_rate_limits: {
         Row: {
@@ -5251,6 +5420,42 @@ export type Database = {
           },
         ]
       }
+      external_api_cache: {
+        Row: {
+          api_source: string | null
+          cache_id: string
+          cache_key: string
+          created_at: string | null
+          data: Json
+          expires_at: string
+          last_accessed: string | null
+          request_count: number | null
+          timestamp: string | null
+        }
+        Insert: {
+          api_source?: string | null
+          cache_id?: string
+          cache_key: string
+          created_at?: string | null
+          data: Json
+          expires_at: string
+          last_accessed?: string | null
+          request_count?: number | null
+          timestamp?: string | null
+        }
+        Update: {
+          api_source?: string | null
+          cache_id?: string
+          cache_key?: string
+          created_at?: string | null
+          data?: Json
+          expires_at?: string
+          last_accessed?: string | null
+          request_count?: number | null
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
       facet_registry: {
         Row: {
           address: string
@@ -6748,6 +6953,45 @@ export type Database = {
             referencedColumns: ["investor_id"]
           },
         ]
+      }
+      market_data_snapshots: {
+        Row: {
+          api_call_count: number | null
+          cache_hit_rate: number | null
+          created_at: string | null
+          credit_spreads: Json | null
+          data_sources_used: Json | null
+          energy_prices: Json | null
+          policy_changes_count: number | null
+          snapshot_date: string | null
+          snapshot_id: string
+          treasury_rates: Json | null
+        }
+        Insert: {
+          api_call_count?: number | null
+          cache_hit_rate?: number | null
+          created_at?: string | null
+          credit_spreads?: Json | null
+          data_sources_used?: Json | null
+          energy_prices?: Json | null
+          policy_changes_count?: number | null
+          snapshot_date?: string | null
+          snapshot_id?: string
+          treasury_rates?: Json | null
+        }
+        Update: {
+          api_call_count?: number | null
+          cache_hit_rate?: number | null
+          created_at?: string | null
+          credit_spreads?: Json | null
+          data_sources_used?: Json | null
+          energy_prices?: Json | null
+          policy_changes_count?: number | null
+          snapshot_date?: string | null
+          snapshot_id?: string
+          treasury_rates?: Json | null
+        }
+        Relationships: []
       }
       mfa_policies: {
         Row: {
@@ -19780,6 +20024,39 @@ export type Database = {
           },
         ]
       }
+      weather_cache: {
+        Row: {
+          cache_id: string
+          cache_key: string
+          created_at: string | null
+          expires_at: string
+          location_lat: number | null
+          location_lon: number | null
+          provider: string | null
+          weather_data: Json
+        }
+        Insert: {
+          cache_id?: string
+          cache_key: string
+          created_at?: string | null
+          expires_at: string
+          location_lat?: number | null
+          location_lon?: number | null
+          provider?: string | null
+          weather_data: Json
+        }
+        Update: {
+          cache_id?: string
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string
+          location_lat?: number | null
+          location_lon?: number | null
+          provider?: string | null
+          weather_data?: Json
+        }
+        Relationships: []
+      }
       weather_data: {
         Row: {
           created_at: string | null
@@ -21374,6 +21651,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      cleanup_expired_cache_data: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       cleanup_expired_transaction_drafts: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -21488,6 +21769,10 @@ export type Database = {
         Args: { p_hours_back?: number }
         Returns: Json
       }
+      get_enhanced_risk_assessment: {
+        Args: { p_receivable_id: string }
+        Returns: Json
+      }
       get_moonpay_webhook_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -21496,6 +21781,14 @@ export type Database = {
           failed_webhooks: number
           total_webhooks: number
         }[]
+      }
+      get_payer_risk_assessment: {
+        Args: { p_payer_id: string }
+        Returns: Json
+      }
+      get_payer_risk_assessment_with_user_data: {
+        Args: { p_payer_id: string }
+        Returns: Json
       }
       get_product_id_for_project: {
         Args: { p_project_id: string }
@@ -21754,6 +22047,22 @@ export type Database = {
           p_required_approvals: number
         }
         Returns: boolean
+      }
+      save_enhanced_risk_calculation: {
+        Args: {
+          p_confidence_level?: number
+          p_data_completeness?: string
+          p_discount_rate: number
+          p_factors_considered?: Json
+          p_market_adjustments?: Json
+          p_methodology?: string
+          p_policy_impacts?: Json
+          p_receivable_id: string
+          p_recommendations?: Json
+          p_risk_score: number
+          p_user_data_sources?: Json
+        }
+        Returns: string
       }
       sidebar_config_matches_user: {
         Args: {
