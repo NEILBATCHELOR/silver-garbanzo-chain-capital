@@ -4,3 +4,4 @@ export { default as IntegratedValuationReconciliationView } from './integrated-v
 export { default as LcoeAnalysisWidget } from './lcoe-analysis-widget';
 export { default as PpaContractEvaluationPanel } from './ppa-contract-evaluation-panel';
 export { default as DataSourceManager } from './DataSourceManager';
+export { default as DataQualityDashboard } from './data-quality-dashboard';
