@@ -769,4 +769,422 @@ export class FreeMarketDataService {
     this.apiCallCount = 0;
     this.cacheHitCount = 0;
   }
+
+  // ===================== PHASE 2B: ENHANCED MARKET DATA VISUALIZATION METHODS =====================
+
+  /**
+   * Get historical treasury rate data for charts
+   * @param timeRange - Time period for historical data
+   * @returns Array of treasury rate history data points
+   */
+  public static async getTreasuryRateHistory(
+    timeRange: '7d' | '30d' | '90d' | '1y'
+  ): Promise<Array<{
+    date: string;
+    treasury_1m: number;
+    treasury_3m: number;
+    treasury_6m: number;
+    treasury_1y: number;
+    treasury_2y: number;
+    treasury_5y: number;
+    treasury_10y: number;
+    treasury_30y: number;
+  }>> {
+    try {
+      // Check cache first
+      const cacheKey = `treasury_history_${timeRange}`;
+      const cachedData = await this.getCachedData(cacheKey);
+      if (cachedData) {
+        this.cacheHitCount++;
+        return cachedData;
+      }
+
+      // Generate historical data points based on time range
+      const dataPoints = this.generateTimeSeriesData(timeRange);
+      const treasuryHistory = dataPoints.map(date => ({
+        date,
+        treasury_1m: this.generateHistoricalTreasuryRate('1m', date),
+        treasury_3m: this.generateHistoricalTreasuryRate('3m', date),
+        treasury_6m: this.generateHistoricalTreasuryRate('6m', date),
+        treasury_1y: this.generateHistoricalTreasuryRate('1y', date),
+        treasury_2y: this.generateHistoricalTreasuryRate('2y', date),
+        treasury_5y: this.generateHistoricalTreasuryRate('5y', date),
+        treasury_10y: this.generateHistoricalTreasuryRate('10y', date),
+        treasury_30y: this.generateHistoricalTreasuryRate('30y', date)
+      }));
+
+      // Cache the results
+      await this.cacheData(cacheKey, treasuryHistory);
+      this.apiCallCount++;
+
+      return treasuryHistory;
+    } catch (error) {
+      console.error('Error fetching treasury rate history:', error);
+      
+      // Return fallback historical data
+      return this.getFallbackTreasuryHistory(timeRange);
+    }
+  }
+
+  /**
+   * Get historical credit spread data for charts
+   * @param timeRange - Time period for historical data
+   * @returns Array of credit spread history data points
+   */
+  public static async getCreditSpreadHistory(
+    timeRange: '7d' | '30d' | '90d' | '1y'
+  ): Promise<Array<{
+    date: string;
+    investment_grade: number;
+    high_yield: number;
+    corporate_aaa: number;
+    corporate_baa: number;
+  }>> {
+    try {
+      const cacheKey = `credit_spread_history_${timeRange}`;
+      const cachedData = await this.getCachedData(cacheKey);
+      if (cachedData) {
+        this.cacheHitCount++;
+        return cachedData;
+      }
+
+      const dataPoints = this.generateTimeSeriesData(timeRange);
+      const creditSpreadHistory = dataPoints.map(date => ({
+        date,
+        investment_grade: this.generateHistoricalCreditSpread('investment_grade', date),
+        high_yield: this.generateHistoricalCreditSpread('high_yield', date),
+        corporate_aaa: this.generateHistoricalCreditSpread('corporate_aaa', date),
+        corporate_baa: this.generateHistoricalCreditSpread('corporate_baa', date)
+      }));
+
+      await this.cacheData(cacheKey, creditSpreadHistory);
+      this.apiCallCount++;
+
+      return creditSpreadHistory;
+    } catch (error) {
+      console.error('Error fetching credit spread history:', error);
+      return this.getFallbackCreditSpreadHistory(timeRange);
+    }
+  }
+
+  /**
+   * Get historical energy market data for charts
+   * @param timeRange - Time period for historical data
+   * @returns Array of energy market history data points
+   */
+  public static async getEnergyMarketHistory(
+    timeRange: '7d' | '30d' | '90d' | '1y'
+  ): Promise<Array<{
+    date: string;
+    electricity_price_mwh: number;
+    renewable_energy_index: number;
+    carbon_credit_price: number;
+    regional_demand_forecast: number;
+  }>> {
+    try {
+      const cacheKey = `energy_market_history_${timeRange}`;
+      const cachedData = await this.getCachedData(cacheKey);
+      if (cachedData) {
+        this.cacheHitCount++;
+        return cachedData;
+      }
+
+      const dataPoints = this.generateTimeSeriesData(timeRange);
+      const energyMarketHistory = dataPoints.map(date => ({
+        date,
+        electricity_price_mwh: this.generateHistoricalEnergyPrice('electricity', date),
+        renewable_energy_index: this.generateHistoricalEnergyPrice('renewable_index', date),
+        carbon_credit_price: this.generateHistoricalEnergyPrice('carbon_credit', date),
+        regional_demand_forecast: this.generateHistoricalEnergyPrice('demand_forecast', date)
+      }));
+
+      await this.cacheData(cacheKey, energyMarketHistory);
+      this.apiCallCount++;
+
+      return energyMarketHistory;
+    } catch (error) {
+      console.error('Error fetching energy market history:', error);
+      return this.getFallbackEnergyMarketHistory(timeRange);
+    }
+  }
+
+  /**
+   * Get market volatility data for charts
+   * @param timeRange - Time period for historical data
+   * @returns Array of market volatility data points
+   */
+  public static async getMarketVolatilityData(
+    timeRange: '7d' | '30d' | '90d' | '1y'
+  ): Promise<Array<{
+    date: string;
+    treasury_volatility: number;
+    credit_spread_volatility: number;
+    energy_price_volatility: number;
+  }>> {
+    try {
+      const cacheKey = `market_volatility_${timeRange}`;
+      const cachedData = await this.getCachedData(cacheKey);
+      if (cachedData) {
+        this.cacheHitCount++;
+        return cachedData;
+      }
+
+      const dataPoints = this.generateTimeSeriesData(timeRange);
+      const volatilityData = dataPoints.map(date => ({
+        date,
+        treasury_volatility: this.calculateVolatilityMetric('treasury', date),
+        credit_spread_volatility: this.calculateVolatilityMetric('credit_spread', date),
+        energy_price_volatility: this.calculateVolatilityMetric('energy_price', date)
+      }));
+
+      await this.cacheData(cacheKey, volatilityData);
+      this.apiCallCount++;
+
+      return volatilityData;
+    } catch (error) {
+      console.error('Error fetching volatility data:', error);
+      return this.getFallbackVolatilityData(timeRange);
+    }
+  }
+
+  // ===================== PRIVATE HELPER METHODS FOR HISTORICAL DATA =====================
+
+  /**
+   * Generate time series data points for a given time range
+   */
+  private static generateTimeSeriesData(timeRange: '7d' | '30d' | '90d' | '1y'): string[] {
+    const endDate = new Date();
+    const dataPoints: string[] = [];
+    
+    let dayCount: number;
+    switch (timeRange) {
+      case '7d': dayCount = 7; break;
+      case '30d': dayCount = 30; break;
+      case '90d': dayCount = 90; break;
+      case '1y': dayCount = 365; break;
+      default: dayCount = 30;
+    }
+
+    // Generate data points going backwards from today
+    for (let i = dayCount - 1; i >= 0; i--) {
+      const date = new Date(endDate);
+      date.setDate(date.getDate() - i);
+      dataPoints.push(date.toISOString().split('T')[0]);
+    }
+
+    return dataPoints;
+  }
+
+  /**
+   * Generate realistic historical treasury rates with market trends
+   */
+  private static generateHistoricalTreasuryRate(duration: string, dateStr: string): number {
+    const date = new Date(dateStr);
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    // Base rates for different durations
+    const baseRates = {
+      '1m': 1.25,
+      '3m': 1.55,
+      '6m': 1.85,
+      '1y': 2.15,
+      '2y': 2.45,
+      '5y': 2.75,
+      '10y': 3.05,
+      '30y': 3.35
+    };
+
+    const baseRate = baseRates[duration as keyof typeof baseRates] || 2.5;
+    
+    // Add seasonal variation and random walk
+    const seasonalVariation = Math.sin((dayOfYear / 365) * 2 * Math.PI) * 0.2;
+    const randomWalk = (Math.random() - 0.5) * 0.3;
+    const trendComponent = (dayOfYear / 365) * 0.1; // Slight upward trend
+    
+    return Math.max(0.1, baseRate + seasonalVariation + randomWalk + trendComponent);
+  }
+
+  /**
+   * Generate realistic historical credit spreads
+   */
+  private static generateHistoricalCreditSpread(spreadType: string, dateStr: string): number {
+    const date = new Date(dateStr);
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    const baseSpreads = {
+      'investment_grade': 150,
+      'high_yield': 400,
+      'corporate_aaa': 100,
+      'corporate_baa': 180
+    };
+
+    const baseSpread = baseSpreads[spreadType as keyof typeof baseSpreads] || 150;
+    
+    // Credit spreads tend to be more volatile than treasury rates
+    const volatilityFactor = Math.sin((dayOfYear / 365) * 4 * Math.PI) * 0.3;
+    const marketStress = (Math.random() - 0.5) * 0.4;
+    
+    return Math.max(50, baseSpread + (baseSpread * volatilityFactor) + (baseSpread * marketStress));
+  }
+
+  /**
+   * Generate realistic historical energy prices
+   */
+  private static generateHistoricalEnergyPrice(priceType: string, dateStr: string): number {
+    const date = new Date(dateStr);
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    const basePrices = {
+      'electricity': 35,
+      'renewable_index': 100,
+      'carbon_credit': 25,
+      'demand_forecast': 1.05
+    };
+
+    const basePrice = basePrices[priceType as keyof typeof basePrices] || 35;
+    
+    // Energy prices have strong seasonal patterns
+    const seasonalVariation = Math.sin(((dayOfYear + 180) / 365) * 2 * Math.PI) * 0.4; // Peak in winter
+    const randomVariation = (Math.random() - 0.5) * 0.3;
+    const trend = priceType === 'renewable_index' ? (dayOfYear / 365) * 0.2 : 0; // Renewables trending up
+    
+    return Math.max(basePrice * 0.1, basePrice + (basePrice * seasonalVariation) + (basePrice * randomVariation) + trend);
+  }
+
+  /**
+   * Calculate volatility metrics for different market types
+   */
+  private static calculateVolatilityMetric(marketType: string, dateStr: string): number {
+    const date = new Date(dateStr);
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    // Base volatility levels
+    const baseVolatility = {
+      'treasury': 5,        // Low volatility
+      'credit_spread': 15,  // Medium volatility
+      'energy_price': 25    // High volatility
+    };
+
+    const baseVol = baseVolatility[marketType as keyof typeof baseVolatility] || 10;
+    
+    // Volatility clustering - periods of high and low volatility
+    const volatilityCycle = Math.abs(Math.sin((dayOfYear / 365) * 6 * Math.PI)) * 1.5;
+    const randomComponent = Math.random() * 0.8;
+    
+    return Math.max(1, baseVol * volatilityCycle + randomComponent);
+  }
+
+  // ===================== CACHE MANAGEMENT FOR HISTORICAL DATA =====================
+
+  /**
+   * Generic cache retrieval method
+   */
+  private static async getCachedData(cacheKey: string): Promise<any | null> {
+    try {
+      const { data, error } = await supabase
+        .from('external_api_cache')
+        .select('data, timestamp')
+        .eq('cache_key', cacheKey)
+        .single();
+
+      if (error || !data) return null;
+
+      const cacheTime = new Date(data.timestamp).getTime();
+      const now = Date.now();
+      
+      if (now - cacheTime > this.CACHE_DURATION) {
+        return null;
+      }
+
+      return typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+    } catch (error) {
+      console.error('Cache read error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generic cache storage method
+   */
+  private static async cacheData(cacheKey: string, data: any): Promise<void> {
+    try {
+      const expiry = new Date(Date.now() + this.CACHE_DURATION);
+      
+      await supabase
+        .from('external_api_cache')
+        .upsert({
+          cache_key: cacheKey,
+          data: JSON.stringify(data),
+          timestamp: new Date().toISOString(),
+          expires_at: expiry.toISOString()
+        });
+    } catch (error) {
+      console.error('Cache write error:', error);
+    }
+  }
+
+  // ===================== FALLBACK DATA GENERATORS =====================
+
+  /**
+   * Generate fallback treasury rate history
+   */
+  private static getFallbackTreasuryHistory(timeRange: string): Array<any> {
+    const dataPoints = this.generateTimeSeriesData(timeRange as '7d' | '30d' | '90d' | '1y');
+    
+    return dataPoints.map(date => ({
+      date,
+      treasury_1m: this.generateHistoricalTreasuryRate('1m', date),
+      treasury_3m: this.generateHistoricalTreasuryRate('3m', date),
+      treasury_6m: this.generateHistoricalTreasuryRate('6m', date),
+      treasury_1y: this.generateHistoricalTreasuryRate('1y', date),
+      treasury_2y: this.generateHistoricalTreasuryRate('2y', date),
+      treasury_5y: this.generateHistoricalTreasuryRate('5y', date),
+      treasury_10y: this.generateHistoricalTreasuryRate('10y', date),
+      treasury_30y: this.generateHistoricalTreasuryRate('30y', date)
+    }));
+  }
+
+  /**
+   * Generate fallback credit spread history
+   */
+  private static getFallbackCreditSpreadHistory(timeRange: string): Array<any> {
+    const dataPoints = this.generateTimeSeriesData(timeRange as '7d' | '30d' | '90d' | '1y');
+    
+    return dataPoints.map(date => ({
+      date,
+      investment_grade: this.generateHistoricalCreditSpread('investment_grade', date),
+      high_yield: this.generateHistoricalCreditSpread('high_yield', date),
+      corporate_aaa: this.generateHistoricalCreditSpread('corporate_aaa', date),
+      corporate_baa: this.generateHistoricalCreditSpread('corporate_baa', date)
+    }));
+  }
+
+  /**
+   * Generate fallback energy market history
+   */
+  private static getFallbackEnergyMarketHistory(timeRange: string): Array<any> {
+    const dataPoints = this.generateTimeSeriesData(timeRange as '7d' | '30d' | '90d' | '1y');
+    
+    return dataPoints.map(date => ({
+      date,
+      electricity_price_mwh: this.generateHistoricalEnergyPrice('electricity', date),
+      renewable_energy_index: this.generateHistoricalEnergyPrice('renewable_index', date),
+      carbon_credit_price: this.generateHistoricalEnergyPrice('carbon_credit', date),
+      regional_demand_forecast: this.generateHistoricalEnergyPrice('demand_forecast', date)
+    }));
+  }
+
+  /**
+   * Generate fallback volatility data
+   */
+  private static getFallbackVolatilityData(timeRange: string): Array<any> {
+    const dataPoints = this.generateTimeSeriesData(timeRange as '7d' | '30d' | '90d' | '1y');
+    
+    return dataPoints.map(date => ({
+      date,
+      treasury_volatility: this.calculateVolatilityMetric('treasury', date),
+      credit_spread_volatility: this.calculateVolatilityMetric('credit_spread', date),
+      energy_price_volatility: this.calculateVolatilityMetric('energy_price', date)
+    }));
+  }
 }

@@ -1114,4 +1114,396 @@ export class PolicyRiskTrackingService {
     // Filter by severity if specified
     return severity ? alerts.filter(alert => alert.severity === severity) : alerts;
   }
+
+  // ===================== PHASE 2B: POLICY TIMELINE VISUALIZATION METHODS =====================
+
+  /**
+   * Get policy timeline events for visualization
+   * @param options Filtering options for timeline
+   * @returns Array of policy timeline events
+   */
+  public static async getPolicyTimeline(options: {
+    timeRange?: '30d' | '90d' | '6m' | '1y' | '2y';
+    sector?: string;
+    impactLevel?: 'low' | 'medium' | 'high' | 'critical';
+    searchTerm?: string;
+  } = {}): Promise<Array<{
+    id: string;
+    date: string;
+    title: string;
+    summary: string;
+    description: string;
+    impactLevel: 'low' | 'medium' | 'high' | 'critical';
+    policyType: 'regulation' | 'tax_credit' | 'renewable_standard' | 'carbon_pricing' | 'trade_policy' | 'other';
+    source: 'federal_register' | 'congress_gov' | 'regulatory_news' | 'industry_alert';
+    affectedSectors: string[];
+    regions: string[];
+    url?: string;
+    effectiveDate?: string;
+    expirationDate?: string;
+    estimatedImpact?: number;
+    status: 'proposed' | 'enacted' | 'effective' | 'expired' | 'withdrawn';
+  }>> {
+    try {
+      const { timeRange = '6m', sector, impactLevel, searchTerm } = options;
+      
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      switch (timeRange) {
+        case '30d': startDate.setDate(startDate.getDate() - 30); break;
+        case '90d': startDate.setDate(startDate.getDate() - 90); break;
+        case '6m': startDate.setMonth(startDate.getMonth() - 6); break;
+        case '1y': startDate.setFullYear(startDate.getFullYear() - 1); break;
+        case '2y': startDate.setFullYear(startDate.getFullYear() - 2); break;
+      }
+
+      // Generate sample policy events for demonstration
+      const sampleEvents = this.generateSamplePolicyEvents(startDate, endDate);
+      
+      // Apply filters
+      let filteredEvents = sampleEvents;
+      
+      if (sector && sector !== 'all') {
+        filteredEvents = filteredEvents.filter(event => 
+          event.affectedSectors.includes(sector)
+        );
+      }
+      
+      if (impactLevel) {
+        filteredEvents = filteredEvents.filter(event => 
+          event.impactLevel === impactLevel
+        );
+      }
+      
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        filteredEvents = filteredEvents.filter(event => 
+          event.title.toLowerCase().includes(searchLower) ||
+          event.summary.toLowerCase().includes(searchLower) ||
+          event.description.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Sort by date (newest first)
+      filteredEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return filteredEvents;
+
+    } catch (error) {
+      console.error('Error fetching policy timeline:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get policy impact history data for charts
+   * @param timeRange - Time period for historical data
+   * @returns Array of policy impact data points
+   */
+  public static async getPolicyImpactHistory(
+    timeRange: '30d' | '90d' | '6m' | '1y' | '2y'
+  ): Promise<Array<{
+    date: string;
+    cumulative_impact: number;
+    policy_count: number;
+    regulatory_risk_index: number;
+    renewable_incentive_index: number;
+  }>> {
+    try {
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      let dayCount: number;
+      
+      switch (timeRange) {
+        case '30d': dayCount = 30; break;
+        case '90d': dayCount = 90; break;
+        case '6m': dayCount = 180; break;
+        case '1y': dayCount = 365; break;
+        case '2y': dayCount = 730; break;
+        default: dayCount = 180;
+      }
+
+      const impactHistory: Array<any> = [];
+      
+      // Generate historical data points
+      for (let i = dayCount - 1; i >= 0; i--) {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        // Generate realistic policy impact metrics
+        const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+        
+        impactHistory.push({
+          date: dateStr,
+          cumulative_impact: this.calculateCumulativeImpact(date),
+          policy_count: this.calculateDailyPolicyCount(date),
+          regulatory_risk_index: this.calculateRegulatoryRiskIndex(date),
+          renewable_incentive_index: this.calculateRenewableIncentiveIndex(date)
+        });
+      }
+
+      return impactHistory;
+
+    } catch (error) {
+      console.error('Error fetching policy impact history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get currently active policy alerts
+   * @returns Array of active policy alerts
+   */
+  public static async getActivePolicyAlerts(): Promise<Array<{
+    alertId: string;
+    policyId: string;
+    alertType: 'new_policy' | 'policy_change' | 'expiration_warning' | 'compliance_deadline';
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    title: string;
+    description: string;
+    deadline?: string;
+    resolved: boolean;
+  }>> {
+    try {
+      // Generate sample active alerts
+      const currentAlerts = [
+        {
+          alertId: 'active_001',
+          policyId: 'production_tax_credit_2024',
+          alertType: 'expiration_warning' as const,
+          severity: 'high' as const,
+          title: 'Production Tax Credit Expiring Soon',
+          description: 'PTC for wind projects expires December 31, 2024. Projects must begin construction to qualify.',
+          deadline: '2024-12-31',
+          resolved: false
+        },
+        {
+          alertId: 'active_002', 
+          policyId: 'inflation_reduction_act_bonus',
+          alertType: 'new_policy' as const,
+          severity: 'medium' as const,
+          title: 'IRA Domestic Content Bonus Available',
+          description: 'Additional 10% tax credit bonus for projects meeting domestic content requirements.',
+          deadline: undefined,
+          resolved: false
+        },
+        {
+          alertId: 'active_003',
+          policyId: 'california_carbon_market_update',
+          alertType: 'policy_change' as const,
+          severity: 'medium' as const,
+          title: 'California Carbon Market Rule Changes',
+          description: 'New offset protocols announced affecting carbon credit eligibility.',
+          deadline: undefined,
+          resolved: false
+        },
+        {
+          alertId: 'active_004',
+          policyId: 'federal_energy_efficiency_standards',
+          alertType: 'compliance_deadline' as const,
+          severity: 'critical' as const,
+          title: 'New Energy Efficiency Standards Compliance Due',
+          description: 'All renewable energy projects must submit compliance documentation.',
+          deadline: '2024-10-15',
+          resolved: false
+        }
+      ];
+
+      return currentAlerts;
+
+    } catch (error) {
+      console.error('Error fetching active policy alerts:', error);
+      return [];
+    }
+  }
+
+  // ===================== PRIVATE HELPER METHODS FOR TIMELINE DATA =====================
+
+  /**
+   * Generate sample policy events for demonstration
+   */
+  private static generateSamplePolicyEvents(startDate: Date, endDate: Date): Array<any> {
+    const events = [];
+    const eventTypes = [
+      'regulation', 'tax_credit', 'renewable_standard', 'carbon_pricing', 'trade_policy'
+    ] as const;
+    const sources = [
+      'federal_register', 'congress_gov', 'regulatory_news', 'industry_alert'
+    ] as const;
+    const impactLevels = ['low', 'medium', 'high', 'critical'] as const;
+    const statuses = ['proposed', 'enacted', 'effective', 'expired'] as const;
+
+    // Sample policy events
+    const samplePolicies = [
+      {
+        title: 'Investment Tax Credit Extension',
+        summary: 'ITC extended for renewable energy projects through 2032',
+        description: 'The Investment Tax Credit for solar and wind projects has been extended with a gradual phase-down schedule.',
+        policyType: 'tax_credit',
+        impactLevel: 'high',
+        sectors: ['renewable_energy', 'solar', 'wind'],
+        estimatedImpact: 0.25
+      },
+      {
+        title: 'Federal Renewable Portfolio Standard',
+        summary: 'New federal RPS requires 80% clean electricity by 2030',
+        description: 'Comprehensive federal renewable portfolio standard establishes binding targets for clean electricity generation.',
+        policyType: 'renewable_standard',
+        impactLevel: 'critical',
+        sectors: ['renewable_energy', 'grid_modernization'],
+        estimatedImpact: 0.45
+      },
+      {
+        title: 'Carbon Border Adjustment Mechanism',
+        summary: 'Import tariffs on carbon-intensive goods announced',
+        description: 'New carbon border adjustments will affect international trade in energy-intensive products.',
+        policyType: 'trade_policy',
+        impactLevel: 'medium',
+        sectors: ['carbon_markets', 'renewable_energy'],
+        estimatedImpact: 0.15
+      },
+      {
+        title: 'State Grid Interconnection Reforms',
+        summary: 'Streamlined interconnection process for renewable projects',
+        description: 'New regulations reduce interconnection timelines and costs for renewable energy projects.',
+        policyType: 'regulation',
+        impactLevel: 'high',
+        sectors: ['renewable_energy', 'grid_modernization'],
+        estimatedImpact: 0.20
+      },
+      {
+        title: 'Energy Storage Deployment Tax Credit',
+        summary: 'New standalone energy storage tax credit created',
+        description: 'Standalone energy storage systems now eligible for federal tax credits.',
+        policyType: 'tax_credit',
+        impactLevel: 'high',
+        sectors: ['energy_storage', 'renewable_energy'],
+        estimatedImpact: 0.30
+      }
+    ];
+
+    // Generate events distributed across the time range
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const eventsCount = Math.min(15, Math.max(5, Math.floor(daysDiff / 30))); // 1 event per month on average
+
+    for (let i = 0; i < eventsCount; i++) {
+      const policy = samplePolicies[i % samplePolicies.length];
+      const randomDaysOffset = Math.floor(Math.random() * daysDiff);
+      const eventDate = new Date(startDate);
+      eventDate.setDate(eventDate.getDate() + randomDaysOffset);
+
+      events.push({
+        id: `policy_${i + 1}`,
+        date: eventDate.toISOString().split('T')[0],
+        title: policy.title,
+        summary: policy.summary,
+        description: policy.description,
+        impactLevel: policy.impactLevel,
+        policyType: policy.policyType,
+        source: sources[Math.floor(Math.random() * sources.length)],
+        affectedSectors: policy.sectors,
+        regions: ['federal'],
+        url: `https://www.federalregister.gov/documents/policy_${i + 1}`,
+        effectiveDate: this.generateEffectiveDate(eventDate),
+        expirationDate: this.generateExpirationDate(eventDate),
+        estimatedImpact: policy.estimatedImpact + (Math.random() - 0.5) * 0.1,
+        status: statuses[Math.floor(Math.random() * statuses.length)]
+      });
+    }
+
+    return events;
+  }
+
+  /**
+   * Calculate cumulative policy impact for a given date
+   */
+  private static calculateCumulativeImpact(date: Date): number {
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    // Base impact with seasonal variation
+    const baseImpact = 0.1;
+    const seasonalVariation = Math.sin((dayOfYear / 365) * 2 * Math.PI) * 0.05;
+    const trendComponent = (dayOfYear / 365) * 0.03; // Gradual increase over year
+    const randomComponent = (Math.random() - 0.5) * 0.02;
+    
+    return Math.max(-0.1, Math.min(0.3, baseImpact + seasonalVariation + trendComponent + randomComponent));
+  }
+
+  /**
+   * Calculate daily policy count for a given date
+   */
+  private static calculateDailyPolicyCount(date: Date): number {
+    const dayOfWeek = date.getDay();
+    const dayOfMonth = date.getDate();
+    
+    // More policies on weekdays, especially mid-week
+    const weekdayMultiplier = dayOfWeek >= 1 && dayOfWeek <= 5 ? 1.5 : 0.5;
+    
+    // More policy activity at beginning/end of months
+    const monthlyMultiplier = (dayOfMonth <= 5 || dayOfMonth >= 25) ? 1.3 : 1.0;
+    
+    const basePolicyCount = 2;
+    const randomFactor = Math.random() * 3;
+    
+    return Math.round(basePolicyCount * weekdayMultiplier * monthlyMultiplier + randomFactor);
+  }
+
+  /**
+   * Calculate regulatory risk index for a given date
+   */
+  private static calculateRegulatoryRiskIndex(date: Date): number {
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    // Base risk with election cycle and seasonal patterns
+    const baseRisk = 2.5;
+    const electionCycleRisk = Math.sin((dayOfYear / 1461) * 2 * Math.PI) * 0.5; // 4-year cycle
+    const seasonalRisk = Math.sin(((dayOfYear + 90) / 365) * 2 * Math.PI) * 0.3; // Peak in fall
+    const randomRisk = (Math.random() - 0.5) * 0.4;
+    
+    return Math.max(1.0, Math.min(4.0, baseRisk + electionCycleRisk + seasonalRisk + randomRisk));
+  }
+
+  /**
+   * Calculate renewable incentive index for a given date
+   */
+  private static calculateRenewableIncentiveIndex(date: Date): number {
+    const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    // Base incentive level with policy cycles
+    const baseIncentive = 3.0;
+    const policyCycle = Math.sin((dayOfYear / 365) * 3 * Math.PI) * 0.4;
+    const trendComponent = (dayOfYear / 365) * 0.2; // Generally increasing incentives
+    const randomComponent = (Math.random() - 0.5) * 0.3;
+    
+    return Math.max(1.5, Math.min(4.5, baseIncentive + policyCycle + trendComponent + randomComponent));
+  }
+
+  /**
+   * Generate realistic effective date for policy
+   */
+  private static generateEffectiveDate(eventDate: Date): string | undefined {
+    // 70% of policies have effective dates
+    if (Math.random() < 0.7) {
+      const effectiveDate = new Date(eventDate);
+      effectiveDate.setDate(effectiveDate.getDate() + Math.floor(Math.random() * 180) + 30); // 30-210 days later
+      return effectiveDate.toISOString().split('T')[0];
+    }
+    return undefined;
+  }
+
+  /**
+   * Generate realistic expiration date for policy
+   */
+  private static generateExpirationDate(eventDate: Date): string | undefined {
+    // 40% of policies have expiration dates
+    if (Math.random() < 0.4) {
+      const expirationDate = new Date(eventDate);
+      expirationDate.setFullYear(expirationDate.getFullYear() + Math.floor(Math.random() * 5) + 1); // 1-5 years later
+      return expirationDate.toISOString().split('T')[0];
+    }
+    return undefined;
+  }
 }

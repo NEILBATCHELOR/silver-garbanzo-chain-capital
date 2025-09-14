@@ -6,7 +6,9 @@ import { useNavigate } from "react-router-dom";
 import {
   CashFlowCharts,
   RiskAssessmentDashboard,
-  WeatherImpactAnalysis
+  WeatherImpactAnalysis,
+  MarketDataCharts,
+  PolicyTimeline
 } from "./components/visualizations";
 
 interface ClimateReceivablesVisualizationsPageProps {
@@ -15,6 +17,7 @@ interface ClimateReceivablesVisualizationsPageProps {
 
 /**
  * Dedicated page for Climate Receivables visualizations with tabbed interface
+ * Enhanced with Phase 2B Market Data and Policy Timeline visualizations
  */
 const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualizationsPageProps> = ({ projectId }) => {
   const navigate = useNavigate();
@@ -34,7 +37,7 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
           <div>
             <h1 className="text-3xl font-bold">Climate Receivables Visualizations</h1>
             <p className="text-muted-foreground">
-              Analyze cash flow, risk assessment, and weather impact data
+              Analyze cash flow, risk assessment, weather impact, market data, and policy changes
             </p>
           </div>
         </div>
@@ -51,6 +54,12 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
           <TabsTrigger value="weather-impact" className="px-4 py-2">
             Weather Impact
           </TabsTrigger>
+          <TabsTrigger value="market-data" className="px-4 py-2">
+            Market Data
+          </TabsTrigger>
+          <TabsTrigger value="policy-timeline" className="px-4 py-2">
+            Policy Timeline
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="cash-flow" className="space-y-4">
@@ -63,6 +72,14 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
 
         <TabsContent value="weather-impact" className="space-y-4">
           <WeatherImpactAnalysis projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="market-data" className="space-y-4">
+          <MarketDataCharts projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="policy-timeline" className="space-y-4">
+          <PolicyTimeline projectId={projectId} />
         </TabsContent>
       </Tabs>
     </div>
