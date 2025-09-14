@@ -118,7 +118,7 @@ export class UserDataSourceService {
       }
 
       // Update status to processing
-      await this.updateDataSourceStatus(sourceId, 'processing');
+      await UserDataSourceService.updateDataSourceStatus(sourceId, 'processing');
 
       let result: DataExtractionResult;
 
@@ -144,11 +144,11 @@ export class UserDataSourceService {
 
       // Update processing status
       const finalStatus = result.success ? 'completed' : 'error';
-      await this.updateDataSourceStatus(sourceId, finalStatus, result.validation_errors);
+      await UserDataSourceService.updateDataSourceStatus(sourceId, finalStatus, result.validation_errors);
 
       return result;
     } catch (error) {
-      await this.updateDataSourceStatus(sourceId, 'error', [error.message]);
+      await UserDataSourceService.updateDataSourceStatus(sourceId, 'error', [error.message]);
       throw error;
     }
   }
@@ -392,7 +392,7 @@ export class UserDataSourceService {
     return data.source_id;
   }
 
-  private static async getDataSource(sourceId: string): Promise<UserDataSource | null> {
+  public static async getDataSource(sourceId: string): Promise<UserDataSource | null> {
     const { data, error } = await supabase
       .from('climate_user_data_sources')
       .select('*')
@@ -405,30 +405,6 @@ export class UserDataSourceService {
     }
 
     return data;
-  }
-
-  private static async updateDataSourceStatus(
-    sourceId: string,
-    status: string,
-    validationErrors: string[] = []
-  ): Promise<void> {
-    const updateData: any = {
-      processing_status: status,
-      last_processed: new Date().toISOString()
-    };
-
-    if (validationErrors.length > 0) {
-      updateData.validation_errors = validationErrors;
-    }
-
-    const { error } = await supabase
-      .from('climate_user_data_sources')
-      .update(updateData)
-      .eq('source_id', sourceId);
-
-    if (error) {
-      console.error('Update data source status failed:', error);
-    }
   }
 
   private static async processDataSourceAsync(sourceId: string): Promise<void> {
@@ -870,6 +846,101 @@ export class UserDataSourceService {
 
     if (error) {
       console.error('Delete cached data failed:', error);
+    }
+  }
+
+  /**
+   * Get data source processing statistics and quality metrics
+   */
+  public static async getDataSourceStats(sourceId: string): Promise<{
+    quality_score: number;
+    record_count: number;
+    last_validation?: string;
+    processing_time_ms?: number;
+  } | null> {
+    try {
+      // Get cached data records for this source
+      const { data: cachedRecords, error: cacheError } = await supabase
+        .from('climate_user_data_cache')
+        .select('data_quality_score, processed_data, extracted_at')
+        .eq('source_id', sourceId);
+
+      if (cacheError) {
+        console.error('Error fetching cache data:', cacheError);
+        return null;
+      }
+
+      if (!cachedRecords || cachedRecords.length === 0) {
+        return {
+          quality_score: 0,
+          record_count: 0,
+        };
+      }
+
+      // Calculate aggregate statistics
+      const qualityScores = cachedRecords.map(record => record.data_quality_score || 0);
+      const averageQuality = qualityScores.length > 0 
+        ? qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length * 100
+        : 0;
+
+      const totalRecords = cachedRecords.reduce((count, record) => {
+        const data = record.processed_data;
+        if (Array.isArray(data)) {
+          return count + data.length;
+        } else if (typeof data === 'object' && data !== null) {
+          return count + Object.keys(data).length;
+        }
+        return count + 1;
+      }, 0);
+
+      const mostRecent = cachedRecords.reduce((latest, record) => {
+        return new Date(record.extracted_at) > new Date(latest.extracted_at) ? record : latest;
+      });
+
+      return {
+        quality_score: Math.round(averageQuality),
+        record_count: totalRecords,
+        last_validation: mostRecent.extracted_at,
+      };
+    } catch (error) {
+      console.error('Get data source stats failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update data source processing status
+   */
+  public static async updateDataSourceStatus(
+    sourceId: string, 
+    status: 'pending' | 'processing' | 'completed' | 'error' | 'active' | 'inactive',
+    validationErrors?: string[]
+  ): Promise<void> {
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (status === 'active' || status === 'inactive') {
+        updateData.is_active = status === 'active';
+      } else {
+        updateData.processing_status = status;
+        updateData.last_processed = new Date().toISOString();
+      }
+
+      if (validationErrors) {
+        updateData.validation_errors = validationErrors;
+      }
+
+      const { error } = await supabase
+        .from('climate_user_data_sources')
+        .update(updateData)
+        .eq('source_id', sourceId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Update data source status failed:', error);
+      throw error;
     }
   }
 }
