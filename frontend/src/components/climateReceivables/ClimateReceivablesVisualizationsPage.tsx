@@ -10,6 +10,7 @@ import {
   MarketDataCharts,
   PolicyTimeline
 } from "./components/visualizations";
+import { APIDiagnosticDashboard } from "./components/api-testing";
 
 interface ClimateReceivablesVisualizationsPageProps {
   projectId: string;
@@ -37,7 +38,7 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
           <div>
             <h1 className="text-3xl font-bold">Climate Receivables Visualizations</h1>
             <p className="text-muted-foreground">
-              Analyze cash flow, risk assessment, weather impact, market data, and policy changes
+              Analyze cash flow, risk assessment, weather impact, market data, policy changes, and API diagnostics
             </p>
           </div>
         </div>
@@ -60,6 +61,9 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
           <TabsTrigger value="policy-timeline" className="px-4 py-2">
             Policy Timeline
           </TabsTrigger>
+          <TabsTrigger value="api-testing" className="px-4 py-2">
+            API Testing
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="cash-flow" className="space-y-4">
@@ -80,6 +84,10 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
 
         <TabsContent value="policy-timeline" className="space-y-4">
           <PolicyTimeline projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="api-testing" className="space-y-4">
+          <APIDiagnosticDashboard />
         </TabsContent>
       </Tabs>
     </div>
