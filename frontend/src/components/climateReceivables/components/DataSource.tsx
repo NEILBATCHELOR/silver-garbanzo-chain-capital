@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Upload, Database } from 'lucide-react';
-import UserDataSourceUpload from './forms/UserDataSourceUpload';
+import UserDataSourceUploadEnhanced from './forms/UserDataSourceUploadEnhanced';
 import DataSourceManager from './widgets/DataSourceManager';
 import type { UserDataSource } from '../../../services/climateReceivables/userDataSourceService';
 
@@ -65,7 +65,7 @@ export default function DataSourceDemo({ className = '' }: DataSourceDemoProps) 
         </TabsList>
 
         <TabsContent value="upload" className="space-y-6">
-          <UserDataSourceUpload
+          <UserDataSourceUploadEnhanced
             onUploadComplete={handleUploadComplete}
             onUploadError={handleUploadError}
           />
@@ -165,45 +165,6 @@ export default function DataSourceDemo({ className = '' }: DataSourceDemoProps) 
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Technical Notes */}
-      <Card className="bg-gray-50">
-        <CardHeader>
-          <CardTitle className="text-lg">Technical Implementation Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>
-            <strong>Phase 2A Implementation Complete:</strong>
-            <ul className="list-disc list-inside ml-4 space-y-1 mt-1">
-              <li>✅ UserDataSourceUpload.tsx - Drag-and-drop file upload with validation</li>
-              <li>✅ DataSourceManager.tsx - Comprehensive data source management dashboard</li>
-              <li>✅ Integration with existing userDataSourceService.ts (876+ lines)</li>
-              <li>✅ Database integration with climate_user_data_sources table</li>
-              <li>✅ File processing pipeline with quality scoring</li>
-            </ul>
-          </div>
-          
-          <div>
-            <strong>Ready for Phase 2B:</strong>
-            <ul className="list-disc list-inside ml-4 space-y-1 mt-1">
-              <li>📋 Market data visualization charts (Treasury rates, credit spreads)</li>
-              <li>📋 Policy impact timeline component</li>
-              <li>📋 Enhanced risk dashboard integration</li>
-              <li>📋 Free API data source integration (Treasury.gov, FRED, EIA)</li>
-            </ul>
-          </div>
-
-          <div>
-            <strong>Integration Points:</strong>
-            <ul className="list-disc list-inside ml-4 space-y-1 mt-1">
-              <li>Enhanced PayerRiskAssessmentService with user data blending</li>
-              <li>Real-time market data from free government APIs</li>
-              <li>Data quality scoring and confidence adjustments</li>
-              <li>Batch processing with existing orchestratorService</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

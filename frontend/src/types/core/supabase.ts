@@ -1082,6 +1082,42 @@ export type Database = {
           },
         ]
       }
+      climate_market_data_cache: {
+        Row: {
+          cache_id: string
+          cache_key: string
+          cached_at: string | null
+          created_at: string | null
+          data: Json
+          expires_at: string
+          hit_count: number | null
+          last_accessed: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cache_id?: string
+          cache_key: string
+          cached_at?: string | null
+          created_at?: string | null
+          data: Json
+          expires_at: string
+          hit_count?: number | null
+          last_accessed?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cache_id?: string
+          cache_key?: string
+          cached_at?: string | null
+          created_at?: string | null
+          data?: Json
+          expires_at?: string
+          hit_count?: number | null
+          last_accessed?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       climate_nav_calculations: {
         Row: {
           additionality_barrier: boolean | null
@@ -20477,6 +20513,39 @@ export type Database = {
         }
         Relationships: []
       }
+      climate_cache_performance: {
+        Row: {
+          cache_key: string | null
+          cached_at: string | null
+          expires_at: string | null
+          hit_count: number | null
+          last_accessed: string | null
+          minutes_since_access: number | null
+          status: string | null
+          ttl_hours: number | null
+        }
+        Insert: {
+          cache_key?: string | null
+          cached_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          last_accessed?: string | null
+          minutes_since_access?: never
+          status?: never
+          ttl_hours?: never
+        }
+        Update: {
+          cache_key?: string | null
+          cached_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          last_accessed?: string | null
+          minutes_since_access?: never
+          status?: never
+          ttl_hours?: never
+        }
+        Relationships: []
+      }
       climate_cash_flow_forecast: {
         Row: {
           projection_date: string | null
@@ -21648,6 +21717,10 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_asset_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      cleanup_expired_cache: {
         Args: Record<PropertyKey, never>
         Returns: number
       }

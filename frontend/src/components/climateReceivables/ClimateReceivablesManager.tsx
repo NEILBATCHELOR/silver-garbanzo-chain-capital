@@ -18,6 +18,9 @@ import {
   RecsPage
 } from "./pages";
 
+// Import Data Source Components  
+import DataSourcePage from "./pages/DataSourcePage";
+
 // Legacy components (keep for other routes)
 import { 
   ProductionDataList, 
@@ -208,6 +211,9 @@ const ClimateReceivablesManager: React.FC = () => {
         
         {/* Payers Management routes */}
         <Route path="/payers" element={<PayersManagementPage />} />
+        
+        {/* Data Sources Management routes */}
+        <Route path="/data-sources" element={<DataSourcePage />} />
         
         {/* Default redirect to dashboard */}
         <Route path="/*" element={<Navigate to={currentProjectId ? `/projects/${currentProjectId}/climate-receivables/dashboard` : "/climate-receivables/dashboard"} replace />} />

@@ -35,6 +35,7 @@ import {
 import { supabase } from "@/infrastructure/database/client";
 import { EnergyAsset, ProductionData, WeatherData, EnergyAssetType } from "../../types";
 import { WeatherProductionService } from "../../utils/weather-production-service";
+import { WEATHER_COLORS, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
 
 interface WeatherImpactAnalysisProps {
   projectId?: string;

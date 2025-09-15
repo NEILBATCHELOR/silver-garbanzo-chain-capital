@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/infrastructure/database/client";
 import { ClimateReceivable, ClimateIncentive, IncentiveType, IncentiveStatus } from "../../types";
 import { CashFlowForecastingService } from "../../utils/cash-flow-forecasting-service";
+import { CASH_FLOW_COLORS, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
 
 interface CashFlowChartsProps {
   // Remove projectId as it doesn't exist in our schema
@@ -197,7 +198,14 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-sm">
+        <div 
+          className="p-3 border rounded shadow-sm"
+          style={{
+            backgroundColor: CHART_STYLES.tooltip.backgroundColor,
+            border: CHART_STYLES.tooltip.border,
+            color: CHART_STYLES.tooltip.color
+          }}
+        >
           <p className="font-medium">{formatPeriodLabel(label)}</p>
           {payload.map((entry: any, index: number) => (
             <p key={`item-${index}`} style={{ color: entry.color }}>
@@ -276,13 +284,18 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis 
                       dataKey="period" 
                       tickFormatter={formatPeriodLabel}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       tickFormatter={(value) => `$${value.toLocaleString()}`}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
@@ -290,13 +303,13 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
                       dataKey="receivables" 
                       name="Receivables" 
                       stackId="a" 
-                      fill="#4f46e5" 
+                      fill={CASH_FLOW_COLORS.receivables}
                     />
                     <Bar 
                       dataKey="incentives" 
                       name="Incentives" 
                       stackId="a" 
-                      fill="#10b981"
+                      fill={CASH_FLOW_COLORS.incentives}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -317,13 +330,18 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={cumulativeData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis 
                       dataKey="period" 
                       tickFormatter={formatPeriodLabel}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       tickFormatter={(value) => `$${value.toLocaleString()}`}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
@@ -331,10 +349,10 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
                       type="monotone" 
                       dataKey="cumulativeTotal" 
                       name="Cumulative Cash Flow" 
-                      stroke="#8884d8" 
+                      stroke={CASH_FLOW_COLORS.cumulative} 
                       strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
+                      dot={{ r: 4, fill: CASH_FLOW_COLORS.cumulative }}
+                      activeDot={{ r: 6, fill: CASH_FLOW_COLORS.cumulative }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -355,19 +373,25 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={cumulativeData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis 
                       dataKey="period" 
                       tickFormatter={formatPeriodLabel}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       yAxisId="left"
                       tickFormatter={(value) => `$${value.toLocaleString()}`}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       yAxisId="right"
                       orientation="right"
                       tickFormatter={(value) => `$${value.toLocaleString()}`}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
@@ -376,23 +400,23 @@ const CashFlowCharts: React.FC<CashFlowChartsProps> = () => {
                       dataKey="receivables" 
                       name="Receivables" 
                       stackId="a" 
-                      fill="#4f46e5" 
+                      fill={CASH_FLOW_COLORS.receivables}
                     />
                     <Bar 
                       yAxisId="left"
                       dataKey="incentives" 
                       name="Incentives" 
                       stackId="a" 
-                      fill="#10b981"
+                      fill={CASH_FLOW_COLORS.incentives}
                     />
                     <Line 
                       yAxisId="right"
                       type="monotone" 
                       dataKey="cumulativeTotal" 
                       name="Cumulative Cash Flow" 
-                      stroke="#ff7300" 
+                      stroke={CASH_FLOW_COLORS.total} 
                       strokeWidth={2}
-                      dot={{ r: 4 }}
+                      dot={{ r: 4, fill: CASH_FLOW_COLORS.total }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>

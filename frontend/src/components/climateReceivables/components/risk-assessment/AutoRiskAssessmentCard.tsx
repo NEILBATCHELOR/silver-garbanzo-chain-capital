@@ -49,28 +49,49 @@ export const AutoRiskAssessmentCard: React.FC<AutoRiskAssessmentProps> = ({
   const [manualRiskScore, setManualRiskScore] = useState<number>(currentRiskScore || 0);
   const [manualDiscountRate, setManualDiscountRate] = useState<number>(currentDiscountRate || 0);
   const [showInsights, setShowInsights] = useState(false);
+  const [isInvestmentGrade, setIsInvestmentGrade] = useState<boolean>(false);
+  const [riskTier, setRiskTier] = useState<string>('');
+  const [climateInsights, setClimateInsights] = useState<string[]>([]);
 
   // Auto-calculate when payer data changes
-  const calculateRiskAssessment = useCallback(() => {
+  const calculateRiskAssessment = useCallback(async () => {
     if (!creditRating || financialHealthScore === undefined) {
       return;
     }
 
-    const creditProfile: PayerCreditProfile = {
-      credit_rating: creditRating,
-      financial_health_score: financialHealthScore,
-      // Add ESG score from payer data if available
-      esg_score: 75 // Default ESG for renewable energy payers
-    };
+    try {
+      const creditProfile: PayerCreditProfile = {
+        credit_rating: creditRating,
+        financial_health_score: financialHealthScore,
+        // Add ESG score from payer data if available
+        esg_score: 75 // Default ESG for renewable energy payers
+      };
 
-    const result = PayerRiskAssessmentService.assessPayerRisk(creditProfile);
-    setAssessment(result);
-    
-    // Auto-update values if in auto mode
-    if (isAutoMode) {
-      onRiskScoreChange(result.risk_score);
-      onDiscountRateChange(result.discount_rate);
-      onAssessmentUpdate(result);
+      // Run all async service calls in parallel
+      const [result, investmentGradeStatus, riskTierStatus, insights] = await Promise.all([
+        PayerRiskAssessmentService.assessPayerRisk(creditProfile),
+        PayerRiskAssessmentService.isInvestmentGrade(creditRating),
+        PayerRiskAssessmentService.getRiskTier(creditRating),
+        PayerRiskAssessmentService.getClimateFinanceInsights(creditProfile)
+      ]);
+
+      setAssessment(result);
+      setIsInvestmentGrade(investmentGradeStatus);
+      setRiskTier(riskTierStatus);
+      setClimateInsights(insights);
+      
+      // Auto-update values if in auto mode
+      if (isAutoMode) {
+        onRiskScoreChange(result.risk_score);
+        onDiscountRateChange(result.discount_rate);
+        onAssessmentUpdate(result);
+      }
+    } catch (error) {
+      console.error('Risk assessment calculation failed:', error);
+      setAssessment(null);
+      setIsInvestmentGrade(false);
+      setRiskTier('Unknown');
+      setClimateInsights([]);
     }
   }, [creditRating, financialHealthScore, isAutoMode, onRiskScoreChange, onDiscountRateChange, onAssessmentUpdate]);
 
@@ -178,11 +199,11 @@ export const AutoRiskAssessmentCard: React.FC<AutoRiskAssessmentProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Credit Rating:</span>
-              <Badge variant={PayerRiskAssessmentService.isInvestmentGrade(creditRating) ? 'default' : 'destructive'}>
+              <Badge variant={isInvestmentGrade ? 'default' : 'destructive'}>
                 {creditRating}
               </Badge>
               <span className="text-xs text-gray-500">
-                ({PayerRiskAssessmentService.getRiskTier(creditRating)})
+                ({riskTier})
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -313,11 +334,7 @@ export const AutoRiskAssessmentCard: React.FC<AutoRiskAssessmentProps> = ({
               {/* Climate-Specific Insights */}
               <div className="bg-green-50 p-3 rounded-lg border border-green-200">
                 <div className="font-medium text-sm text-green-800 mb-2">Climate Finance Benefits:</div>
-                {PayerRiskAssessmentService.getClimateFinanceInsights({
-                  credit_rating: creditRating,
-                  financial_health_score: financialHealthScore,
-                  esg_score: 75
-                }).map((insight, index) => (
+                {climateInsights.map((insight, index) => (
                   <div key={index} className="text-sm text-green-700 flex items-start gap-2">
                     <Zap className="h-3 w-3 text-green-600 mt-0.5" />
                     {insight}

@@ -48,6 +48,7 @@ import type {
 import type { UserDataSource } from "../../../../services/climateReceivables/userDataSourceService";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, TrendingUp, TrendingDown, Database, Wifi } from "lucide-react";
+import { RISK_COLORS, CHART_COLOR_SEQUENCES, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
 
 interface RiskAssessmentDashboardProps {
   // Remove projectId as it doesn't exist in our schema
@@ -80,14 +81,6 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [riskProfileFilter, setRiskProfileFilter] = useState<ClimateRiskLevel | "">("");
-
-  // Color constants
-  const COLORS = ["#4CAF50", "#FFC107", "#F44336", "#9C27B0"];
-  const RISK_COLORS = {
-    "LOW": "#4CAF50",
-    "MEDIUM": "#FFC107",
-    "HIGH": "#F44336"
-  };
 
   // Fetch data on component mount
   useEffect(() => {
@@ -341,7 +334,14 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-sm">
+        <div 
+          className="p-3 border rounded shadow-sm"
+          style={{
+            backgroundColor: CHART_STYLES.tooltip.backgroundColor,
+            border: CHART_STYLES.tooltip.border,
+            color: CHART_STYLES.tooltip.color
+          }}
+        >
           <p className="font-medium">{data.name}</p>
           <p>Count: {data.value}</p>
           <p>
@@ -361,7 +361,14 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
       const data = payload[0].payload;
       const totalValue = receivables.reduce((sum, r) => sum + r.amount, 0);
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-sm">
+        <div 
+          className="p-3 border rounded shadow-sm"
+          style={{
+            backgroundColor: CHART_STYLES.tooltip.backgroundColor,
+            border: CHART_STYLES.tooltip.border,
+            color: CHART_STYLES.tooltip.color
+          }}
+        >
           <p className="font-medium">{data.name}</p>
           <p>Value: {formatCurrency(data.value)}</p>
           <p>
@@ -380,7 +387,14 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-sm">
+        <div 
+          className="p-3 border rounded shadow-sm"
+          style={{
+            backgroundColor: CHART_STYLES.tooltip.backgroundColor,
+            border: CHART_STYLES.tooltip.border,
+            color: CHART_STYLES.tooltip.color
+          }}
+        >
           <p className="font-medium">{data.name}</p>
           <p>Risk Score: {data.x}</p>
           <p>Amount: {formatCurrency(data.y)}</p>
@@ -687,7 +701,7 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                         {getRiskDistributionData().map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={RISK_COLORS[entry.name as RiskLevel] || COLORS[index % COLORS.length]}
+                            fill={RISK_COLORS[entry.name as RiskLevel] || CHART_COLOR_SEQUENCES.primary[index % CHART_COLOR_SEQUENCES.primary.length]}
                           />
                         ))}
                       </Pie>
@@ -726,7 +740,7 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                         {getRiskValueData().map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={RISK_COLORS[entry.name as RiskLevel] || COLORS[index % COLORS.length]}
+                            fill={RISK_COLORS[entry.name as RiskLevel] || CHART_COLOR_SEQUENCES.primary[index % CHART_COLOR_SEQUENCES.primary.length]}
                           />
                         ))}
                       </Pie>
@@ -749,15 +763,24 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={getRiskBucketData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="range" />
-                      <YAxis allowDecimals={false} />
+                      <CartesianGrid 
+                        stroke={CHART_STYLES.grid.stroke}
+                        strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                      />
+                      <XAxis 
+                        dataKey="range" 
+                        tick={CHART_STYLES.axis.tick}
+                      />
+                      <YAxis 
+                        allowDecimals={false} 
+                        tick={CHART_STYLES.axis.tick}
+                      />
                       <Tooltip />
                       <Legend />
                       <Bar
                         dataKey="count"
                         name="Number of Receivables"
-                        fill="#8884d8"
+                        fill={CHART_COLOR_SEQUENCES.primary[0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -780,14 +803,21 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart outerRadius={90} data={getRiskFactorsRadarData()}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="subject" />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                      <PolarGrid stroke={CHART_STYLES.grid.stroke} />
+                      <PolarAngleAxis 
+                        dataKey="subject" 
+                        tick={{ fill: CHART_STYLES.axis.tick.fill }}
+                      />
+                      <PolarRadiusAxis 
+                        angle={30} 
+                        domain={[0, 100]} 
+                        tick={{ fill: CHART_STYLES.axis.tick.fill }}
+                      />
                       <Radar
                         name="Average Risk Factors"
                         dataKey="A"
-                        stroke="#8884d8"
-                        fill="#8884d8"
+                        stroke={CHART_COLOR_SEQUENCES.primary[0]}
+                        fill={CHART_COLOR_SEQUENCES.primary[0]}
                         fillOpacity={0.6}
                       />
                       <Tooltip />
@@ -879,18 +909,23 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                   <ScatterChart
                     margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
                   >
-                    <CartesianGrid />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis
                       type="number"
                       dataKey="x"
                       name="Risk Score"
                       domain={[0, 100]}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis
                       type="number"
                       dataKey="y"
                       name="Amount"
                       tickFormatter={(value) => `$${value.toLocaleString()}`}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <ZAxis
                       type="number"
@@ -901,14 +936,14 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
                     <Tooltip content={<CustomScatterTooltip />} />
                     <Legend />
                     {["LOW", "MEDIUM", "HIGH"].map(
-                      (riskLevel) => (
+                      (riskLevel, index) => (
                         <Scatter
                           key={riskLevel}
                           name={`${riskLevel} Risk`}
                           data={getRiskAmountScatterData().filter(
                             (item) => item.riskLevel === riskLevel
                           )}
-                          fill={RISK_COLORS[riskLevel]}
+                          fill={RISK_COLORS[riskLevel] || CHART_COLOR_SEQUENCES.primary[index]}
                         />
                       )
                     )}

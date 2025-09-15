@@ -42,6 +42,7 @@ import {
   Clock
 } from "lucide-react";
 import { PolicyRiskTrackingService } from "../../services/api/policy-risk-tracking-service";
+import { POLICY_COLORS, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
 
 interface PolicyTimelineProps {
   projectId?: string;

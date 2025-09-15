@@ -39,6 +39,7 @@ import type {
   EnergyMarketData, 
   MarketDataSnapshot 
 } from "../../../../services/climateReceivables/freeMarketDataService";
+import { MARKET_DATA_COLORS, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
 
 interface MarketDataChartsProps {
   projectId?: string;
@@ -353,7 +354,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Line 
                       type="monotone" 
                       dataKey="treasury_1m" 
-                      stroke="#8884d8" 
+                      stroke={MARKET_DATA_COLORS.treasury.rates[0]} 
                       name="1M" 
                       strokeWidth={1.5}
                       dot={false}
@@ -361,7 +362,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Line 
                       type="monotone" 
                       dataKey="treasury_3m" 
-                      stroke="#82ca9d" 
+                      stroke={MARKET_DATA_COLORS.treasury.rates[1]} 
                       name="3M" 
                       strokeWidth={1.5}
                       dot={false}
@@ -369,7 +370,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Line 
                       type="monotone" 
                       dataKey="treasury_1y" 
-                      stroke="#ffc658" 
+                      stroke={MARKET_DATA_COLORS.treasury.rates[2]} 
                       name="1Y" 
                       strokeWidth={2}
                       dot={false}
@@ -377,7 +378,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Line 
                       type="monotone" 
                       dataKey="treasury_10y" 
-                      stroke="#ff7300" 
+                      stroke={MARKET_DATA_COLORS.treasury.rates[3]} 
                       name="10Y" 
                       strokeWidth={2.5}
                       dot={false}
@@ -385,7 +386,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Line 
                       type="monotone" 
                       dataKey="treasury_30y" 
-                      stroke="#8dd1e1" 
+                      stroke={MARKET_DATA_COLORS.treasury.rates[4]} 
                       name="30Y" 
                       strokeWidth={2}
                       dot={false}
@@ -410,13 +411,18 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={creditSpreadHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis 
                       dataKey="date" 
                       tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       label={{ value: 'Spread (bps)', angle: -90, position: 'insideLeft' }}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString()}
@@ -427,8 +433,8 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       type="monotone"
                       dataKey="investment_grade"
                       stackId="1"
-                      stroke="#8884d8"
-                      fill="#8884d8"
+                      stroke={MARKET_DATA_COLORS.credit.investmentGrade}
+                      fill={MARKET_DATA_COLORS.credit.investmentGrade}
                       fillOpacity={0.6}
                       name="Investment Grade"
                     />
@@ -436,8 +442,8 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       type="monotone"
                       dataKey="high_yield"
                       stackId="1"
-                      stroke="#82ca9d"
-                      fill="#82ca9d"
+                      stroke={MARKET_DATA_COLORS.credit.highYield}
+                      fill={MARKET_DATA_COLORS.credit.highYield}
                       fillOpacity={0.6}
                       name="High Yield"
                     />
@@ -445,8 +451,8 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       type="monotone"
                       dataKey="corporate_aaa"
                       stackId="2"
-                      stroke="#ffc658"
-                      fill="#ffc658"
+                      stroke={MARKET_DATA_COLORS.credit.corporateAAA}
+                      fill={MARKET_DATA_COLORS.credit.corporateAAA}
                       fillOpacity={0.4}
                       name="Corporate AAA"
                     />
@@ -470,19 +476,25 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={energyPriceHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis 
                       dataKey="date" 
                       tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       yAxisId="left"
                       label={{ value: 'Price ($/MWh)', angle: -90, position: 'insideLeft' }}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       yAxisId="right"
                       orientation="right"
                       label={{ value: 'Index/Forecast', angle: 90, position: 'insideRight' }}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString()}
@@ -498,7 +510,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Bar 
                       yAxisId="left"
                       dataKey="electricity_price_mwh" 
-                      fill="#8884d8" 
+                      fill={MARKET_DATA_COLORS.energy.electricity} 
                       name="Electricity Price"
                       opacity={0.7}
                     />
@@ -506,7 +518,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       yAxisId="right"
                       type="monotone" 
                       dataKey="renewable_energy_index" 
-                      stroke="#82ca9d" 
+                      stroke={MARKET_DATA_COLORS.energy.renewable} 
                       strokeWidth={2}
                       name="Renewable Index"
                       dot={false}
@@ -515,7 +527,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       yAxisId="left"
                       type="monotone" 
                       dataKey="carbon_credit_price" 
-                      stroke="#ff7300" 
+                      stroke={MARKET_DATA_COLORS.energy.carbon} 
                       strokeWidth={2}
                       name="Carbon Credits"
                       dot={false}
@@ -540,13 +552,18 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={volatilityData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid 
+                      stroke={CHART_STYLES.grid.stroke}
+                      strokeDasharray={CHART_STYLES.grid.strokeDasharray}
+                    />
                     <XAxis 
                       dataKey="date" 
                       tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
                       label={{ value: 'Volatility (%)', angle: -90, position: 'insideLeft' }}
+                      tick={CHART_STYLES.axis.tick}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString()}
@@ -555,19 +572,19 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     <Legend />
                     <Bar 
                       dataKey="treasury_volatility" 
-                      fill="#8884d8" 
+                      fill={MARKET_DATA_COLORS.volatility.treasury} 
                       name="Treasury"
                       opacity={0.8}
                     />
                     <Bar 
                       dataKey="credit_spread_volatility" 
-                      fill="#82ca9d" 
+                      fill={MARKET_DATA_COLORS.volatility.credit} 
                       name="Credit Spreads"
                       opacity={0.8}
                     />
                     <Bar 
                       dataKey="energy_price_volatility" 
-                      fill="#ffc658" 
+                      fill={MARKET_DATA_COLORS.volatility.energy} 
                       name="Energy Prices"
                       opacity={0.8}
                     />

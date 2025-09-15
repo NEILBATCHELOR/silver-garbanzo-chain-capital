@@ -12,7 +12,9 @@ import {
   Gauge,
   Combine,
   Users,
-  TrendingUp
+  TrendingUp,
+  Database,
+  Building2
 } from "lucide-react";
 
 interface ClimateReceivablesNavigationProps {
@@ -94,6 +96,12 @@ const ClimateReceivablesNavigation: React.FC<ClimateReceivablesNavigationProps> 
       active: isActive("/climate-receivables/tokenization"),
     },
     {
+      icon: <Building2 className="h-4 w-4" />,
+      label: "Payers",
+      href: `/projects/${projectId}/climate-receivables/payers`,
+      active: isActive("/climate-receivables/payers"),
+    },
+    {
       icon: <Users className="h-4 w-4" />,
       label: "Distribution",
       href: `/projects/${projectId}/climate-receivables/distribution`,
@@ -104,6 +112,12 @@ const ClimateReceivablesNavigation: React.FC<ClimateReceivablesNavigationProps> 
       label: "Visualizations",
       href: `/projects/${projectId}/climate-receivables/visualizations`,
       active: isActive("/climate-receivables/visualizations"),
+    },
+    {
+      icon: <Database className="h-4 w-4" />,
+      label: "Data Sources",
+      href: `/projects/${projectId}/climate-receivables/data-sources`,
+      active: isActive("/climate-receivables/data-sources"),
     },
   ];
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict NndQ3fZbjROJKKhCz3MHN20CvlB2ejZT3y8eEw4mq2BZnpkvQlghun6IgZqoukj
+\restrict JlDqc15nyfrhiybG4NpTe1i1ELRQkvGZ9U22D6DaLPJFwswRNGgIBxNlFhsXjGS
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -1896,6 +1896,30 @@ BEGIN
     RETURN deleted_count;
 END;
 $$;
+
+
+--
+-- Name: cleanup_expired_cache(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.cleanup_expired_cache() RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  DELETE FROM climate_market_data_cache WHERE expires_at < NOW();
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION cleanup_expired_cache(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.cleanup_expired_cache() IS 'Removes expired cache entries - run periodically';
 
 
 --
@@ -5875,6 +5899,22 @@ $$;
 
 
 --
+-- Name: update_cache_access(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_cache_access() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.hit_count = OLD.hit_count + 1;
+  NEW.last_accessed = NOW();
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_climate_cash_flow_projections(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7784,6 +7824,57 @@ CREATE TABLE public.carbon_offsets (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: climate_market_data_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.climate_market_data_cache (
+    cache_id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    cache_key character varying(100) NOT NULL,
+    data jsonb NOT NULL,
+    cached_at timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone NOT NULL,
+    hit_count integer DEFAULT 0,
+    last_accessed timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE climate_market_data_cache; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.climate_market_data_cache IS 'Caches government API data to avoid CORS issues and reduce API calls';
+
+
+--
+-- Name: climate_cache_performance; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.climate_cache_performance AS
+ SELECT climate_market_data_cache.cache_key,
+    climate_market_data_cache.hit_count,
+    climate_market_data_cache.cached_at,
+    climate_market_data_cache.expires_at,
+    climate_market_data_cache.last_accessed,
+    (EXTRACT(epoch FROM (climate_market_data_cache.expires_at - climate_market_data_cache.cached_at)) / (3600)::numeric) AS ttl_hours,
+    (EXTRACT(epoch FROM (now() - climate_market_data_cache.last_accessed)) / (60)::numeric) AS minutes_since_access,
+        CASE
+            WHEN (climate_market_data_cache.expires_at > now()) THEN 'valid'::text
+            ELSE 'expired'::text
+        END AS status
+   FROM public.climate_market_data_cache
+  ORDER BY climate_market_data_cache.hit_count DESC, climate_market_data_cache.last_accessed DESC;
+
+
+--
+-- Name: VIEW climate_cache_performance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.climate_cache_performance IS 'Monitoring view for cache hit rates and performance';
 
 
 --
@@ -17738,6 +17829,22 @@ ALTER TABLE ONLY public.climate_investor_pools
 
 
 --
+-- Name: climate_market_data_cache climate_market_data_cache_cache_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_market_data_cache
+    ADD CONSTRAINT climate_market_data_cache_cache_key_key UNIQUE (cache_key);
+
+
+--
+-- Name: climate_market_data_cache climate_market_data_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.climate_market_data_cache
+    ADD CONSTRAINT climate_market_data_cache_pkey PRIMARY KEY (cache_id);
+
+
+--
 -- Name: climate_nav_calculations climate_nav_calculations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21675,6 +21782,20 @@ CREATE INDEX idx_climate_incentives_receivable ON public.climate_incentives USIN
 --
 
 CREATE INDEX idx_climate_incentives_type ON public.climate_incentives USING btree (type);
+
+
+--
+-- Name: idx_climate_market_data_cache_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_market_data_cache_expires ON public.climate_market_data_cache USING btree (expires_at);
+
+
+--
+-- Name: idx_climate_market_data_cache_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_climate_market_data_cache_key ON public.climate_market_data_cache USING btree (cache_key);
 
 
 --
@@ -27019,6 +27140,13 @@ CREATE TRIGGER trigger_sync_target_raise_on_structured_products_change AFTER UPD
 
 
 --
+-- Name: climate_market_data_cache trigger_update_cache_access; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_cache_access BEFORE UPDATE ON public.climate_market_data_cache FOR EACH ROW EXECUTE FUNCTION public.update_cache_access();
+
+
+--
 -- Name: climate_risk_calculations trigger_update_climate_risk_calculations_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -30487,6 +30615,16 @@ GRANT ALL ON FUNCTION public.cleanup_expired_asset_cache() TO prisma;
 
 
 --
+-- Name: FUNCTION cleanup_expired_cache(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.cleanup_expired_cache() TO anon;
+GRANT ALL ON FUNCTION public.cleanup_expired_cache() TO authenticated;
+GRANT ALL ON FUNCTION public.cleanup_expired_cache() TO service_role;
+GRANT ALL ON FUNCTION public.cleanup_expired_cache() TO prisma;
+
+
+--
 -- Name: FUNCTION cleanup_expired_cache_data(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -31517,6 +31655,16 @@ GRANT ALL ON FUNCTION public.update_bulk_operation_progress(p_operation_id text,
 
 
 --
+-- Name: FUNCTION update_cache_access(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_cache_access() TO anon;
+GRANT ALL ON FUNCTION public.update_cache_access() TO authenticated;
+GRANT ALL ON FUNCTION public.update_cache_access() TO service_role;
+GRANT ALL ON FUNCTION public.update_cache_access() TO prisma;
+
+
+--
 -- Name: FUNCTION update_climate_cash_flow_projections(p_projections jsonb); Type: ACL; Schema: public; Owner: -
 --
 
@@ -32224,6 +32372,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ca
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO prisma;
+
+
+--
+-- Name: TABLE climate_market_data_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO prisma;
+
+
+--
+-- Name: TABLE climate_cache_performance; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO prisma;
 
 
 --
@@ -35364,5 +35532,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NndQ3fZbjROJKKhCz3MHN20CvlB2ejZT3y8eEw4mq2BZnpkvQlghun6IgZqoukj
+\unrestrict JlDqc15nyfrhiybG4NpTe1i1ELRQkvGZ9U22D6DaLPJFwswRNGgIBxNlFhsXjGS
 

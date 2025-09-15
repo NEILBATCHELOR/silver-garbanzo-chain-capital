@@ -13,8 +13,5 @@ export * from "./widgets";
 // Visualization components
 export * from "./visualizations";
 
-// Core components
-export * from "./core";
-
 // Risk assessment components
 export * from "./risk-assessment";
