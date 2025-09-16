@@ -63,9 +63,6 @@ import MoonpayPage from "@/pages/wallet/MoonpayPage";
 import TransactionHistoryPage from "@/pages/wallet/TransactionHistoryPage";
 import GuardianTestPageRedesigned from "@/pages/wallet/GuardianTestPageRedesigned";
 
-// Smart Contract Wallet Components
-import SmartContractWalletPage from "@/pages/wallet/smart-contract/SmartContractWalletPage";
-
 // Import Enhanced Activity Service for performance monitoring
 import { enhancedActivityService, ActivitySource, ActivityCategory, ActivitySeverity } from '@/services/activity';
 
@@ -592,10 +589,6 @@ function App() {
               
               {/* DFNS Wallet Routes - Enterprise blockchain infrastructure */}
               <Route path="wallet/dfns/*" element={<DfnsWalletDashboard />} />
-              
-              {/* Smart Contract Wallet Routes */}
-              <Route path="wallet/smart-contract" element={<SmartContractWalletPage />} />
-              <Route path="wallet/smart-contract/:walletId" element={<SmartContractWalletPage />} />
               
               {/* Production Wallet Routes (Default to Dashboard) */}
               <Route path="wallet" element={<WalletDashboardPage />} />

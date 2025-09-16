@@ -4,7 +4,6 @@
  * Exports all smart contract wallet components for easy importing
  */
 
-export { UnifiedWalletDashboard } from './UnifiedWalletDashboard'
 export { SignatureMigrationFlow } from './SignatureMigrationFlow'
 export { RestrictionManagement } from './RestrictionManagement'
 export { EmergencyLockControls } from './EmergencyLockControls'
