@@ -38,14 +38,20 @@ export interface ChainConfig {
 }
 
 /**
- * Default configurations for supported chains
+ * DEPRECATED: Legacy fallback configurations 
+ * 
+ * These configurations are kept only for emergency fallbacks when environment
+ * variables are not properly configured. In production, all RPC URLs should
+ * be configured via environment variables to ensure proper API key inclusion.
+ * 
+ * @deprecated Use environment variables via RPCConnectionManager instead
  */
-export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
+const LEGACY_FALLBACK_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
   ethereum: [
     {
       chain: 'ethereum',
       networkType: 'mainnet',
-      rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/',
+      rpcUrl: 'https://ethereum-rpc.publicnode.com', // Free public RPC
       explorerUrl: 'https://etherscan.io',
       chainId: '1',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
@@ -53,7 +59,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'ethereum',
       networkType: 'testnet',
-      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/',
+      rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com', // Free public RPC
       explorerUrl: 'https://sepolia.etherscan.io',
       chainId: '11155111',
       nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 }
@@ -63,7 +69,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'polygon',
       networkType: 'mainnet',
-      rpcUrl: 'https://polygon-mainnet.g.alchemy.com/v2/',
+      rpcUrl: 'https://polygon-rpc.com', // Free public RPC
       explorerUrl: 'https://polygonscan.com',
       chainId: '137',
       nativeCurrency: { name: 'Polygon', symbol: 'MATIC', decimals: 18 }
@@ -71,7 +77,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'polygon',
       networkType: 'testnet',
-      rpcUrl: 'https://polygon-amoy.g.alchemy.com/v2/',
+      rpcUrl: 'https://rpc-amoy.polygon.technology', // Free public RPC
       explorerUrl: 'https://amoy.polygonscan.com',
       chainId: '80002',
       nativeCurrency: { name: 'Polygon', symbol: 'MATIC', decimals: 18 }
@@ -81,7 +87,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'arbitrum',
       networkType: 'mainnet',
-      rpcUrl: 'https://arb-mainnet.g.alchemy.com/v2/',
+      rpcUrl: 'https://arbitrum-one-rpc.publicnode.com', // Free public RPC
       explorerUrl: 'https://arbiscan.io',
       chainId: '42161',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
@@ -91,7 +97,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'optimism',
       networkType: 'mainnet',
-      rpcUrl: 'https://opt-mainnet.g.alchemy.com/v2/',
+      rpcUrl: 'https://optimism-rpc.publicnode.com', // Free public RPC
       explorerUrl: 'https://optimistic.etherscan.io',
       chainId: '10',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
@@ -101,7 +107,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'base',
       networkType: 'mainnet',
-      rpcUrl: 'https://base-mainnet.g.alchemy.com/v2/',
+      rpcUrl: 'https://base-rpc.publicnode.com', // Free public RPC
       explorerUrl: 'https://basescan.org',
       chainId: '8453',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
@@ -111,7 +117,7 @@ export const DEFAULT_CHAIN_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'avalanche',
       networkType: 'mainnet',
-      rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
+      rpcUrl: 'https://api.avax.network/ext/bc/C/rpc', // Official Avalanche RPC
       explorerUrl: 'https://snowtrace.io',
       chainId: '43114',
       nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 }
@@ -358,6 +364,11 @@ export class BlockchainFactory {
 
   /**
    * Get configuration for a specific chain and network
+   * 
+   * Priority order:
+   * 1. Registered custom config (highest priority)
+   * 2. Environment-driven RPC manager config (production recommended)
+   * 3. Legacy fallback config (emergency only)
    */
   private static getConfig(
     chain: SupportedChain, 
@@ -366,17 +377,17 @@ export class BlockchainFactory {
   ): ChainConfig {
     const key = `${chain}-${networkType}`;
     
-    // Check for registered custom config first
+    // Check for registered custom config first (highest priority)
     if (this.configs.has(key)) {
       return { ...this.configs.get(key)!, ...customConfig };
     }
 
-    // Try to get RPC URL from environment-driven RPC manager
+    // Try to get RPC URL from environment-driven RPC manager (production recommended)
     const rpcUrl = rpcManager.getRPCUrl(chain, networkType);
     const rpcConfig = rpcManager.getProviderConfig(chain, networkType);
     
     if (rpcUrl && rpcConfig) {
-      // Create config from RPC manager
+      // Create config from RPC manager with proper API key integration
       const envConfig: ChainConfig = {
         chain,
         networkType,
@@ -387,18 +398,43 @@ export class BlockchainFactory {
         apiKey: rpcConfig.apiKey
       };
       
+      const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
+      if (isDevelopment) {
+        console.debug(`✅ Using environment RPC config for ${chain}-${networkType}:`, { 
+          rpcUrl: rpcUrl.replace(/\/[^\/]+$/, '/***'), // Mask API key
+          hasApiKey: !!rpcConfig.apiKey
+        });
+      }
+      
       return { ...envConfig, ...customConfig };
     }
 
-    // Fallback to default configuration
-    const defaultConfigs = DEFAULT_CHAIN_CONFIGS[chain];
-    const defaultConfig = defaultConfigs?.find(c => c.networkType === networkType);
-    
-    if (!defaultConfig) {
-      throw new Error(`No configuration found for ${chain} ${networkType}. Please check your .env file for VITE_${chain.toUpperCase()}_RPC_URL`);
+    // Log warning about falling back to legacy config
+    const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    if (!isDevelopment) {
+      console.warn(
+        `⚠️  No environment RPC configuration found for ${chain} ${networkType}. ` +
+        `Falling back to legacy public RPC. For production, please configure VITE_${chain.toUpperCase()}_RPC_URL in your .env file.`
+      );
     }
 
-    return { ...defaultConfig, ...customConfig };
+    // Emergency fallback to legacy configuration (public RPCs)
+    const legacyConfigs = LEGACY_FALLBACK_CONFIGS[chain];
+    const legacyConfig = legacyConfigs?.find(c => c.networkType === networkType);
+    
+    if (!legacyConfig) {
+      throw new Error(
+        `No configuration found for ${chain} ${networkType}. ` +
+        `Please configure VITE_${chain.toUpperCase()}_RPC_URL in your .env file. ` +
+        `See RPCConfigReader.ts for supported environment variables.`
+      );
+    }
+
+    if (isDevelopment) {
+      console.debug(`⚠️  Using legacy fallback config for ${chain}-${networkType} (public RPC)`);
+    }
+
+    return { ...legacyConfig, ...customConfig };
   }
 
   /**
@@ -539,14 +575,14 @@ export class BlockchainFactory {
    * Get all supported chains
    */
   static getSupportedChains(): SupportedChain[] {
-    return Object.keys(DEFAULT_CHAIN_CONFIGS) as SupportedChain[];
+    return Object.keys(LEGACY_FALLBACK_CONFIGS) as SupportedChain[];
   }
 
   /**
    * Get available networks for a chain
    */
   static getAvailableNetworks(chain: SupportedChain): NetworkType[] {
-    return DEFAULT_CHAIN_CONFIGS[chain]?.map(config => config.networkType) || [];
+    return LEGACY_FALLBACK_CONFIGS[chain]?.map(config => config.networkType) || [];
   }
 
   /**

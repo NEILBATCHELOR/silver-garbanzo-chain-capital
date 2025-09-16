@@ -19,6 +19,9 @@ import type {
 } from '../IBlockchainAdapter';
 import { BaseBlockchainAdapter } from '../IBlockchainAdapter';
 
+// Derive the PSBT instance type from the runtime class to avoid TS2709
+type PsbtInstance = InstanceType<typeof bitcoin.Psbt>;
+
 // Initialize ECPair with tiny-secp256k1 (imported as ESM module)
 const ECPair = ECPairFactory(ecc);
 
@@ -446,7 +449,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
   }
 
   private async addInputToPsbt(
-    psbt: bitcoin.Psbt,
+    psbt: PsbtInstance,
     utxo: UTXO,
     addressInfo: BitcoinAddressInfo,
     keyPair: any
@@ -517,7 +520,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
   }
 
   private async signInputByType(
-    psbt: bitcoin.Psbt,
+    psbt: PsbtInstance,
     inputIndex: number,
     addressInfo: BitcoinAddressInfo,
     keyPair: any
@@ -733,15 +736,46 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     return address;
   }
 
+  /**
+   * Get explorer URL for a Bitcoin transaction
+   * Uses environment variables for configurable explorer URLs
+   */
   getExplorerUrl(txHash: string): string {
-    const baseUrls = {
-      mainnet: 'https://blockstream.info',
-      testnet: 'https://blockstream.info/testnet',
-      regtest: 'http://localhost:3000' // Local explorer for regtest
+    // Get explorer URLs from environment variables
+    const explorerUrls = {
+      mainnet: import.meta.env.VITE_BITCOIN_MAINNET_EXPLORER_URL || 'https://blockstream.info',
+      testnet: import.meta.env.VITE_BITCOIN_TESTNET_EXPLORER_URL || 'https://blockstream.info/testnet',
+      regtest: import.meta.env.VITE_BITCOIN_REGTEST_EXPLORER_URL || 'http://localhost:3000'
     };
 
-    const baseUrl = baseUrls[this.networkType as keyof typeof baseUrls];
+    const baseUrl = explorerUrls[this.networkType as keyof typeof explorerUrls];
+    
+    // Log explorer URL usage in development
+    if (import.meta.env.DEV) {
+      const isCustomExplorer = import.meta.env[`VITE_BITCOIN_${this.networkType.toUpperCase()}_EXPLORER_URL`];
+      console.debug(`🔗 Bitcoin explorer URL (${this.networkType}):`, {
+        baseUrl,
+        isCustom: !!isCustomExplorer,
+        txUrl: `${baseUrl}/tx/${txHash}`
+      });
+    }
+
     return `${baseUrl}/tx/${txHash}`;
+  }
+
+  /**
+   * Get explorer URL for a Bitcoin address
+   * Uses the same configurable explorer URLs as transactions
+   */
+  getAddressExplorerUrl(address: string): string {
+    const explorerUrls = {
+      mainnet: import.meta.env.VITE_BITCOIN_MAINNET_EXPLORER_URL || 'https://blockstream.info',
+      testnet: import.meta.env.VITE_BITCOIN_TESTNET_EXPLORER_URL || 'https://blockstream.info/testnet',
+      regtest: import.meta.env.VITE_BITCOIN_REGTEST_EXPLORER_URL || 'http://localhost:3000'
+    };
+
+    const baseUrl = explorerUrls[this.networkType as keyof typeof explorerUrls];
+    return `${baseUrl}/address/${address}`;
   }
 
   // Bitcoin-specific methods
