@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useWallet } from "@/services/wallet/WalletContext";
 import { useUser } from "@/hooks/auth/user/useUser";
-import { Wallet, Shield, ArrowUpDown, Clock, BarChart3, CreditCard, Settings, ArrowLeftRight, RefreshCw, Globe, DollarSign, CircuitBoard, Zap } from "lucide-react";
+import { Wallet, Shield, ArrowUpDown, BarChart3, CreditCard, ArrowLeftRight, RefreshCw, Globe, DollarSign } from "lucide-react";
 import { PortfolioOverview } from "@/components/wallet/components/dashboard/PortfolioOverview";
 import { WalletList, EnhancedWalletList } from "@/components/wallet/components/dashboard/EnhancedWalletList";
 import { GuardianWalletList } from "@/components/wallet/components/guardian/GuardianWalletList";
