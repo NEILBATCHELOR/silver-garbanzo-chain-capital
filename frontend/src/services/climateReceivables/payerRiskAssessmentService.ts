@@ -80,10 +80,21 @@ export interface TreasuryRates {
 }
 
 export interface CreditSpreads {
-  investment_grade: number; // Basis points over treasury
-  high_yield: number;
-  corporate_aaa: number;
-  corporate_baa: number;
+  // Investment Grade Spreads (AAA → BBB)
+  corporate_aaa: number;      // BAMLC0A1CAAA - AAA Corporate spreads
+  corporate_aa: number;       // BAMLC0A2CAA - AA Corporate spreads  
+  corporate_a: number;        // BAMLC0A3CA - Single-A Corporate spreads
+  corporate_bbb: number;      // BAMLC0A4CBBB - BBB Corporate spreads
+  
+  // High Yield Spreads (BB → CCC)
+  high_yield_bb: number;      // BAMLH0A1HYBB - BB High Yield spreads
+  high_yield_b: number;       // BAMLH0A2HYB - Single-B High Yield spreads
+  high_yield_ccc: number;     // BAMLH0A3HYC - CCC & Lower High Yield spreads
+  
+  // Aggregate Indices (for backwards compatibility and broad analysis)
+  investment_grade: number;   // BAMLC0A0CM - Broad Investment Grade aggregate
+  high_yield: number;         // BAMLH0A0HYM2 - Broad High Yield aggregate
+  
   last_updated: string;
   source: 'fred' | 'yahoo_finance';
 }
@@ -170,7 +181,7 @@ export class PayerRiskAssessmentService {
     const { data: ratingSettings, error: ratingError } = await supabase
       .from('system_settings')
       .select('key, value')
-      .like('key', 'credit_rating_%');
+      .like('key', 'climate_credit_rating_%');
 
     if (ratingError) {
       throw new Error(`Failed to load credit rating configuration: ${ratingError.message}`);
@@ -206,8 +217,8 @@ export class PayerRiskAssessmentService {
     // Validate required rating data exists
     const requiredRatings = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'];
     const missingRatings = requiredRatings.filter(rating => 
-      !settings[`credit_rating_${rating}_default_rate`] || 
-      !settings[`credit_rating_${rating}_spread_bps`]
+      !settings[`climate_credit_rating_${rating.toLowerCase()}_default_rate`] || 
+      !settings[`climate_credit_rating_${rating.toLowerCase()}_spread_bps`]
     );
 
     if (missingRatings.length > 0) {
@@ -218,10 +229,11 @@ export class PayerRiskAssessmentService {
     const ratings: Record<string, CreditRatingData> = {};
     
     requiredRatings.forEach(rating => {
-      const defaultRate = parseFloat(settings[`credit_rating_${rating}_default_rate`] || '0');
-      const spreadBps = parseFloat(settings[`credit_rating_${rating}_spread_bps`] || '0'); 
-      const investmentGrade = settings[`credit_rating_${rating}_investment_grade`] === 'true';
-      const riskTier = settings[`credit_rating_${rating}_risk_tier`] || 'Unknown';
+      const ratingKey = rating.toLowerCase();
+      const defaultRate = parseFloat(settings[`climate_credit_rating_${ratingKey}_default_rate`] || '0');
+      const spreadBps = parseFloat(settings[`climate_credit_rating_${ratingKey}_spread_bps`] || '0'); 
+      const investmentGrade = settings[`climate_credit_rating_${ratingKey}_investment_grade`] === 'true';
+      const riskTier = settings[`climate_credit_rating_${ratingKey}_risk_tier`] || 'Unknown';
 
       ratings[rating] = {
         rating,

@@ -12,6 +12,9 @@ import { WeatherDataService, CarbonMarketPriceService } from './api';
 // New CRUD Services
 import { ClimateIncentivesService } from './climateIncentivesService';
 
+// Configuration Service
+import { ClimateConfigurationService } from './climateConfigurationService';
+
 // REC-Incentive Synchronization Services
 import { RECIncentiveOrchestrator } from '@/services/climateReceivables/rec-incentive-orchestrator';
 import { enhancedRECService, enhancedIncentiveService } from './enhanced-rec-incentive-service';
@@ -34,6 +37,8 @@ export {
   CarbonMarketPriceService,
   // New CRUD Services
   ClimateIncentivesService,
+  // Configuration Service
+  ClimateConfigurationService,
   // REC-Incentive Synchronization Services
   RECIncentiveOrchestrator,
   enhancedRECService,

@@ -96,7 +96,7 @@ export const APIDiagnosticDashboard: React.FC = () => {
               { name: 'VITE_CONGRESS_API_KEY', configured: !!import.meta.env.VITE_CONGRESS_API_KEY, required: false, description: 'Congress.gov API key (optional)' }
             ],
             endpoints: [
-              { name: 'Edge Function Proxy', url: 'https://jrwfkxfzsnnjppogthaw.supabase.co/functions/v1/free-marketdata-function', method: 'POST', description: 'Supabase Edge Function - CORS-free proxy to government APIs' },
+              { name: 'Edge Function Proxy', url: 'https://jrwfkxfzsnnjppogthaw.supabase.co/functions/v1/market-data-proxy', method: 'POST', description: 'Supabase Edge Function - CORS-free proxy to government APIs' },
               { name: 'FRED API (Direct)', url: 'https://api.stlouisfed.org/fred/series', method: 'GET', description: 'Federal Reserve Economic Data (CORS blocked)' },
               { name: 'Treasury API (Direct)', url: 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1', method: 'GET', description: 'Treasury.gov fiscal data (CORS blocked)' },
               { name: 'EIA API (Direct)', url: 'https://api.eia.gov/v2/electricity', method: 'GET', description: 'Energy Information Administration (CORS blocked)' }
@@ -316,7 +316,7 @@ export const APIDiagnosticDashboard: React.FC = () => {
   // Test Supabase Edge Function directly
   const testEdgeFunction = async () => {
     try {
-      const response = await fetch('https://jrwfkxfzsnnjppogthaw.supabase.co/functions/v1/free-marketdata-function', {
+      const response = await fetch('https://jrwfkxfzsnnjppogthaw.supabase.co/functions/v1/market-data-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -443,7 +443,12 @@ export const APIDiagnosticDashboard: React.FC = () => {
 
   const testWeatherDataService = async () => {
     try {
-      const weatherData = await WeatherDataService.getWeatherData('New York, NY');
+      // Force live API call for London to test real data instead of cache
+      const weatherData = await WeatherDataService.getWeatherData('London, GB', 
+        new Date().toISOString().split('T')[0], 
+        undefined, 
+        true  // Force live API call
+      );
       
       return {
         success: true,
@@ -453,8 +458,10 @@ export const APIDiagnosticDashboard: React.FC = () => {
           temperature: weatherData.temperature,
           sunlightHours: weatherData.sunlightHours,
           windSpeed: weatherData.windSpeed,
-          source: 'Multi-API weather service',
-          weatherId: weatherData.weatherId
+          source: 'LIVE Multi-API weather service',
+          weatherId: weatherData.weatherId,
+          testLocation: 'London, GB (forced live API call)',
+          cacheStatus: 'bypassed for live data'
         },
         endpointResults: [
           { status: 'success' }, // Open-Meteo
@@ -466,7 +473,7 @@ export const APIDiagnosticDashboard: React.FC = () => {
       return {
         success: false,
         error: `Weather API completely failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        data: { status: 'No weather data available - APIs failed' }
+        data: { status: 'No live weather data available - APIs failed', testLocation: 'London, GB' }
       };
     }
   };
@@ -507,7 +514,18 @@ export const APIDiagnosticDashboard: React.FC = () => {
         data: {
           alertsGenerated: alerts.length,
           lastUpdate: new Date().toISOString(),
-          source: 'Multi-source regulatory monitoring'
+          source: 'Multi-source regulatory monitoring',
+          policyAlerts: alerts.map(alert => ({
+            alertId: alert.alertId,
+            title: alert.title,
+            severity: alert.severity,
+            policyId: alert.policyId,
+            alertType: alert.alertType,
+            description: alert.description?.substring(0, 100) + '...',
+            affectedAssets: alert.affectedAssets?.length || 0,
+            affectedReceivables: alert.affectedReceivables?.length || 0,
+            createdAt: alert.createdAt
+          }))
         },
         endpointResults: [
           { status: 'success' }, // Federal Register
@@ -526,7 +544,8 @@ export const APIDiagnosticDashboard: React.FC = () => {
 
   const testCarbonMarketPriceService = async () => {
     try {
-      const carbonPrices = await CarbonMarketPriceService.getCarbonOffsetPrices();
+      // Force live API call instead of using database cache
+      const carbonPrices = await CarbonMarketPriceService.getCarbonOffsetPrices(undefined, true);
       
       return {
         success: carbonPrices.length > 0,
@@ -534,17 +553,24 @@ export const APIDiagnosticDashboard: React.FC = () => {
           pricePoints: carbonPrices.length,
           avgPrice: carbonPrices.reduce((sum, p) => sum + p.price, 0) / carbonPrices.length,
           markets: carbonPrices.map(p => p.marketType),
-          source: carbonPrices[0]?.source || 'Unknown'
+          source: carbonPrices[0]?.source || 'Database/Simulation',
+          cacheStatus: 'bypassed for live API call',
+          apiKeyStatus: import.meta.env.VITE_CARBON_INTERFACE_API_KEY ? 'configured' : 'missing',
+          note: 'Carbon Interface API is for emissions calculations, not carbon offset pricing'
         },
         endpointResults: [
-          { status: import.meta.env.VITE_CARBON_INTERFACE_API_KEY ? 'success' : 'error' }
+          { status: 'error' } // Carbon Interface API does not provide pricing data
         ]
       };
     } catch (error) {
       return {
         success: false,
-        error: `Carbon API completely failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        data: { status: 'No carbon pricing data available - API failed' }
+        error: `Carbon API failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        data: { 
+          status: 'No carbon pricing data available',
+          explanation: 'Carbon Interface API is for emissions calculations, not carbon offset market pricing',
+          note: 'Real carbon pricing would require different APIs (e.g., AlliedOffsets, Lune, etc.)'
+        }
       };
     }
   };

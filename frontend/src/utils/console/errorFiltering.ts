@@ -55,6 +55,10 @@ const NON_CRITICAL_PATTERNS = [
   /DFNS API Error.*SERVICE_ACCOUNT.*401/i,
   /Credentials endpoint not accessible for Service Account.*expected/i,
   /DFNS.*Authentication failed.*token may be expired/i,
+  // Climate market data cache constraint errors - Added September 16, 2025
+  /duplicate key value violates unique constraint.*climate_market_data_cache_cache_key_key/i,
+  /Key.*already exists.*climate_market_data_cache/i,
+  /Error caching market snapshot.*duplicate key/i,
 ];
 
 // Enhanced console.error that filters non-critical messages

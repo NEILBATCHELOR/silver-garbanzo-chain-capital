@@ -39,7 +39,7 @@ import type {
   EnergyMarketData, 
   MarketDataSnapshot 
 } from "../../../../services/climateReceivables/freeMarketDataService";
-import { MARKET_DATA_COLORS, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
+import { MARKET_DATA_COLORS, CHART_STYLES, CHART_COLOR_SEQUENCES, withOpacity } from "../../constants/chart-colors";
 
 interface MarketDataChartsProps {
   projectId?: string;
@@ -99,7 +99,7 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
   const [volatilityData, setVolatilityData] = useState<MarketVolatilityData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedTimeRange, setSelectedTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
+  const [selectedTimeRange, setSelectedTimeRange] = useState<'7d' | '30d' | '90d' | '6m' | '1y' | '2y'>('30d');
   const [error, setError] = useState<string | null>(null);
 
   // Load market data on component mount and when time range changes
@@ -114,12 +114,24 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log(`🔄 Loading market data for ${selectedTimeRange}...`);
+      
+      // Clear credit spread history cache for fresh data with all 9 fields
+      console.log('🗺️ Clearing credit spread history cache...');
+      try {
+        await FreeMarketDataService.clearCache(`credit_spread_history_${selectedTimeRange}`);
+      } catch (cacheError) {
+        console.warn('Cache clearing failed:', cacheError);
+      }
 
       // Get current market snapshot
       const currentData = await FreeMarketDataService.getMarketDataSnapshot();
       setCurrentMarketData(currentData);
+      console.log('📊 Current market data:', currentData);
 
       // Get historical data based on selected time range
+      console.log(`📈 Fetching historical data for ${selectedTimeRange}...`);
       const [treasuryHist, creditHist, energyHist, volatilityHist] = await Promise.allSettled([
         FreeMarketDataService.getTreasuryRateHistory(selectedTimeRange),
         FreeMarketDataService.getCreditSpreadHistory(selectedTimeRange),
@@ -127,13 +139,38 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
         FreeMarketDataService.getMarketVolatilityData(selectedTimeRange)
       ]);
 
-      if (treasuryHist.status === 'fulfilled') setTreasuryHistory(treasuryHist.value);
-      if (creditHist.status === 'fulfilled') setCreditSpreadHistory(creditHist.value);
-      if (energyHist.status === 'fulfilled') setEnergyPriceHistory(energyHist.value);
-      if (volatilityHist.status === 'fulfilled') setVolatilityData(volatilityHist.value);
+      if (treasuryHist.status === 'fulfilled') {
+        console.log(`✅ Treasury history: ${treasuryHist.value.length} data points`);
+        console.log('📊 Treasury sample:', treasuryHist.value.slice(0, 2));
+        setTreasuryHistory(treasuryHist.value);
+      } else {
+        console.error('❌ Treasury history failed:', treasuryHist.reason);
+      }
+      
+      if (creditHist.status === 'fulfilled') {
+        console.log(`✅ Credit spread history: ${creditHist.value.length} data points`);
+        console.log('📊 Credit spread sample:', creditHist.value.slice(0, 2));
+        setCreditSpreadHistory(creditHist.value);
+      } else {
+        console.error('❌ Credit spread history failed:', creditHist.reason);
+      }
+      
+      if (energyHist.status === 'fulfilled') {
+        console.log(`✅ Energy history: ${energyHist.value.length} data points`);
+        setEnergyPriceHistory(energyHist.value);
+      } else {
+        console.error('❌ Energy history failed:', energyHist.reason);
+      }
+      
+      if (volatilityHist.status === 'fulfilled') {
+        console.log(`✅ Volatility data: ${volatilityHist.value.length} data points`);
+        setVolatilityData(volatilityHist.value);
+      } else {
+        console.error('❌ Volatility data failed:', volatilityHist.reason);
+      }
 
     } catch (err) {
-      console.error('Error loading market data:', err);
+      console.error('❌ Error loading market data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load market data');
     } finally {
       setLoading(false);
@@ -141,10 +178,17 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
   };
 
   /**
-   * Refresh market data
+   * Refresh market data with cache clearing
    */
   const handleRefresh = async () => {
     setRefreshing(true);
+    try {
+      // Clear cache for fresh data
+      await FreeMarketDataService.clearCache();
+      console.log('🔄 Cache cleared, refreshing data...');
+    } catch (error) {
+      console.warn('Failed to clear cache:', error);
+    }
     await loadMarketData();
     setRefreshing(false);
   };
@@ -235,7 +279,9 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               <SelectItem value="7d">7 Days</SelectItem>
               <SelectItem value="30d">30 Days</SelectItem>
               <SelectItem value="90d">90 Days</SelectItem>
+              <SelectItem value="6m">6 Months</SelectItem>
               <SelectItem value="1y">1 Year</SelectItem>
+              <SelectItem value="2y">2 Years</SelectItem>
             </SelectContent>
           </Select>
           <Button 
@@ -247,73 +293,19 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
             <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              onClick={() => FreeMarketDataService.clearCache()} 
+              variant="outline" 
+              size="sm"
+            >
+              🗑️ Clear Cache
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Current market summary cards */}
-      {currentMarketData && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Treasury 10Y</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold">
-                  {currentMarketData.treasury_rates?.treasury_10y?.toFixed(2) || 'N/A'}%
-                </span>
-                {treasuryHistory.length > 1 && getTrendIndicator(
-                  currentMarketData.treasury_rates?.treasury_10y || 0,
-                  treasuryHistory[treasuryHistory.length - 2]?.treasury_10y || 0
-                )}
-              </div>
-              <Badge variant="secondary" className="text-xs mt-1">
-                {currentMarketData.treasury_rates?.source || 'Treasury.gov'}
-              </Badge>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Investment Grade Spread</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold">
-                  {currentMarketData.credit_spreads?.investment_grade || 'N/A'} bps
-                </span>
-                {creditSpreadHistory.length > 1 && getTrendIndicator(
-                  currentMarketData.credit_spreads?.investment_grade || 0,
-                  creditSpreadHistory[creditSpreadHistory.length - 2]?.investment_grade || 0
-                )}
-              </div>
-              <Badge variant="secondary" className="text-xs mt-1">
-                {currentMarketData.credit_spreads?.source || 'FRED'}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Electricity Price</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold">
-                  ${currentMarketData.energy_prices?.electricity_price_mwh?.toFixed(0) || 'N/A'}/MWh
-                </span>
-                {energyPriceHistory.length > 1 && getTrendIndicator(
-                  currentMarketData.energy_prices?.electricity_price_mwh || 0,
-                  energyPriceHistory[energyPriceHistory.length - 2]?.electricity_price_mwh || 0
-                )}
-              </div>
-              <Badge variant="secondary" className="text-xs mt-1">
-                {currentMarketData.energy_prices?.source || 'EIA'}
-              </Badge>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Market data visualization tabs */}
       <Tabs defaultValue="treasury-rates" className="space-y-4">
@@ -334,66 +326,88 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={treasuryHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="date" 
-                      tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                    />
-                    <YAxis 
-                      label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft' }}
-                      domain={['dataMin - 0.1', 'dataMax + 0.1']}
-                    />
-                    <Tooltip 
-                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                      formatter={(value: any, name: string) => [`${value.toFixed(2)}%`, name.replace('treasury_', '').toUpperCase()]}
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="treasury_1m" 
-                      stroke={MARKET_DATA_COLORS.treasury.rates[0]} 
-                      name="1M" 
-                      strokeWidth={1.5}
-                      dot={false}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="treasury_3m" 
-                      stroke={MARKET_DATA_COLORS.treasury.rates[1]} 
-                      name="3M" 
-                      strokeWidth={1.5}
-                      dot={false}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="treasury_1y" 
-                      stroke={MARKET_DATA_COLORS.treasury.rates[2]} 
-                      name="1Y" 
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="treasury_10y" 
-                      stroke={MARKET_DATA_COLORS.treasury.rates[3]} 
-                      name="10Y" 
-                      strokeWidth={2.5}
-                      dot={false}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="treasury_30y" 
-                      stroke={MARKET_DATA_COLORS.treasury.rates[4]} 
-                      name="30Y" 
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {/* Data validation and error handling */}
+              {!currentMarketData?.treasury_rates ? (
+                <div className="h-[420px] flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+                  <div className="text-center">
+                    <p className="text-gray-500 mb-2">Treasury rates data unavailable</p>
+                    <p className="text-sm text-gray-400">FRED API key required for treasury data</p>
+                    <Button onClick={handleRefresh} variant="outline" size="sm" className="mt-3">
+                      <RefreshCw className="mr-2 h-3 w-3" />
+                      Retry Loading
+                    </Button>
+                  </div>
+                </div>
+              ) : treasuryHistory.length === 0 ? (
+                <div className="h-[420px] flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+                  <div className="text-center">
+                    <p className="text-gray-500 mb-2">Historical treasury data loading...</p>
+                    <p className="text-sm text-gray-400">Current rates: {currentMarketData.treasury_rates.treasury_10y.toFixed(2)}% (10Y)</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[420px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={treasuryHistory} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      />
+                      <YAxis 
+                        label={{ value: 'Rate (%)', angle: -90, position: 'insideLeft' }}
+                        domain={['dataMin - 0.1', 'dataMax + 0.1']}
+                        tickFormatter={(value) => Number(value).toFixed(3)}
+                      />
+                      <Tooltip 
+                        labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                        formatter={(value: any, name: string) => [`${value.toFixed(2)}%`, name.replace('treasury_', '').toUpperCase()]}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="treasury_1m" 
+                        stroke={MARKET_DATA_COLORS.treasury.rates[0]} 
+                        name="1M" 
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="treasury_3m" 
+                        stroke={MARKET_DATA_COLORS.treasury.rates[1]} 
+                        name="3M" 
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="treasury_1y" 
+                        stroke={MARKET_DATA_COLORS.treasury.rates[2]} 
+                        name="1Y" 
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="treasury_10y" 
+                        stroke={MARKET_DATA_COLORS.treasury.rates[3]} 
+                        name="10Y" 
+                        strokeWidth={2.5}
+                        dot={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="treasury_30y" 
+                        stroke={MARKET_DATA_COLORS.treasury.rates[4]} 
+                        name="30Y" 
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -408,9 +422,9 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-[420px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={creditSpreadHistory}>
+                  <LineChart data={creditSpreadHistory} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <CartesianGrid 
                       stroke={CHART_STYLES.grid.stroke}
                       strokeDasharray={CHART_STYLES.grid.strokeDasharray}
@@ -421,42 +435,94 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
-                      label={{ value: 'Spread (bps)', angle: -90, position: 'insideLeft' }}
+                      label={{ value: 'Credit Spreads (bps)', angle: -90, position: 'insideLeft' }}
                       tick={CHART_STYLES.axis.tick}
+                      domain={[0, 'dataMax + 50']}
+                      type="number"
+                      tickFormatter={(value) => `${Number(value).toFixed(0)} bps`}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString()}
                       formatter={(value: any, name: string) => [`${value} bps`, name.replace('_', ' ').toUpperCase()]}
                     />
                     <Legend />
-                    <Area
+                    
+                    {/* Investment Grade Credit Spreads */}
+                    <Line
                       type="monotone"
                       dataKey="investment_grade"
-                      stackId="1"
                       stroke={MARKET_DATA_COLORS.credit.investmentGrade}
-                      fill={MARKET_DATA_COLORS.credit.investmentGrade}
-                      fillOpacity={0.6}
-                      name="Investment Grade"
+                      name="Investment Grade Aggregate"
+                      strokeWidth={3}
+                      dot={false}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="high_yield"
-                      stackId="1"
-                      stroke={MARKET_DATA_COLORS.credit.highYield}
-                      fill={MARKET_DATA_COLORS.credit.highYield}
-                      fillOpacity={0.6}
-                      name="High Yield"
-                    />
-                    <Area
+                    <Line
                       type="monotone"
                       dataKey="corporate_aaa"
-                      stackId="2"
-                      stroke={MARKET_DATA_COLORS.credit.corporateAAA}
-                      fill={MARKET_DATA_COLORS.credit.corporateAAA}
-                      fillOpacity={0.4}
-                      name="Corporate AAA"
+                      stroke={CHART_COLOR_SEQUENCES.extended[0]}
+                      name="AAA Corporate"
+                      strokeWidth={1.5}
+                      dot={false}
                     />
-                  </AreaChart>
+                    <Line
+                      type="monotone"
+                      dataKey="corporate_aa"
+                      stroke={CHART_COLOR_SEQUENCES.extended[1]}
+                      name="AA Corporate"
+                      strokeWidth={1.5}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="corporate_a"
+                      stroke={CHART_COLOR_SEQUENCES.extended[2]}
+                      name="A Corporate"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="corporate_bbb"
+                      stroke={CHART_COLOR_SEQUENCES.extended[3]}
+                      name="BBB Corporate"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+
+                    {/* High Yield Credit Spreads */}
+                    <Line
+                      type="monotone"
+                      dataKey="high_yield"
+                      stroke={MARKET_DATA_COLORS.credit.highYield}
+                      name="High Yield Aggregate"
+                      strokeWidth={3}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="high_yield_bb"
+                      stroke={CHART_COLOR_SEQUENCES.extended[4]}
+                      name="BB High Yield"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="high_yield_b"
+                      stroke={CHART_COLOR_SEQUENCES.extended[5]}
+                      name="B High Yield"
+                      strokeWidth={2.5}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="high_yield_ccc"
+                      stroke={CHART_COLOR_SEQUENCES.extended[6]}
+                      name="CCC High Yield"
+                      strokeWidth={2.5}
+                      dot={false}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
@@ -473,9 +539,9 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-[420px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={energyPriceHistory}>
+                  <ComposedChart data={energyPriceHistory} margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
                     <CartesianGrid 
                       stroke={CHART_STYLES.grid.stroke}
                       strokeDasharray={CHART_STYLES.grid.strokeDasharray}
@@ -489,12 +555,16 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       yAxisId="left"
                       label={{ value: 'Price ($/MWh)', angle: -90, position: 'insideLeft' }}
                       tick={CHART_STYLES.axis.tick}
+                      domain={[0, 'dataMax + 10']}
+                      tickFormatter={(value) => Number(value).toFixed(2)}
                     />
                     <YAxis 
                       yAxisId="right"
                       orientation="right"
                       label={{ value: 'Index/Forecast', angle: 90, position: 'insideRight' }}
                       tick={CHART_STYLES.axis.tick}
+                      domain={[0, 150]}
+                      tickFormatter={(value) => Number(value).toFixed(1)}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString()}
@@ -549,9 +619,9 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
+              <div className="h-[420px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={volatilityData}>
+                  <ComposedChart data={volatilityData} margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
                     <CartesianGrid 
                       stroke={CHART_STYLES.grid.stroke}
                       strokeDasharray={CHART_STYLES.grid.strokeDasharray}
@@ -562,8 +632,19 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                       tick={CHART_STYLES.axis.tick}
                     />
                     <YAxis 
-                      label={{ value: 'Volatility (%)', angle: -90, position: 'insideLeft' }}
+                      yAxisId="left"
+                      label={{ value: 'Treasury & Credit (%)', angle: -90, position: 'insideLeft' }}
                       tick={CHART_STYLES.axis.tick}
+                      domain={[0, 'dataMax + 1']}
+                      tickFormatter={(value) => Number(value).toFixed(3)}
+                    />
+                    <YAxis 
+                      yAxisId="right"
+                      orientation="right"
+                      label={{ value: 'Energy Volatility (%)', angle: 90, position: 'insideRight' }}
+                      tick={CHART_STYLES.axis.tick}
+                      domain={[0, 'dataMax + 5']}
+                      tickFormatter={(value) => Number(value).toFixed(2)}
                     />
                     <Tooltip 
                       labelFormatter={(value) => new Date(value).toLocaleDateString()}
@@ -571,48 +652,35 @@ export function MarketDataCharts({ projectId }: MarketDataChartsProps) {
                     />
                     <Legend />
                     <Bar 
+                      yAxisId="left"
                       dataKey="treasury_volatility" 
                       fill={MARKET_DATA_COLORS.volatility.treasury} 
                       name="Treasury"
                       opacity={0.8}
                     />
                     <Bar 
+                      yAxisId="left"
                       dataKey="credit_spread_volatility" 
                       fill={MARKET_DATA_COLORS.volatility.credit} 
                       name="Credit Spreads"
                       opacity={0.8}
                     />
-                    <Bar 
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
                       dataKey="energy_price_volatility" 
-                      fill={MARKET_DATA_COLORS.volatility.energy} 
+                      stroke={MARKET_DATA_COLORS.volatility.energy}
+                      strokeWidth={3}
                       name="Energy Prices"
-                      opacity={0.8}
+                      dot={{ r: 4 }}
                     />
-                  </BarChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Data sources footer */}
-      <Card className="border-dashed">
-        <CardContent className="pt-6">
-          <div className="text-center text-sm text-gray-600">
-            <p className="font-medium mb-2">Free Market Data Sources</p>
-            <div className="flex justify-center gap-6 flex-wrap">
-              <span>🏛️ Treasury.gov • Treasury Rates</span>
-              <span>📊 FRED • Credit Spreads</span>
-              <span>⚡ EIA • Energy Prices</span>
-              <span>📈 IEX Cloud • Market Indices</span>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Last updated: {currentMarketData?.treasury_rates?.last_updated || 'Unknown'} • Zero API costs
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

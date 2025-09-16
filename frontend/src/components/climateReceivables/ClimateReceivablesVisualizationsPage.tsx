@@ -11,6 +11,9 @@ import {
   PolicyTimeline
 } from "./components/visualizations";
 import { APIDiagnosticDashboard } from "./components/api-testing";
+import { ConfigurationDashboard } from "./components/configuration";
+import RiskFactorsPopulationComponent from "./components/utilities/RiskFactorsPopulationComponent";
+import EnhancedCreditSpreadsTest from "./components/utilities/EnhancedCreditSpreadsTest";
 
 interface ClimateReceivablesVisualizationsPageProps {
   projectId: string;
@@ -38,7 +41,7 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
           <div>
             <h1 className="text-3xl font-bold">Climate Receivables Visualizations</h1>
             <p className="text-muted-foreground">
-              Analyze cash flow, risk assessment, weather impact, market data, policy changes, and API diagnostics
+              Analyze cash flow, risk assessment, weather impact, market data, policy changes, risk factors generation, enhanced credit spreads testing, and API diagnostics
             </p>
           </div>
         </div>
@@ -60,6 +63,15 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
           </TabsTrigger>
           <TabsTrigger value="policy-timeline" className="px-4 py-2">
             Policy Timeline
+          </TabsTrigger>
+          <TabsTrigger value="risk-factors" className="px-4 py-2">
+            Risk Factors
+          </TabsTrigger>
+          <TabsTrigger value="credit-spreads-test" className="px-4 py-2">
+            Credit Spreads Test
+          </TabsTrigger>
+          <TabsTrigger value="configuration" className="px-4 py-2">
+            Configuration
           </TabsTrigger>
           <TabsTrigger value="api-testing" className="px-4 py-2">
             API Testing
@@ -84,6 +96,18 @@ const ClimateReceivablesVisualizationsPage: React.FC<ClimateReceivablesVisualiza
 
         <TabsContent value="policy-timeline" className="space-y-4">
           <PolicyTimeline projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="risk-factors" className="space-y-4">
+          <RiskFactorsPopulationComponent />
+        </TabsContent>
+
+        <TabsContent value="credit-spreads-test" className="space-y-4">
+          <EnhancedCreditSpreadsTest />
+        </TabsContent>
+
+        <TabsContent value="configuration" className="space-y-4">
+          <ConfigurationDashboard projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="api-testing" className="space-y-4">

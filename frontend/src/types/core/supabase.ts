@@ -5202,6 +5202,7 @@ export type Database = {
           capacity_factor_percentile: number | null
           capacity_factor_theoretical: number | null
           created_at: string | null
+          geolocation_details: Json | null
           lcoe_calculated: number | null
           lcoe_competitiveness_ratio: number | null
           lcoe_industry_benchmark: number | null
@@ -5209,6 +5210,7 @@ export type Database = {
           location: string
           name: string
           owner_id: string | null
+          project_id: string | null
           type: string
           updated_at: string | null
         }
@@ -5221,6 +5223,7 @@ export type Database = {
           capacity_factor_percentile?: number | null
           capacity_factor_theoretical?: number | null
           created_at?: string | null
+          geolocation_details?: Json | null
           lcoe_calculated?: number | null
           lcoe_competitiveness_ratio?: number | null
           lcoe_industry_benchmark?: number | null
@@ -5228,6 +5231,7 @@ export type Database = {
           location: string
           name: string
           owner_id?: string | null
+          project_id?: string | null
           type: string
           updated_at?: string | null
         }
@@ -5240,6 +5244,7 @@ export type Database = {
           capacity_factor_percentile?: number | null
           capacity_factor_theoretical?: number | null
           created_at?: string | null
+          geolocation_details?: Json | null
           lcoe_calculated?: number | null
           lcoe_competitiveness_ratio?: number | null
           lcoe_industry_benchmark?: number | null
@@ -5247,6 +5252,7 @@ export type Database = {
           location?: string
           name?: string
           owner_id?: string | null
+          project_id?: string | null
           type?: string
           updated_at?: string | null
         }

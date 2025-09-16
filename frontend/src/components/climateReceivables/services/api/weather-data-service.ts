@@ -1,6 +1,7 @@
 import { WeatherData } from '../../types';
 import { supabase } from '@/infrastructure/database/client';
 import { EnhancedFreeWeatherService, WeatherAPIResponse } from './enhanced-free-weather-service';
+import { mapboxGeocodingService } from '../../utils/mapbox-geocoding-service';
 
 /**
  * Enhanced Weather Data Service using Free APIs
@@ -16,64 +17,77 @@ export class WeatherDataService {
   private static readonly CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours in milliseconds (reduced for free APIs)
 
   /**
-   * Get weather data for a location and date using FREE APIs ONLY
+   * Get weather data for a location and date using FREE APIs ONLY (API-FIRST APPROACH)
    * @param location The location to get weather data for
    * @param date The date to get weather data for (defaults to today)
    * @param coordinates Optional latitude/longitude for more precise API calls
+   * @param forceAPICall Force live API call instead of checking cache
    * @returns Weather data using free API hierarchy
    */
   public static async getWeatherData(
     location: string, 
     date: string = new Date().toISOString().split('T')[0],
-    coordinates?: { latitude: number; longitude: number }
+    coordinates?: { latitude: number; longitude: number },
+    forceAPICall: boolean = true  // Default to live API calls
   ): Promise<WeatherData> {
     try {
-      console.log(`[BATCH] Getting weather data for ${location} on ${date} using FREE APIs`);
+      console.log(`[BATCH] Getting LIVE weather data for ${location} on ${date} using FREE APIs`);
       
-      // First, try to get data from the database
-      const dbData = await this.getWeatherFromDatabase(location, date);
-      
-      // If we have fresh data in the database, return it
-      if (dbData) {
-        // Check if the data is current (for today's date only)
-        if (date === new Date().toISOString().split('T')[0]) {
-          const updatedAt = new Date(dbData.updatedAt).getTime();
-          const now = new Date().getTime();
-          
-          // If data is fresh, return it
-          if (now - updatedAt <= this.CACHE_DURATION) {
-            console.log(`[BATCH] Using cached weather data for ${location}`);
-            return dbData;
+      // API-FIRST: Always try live API data for current weather requests
+      const today = new Date().toISOString().split('T')[0];
+      if (date === today && forceAPICall) {
+        try {
+          // Get coordinates if not provided
+          if (!coordinates) {
+            coordinates = await this.geocodeLocation(location);
           }
-        } else {
-          // For historical dates, always use the database first
-          console.log(`[BATCH] Using historical weather data from database for ${location}`);
-          return dbData;
+          
+          // Fetch live weather data from APIs
+          const freeApiData = await EnhancedFreeWeatherService.getCurrentWeather(
+            coordinates.latitude, 
+            coordinates.longitude, 
+            location
+          );
+          
+          // Convert to our WeatherData format and save to cache
+          const weatherData = this.convertApiResponseToWeatherData(freeApiData, location, date);
+          const savedData = await this.saveWeatherData(weatherData);
+          console.log(`[BATCH] ✅ LIVE weather data from ${freeApiData.provider} for ${location}: ${weatherData.temperature}°C`);
+          return savedData;
+        } catch (apiError) {
+          console.error(`[BATCH] Live API failed for ${location}, checking cache:`, apiError);
         }
       }
       
-      // If coordinates not provided, try to geocode the location
-      if (!coordinates) {
-        coordinates = await this.geocodeLocation(location);
+      // CACHE FALLBACK: Check database only if API fails or for historical dates
+      if (!forceAPICall || date !== today) {
+        const dbData = await this.getWeatherFromDatabase(location, date);
+        
+        if (dbData) {
+          // For today's date, check if data is fresh enough
+          if (date === today) {
+            const updatedAt = new Date(dbData.updatedAt).getTime();
+            const now = new Date().getTime();
+            
+            if (now - updatedAt <= this.CACHE_DURATION) {
+              console.log(`[BATCH] Using cached weather data for ${location} (${Math.round((now - updatedAt) / (1000 * 60))} mins old)`);
+              return dbData;
+            }
+          } else {
+            // For historical dates, use database data if available
+            console.log(`[BATCH] Using historical weather data from database for ${location} on ${date}`);
+            return dbData;
+          }
+        }
       }
       
-      // If we don't have data in the database or it's stale, fetch from FREE APIs
-      if (date === new Date().toISOString().split('T')[0]) {
-        // For today's date, use current weather API
-        const freeApiData = await EnhancedFreeWeatherService.getCurrentWeather(
-          coordinates.latitude, 
-          coordinates.longitude, 
-          location
-        );
-        
-        // Convert to our WeatherData format and save
-        const weatherData = this.convertApiResponseToWeatherData(freeApiData, location, date);
-        const savedData = await this.saveWeatherData(weatherData);
-        console.log(`[BATCH] Fetched current weather from ${freeApiData.provider} for ${location}`);
-        return savedData;
-      } else {
-        // For historical dates, try historical API first, then climatological average
+      // HISTORICAL API: For historical dates, try historical API
+      if (date !== today) {
         try {
+          if (!coordinates) {
+            coordinates = await this.geocodeLocation(location);
+          }
+          
           const historicalData = await EnhancedFreeWeatherService.getHistoricalWeather(
             coordinates.latitude,
             coordinates.longitude,
@@ -82,13 +96,15 @@ export class WeatherDataService {
           
           const weatherData = this.convertApiResponseToWeatherData(historicalData, location, date);
           const savedData = await this.saveWeatherData(weatherData);
-          console.log(`[BATCH] Fetched historical weather from ${historicalData.provider} for ${location} on ${date}`);
+          console.log(`[BATCH] ✅ Historical weather from ${historicalData.provider} for ${location} on ${date}`);
           return savedData;
         } catch (error) {
-          console.log(`[BATCH] Historical data unavailable, using climatological average for ${location}`);
-          return this.getClimatologicalAverage(location, date);
+          console.log(`[BATCH] Historical API failed, using climatological average for ${location}`);
         }
       }
+      
+      // FINAL FALLBACK: Climatological average
+      return this.getClimatologicalAverage(location, date);
     } catch (error) {
       console.error(`[BATCH] Error getting weather data for ${location} on ${date}:`, error);
       // Fallback to climatological average
@@ -219,36 +235,172 @@ export class WeatherDataService {
   }
 
   /**
-   * Geocode location to coordinates for API calls
+   * Geocode location to coordinates for API calls using Mapbox (primary) with Open-Meteo fallback
    * @param location Location string to geocode
    * @returns Latitude and longitude coordinates
    */
   private static async geocodeLocation(location: string): Promise<{ latitude: number; longitude: number }> {
+    console.log(`[BATCH] Geocoding location with enhanced service: ${location}`);
+    
     try {
-      // Simple geocoding using Open-Meteo's geocoding API (free)
-      const response = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`
-      );
+      // Check for problematic location patterns first
+      const problematicPatterns = [
+        /^[A-Z]{2,}\s*,\s*USA$/i, // State names like "TEXAS, USA"  
+        /^[A-Z]{2,}\s*,\s*US$/i,  // State names like "TEXAS, US"
+        /^[A-Z\s]+STATE$/i,       // Generic state references
+      ];
+
+      const isProblematicLocation = problematicPatterns.some(pattern => pattern.test(location.trim()));
+      
+      if (isProblematicLocation) {
+        console.warn(`[BATCH] Skipping geocoding for overly broad location: ${location}`);
+        throw new Error(`Location "${location}" is too broad for geocoding. Please provide a specific city.`);
+      }
+      
+      // Try fallback coordinates first for known locations
+      const fallbackCoordinates = this.getFallbackCoordinates(location);
+      if (fallbackCoordinates) {
+        console.log(`[BATCH] Using predefined coordinates for ${location}:`, fallbackCoordinates);
+        return fallbackCoordinates;
+      }
+
+      // PRIMARY: Try Mapbox geocoding service if available
+      if (mapboxGeocodingService.isConfigured()) {
+        try {
+          console.log(`[BATCH] Attempting Mapbox geocoding for: ${location}`);
+          const mapboxResult = await mapboxGeocodingService.geocodeAddress(location);
+          
+          if (mapboxResult) {
+            console.log(`[BATCH] ✅ Mapbox geocoding successful for ${location}:`, {
+              latitude: mapboxResult.coordinates.latitude,
+              longitude: mapboxResult.coordinates.longitude,
+              formatted: mapboxResult.formatted_address
+            });
+            return {
+              latitude: mapboxResult.coordinates.latitude,
+              longitude: mapboxResult.coordinates.longitude
+            };
+          }
+        } catch (mapboxError) {
+          console.warn(`[BATCH] Mapbox geocoding failed for ${location}, trying Open-Meteo fallback:`, mapboxError);
+        }
+      } else {
+        console.warn('[BATCH] Mapbox geocoding service not configured, using Open-Meteo');
+      }
+      
+      // FALLBACK: Use Open-Meteo geocoding API if Mapbox fails or isn't configured
+      let normalizedLocation = location;
+      if (location.toLowerCase().includes('london, england')) {
+        normalizedLocation = 'London, GB';
+      } else if (location.toLowerCase() === 'london, gb') {
+        normalizedLocation = 'London, United Kingdom';
+      }
+      
+      console.log(`[BATCH] Normalized location for Open-Meteo: ${location} -> ${normalizedLocation}`);
+      
+      // Use Open-Meteo geocoding as fallback
+      const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(normalizedLocation)}&count=1&language=en&format=json`;
+      console.log(`[BATCH] Calling Open-Meteo geocoding API: ${geocodingUrl}`);
+      
+      const response = await fetch(geocodingUrl);
       
       if (!response.ok) {
-        throw new Error(`Geocoding API error: ${response.status}`);
+        console.error(`[BATCH] Open-Meteo geocoding API HTTP error: ${response.status} ${response.statusText}`);
+        throw new Error(`Open-Meteo geocoding API error: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log(`[BATCH] Open-Meteo geocoding API response:`, data);
       
       if (data.results && data.results.length > 0) {
+        console.log(`[BATCH] ✅ Open-Meteo geocoding successful for ${location} -> ${normalizedLocation}:`, {
+          latitude: data.results[0].latitude,
+          longitude: data.results[0].longitude,
+          name: data.results[0].name,
+          country: data.results[0].country
+        });
         return {
           latitude: data.results[0].latitude,
           longitude: data.results[0].longitude
         };
       }
       
+      console.warn(`[BATCH] No geocoding results found for ${normalizedLocation}`);
       throw new Error(`No coordinates found for location: ${location}`);
     } catch (error) {
-      console.error(`Error geocoding location ${location}:`, error);
-      // Fallback coordinates (approximately US center)
-      return { latitude: 39.8283, longitude: -98.5795 };
+      console.error(`[BATCH] Error geocoding location ${location}:`, error);
+      
+      // Final fallback attempt with different location format
+      const finalFallback = this.getFallbackCoordinates(location);
+      if (finalFallback) {
+        console.log(`[BATCH] Using emergency fallback coordinates for ${location}:`, finalFallback);
+        return finalFallback;
+      }
+      
+      throw error;
     }
+  }
+
+  /**
+   * Get fallback coordinates for common locations when geocoding fails
+   */
+  private static getFallbackCoordinates(location: string): { latitude: number; longitude: number } | null {
+    const fallbacks: { [key: string]: { latitude: number; longitude: number } } = {
+      // London variations
+      'london, england': { latitude: 51.5074, longitude: -0.1278 },
+      'london, gb': { latitude: 51.5074, longitude: -0.1278 },
+      'london, uk': { latitude: 51.5074, longitude: -0.1278 },
+      'london': { latitude: 51.5074, longitude: -0.1278 },
+      'london, ontario, canada': { latitude: 42.9849, longitude: -81.2453 }, // London, ON, Canada
+      'london, ontario': { latitude: 42.9849, longitude: -81.2453 },
+      
+      // US States - using capital cities or major cities
+      'texas, usa': { latitude: 30.2672, longitude: -97.7431 }, // Austin
+      'texas, us': { latitude: 30.2672, longitude: -97.7431 },
+      'california, usa': { latitude: 34.0522, longitude: -118.2437 }, // Los Angeles
+      'california, us': { latitude: 34.0522, longitude: -118.2437 },
+      'florida, usa': { latitude: 25.7617, longitude: -80.1918 }, // Miami
+      'florida, us': { latitude: 25.7617, longitude: -80.1918 },
+      'new york, usa': { latitude: 40.7128, longitude: -74.0060 }, // NYC
+      'new york, us': { latitude: 40.7128, longitude: -74.0060 },
+      'illinois, usa': { latitude: 41.8781, longitude: -87.6298 }, // Chicago
+      'illinois, us': { latitude: 41.8781, longitude: -87.6298 },
+      
+      // Major cities
+      'new york': { latitude: 40.7128, longitude: -74.0060 },
+      'new york city': { latitude: 40.7128, longitude: -74.0060 },
+      'nyc': { latitude: 40.7128, longitude: -74.0060 },
+      'los angeles': { latitude: 34.0522, longitude: -118.2437 },
+      'chicago': { latitude: 41.8781, longitude: -87.6298 },
+      'houston': { latitude: 29.7604, longitude: -95.3698 },
+      'phoenix': { latitude: 33.4484, longitude: -112.0740 },
+      'philadelphia': { latitude: 39.9526, longitude: -75.1652 },
+      'san antonio': { latitude: 29.4241, longitude: -98.4936 },
+      'san diego': { latitude: 32.7157, longitude: -117.1611 },
+      'dallas': { latitude: 32.7767, longitude: -96.7970 },
+      'san jose': { latitude: 37.3382, longitude: -121.8863 },
+      'austin': { latitude: 30.2672, longitude: -97.7431 },
+      'miami': { latitude: 25.7617, longitude: -80.1918 },
+      
+      // International
+      'paris': { latitude: 48.8566, longitude: 2.3522 },
+      'tokyo': { latitude: 35.6762, longitude: 139.6503 },
+      'sydney': { latitude: -33.8688, longitude: 151.2093 },
+      'berlin': { latitude: 52.5200, longitude: 13.4050 },
+      'toronto': { latitude: 43.6532, longitude: -79.3832 },
+    };
+    
+    const key = location.toLowerCase().trim();
+    const coordinates = fallbacks[key];
+    
+    if (coordinates) {
+      console.log(`[BATCH] Found fallback coordinates for "${location}" (key: "${key}"):`, coordinates);
+    } else {
+      console.log(`[BATCH] No fallback coordinates available for "${location}" (key: "${key}")`);
+      console.log(`[BATCH] Available fallback keys:`, Object.keys(fallbacks).slice(0, 10), '...');
+    }
+    
+    return coordinates || null;
   }
 
   /**
@@ -278,11 +430,11 @@ export class WeatherDataService {
 
 
   /**
-   * Save weather data to the database
+   * Save weather data to the database (PUBLIC METHOD)
    * @param weatherData The weather data to save
    * @returns The saved weather data with database ID
    */
-  private static async saveWeatherData(weatherData: WeatherData): Promise<WeatherData> {
+  public static async saveWeatherData(weatherData: WeatherData): Promise<WeatherData> {
     try {
       // Convert to database format
       const dbData = {

@@ -42,6 +42,7 @@ import {
   PayersManagementPage
 } from "./components/entities/climate-payers";
 import EnergyAssetManager from "./components/entities/energy-assets/EnergyAssetManager";
+import { EnergyAssetsCreate, EnergyAssetsDetail } from "./components/entities/energy-assets";
 import ClimatePoolManager from "./components/entities/tokenization-pools/ClimatePoolManager";
 import ClimateTokenizationManager from "./components/tokenization/ClimateTokenizationManager";
 import ClimateTokenDistributionManager from "./components/distribution/ClimateTokenDistributionManager";
@@ -208,6 +209,9 @@ const ClimateReceivablesManager: React.FC = () => {
         
         {/* Energy Assets routes */}
         <Route path="/assets" element={<EnergyAssetManager projectId={currentProjectId} />} />
+        <Route path="/assets/create" element={<EnergyAssetsCreate />} />
+        <Route path="/assets/:id" element={<EnergyAssetsDetail />} />
+        <Route path="/assets/edit/:id" element={<EnergyAssetsCreate />} />
         
         {/* Payers Management routes */}
         <Route path="/payers" element={<PayersManagementPage />} />

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict JlDqc15nyfrhiybG4NpTe1i1ELRQkvGZ9U22D6DaLPJFwswRNGgIBxNlFhsXjGS
+\restrict Mor7TxSfpQNncu5wLug3uJGypSLgOugoA0MKmoCviXGKVop7Zrw1FRNMTadHxUN
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -9910,7 +9910,9 @@ CREATE TABLE public.energy_assets (
     capacity_factor_theoretical numeric(6,4),
     capacity_factor_industry_avg numeric(6,4),
     capacity_factor_percentile integer,
-    capacity_factor_last_calculated timestamp with time zone
+    capacity_factor_last_calculated timestamp with time zone,
+    project_id uuid,
+    geolocation_details jsonb
 );
 
 
@@ -35532,5 +35534,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict JlDqc15nyfrhiybG4NpTe1i1ELRQkvGZ9U22D6DaLPJFwswRNGgIBxNlFhsXjGS
+\unrestrict Mor7TxSfpQNncu5wLug3uJGypSLgOugoA0MKmoCviXGKVop7Zrw1FRNMTadHxUN
 

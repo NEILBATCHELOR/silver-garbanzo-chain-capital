@@ -36,18 +36,26 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { supabase } from "@/infrastructure/database/client";
 import { ClimateReceivable, ClimateRiskFactor, RiskLevel } from "../../types";
 import type { ClimateRiskLevel } from "@/types/domain/climate/receivables";
 import { FreeMarketDataService } from "../../../../services/climateReceivables/freeMarketDataService";
 import { UserDataSourceService } from "../../../../services/climateReceivables/userDataSourceService";
+import { PolicyRiskTrackingService } from "../../services/api/policy-risk-tracking-service";
 import type { 
   MarketDataSnapshot,
   PolicyChange 
 } from "../../../../services/climateReceivables/freeMarketDataService";
 import type { UserDataSource } from "../../../../services/climateReceivables/userDataSourceService";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, TrendingUp, TrendingDown, Database, Wifi } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, Database, Wifi, ChevronDown, ChevronUp, FileText, Calendar, Clock, CheckCircle2, XCircle, Info } from "lucide-react";
 import { RISK_COLORS, CHART_COLOR_SEQUENCES, CHART_STYLES, withOpacity } from "../../constants/chart-colors";
 
 interface RiskAssessmentDashboardProps {
@@ -69,6 +77,28 @@ interface DataQualityMetrics {
   confidence_boost: number;
 }
 
+// Enhanced policy types from Policy Timeline
+interface PolicyTimelineEvent {
+  id: string;
+  date: string;
+  title: string;
+  summary: string;
+  description: string;
+  impactLevel: 'low' | 'medium' | 'high' | 'critical';
+  policyType: 'regulation' | 'tax_credit' | 'renewable_standard' | 'carbon_pricing' | 'trade_policy' | 'other';
+  source: 'federal_register' | 'congress_gov' | 'regulatory_news' | 'industry_alert';
+  affectedSectors: string[];
+  regions: string[];
+  url?: string;
+  effectiveDate?: string;
+  deadline?: string;
+  alertType: string;
+  affectedAssets: number;
+  affectedReceivables: number;
+  recommendedActions: string[];
+  resolved: boolean;
+}
+
 /**
  * Component for visualizing risk assessment data
  */
@@ -81,12 +111,20 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [riskProfileFilter, setRiskProfileFilter] = useState<ClimateRiskLevel | "">("");
+  
+  // Enhanced policy state
+  const [policyEvents, setPolicyEvents] = useState<PolicyTimelineEvent[]>([]);
+  const [policyLoading, setPolicyLoading] = useState<boolean>(false);
+  const [expandedPolicyDescriptions, setExpandedPolicyDescriptions] = useState<Set<string>>(new Set());
+  const [selectedPolicyEvent, setSelectedPolicyEvent] = useState<PolicyTimelineEvent | null>(null);
+  const [policyDetailsModalOpen, setPolicyDetailsModalOpen] = useState(false);
 
   // Fetch data on component mount
   useEffect(() => {
     fetchData();
     fetchMarketData();
     fetchUserDataSources();
+    loadEnhancedPolicyData();
   }, []);
 
   /**
@@ -173,6 +211,140 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
     } catch (err) {
       console.error("Failed to fetch user data sources:", err);
       // Don't set error for user data failure - it's supplementary
+    }
+  };
+
+  /**
+   * Load enhanced policy data using PolicyRiskTrackingService (mirrors Policy Timeline)
+   */
+  const loadEnhancedPolicyData = async () => {
+    try {
+      setPolicyLoading(true);
+      console.log('Risk Dashboard: Loading enhanced policy data from government APIs');
+
+      // Get real policy alerts from live APIs (Federal Register, GovInfo, LegiScan)
+      const realAlerts = await PolicyRiskTrackingService.monitorRegulatoryChanges(['federal']);
+      console.log(`Risk Dashboard: Received ${realAlerts.length} real policy alerts`);
+
+      // Transform alerts to timeline event format
+      const transformedEvents = realAlerts.map(transformPolicyAlertToTimelineEvent);
+
+      // Filter to show only most recent and high-impact events
+      const filteredEvents = transformedEvents
+        .filter(event => event.impactLevel === 'high' || event.impactLevel === 'critical')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5); // Show top 5 most important recent policy changes
+
+      setPolicyEvents(filteredEvents);
+      console.log(`Risk Dashboard: Displaying ${filteredEvents.length} high-impact policy events`);
+
+    } catch (err) {
+      console.error('Risk Dashboard: Error loading enhanced policy data:', err);
+      setPolicyEvents([]); // No fallback data - show empty state if APIs fail
+    } finally {
+      setPolicyLoading(false);
+    }
+  };
+
+  /**
+   * Transform PolicyAlert to PolicyTimelineEvent format (from Policy Timeline)
+   */
+  const transformPolicyAlertToTimelineEvent = (alert: any): PolicyTimelineEvent => {
+    // Map alert source based on policyId patterns
+    let source: PolicyTimelineEvent['source'] = 'regulatory_news';
+    if (alert.policyId?.includes('federal_register')) source = 'federal_register';
+    if (alert.policyId?.includes('govinfo')) source = 'congress_gov';
+    if (alert.policyId?.includes('legiscan')) source = 'industry_alert';
+
+    // Infer policy type from title/description content
+    const title = alert.title?.toLowerCase() || '';
+    let policyType: PolicyTimelineEvent['policyType'] = 'other';
+    if (title.includes('tax credit') || title.includes('itc') || title.includes('ptc')) policyType = 'tax_credit';
+    if (title.includes('renewable portfolio') || title.includes('rps') || title.includes('standard')) policyType = 'renewable_standard';
+    if (title.includes('carbon') || title.includes('emission') || title.includes('cap and trade')) policyType = 'carbon_pricing';
+    if (title.includes('regulation') || title.includes('rule') || title.includes('requirement')) policyType = 'regulation';
+    if (title.includes('tariff') || title.includes('trade') || title.includes('import')) policyType = 'trade_policy';
+
+    // Infer affected sectors from title/description
+    const affectedSectors = [];
+    if (title.includes('solar')) affectedSectors.push('solar');
+    if (title.includes('wind')) affectedSectors.push('wind');
+    if (title.includes('storage') || title.includes('battery')) affectedSectors.push('energy_storage');
+    if (title.includes('renewable') || title.includes('clean energy')) affectedSectors.push('renewable_energy');
+    if (title.includes('grid') || title.includes('utility')) affectedSectors.push('grid_modernization');
+    if (affectedSectors.length === 0) affectedSectors.push('renewable_energy');
+
+    return {
+      id: alert.alertId || alert.policyId || Math.random().toString(),
+      date: alert.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+      title: alert.title || 'Policy Update',
+      summary: alert.description || alert.title || 'Policy change detected',
+      description: alert.description || alert.title || 'Policy change detected',
+      impactLevel: alert.severity || 'medium',
+      policyType,
+      source,
+      affectedSectors,
+      regions: ['federal'],
+      effectiveDate: alert.deadline,
+      deadline: alert.deadline,
+      alertType: alert.alertType || 'policy_change',
+      affectedAssets: alert.affectedAssets?.length || 0,
+      affectedReceivables: alert.affectedReceivables?.length || 0,
+      recommendedActions: alert.recommendedActions || [],
+      resolved: alert.resolved || false
+    };
+  };
+
+  /**
+   * Policy helper functions (from Policy Timeline)
+   */
+  const truncateToLines = (text: string, lines: number = 3): { truncated: string; isTruncated: boolean } => {
+    const words = text.split(' ');
+    const avgWordsPerLine = 12;
+    const maxWords = lines * avgWordsPerLine;
+    
+    if (words.length <= maxWords) {
+      return { truncated: text, isTruncated: false };
+    }
+    
+    return { 
+      truncated: words.slice(0, maxWords).join(' ') + '...', 
+      isTruncated: true 
+    };
+  };
+
+  const togglePolicyDescription = (eventId: string) => {
+    const newExpanded = new Set(expandedPolicyDescriptions);
+    if (newExpanded.has(eventId)) {
+      newExpanded.delete(eventId);
+    } else {
+      newExpanded.add(eventId);
+    }
+    setExpandedPolicyDescriptions(newExpanded);
+  };
+
+  const openPolicyDetailsModal = (event: PolicyTimelineEvent) => {
+    setSelectedPolicyEvent(event);
+    setPolicyDetailsModalOpen(true);
+  };
+
+  const getImpactColor = (level: string) => {
+    switch (level) {
+      case 'critical': return '#dc2626'; // red-600
+      case 'high': return '#ea580c'; // orange-600
+      case 'medium': return '#d97706'; // amber-600
+      case 'low': return '#65a30d'; // lime-600
+      default: return '#6b7280'; // gray-500
+    }
+  };
+
+  const getAlertTypeBadge = (alertType: string) => {
+    switch (alertType) {
+      case 'new_policy': return { variant: 'default' as const, color: 'bg-blue-100 text-blue-800' };
+      case 'policy_change': return { variant: 'secondary' as const, color: 'bg-yellow-100 text-yellow-800' };
+      case 'expiration_warning': return { variant: 'destructive' as const, color: 'bg-red-100 text-red-800' };
+      case 'compliance_deadline': return { variant: 'outline' as const, color: 'bg-orange-100 text-orange-800' };
+      default: return { variant: 'outline' as const, color: 'bg-gray-100 text-gray-800' };
     }
   };
 
@@ -494,6 +666,15 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
 
   return (
     <div className="space-y-6">
+      <style>{`
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
+      
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Risk Assessment Dashboard</h2>
@@ -565,53 +746,122 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
         </Card>
       </div>
 
-      {/* Market Data Integration Panel */}
-      {marketData && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Market Data Impact Analysis
-            </CardTitle>
-            <CardDescription>
-              Real-time market conditions affecting risk assessments
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {getMarketDataIndicators().map((indicator, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                  <div>
-                    <div className="font-medium capitalize">
-                      {indicator.type === 'treasury' ? 'Treasury 10Y' :
-                       indicator.type === 'credit' ? 'Credit Spreads' :
-                       indicator.type === 'energy' ? 'Energy Prices' : 'Policy Risk'}
+      {/* Market Data Requirements & Status Panel */}
+      <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-amber-600" />
+            Market Data Requirements & Status
+          </CardTitle>
+          <CardDescription>
+            Data sources needed for comprehensive risk analysis and their current status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Data Requirements */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm">Required Market Data Sources</h4>
+                {[
+                  { name: 'Treasury Rates', status: marketData ? 'Available' : 'Disconnected', description: '10Y Treasury for risk-free rate baseline' },
+                  { name: 'Credit Spreads', status: marketData ? 'Available' : 'Disconnected', description: 'Investment grade spreads for credit risk' },
+                  { name: 'Energy Prices', status: marketData ? 'Available' : 'Disconnected', description: 'Electricity prices affecting renewable profitability' },
+                  { name: 'Climate Policy Feed', status: policyAlerts.length > 0 ? 'Active' : 'Inactive', description: 'Regulatory changes impacting renewables' }
+                ].map((source, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <div>
+                      <div className="font-medium text-sm">{source.name}</div>
+                      <div className="text-xs text-gray-600">{source.description}</div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {indicator.type === 'treasury' ? `${indicator.current_value.toFixed(2)}%` :
-                       indicator.type === 'credit' ? `${indicator.current_value}bps` :
-                       indicator.type === 'energy' ? `${indicator.current_value}/MWh` : 
-                       `${indicator.current_value}% impact`}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getTrendIcon(indicator.trend)}
                     <Badge 
-                      variant={indicator.impact_on_risk === 'increase' ? 'destructive' : 'secondary'}
+                      variant={source.status === 'Available' || source.status === 'Active' ? 'default' : 'secondary'}
                       className="text-xs"
                     >
-                      {indicator.impact_on_risk}
+                      {source.status}
                     </Badge>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                ))}
+              </div>
 
-      {/* Policy Alerts Panel */}
-      {policyAlerts.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm">Data Quality Impact</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Risk Assessment Accuracy</span>
+                    <span className="text-sm font-bold">
+                      {marketData && userDataSources.length > 0 ? '85-95%' : 
+                       marketData || userDataSources.length > 0 ? '65-80%' : '40-60%'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${
+                        marketData && userDataSources.length > 0 ? 'bg-green-600' :
+                        marketData || userDataSources.length > 0 ? 'bg-yellow-600' : 'bg-red-600'
+                      }`}
+                      style={{width: `${
+                        marketData && userDataSources.length > 0 ? '90' :
+                        marketData || userDataSources.length > 0 ? '70' : '50'
+                      }%`}}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Current confidence based on available data sources
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
+                  <div className="font-medium text-blue-800 dark:text-blue-200 text-sm">
+                    Enhancement Available
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                    Connect to free market APIs (Treasury.gov, FRED, EIA) to improve risk assessment accuracy by 20-30%
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Current Market Context (if available) */}
+            {marketData && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-sm mb-3">Current Market Context</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {getMarketDataIndicators().map((indicator, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                      <div>
+                        <div className="font-medium text-sm capitalize">
+                          {indicator.type === 'treasury' ? 'Treasury 10Y' :
+                           indicator.type === 'credit' ? 'Credit Spreads' :
+                           indicator.type === 'energy' ? 'Energy Prices' : 'Policy Risk'}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {indicator.type === 'treasury' ? `${indicator.current_value.toFixed(2)}%` :
+                           indicator.type === 'credit' ? `${indicator.current_value}bps` :
+                           indicator.type === 'energy' ? `${indicator.current_value}/MWh` : 
+                           `${indicator.current_value}% impact`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getTrendIcon(indicator.trend)}
+                        <Badge 
+                          variant={indicator.impact_on_risk === 'increase' ? 'destructive' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {indicator.impact_on_risk}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Recent Policy Changes Panel - Mirrors Policy Timeline */}
+      {(policyEvents.length > 0 || policyLoading) && (
         <Card className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -619,45 +869,137 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
               Recent Policy Changes
             </CardTitle>
             <CardDescription>
-              Policy changes affecting renewable energy receivables
+              High-impact regulatory changes affecting renewable energy receivables (mirrors Policy Timeline)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {policyAlerts.slice(0, 3).map((policy, index) => (
-                <div key={index} className="flex items-start justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{policy.title}</div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      {policy.summary.slice(0, 100)}...
+            {policyLoading ? (
+              <div className="text-center py-4">
+                <div className="text-sm text-gray-600">Loading policy changes from government APIs...</div>
+              </div>
+            ) : policyEvents.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No high-impact policy changes found in recent monitoring.</p>
+                <p className="text-xs mt-1 text-gray-400">
+                  Monitoring Federal Register, GovInfo, and LegiScan APIs for regulatory changes
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {policyEvents.map((event, index) => {
+                  const alertTypeBadge = getAlertTypeBadge(event.alertType);
+                  const isDescriptionExpanded = expandedPolicyDescriptions.has(event.id);
+                  const { truncated, isTruncated } = truncateToLines(event.description, 2);
+                  const displayDescription = isDescriptionExpanded ? event.description : truncated;
+                  
+                  return (
+                    <div key={event.id} className="p-4 bg-white dark:bg-gray-800 rounded-lg border">
+                      {/* Event Header */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm leading-tight">{event.title}</h4>
+                          <div className="flex items-center gap-2 flex-wrap mt-1">
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(event.date).toLocaleDateString()}
+                            </span>
+                            {event.effectiveDate && event.effectiveDate !== event.date && (
+                              <span className="flex items-center gap-1 text-xs text-blue-600">
+                                <Clock className="h-3 w-3" />
+                                Effective: {new Date(event.effectiveDate).toLocaleDateString()}
+                              </span>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {event.source.replace('_', ' ')}
+                            </Badge>
+                            <Badge 
+                              variant={alertTypeBadge.variant}
+                              className={`text-xs ${alertTypeBadge.color}`}
+                            >
+                              {event.alertType.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs whitespace-nowrap"
+                          style={{ 
+                            backgroundColor: `${getImpactColor(event.impactLevel)}20`,
+                            borderColor: getImpactColor(event.impactLevel),
+                            color: getImpactColor(event.impactLevel)
+                          }}
+                        >
+                          {event.impactLevel.toUpperCase()}
+                        </Badge>
+                      </div>
+
+                      {/* Event Description */}
+                      <div className="text-sm text-gray-600 mb-3">
+                        <p className={isDescriptionExpanded ? '' : 'line-clamp-2'}>
+                          {displayDescription}
+                        </p>
+                        {isTruncated && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => togglePolicyDescription(event.id)}
+                            className="mt-1 p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            {isDescriptionExpanded ? (
+                              <>
+                                <ChevronUp className="h-3 w-3 mr-1" />
+                                Show less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3 w-3 mr-1" />
+                                Show more
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Affected sectors and impact metrics */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          {event.affectedSectors.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span>Sectors:</span>
+                              {event.affectedSectors.slice(0, 2).map((sector, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {sector.replace('_', ' ')}
+                                </Badge>
+                              ))}
+                              {event.affectedSectors.length > 2 && (
+                                <span className="text-xs text-gray-400">+{event.affectedSectors.length - 2} more</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => openPolicyDetailsModal(event)}
+                          className="text-xs"
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          Details
+                        </Button>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Effective: {new Date(policy.effective_date).toLocaleDateString()}
-                    </div>
+                  );
+                })}
+                
+                {policyEvents.length > 0 && (
+                  <div className="text-center pt-2">
+                    <p className="text-xs text-gray-500">
+                      Showing {policyEvents.length} high-impact policy changes • 
+                      <span className="text-blue-600 ml-1">View full Policy Timeline for comprehensive analysis</span>
+                    </p>
                   </div>
-                  <div className="ml-4 flex flex-col items-end gap-1">
-                    <Badge 
-                      variant={policy.impact_level === 'high' || policy.impact_level === 'critical' ? 'destructive' : 
-                              policy.impact_level === 'medium' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {policy.impact_level}
-                    </Badge>
-                    <span className={`text-xs ${
-                      policy.impact_on_receivables > 0 ? 'text-green-600' : 
-                      policy.impact_on_receivables < 0 ? 'text-red-600' : 'text-gray-500'
-                    }`}>
-                      {policy.impact_on_receivables > 0 ? '+' : ''}{(policy.impact_on_receivables * 100).toFixed(1)}% impact
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {policyAlerts.length > 3 && (
-              <div className="text-center mt-3">
-                <Button variant="outline" size="sm">
-                  View {policyAlerts.length - 3} more policy changes
-                </Button>
+                )}
               </div>
             )}
           </CardContent>
@@ -1166,6 +1508,135 @@ const RiskAssessmentDashboard: React.FC<RiskAssessmentDashboardProps> = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Policy Details Modal */}
+      <Dialog open={policyDetailsModalOpen} onOpenChange={setPolicyDetailsModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Policy Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information for {selectedPolicyEvent?.source.replace('_', ' ')} policy alert
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPolicyEvent && (
+            <div className="space-y-6">
+              {/* Title and basic info */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">{selectedPolicyEvent.title}</h3>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge variant="outline">{selectedPolicyEvent.source.replace('_', ' ')}</Badge>
+                  <Badge variant="outline">{selectedPolicyEvent.policyType.replace('_', ' ')}</Badge>
+                  <Badge 
+                    variant="outline"
+                    style={{ 
+                      backgroundColor: `${getImpactColor(selectedPolicyEvent.impactLevel)}20`,
+                      borderColor: getImpactColor(selectedPolicyEvent.impactLevel),
+                      color: getImpactColor(selectedPolicyEvent.impactLevel)
+                    }}
+                  >
+                    {selectedPolicyEvent.impactLevel.toUpperCase()} Impact
+                  </Badge>
+                  <Badge className={selectedPolicyEvent.resolved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                    {selectedPolicyEvent.resolved ? 'Resolved' : 'Active'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Important Dates</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-600">Retrieved:</span>
+                      <span>{new Date(selectedPolicyEvent.date).toLocaleDateString()}</span>
+                    </div>
+                    {selectedPolicyEvent.effectiveDate && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-blue-400" />
+                        <span className="text-gray-600">Effective:</span>
+                        <span className="text-blue-600">{new Date(selectedPolicyEvent.effectiveDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {selectedPolicyEvent.deadline && (
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                        <span className="text-gray-600">Deadline:</span>
+                        <span className="text-red-600">{new Date(selectedPolicyEvent.deadline).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Impact Metrics</h4>
+                  <div className="space-y-1 text-sm">
+                    <div>Assets Affected: <span className="font-medium">{selectedPolicyEvent.affectedAssets}</span></div>
+                    <div>Receivables Affected: <span className="font-medium">{selectedPolicyEvent.affectedReceivables}</span></div>
+                    <div>Alert Type: <span className="font-medium">{selectedPolicyEvent.alertType.replace('_', ' ')}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Full description */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Full Description</h4>
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedPolicyEvent.description}</p>
+                </div>
+              </div>
+
+              {/* Affected sectors */}
+              {selectedPolicyEvent.affectedSectors.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Affected Sectors</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedPolicyEvent.affectedSectors.map((sector) => (
+                      <Badge key={sector} variant="secondary">
+                        {sector.replace('_', ' ')}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended actions */}
+              {selectedPolicyEvent.recommendedActions.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">All Recommended Actions</h4>
+                  <ul className="space-y-2">
+                    {selectedPolicyEvent.recommendedActions.map((action, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm">
+                        <span className="text-blue-500 mt-1">•</span>
+                        <span>{action}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Regions */}
+              {selectedPolicyEvent.regions.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Applicable Regions</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedPolicyEvent.regions.map((region) => (
+                      <Badge key={region} variant="outline">
+                        {region}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -4,6 +4,9 @@ export * from "./ClimateBulkEditAllocations";
 // DataSourceDemo component
 export { default as DataSource } from "./DataSource";
 
+// Configuration components
+export * from "./configuration";
+
 // Form components
 export * from "./forms";
 

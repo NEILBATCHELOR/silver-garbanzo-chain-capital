@@ -8,6 +8,64 @@ export enum EnergyAssetType {
   OTHER = 'other'
 }
 
+// Geolocation types for Mapbox integration
+export interface GeolocationCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export interface AddressComponent {
+  short_name: string;
+  long_name: string;
+  types: string[];
+}
+
+export interface GeolocationDetails {
+  coordinates: GeolocationCoordinates;
+  formatted_address: string;
+  address_components: AddressComponent[];
+  place_id?: string;
+  place_type?: string[];
+  country: string;
+  country_code: string;
+  region: string;
+  locality?: string;
+  postal_code?: string;
+  street_number?: string;
+  street_name?: string;
+  timezone?: string;
+}
+
+export interface MapboxGeocodeResponse {
+  features: MapboxFeature[];
+  query: string[];
+}
+
+export interface MapboxFeature {
+  id: string;
+  type: string;
+  place_name: string;
+  place_type: string[];
+  center: [number, number]; // [longitude, latitude]
+  geometry: {
+    type: string;
+    coordinates: [number, number];
+  };
+  context: MapboxContext[];
+  properties: {
+    mapbox_id?: string;
+    wikidata?: string;
+  };
+}
+
+export interface MapboxContext {
+  id: string;
+  mapbox_id: string;
+  text: string;
+  short_code?: string;
+  wikidata?: string;
+}
+
 // Database types (snake_case following PostgreSQL conventions)
 // These types match the database schema exactly
 export interface EnergyAssetDB {
@@ -19,6 +77,17 @@ export interface EnergyAssetDB {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  lcoe_calculated?: number;
+  lcoe_industry_benchmark?: number;
+  lcoe_competitiveness_ratio?: number;
+  lcoe_last_calculated?: string;
+  capacity_factor_actual?: number;
+  capacity_factor_theoretical?: number;
+  capacity_factor_industry_avg?: number;
+  capacity_factor_percentile?: number;
+  capacity_factor_last_calculated?: string;
+  project_id?: string;
+  geolocation_details?: GeolocationDetails;
 }
 
 // UI/Frontend types (camelCase for JavaScript/TypeScript conventions)
@@ -32,6 +101,17 @@ export interface EnergyAsset {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  lcoeCalculated?: number;
+  lcoeIndustryBenchmark?: number;
+  lcoeCompetitivenessRatio?: number;
+  lcoeLastCalculated?: string;
+  capacityFactorActual?: number;
+  capacityFactorTheoretical?: number;
+  capacityFactorIndustryAvg?: number;
+  capacityFactorPercentile?: number;
+  capacityFactorLastCalculated?: string;
+  projectId?: string;
+  geolocationDetails?: GeolocationDetails;
 }
 
 export interface EnergyAssetFormState {
@@ -40,6 +120,7 @@ export interface EnergyAssetFormState {
   location: string;
   capacity: number;
   ownerId?: string;
+  geolocationDetails?: GeolocationDetails;
 }
 
 // Insert type for database operations
@@ -49,6 +130,7 @@ export interface InsertEnergyAsset {
   location: string;
   capacity: number;
   owner_id?: string;
+  geolocation_details?: GeolocationDetails;
 }
 
 // CSV import types
@@ -640,7 +722,18 @@ export function dbToUiEnergyAsset(db: EnergyAssetDB): EnergyAsset {
     capacity: db.capacity,
     ownerId: db.owner_id,
     createdAt: db.created_at,
-    updatedAt: db.updated_at
+    updatedAt: db.updated_at,
+    lcoeCalculated: db.lcoe_calculated,
+    lcoeIndustryBenchmark: db.lcoe_industry_benchmark,
+    lcoeCompetitivenessRatio: db.lcoe_competitiveness_ratio,
+    lcoeLastCalculated: db.lcoe_last_calculated,
+    capacityFactorActual: db.capacity_factor_actual,
+    capacityFactorTheoretical: db.capacity_factor_theoretical,
+    capacityFactorIndustryAvg: db.capacity_factor_industry_avg,
+    capacityFactorPercentile: db.capacity_factor_percentile,
+    capacityFactorLastCalculated: db.capacity_factor_last_calculated,
+    projectId: db.project_id,
+    geolocationDetails: db.geolocation_details
   };
 }
 
@@ -653,7 +746,18 @@ export function uiToDbEnergyAsset(ui: EnergyAsset): EnergyAssetDB {
     capacity: ui.capacity,
     owner_id: ui.ownerId,
     created_at: ui.createdAt,
-    updated_at: ui.updatedAt
+    updated_at: ui.updatedAt,
+    lcoe_calculated: ui.lcoeCalculated,
+    lcoe_industry_benchmark: ui.lcoeIndustryBenchmark,
+    lcoe_competitiveness_ratio: ui.lcoeCompetitivenessRatio,
+    lcoe_last_calculated: ui.lcoeLastCalculated,
+    capacity_factor_actual: ui.capacityFactorActual,
+    capacity_factor_theoretical: ui.capacityFactorTheoretical,
+    capacity_factor_industry_avg: ui.capacityFactorIndustryAvg,
+    capacity_factor_percentile: ui.capacityFactorPercentile,
+    capacity_factor_last_calculated: ui.capacityFactorLastCalculated,
+    project_id: ui.projectId,
+    geolocation_details: ui.geolocationDetails
   };
 }
 

@@ -371,42 +371,80 @@ export class PolicyRiskTrackingService {
   }
 
   /**
-   * Fetch news from GovInfo API (FREE with registration)
-   * Enhanced with better error handling
+   * Fetch news from GovInfo API via Edge Function (CORS workaround)
+   * Uses GovInfo Published API to get Federal Register documents
    */
   private static async fetchGovInfoNews(): Promise<RegulatoryNewsItem[]> {
     try {
-      console.log('[BATCH] Fetching from GovInfo API (free with registration)');
+      console.log('[BATCH] Fetching from GovInfo API via Edge Function');
       
       if (!this.GOVINFO_API_KEY) {
         console.log('[BATCH] GovInfo API key not configured - skipping');
         return [];
       }
 
-      const currentYear = new Date().getFullYear();
-      const response = await fetch(
-        `${this.GOVINFO_BASE_URL}/collections/FR/${currentYear}-01-01/${currentYear}-12-31?offset=0&pageSize=50&api_key=${this.GOVINFO_API_KEY}`
-      );
+      // Use 2024 data for better results - 2025 has limited data
+      const currentYear = 2024;
+      
+      // Use Edge Function to avoid CORS issues
+      const response = await fetch('https://jrwfkxfzsnnjppogthaw.supabase.co/functions/v1/market-data-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          provider: 'govinfo',
+          endpoint: `published/${currentYear}-01-01/${currentYear}-12-31`,
+          params: {
+            api_key: this.GOVINFO_API_KEY,
+            offsetMark: '*',
+            pageSize: '50',
+            collection: 'FR'
+          }
+        })
+      });
       
       if (!response.ok) {
-        console.log(`[BATCH] GovInfo API warning: ${response.status}`);
+        throw new Error(`Edge Function failed: ${response.status}`);
+      }
+      
+      const edgeResult = await response.json();
+      
+      if (!edgeResult.success || !edgeResult.data?.packages) {
+        console.log(`[BATCH] GovInfo API via Edge Function returned no data`, edgeResult);
         return [];
       }
       
-      const data = await response.json();
+      const data = edgeResult.data;
+      console.log(`[BATCH] GovInfo API returned ${data.packages.length} total Federal Register documents`);
       
-      if (!data.packages) {
-        return [];
+      // Log first few titles to see what we're getting
+      if (data.packages.length > 0) {
+        console.log('[BATCH] Sample Federal Register titles:', 
+          data.packages.slice(0, 3).map((pkg: any) => pkg.title)
+        );
       }
       
-      // Filter for renewable energy related documents
-      const renewableEnergyDocs = data.packages.filter((item: any) => 
-        this.MONITORING_KEYWORDS.some(keyword => 
+      // Apply broader filtering - look for energy, environment, or regulation keywords
+      const broadKeywords = [
+        'energy', 'renewable', 'solar', 'wind', 'climate', 'environment', 'carbon',
+        'electric', 'power', 'utility', 'emissions', 'tax', 'credit', 'regulation'
+      ];
+      
+      const energyRelatedDocs = data.packages.filter((item: any) => 
+        broadKeywords.some(keyword => 
           item.title.toLowerCase().includes(keyword.toLowerCase())
         )
       );
       
-      const results = renewableEnergyDocs.map((item: any) => ({
+      console.log(`[BATCH] Found ${energyRelatedDocs.length} energy/environment-related documents after filtering`);
+      
+      // If still no results, return first 10 documents for debugging
+      const docsToProcess = energyRelatedDocs.length > 0 ? energyRelatedDocs : data.packages.slice(0, 10);
+      console.log(`[BATCH] Processing ${docsToProcess.length} documents (${energyRelatedDocs.length > 0 ? 'filtered' : 'unfiltered sample'})`);
+
+      const results = docsToProcess.map((item: any) => ({
         id: `govinfo_${item.packageId}`,
         title: item.title,
         description: item.title,
@@ -420,10 +458,11 @@ export class PolicyRiskTrackingService {
         summary: 'Government document - access full text via link'
       }));
       
-      console.log(`[BATCH] GovInfo API returned ${results.length} relevant items`);
+      console.log(`[BATCH] GovInfo API via Edge Function returned ${results.length} processed items`);
       return results;
+      
     } catch (error) {
-      console.error('[BATCH] Error fetching GovInfo news:', error);
+      console.error('[BATCH] GovInfo Edge Function error:', error);
       return [];
     }
   }
@@ -456,9 +495,20 @@ export class PolicyRiskTrackingService {
           
           const data = await response.json();
           
+          // Validate data structure before processing
           if (data.searchresult && data.searchresult.summary) {
+            let summaryItems = [];
+            
+            if (Array.isArray(data.searchresult.summary)) {
+              summaryItems = data.searchresult.summary;
+            } else if (typeof data.searchresult.summary === 'object') {
+              // Single result returned as object, wrap in array
+              summaryItems = [data.searchresult.summary];
+              console.log(`[BATCH] LegiScan returned single object for "${keyword}", wrapping in array`);
+            }
+            
             // Process each bill found
-            for (const bill of data.searchresult.summary) {
+            for (const bill of summaryItems) {
               if (bill && bill.bill_id) {
                 results.push({
                   id: `legiscan_${bill.bill_id}`,
@@ -475,6 +525,15 @@ export class PolicyRiskTrackingService {
                 });
               }
             }
+          } else {
+            // Log the actual data structure for debugging
+            console.warn(`[BATCH] LegiScan unexpected data structure for keyword "${keyword}":`, {
+              hasSearchresult: !!data.searchresult,
+              hasSummary: !!(data.searchresult && data.searchresult.summary),
+              summaryType: data.searchresult && data.searchresult.summary ? typeof data.searchresult.summary : 'none',
+              isArray: data.searchresult && data.searchresult.summary ? Array.isArray(data.searchresult.summary) : false,
+              summary: data.searchresult ? data.searchresult.summary : null
+            });
           }
         } catch (keywordError) {
           console.error(`[BATCH] LegiScan error for keyword "${keyword}":`, keywordError);
@@ -526,13 +585,23 @@ export class PolicyRiskTrackingService {
   private static async analyzeNewsForPolicyImpacts(newsItem: RegulatoryNewsItem): Promise<PolicyAlert[]> {
     const alerts: PolicyAlert[] = [];
     
-    // Analyze news content for renewable energy impact
-    const hasRenewableEnergyImpact = this.MONITORING_KEYWORDS.some(keyword => 
+    // Use broader keywords for policy impact analysis - same as GovInfo filtering
+    const broadKeywords = [
+      'energy', 'renewable', 'solar', 'wind', 'climate', 'environment', 'carbon',
+      'electric', 'power', 'utility', 'emissions', 'tax', 'credit', 'regulation'
+    ];
+    
+    // Analyze news content for energy/environment impact using broader keywords
+    const hasEnergyImpact = broadKeywords.some(keyword => 
       newsItem.title.toLowerCase().includes(keyword.toLowerCase()) ||
       newsItem.description.toLowerCase().includes(keyword.toLowerCase())
     );
     
-    if (hasRenewableEnergyImpact) {
+    console.log(`[BATCH] Analyzing news item: "${newsItem.title.substring(0, 60)}..." - Energy impact: ${hasEnergyImpact}`);
+    
+    if (hasEnergyImpact) {
+      console.log(`[BATCH] Creating policy alert for: ${newsItem.title}`);
+      
       // Get affected assets and receivables
       const affectedAssets = await this.identifyAffectedAssetsByNews(newsItem);
       const affectedReceivables = await this.identifyAffectedReceivablesByNews(newsItem);
@@ -550,6 +619,8 @@ export class PolicyRiskTrackingService {
         createdAt: new Date().toISOString(),
         resolved: false
       });
+      
+      console.log(`[BATCH] Created policy alert: ${alerts[alerts.length - 1].alertId}`);
     }
     
     return alerts;

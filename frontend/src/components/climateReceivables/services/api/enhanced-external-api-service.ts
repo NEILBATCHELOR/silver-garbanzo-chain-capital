@@ -367,6 +367,11 @@ export class EnhancedExternalAPIService {
     forecastDays: number
   ): Promise<WeatherAPIResponse | null> {
     try {
+      // Validate API key
+      if (!config.apiKey || config.apiKey === 'your_openweather_api_key_here') {
+        throw new Error('OpenWeather API key not configured - please set VITE_OPENWEATHER_API_KEY environment variable');
+      }
+
       // Current weather
       const currentResponse = await fetch(
         `${config.baseUrl}/weather?q=${encodeURIComponent(location)}&appid=${config.apiKey}&units=metric`,

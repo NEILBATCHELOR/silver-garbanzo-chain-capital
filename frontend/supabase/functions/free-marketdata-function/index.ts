@@ -33,26 +33,15 @@ Deno.serve(async (req) => {
         response = await fetch(apiUrl);
         break;
       case 'fred':
-        // FRED API - Requires valid API key
-        const fredApiKey = params?.api_key;
-        if (!fredApiKey || fredApiKey === 'demo') {
-          throw new Error('Valid FRED API key required - demo key no longer supported');
-        }
+        // FRED API - Uses demo key, or pass API key in params
+        const fredApiKey = params?.api_key || 'demo';
         apiUrl = `https://api.stlouisfed.org/fred/${endpoint}`;
         const fredParams = new URLSearchParams({
           ...params,
           api_key: fredApiKey,
           file_type: 'json'
         });
-        try {
-          response = await fetch(`${apiUrl}?${fredParams.toString()}`, {
-            headers: {
-              'User-Agent': 'ChainCapital/1.0'
-            }
-          });
-        } catch (fetchError) {
-          throw new Error(`FRED API fetch failed: ${fetchError.message}`);
-        }
+        response = await fetch(`${apiUrl}?${fredParams.toString()}`);
         break;
       case 'eia':
         // EIA API - Requires API key
@@ -63,7 +52,7 @@ Deno.serve(async (req) => {
         apiUrl = `https://api.eia.gov/v2/${endpoint}`;
         const eiaParams = new URLSearchParams({
           ...params,
-          api_key: eiaApiKey // Fixed: EIA API expects 'api_key' parameter name
+          api: eiaApiKey
         });
         response = await fetch(`${apiUrl}?${eiaParams.toString()}`);
         break;
@@ -76,21 +65,6 @@ Deno.serve(async (req) => {
         }
         response = await fetch(apiUrl);
         break;
-
-      case 'govinfo':
-        // GovInfo API - API KEY REQUIRED
-        const govInfoApiKey = params?.api_key;
-        if (!govInfoApiKey) {
-          throw new Error('GovInfo API key required');
-        }
-        apiUrl = `https://api.govinfo.gov/${endpoint}`;
-        const govInfoParams = new URLSearchParams({
-          ...params,
-          api_key: govInfoApiKey
-        });
-        response = await fetch(`${apiUrl}?${govInfoParams.toString()}`);
-        break;
-
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }

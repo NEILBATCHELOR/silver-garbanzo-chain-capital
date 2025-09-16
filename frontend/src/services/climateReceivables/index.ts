@@ -83,6 +83,14 @@ export { AutomatedComplianceMonitoringService } from './automated-compliance-mon
 export { RECIncentiveOrchestrator } from './rec-incentive-orchestrator';
 // Note: REC types are defined in domain types, not locally exported
 
+// Risk Factors Population Service
+export { RiskFactorsPopulationService } from './riskFactorsPopulationService';
+export type { PopulationSummary, RiskFactorsResult } from './riskFactorsPopulationService';
+
+// Market Data Cache Population Service
+export { MarketDataCachePopulationService } from './marketDataCachePopulationService';
+export type { CachePopulationResult } from './marketDataCachePopulationService';
+
 // Service Status and Health Check Types
 export interface ServiceHealthStatus {
   service_name: string;

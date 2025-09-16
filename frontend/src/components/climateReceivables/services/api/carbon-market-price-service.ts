@@ -33,19 +33,35 @@ export class CarbonMarketPriceService {
   private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
   /**
-   * Get current carbon offset prices
+   * Get current carbon offset prices (API-FIRST APPROACH)
    * @param region Optional region to filter by (e.g., 'us', 'eu')
+   * @param forceAPICall Force live API call instead of checking cache
    * @returns Array of carbon price data
    */
-  public static async getCarbonOffsetPrices(region?: string): Promise<CarbonPriceData[]> {
+  public static async getCarbonOffsetPrices(region?: string, forceAPICall: boolean = true): Promise<CarbonPriceData[]> {
     try {
-      // Get today's date
-      const today = new Date().toISOString().split('T')[0];
+      console.log(`[BATCH] Getting LIVE carbon offset prices for region: ${region || 'global'}`);
       
-      // Try to get prices from the database first
+      // API-FIRST: Always try live API data first
+      if (forceAPICall && this.API_KEY && this.API_KEY !== 'your_carbon_interface_api_key_here') {
+        try {
+          console.log('[BATCH] Attempting live Carbon Interface API call...');
+          const apiPrices = await this.fetchCarbonPricesFromAPI(region);
+          if (apiPrices.length > 0) {
+            console.log(`[BATCH] ✅ LIVE carbon data from Carbon Interface API: ${apiPrices.length} price points`);
+            return apiPrices;
+          }
+        } catch (apiError) {
+          console.error(`[BATCH] Carbon Interface API failed:`, apiError);
+        }
+      } else if (!this.API_KEY || this.API_KEY === 'your_carbon_interface_api_key_here') {
+        console.log('[BATCH] Carbon Interface API key not configured, checking database...');
+      }
+
+      // CACHE FALLBACK: Try database if API fails
+      const today = new Date().toISOString().split('T')[0];
       const dbPrices = await this.getCarbonPricesFromDatabase(today, region);
       
-      // If we have prices in the database and they're fresh, return them
       if (dbPrices.length > 0) {
         // Check if the data is fresh
         const latestUpdateTime = Math.max(
@@ -54,28 +70,25 @@ export class CarbonMarketPriceService {
         const now = new Date().getTime();
         
         if (now - latestUpdateTime <= this.CACHE_DURATION) {
+          console.log(`[BATCH] Using cached carbon prices from database: ${dbPrices.length} entries`);
           return dbPrices;
+        } else {
+          console.log(`[BATCH] Database carbon prices are stale (${Math.round((now - latestUpdateTime) / (1000 * 60 * 60))} hours old)`);
         }
       }
       
-      // If we don't have prices in the database or they're stale, try to fetch from API
-      try {
-        const apiPrices = await this.fetchCarbonPricesFromAPI(region);
-        return apiPrices;
-      } catch (apiError) {
-        console.error('Error fetching carbon prices from API:', apiError);
-        
-        // If API fetch fails but we have older prices, return those
-        if (dbPrices.length > 0) {
-          console.log('Returning older carbon prices from database');
-          return dbPrices;
-        }
-        
-        // If no database prices exist, use simulated data
-        return this.getSimulatedCarbonPrices(region);
+      // SIMULATION FALLBACK: Only if both API and database fail
+      console.log('[BATCH] Using simulated carbon pricing as final fallback');
+      const simulatedPrices = this.getSimulatedCarbonPrices(region);
+      
+      // Save simulated prices to database for caching
+      for (const price of simulatedPrices) {
+        await this.saveCarbonPriceToDatabase(price);
       }
+      
+      return simulatedPrices;
     } catch (error) {
-      console.error('Error getting carbon offset prices:', error);
+      console.error('[BATCH] Error getting carbon offset prices:', error);
       return this.getSimulatedCarbonPrices(region);
     }
   }
@@ -390,13 +403,25 @@ export class CarbonMarketPriceService {
 
   /**
    * Fetch carbon prices from the Carbon Interface API
+   * NOTE: Carbon Interface API is for emissions calculation, not carbon market pricing
+   * The /carbon_prices endpoint does not exist on their API
    * @param region Optional region to filter by
    * @returns Array of carbon price data
    */
   private static async fetchCarbonPricesFromAPI(region?: string): Promise<CarbonPriceData[]> {
     try {
-      // This is a simulation as the actual API endpoint may vary
-      const url = `${this.BASE_URL}/carbon_prices`;
+      // IMPORTANT: Carbon Interface API does not provide carbon offset pricing
+      // It provides emissions calculations only. Available endpoints are:
+      // - /estimates (POST) - Calculate emissions estimates
+      // - /estimates/{id} (GET) - Get specific estimate
+      
+      // Since carbon offset pricing is not available via Carbon Interface API,
+      // we cannot provide real carbon market pricing data
+      throw new Error('Carbon Interface API does not provide carbon offset market pricing data. API is for emissions calculations only.');
+      
+      // The code below is left for reference but will never execute
+      /*
+      const url = `${this.BASE_URL}/carbon_prices`; // This endpoint does not exist
       
       const response = await fetch(url, {
         headers: {
@@ -431,8 +456,9 @@ export class CarbonMarketPriceService {
       }
       
       return filteredPrices;
+      */
     } catch (error) {
-      console.error('Error fetching carbon offset prices from API:', error);
+      console.error('[BATCH] Carbon Interface API failed:', error);
       throw error;
     }
   }

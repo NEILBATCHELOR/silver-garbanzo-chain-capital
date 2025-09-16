@@ -5,11 +5,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, FileUp, FileText, CheckCircle2, RefreshCw, Download, ArrowUpDown, PlusCircle, Sun, Wind, Droplets, Zap, Mountain } from "lucide-react";
+import { AlertCircle, FileUp, FileText, CheckCircle2, RefreshCw, Download, ArrowUpDown, PlusCircle, Sun, Wind, Droplets, Zap, Mountain, MapPin } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/infrastructure/database/client";
 import { useToast } from "@/components/ui/use-toast";
-import { EnergyAsset, EnergyAssetType, EnergyAssetCsvRow, EnergyAssetValidationError, InsertEnergyAsset } from "../../../types";
+import { EnergyAsset, EnergyAssetType, EnergyAssetCsvRow, EnergyAssetValidationError, InsertEnergyAsset, GeolocationDetails } from "../../../types";
 import { format, parseISO } from "date-fns";
 import { parseCSV, generateCSV, downloadCSV } from "@/utils/shared/formatting/csv";
 import { EnhancedDataTable } from "@/components/ui/enhanced-data-table";
@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { energyAssetsService } from "../../../services";
 import { enhancedEnergyAssetsService } from "../../../services/enhancedEnergyAssetsService";
 import { NavigationCards } from "../../../../factoring/TokenDistributionHelpers";
+import { AddressLookup } from "../../forms/AddressLookup";
 import {
   Select,
   SelectContent,
@@ -54,7 +55,8 @@ const EnergyAssetManager: React.FC<EnergyAssetManagerProps> = ({ projectId }) =>
     name: '',
     type: EnergyAssetType.SOLAR,
     location: '',
-    capacity: 0
+    capacity: 0,
+    geolocation_details: undefined
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const { toast } = useToast();
@@ -270,6 +272,15 @@ const EnergyAssetManager: React.FC<EnergyAssetManagerProps> = ({ projectId }) =>
     }
   };
 
+  // Handle address lookup for new asset creation
+  const handleAddressChange = (address: string, geolocationDetails: GeolocationDetails | null) => {
+    setNewAsset(prev => ({ 
+      ...prev, 
+      location: address,
+      geolocation_details: geolocationDetails || undefined
+    }));
+  };
+
   // Handle create new asset
   const handleCreateAsset = async () => {
     try {
@@ -295,7 +306,8 @@ const EnergyAssetManager: React.FC<EnergyAssetManagerProps> = ({ projectId }) =>
         name: '',
         type: EnergyAssetType.SOLAR,
         location: '',
-        capacity: 0
+        capacity: 0,
+        geolocation_details: undefined
       });
       setShowCreateDialog(false);
       
@@ -453,12 +465,20 @@ const EnergyAssetManager: React.FC<EnergyAssetManagerProps> = ({ projectId }) =>
         </Button>
       ),
       cell: ({ row }) => (
-        <EditableCell
-          value={row.getValue("location")}
-          row={row.original}
-          column="location"
-          onSave={handleSaveAsset}
-        />
+        <div className="flex items-center space-x-2">
+          <EditableCell
+            value={row.getValue("location")}
+            row={row.original}
+            column="location"
+            onSave={handleSaveAsset}
+          />
+          {row.original.geolocationDetails && (
+            <Badge variant="secondary" className="text-xs">
+              <MapPin className="w-3 h-3 mr-1" />
+              Geocoded
+            </Badge>
+          )}
+        </div>
       ),
       enableSorting: true,
     },
@@ -676,13 +696,17 @@ const EnergyAssetManager: React.FC<EnergyAssetManagerProps> = ({ projectId }) =>
                               <Label htmlFor="location" className="text-right">
                                 Location
                               </Label>
-                              <Input
-                                id="location"
-                                value={newAsset.location}
-                                onChange={(e) => setNewAsset(prev => ({ ...prev, location: e.target.value }))}
-                                className="col-span-3"
-                                placeholder="e.g., California, USA"
-                              />
+                              <div className="col-span-3">
+                                <AddressLookup
+                                  value={newAsset.location}
+                                  onChange={handleAddressChange}
+                                  placeholder="e.g., California, USA"
+                                  required
+                                  showCoordinates={true}
+                                  allowManualEntry={true}
+                                  className="w-full"
+                                />
+                              </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                               <Label htmlFor="capacity" className="text-right">

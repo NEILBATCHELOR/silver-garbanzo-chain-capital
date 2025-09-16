@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,7 +33,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, Loader2, CloudSun } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { productionDataService, energyAssetsService } from '../../../services';
-import { WeatherDataServiceEnhanced } from '../../../services/api/weather-data-service-enhanced';
+import { WeatherDataService } from '../../../services/api/weather-data-service';
+import { supabase } from '@/infrastructure/database/client';
 import { EnergyAsset } from '../../../types';
 
 // Enhanced form schema with better validation
@@ -78,6 +79,8 @@ const ProductionDataFormEnhanced: React.FC<ProductionDataFormEnhancedProps> = ({
   const [assets, setAssets] = useState<EnergyAsset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState<boolean>(true);
   const [weatherDataLoading, setWeatherDataLoading] = useState<boolean>(false);
+  const [weatherDataFetched, setWeatherDataFetched] = useState<Set<string>>(new Set()); // Track what we've already fetched
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Helper to generate project-aware URLs
   const getProjectUrl = (path: string) => {
@@ -225,23 +228,97 @@ const ProductionDataFormEnhanced: React.FC<ProductionDataFormEnhancedProps> = ({
     }
   }, [isEditing, id, form, toast]);
 
-  // Auto-fetch weather data when asset and date are selected (for new records only)
+  // Auto-fetch weather data when asset and date are selected (for new records only) - DEBOUNCED
   useEffect(() => {
+    // Clear any existing debounce timer
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Only proceed if we're not in editing mode and have the required data
     if (!isEditing && selectedAssetId && productionDate && !weatherDataLoading) {
       const selectedAsset = assets.find(asset => asset.assetId === selectedAssetId);
+      
       if (selectedAsset) {
-        fetchSuggestedWeatherData(selectedAsset.location, productionDate);
+        // Check if we already have weather data populated in the form
+        const currentValues = form.getValues();
+        const hasExistingWeatherData = (
+          (currentValues.sunlightHours !== '' && currentValues.sunlightHours !== undefined) ||
+          (currentValues.windSpeed !== '' && currentValues.windSpeed !== undefined) ||
+          (currentValues.temperature !== '' && currentValues.temperature !== undefined)
+        );
+
+        // Skip if we already have weather data
+        if (hasExistingWeatherData) {
+          console.log('Weather data already populated in form, skipping API call');
+          return;
+        }
+
+        // Create a unique key to track if we've already fetched this combination
+        const fetchKey = `${selectedAsset.location}-${productionDate}`;
+        
+        if (weatherDataFetched.has(fetchKey)) {
+          console.log('Weather data already fetched for this location/date combination, skipping API call');
+          return;
+        }
+
+        // Debounce the API call by 1 second to prevent repeated calls
+        debounceRef.current = setTimeout(() => {
+          console.log('Debounced weather data fetch initiated for:', { location: selectedAsset.location, date: productionDate });
+          fetchSuggestedWeatherData(selectedAsset.location, productionDate, fetchKey);
+        }, 1000);
       }
     }
-  }, [selectedAssetId, productionDate, assets, isEditing, weatherDataLoading]);
 
-  // Function to fetch suggested weather data
-  const fetchSuggestedWeatherData = async (location: string, date: string) => {
+    // Cleanup function to clear timeout on unmount or dependency change
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [selectedAssetId, productionDate, assets, isEditing, weatherDataLoading, form, weatherDataFetched]);
+
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  // Function to fetch suggested weather data with improved error handling and tracking
+  const fetchSuggestedWeatherData = async (location: string, date: string, fetchKey?: string) => {
+    // Skip if we're already loading or if this is a broad/problematic location
+    if (weatherDataLoading) {
+      console.log('Weather data loading already in progress, skipping');
+      return;
+    }
+
+    // Check for problematic location patterns that cause geocoding issues
+    const problematicPatterns = [
+      /^[A-Z]{2,}\s*,\s*USA$/i, // State names like "TEXAS, USA"  
+      /^[A-Z]{2,}\s*,\s*US$/i,  // State names like "TEXAS, US"
+      /^[A-Z\s]+STATE$/i,       // Generic state references
+    ];
+
+    const isProblematicLocation = problematicPatterns.some(pattern => pattern.test(location.trim()));
+    
+    if (isProblematicLocation) {
+      console.warn(`Skipping weather API call for problematic location: "${location}". Location too broad for geocoding.`);
+      return;
+    }
+
     try {
       setWeatherDataLoading(true);
       console.log('Fetching suggested weather data for:', { location, date });
       
-      const weatherData = await WeatherDataServiceEnhanced.getWeatherData(location, date);
+      // Mark this combination as being fetched to prevent duplicates
+      if (fetchKey) {
+        setWeatherDataFetched(prev => new Set(prev.add(fetchKey)));
+      }
+      
+      const weatherData = await WeatherDataService.getWeatherData(location, date);
       
       if (weatherData && (weatherData.sunlightHours || weatherData.windSpeed || weatherData.temperature)) {
         // Only populate if we have actual data and form fields are empty
@@ -261,10 +338,29 @@ const ProductionDataFormEnhanced: React.FC<ProductionDataFormEnhancedProps> = ({
           title: "Weather Data Found",
           description: `Suggested weather data for ${location} on ${date} has been loaded.`,
         });
+      } else {
+        console.log('No useful weather data returned from API');
       }
     } catch (error) {
-      console.warn('Could not fetch suggested weather data:', error);
-      // Don't show error toast for this, it's just a suggestion
+      console.warn(`Could not fetch weather data for "${location}" on ${date}:`, error instanceof Error ? error.message : error);
+      
+      // Remove from fetched set on error so it can be retried later
+      if (fetchKey) {
+        setWeatherDataFetched(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(fetchKey);
+          return newSet;
+        });
+      }
+      
+      // Only show error toast if it's not a geocoding issue (to reduce noise)
+      if (error instanceof Error && !error.message.includes('No coordinates found')) {
+        toast({
+          title: "Weather Data Unavailable",
+          description: `Could not fetch weather data for ${location}. You can enter weather conditions manually.`,
+          variant: "default",
+        });
+      }
     } finally {
       setWeatherDataLoading(false);
     }
@@ -302,18 +398,23 @@ const ProductionDataFormEnhanced: React.FC<ProductionDataFormEnhancedProps> = ({
         try {
           console.log('Creating/updating weather data for location:', selectedAsset.location);
           
-          // Create or update weather data with manual input
-          const weatherData = await WeatherDataServiceEnhanced.createManualWeatherData(
-            selectedAsset.location,
-            values.productionDate,
-            {
-              sunlightHours: values.sunlightHours !== '' ? Number(values.sunlightHours) : undefined,
-              windSpeed: values.windSpeed !== '' ? Number(values.windSpeed) : undefined,
-              temperature: values.temperature !== '' ? Number(values.temperature) : undefined,
-            }
-          );
+          // Use WeatherDataService to properly handle duplicates with upsert pattern
+          const weatherData = {
+            weatherId: '', // Will be assigned by service
+            location: selectedAsset.location.trim(),
+            date: values.productionDate,
+            sunlightHours: values.sunlightHours !== '' ? Number(values.sunlightHours) : null,
+            windSpeed: values.windSpeed !== '' ? Number(values.windSpeed) : null,
+            temperature: values.temperature !== '' ? Number(values.temperature) : null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          // FIXED: Use WeatherDataService.saveWeatherData() instead of direct database insert
+          // This method properly handles duplicate key constraints with upsert pattern
+          const savedWeatherData = await WeatherDataService.saveWeatherData(weatherData);
           
-          weatherConditionId = weatherData.weatherId;
+          weatherConditionId = savedWeatherData.weatherId;
           console.log('Weather data created/updated with ID:', weatherConditionId);
           
           toast({
@@ -617,12 +718,14 @@ const ProductionDataFormEnhanced: React.FC<ProductionDataFormEnhancedProps> = ({
                   <p className="text-sm text-blue-800">
                     <strong>Tip:</strong> Suggested weather data will be loaded automatically when available. 
                     You can modify or add your own weather measurements.
+                    {weatherDataLoading && " Loading weather data..."}
                   </p>
                 </div>
               )}
 
-
             </div>
+
+            {/* Cleanup debounce timeout on unmount */}
           </form>
         </Form>
       </CardContent>
