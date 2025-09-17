@@ -6862,3 +6862,101 @@ enum workflow_status {
 
   @@schema("public")
 }
+
+/// EIP-4337 Bundler configurations for different chains and networks
+model bundler_configurations {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bundler_name          String
+  bundler_address       String
+  entry_point_address   String
+  chain_id              Int
+  rpc_url               String
+  max_bundle_size       Int       @default(5)
+  max_bundle_wait_time  Int       @default(5000)
+  min_priority_fee      BigInt    @default(1000000000)
+  is_active             Boolean   @default(true)
+  supported_entry_points String[]  @default([])
+  gas_price_multiplier  Decimal   @default(1.10) @db.Decimal(4,2)
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([bundler_name, chain_id], map: "idx_bundler_configurations_name_chain")
+  @@index([chain_id], map: "idx_bundler_configurations_chain_id")
+  @@index([is_active], map: "idx_bundler_configurations_is_active")
+  @@schema("public")
+}
+
+/// EIP-4337 Bundler operations tracking for UserOperation bundling
+model bundler_operations {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bundle_hash        String    @unique
+  bundler_address    String
+  entry_point_address String
+  chain_id           Int
+  user_operations    String[]  // Array of user operation hashes
+  transaction_hash   String?
+  block_number       BigInt?
+  gas_used           BigInt?
+  gas_price          BigInt?
+  status             String    // 'pending' | 'submitted' | 'included' | 'failed'
+  bundle_size        Int
+  total_gas_limit    BigInt
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  submitted_at       DateTime? @db.Timestamptz(6)
+  included_at        DateTime? @db.Timestamptz(6)
+  failure_reason     String?
+
+  @@index([bundle_hash], map: "idx_bundler_operations_bundle_hash")
+  @@index([status], map: "idx_bundler_operations_status")
+  @@index([chain_id], map: "idx_bundler_operations_chain_id")
+  @@index([created_at], map: "idx_bundler_operations_created_at")
+  @@schema("public")
+}
+
+/// Session keys for account abstraction - temporary spending permissions
+model session_keys {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wallet_id           String    @db.Uuid
+  session_key_address String
+  public_key          String
+  permissions         Json      // SessionKeyPermissions as JSON
+  validity_start      DateTime  @db.Timestamptz(6)
+  validity_end        DateTime  @db.Timestamptz(6)
+  status              String    @default("active") // 'active' | 'revoked' | 'expired'
+  created_by_user_id  String    @db.Uuid
+  spending_limit      BigInt?
+  daily_limit         BigInt?
+  allowed_targets     String[]  @default([])
+  allowed_functions   String[]  @default([])
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  last_used_at        DateTime? @db.Timestamptz(6)
+  revoked_at          DateTime? @db.Timestamptz(6)
+  usage_count         Int       @default(0)
+
+  session_key_usage   session_key_usage[]
+
+  @@unique([session_key_address], map: "idx_session_keys_address_unique")
+  @@index([wallet_id], map: "idx_session_keys_wallet_id")
+  @@index([status], map: "idx_session_keys_status")
+  @@index([validity_end], map: "idx_session_keys_validity_end")
+  @@index([created_by_user_id], map: "idx_session_keys_created_by")
+  @@schema("public")
+}
+
+/// Session key usage tracking for monitoring and limits
+model session_key_usage {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_key_id    String      @db.Uuid
+  user_operation_id String      @db.Uuid
+  amount_spent      BigInt
+  target_address    String
+  function_signature String?
+  created_at        DateTime    @default(now()) @db.Timestamptz(6)
+
+  session_keys      session_keys @relation(fields: [session_key_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_key_id], map: "idx_session_key_usage_session_key_id")
+  @@index([user_operation_id], map: "idx_session_key_usage_user_operation_id")
+  @@index([created_at], map: "idx_session_key_usage_created_at")
+  @@schema("public")
+}

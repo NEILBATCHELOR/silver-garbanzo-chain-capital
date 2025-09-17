@@ -869,6 +869,117 @@ export type Database = {
         }
         Relationships: []
       }
+      bundler_configurations: {
+        Row: {
+          bundler_address: string
+          bundler_name: string
+          chain_id: number
+          created_at: string | null
+          entry_point_address: string
+          gas_price_multiplier: number | null
+          id: string
+          is_active: boolean | null
+          max_bundle_size: number | null
+          max_bundle_wait_time: number | null
+          min_priority_fee: number | null
+          rpc_url: string
+          supported_entry_points: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          bundler_address: string
+          bundler_name: string
+          chain_id: number
+          created_at?: string | null
+          entry_point_address: string
+          gas_price_multiplier?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_bundle_size?: number | null
+          max_bundle_wait_time?: number | null
+          min_priority_fee?: number | null
+          rpc_url: string
+          supported_entry_points?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          bundler_address?: string
+          bundler_name?: string
+          chain_id?: number
+          created_at?: string | null
+          entry_point_address?: string
+          gas_price_multiplier?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_bundle_size?: number | null
+          max_bundle_wait_time?: number | null
+          min_priority_fee?: number | null
+          rpc_url?: string
+          supported_entry_points?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bundler_operations: {
+        Row: {
+          block_number: number | null
+          bundle_hash: string
+          bundle_size: number
+          bundler_address: string
+          chain_id: number
+          created_at: string | null
+          entry_point_address: string
+          failure_reason: string | null
+          gas_price: number | null
+          gas_used: number | null
+          id: string
+          included_at: string | null
+          status: string | null
+          submitted_at: string | null
+          total_gas_limit: number
+          transaction_hash: string | null
+          user_operations: Json
+        }
+        Insert: {
+          block_number?: number | null
+          bundle_hash: string
+          bundle_size?: number
+          bundler_address: string
+          chain_id: number
+          created_at?: string | null
+          entry_point_address: string
+          failure_reason?: string | null
+          gas_price?: number | null
+          gas_used?: number | null
+          id?: string
+          included_at?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          total_gas_limit: number
+          transaction_hash?: string | null
+          user_operations?: Json
+        }
+        Update: {
+          block_number?: number | null
+          bundle_hash?: string
+          bundle_size?: number
+          bundler_address?: string
+          chain_id?: number
+          created_at?: string | null
+          entry_point_address?: string
+          failure_reason?: string | null
+          gas_price?: number | null
+          gas_used?: number | null
+          id?: string
+          included_at?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          total_gas_limit?: number
+          transaction_hash?: string | null
+          user_operations?: Json
+        }
+        Relationships: []
+      }
       cap_tables: {
         Row: {
           created_at: string | null
@@ -8688,6 +8799,60 @@ export type Database = {
           },
         ]
       }
+      paymaster_policies: {
+        Row: {
+          allowed_functions: Json | null
+          blacklisted_addresses: Json | null
+          chain_id: number
+          created_at: string | null
+          daily_limit: number | null
+          id: string
+          is_active: boolean | null
+          monthly_limit: number | null
+          paymaster_address: string
+          policy_config: Json
+          policy_name: string
+          policy_type: string
+          time_restrictions: Json | null
+          updated_at: string | null
+          whitelisted_addresses: Json | null
+        }
+        Insert: {
+          allowed_functions?: Json | null
+          blacklisted_addresses?: Json | null
+          chain_id: number
+          created_at?: string | null
+          daily_limit?: number | null
+          id?: string
+          is_active?: boolean | null
+          monthly_limit?: number | null
+          paymaster_address: string
+          policy_config?: Json
+          policy_name: string
+          policy_type: string
+          time_restrictions?: Json | null
+          updated_at?: string | null
+          whitelisted_addresses?: Json | null
+        }
+        Update: {
+          allowed_functions?: Json | null
+          blacklisted_addresses?: Json | null
+          chain_id?: number
+          created_at?: string | null
+          daily_limit?: number | null
+          id?: string
+          is_active?: boolean | null
+          monthly_limit?: number | null
+          paymaster_address?: string
+          policy_config?: Json
+          policy_name?: string
+          policy_type?: string
+          time_restrictions?: Json | null
+          updated_at?: string | null
+          whitelisted_addresses?: Json | null
+        }
+        Relationships: []
+      }
       permissions: {
         Row: {
           created_at: string
@@ -11545,6 +11710,119 @@ export type Database = {
           wallet_id?: string | null
         }
         Relationships: []
+      }
+      session_key_usage: {
+        Row: {
+          amount_spent: number
+          created_at: string | null
+          function_signature: string | null
+          id: string
+          session_key_id: string
+          target_address: string
+          user_operation_id: string
+        }
+        Insert: {
+          amount_spent?: number
+          created_at?: string | null
+          function_signature?: string | null
+          id?: string
+          session_key_id: string
+          target_address: string
+          user_operation_id: string
+        }
+        Update: {
+          amount_spent?: number
+          created_at?: string | null
+          function_signature?: string | null
+          id?: string
+          session_key_id?: string
+          target_address?: string
+          user_operation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_key_usage_session_key_id_fkey"
+            columns: ["session_key_id"]
+            isOneToOne: false
+            referencedRelation: "session_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_key_usage_user_operation_id_fkey"
+            columns: ["user_operation_id"]
+            isOneToOne: false
+            referencedRelation: "user_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_keys: {
+        Row: {
+          allowed_functions: Json | null
+          allowed_targets: Json | null
+          created_at: string | null
+          created_by_user_id: string
+          daily_limit: number | null
+          id: string
+          last_used_at: string | null
+          permissions: Json
+          public_key: string
+          revoked_at: string | null
+          session_key_address: string
+          spending_limit: number | null
+          status: string | null
+          usage_count: number | null
+          validity_end: string
+          validity_start: string
+          wallet_id: string
+        }
+        Insert: {
+          allowed_functions?: Json | null
+          allowed_targets?: Json | null
+          created_at?: string | null
+          created_by_user_id: string
+          daily_limit?: number | null
+          id?: string
+          last_used_at?: string | null
+          permissions?: Json
+          public_key: string
+          revoked_at?: string | null
+          session_key_address: string
+          spending_limit?: number | null
+          status?: string | null
+          usage_count?: number | null
+          validity_end: string
+          validity_start: string
+          wallet_id: string
+        }
+        Update: {
+          allowed_functions?: Json | null
+          allowed_targets?: Json | null
+          created_at?: string | null
+          created_by_user_id?: string
+          daily_limit?: number | null
+          id?: string
+          last_used_at?: string | null
+          permissions?: Json
+          public_key?: string
+          revoked_at?: string | null
+          session_key_address?: string
+          spending_limit?: number | null
+          status?: string | null
+          usage_count?: number | null
+          validity_end?: string
+          validity_start?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_keys_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settlement_metrics: {
         Row: {

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Mor7TxSfpQNncu5wLug3uJGypSLgOugoA0MKmoCviXGKVop7Zrw1FRNMTadHxUN
+\restrict 0x2tuFaGOwLg3TuAhoTf4JIEmCJmCgDAXxXA3XgHkXpwbbkAbkgy7bEvJCIOCmi
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -7793,6 +7793,68 @@ COMMENT ON TABLE public.bulk_operations IS 'Tracks bulk operations performed in 
 
 
 --
+-- Name: bundler_configurations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bundler_configurations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bundler_name text NOT NULL,
+    bundler_address text NOT NULL,
+    entry_point_address text NOT NULL,
+    chain_id integer NOT NULL,
+    rpc_url text NOT NULL,
+    max_bundle_size integer DEFAULT 10,
+    max_bundle_wait_time integer DEFAULT 5000,
+    min_priority_fee bigint DEFAULT 1000000000,
+    is_active boolean DEFAULT true,
+    supported_entry_points jsonb DEFAULT '[]'::jsonb,
+    gas_price_multiplier numeric(3,2) DEFAULT 1.1,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE bundler_configurations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.bundler_configurations IS 'Configuration settings for different bundler services';
+
+
+--
+-- Name: bundler_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bundler_operations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bundle_hash text NOT NULL,
+    bundler_address text NOT NULL,
+    entry_point_address text NOT NULL,
+    chain_id integer NOT NULL,
+    user_operations jsonb DEFAULT '[]'::jsonb NOT NULL,
+    transaction_hash text,
+    block_number bigint,
+    gas_used bigint,
+    gas_price bigint,
+    status text DEFAULT 'pending'::text,
+    bundle_size integer DEFAULT 0 NOT NULL,
+    total_gas_limit bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    submitted_at timestamp with time zone,
+    included_at timestamp with time zone,
+    failure_reason text,
+    CONSTRAINT bundler_operations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'submitted'::text, 'included'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: TABLE bundler_operations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.bundler_operations IS 'Tracks EIP-4337 bundler operations and transaction bundling status';
+
+
+--
 -- Name: cap_tables; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12000,6 +12062,37 @@ COMMENT ON COLUMN public.paymaster_operations.policy_applied IS 'JSONB storing t
 
 
 --
+-- Name: paymaster_policies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.paymaster_policies (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    policy_name text NOT NULL,
+    paymaster_address text NOT NULL,
+    chain_id integer NOT NULL,
+    policy_type text NOT NULL,
+    policy_config jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_active boolean DEFAULT true,
+    daily_limit bigint,
+    monthly_limit bigint,
+    whitelisted_addresses jsonb DEFAULT '[]'::jsonb,
+    blacklisted_addresses jsonb DEFAULT '[]'::jsonb,
+    allowed_functions jsonb DEFAULT '[]'::jsonb,
+    time_restrictions jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT paymaster_policies_policy_type_check CHECK ((policy_type = ANY (ARRAY['whitelist'::text, 'rate_limit'::text, 'spending_limit'::text, 'token_based'::text, 'time_based'::text])))
+);
+
+
+--
+-- Name: TABLE paymaster_policies; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.paymaster_policies IS 'Advanced paymaster policy configurations for sponsored transactions';
+
+
+--
 -- Name: permissions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13879,6 +13972,61 @@ CREATE TABLE public.security_events (
 --
 
 COMMENT ON TABLE public.security_events IS 'Stores security-related events and incidents across the platform';
+
+
+--
+-- Name: session_key_usage; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.session_key_usage (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    session_key_id uuid NOT NULL,
+    user_operation_id uuid NOT NULL,
+    amount_spent bigint DEFAULT 0 NOT NULL,
+    target_address text NOT NULL,
+    function_signature text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE session_key_usage; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.session_key_usage IS 'Tracks individual session key transaction usage and spending';
+
+
+--
+-- Name: session_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.session_keys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_id uuid NOT NULL,
+    session_key_address text NOT NULL,
+    public_key text NOT NULL,
+    permissions jsonb DEFAULT '{}'::jsonb NOT NULL,
+    validity_start timestamp with time zone NOT NULL,
+    validity_end timestamp with time zone NOT NULL,
+    status text DEFAULT 'active'::text,
+    created_by_user_id uuid NOT NULL,
+    spending_limit bigint,
+    daily_limit bigint,
+    allowed_targets jsonb DEFAULT '[]'::jsonb,
+    allowed_functions jsonb DEFAULT '[]'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    last_used_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    usage_count integer DEFAULT 0,
+    CONSTRAINT session_keys_status_check CHECK ((status = ANY (ARRAY['active'::text, 'revoked'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: TABLE session_keys; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.session_keys IS 'Session key management for improved account abstraction UX';
 
 
 --
@@ -17791,6 +17939,30 @@ ALTER TABLE ONLY public.bulk_operations
 
 
 --
+-- Name: bundler_configurations bundler_configurations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bundler_configurations
+    ADD CONSTRAINT bundler_configurations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bundler_operations bundler_operations_bundle_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bundler_operations
+    ADD CONSTRAINT bundler_operations_bundle_hash_key UNIQUE (bundle_hash);
+
+
+--
+-- Name: bundler_operations bundler_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bundler_operations
+    ADD CONSTRAINT bundler_operations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: cap_tables cap_tables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -19760,6 +19932,14 @@ ALTER TABLE ONLY public.paymaster_operations
 
 
 --
+-- Name: paymaster_policies paymaster_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.paymaster_policies
+    ADD CONSTRAINT paymaster_policies_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: permissions permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20209,6 +20389,22 @@ ALTER TABLE ONLY public.security_audit_logs
 
 ALTER TABLE ONLY public.security_events
     ADD CONSTRAINT security_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: session_key_usage session_key_usage_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.session_key_usage
+    ADD CONSTRAINT session_key_usage_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: session_keys session_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.session_keys
+    ADD CONSTRAINT session_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -21756,6 +21952,27 @@ CREATE INDEX idx_bulk_operations_operation_type ON public.bulk_operations USING 
 --
 
 CREATE INDEX idx_bulk_operations_status ON public.bulk_operations USING btree (status);
+
+
+--
+-- Name: idx_bundler_operations_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bundler_operations_chain_id ON public.bundler_operations USING btree (chain_id);
+
+
+--
+-- Name: idx_bundler_operations_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bundler_operations_created_at ON public.bundler_operations USING btree (created_at);
+
+
+--
+-- Name: idx_bundler_operations_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bundler_operations_status ON public.bundler_operations USING btree (status);
 
 
 --
@@ -24426,6 +24643,20 @@ CREATE INDEX idx_paymaster_operations_user_op ON public.paymaster_operations USI
 
 
 --
+-- Name: idx_paymaster_policies_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_paymaster_policies_active ON public.paymaster_policies USING btree (is_active);
+
+
+--
+-- Name: idx_paymaster_policies_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_paymaster_policies_chain_id ON public.paymaster_policies USING btree (chain_id);
+
+
+--
 -- Name: idx_policy_rule_approvers_rule_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25284,6 +25515,34 @@ CREATE INDEX idx_security_events_wallet_address ON public.security_events USING 
 --
 
 CREATE INDEX idx_security_events_wallet_id ON public.security_events USING btree (wallet_id);
+
+
+--
+-- Name: idx_session_key_usage_session_key_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_session_key_usage_session_key_id ON public.session_key_usage USING btree (session_key_id);
+
+
+--
+-- Name: idx_session_keys_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_session_keys_status ON public.session_keys USING btree (status);
+
+
+--
+-- Name: idx_session_keys_validity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_session_keys_validity ON public.session_keys USING btree (validity_start, validity_end);
+
+
+--
+-- Name: idx_session_keys_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_session_keys_wallet_id ON public.session_keys USING btree (wallet_id);
 
 
 --
@@ -29280,6 +29539,30 @@ ALTER TABLE ONLY public.security_events
 
 
 --
+-- Name: session_key_usage session_key_usage_session_key_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.session_key_usage
+    ADD CONSTRAINT session_key_usage_session_key_id_fkey FOREIGN KEY (session_key_id) REFERENCES public.session_keys(id) ON DELETE CASCADE;
+
+
+--
+-- Name: session_key_usage session_key_usage_user_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.session_key_usage
+    ADD CONSTRAINT session_key_usage_user_operation_id_fkey FOREIGN KEY (user_operation_id) REFERENCES public.user_operations(id);
+
+
+--
+-- Name: session_keys session_keys_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.session_keys
+    ADD CONSTRAINT session_keys_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: sidebar_configurations sidebar_configurations_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32357,6 +32640,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bu
 
 
 --
+-- Name: TABLE bundler_configurations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO prisma;
+
+
+--
+-- Name: TABLE bundler_operations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO prisma;
+
+
+--
 -- Name: TABLE cap_tables; Type: ACL; Schema: public; Owner: -
 --
 
@@ -33907,6 +34210,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pa
 
 
 --
+-- Name: TABLE paymaster_policies; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO prisma;
+
+
+--
 -- Name: TABLE permissions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -34404,6 +34717,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.se
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO prisma;
+
+
+--
+-- Name: TABLE session_key_usage; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO prisma;
+
+
+--
+-- Name: TABLE session_keys; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO prisma;
 
 
 --
@@ -35534,5 +35867,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Mor7TxSfpQNncu5wLug3uJGypSLgOugoA0MKmoCviXGKVop7Zrw1FRNMTadHxUN
+\unrestrict 0x2tuFaGOwLg3TuAhoTf4JIEmCJmCgDAXxXA3XgHkXpwbbkAbkgy7bEvJCIOCmi
 

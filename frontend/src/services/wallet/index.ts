@@ -1,101 +1,51 @@
-// Export all wallet services for easy importing
-export { TransferService, transferService } from './TransferService';
-export { RipplePaymentsService, ripplePaymentsService } from './RipplePaymentsService';
-export { MoonpayService, moonpayService } from './MoonpayService';
+// Main wallet services
+export * from './MultiChainBalanceService';
+export * from './TransactionHistoryService';
+export * from './PriceFeedService';
+export * from './EnhancedTokenDetectionService';
 
-// Export new production-ready services
-export { PriceFeedService, priceFeedService } from './PriceFeedService';
-export { MultiChainBalanceService, multiChainBalanceService } from './MultiChainBalanceService';
-export { TransactionHistoryService, transactionHistoryService } from './TransactionHistoryService';
-export { EnhancedTokenDetectionService, enhancedTokenDetectionService } from './EnhancedTokenDetectionService';
-export { LightningNetworkService } from './LightningNetworkService';
+// Account abstraction services
+export * from './SessionKeyApiService';
+export * from './PaymasterApiService';
+export * from './account-abstraction';
 
-// Export existing services
-export { default as MultiSigWalletService } from './MultiSigWalletService';
-export { default as TransactionMonitorService } from './TransactionMonitorService';
-export { default as LiveDataService } from './LiveDataService';
-export { default as WalletTransactionService } from './WalletTransactionService';
-export * from './walletService';
+// Other wallet services
+export * from './WalletManager';
+export * from './WalletGenerator';
+export * from './WalletTransactionService';
+export * from './SecurityService';
+export * from './LightningNetworkService';
+export * from './MultiSigWalletService';
 
-// Export balance services
-export { BalanceService, balanceService } from './balances/BalanceService';
+// Import and re-export the service instances
+import { multiChainBalanceService } from './MultiChainBalanceService';
+import { transactionHistoryService } from './TransactionHistoryService';
+import { priceFeedService } from './PriceFeedService';
+import { enhancedTokenDetectionService } from './EnhancedTokenDetectionService';
 
-// Export types
-export type {
-  TransferParams,
-  TransferResult,
-  TransferEstimate,
-  TransferHistory
-} from './TransferService';
+export { 
+  multiChainBalanceService,
+  transactionHistoryService,
+  priceFeedService,
+  enhancedTokenDetectionService
+};
 
-export type {
-  RipplePaymentParams,
-  RipplePaymentResult,
-  RippleQuote,
-  RippleAccountInfo,
-  RipplePaymentHistory
-} from './RipplePaymentsService';
-
-export type {
-  MoonpayTransaction,
-  MoonpayCurrency,
-  MoonpayQuote,
-  MoonpayLimits,
-  MoonpayCustomer,
-  MoonpayPaymentMethod
-} from './MoonpayService';
-
-export type {
-  NetworkStatus,
-  LiveTransaction
-} from './LiveDataService';
-
-export type {
-  WalletTransaction
-} from './WalletTransactionService';
-
-// Export new service types
-export type {
-  TokenPrice,
-  PriceRequest,
-  PriceResponse
-} from './PriceFeedService';
-
-export type {
-  ChainConfig,
-  MultiChainBalance,
-  ChainBalanceData,
-  EnhancedTokenBalance as ERC20TokenBalance
-} from './MultiChainBalanceService';
-
-export type {
-  Transaction,
-  TransactionFilter,
-  TransactionSummary,
-  ContractInteraction,
-  SwapDetails
-} from './TransactionHistoryService';
-
-export type {
-  TokenBalance,
-  WalletBalance
-} from './balances/BalanceService';
-
-export type {
-  LightningInvoice,
-  PaymentChannel,
-  PaymentRoute,
-  LightningNode
-} from './LightningNetworkService';
-
-export type {
+// Re-export domain types
+export type { 
+  EnhancedToken,
+  TokenStandard,
   ERC721Balance,
   ERC1155Balance,
   ERC3525Balance,
   ERC4626Balance,
-  EnhancedTokenBalance as EnhancedToken,
-  TokenStandard,
-  ChainTokenBalances,
-  NFTMetadata,
-  SFTSlotMetadata
-} from './EnhancedTokenDetectionService';
+  EnhancedTokenBalance
+} from '@/types/domain/wallet';
+
+// Re-export types that don't conflict
+export type { 
+  MultiChainBalance,
+  ChainBalanceData
+} from './MultiChainBalanceService';
+
+// Re-export Transaction type from core models with a clear alias
+export type { Transaction } from '@/types/core/centralModels';

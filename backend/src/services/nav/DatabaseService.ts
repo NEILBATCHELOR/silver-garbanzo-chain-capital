@@ -9,7 +9,7 @@
  */
 
 import { getDatabase } from '../../infrastructure/database/client'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../../infrastructure/database/generated'
 import pino from 'pino'
 
 // Create logger instance
@@ -102,7 +102,7 @@ export class DatabaseService {
         LIMIT 1
       `
 
-      if (!result || result.length === 0) {
+      if (!result || result.length === 0 || !result[0]) {
         throw new Error(`MMF product ${fundId} not found`)
       }
 
@@ -563,7 +563,7 @@ export class DatabaseService {
         LIMIT 1
       `
 
-      if (!result || result.length === 0) {
+      if (!result || result.length === 0 || !result[0]) {
         throw new Error(`Price data for ${instrumentKey} not found`)
       }
 
@@ -634,7 +634,7 @@ export class DatabaseService {
         LIMIT 1
       `
 
-      if (!result || result.length === 0) {
+      if (!result || result.length === 0 || !result[0]) {
         throw new Error(`FX rate ${baseCurrency}/${quoteCurrency} not found`)
       }
 
@@ -1125,14 +1125,14 @@ export class DatabaseService {
         `
         
         // Swap the currencies in the result
-        if (result && result.length > 0) {
+        if (result && result.length > 0 && result[0]) {
           const temp = result[0].base_ccy
           result[0].base_ccy = result[0].quote_ccy
           result[0].quote_ccy = temp
         }
       }
 
-      if (!result || result.length === 0) {
+      if (!result || result.length === 0 || !result[0]) {
         throw new Error(`FX rate ${baseCurrency}/${quoteCurrency} not found`)
       }
 

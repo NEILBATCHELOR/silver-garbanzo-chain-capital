@@ -269,7 +269,7 @@ export class CompositeFundCalculator extends BaseCalculator {
       // Use DatabaseService to get real portfolio holdings
       const holdingsData = await this.databaseService.getPortfolioHoldings(
         input.assetId || input.projectId!
-      )
+      ) as any[]
       
       // Transform database holdings to PortfolioHolding format
       const portfolioHoldings: PortfolioHolding[] = []

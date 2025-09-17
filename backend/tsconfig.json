@@ -41,7 +41,7 @@
       "@/plugins/*": ["plugins/*"],
       "@/middleware/*": ["middleware/*"]
     },
-    "types": ["node", "vitest/globals"],
+    "types": ["node"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": [

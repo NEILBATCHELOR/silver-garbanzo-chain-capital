@@ -278,7 +278,7 @@ export class StablecoinFiatCalculator extends BaseCalculator {
       // Use DatabaseService to get real fiat reserves
       const reservesData = await this.databaseService.getFiatReserves(
         input.assetId || input.projectId!
-      )
+      ) as any[]
       
       // Transform database reserves to FiatReserve format
       const fiatReserves: FiatReserve[] = []
@@ -398,7 +398,7 @@ export class StablecoinFiatCalculator extends BaseCalculator {
       // Also get the reserves data for breakdown calculations
       const reservesData = await this.databaseService.getFiatReserves(
         input.assetId || input.projectId!
-      )
+      ) as any[]
       
       // Calculate breakdowns from actual reserve data
       const breakdownByCurrency: { [key: string]: number } = {}

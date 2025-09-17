@@ -1,5 +1,4 @@
 import { BaseService } from '../BaseService'
-import { PrismaClient } from '@prisma/client'
 import {
   Token,
   TokenStandard,
@@ -296,7 +295,7 @@ export class TokenService extends BaseService {
    * Create standard-specific properties based on token standard
    */
   private async createStandardProperties(
-    tx: PrismaClient, 
+    tx: any, 
     tokenId: string, 
     standard: string,
     properties: Record<string, any>

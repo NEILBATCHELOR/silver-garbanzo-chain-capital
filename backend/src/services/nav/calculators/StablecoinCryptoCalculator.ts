@@ -256,7 +256,7 @@ export class StablecoinCryptoCalculator extends BaseCalculator {
       // Use DatabaseService to get real collateral assets
       const collateralData = await this.databaseService.getCollateralAssets(
         input.assetId || input.projectId!
-      )
+      ) as any[]
       
       const collateralAssets: CollateralAsset[] = []
       

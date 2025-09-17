@@ -8,6 +8,9 @@
 export { UserOperationBuilder } from './UserOperationBuilder'
 export { GaslessTransactionInterface } from './GaslessTransactionInterface'
 export { SocialRecoveryInterface } from './SocialRecoveryInterface'
+export { BundlerManagementInterface } from './BundlerManagementInterface'
+export { AdvancedPaymasterConfiguration } from './AdvancedPaymasterConfiguration'
+export { SessionKeyManager } from './SessionKeyManager'
 
 // Re-export types for components that need them
 export type {

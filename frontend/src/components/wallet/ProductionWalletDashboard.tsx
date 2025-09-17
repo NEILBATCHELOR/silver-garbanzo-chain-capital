@@ -47,10 +47,11 @@ import {
   priceFeedService,
   enhancedTokenDetectionService,
   type MultiChainBalance,
-  type Transaction as ServiceTransaction,
   type ChainBalanceData,
   type EnhancedToken
 } from '@/services/wallet'
+import type { Transaction } from '@/services/wallet/TransactionHistoryService'
+import { TokenStandard } from '@/types/domain/wallet/enhancedTokenTypes'
 
 // Import wallet components
 import { ComprehensiveWalletSelector } from './ComprehensiveWalletSelector'
@@ -67,8 +68,58 @@ import {
 import { 
   UserOperationBuilder, 
   GaslessTransactionInterface, 
-  SocialRecoveryInterface 
+  SocialRecoveryInterface,
+  BundlerManagementInterface,
+  AdvancedPaymasterConfiguration,
+  SessionKeyManager
 } from './account-abstraction'
+
+// Import additional types we need
+import type { EnhancedTokenBalance } from '@/services/wallet/EnhancedTokenDetectionService'
+
+// Helper functions for type conversion
+const getTokenStandard = (standard: string): TokenStandard => {
+  switch (standard) {
+    case 'ERC-721': return TokenStandard.ERC721
+    case 'ERC-1155': return TokenStandard.ERC1155
+    case 'ERC-3525': return TokenStandard.ERC3525
+    case 'ERC-4626': return TokenStandard.ERC4626
+    default: return TokenStandard.ERC20
+  }
+}
+
+const extractAdditionalProperties = (tokenBalance: EnhancedTokenBalance): Partial<EnhancedToken> => {
+  const standard = getTokenStandard(tokenBalance.standard)
+  
+  switch (standard) {
+    case TokenStandard.ERC721:
+      const erc721 = tokenBalance as any
+      return {
+        ownedTokens: erc721.ownedTokens || []
+      }
+    case TokenStandard.ERC1155:
+      const erc1155 = tokenBalance as any
+      return {
+        tokenTypes: erc1155.tokenTypes || [],
+        totalValueUsd: erc1155.totalValueUsd
+      }
+    case TokenStandard.ERC3525:
+      const erc3525 = tokenBalance as any
+      return {
+        ownedTokens: erc3525.ownedTokens || [],
+        valueDecimals: erc3525.valueDecimals
+      }
+    case TokenStandard.ERC4626:
+      const erc4626 = tokenBalance as any
+      return {
+        underlyingSymbol: erc4626.underlyingSymbol,
+        underlyingValue: erc4626.underlyingValue,
+        sharePrice: erc4626.sharePrice
+      }
+    default:
+      return {}
+  }
+}
 
 // Multi-chain configuration - now sourced from MultiChainBalanceService
 const SUPPORTED_CHAINS = multiChainBalanceService.getSupportedChains().map(chain => ({
@@ -89,8 +140,8 @@ interface PortfolioBalance {
   color: string;
 }
 
-// Use service transaction type
-interface Transaction extends ServiceTransaction {}
+// Use transaction type directly from TransactionHistoryService
+type WalletTransaction = Transaction
 
 interface WalletFeature {
   id: string;
@@ -109,7 +160,7 @@ export function ProductionWalletDashboard() {
   // State management
   const [currentTab, setCurrentTab] = useState('overview')
   const [portfolioBalances, setPortfolioBalances] = useState<PortfolioBalance[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([])
   const [totalPortfolioValue, setTotalPortfolioValue] = useState(0)
   const [hideBalances, setHideBalances] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -285,7 +336,29 @@ export function ProductionWalletDashboard() {
             chain.chainId,
             chain.name
           )
-          allEnhancedTokens.push(...chainTokens.tokens)
+          
+          // Convert EnhancedTokenBalance[] to EnhancedToken[]
+          const convertedTokens: EnhancedToken[] = chainTokens.tokens.map((tokenBalance) => ({
+            standard: getTokenStandard(tokenBalance.standard),
+            token: {
+              address: tokenBalance.contractAddress,
+              symbol: tokenBalance.symbol,
+              name: tokenBalance.name,
+              decimals: tokenBalance.decimals || 18,
+              chainId: chain.chainId,
+            },
+            balance: '0', // Will be updated based on token type
+            contractAddress: tokenBalance.contractAddress,
+            valueUsd: tokenBalance.valueUsd,
+            lastUpdated: tokenBalance.lastUpdated,
+            source: 'api' as const,
+            name: tokenBalance.name,
+            symbol: tokenBalance.symbol,
+            // Copy additional properties from the balance
+            ...extractAdditionalProperties(tokenBalance)
+          }))
+          
+          allEnhancedTokens.push(...convertedTokens)
         } catch (chainError) {
           console.warn(`Failed to load enhanced tokens for ${chain.name}:`, chainError)
         }
@@ -324,7 +397,7 @@ export function ProductionWalletDashboard() {
     }
   }
 
-  const getTransactionIcon = (type: Transaction['type']) => {
+  const getTransactionIcon = (type: WalletTransaction['type']) => {
     switch (type) {
       case 'send':
         return <Send className="w-4 h-4 text-red-500" />
@@ -343,7 +416,7 @@ export function ProductionWalletDashboard() {
     }
   }
 
-  const getStatusBadge = (status: Transaction['status']) => {
+  const getStatusBadge = (status: WalletTransaction['status']) => {
     switch (status) {
       case 'confirmed':
         return <Badge className="bg-green-600 text-xs">Confirmed</Badge>
@@ -592,7 +665,7 @@ export function ProductionWalletDashboard() {
                             }
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {tx.chainName} • {tx.timestamp.toLocaleDateString()}
+                            {tx.chainName} • {new Date(tx.timestamp).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -677,10 +750,13 @@ export function ProductionWalletDashboard() {
         {/* Account Abstraction Tab */}
         <TabsContent value="account-abstraction" className="space-y-4">
           <Tabs defaultValue="gasless">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="gasless">Gasless Transactions</TabsTrigger>
-              <TabsTrigger value="user-operations">Batch Operations</TabsTrigger>
-              <TabsTrigger value="recovery">Social Recovery</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="gasless">Gasless Txns</TabsTrigger>
+              <TabsTrigger value="user-operations">Batch Ops</TabsTrigger>
+              <TabsTrigger value="recovery">Recovery</TabsTrigger>
+              <TabsTrigger value="bundlers">Bundlers</TabsTrigger>
+              <TabsTrigger value="paymasters">Paymasters</TabsTrigger>
+              <TabsTrigger value="session-keys">Session Keys</TabsTrigger>
             </TabsList>
             
             <TabsContent value="gasless">
@@ -693,6 +769,18 @@ export function ProductionWalletDashboard() {
 
             <TabsContent value="recovery">
               <SocialRecoveryInterface />
+            </TabsContent>
+
+            <TabsContent value="bundlers">
+              <BundlerManagementInterface />
+            </TabsContent>
+
+            <TabsContent value="paymasters">
+              <AdvancedPaymasterConfiguration />
+            </TabsContent>
+
+            <TabsContent value="session-keys">
+              <SessionKeyManager />
             </TabsContent>
           </Tabs>
         </TabsContent>

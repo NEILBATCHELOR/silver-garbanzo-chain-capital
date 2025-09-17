@@ -4,7 +4,6 @@
  * Date: August 25, 2025
  */
 
-import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../BaseService';
 
 export interface RedemptionCalendarEvent {
@@ -39,8 +38,8 @@ export interface RSSFeedOptions {
 }
 
 export class RedemptionCalendarService extends BaseService {
-  constructor(prisma?: PrismaClient) {
-    super(prisma);
+  constructor() {
+    super('RedemptionCalendar');
   }
 
   /**
@@ -89,7 +88,7 @@ export class RedemptionCalendarService extends BaseService {
       if (projectId) params.push(projectId);
       if (organizationId) params.push(organizationId);
 
-      const windows = await this.prisma.$queryRawUnsafe(windowsQuery, ...params) as any[];
+      const windows = await this.db.$queryRawUnsafe(windowsQuery, ...params) as any[];
 
       this.logDebug(`Found ${windows.length} redemption windows for project ${projectId}`);
 
@@ -224,7 +223,7 @@ export class RedemptionCalendarService extends BaseService {
       if (projectId) params.push(projectId);
       if (organizationId) params.push(organizationId);
 
-      const rules = await this.prisma.$queryRawUnsafe(rulesQuery, ...params) as any[];
+      const rules = await this.db.$queryRawUnsafe(rulesQuery, ...params) as any[];
 
       this.logDebug(`Found ${rules.length} redemption rules for project ${projectId}`);
 

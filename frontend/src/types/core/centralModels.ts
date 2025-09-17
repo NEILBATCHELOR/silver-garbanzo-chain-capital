@@ -520,6 +520,22 @@ export interface Transaction extends BaseModel {
   type?: string;
   metadata?: Record<string, any>;
   blockchain?: string;
+  
+  // Enhanced properties for Production Wallet Dashboard
+  contractInteraction?: {
+    contractName?: string;
+    method?: string;
+    parameters?: Record<string, any>;
+  };
+  isGasless?: boolean;
+  isLightning?: boolean;
+  toAddress?: string;
+  fromAddress?: string;
+  chainName?: string;
+  amount?: string;
+  symbol?: string;
+  usdValue?: number;
+  gasFeeUsd?: number;
 }
 
 /**

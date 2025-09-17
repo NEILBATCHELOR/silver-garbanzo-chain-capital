@@ -272,6 +272,10 @@ export abstract class BaseCalculator implements AssetNavCalculator {
         toCurrency.toUpperCase()
       )
       
+      if (!fxRate) {
+        throw new Error(`No FX rate found for ${fromCurrency}/${toCurrency}`)
+      }
+      
       const amountDecimal = amount instanceof Decimal ? amount : new Decimal(amount)
       const convertedAmount = this.multiply(amountDecimal, fxRate.rate)
       

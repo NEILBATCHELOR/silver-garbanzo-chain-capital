@@ -22,15 +22,15 @@ import {
   Wallet
 } from 'lucide-react';
 
-// Import types
+// Import types and enums
 import type {
   ERC721Balance,
   ERC1155Balance,
   ERC3525Balance,
   ERC4626Balance,
-  EnhancedToken,
-  TokenStandard
+  EnhancedToken
 } from '@/services/wallet';
+import { TokenStandard } from '@/types/domain/wallet';
 
 interface EnhancedTokenDisplayProps {
   enhancedTokens: EnhancedToken[];
@@ -39,13 +39,13 @@ interface EnhancedTokenDisplayProps {
 
 const TokenStandardIcon = ({ standard }: { standard: TokenStandard }) => {
   switch (standard) {
-    case 'ERC-721':
+    case TokenStandard.ERC721:
       return <ImageIcon className="w-4 h-4" />;
-    case 'ERC-1155':
+    case TokenStandard.ERC1155:
       return <Layers className="w-4 h-4" />;
-    case 'ERC-3525':
+    case TokenStandard.ERC3525:
       return <Zap className="w-4 h-4" />;
-    case 'ERC-4626':
+    case TokenStandard.ERC4626:
       return <Vault className="w-4 h-4" />;
     default:
       return <Coins className="w-4 h-4" />;
@@ -54,10 +54,11 @@ const TokenStandardIcon = ({ standard }: { standard: TokenStandard }) => {
 
 const TokenStandardBadge = ({ standard }: { standard: TokenStandard }) => {
   const colors = {
-    'ERC-721': 'bg-purple-100 text-purple-800 hover:bg-purple-200',
-    'ERC-1155': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
-    'ERC-3525': 'bg-orange-100 text-orange-800 hover:bg-orange-200',
-    'ERC-4626': 'bg-green-100 text-green-800 hover:bg-green-200'
+    [TokenStandard.ERC721]: 'bg-purple-100 text-purple-800 hover:bg-purple-200',
+    [TokenStandard.ERC1155]: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+    [TokenStandard.ERC3525]: 'bg-orange-100 text-orange-800 hover:bg-orange-200',
+    [TokenStandard.ERC4626]: 'bg-green-100 text-green-800 hover:bg-green-200',
+    [TokenStandard.ERC20]: 'bg-gray-100 text-gray-800 hover:bg-gray-200'
   };
 
   return (
@@ -85,7 +86,7 @@ export default function EnhancedTokenDisplay({ enhancedTokens, isLoading = false
     return acc;
   }, {} as Record<TokenStandard, EnhancedToken[]>);
 
-  const totalValue = enhancedTokens.reduce((sum, token) => sum + token.valueUsd, 0);
+  const totalValue = enhancedTokens.reduce((sum, token) => sum + (token.valueUsd || 0), 0);
 
   if (isLoading) {
     return (
@@ -160,7 +161,7 @@ export default function EnhancedTokenDisplay({ enhancedTokens, isLoading = false
           >
             All ({enhancedTokens.length})
           </Button>
-          {Object.entries(tokensByStandard).map(([standard, tokens]) => (
+          {Object.entries(tokensByStandard).map(([standard, tokens]: [string, EnhancedToken[]]) => (
             <Button
               key={standard}
               variant={selectedTokenType === standard ? 'default' : 'outline'}
@@ -178,17 +179,17 @@ export default function EnhancedTokenDisplay({ enhancedTokens, isLoading = false
         <div className="space-y-4">
           {filteredTokens.map((token, index) => (
             <div key={`${token.contractAddress}-${index}`}>
-              {token.standard === 'ERC-721' && (
-                <ERC721TokenCard token={token as ERC721Balance} />
+              {token.standard === TokenStandard.ERC721 && (
+                <ERC721TokenCard token={token as unknown as ERC721Balance} />
               )}
-              {token.standard === 'ERC-1155' && (
-                <ERC1155TokenCard token={token as ERC1155Balance} />
+              {token.standard === TokenStandard.ERC1155 && (
+                <ERC1155TokenCard token={token as unknown as ERC1155Balance} />
               )}
-              {token.standard === 'ERC-3525' && (
-                <ERC3525TokenCard token={token as ERC3525Balance} />
+              {token.standard === TokenStandard.ERC3525 && (
+                <ERC3525TokenCard token={token as unknown as ERC3525Balance} />
               )}
-              {token.standard === 'ERC-4626' && (
-                <ERC4626TokenCard token={token as ERC4626Balance} />
+              {token.standard === TokenStandard.ERC4626 && (
+                <ERC4626TokenCard token={token as unknown as ERC4626Balance} />
               )}
             </div>
           ))}
@@ -208,7 +209,7 @@ function ERC721TokenCard({ token }: { token: ERC721Balance }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <TokenStandardBadge standard="ERC-721" />
+            <TokenStandardBadge standard={TokenStandard.ERC721} />
             <div>
               <h4 className="font-medium">{token.name}</h4>
               <p className="text-sm text-muted-foreground">{token.symbol}</p>
@@ -228,16 +229,16 @@ function ERC721TokenCard({ token }: { token: ERC721Balance }) {
         <div className="grid grid-cols-3 gap-3 mb-4">
           {displayedNFTs.map((nft) => (
             <div key={nft.tokenId} className="border rounded-lg p-3">
-              {nft.metadata?.image && (
+              {nft.image && (
                 <img 
-                  src={nft.metadata.image} 
-                  alt={nft.metadata.name || `Token #${nft.tokenId}`}
+                  src={nft.image} 
+                  alt={nft.name || `Token #${nft.tokenId}`}
                   className="w-full aspect-square object-cover rounded mb-2"
                 />
               )}
               <div className="text-sm">
                 <div className="font-medium truncate">
-                  {nft.metadata?.name || `#${nft.tokenId}`}
+                  {nft.name || `#${nft.tokenId}`}
                 </div>
                 <div className="text-muted-foreground">
                   Token #{nft.tokenId}
@@ -270,35 +271,31 @@ function ERC1155TokenCard({ token }: { token: ERC1155Balance }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <TokenStandardBadge standard="ERC-1155" />
+            <TokenStandardBadge standard={TokenStandard.ERC1155} />
             <div>
               <h4 className="font-medium">{token.name}</h4>
               <p className="text-sm text-muted-foreground">{token.symbol}</p>
             </div>
           </div>
           <div className="text-right">
-            <div className="font-medium">{token.tokenTypes.length} Types</div>
+            <div className="font-medium">{token.tokenTypes?.length || 0} Types</div>
             <div className="text-sm text-muted-foreground">
-              ${token.totalValueUsd.toFixed(2)}
+              ${(token.totalValueUsd || 0).toFixed(2)}
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {token.tokenTypes.map((tokenType) => (
+          {token.tokenTypes?.map((tokenType) => (
             <div key={tokenType.tokenId} className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex items-center gap-3">
-                {tokenType.metadata?.image && (
-                  <img 
-                    src={tokenType.metadata.image} 
-                    alt={tokenType.metadata.name || `Token ${tokenType.tokenId}`}
-                    className="w-10 h-10 rounded object-cover"
-                  />
-                )}
+                <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-blue-600" />
+                </div>
                 <div>
                   <div className="font-medium">
-                    {tokenType.metadata?.name || `Token #${tokenType.tokenId}`}
+                    {tokenType.name || `Token #${tokenType.tokenId}`}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Balance: {Number(tokenType.balance).toLocaleString()}
@@ -307,7 +304,7 @@ function ERC1155TokenCard({ token }: { token: ERC1155Balance }) {
               </div>
               <div className="text-right">
                 <div className="font-mono text-sm">
-                  ${tokenType.valueUsd.toFixed(2)}
+                  ${((tokenType as any).valueUsd || 0).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -328,7 +325,7 @@ function ERC3525TokenCard({ token }: { token: ERC3525Balance }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <TokenStandardBadge standard="ERC-3525" />
+            <TokenStandardBadge standard={TokenStandard.ERC3525} />
             <div>
               <h4 className="font-medium">{token.name}</h4>
               <p className="text-sm text-muted-foreground">{token.symbol}</p>
@@ -337,7 +334,7 @@ function ERC3525TokenCard({ token }: { token: ERC3525Balance }) {
           <div className="text-right">
             <div className="font-medium">{token.ownedTokens.length} SFTs</div>
             <div className="text-sm text-muted-foreground">
-              Total: {Number(token.totalValue).toFixed(token.valueDecimals)} units
+              Total: {Number(token.totalValue || 0).toFixed(token.valueDecimals || 0)} units
             </div>
           </div>
         </div>
@@ -353,21 +350,21 @@ function ERC3525TokenCard({ token }: { token: ERC3525Balance }) {
                 <div>
                   <div className="font-medium">Token #{sftToken.tokenId}</div>
                   <div className="text-sm text-muted-foreground">
-                    Slot: {sftToken.slot}
+                    Slot: {(sftToken as any).slot || 'N/A'}
                   </div>
-                  {sftToken.slotMetadata?.name && (
+                  {(sftToken as any).slotMetadata?.name && (
                     <div className="text-xs text-muted-foreground">
-                      {sftToken.slotMetadata.name}
+                      {(sftToken as any).slotMetadata.name}
                     </div>
                   )}
                 </div>
               </div>
               <div className="text-right">
                 <div className="font-mono text-sm">
-                  {sftToken.formattedValue}
+                  {(sftToken as any).formattedValue || 'N/A'}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {token.valueDecimals} decimals
+                  {token.valueDecimals || 0} decimals
                 </div>
               </div>
             </div>
@@ -397,14 +394,14 @@ function ERC4626TokenCard({ token }: { token: ERC4626Balance }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <TokenStandardBadge standard="ERC-4626" />
+            <TokenStandardBadge standard={TokenStandard.ERC4626} />
             <div>
               <h4 className="font-medium">{token.name}</h4>
               <p className="text-sm text-muted-foreground">{token.symbol}</p>
             </div>
           </div>
           <div className="text-right">
-            <div className="font-medium">${token.valueUsd.toFixed(2)}</div>
+            <div className="font-medium">${(token.valueUsd || 0).toFixed(2)}</div>
             {token.apy && (
               <div className="text-sm text-green-600">
                 {token.apy.toFixed(2)}% APY
@@ -417,22 +414,22 @@ function ERC4626TokenCard({ token }: { token: ERC4626Balance }) {
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">Vault Shares</div>
-            <div className="font-mono">{Number(token.shares).toFixed(4)}</div>
+            <div className="font-mono">{Number(token.shares || 0).toFixed(4)}</div>
           </div>
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">Underlying Asset</div>
-            <div className="font-medium">{token.underlyingSymbol}</div>
+            <div className="font-medium">{token.underlyingSymbol || token.underlyingToken?.symbol || 'N/A'}</div>
           </div>
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">Asset Value</div>
-            <div className="font-mono">{Number(token.underlyingValue).toFixed(6)}</div>
+            <div className="font-mono">{Number(token.underlyingValue || token.assets || 0).toFixed(6)}</div>
           </div>
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">Share Price</div>
-            <div className="font-mono">${token.sharePrice.toFixed(4)}</div>
+            <div className="font-mono">${(token.sharePrice || token.exchangeRate || 1).toFixed(4)}</div>
           </div>
         </div>
 
