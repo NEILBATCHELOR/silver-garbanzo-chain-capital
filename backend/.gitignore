@@ -123,7 +123,7 @@ Thumbs.db
 # Testing
 test-results/
 coverage/
-add-tests/
+add-tests//
 
 # Backup files
 *.backup
