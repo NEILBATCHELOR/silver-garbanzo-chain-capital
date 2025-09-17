@@ -1,8 +1,9 @@
 /**
- * Production Wallet Dashboard
+ * Enhanced Production Wallet Dashboard
  * 
- * Main wallet interface combining Bitcoin, EVM, and Account Abstraction features
- * Provides multi-chain portfolio management and advanced wallet capabilities
+ * Main wallet interface combining Bitcoin, Lightning Network, EVM, and Account Abstraction features
+ * Provides comprehensive multi-chain portfolio management and advanced wallet capabilities
+ * Now includes full Lightning Network integration and hardware wallet security
  */
 
 'use client'
@@ -32,29 +33,51 @@ import {
   Activity,
   Coins,
   CreditCard,
-  Layers
+  Layers,
+  TestTube2,
+  Usb
 } from 'lucide-react'
 import { useAccount, useBalance } from 'wagmi'
 import { formatEther } from 'viem'
 
+// Import wallet services
+import { 
+  multiChainBalanceService, 
+  transactionHistoryService, 
+  priceFeedService,
+  enhancedTokenDetectionService,
+  type MultiChainBalance,
+  type Transaction as ServiceTransaction,
+  type ChainBalanceData,
+  type EnhancedToken
+} from '@/services/wallet'
+
 // Import wallet components
 import { ComprehensiveWalletSelector } from './ComprehensiveWalletSelector'
-import { BitcoinTransactionBuilder, UTXOManager } from './bitcoin'
+import EnhancedTokenDisplay from './EnhancedTokenDisplay'
+import { 
+  BitcoinTransactionBuilder, 
+  UTXOManager,
+  LightningInvoiceGenerator,
+  LightningPaymentInterface,
+  PaymentChannelManager,
+  BitcoinHardwareWalletIntegration,
+  BitcoinTestingDashboard
+} from './bitcoin'
 import { 
   UserOperationBuilder, 
   GaslessTransactionInterface, 
   SocialRecoveryInterface 
 } from './account-abstraction'
 
-// Multi-chain configuration
-const SUPPORTED_CHAINS = [
-  { id: 1, name: 'Ethereum', symbol: 'ETH', icon: '⟠', color: 'text-blue-500' },
-  { id: 137, name: 'Polygon', symbol: 'MATIC', icon: '⬢', color: 'text-purple-500' },
-  { id: 42161, name: 'Arbitrum', symbol: 'ETH', icon: '🔷', color: 'text-blue-400' },
-  { id: 10, name: 'Optimism', symbol: 'ETH', icon: '🔴', color: 'text-red-500' },
-  { id: 8453, name: 'Base', symbol: 'ETH', icon: '🔵', color: 'text-blue-600' },
-  { id: 43114, name: 'Avalanche', symbol: 'AVAX', icon: '🏔️', color: 'text-red-400' },
-]
+// Multi-chain configuration - now sourced from MultiChainBalanceService
+const SUPPORTED_CHAINS = multiChainBalanceService.getSupportedChains().map(chain => ({
+  id: chain.chainId,
+  name: chain.name,
+  symbol: chain.symbol,
+  icon: chain.icon,
+  color: chain.color
+}));
 
 interface PortfolioBalance {
   chainId: number;
@@ -66,19 +89,8 @@ interface PortfolioBalance {
   color: string;
 }
 
-interface Transaction {
-  id: string;
-  type: 'send' | 'receive' | 'contract' | 'gasless';
-  amount: string;
-  symbol: string;
-  to: string;
-  from: string;
-  hash: string;
-  status: 'pending' | 'confirmed' | 'failed';
-  timestamp: Date;
-  chainId: number;
-  gasless?: boolean;
-}
+// Use service transaction type
+interface Transaction extends ServiceTransaction {}
 
 interface WalletFeature {
   id: string;
@@ -101,8 +113,10 @@ export function ProductionWalletDashboard() {
   const [totalPortfolioValue, setTotalPortfolioValue] = useState(0)
   const [hideBalances, setHideBalances] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [enhancedTokens, setEnhancedTokens] = useState<EnhancedToken[]>([])
+  const [isLoadingEnhancedTokens, setIsLoadingEnhancedTokens] = useState(false)
 
-  // Feature status
+  // Enhanced feature status including Lightning Network and Hardware Security
   const [features] = useState<WalletFeature[]>([
     {
       id: 'multi-chain',
@@ -114,8 +128,15 @@ export function ProductionWalletDashboard() {
     {
       id: 'bitcoin',
       name: 'Bitcoin Integration',
-      description: 'UTXO management & Lightning Network',
+      description: 'UTXO management & transaction building',
       icon: <Bitcoin className="w-5 h-5" />,
+      status: 'active'
+    },
+    {
+      id: 'lightning',
+      name: 'Lightning Network',
+      description: 'Instant Bitcoin payments',
+      icon: <Zap className="w-5 h-5 text-orange-500" />,
       status: 'active'
     },
     {
@@ -135,180 +156,241 @@ export function ProductionWalletDashboard() {
     {
       id: 'hardware-security',
       name: 'Hardware Security',
-      description: 'HSM & biometric authentication',
-      icon: <Shield className="w-5 h-5" />,
-      status: 'setup'
+      description: 'Hardware wallet integration',
+      icon: <Usb className="w-5 h-5 text-green-600" />,
+      status: 'active'
+    },
+    {
+      id: 'testing-suite',
+      name: 'Testing & Validation',
+      description: 'Comprehensive wallet testing',
+      icon: <TestTube2 className="w-5 h-5 text-blue-600" />,
+      status: 'active'
     }
   ])
 
-  // Load portfolio balances across chains
+  // Load portfolio balances across chains using real service
   const loadPortfolioBalances = useCallback(async () => {
     if (!walletAddress) return
 
     try {
       setIsRefreshing(true)
 
-      // This would call your multi-chain balance service
-      const balances: PortfolioBalance[] = []
+      console.log('Fetching real multi-chain balances...')
       
-      // Add current chain balance
+      // Use the real MultiChainBalanceService to fetch all balances
+      const multiChainBalance: MultiChainBalance = await multiChainBalanceService.fetchMultiChainBalance(walletAddress)
+      
+      // Convert to portfolio balance format for UI
+      const balances: PortfolioBalance[] = multiChainBalance.chains
+        .filter(chain => chain.isOnline && (parseFloat(chain.nativeBalance) > 0 || chain.tokens.length > 0))
+        .map(chain => ({
+          chainId: chain.chainId,
+          chainName: chain.chainName,
+          symbol: chain.symbol,
+          balance: chain.nativeBalance,
+          usdValue: chain.totalUsdValue,
+          icon: chain.icon,
+          color: chain.color
+        }))
+
+      setPortfolioBalances(balances)
+      setTotalPortfolioValue(multiChainBalance.totalUsdValue)
+
+      console.log(`Loaded balances for ${balances.length} chains, total value: $${multiChainBalance.totalUsdValue.toFixed(2)}`)
+
+    } catch (error) {
+      console.error('Failed to load real portfolio balances:', error)
+      
+      // Fallback: try to load current chain balance only
       if (ethBalance && chain) {
         const chainConfig = SUPPORTED_CHAINS.find(c => c.id === chain.id)
         if (chainConfig) {
-          balances.push({
-            chainId: chain.id,
-            chainName: chainConfig.name,
-            symbol: chainConfig.symbol,
-            balance: formatEther(ethBalance.value),
-            usdValue: parseFloat(formatEther(ethBalance.value)) * 2000, // Mock price
-            icon: chainConfig.icon,
-            color: chainConfig.color
-          })
-        }
-      }
-
-      // Mock additional chain balances for demo
-      if (balances.length === 0 || chain?.id === 1) {
-        const mockBalances = [
-          { chainId: 137, balance: '156.789', usdValue: 125.43 },
-          { chainId: 42161, balance: '2.1234', usdValue: 4246.80 },
-          { chainId: 10, balance: '0.5678', usdValue: 1135.60 },
-        ]
-
-        mockBalances.forEach(mock => {
-          const chainConfig = SUPPORTED_CHAINS.find(c => c.id === mock.chainId)
-          if (chainConfig) {
-            balances.push({
-              ...mock,
+          try {
+            const ethPrice = await priceFeedService.getTokenPrice('ETH')
+            const balance = parseFloat(formatEther(ethBalance.value))
+            const usdValue = balance * (ethPrice?.priceUsd || 0)
+            
+            setPortfolioBalances([{
+              chainId: chain.id,
               chainName: chainConfig.name,
               symbol: chainConfig.symbol,
+              balance: formatEther(ethBalance.value),
+              usdValue,
               icon: chainConfig.icon,
               color: chainConfig.color
-            })
+            }])
+            setTotalPortfolioValue(usdValue)
+          } catch (priceError) {
+            console.error('Failed to get ETH price:', priceError)
+            setPortfolioBalances([])
+            setTotalPortfolioValue(0)
           }
-        })
+        }
+      } else {
+        setPortfolioBalances([])
+        setTotalPortfolioValue(0)
       }
-
-      setPortfolioBalances(balances)
-      setTotalPortfolioValue(balances.reduce((sum, b) => sum + b.usdValue, 0))
-
-    } catch (error) {
-      console.error('Failed to load portfolio:', error)
     } finally {
       setIsRefreshing(false)
     }
   }, [walletAddress, ethBalance, chain])
 
-  // Load recent transactions
+  // Load transaction history using real service
   const loadTransactions = useCallback(async () => {
     if (!walletAddress) return
 
-    // Mock transaction data for demo
-    const mockTransactions: Transaction[] = [
-      {
-        id: '1',
-        type: 'gasless',
-        amount: '50.0',
-        symbol: 'USDC',
-        to: '0x742d35Cc...',
-        from: walletAddress,
-        hash: '0x1234567890...',
-        status: 'confirmed',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        chainId: 1,
-        gasless: true
-      },
-      {
-        id: '2',
-        type: 'receive',
-        amount: '0.1',
-        symbol: 'ETH',
-        to: walletAddress,
-        from: '0x8ba1f109...',
-        hash: '0x0987654321...',
-        status: 'confirmed',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-        chainId: 1
-      },
-      {
-        id: '3',
-        type: 'send',
-        amount: '0.05',
-        symbol: 'ETH',
-        to: '0x1a2b3c4d...',
-        from: walletAddress,
-        hash: '0x1122334455...',
-        status: 'pending',
-        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-        chainId: 137
-      }
-    ]
+    try {
+      console.log('Fetching real transaction history...')
+      
+      // Use the real TransactionHistoryService to fetch transactions
+      const transactions = await transactionHistoryService.fetchTransactionHistory(walletAddress, {
+        limit: 50, // Load recent 50 transactions
+        chainIds: portfolioBalances.length > 0 ? portfolioBalances.map(b => b.chainId) : undefined
+      })
 
-    setTransactions(mockTransactions)
+      console.log(`Loaded ${transactions.length} real transactions`)
+      setTransactions(transactions)
+      
+    } catch (error) {
+      console.error('Failed to load real transactions:', error)
+      setTransactions([])
+    }
+  }, [walletAddress, portfolioBalances])
+
+  // Load enhanced tokens (NFTs, SFTs, Vaults) using enhanced token detection service
+  const loadEnhancedTokens = useCallback(async () => {
+    if (!walletAddress) return
+
+    try {
+      setIsLoadingEnhancedTokens(true)
+      console.log('Fetching enhanced token balances...')
+      
+      // Get all enhanced tokens across supported chains
+      const allEnhancedTokens: EnhancedToken[] = []
+      
+      // Check each chain for enhanced tokens
+      const supportedChains = [
+        { chainId: 1, name: 'Ethereum' },
+        { chainId: 137, name: 'Polygon' },
+        { chainId: 42161, name: 'Arbitrum' },
+        { chainId: 10, name: 'Optimism' },
+        { chainId: 8453, name: 'Base' }
+      ]
+      
+      for (const chain of supportedChains) {
+        try {
+          const chainTokens = await enhancedTokenDetectionService.detectTokenBalances(
+            walletAddress,
+            chain.chainId,
+            chain.name
+          )
+          allEnhancedTokens.push(...chainTokens.tokens)
+        } catch (chainError) {
+          console.warn(`Failed to load enhanced tokens for ${chain.name}:`, chainError)
+        }
+      }
+
+      console.log(`Loaded ${allEnhancedTokens.length} enhanced tokens`)
+      setEnhancedTokens(allEnhancedTokens)
+      
+    } catch (error) {
+      console.error('Failed to load enhanced tokens:', error)
+      setEnhancedTokens([])
+    } finally {
+      setIsLoadingEnhancedTokens(false)
+    }
   }, [walletAddress])
+
+  // Helper functions
+  const formatBalance = (balance: string): string => {
+    return hideBalances ? '••••••••' : balance
+  }
+
+  const formatUSD = (value: number): string => {
+    return hideBalances ? '••••••' : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  const getFeatureStatusBadge = (status: WalletFeature['status']) => {
+    switch (status) {
+      case 'active':
+        return <Badge className="bg-green-600">Active</Badge>
+      case 'setup':
+        return <Badge variant="outline">Setup Required</Badge>
+      case 'unavailable':
+        return <Badge variant="secondary">Unavailable</Badge>
+      default:
+        return <Badge variant="outline">Unknown</Badge>
+    }
+  }
+
+  const getTransactionIcon = (type: Transaction['type']) => {
+    switch (type) {
+      case 'send':
+        return <Send className="w-4 h-4 text-red-500" />
+      case 'receive':
+        return <ArrowDown className="w-4 h-4 text-green-500" />
+      case 'gasless':
+        return <Zap className="w-4 h-4 text-blue-500" />
+      case 'lightning':
+        return <Zap className="w-4 h-4 text-orange-500" />
+      case 'contract':
+        return <CreditCard className="w-4 h-4 text-purple-500" />
+      case 'swap':
+        return <RefreshCw className="w-4 h-4 text-green-500" />
+      default:
+        return <Activity className="w-4 h-4" />
+    }
+  }
+
+  const getStatusBadge = (status: Transaction['status']) => {
+    switch (status) {
+      case 'confirmed':
+        return <Badge className="bg-green-600 text-xs">Confirmed</Badge>
+      case 'pending':
+        return <Badge variant="outline" className="text-xs">Pending</Badge>
+      case 'failed':
+        return <Badge variant="destructive" className="text-xs">Failed</Badge>
+      default:
+        return <Badge variant="outline" className="text-xs">Unknown</Badge>
+    }
+  }
 
   // Effects
   useEffect(() => {
     if (isConnected) {
       loadPortfolioBalances()
+    }
+  }, [isConnected, loadPortfolioBalances])
+
+  // Load transactions after portfolio balances are loaded
+  useEffect(() => {
+    if (isConnected && portfolioBalances.length > 0) {
       loadTransactions()
     }
-  }, [isConnected, loadPortfolioBalances, loadTransactions])
+  }, [isConnected, portfolioBalances, loadTransactions])
 
-  // Helper functions
-  const formatBalance = (balance: string, decimals: number = 4): string => {
-    if (hideBalances) return '••••'
-    const num = parseFloat(balance)
-    return num.toFixed(decimals)
-  }
-
-  const formatUSD = (value: number): string => {
-    if (hideBalances) return '••••'
-    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'send': return <Send className="w-4 h-4 text-red-500" />
-      case 'receive': return <ArrowDown className="w-4 h-4 text-green-500" />
-      case 'contract': return <CreditCard className="w-4 h-4 text-blue-500" />
-      case 'gasless': return <Zap className="w-4 h-4 text-purple-500" />
-      default: return <Activity className="w-4 h-4" />
+  // Load enhanced tokens when wallet is connected
+  useEffect(() => {
+    if (isConnected && walletAddress) {
+      loadEnhancedTokens()
     }
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'confirmed': return <Badge variant="secondary">Confirmed</Badge>
-      case 'pending': return <Badge variant="outline">Pending</Badge>
-      case 'failed': return <Badge variant="destructive">Failed</Badge>
-      default: return <Badge variant="outline">{status}</Badge>
-    }
-  }
-
-  const getFeatureStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active': return <Badge variant="secondary">Active</Badge>
-      case 'setup': return <Badge variant="outline">Setup Required</Badge>
-      case 'unavailable': return <Badge variant="destructive">Unavailable</Badge>
-      default: return <Badge variant="outline">{status}</Badge>
-    }
-  }
+  }, [isConnected, walletAddress, loadEnhancedTokens])
 
   if (!isConnected) {
     return (
-      <div className="space-y-6">
+      <div className="max-w-4xl mx-auto p-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2">
               <Wallet className="w-6 h-6" />
-              Chain Capital Wallet
+              Production Wallet Dashboard
             </CardTitle>
             <CardDescription>
-              Professional blockchain wallet with Bitcoin, EVM, and Account Abstraction support
+              Connect your wallet to access advanced features
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-center">
             <ComprehensiveWalletSelector />
           </CardContent>
         </Card>
@@ -317,85 +399,82 @@ export function ProductionWalletDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-6 h-6" />
-              Chain Capital Wallet
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="w-6 h-6" />
+                Production Wallet Dashboard
+              </CardTitle>
+              <CardDescription>
+                Advanced multi-chain wallet with Bitcoin, Lightning Network, and Account Abstraction
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => setHideBalances(!hideBalances)}
               >
-                {hideBalances ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {hideBalances ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </Button>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={() => {
-                  loadPortfolioBalances()
-                  loadTransactions()
-                }}
+                onClick={loadPortfolioBalances}
                 disabled={isRefreshing}
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
             </div>
-          </CardTitle>
-          <CardDescription>
-            Connected to {chain?.name || 'Unknown Network'} • {walletAddress?.slice(0, 8)}...{walletAddress?.slice(-6)}
-          </CardDescription>
+          </div>
         </CardHeader>
       </Card>
 
       {/* Portfolio Overview */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Portfolio Overview
+          <CardTitle className="flex items-center justify-between">
+            <span>Portfolio Overview</span>
+            <div className="text-right">
+              <div className="text-2xl font-bold">
+                {formatUSD(totalPortfolioValue)}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Total Balance
+              </div>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Total Value */}
-          <div className="text-center mb-6">
-            <div className="text-3xl font-bold mb-2">
-              {formatUSD(totalPortfolioValue)}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Total Portfolio Value
-            </div>
-          </div>
-
-          {/* Chain Balances */}
-          <div className="space-y-3">
-            {portfolioBalances.map((balance) => (
-              <div key={balance.chainId} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{balance.icon}</span>
-                  <div>
-                    <div className="font-medium">{balance.chainName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatBalance(balance.balance)} {balance.symbol}
+          {portfolioBalances.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              {portfolioBalances.map((balance) => (
+                <Card key={balance.chainId} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl">{balance.icon}</div>
+                      <div>
+                        <div className="font-medium">{balance.chainName}</div>
+                        <div className="text-sm text-muted-foreground">{balance.symbol}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm">
+                        {formatBalance(parseFloat(balance.balance).toFixed(4))}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatUSD(balance.usdValue)}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">{formatUSD(balance.usdValue)}</div>
-                  <div className="text-sm text-muted-foreground">
-                    ${((balance.usdValue / parseFloat(balance.balance)) || 0).toFixed(2)} per {balance.symbol}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {portfolioBalances.length === 0 && !balanceLoading && (
+                </Card>
+              ))}
+            </div>
+          ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Coins className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p>No balances found</p>
@@ -405,26 +484,27 @@ export function ProductionWalletDashboard() {
         </CardContent>
       </Card>
 
-      {/* Main Features Tabs */}
+      {/* Enhanced Main Features Tabs */}
       <Tabs value={currentTab} onValueChange={setCurrentTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="bitcoin">Bitcoin</TabsTrigger>
+          <TabsTrigger value="lightning">Lightning</TabsTrigger>
           <TabsTrigger value="account-abstraction">Gasless</TabsTrigger>
-          <TabsTrigger value="recovery">Recovery</TabsTrigger>
-          <TabsTrigger value="transactions">History</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="testing">Testing</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Quick Actions */}
+          {/* Enhanced Quick Actions */}
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 md:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-5">
                 <Button className="flex flex-col items-center gap-2 h-auto py-4">
                   <Send className="w-5 h-5" />
                   <span>Send</span>
@@ -436,8 +516,14 @@ export function ProductionWalletDashboard() {
                 </Button>
                 
                 <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" 
+                        onClick={() => setCurrentTab('lightning')}>
+                  <Zap className="w-5 h-5 text-orange-500" />
+                  <span>Lightning</span>
+                </Button>
+                
+                <Button variant="outline" className="flex flex-col items-center gap-2 h-auto py-4" 
                         onClick={() => setCurrentTab('account-abstraction')}>
-                  <Zap className="w-5 h-5" />
+                  <Zap className="w-5 h-5 text-blue-500" />
                   <span>Gasless</span>
                 </Button>
                 
@@ -450,16 +536,16 @@ export function ProductionWalletDashboard() {
             </CardContent>
           </Card>
 
-          {/* Wallet Features Status */}
+          {/* Enhanced Wallet Features Status */}
           <Card>
             <CardHeader>
               <CardTitle>Wallet Features</CardTitle>
               <CardDescription>
-                Status of advanced wallet capabilities
+                Status of advanced wallet capabilities including Lightning Network and Hardware Security
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {features.map((feature) => (
                   <div key={feature.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
@@ -476,12 +562,12 @@ export function ProductionWalletDashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent Transactions Preview */}
+          {/* Enhanced Recent Transactions Preview */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Recent Transactions</span>
-                <Button variant="ghost" size="sm" onClick={() => setCurrentTab('transactions')}>
+                <Button variant="ghost" size="sm" onClick={() => setCurrentTab('settings')}>
                   View All
                 </Button>
               </CardTitle>
@@ -489,25 +575,36 @@ export function ProductionWalletDashboard() {
             <CardContent>
               {transactions.length > 0 ? (
                 <div className="space-y-3">
-                  {transactions.slice(0, 3).map((tx) => (
+                  {transactions.slice(0, 4).map((tx) => (
                     <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         {getTransactionIcon(tx.type)}
                         <div>
-                          <div className="font-medium capitalize">
-                            {tx.type} {tx.gasless && <Badge variant="outline" className="ml-2 text-xs">Gasless</Badge>}
+                          <div className="font-medium capitalize flex items-center gap-2">
+                            {tx.type} {tx.type === 'contract' && tx.contractInteraction?.contractName && `- ${tx.contractInteraction.contractName}`}
+                            {tx.isGasless && <Badge variant="outline" className="text-xs">Gasless</Badge>}
+                            {tx.isLightning && <Badge className="bg-orange-600 text-xs">Lightning</Badge>}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {tx.type === 'send' ? `To: ${tx.to.slice(0, 8)}...` : `From: ${tx.from.slice(0, 8)}...`}
+                            {tx.type === 'send' || tx.type === 'lightning' ? 
+                              `To: ${tx.toAddress.slice(0, 8)}...${tx.toAddress.slice(-6)}` : 
+                              `From: ${tx.fromAddress.slice(0, 8)}...${tx.fromAddress.slice(-6)}`
+                            }
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {tx.chainName} • {tx.timestamp.toLocaleDateString()}
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="font-medium">
-                          {tx.type === 'send' ? '-' : '+'}
-                          {hideBalances ? '••••' : `${tx.amount} ${tx.symbol}`}
+                          {tx.type === 'send' || tx.type === 'lightning' ? '-' : '+'}
+                          {hideBalances ? '••••' : `${parseFloat(tx.amount).toFixed(4)} ${tx.symbol}`}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="text-sm text-muted-foreground">
+                          {hideBalances ? '••••' : formatUSD(tx.usdValue)}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
                           {getStatusBadge(tx.status)}
                         </div>
                       </div>
@@ -523,14 +620,21 @@ export function ProductionWalletDashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* Enhanced Token Display */}
+          <EnhancedTokenDisplay 
+            enhancedTokens={enhancedTokens}
+            isLoading={isLoadingEnhancedTokens}
+          />
         </TabsContent>
 
-        {/* Bitcoin Tab */}
+        {/* Enhanced Bitcoin Tab */}
         <TabsContent value="bitcoin" className="space-y-4">
           <Tabs defaultValue="transaction-builder">
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="transaction-builder">Transaction Builder</TabsTrigger>
               <TabsTrigger value="utxo-manager">UTXO Manager</TabsTrigger>
+              <TabsTrigger value="testing">Testing</TabsTrigger>
             </TabsList>
             
             <TabsContent value="transaction-builder">
@@ -540,15 +644,43 @@ export function ProductionWalletDashboard() {
             <TabsContent value="utxo-manager">
               <UTXOManager />
             </TabsContent>
+
+            <TabsContent value="testing">
+              <BitcoinTestingDashboard />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* New Lightning Network Tab */}
+        <TabsContent value="lightning" className="space-y-4">
+          <Tabs defaultValue="invoices">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="invoices">Create Invoice</TabsTrigger>
+              <TabsTrigger value="payments">Send Payment</TabsTrigger>
+              <TabsTrigger value="channels">Manage Channels</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="invoices">
+              <LightningInvoiceGenerator />
+            </TabsContent>
+            
+            <TabsContent value="payments">
+              <LightningPaymentInterface />
+            </TabsContent>
+
+            <TabsContent value="channels">
+              <PaymentChannelManager />
+            </TabsContent>
           </Tabs>
         </TabsContent>
 
         {/* Account Abstraction Tab */}
         <TabsContent value="account-abstraction" className="space-y-4">
           <Tabs defaultValue="gasless">
-            <TabsList>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="gasless">Gasless Transactions</TabsTrigger>
               <TabsTrigger value="user-operations">Batch Operations</TabsTrigger>
+              <TabsTrigger value="recovery">Social Recovery</TabsTrigger>
             </TabsList>
             
             <TabsContent value="gasless">
@@ -558,139 +690,110 @@ export function ProductionWalletDashboard() {
             <TabsContent value="user-operations">
               <UserOperationBuilder />
             </TabsContent>
+
+            <TabsContent value="recovery">
+              <SocialRecoveryInterface />
+            </TabsContent>
           </Tabs>
         </TabsContent>
 
-        {/* Recovery Tab */}
-        <TabsContent value="recovery">
-          <SocialRecoveryInterface />
+        {/* New Security Tab */}
+        <TabsContent value="security" className="space-y-4">
+          <BitcoinHardwareWalletIntegration />
         </TabsContent>
 
-        {/* Transactions Tab */}
-        <TabsContent value="transactions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Transaction History</CardTitle>
-              <CardDescription>
-                All your transactions across supported networks
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {transactions.length > 0 ? (
-                <div className="space-y-3">
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        {getTransactionIcon(tx.type)}
-                        <div>
-                          <div className="font-medium capitalize">
-                            {tx.type} Transaction
-                            {tx.gasless && <Badge variant="outline" className="ml-2">Gasless</Badge>}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {tx.timestamp.toLocaleString()}
-                          </div>
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {tx.hash.slice(0, 16)}...
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <div className="font-medium">
-                          {tx.type === 'send' ? '-' : '+'}
-                          {hideBalances ? '••••' : `${tx.amount} ${tx.symbol}`}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {SUPPORTED_CHAINS.find(c => c.id === tx.chainId)?.name}
-                        </div>
-                        <div className="mt-1">
-                          {getStatusBadge(tx.status)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No Transactions Yet</h3>
-                  <p>Your transaction history will appear here once you start using the wallet</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* New Testing Tab */}
+        <TabsContent value="testing" className="space-y-4">
+          <BitcoinTestingDashboard />
         </TabsContent>
 
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Wallet Settings
-              </CardTitle>
+              <CardTitle>Wallet Settings</CardTitle>
+              <CardDescription>
+                Configure your wallet preferences and security settings
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Security Settings */}
-              <div>
-                <h4 className="font-medium mb-3">Security</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Social Recovery</div>
-                      <div className="text-sm text-muted-foreground">Guardian-based account recovery</div>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Privacy Settings */}
+                <div>
+                  <h4 className="font-medium mb-3">Privacy Settings</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">Hide Balances</div>
+                        <div className="text-sm text-muted-foreground">Hide balance amounts in the interface</div>
+                      </div>
+                      <Button
+                        variant={hideBalances ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setHideBalances(!hideBalances)}
+                      >
+                        {hideBalances ? 'Hidden' : 'Visible'}
+                      </Button>
                     </div>
-                    <Button variant="outline" onClick={() => setCurrentTab('recovery')}>
-                      Configure
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Hardware Security</div>
-                      <div className="text-sm text-muted-foreground">HSM and biometric authentication</div>
-                    </div>
-                    <Button variant="outline" disabled>
-                      Setup Required
-                    </Button>
                   </div>
                 </div>
-              </div>
 
-              {/* Privacy Settings */}
-              <div>
-                <h4 className="font-medium mb-3">Privacy</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Hide Balances</div>
-                      <div className="text-sm text-muted-foreground">Hide balance amounts for privacy</div>
+                {/* Transaction History */}
+                <div>
+                  <h4 className="font-medium mb-3">Transaction History</h4>
+                  {transactions.length > 0 ? (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {transactions.map((tx) => (
+                        <div key={tx.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-4">
+                            {getTransactionIcon(tx.type)}
+                            <div>
+                              <div className="font-medium capitalize flex items-center gap-2">
+                                {tx.type} Transaction
+                                {tx.isGasless && <Badge variant="outline">Gasless</Badge>}
+                                {tx.isLightning && <Badge className="bg-orange-600">Lightning</Badge>}
+                                {tx.type === 'contract' && tx.contractInteraction?.contractName && (
+                                  <Badge variant="secondary">{tx.contractInteraction.contractName}</Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {tx.timestamp.toLocaleString()} • {tx.chainName}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {tx.type === 'send' ? `To: ${tx.toAddress}` : `From: ${tx.fromAddress}`}
+                              </div>
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {tx.hash.slice(0, 16)}...
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            <div className="font-medium">
+                              {tx.type === 'send' || tx.type === 'lightning' ? '-' : '+'}
+                              {formatBalance(`${parseFloat(tx.amount).toFixed(4)} ${tx.symbol}`)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {formatUSD(tx.usdValue)}
+                            </div>
+                            {tx.gasFeeUsd && tx.gasFeeUsd > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Gas: {formatUSD(tx.gasFeeUsd)}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              {getStatusBadge(tx.status)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <Button 
-                      variant={hideBalances ? 'default' : 'outline'}
-                      onClick={() => setHideBalances(!hideBalances)}
-                    >
-                      {hideBalances ? 'On' : 'Off'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Network Settings */}
-              <div>
-                <h4 className="font-medium mb-3">Networks</h4>
-                <div className="text-sm text-muted-foreground mb-3">
-                  Supported blockchain networks
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {SUPPORTED_CHAINS.map((chain) => (
-                    <div key={chain.id} className="flex items-center gap-2 p-2 border rounded">
-                      <span className="text-lg">{chain.icon}</span>
-                      <span className="font-medium">{chain.name}</span>
-                      <Badge variant="secondary" className="ml-auto text-xs">Active</Badge>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <p>No transactions yet</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </CardContent>

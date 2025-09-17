@@ -30,6 +30,7 @@ import {
   Coins
 } from 'lucide-react'
 import { BitcoinAdapter, BitcoinAddressType, type BitcoinAddressInfo } from '@/infrastructure/web3/adapters/bitcoin/BitcoinAdapter'
+import { rpcManager } from '@/infrastructure/web3/rpc'
 
 interface UTXO {
   txid: string;
@@ -100,8 +101,13 @@ export function BitcoinTransactionBuilder() {
       
       // Connect adapter if not connected
       if (!bitcoinAdapter.isConnected) {
+        const bitcoinRpcUrl = rpcManager.getRPCUrl('bitcoin', 'mainnet')
+        if (!bitcoinRpcUrl) {
+          throw new Error('Bitcoin RPC URL not configured. Please set VITE_BITCOIN_RPC_URL in environment variables.')
+        }
+        
         await bitcoinAdapter.connect({
-          rpcUrl: 'https://blockstream.info/api', // Blockstream API
+          rpcUrl: bitcoinRpcUrl,
           networkId: 'mainnet'
         })
       }
