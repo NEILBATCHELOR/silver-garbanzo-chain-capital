@@ -83,6 +83,10 @@ out/
 .env.test.local
 .env.production.local
 
+# Backend specific environment examples (per user request)
+backend/.env.example
+backend/.env.hsm.example
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -131,10 +135,15 @@ temp/
 uploads/
 public/uploads/
 
+# Project specific files and directories
+WARP.md
+official_documents/
+
 # Testing
 /test-results/
 /playwright-report/
 /playwright/.cache/
+backend/add-tests/
 
 # Package manager locks (keep only one)
 # Uncomment the one you DON'T use:
@@ -159,3 +168,4 @@ patches/.tmp/
 scripts/
 test-data/
 fix/
+wallet/

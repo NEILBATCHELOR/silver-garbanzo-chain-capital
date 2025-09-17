@@ -15,6 +15,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.example
 
 # Database
 *.db
@@ -24,6 +25,7 @@ build/
 # Prisma
 /prisma/migrations/
 /src/infrastructure/database/generated/
+migrations/
 
 # Logs
 logs/
@@ -121,6 +123,7 @@ Thumbs.db
 # Testing
 test-results/
 coverage/
+add-tests/
 
 # Backup files
 *.backup
