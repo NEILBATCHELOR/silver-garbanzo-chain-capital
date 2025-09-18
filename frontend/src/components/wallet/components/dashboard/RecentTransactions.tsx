@@ -54,25 +54,45 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
     setError(null);
     
     try {
+      console.log('🔍 DEBUG: RecentTransactions - Starting fetch...');
+      console.log('🔍 DEBUG: User:', user?.id);
+      console.log('🔍 DEBUG: Wallets count:', wallets.length);
+      
       let txData: WalletTransaction[] = [];
       
       if (user) {
+        console.log('🔍 DEBUG: Fetching transactions for user:', user.id);
         // Fetch transactions for user's wallets (both regular and guardian)
         txData = await transactionService.getTransactionsForUser(user.id, limit);
+        console.log('🔍 DEBUG: User transactions found:', txData.length);
       } else if (wallets.length > 0) {
+        console.log('🔍 DEBUG: Fetching transactions for wallet addresses:', wallets.map(w => w.address));
         // Fallback to wallet context addresses
         const addresses = wallets.map(w => w.address);
         txData = await transactionService.getTransactionsForWallets(addresses, limit);
+        console.log('🔍 DEBUG: Wallet transactions found:', txData.length);
       } else {
+        console.log('🔍 DEBUG: No user or wallets, fetching recent transactions across all wallets');
         // Show recent transactions across all wallets if no user/wallets
         txData = await transactionService.getRecentTransactions(limit);
+        console.log('🔍 DEBUG: Recent transactions found:', txData.length);
       }
+      
+      console.log('🔍 DEBUG: Transaction data sample:', txData.slice(0, 2));
       
       setTransactions(txData);
       setLastRefresh(new Date());
+      
+      if (txData.length === 0) {
+        console.log('⚠️ DEBUG: No transactions found - this may be normal for new wallets');
+      }
+      
     } catch (err) {
-      console.error('Error fetching transactions:', err);
-      setError('Failed to load transactions');
+      console.error('🚨 DEBUG: Error fetching transactions:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        error: err
+      });
+      setError('Failed to load transaction history');
     } finally {
       setLoading(false);
     }
@@ -200,12 +220,16 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
         ) : transactions.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Transactions Found</h3>
-            <p className="text-gray-500">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Transaction History</h3>
+            <p className="text-gray-500 mb-4">
               {user || wallets.length > 0 
-                ? "No transactions found for your wallets yet." 
-                : "Connect a wallet to see your transaction history."}
+                ? "No blockchain transactions found for your wallets yet. Create a wallet and make some transactions to see your history here." 
+                : "Connect or create a wallet to see your transaction history."}
             </p>
+            <div className="text-xs text-gray-400">
+              <p>Searched: {user ? 'User wallets' : wallets.length > 0 ? `${wallets.length} connected wallets` : 'All recent transactions'}</p>
+              <p>Last updated: {formatTimeAgo(lastRefresh.toISOString())}</p>
+            </div>
           </div>
         ) : (
           <div className="rounded-md border">

@@ -488,37 +488,37 @@ importers:
         specifier: ^1.23.0
         version: 1.23.0
       '@reown/appkit':
-        specifier: ^1.7.3
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@reown/appkit-adapter-wagmi':
-        specifier: ^1.7.3
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(@wagmi/core@2.21.0(@tanstack/query-core@5.89.0)(@types/react@18.3.24)(immer@10.1.3)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(viem@2.29.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)))(bufferutil@4.0.9)(immer@10.1.3)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(viem@2.29.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.17.0(@azure/identity@4.12.0)(@tanstack/query-core@5.89.0)(@tanstack/react-query@5.89.0(react@18.3.1))(@types/react@18.3.24)(bufferutil@4.0.9)(immer@10.1.3)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.29.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)
       '@reown/appkit-common':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@reown/appkit-controllers':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@reown/appkit-pay':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@reown/appkit-polyfills':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6
       '@reown/appkit-scaffold-ui':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(valtio@1.13.2(@types/react@18.3.24)(react@18.3.1))(zod@3.25.76)
       '@reown/appkit-siwe':
-        specifier: ^1.7.11
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@reown/appkit-ui':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76)
       '@reown/appkit-utils':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(@azure/identity@4.12.0)(@types/react@18.3.24)(bufferutil@4.0.9)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(valtio@1.13.2(@types/react@18.3.24)(react@18.3.1))(zod@3.25.76)
       '@reown/appkit-wallet':
-        specifier: ^1.7.8
+        specifier: ^1.8.6
         version: 1.8.6(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider':
         specifier: ^0.18.6

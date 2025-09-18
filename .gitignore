@@ -169,3 +169,4 @@ scripts/
 test-data/
 fix/
 wallet/
+frontend/src/main-backup.tsx

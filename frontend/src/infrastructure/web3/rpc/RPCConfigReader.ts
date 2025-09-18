@@ -85,12 +85,11 @@ function extractApiKey(rpcUrl?: string): { cleanUrl: string; apiKey?: string } {
     return { cleanUrl: '' };
   }
 
-  // Handle Alchemy URLs (extract API key from path)
+  // Handle Alchemy URLs - keep the full URL as cleanUrl since API key is part of the path
   const alchemyMatch = rpcUrl.match(/https:\/\/[^\/]+\.g\.alchemy\.com\/v2\/([^\/\?]+)/);
   if (alchemyMatch) {
     const apiKey = alchemyMatch[1];
-    const cleanUrl = rpcUrl.replace(apiKey, ''); // Remove API key for base URL
-    return { cleanUrl, apiKey };
+    return { cleanUrl: rpcUrl, apiKey }; // Keep full URL, store API key separately for reference
   }
 
   // Handle QuickNode URLs (extract from subdomain)

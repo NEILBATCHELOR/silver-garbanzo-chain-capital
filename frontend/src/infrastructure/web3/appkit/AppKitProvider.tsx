@@ -8,12 +8,13 @@
 
 'use client'
 
-import React, { ReactNode } from 'react'
+import React, { ReactNode, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider, cookieToInitialState, type Config } from 'wagmi'
 import { createAppKit } from '@reown/appkit/react'
 import { config, networks, projectId, wagmiAdapter } from './config'
 import { mainnet } from '@reown/appkit/networks'
+import { handleWalletProviderConflicts } from '@/utils/walletProviderConflict'
 
 const queryClient = new QueryClient()
 
@@ -33,6 +34,9 @@ if (!projectId) {
   // Use a more robust initialization with multiple fallback strategies
   const initializeAppKit = async () => {
     try {
+      // Handle wallet provider conflicts before AppKit initialization
+      handleWalletProviderConflicts();
+      
       // Validate Project ID format before API calls
       if (!projectId || projectId.length !== 32) {
         if (import.meta.env.DEV) {
@@ -117,6 +121,11 @@ export default function AppKitProvider({
   children: ReactNode
   cookies?: string | null // Cookies from server for hydration
 }) {
+  // Handle wallet provider conflicts early in component lifecycle
+  useEffect(() => {
+    handleWalletProviderConflicts();
+  }, []);
+
   // Calculate initial state for Wagmi SSR hydration
   const initialState = cookieToInitialState(config as Config, cookies || null)
 

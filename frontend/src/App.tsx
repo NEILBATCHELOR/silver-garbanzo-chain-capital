@@ -112,6 +112,9 @@ import { WagmiRouteWrapper } from "@/infrastructure/web3/conditional";
 // Import Conditional DFNS Provider for lazy DFNS initialization
 import { ConditionalDfnsWrapper } from "@/infrastructure/dfns/ConditionalDfnsProvider";
 
+// Import Wallet Provider for cryptocurrency wallet functionality
+import { WalletProvider } from "@/services/wallet/WalletContext";
+
 // DFNS Components
 import { DfnsWalletDashboard } from "@/components/dfns";
 
@@ -510,7 +513,8 @@ function App() {
         <OrganizationProvider>
           <AuditProvider enableAutoTracking={true}>
             <WagmiRouteWrapper>
-              <NotificationProvider>
+              <WalletProvider>
+                <NotificationProvider>
             
             <Suspense fallback={<div>Loading...</div>}>
           <Routes>
@@ -590,8 +594,7 @@ function App() {
               {/* DFNS Wallet Routes - Enterprise blockchain infrastructure */}
               <Route path="wallet/dfns/*" element={<DfnsWalletDashboard />} />
               
-              {/* Production Wallet Routes (Default to Dashboard) */}
-              <Route path="wallet" element={<WalletDashboardPage />} />
+              {/* Production Wallet Routes (Default to Internal Dashboard) */}
 
               {/* Cap Table Routes */}
               <Route path="captable" element={<CapTableManagerNew section="overview" />} />
@@ -747,6 +750,7 @@ function App() {
             </Routes>
           </Suspense>
           </NotificationProvider>
+        </WalletProvider>
         </WagmiRouteWrapper>
       </AuditProvider>
       </OrganizationProvider>

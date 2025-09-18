@@ -59,6 +59,12 @@ const NON_CRITICAL_PATTERNS = [
   /duplicate key value violates unique constraint.*climate_market_data_cache_cache_key_key/i,
   /Key.*already exists.*climate_market_data_cache/i,
   /Error caching market snapshot.*duplicate key/i,
+  // AppKit and wallet connection errors - Added September 18, 2025
+  /MetaMask encountered an error setting the global Ethereum provider.*Cannot set property ethereum/i,
+  /AppKit SDK version.*is outdated.*Latest version is/i,
+  /Element.*scheduled an update.*after an update completed.*inefficient/i,
+  /<svg> attribute (width|height): Unexpected end of attribute/i,
+  /PhCaretRight.*svg.*attribute.*Unexpected end/i,
 ];
 
 // Enhanced console.error that filters non-critical messages

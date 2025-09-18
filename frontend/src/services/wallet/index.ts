@@ -14,6 +14,7 @@ export * from './account-abstraction';
 export * from './WalletManager';
 export * from './WalletGenerator';
 export * from './WalletTransactionService';
+export * from './WalletApiService';
 export * from './SecurityService';
 export * from './LightningNetworkService';
 export * from './MultiSigWalletService';
@@ -23,12 +24,14 @@ import { multiChainBalanceService } from './MultiChainBalanceService';
 import { transactionHistoryService } from './TransactionHistoryService';
 import { priceFeedService } from './PriceFeedService';
 import { enhancedTokenDetectionService } from './EnhancedTokenDetectionService';
+import { walletApiService } from './WalletApiService';
 
 export { 
   multiChainBalanceService,
   transactionHistoryService,
   priceFeedService,
-  enhancedTokenDetectionService
+  enhancedTokenDetectionService,
+  walletApiService
 };
 
 // Re-export domain types

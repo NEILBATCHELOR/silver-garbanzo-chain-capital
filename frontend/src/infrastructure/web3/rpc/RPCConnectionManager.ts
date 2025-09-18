@@ -443,8 +443,14 @@ export class RPCConnectionManager {
       return null;
     }
 
-    // Append API key if present
     const { url, apiKey } = provider.config;
+    
+    // For Alchemy URLs, the API key is already embedded in the URL path
+    if (url.includes('alchemy.com')) {
+      return url;
+    }
+    
+    // For other providers that need API key appended
     return apiKey ? `${url}${apiKey}` : url;
   }
 

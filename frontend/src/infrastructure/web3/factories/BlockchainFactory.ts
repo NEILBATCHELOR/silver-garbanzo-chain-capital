@@ -11,7 +11,8 @@ import { rpcManager } from '../rpc/RPCConnectionManager';
 // Import adapters
 import { EthereumAdapter } from '../adapters/evm/EthereumAdapter';
 import { PolygonAdapter, ArbitrumAdapter, OptimismAdapter, BaseAdapter, AvalancheAdapter } from '../adapters/evm/ChainAdapters';
-import { BitcoinAdapter } from '../adapters/bitcoin/BitcoinAdapter';
+// LAZY IMPORT: BitcoinAdapter to prevent immediate bitcoinjs-lib loading
+// import { BitcoinAdapter } from '../adapters/bitcoin/BitcoinAdapter';
 import { SolanaAdapter } from '../adapters/solana/SolanaAdapter';
 // Phase 3+ adapters (to be implemented)
 // import { NEARAdapter } from '../adapters/near/NEARAdapter';
@@ -313,6 +314,8 @@ export class BlockchainFactory {
         break;
         
       case 'bitcoin':
+        // Lazy load BitcoinAdapter to prevent immediate bitcoinjs-lib loading
+        const { BitcoinAdapter } = await import('../adapters/bitcoin/BitcoinAdapter');
         adapter = new BitcoinAdapter(networkType);
         break;
         

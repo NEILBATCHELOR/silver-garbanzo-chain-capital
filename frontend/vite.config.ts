@@ -15,6 +15,10 @@ export default defineConfig({
       "react/jsx-dev-runtime", 
       "scheduler",
       "react-is",
+      "buffer",
+      "bitcoinjs-lib",
+      "ecpair",
+      "tiny-secp256k1",
     ],
     esbuildOptions: {
       define: { 
@@ -47,15 +51,6 @@ export default defineConfig({
       util: "util/",
       buffer: "buffer/",
       crypto: "crypto-browserify",
-      // Disable problematic Node.js modules completely
-      fs: false,
-      os: false,
-      net: false,
-      tls: false,
-      child_process: false,
-      inspector: false,
-      readline: false,
-      repl: false,
     },
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
   },
@@ -64,9 +59,20 @@ export default defineConfig({
     "process.env": process.env,
     global: "globalThis",
     Buffer: "globalThis.Buffer",
-    // Ensure problematic Node.js APIs are undefined
+    // Ensure Buffer methods are available
+    "globalThis.Buffer": "globalThis.Buffer",
+    // Disable problematic Node.js APIs
     "process.inspector": "undefined",
     "process.binding": "undefined",
+    // Disable Node.js modules at runtime
+    "require('fs')": "undefined",
+    "require('os')": "undefined", 
+    "require('net')": "undefined",
+    "require('tls')": "undefined",
+    "require('child_process')": "undefined",
+    "require('inspector')": "undefined",
+    "require('readline')": "undefined",
+    "require('repl')": "undefined",
   },
   
   build: {
@@ -75,6 +81,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 3000,
     minify: 'terser',
     rollupOptions: {
+      external: [
+        // Prevent Node.js modules from being bundled
+        'fs', 'os', 'net', 'tls', 'child_process', 'inspector', 'readline', 'repl'
+      ],
       output: {
         format: 'es',
         // SIMPLE chunking - avoid complex crypto separation

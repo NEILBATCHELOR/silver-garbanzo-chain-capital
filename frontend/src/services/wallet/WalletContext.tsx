@@ -7,6 +7,7 @@ import { EthereumProvider, getEthereumProvider } from '@/types/domain/blockchain
 import { detectWallets } from "@/infrastructure/web3/wallet/walletDetector";
 import { useToast } from '@/components/ui/use-toast';
 import { balanceService } from '@/services/wallet/balances/BalanceService';
+import { walletApiService, WalletApiResponse } from '@/services/wallet/WalletApiService';
 
 // Wallet types
 export type WalletType = 'eoa' | 'multisig';
@@ -128,16 +129,18 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const loadWallets = async () => {
       setLoading(true);
       try {
-        // Try to load wallets from localStorage first
-        const storedWallets = localStorage.getItem('userWallets');
-        let loadedWallets: Wallet[] = [];
+        // Load wallets from API instead of localStorage
+        const apiWallets = await walletApiService.getUserWallets();
         
-        if (storedWallets) {
-          loadedWallets = JSON.parse(storedWallets).map((w: any) => ({
-            ...w,
-            createdAt: new Date(w.createdAt)
-          }));
-        }
+        const loadedWallets: Wallet[] = apiWallets.map(apiWallet => ({
+          id: apiWallet.id,
+          name: apiWallet.name,
+          address: apiWallet.primary_address,
+          type: apiWallet.wallet_type as WalletType,
+          network: apiWallet.blockchain,
+          balance: '0', // Will be updated by balance service
+          createdAt: new Date(apiWallet.created_at),
+        }));
         
         setWallets(loadedWallets);
         
@@ -145,9 +148,33 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (loadedWallets.length > 0 && !selectedWallet) {
           setSelectedWallet(loadedWallets[0]);
         }
+        
+        setError(null);
       } catch (err) {
-        setError('Failed to load wallets');
-        console.error(err);
+        console.error('API wallet loading failed, trying localStorage fallback:', err);
+        
+        // Fallback to localStorage for backwards compatibility
+        try {
+          const storedWallets = localStorage.getItem('userWallets');
+          let loadedWallets: Wallet[] = [];
+          
+          if (storedWallets) {
+            loadedWallets = JSON.parse(storedWallets).map((w: any) => ({
+              ...w,
+              createdAt: new Date(w.createdAt)
+            }));
+          }
+          
+          setWallets(loadedWallets);
+          
+          // Select the first wallet by default if none selected
+          if (loadedWallets.length > 0 && !selectedWallet) {
+            setSelectedWallet(loadedWallets[0]);
+          }
+        } catch (localError) {
+          setError('Failed to load wallets');
+          console.error('localStorage fallback failed:', localError);
+        }
       } finally {
         setLoading(false);
       }
@@ -169,60 +196,44 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const createWallet = async (name: string, type: WalletType, network: string): Promise<Wallet> => {
     setLoading(true);
     try {
-      let newWallet: Wallet;
-      
-      if (type === 'eoa') {
-        // Generate a new EOA wallet using the appropriate generator based on network
-        let generated: any;
-        
-        if (network === 'ethereum' || network === 'polygon' || network === 'arbitrum' || network === 'optimism' || network === 'avalanche') {
-          generated = ETHWalletGenerator.generateMultipleWallets(1, { includePrivateKey: false })[0];
-        } else {
-          // For other networks, use ETH generator as fallback (most are EVM compatible)
-          generated = ETHWalletGenerator.generateMultipleWallets(1, { includePrivateKey: false })[0];
-        }
-        
-        newWallet = {
-          id: Date.now().toString(),
-          name,
-          address: generated.address,
-          type,
-          network,
-          balance: '0',
-          createdAt: new Date(),
-        };
-      } else {
-        // For MultiSig, generate a real wallet and then we'd deploy a multisig contract
-        // For now, generate an EOA that will become a multisig
-        const generated = ETHWalletGenerator.generateMultipleWallets(1, { includePrivateKey: false })[0];
-        
-        newWallet = {
-          id: Date.now().toString(),
-          name,
-          address: generated.address,
-          type,
-          network,
-          balance: '0',
-          owners: [generated.address], // The generated address is the first owner
-          threshold: 1, // Default threshold
-          createdAt: new Date(),
-        };
-      }
-      
-      // Update the wallets state and save to storage
+      // Use the API service to create wallet in database
+      const apiResponse = await walletApiService.createWallet({
+        name,
+        wallet_type: type === 'eoa' ? 'eoa' : 'smart_contract',
+        blockchains: [network]
+      });
+
+      const newWallet: Wallet = {
+        id: apiResponse.id,
+        name: apiResponse.name,
+        address: apiResponse.primary_address,
+        type,
+        network,
+        balance: '0',
+        createdAt: new Date(apiResponse.created_at),
+      };
+
+      // Update local state
       const updatedWallets = [...wallets, newWallet];
       setWallets(updatedWallets);
-      saveWalletsToStorage(updatedWallets);
+      
+      // Create sample transaction for demonstration
+      await walletApiService.createSampleTransaction(newWallet.address);
       
       toast({
-        title: "Wallet Created",
-        description: `${name} has been successfully created`,
+        title: "Wallet Created Successfully",
+        description: `${name} created with address ${newWallet.address.slice(0, 10)}...`,
       });
       
       return newWallet;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create wallet';
       setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "Wallet Creation Failed", 
+        description: errorMessage,
+      });
       throw new Error(errorMessage);
     } finally {
       setLoading(false);

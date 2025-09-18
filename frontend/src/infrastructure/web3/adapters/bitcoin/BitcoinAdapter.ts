@@ -5,6 +5,11 @@
  * Supports mainnet, testnet, and regtest networks
  */
 
+// CRITICAL: Ensure Buffer polyfill is available before importing bitcoinjs-lib
+if (typeof globalThis.Buffer === 'undefined') {
+  throw new Error('Buffer polyfill not available - ensure globalPolyfills.ts is loaded first');
+}
+
 import * as bitcoin from 'bitcoinjs-lib';
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
