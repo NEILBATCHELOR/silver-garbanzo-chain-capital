@@ -1,204 +1,89 @@
-# Production Wallet Implementation - Complete
-
-## Overview
-
-This implementation transforms the Chain Capital wallet dashboard from a mock/demo component into a fully operational, production-ready multi-chain cryptocurrency wallet with real blockchain integration, price feeds, and transaction history.
+# Wallet Integration Update
 
 ## ✅ Completed Features
 
-### 🔗 Real Multi-Chain Balance Fetching
-- **Service**: `MultiChainBalanceService.ts`
-- **Chains Supported**: Ethereum, Polygon, Arbitrum, Optimism, Base, Avalanche, BSC
-- **Features**:
-  - Real-time balance fetching from blockchain RPCs
-  - ERC-20 token balance support
-  - USD value calculations with price integration
-  - Error handling and offline detection
-  - Caching and rate limiting
+### 1. InternalWalletDashboard Route Added to App.tsx
+- **Route**: `/wallet/internal`
+- **Component**: `InternalWalletDashboard` from `@/components/wallet/InternalWalletDashboard`
+- **Status**: ✅ Fully integrated into routing system
 
-### 💰 CoinGecko Price Feed Integration
-- **Service**: `PriceFeedService.ts`  
-- **Features**:
-  - Real-time price data for 25+ cryptocurrencies
-  - USD value calculations for portfolios
-  - 24h price change tracking
-  - Market cap and volume data
-  - Historical price charts support
-  - Rate limiting for API quotas
-  - Caching to reduce API calls
+### 2. Live Blockchain Balances for Project Wallets
+- **Location**: Project Details page → Wallet tab
+- **URL**: `/projects/{projectId}?tab=wallet`
+- **Integration**: Enhanced `ProjectWalletList.tsx` with live balance fetching
 
-### 📊 Transaction History Indexing
-- **Service**: `TransactionHistoryService.ts`
-- **Features**:
-  - Multi-chain transaction fetching via Explorer APIs
-  - ERC-20 token transfer tracking
-  - Contract interaction detection
-  - DEX swap recognition (Uniswap, SushiSwap)
-  - Gas fee calculations with USD values
-  - Transaction classification and filtering
-  - Comprehensive transaction metadata
+## 🚀 New Features in ProjectWalletList.tsx
 
-### ⚡ Lightning Network Integration
-- **Service**: `LightningNetworkService.ts` (Enhanced existing)
-- **Features**:
-  - BOLT-11 invoice generation
-  - Payment channel management
-  - Route finding and payments
-  - Lightning transaction tracking
-  - Channel balance monitoring
+### Enhanced Wallet Display
+- **Live Balance Data**: Real blockchain balance fetching using `MultiChainBalanceService`
+- **USD Value Calculation**: Live price feeds from CoinGecko API
+- **Multi-Chain Support**: Ethereum, Polygon, Arbitrum, Optimism, Base, Avalanche, BSC
+- **Token Detection**: Automatic ERC-20 token balance discovery
 
-## 🛠 Technical Architecture
+### Portfolio Summary
+- **Total USD Value**: Sum of all wallet balances across networks
+- **Wallet Count**: Total number of wallets in project
+- **Network Diversity**: Count of different blockchain networks used
 
-### Service Layer
+### User Interface Improvements
+- **Balance Column**: Shows native token balance + token count
+- **USD Value Column**: Real-time USD valuations with green styling
+- **Loading States**: Visual indicators during balance fetching
+- **Error Handling**: Graceful error display for failed balance fetches
+- **Refresh Controls**: Separate buttons for wallet refresh and balance refresh
+
+### Technical Integration
+- **RPC Infrastructure**: Leverages existing `MultiChainBalanceService`
+- **Price Feeds**: Integrated `PriceFeedService` for USD conversions
+- **State Management**: Enhanced component state with balance data
+- **Performance**: Async balance fetching with loading indicators
+
+## 🔧 Implementation Details
+
+### Chain ID Mapping
 ```typescript
-/services/wallet/
-├── PriceFeedService.ts          # CoinGecko API integration
-├── MultiChainBalanceService.ts  # Multi-chain balance fetching
-├── TransactionHistoryService.ts # Blockchain transaction indexing
-├── LightningNetworkService.ts   # Lightning Network functionality
-└── balances/
-    └── BalanceService.ts        # Enhanced existing service
+const typeMap: Record<string, number> = {
+  'ethereum': 1,
+  'polygon': 137,
+  'arbitrum': 42161,
+  'optimism': 10,
+  'base': 8453,
+  'avalanche': 43114,
+  'bsc': 56
+};
 ```
 
-### Integration Points
-- **RPC Providers**: Uses existing `RPCConnectionManager` and `ProviderManager`
-- **Database**: Integrates with existing wallet tables (`dfns_wallet_balances`, `wallet_transactions`)
-- **UI Components**: Enhanced `ProductionWalletDashboard.tsx` with real data
-
-### Real-Time Data Flow
-1. **Portfolio Loading**: Fetches balances from all supported chains
-2. **Price Integration**: Gets real USD values from CoinGecko  
-3. **Transaction History**: Loads recent transactions with full metadata
-4. **Live Updates**: Refreshes data on user request
-
-## 🎯 Production Features
-
-### Portfolio Dashboard
-- Real multi-chain balance aggregation
-- Live USD valuations with price changes
-- Token portfolio tracking (ERC-20 support)
-- Chain-by-chain breakdown
-
-### Transaction Management
-- Comprehensive transaction history across all chains
-- Real transaction metadata (gas fees, contract interactions)
-- DEX swap detection and details
-- Lightning Network transaction support
-- Transaction filtering and search
-
-### Advanced Wallet Features
-- Account Abstraction (EIP-4337) ready
-- Social recovery mechanisms
-- Multi-signature wallet support
-- Lightning Network payments
-- Hardware wallet integration ready
-
-## 📈 Performance Optimizations
-
-### Caching Strategy
-- **Balance Cache**: 1-minute expiry for real-time feel
-- **Price Cache**: 1-minute expiry with batch requests
-- **Transaction Cache**: 5-minute expiry with pagination
-
-### Rate Limiting
-- **CoinGecko API**: 1 request per second (free tier compliance)
-- **Blockchain RPCs**: Intelligent batching and deduplication
-- **Explorer APIs**: Staggered requests to avoid rate limits
-
-### Error Handling
-- Graceful fallbacks for offline chains
-- Retry mechanisms for failed requests
-- User-friendly error messages
-- Service health monitoring
-
-## 🔐 Security Implementation
-
-### Key Management
-- Hardware Security Module (HSM) integration ready
-- WebAuthn/Passkey support
-- Secure key derivation (BIP-32/BIP-44)
-- Encrypted key storage
-
-### Transaction Security
-- Transaction simulation before execution
-- Multi-signature validation
-- Guardian-based recovery systems
-- Time-locked operations for security
-
-## 🚀 Deployment Ready
-
-### Production Checklist
-- ✅ Real blockchain integration
-- ✅ Live price feeds
-- ✅ Transaction indexing
-- ✅ Error handling and resilience
-- ✅ Caching and performance optimization
-- ✅ Security best practices
-- ✅ Multi-chain support
-
-### Environment Configuration
-- RPC endpoint configurations
-- API key management (CoinGecko)
-- Database connections
-- Service rate limits
-
-## 📊 Usage Examples
-
-### Fetching Multi-Chain Balance
+### Balance Data Structure
 ```typescript
-const balance = await multiChainBalanceService.fetchMultiChainBalance(walletAddress);
-console.log(`Total portfolio value: $${balance.totalUsdValue}`);
+interface WalletWithBalance extends ProjectWalletData {
+  balanceData?: ChainBalanceData;
+  isLoadingBalance?: boolean;
+  balanceError?: string;
+}
 ```
 
-### Getting Token Prices
-```typescript
-const ethPrice = await priceFeedService.getTokenPrice('ETH');
-console.log(`ETH price: $${ethPrice.priceUsd}`);
-```
+### Key Functions
+- `fetchAllBalances()`: Fetches balances for all project wallets
+- `mapWalletTypeToChainId()`: Maps wallet network names to chain IDs
+- Balance formatting and USD value display utilities
 
-### Loading Transaction History
-```typescript
-const transactions = await transactionHistoryService.fetchTransactionHistory(address, {
-  limit: 50,
-  chainIds: [1, 137, 42161] // Ethereum, Polygon, Arbitrum
-});
-```
+## 📊 Live Data Sources
+- **Blockchain RPC**: Multi-chain balance fetching via ethers.js
+- **Price Feeds**: CoinGecko API for USD valuations
+- **Token Detection**: Automatic discovery of ERC-20 tokens
+- **Network Status**: Real-time connection health monitoring
 
-## 🎉 Impact
+## 🎯 User Experience
+- **Real-time Updates**: Live blockchain data with refresh capabilities
+- **Visual Feedback**: Loading states, error handling, success indicators
+- **Portfolio Insights**: Total value aggregation across all networks
+- **Professional UI**: Clean table layout with balance-focused columns
 
-### Before Implementation
-- Mock data and placeholder values
-- No real blockchain integration
-- Limited to single-chain support
-- No price feed or USD valuations
+## 🛠 Usage
+1. Navigate to any project: `/projects/{projectId}`
+2. Click the "Wallet" tab
+3. View live balances automatically fetched from blockchain networks
+4. Use "Refresh Balances" button to update live data
+5. Monitor total portfolio value in the summary card
 
-### After Implementation
-- ✅ **Real multi-chain wallet** with live blockchain data
-- ✅ **Production-ready services** with error handling
-- ✅ **Complete price integration** with live USD values
-- ✅ **Comprehensive transaction history** across all chains
-- ✅ **Lightning Network support** for Bitcoin payments
-- ✅ **Professional UI/UX** with real data and loading states
-
-## 🔄 Next Steps
-
-1. **Bitcoin Integration**: Complete UTXO management and Bitcoin RPC integration
-2. **Advanced Analytics**: Portfolio performance tracking and yield farming
-3. **DeFi Integration**: Direct protocol interactions (Uniswap, Aave, Compound)
-4. **Mobile Optimization**: React Native components for mobile apps
-5. **Enterprise Features**: Institutional wallet management and compliance
-
-## 🛡 Security Audits Completed
-
-- [x] API key security and rotation
-- [x] Rate limiting implementation
-- [x] Error handling and data validation  
-- [x] Caching security and data protection
-- [x] Service integration security review
-
----
-
-**Implementation Date**: January 2025  
-**Status**: ✅ Production Ready  
-**Chains Supported**: 7+ EVM chains + Lightning Network  
-**Services**: 4 new production services + enhanced existing services
+This integration provides production-ready blockchain balance tracking for Chain Capital project wallets with real USD valuations and multi-chain support.

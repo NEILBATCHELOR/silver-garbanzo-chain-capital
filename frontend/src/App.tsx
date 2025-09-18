@@ -56,6 +56,7 @@ import TokenDashboardComparison from "@/components/tokens/testing/TokenDashboard
 import NewWalletPage from "@/pages/wallet/NewWalletPage";
 import WalletDashboardPage from "@/pages/wallet/WalletDashboardPage";
 import WalletDemoPage from "@/pages/WalletDemoPage";
+import InternalWalletDashboard from "@/components/wallet/InternalWalletDashboard";
 
 // Enhanced Wallet Pages (Production-Ready with Real Blockchain Integration)
 import RipplePaymentsPage from "@/pages/wallet/RipplePaymentsPage";
@@ -595,6 +596,7 @@ function App() {
               <Route path="wallet/dfns/*" element={<DfnsWalletDashboard />} />
               
               {/* Production Wallet Routes (Default to Internal Dashboard) */}
+              <Route path="wallet/internal" element={<InternalWalletDashboard />} />
 
               {/* Cap Table Routes */}
               <Route path="captable" element={<CapTableManagerNew section="overview" />} />

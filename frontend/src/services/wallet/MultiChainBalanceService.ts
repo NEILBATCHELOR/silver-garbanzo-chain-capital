@@ -60,44 +60,65 @@ export interface EnhancedTokenBalance extends TokenBalance {
 export class MultiChainBalanceService {
   private static instance: MultiChainBalanceService;
   
-  // Supported blockchain configurations
+  // Supported blockchain configurations (Mainnet + Testnet)
   private readonly supportedChains: Map<number, ChainConfig> = new Map([
+    // Ethereum Mainnet
     [1, { 
       chainId: 1, name: 'Ethereum', symbol: 'ETH', icon: '⟠', color: 'text-blue-500',
       rpcUrl: 'https://ethereum-rpc.publicnode.com',
       explorerUrl: 'https://etherscan.io',
       isEVM: true 
     }],
+    // Ethereum Sepolia Testnet
+    [11155111, { 
+      chainId: 11155111, name: 'Sepolia', symbol: 'ETH', icon: '⟠', color: 'text-blue-300',
+      rpcUrl: 'https://ethereum-sepolia.publicnode.com',
+      explorerUrl: 'https://sepolia.etherscan.io',
+      isEVM: true 
+    }],
+    // Ethereum Holesky Testnet
+    [17000, { 
+      chainId: 17000, name: 'Holesky', symbol: 'ETH', icon: '⟠', color: 'text-blue-200',
+      rpcUrl: 'https://ethereum-holesky.publicnode.com',
+      explorerUrl: 'https://holesky.etherscan.io',
+      isEVM: true 
+    }],
+    // Polygon Mainnet
     [137, { 
       chainId: 137, name: 'Polygon', symbol: 'MATIC', icon: '⬢', color: 'text-purple-500',
       rpcUrl: 'https://polygon-rpc.com',
       explorerUrl: 'https://polygonscan.com',
       isEVM: true 
     }],
+    // Arbitrum Mainnet
     [42161, { 
       chainId: 42161, name: 'Arbitrum', symbol: 'ETH', icon: '🔷', color: 'text-blue-400',
       rpcUrl: 'https://arb1.arbitrum.io/rpc',
       explorerUrl: 'https://arbiscan.io',
       isEVM: true 
     }],
+    // Optimism Mainnet
     [10, { 
       chainId: 10, name: 'Optimism', symbol: 'ETH', icon: '🔴', color: 'text-red-500',
       rpcUrl: 'https://mainnet.optimism.io',
       explorerUrl: 'https://optimistic.etherscan.io',
       isEVM: true 
     }],
+    // Base Mainnet
     [8453, { 
       chainId: 8453, name: 'Base', symbol: 'ETH', icon: '🔵', color: 'text-blue-600',
       rpcUrl: 'https://mainnet.base.org',
       explorerUrl: 'https://basescan.org',
       isEVM: true 
     }],
+    // Avalanche Mainnet
     [43114, { 
       chainId: 43114, name: 'Avalanche', symbol: 'AVAX', icon: '🏔️', color: 'text-red-400',
       rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
       explorerUrl: 'https://snowtrace.io',
       isEVM: true 
     }],
+    // BSC Mainnet
     [56, { 
       chainId: 56, name: 'BSC', symbol: 'BNB', icon: '🟡', color: 'text-yellow-500',
       rpcUrl: 'https://bsc-dataseed.binance.org',
@@ -116,7 +137,15 @@ export class MultiChainBalanceService {
       { symbol: 'LINK', address: '0x514910771AF9Ca656af840dff83E8264EcF986CA', decimals: 18 },
       { symbol: 'UNI', address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', decimals: 18 }
     ]],
-    [137, [ // Polygon
+    [11155111, [ // Sepolia testnet - common test tokens
+      { symbol: 'LINK', address: '0x779877A7B0D9E8603169DdbD7836e478b4624789', decimals: 18 },
+      { symbol: 'USDC', address: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8', decimals: 6 },
+      { symbol: 'DAI', address: '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357', decimals: 18 }
+    ]],
+    [17000, [ // Holesky testnet - minimal test tokens
+      { symbol: 'WETH', address: '0x94373a4919B3240D86eA41593D5eBa789FEF3848', decimals: 18 }
+    ]],
+    [137, [ // Polygon mainnet
       { symbol: 'USDC', address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', decimals: 6 },
       { symbol: 'USDT', address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', decimals: 6 },
       { symbol: 'DAI', address: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063', decimals: 18 },
@@ -338,6 +367,8 @@ export class MultiChainBalanceService {
   private mapChainNameToSupportedChain(chainName: string): SupportedChain | null {
     const chainMap: { [key: string]: SupportedChain } = {
       'Ethereum': 'ethereum',
+      'Sepolia': 'ethereum', // Sepolia testnet uses ethereum adapter
+      'Holesky': 'ethereum', // Holesky testnet uses ethereum adapter
       'Polygon': 'polygon', 
       'Arbitrum': 'arbitrum',
       'Optimism': 'optimism',

@@ -79,6 +79,7 @@ out/
 # Environment files (keep .env.example)
 .env
 .env.local
+.envcopy
 .env.development.local
 .env.test.local
 .env.production.local
@@ -90,6 +91,11 @@ backend/.env.hsm.example
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
+
+# docs
+official_documents/
+docs/
+wallet-learn/
 
 # Next.js build output
 .next
@@ -168,5 +174,5 @@ patches/.tmp/
 scripts/
 test-data/
 fix/
-wallet/
+# wallet/ # COMMENTED OUT - wallet components should be tracked
 frontend/src/main-backup.tsx

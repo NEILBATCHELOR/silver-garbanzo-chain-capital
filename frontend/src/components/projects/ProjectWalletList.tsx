@@ -26,9 +26,12 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Shield
+  Shield,
+  DollarSign,
+  TrendingUp
 } from "lucide-react";
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
+import { multiChainBalanceService, ChainBalanceData } from "@/services/wallet/MultiChainBalanceService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,15 +48,23 @@ interface ProjectWalletListProps {
   onRefresh?: () => void;
 }
 
+// Enhanced wallet with balance data
+interface WalletWithBalance extends ProjectWalletData {
+  balanceData?: ChainBalanceData;
+  isLoadingBalance?: boolean;
+  balanceError?: string;
+}
+
 export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId, onRefresh }) => {
   const { toast } = useToast();
-  const [wallets, setWallets] = useState<ProjectWalletData[]>([]);
+  const [wallets, setWallets] = useState<WalletWithBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
   const [showPrivateKey, setShowPrivateKey] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
+  const [loadingBalances, setLoadingBalances] = useState(false);
   
   const fetchWallets = async () => {
     setLoading(true);
@@ -61,7 +72,15 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     
     try {
       const walletData = await projectWalletService.getProjectWallets(projectId);
-      setWallets(walletData);
+      const walletsWithBalance: WalletWithBalance[] = walletData.map(wallet => ({
+        ...wallet,
+        isLoadingBalance: true
+      }));
+      
+      setWallets(walletsWithBalance);
+      
+      // Fetch balances for all wallets
+      await fetchAllBalances(walletsWithBalance);
     } catch (err) {
       console.error('Error fetching project wallets:', err);
       setError('Failed to load project wallets');
@@ -73,6 +92,87 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Fetch live blockchain balances for all wallets
+   */
+  const fetchAllBalances = async (wallets: WalletWithBalance[]) => {
+    setLoadingBalances(true);
+    
+    const balancePromises = wallets.map(async (wallet) => {
+      if (!wallet.wallet_address) return wallet;
+
+      try {
+        // Map wallet type to chain ID
+        const chainId = mapWalletTypeToChainId(wallet.wallet_type);
+        if (!chainId) {
+          return {
+            ...wallet,
+            isLoadingBalance: false,
+            balanceError: `Unsupported network: ${wallet.wallet_type}`
+          };
+        }
+
+        // Fetch balance data for this chain
+        const balanceData = await multiChainBalanceService.getChainBalance(
+          wallet.wallet_address,
+          chainId
+        );
+
+        return {
+          ...wallet,
+          balanceData,
+          isLoadingBalance: false,
+          balanceError: balanceData ? undefined : 'Failed to fetch balance'
+        };
+      } catch (error) {
+        console.error(`Error fetching balance for wallet ${wallet.wallet_address}:`, error);
+        return {
+          ...wallet,
+          isLoadingBalance: false,
+          balanceError: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    });
+
+    try {
+      const walletsWithBalances = await Promise.all(balancePromises);
+      setWallets(walletsWithBalances);
+      
+      toast({
+        title: "Balances Updated",
+        description: "Live blockchain balances have been fetched",
+      });
+    } catch (error) {
+      console.error('Error fetching wallet balances:', error);
+      toast({
+        title: "Error",
+        description: "Some balance fetches failed",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingBalances(false);
+    }
+  };
+
+  /**
+   * Map wallet type to blockchain chain ID
+   */
+  const mapWalletTypeToChainId = (walletType: string): number | null => {
+    const typeMap: Record<string, number> = {
+      'ethereum': 1,
+      'polygon': 137,
+      'arbitrum': 42161,
+      'optimism': 10,
+      'base': 8453,
+      'avalanche': 43114,
+      'bsc': 56,
+      'fantom': 250,
+      'gnosis': 100
+    };
+
+    return typeMap[walletType.toLowerCase()] || null;
   };
 
   useEffect(() => {
@@ -165,6 +265,40 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   };
 
   return (
+    <div className="space-y-4">
+      {/* Portfolio Summary Card */}
+      {wallets.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {multiChainBalanceService.formatUsdValue(
+                    wallets.reduce((total, wallet) => 
+                      total + (wallet.balanceData?.totalUsdValue || 0), 0
+                    )
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">Total Portfolio Value</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">
+                  {wallets.length}
+                </div>
+                <p className="text-sm text-muted-foreground">Total Wallets</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">
+                  {new Set(wallets.map(w => w.wallet_type)).size}
+                </div>
+                <p className="text-sm text-muted-foreground">Networks</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Main Wallet Table */}
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
@@ -172,15 +306,29 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             <CardTitle className="flex items-center">
               <Wallet className="mr-2 h-5 w-5" />
               Project Wallets
+              {loadingBalances && (
+                <RefreshCw className="ml-2 h-4 w-4 animate-spin text-blue-500" />
+              )}
             </CardTitle>
             <CardDescription>
-              Manage blockchain wallets for this project
+              Manage blockchain wallets for this project with live balance data
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fetchAllBalances(wallets)} 
+              disabled={loading || loadingBalances}
+            >
+              <DollarSign className={`h-4 w-4 mr-2 ${loadingBalances ? 'animate-pulse' : ''}`} />
+              {loadingBalances ? 'Fetching...' : 'Refresh Balances'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -208,6 +356,8 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                 <TableRow>
                   <TableHead>Network</TableHead>
                   <TableHead>Address</TableHead>
+                  <TableHead>Balance</TableHead>
+                  <TableHead>USD Value</TableHead>
                   <TableHead>Private Key</TableHead>
                   <TableHead>Mnemonic</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -236,6 +386,56 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                           <Copy className="h-3 w-3" />
                         </Button>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {wallet.isLoadingBalance ? (
+                        <div className="flex items-center space-x-2">
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          <span className="text-xs text-muted-foreground">Loading...</span>
+                        </div>
+                      ) : wallet.balanceError ? (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Error
+                        </Badge>
+                      ) : wallet.balanceData ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1">
+                            <span className="font-mono text-sm">
+                              {multiChainBalanceService.formatBalance(wallet.balanceData.nativeBalance)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {wallet.balanceData.symbol}
+                            </span>
+                          </div>
+                          {wallet.balanceData.erc20Tokens.length > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{wallet.balanceData.erc20Tokens.length} tokens
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No data</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {wallet.isLoadingBalance ? (
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      ) : wallet.balanceError ? (
+                        <span className="text-xs text-muted-foreground">--</span>
+                      ) : wallet.balanceData ? (
+                        <div className="flex items-center space-x-1">
+                          <DollarSign className="h-3 w-3 text-green-600" />
+                          <span className="font-medium text-green-600">
+                            {multiChainBalanceService.formatUsdValue(wallet.balanceData.totalUsdValue)}
+                          </span>
+                          {wallet.balanceData.totalUsdValue > 0 && (
+                            <TrendingUp className="h-3 w-3 text-green-500" />
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">$0.00</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {wallet.private_key ? (
@@ -346,6 +546,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+    </div>
   );
 };
 

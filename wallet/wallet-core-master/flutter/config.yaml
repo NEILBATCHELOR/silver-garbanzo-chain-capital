@@ -1,7 +1,0 @@
-output: 'lib/wallet_core_bindings.dart'
-headers:
-  entry-points:
-    - 'include/**.h'
-name: 'WalletCore'
-description: 'Bindings to WalletCore'
-silence-enum-warning: true
