@@ -15,11 +15,11 @@ export { SessionKeyManager } from './SessionKeyManager'
 // Re-export types for components that need them
 export type {
   BatchOperation,
-  PaymasterPolicy,
+  UserOperationPaymaster,
   GasPolicy,
   UserOperationPreview,
   UserOperationStatus
-} from './UserOperationBuilder'
+} from '../../../services/wallet/UserOperationApiService'
 
 export type {
   GaslessTransactionRequest,

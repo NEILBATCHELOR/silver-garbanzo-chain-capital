@@ -5,6 +5,7 @@ export * from './PriceFeedService';
 export * from './EnhancedTokenDetectionService';
 
 // Account abstraction services
+export * from './UserOperationApiService';
 export * from './SessionKeyApiService';
 export * from './PaymasterApiService';
 export * from './account-abstraction';

@@ -37,50 +37,19 @@ import {
   Fuel
 } from 'lucide-react'
 import { useAccount } from 'wagmi'
+import { 
+  userOperationApiService, 
+  BatchOperation, 
+  UserOperationPaymaster, 
+  GasPolicy, 
+  UserOperationPreview, 
+  UserOperationStatus 
+} from '../../../services/wallet/UserOperationApiService'
 
 // Types based on backend services
-export interface BatchOperation {
-  target: string;
-  value: string;
-  data: string;
-  description?: string;
-}
-
-export interface PaymasterPolicy {
-  type: 'user_pays' | 'sponsored' | 'token_paymaster';
-  tokenAddress?: string;
-  maxFeeAmount?: string;
-  sponsorId?: string;
-}
-
-export interface GasPolicy {
-  priorityLevel: 'low' | 'medium' | 'high' | 'urgent';
-  maxFeePerGas?: string;
-  maxPriorityFeePerGas?: string;
-}
-
-export interface UserOperationPreview {
-  userOpHash: string;
-  gasEstimate: {
-    callGasLimit: string;
-    verificationGasLimit: string;
-    preVerificationGas: string;
-  };
-  totalGasCost: string;
-  paymasterData?: any;
-  validUntil?: number;
-}
-
-export interface UserOperationStatus {
-  userOpHash: string;
-  status: 'pending' | 'submitted' | 'included' | 'failed';
-  transactionHash?: string;
-  blockNumber?: number;
-  gasUsed?: string;
-  actualGasCost?: string;
-  reason?: string;
-  createdAt: Date;
-  updatedAt: Date;
+export interface UserOperationBuilderProps {
+  onOperationComplete?: (userOpHash: string) => void
+  initialOperations?: BatchOperation[]
 }
 
 export function UserOperationBuilder() {
@@ -97,7 +66,7 @@ export function UserOperationBuilder() {
     }
   ])
   
-  const [paymasterPolicy, setPaymasterPolicy] = useState<PaymasterPolicy>({
+  const [paymasterPolicy, setPaymasterPolicy] = useState<UserOperationPaymaster>({
     type: 'user_pays'
   })
   
@@ -162,38 +131,20 @@ export function UserOperationBuilder() {
       setIsLoading(true)
       setError('')
 
-      // Call backend UserOperationService
-      const response = await fetch('/api/wallet/user-operations/build', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          walletAddress,
-          operations: validOperations,
-          paymasterPolicy,
-          gasPolicy,
-          nonceKey: 0
-        })
+      // Call backend UserOperationService via API service
+      const response = await userOperationApiService.buildUserOperation({
+        walletAddress,
+        operations: validOperations,
+        paymasterPolicy,
+        gasPolicy,
+        nonceKey: 0
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to build UserOperation')
-      }
-
-      if (data.success) {
-        setPreview({
-          userOpHash: data.data.userOpHash,
-          gasEstimate: data.data.gasEstimate,
-          totalGasCost: data.data.gasEstimate.callGasLimit, // Simplified
-          paymasterData: data.data.paymasterData,
-          validUntil: data.data.validUntil
-        })
+      if (response.success && response.data) {
+        setPreview(response.data)
         setCurrentTab('preview')
       } else {
-        throw new Error(data.message || 'Failed to build UserOperation')
+        throw new Error(response.error || 'Failed to build UserOperation')
       }
 
     } catch (error) {
@@ -205,39 +156,23 @@ export function UserOperationBuilder() {
 
   // Submit UserOperation
   const submitUserOperation = async () => {
-    if (!preview) return
+    if (!preview || !walletAddress) return
 
     try {
       setIsLoading(true)
       setError('')
 
-      // This would call the backend to submit the UserOperation
-      const response = await fetch('/api/wallet/user-operations/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userOpHash: preview.userOpHash,
-          walletAddress
-        })
+      // Submit UserOperation via API service
+      const response = await userOperationApiService.submitUserOperation({
+        userOpHash: preview.userOpHash,
+        walletAddress
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit UserOperation')
-      }
-
-      if (data.success) {
-        setStatus({
-          userOpHash: data.data.userOpHash,
-          status: data.data.status,
-          transactionHash: data.data.transactionHash,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
+      if (response.success && response.data) {
+        setStatus(response.data)
         setCurrentTab('status')
+      } else {
+        throw new Error(response.error || 'Failed to submit UserOperation')
       }
 
     } catch (error) {
@@ -250,13 +185,12 @@ export function UserOperationBuilder() {
   // Poll UserOperation status
   const pollStatus = useCallback(async (userOpHash: string) => {
     try {
-      const response = await fetch(`/api/wallet/user-operations/status/${userOpHash}`)
-      const data = await response.json()
+      const response = await userOperationApiService.getUserOperationStatus(userOpHash)
 
-      if (data.success) {
+      if (response.success && response.data) {
         setStatus(prevStatus => ({
           ...prevStatus!,
-          ...data.data
+          ...response.data
         }))
       }
     } catch (error) {

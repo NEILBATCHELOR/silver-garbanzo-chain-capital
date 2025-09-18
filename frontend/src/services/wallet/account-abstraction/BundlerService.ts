@@ -115,6 +115,7 @@ export class BundlerService {
         isActive: row.is_active,
         supportedEntryPoints: row.supported_entry_points || [],
         gasPriceMultiplier: parseFloat(row.gas_price_multiplier || '1.0'),
+        successRate: parseFloat(row.success_rate || 0),
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at || row.created_at)
       }))
@@ -199,7 +200,7 @@ export class BundlerService {
         userOpCount: data.bundle_size,
         estimatedConfirmationTime,
         actualConfirmationTime,
-        gasEfficiency: await this.calculateGasEfficiency(data) // Simplified to 15% for now
+        gasEfficiency: await this.calculateGasEfficiency(data)
       }
     } catch (error) {
       console.error('Failed to fetch bundle status:', error)
@@ -269,6 +270,24 @@ export class BundlerService {
         }
       })
 
+      // Calculate total gas savings from successful bundles
+      const gasEfficiencies = await Promise.all(
+        data.filter(bundle => bundle.status === 'included').map(bundle => 
+          this.calculateGasEfficiency(bundle)
+        )
+      )
+      
+      const totalSavingsPercentage = gasEfficiencies.length > 0
+        ? gasEfficiencies.reduce((sum, efficiency) => sum + efficiency, 0) / gasEfficiencies.length
+        : 0
+
+      // Estimate total gas savings in wei 
+      const estimatedTotalGasUsed = data
+        .filter(bundle => bundle.gas_used)
+        .reduce((sum, bundle) => sum + BigInt(bundle.gas_used), BigInt(0))
+      
+      const estimatedSavings = estimatedTotalGasUsed * BigInt(Math.floor(totalSavingsPercentage)) / BigInt(100)
+
       const topBundlers = Object.entries(bundlerCounts)
         .sort(([,a], [,b]) => b.count - a.count)
         .slice(0, 5)
@@ -283,7 +302,7 @@ export class BundlerService {
         successRate,
         averageBundleSize,
         averageConfirmationTime,
-        gasSavings: BigInt(0), // TODO: Implement actual gas savings calculation
+        gasSavings: estimatedSavings,
         topBundlers
       }
     } catch (error) {
@@ -297,9 +316,14 @@ export class BundlerService {
    */
   async refreshBundles(): Promise<void> {
     try {
-      // TODO: Call backend API to refresh bundle statuses from blockchain
-      // For now, this is a no-op as the backend would handle this
-      console.log('Refreshing bundle statuses...')
+      // Call backend API to refresh bundle statuses from blockchain
+      await fetch(`${this.baseUrl}/api/bundler/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      console.log('Bundle statuses refreshed successfully')
     } catch (error) {
       console.error('Failed to refresh bundles:', error)
     }
@@ -318,8 +342,38 @@ export class BundlerService {
   }
 
   private async calculateGasEfficiency(bundle: any): Promise<number> {
-    // Simplified calculation - in reality would compare bundled vs individual tx costs
-    return Math.floor(Math.random() * 30) + 10 // 10-40% savings
+    // Calculate actual gas efficiency based on bundle data
+    try {
+      // Get individual transaction gas estimates from database for comparison
+      const { data: userOperations } = await supabase
+        .from('user_operations')
+        .select('actual_gas_cost, estimated_gas_cost')
+        .in('user_operation_hash', bundle.user_operations)
+
+      if (!userOperations || userOperations.length === 0) {
+        return 0
+      }
+
+      // Calculate total individual costs vs bundled cost
+      const totalIndividualCost = userOperations.reduce((sum, op) => {
+        return sum + (BigInt(op.estimated_gas_cost || 0))
+      }, BigInt(0))
+
+      const bundledCost = BigInt(bundle.gas_used || 0)
+
+      if (totalIndividualCost === BigInt(0)) {
+        return 0
+      }
+
+      // Calculate savings percentage
+      const savings = totalIndividualCost - bundledCost
+      const efficiency = Number(savings * BigInt(100) / totalIndividualCost)
+
+      return Math.max(0, Math.min(100, efficiency))
+    } catch (error) {
+      console.error('Failed to calculate gas efficiency:', error)
+      return 0
+    }
   }
 
   private getEmptyAnalytics(): BundleAnalytics {

@@ -33,6 +33,7 @@ export function BundlerManagementInterface() {
   const [activeBundles, setActiveBundles] = useState<BundleOperation[]>([])
   const [bundlerConfigs, setBundlerConfigs] = useState<BundlerConfiguration[]>([])
   const [selectedBundler, setSelectedBundler] = useState<string>('')
+  const [analytics, setAnalytics] = useState<BundleAnalytics | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null)
 
@@ -62,6 +63,10 @@ export function BundlerManagementInterface() {
       
       // Load active bundles
       await refreshActiveBundles()
+      
+      // Load analytics data
+      const analyticsData = await bundlerService.getBundlerAnalytics()
+      setAnalytics(analyticsData)
       
     } catch (error) {
       console.error('Failed to load bundler data:', error)
@@ -130,7 +135,10 @@ export function BundlerManagementInterface() {
           <Button
             variant="outline"
             size="sm"
-            onClick={refreshActiveBundles}
+            onClick={() => {
+              refreshActiveBundles()
+              loadBundlerData() // Also refresh analytics
+            }}
             disabled={isLoading}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -338,51 +346,66 @@ export function BundlerManagementInterface() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Bundles</p>
-                        <p className="text-2xl font-bold">1,247</p>
-                      </div>
-                      <Package2 className="w-8 h-8 text-blue-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+              {isLoading || !analytics ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                  Loading analytics...
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Bundles</p>
+                            <p className="text-2xl font-bold">
+                              {analytics.totalBundles.toLocaleString()}
+                            </p>
+                          </div>
+                          <Package2 className="w-8 h-8 text-blue-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Success Rate</p>
-                        <p className="text-2xl font-bold">97.8%</p>
-                      </div>
-                      <CheckCircle2 className="w-8 h-8 text-green-500" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Success Rate</p>
+                            <p className="text-2xl font-bold">
+                              {(analytics.successRate * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                          <CheckCircle2 className="w-8 h-8 text-green-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Avg Gas Savings</p>
-                        <p className="text-2xl font-bold">23.5%</p>
-                      </div>
-                      <Zap className="w-8 h-8 text-yellow-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Gas Savings</p>
+                            <p className="text-2xl font-bold">
+                              {(Number(analytics.gasSavings) / 1e18).toFixed(3)} ETH
+                            </p>
+                          </div>
+                          <Zap className="w-8 h-8 text-yellow-500" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-              <div className="text-center py-8">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">Advanced analytics charts would be displayed here</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Bundle performance, gas efficiency trends, and success rates over time
-                </p>
-              </div>
+                  <div className="text-center py-8">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">Advanced analytics charts would be displayed here</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Bundle performance, gas efficiency trends, and success rates over time
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
