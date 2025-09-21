@@ -64,15 +64,6 @@ export default defineConfig({
     // Disable problematic Node.js APIs
     "process.inspector": "undefined",
     "process.binding": "undefined",
-    // Disable Node.js modules at runtime
-    "require('fs')": "undefined",
-    "require('os')": "undefined", 
-    "require('net')": "undefined",
-    "require('tls')": "undefined",
-    "require('child_process')": "undefined",
-    "require('inspector')": "undefined",
-    "require('readline')": "undefined",
-    "require('repl')": "undefined",
   },
   
   build: {

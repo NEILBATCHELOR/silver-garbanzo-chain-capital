@@ -19,11 +19,13 @@ interface EnvironmentRPCMapping {
 
 /**
  * RPC environment variable configuration
+ * Updated to support multiple testnets per chain
  */
 const RPC_ENV_MAPPING: Record<SupportedChain, EnvironmentRPCMapping> = {
   ethereum: {
     mainnet: import.meta.env.VITE_MAINNET_RPC_URL,
     testnet: import.meta.env.VITE_SEPOLIA_RPC_URL
+    // Note: Holesky is handled separately in MultiChainBalanceService due to multiple testnet limitation
   },
   polygon: {
     mainnet: import.meta.env.VITE_POLYGON_RPC_URL,

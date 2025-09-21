@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0x2tuFaGOwLg3TuAhoTf4JIEmCJmCgDAXxXA3XgHkXpwbbkAbkgy7bEvJCIOCmi
+\restrict P9VUKweky1zpX7obvXFtf0gpwqjJeZXp5Z3u0V5pWfSxYcdJXKJlPGxuRRFsStD
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -1560,6 +1560,24 @@ $$;
 --
 
 COMMENT ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) IS 'Check if wallet already exists for project+network combination';
+
+
+--
+-- Name: check_expired_proposals(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_expired_proposals() RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  update multi_sig_proposals
+  set status = 'expired',
+      updated_at = now()
+  where status = 'pending'
+    and expires_at < now();
+end;
+$$;
 
 
 --
@@ -6169,6 +6187,34 @@ BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
+$$;
+
+
+--
+-- Name: update_proposal_signature_count(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_proposal_signature_count() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  update multi_sig_proposals
+  set signatures_collected = (
+    select count(*)
+    from proposal_signatures
+    where proposal_id = coalesce(NEW.proposal_id, OLD.proposal_id)
+      and is_valid = true
+  ),
+  updated_at = now()
+  where id = coalesce(NEW.proposal_id, OLD.proposal_id);
+
+  if (tg_op = 'DELETE') then
+    return OLD;
+  else
+    return NEW;
+  end if;
+end;
 $$;
 
 
@@ -11406,6 +11452,44 @@ CREATE TABLE public.moonpay_webhook_events (
 
 
 --
+-- Name: multi_sig_audit_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.multi_sig_audit_log (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_id uuid,
+    proposal_id uuid,
+    action text NOT NULL,
+    actor uuid,
+    actor_address text,
+    details jsonb DEFAULT '{}'::jsonb,
+    ip_address inet,
+    user_agent text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT multi_sig_audit_log_action_check CHECK ((action = ANY (ARRAY['create_proposal'::text, 'sign'::text, 'reject'::text, 'execute'::text, 'expire'::text, 'cancel'::text])))
+);
+
+
+--
+-- Name: multi_sig_configurations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.multi_sig_configurations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_id uuid,
+    min_confirmation_time integer DEFAULT 0,
+    max_daily_limit numeric,
+    max_transaction_limit numeric,
+    require_all_signatures boolean DEFAULT false,
+    auto_execute boolean DEFAULT true,
+    notification_webhook text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: multi_sig_confirmations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11418,6 +11502,30 @@ CREATE TABLE public.multi_sig_confirmations (
     confirmed boolean,
     signer text,
     "timestamp" timestamp with time zone
+);
+
+
+--
+-- Name: multi_sig_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.multi_sig_proposals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_id uuid,
+    transaction_hash text NOT NULL,
+    raw_transaction jsonb NOT NULL,
+    chain_type text NOT NULL,
+    status text DEFAULT 'pending'::text,
+    signatures_collected integer DEFAULT 0,
+    signatures_required integer NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    executed_at timestamp with time zone,
+    execution_hash text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT multi_sig_proposals_signatures_required_check CHECK ((signatures_required > 0)),
+    CONSTRAINT multi_sig_proposals_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'signed'::text, 'executed'::text, 'expired'::text, 'rejected'::text])))
 );
 
 
@@ -12743,6 +12851,23 @@ CREATE TABLE public.projects_backup (
     tax_reporting_obligations text[],
     regulatory_permissions text[],
     cross_border_implications text
+);
+
+
+--
+-- Name: proposal_signatures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.proposal_signatures (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    proposal_id uuid,
+    signer_address text NOT NULL,
+    signature text NOT NULL,
+    signature_type text NOT NULL,
+    signed_at timestamp with time zone DEFAULT now(),
+    is_valid boolean DEFAULT true,
+    validation_error text,
+    CONSTRAINT proposal_signatures_signature_type_check CHECK ((signature_type = ANY (ARRAY['ecdsa'::text, 'schnorr'::text, 'eddsa'::text, 'other'::text])))
 );
 
 
@@ -14285,6 +14410,25 @@ CREATE TABLE public.signatures (
     signer text NOT NULL,
     signature text NOT NULL,
     created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: signer_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.signer_keys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid,
+    address text NOT NULL,
+    chain_type text NOT NULL,
+    key_id text NOT NULL,
+    is_hardware_wallet boolean DEFAULT false,
+    device_type text,
+    derivation_path text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT signer_keys_device_type_check CHECK ((device_type = ANY (ARRAY['ledger'::text, 'trezor'::text, 'metamask'::text, 'walletconnect'::text, 'dfns'::text, 'guardian'::text, 'internal'::text, NULL::text])))
 );
 
 
@@ -19676,11 +19820,43 @@ ALTER TABLE ONLY public.moonpay_webhook_events
 
 
 --
+-- Name: multi_sig_audit_log multi_sig_audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_audit_log
+    ADD CONSTRAINT multi_sig_audit_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_configurations multi_sig_configurations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_configurations
+    ADD CONSTRAINT multi_sig_configurations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_configurations multi_sig_configurations_wallet_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_configurations
+    ADD CONSTRAINT multi_sig_configurations_wallet_id_key UNIQUE (wallet_id);
+
+
+--
 -- Name: multi_sig_confirmations multi_sig_confirmations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.multi_sig_confirmations
     ADD CONSTRAINT multi_sig_confirmations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_proposals multi_sig_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_proposals
+    ADD CONSTRAINT multi_sig_proposals_pkey PRIMARY KEY (id);
 
 
 --
@@ -20071,6 +20247,22 @@ ALTER TABLE ONLY public.project_wallets
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: proposal_signatures proposal_signatures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.proposal_signatures
+    ADD CONSTRAINT proposal_signatures_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: proposal_signatures proposal_signatures_proposal_id_signer_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.proposal_signatures
+    ADD CONSTRAINT proposal_signatures_proposal_id_signer_address_key UNIQUE (proposal_id, signer_address);
 
 
 --
@@ -20477,6 +20669,22 @@ ALTER TABLE ONLY public.signature_migrations
 
 ALTER TABLE ONLY public.signatures
     ADD CONSTRAINT signatures_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: signer_keys signer_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.signer_keys
+    ADD CONSTRAINT signer_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: signer_keys signer_keys_user_id_address_chain_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.signer_keys
+    ADD CONSTRAINT signer_keys_user_id_address_chain_type_key UNIQUE (user_id, address, chain_type);
 
 
 --
@@ -21717,6 +21925,20 @@ CREATE INDEX idx_asset_nav_data_validated ON public.asset_nav_data USING btree (
 
 
 --
+-- Name: idx_audit_actor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_actor ON public.multi_sig_audit_log USING btree (actor);
+
+
+--
+-- Name: idx_audit_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_created_at ON public.multi_sig_audit_log USING btree (created_at DESC);
+
+
+--
 -- Name: idx_audit_logs_action; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -21871,6 +22093,20 @@ CREATE INDEX idx_audit_logs_user_id ON public.audit_logs USING btree (user_id);
 
 
 --
+-- Name: idx_audit_proposal_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_proposal_id ON public.multi_sig_audit_log USING btree (proposal_id);
+
+
+--
+-- Name: idx_audit_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_wallet_id ON public.multi_sig_audit_log USING btree (wallet_id);
+
+
+--
 -- Name: idx_batch_operations_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -21952,6 +22188,13 @@ CREATE INDEX idx_bulk_operations_operation_type ON public.bulk_operations USING 
 --
 
 CREATE INDEX idx_bulk_operations_status ON public.bulk_operations USING btree (status);
+
+
+--
+-- Name: idx_bundler_configurations_chain_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bundler_configurations_chain_active ON public.bundler_configurations USING btree (chain_id, is_active);
 
 
 --
@@ -22274,6 +22517,13 @@ CREATE INDEX idx_compliance_reports_issuer_id ON public.compliance_reports USING
 --
 
 CREATE INDEX idx_compliance_reports_status ON public.compliance_reports USING btree (status);
+
+
+--
+-- Name: idx_config_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_config_wallet_id ON public.multi_sig_configurations USING btree (wallet_id);
 
 
 --
@@ -24349,6 +24599,20 @@ CREATE INDEX idx_moonpay_webhook_events_type ON public.moonpay_webhook_events US
 
 
 --
+-- Name: idx_multi_sig_proposals_chain_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_chain_type ON public.multi_sig_proposals USING btree (chain_type);
+
+
+--
+-- Name: idx_multi_sig_wallets_owners; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_wallets_owners ON public.multi_sig_wallets USING gin (owners);
+
+
+--
 -- Name: idx_nav_approvals_requested_by; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -24650,6 +24914,13 @@ CREATE INDEX idx_paymaster_policies_active ON public.paymaster_policies USING bt
 
 
 --
+-- Name: idx_paymaster_policies_chain_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_paymaster_policies_chain_active ON public.paymaster_policies USING btree (chain_id, is_active);
+
+
+--
 -- Name: idx_paymaster_policies_chain_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -24871,6 +25142,34 @@ CREATE INDEX idx_projects_project_type ON public.projects USING btree (project_t
 --
 
 CREATE INDEX idx_projects_status ON public.projects USING btree (status);
+
+
+--
+-- Name: idx_proposals_created_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_created_by ON public.multi_sig_proposals USING btree (created_by);
+
+
+--
+-- Name: idx_proposals_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_expires_at ON public.multi_sig_proposals USING btree (expires_at);
+
+
+--
+-- Name: idx_proposals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_status ON public.multi_sig_proposals USING btree (status);
+
+
+--
+-- Name: idx_proposals_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_wallet_id ON public.multi_sig_proposals USING btree (wallet_id);
 
 
 --
@@ -25676,6 +25975,41 @@ CREATE INDEX idx_signature_migrations_status ON public.signature_migrations USIN
 --
 
 CREATE INDEX idx_signature_migrations_wallet_id ON public.signature_migrations USING btree (wallet_id);
+
+
+--
+-- Name: idx_signatures_is_valid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_signatures_is_valid ON public.proposal_signatures USING btree (is_valid) WHERE (is_valid = true);
+
+
+--
+-- Name: idx_signatures_proposal_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_signatures_proposal_id ON public.proposal_signatures USING btree (proposal_id);
+
+
+--
+-- Name: idx_signatures_signer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_signatures_signer ON public.proposal_signatures USING btree (signer_address);
+
+
+--
+-- Name: idx_signer_keys_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_signer_keys_address ON public.signer_keys USING btree (address);
+
+
+--
+-- Name: idx_signer_keys_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_signer_keys_user_id ON public.signer_keys USING btree (user_id);
 
 
 --
@@ -27450,6 +27784,13 @@ CREATE TRIGGER trigger_update_settlement_status BEFORE UPDATE ON public.redempti
 
 
 --
+-- Name: proposal_signatures trigger_update_signature_count; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_signature_count AFTER INSERT OR DELETE OR UPDATE ON public.proposal_signatures FOR EACH ROW EXECUTE FUNCTION public.update_proposal_signature_count();
+
+
+--
 -- Name: asset_holdings trigger_update_total_assets; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -29204,11 +29545,59 @@ ALTER TABLE ONLY public.kyc_screening_logs
 
 
 --
+-- Name: multi_sig_audit_log multi_sig_audit_log_actor_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_audit_log
+    ADD CONSTRAINT multi_sig_audit_log_actor_fkey FOREIGN KEY (actor) REFERENCES auth.users(id);
+
+
+--
+-- Name: multi_sig_audit_log multi_sig_audit_log_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_audit_log
+    ADD CONSTRAINT multi_sig_audit_log_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.multi_sig_proposals(id);
+
+
+--
+-- Name: multi_sig_audit_log multi_sig_audit_log_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_audit_log
+    ADD CONSTRAINT multi_sig_audit_log_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id);
+
+
+--
+-- Name: multi_sig_configurations multi_sig_configurations_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_configurations
+    ADD CONSTRAINT multi_sig_configurations_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: multi_sig_confirmations multi_sig_confirmations_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.multi_sig_confirmations
     ADD CONSTRAINT multi_sig_confirmations_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.multi_sig_transactions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: multi_sig_proposals multi_sig_proposals_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_proposals
+    ADD CONSTRAINT multi_sig_proposals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: multi_sig_proposals multi_sig_proposals_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_proposals
+    ADD CONSTRAINT multi_sig_proposals_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
 
 
 --
@@ -29408,6 +29797,14 @@ ALTER TABLE ONLY public.project_organization_assignments
 
 ALTER TABLE ONLY public.project_wallets
     ADD CONSTRAINT project_wallets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: proposal_signatures proposal_signatures_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.proposal_signatures
+    ADD CONSTRAINT proposal_signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE CASCADE;
 
 
 --
@@ -29664,6 +30061,14 @@ ALTER TABLE ONLY public.signature_migrations
 
 ALTER TABLE ONLY public.signatures
     ADD CONSTRAINT signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.transaction_proposals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: signer_keys signer_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.signer_keys
+    ADD CONSTRAINT signer_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -30376,6 +30781,34 @@ CREATE POLICY "Authenticated users can view risk calculations" ON public.climate
 
 
 --
+-- Name: signer_keys Signer keys delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Signer keys delete" ON public.signer_keys FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+
+
+--
+-- Name: signer_keys Signer keys insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Signer keys insert" ON public.signer_keys FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+
+
+--
+-- Name: signer_keys Signer keys select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Signer keys select" ON public.signer_keys FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
+
+
+--
+-- Name: signer_keys Signer keys update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Signer keys update" ON public.signer_keys FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
+
+
+--
 -- Name: sidebar_configurations Super Admins can manage all sidebar configurations; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -30428,6 +30861,15 @@ CREATE POLICY "Users can create project organization assignments" ON public.proj
 
 
 --
+-- Name: multi_sig_proposals Users can create proposals for their wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can create proposals for their wallets" ON public.multi_sig_proposals FOR INSERT TO authenticated WITH CHECK ((wallet_id IN ( SELECT multi_sig_wallets.id
+   FROM public.multi_sig_wallets
+  WHERE ((( SELECT auth.uid() AS uid))::text = ANY (multi_sig_wallets.owners)))));
+
+
+--
 -- Name: project_organization_assignments Users can delete project organization assignments; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -30444,6 +30886,16 @@ CREATE POLICY "Users can delete project organization assignments" ON public.proj
 --
 
 CREATE POLICY "Users can manage their own sidebar preferences" ON public.user_sidebar_preferences USING ((user_id = auth.uid()));
+
+
+--
+-- Name: proposal_signatures Users can sign proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can sign proposals" ON public.proposal_signatures FOR INSERT TO authenticated WITH CHECK ((proposal_id IN ( SELECT p.id
+   FROM (public.multi_sig_proposals p
+     JOIN public.multi_sig_wallets w ON ((p.wallet_id = w.id)))
+  WHERE ((( SELECT auth.uid() AS uid))::text = ANY (w.owners)))));
 
 
 --
@@ -30471,6 +30923,16 @@ CREATE POLICY "Users can view project organization assignments" ON public.projec
 
 
 --
+-- Name: proposal_signatures Users can view signatures; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view signatures" ON public.proposal_signatures FOR SELECT TO authenticated USING ((proposal_id IN ( SELECT p.id
+   FROM (public.multi_sig_proposals p
+     JOIN public.multi_sig_wallets w ON ((p.wallet_id = w.id)))
+  WHERE (((( SELECT auth.uid() AS uid))::text = ANY (w.owners)) OR (w.created_by = ( SELECT auth.uid() AS uid))))));
+
+
+--
 -- Name: sidebar_configurations Users can view their organization's sidebar configurations; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -30495,6 +30957,15 @@ CREATE POLICY "Users can view their organization's sidebar items" ON public.side
 CREATE POLICY "Users can view their organization's sidebar sections" ON public.sidebar_sections FOR SELECT USING ((organization_id IN ( SELECT user_organization_roles.organization_id
    FROM public.user_organization_roles
   WHERE (user_organization_roles.user_id = auth.uid()))));
+
+
+--
+-- Name: multi_sig_proposals Users can view their wallet proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their wallet proposals" ON public.multi_sig_proposals FOR SELECT TO authenticated USING ((wallet_id IN ( SELECT multi_sig_wallets.id
+   FROM public.multi_sig_wallets
+  WHERE (((( SELECT auth.uid() AS uid))::text = ANY (multi_sig_wallets.owners)) OR (multi_sig_wallets.created_by = ( SELECT auth.uid() AS uid))))));
 
 
 --
@@ -30547,10 +31018,34 @@ CREATE POLICY data_source_mappings_user_policy ON public.data_source_mappings US
 
 
 --
+-- Name: multi_sig_audit_log; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_audit_log ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: multi_sig_configurations; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_configurations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: multi_sig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: project_organization_assignments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.project_organization_assignments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: proposal_signatures; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: regulatory_exemptions; Type: ROW SECURITY; Schema: public; Owner: -
@@ -30575,6 +31070,12 @@ ALTER TABLE public.sidebar_items ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.sidebar_sections ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: signer_keys; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.signer_keys ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: user_sidebar_preferences; Type: ROW SECURITY; Schema: public; Owner: -
@@ -30837,6 +31338,16 @@ GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network
 GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) TO authenticated;
 GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) TO service_role;
 GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) TO prisma;
+
+
+--
+-- Name: FUNCTION check_expired_proposals(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.check_expired_proposals() TO anon;
+GRANT ALL ON FUNCTION public.check_expired_proposals() TO authenticated;
+GRANT ALL ON FUNCTION public.check_expired_proposals() TO service_role;
+GRANT ALL ON FUNCTION public.check_expired_proposals() TO prisma;
 
 
 --
@@ -32057,6 +32568,16 @@ GRANT ALL ON FUNCTION public.update_project_organization_assignments_timestamp()
 GRANT ALL ON FUNCTION public.update_project_organization_assignments_timestamp() TO authenticated;
 GRANT ALL ON FUNCTION public.update_project_organization_assignments_timestamp() TO service_role;
 GRANT ALL ON FUNCTION public.update_project_organization_assignments_timestamp() TO prisma;
+
+
+--
+-- Name: FUNCTION update_proposal_signature_count(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO anon;
+GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO authenticated;
+GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO service_role;
+GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO prisma;
 
 
 --
@@ -33960,6 +34481,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mo
 
 
 --
+-- Name: TABLE multi_sig_audit_log; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO prisma;
+
+
+--
+-- Name: TABLE multi_sig_configurations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO prisma;
+
+
+--
 -- Name: TABLE multi_sig_confirmations; Type: ACL; Schema: public; Owner: -
 --
 
@@ -33967,6 +34508,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mu
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO prisma;
+
+
+--
+-- Name: TABLE multi_sig_proposals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO prisma;
 
 
 --
@@ -34387,6 +34938,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pr
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO prisma;
+
+
+--
+-- Name: TABLE proposal_signatures; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO prisma;
 
 
 --
@@ -34827,6 +35388,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.si
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO prisma;
+
+
+--
+-- Name: TABLE signer_keys; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO prisma;
 
 
 --
@@ -35867,5 +36438,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0x2tuFaGOwLg3TuAhoTf4JIEmCJmCgDAXxXA3XgHkXpwbbkAbkgy7bEvJCIOCmi
+\unrestrict P9VUKweky1zpX7obvXFtf0gpwqjJeZXp5Z3u0V5pWfSxYcdJXKJlPGxuRRFsStD
 

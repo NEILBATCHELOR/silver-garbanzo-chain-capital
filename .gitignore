@@ -174,5 +174,4 @@ patches/.tmp/
 scripts/
 test-data/
 fix/
-# wallet/ # COMMENTED OUT - wallet components should be tracked
 frontend/src/main-backup.tsx

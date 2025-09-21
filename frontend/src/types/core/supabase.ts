@@ -7869,6 +7869,110 @@ export type Database = {
         }
         Relationships: []
       }
+      multi_sig_audit_log: {
+        Row: {
+          action: string
+          actor: string | null
+          actor_address: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          proposal_id: string | null
+          user_agent: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          actor_address?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          proposal_id?: string | null
+          user_agent?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          actor_address?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          proposal_id?: string | null
+          user_agent?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_audit_log_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multi_sig_audit_log_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multi_sig_configurations: {
+        Row: {
+          auto_execute: boolean | null
+          created_at: string | null
+          id: string
+          max_daily_limit: number | null
+          max_transaction_limit: number | null
+          metadata: Json | null
+          min_confirmation_time: number | null
+          notification_webhook: string | null
+          require_all_signatures: boolean | null
+          updated_at: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          auto_execute?: boolean | null
+          created_at?: string | null
+          id?: string
+          max_daily_limit?: number | null
+          max_transaction_limit?: number | null
+          metadata?: Json | null
+          min_confirmation_time?: number | null
+          notification_webhook?: string | null
+          require_all_signatures?: boolean | null
+          updated_at?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          auto_execute?: boolean | null
+          created_at?: string | null
+          id?: string
+          max_daily_limit?: number | null
+          max_transaction_limit?: number | null
+          metadata?: Json | null
+          min_confirmation_time?: number | null
+          notification_webhook?: string | null
+          require_all_signatures?: boolean | null
+          updated_at?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_configurations_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: true
+            referencedRelation: "multi_sig_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       multi_sig_confirmations: {
         Row: {
           confirmed: boolean | null
@@ -7906,6 +8010,65 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "multi_sig_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multi_sig_proposals: {
+        Row: {
+          chain_type: string
+          created_at: string | null
+          created_by: string | null
+          executed_at: string | null
+          execution_hash: string | null
+          expires_at: string
+          id: string
+          raw_transaction: Json
+          signatures_collected: number | null
+          signatures_required: number
+          status: string | null
+          transaction_hash: string
+          updated_at: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          chain_type: string
+          created_at?: string | null
+          created_by?: string | null
+          executed_at?: string | null
+          execution_hash?: string | null
+          expires_at: string
+          id?: string
+          raw_transaction: Json
+          signatures_collected?: number | null
+          signatures_required: number
+          status?: string | null
+          transaction_hash: string
+          updated_at?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          chain_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          executed_at?: string | null
+          execution_hash?: string | null
+          expires_at?: string
+          id?: string
+          raw_transaction?: Json
+          signatures_collected?: number | null
+          signatures_required?: number
+          status?: string | null
+          transaction_hash?: string
+          updated_at?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_proposals_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallets"
             referencedColumns: ["id"]
           },
         ]
@@ -9875,6 +10038,47 @@ export type Database = {
           voting_rights?: string | null
         }
         Relationships: []
+      }
+      proposal_signatures: {
+        Row: {
+          id: string
+          is_valid: boolean | null
+          proposal_id: string | null
+          signature: string
+          signature_type: string
+          signed_at: string | null
+          signer_address: string
+          validation_error: string | null
+        }
+        Insert: {
+          id?: string
+          is_valid?: boolean | null
+          proposal_id?: string | null
+          signature: string
+          signature_type: string
+          signed_at?: string | null
+          signer_address: string
+          validation_error?: string | null
+        }
+        Update: {
+          id?: string
+          is_valid?: boolean | null
+          proposal_id?: string | null
+          signature?: string
+          signature_type?: string
+          signed_at?: string | null
+          signer_address?: string
+          validation_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_signatures_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       provider: {
         Row: {
@@ -12211,6 +12415,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      signer_keys: {
+        Row: {
+          address: string
+          chain_type: string
+          created_at: string | null
+          derivation_path: string | null
+          device_type: string | null
+          id: string
+          is_hardware_wallet: boolean | null
+          key_id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          address: string
+          chain_type: string
+          created_at?: string | null
+          derivation_path?: string | null
+          device_type?: string | null
+          id?: string
+          is_hardware_wallet?: boolean | null
+          key_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address?: string
+          chain_type?: string
+          created_at?: string | null
+          derivation_path?: string | null
+          device_type?: string | null
+          id?: string
+          is_hardware_wallet?: boolean | null
+          key_id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       smart_contract_wallets: {
         Row: {
@@ -21974,6 +22217,10 @@ export type Database = {
           p_project_id: string
         }
         Returns: boolean
+      }
+      check_expired_proposals: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       check_permission: {
         Args: { p_action: string; p_resource: string; p_role_name: string }

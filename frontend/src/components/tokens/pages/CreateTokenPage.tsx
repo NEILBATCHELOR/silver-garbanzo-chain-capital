@@ -88,7 +88,7 @@ const CreateTokenPage: React.FC = () => {
   // Anti-flickering configuration
   const lastDebugTrackRef = useRef<number>(0);
   const isTypingRef = useRef<boolean>(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   // State for token creation - ALWAYS BASIC MODE
   const [selectedStandard, setSelectedStandard] = useState<TokenStandard>(TokenStandard.ERC20);

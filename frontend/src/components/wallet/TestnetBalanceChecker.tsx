@@ -1,5 +1,29 @@
 import React, { useState } from 'react';
-import { multiChainBalanceService, MultiChainBalance } from '@/services/wallet/MultiChainBalanceService';
+import { BalanceService } from '@/services/wallet/balances/index';
+
+// Define local interface to match the fixed service
+interface MultiChainBalance {
+  address: string;
+  totalUsdValue: number;
+  chains: Array<{
+    chainId: number;
+    chainName: string;
+    symbol: string;
+    icon?: string; // Optional to match ChainBalance interface
+    color?: string;
+    chainType?: string;
+    nativeBalance: string;
+    nativeUsdValue: number;
+    tokens: any[];
+    erc20Tokens: any[];
+    enhancedTokens: any[];
+    totalUsdValue: number;
+    isOnline: boolean;
+    rpcProvider?: string; // Optional to match ChainBalance interface
+    error?: string;
+  }>;
+  lastUpdated: Date;
+}
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,15 +53,18 @@ export function TestnetBalanceChecker() {
     setError(null);
     
     try {
-      console.log(`Testing balance fetch for address: ${selectedAddress}`);
+      console.log(`🧪 FIXED: Testing balance fetch for address: ${selectedAddress}`);
       
-      const balances = await multiChainBalanceService.fetchMultiChainBalance(selectedAddress);
+      // Debug RPC configuration first
+      BalanceService.debugConfiguration();
+      
+      const balances = await BalanceService.fetchMultiChainBalance(selectedAddress);
       setBalanceData(balances);
       
-      console.log('Balance results:', balances);
+      console.log('✅ Balance results:', balances);
       
     } catch (err) {
-      console.error('Error fetching balances:', err);
+      console.error('❌ Error fetching balances:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setIsLoading(false);
@@ -151,6 +178,9 @@ export function TestnetBalanceChecker() {
                       <div className="text-right">
                         <div className="font-medium">{formatUsdValue(chain.totalUsdValue)}</div>
                         <div className="text-sm text-gray-500">Total</div>
+                        {chain.rpcProvider && (
+                          <div className="text-xs text-blue-500">via {chain.rpcProvider}</div>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -201,12 +231,33 @@ export function TestnetBalanceChecker() {
           </div>
         )}
 
-        {/* Instructions */}
-        <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
-          <strong>Instructions:</strong> This tool tests the updated MultiChainBalanceService with testnet support.
-          It should now fetch balances from Sepolia (Chain ID 11155111) and Holesky (Chain ID 17000) testnets,
-          in addition to all mainnet chains. If you see zero balances but have funds on-chain, check the console
-          for RPC connectivity issues.
+        {/* Instructions and Debug Info */}
+        <div className="space-y-3">
+          <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
+            <strong>Instructions:</strong> This tool tests the updated MultiChainBalanceService with proper RPC integration.
+            It now uses your configured Alchemy endpoints instead of public nodes for better reliability.
+          </div>
+          
+          {/* RPC Configuration Debug */}
+          <div className="text-xs text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+            <strong>FIXED Service - RPC Configuration:</strong>
+            <div className="mt-1 font-mono space-y-1">
+              <div>✨ Using Fixed MultiChainBalanceService</div>
+              <div>📍 EVM-only chains to prevent address format errors</div>
+              <div>Sepolia: {import.meta.env.VITE_SEPOLIA_RPC_URL ? '✅ Configured' : '❌ Missing'}</div>
+              <div>Holesky: {(import.meta.env.VITE_HOLEKSY_RPC_URL || import.meta.env.VITE_HOLESKY_RPC_URL) ? '✅ Configured' : '❌ Missing'}</div>
+              <div>Mainnet: {import.meta.env.VITE_MAINNET_RPC_URL ? '✅ Configured' : '❌ Missing'}</div>
+            </div>
+          </div>
+          
+          {/* Expected Transactions */}
+          <div className="text-xs text-green-600 bg-green-50 p-3 rounded border border-green-200">
+            <strong>Expected Transactions:</strong>
+            <div className="mt-1 space-y-1">
+              <div>📝 Sepolia: <a href="https://sepolia.etherscan.io/tx/0xebde303c1620849bc8d4aeb0f642259c7a3e86123f8e2a36d6993ce1b1c663d5" target="_blank" className="text-blue-600 underline">View on Etherscan</a></div>
+              <div>📝 Holesky: <a href="https://holesky.etherscan.io/tx/0x4d88b09c4a55dbc338f913f6039c3f782b32b43ac4e4b2e5e82d0dc11f2518a6" target="_blank" className="text-blue-600 underline">View on Etherscan</a></div>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

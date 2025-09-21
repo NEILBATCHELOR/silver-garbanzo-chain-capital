@@ -73,7 +73,7 @@ export const EnhancedInput: React.FC<EnhancedInputProps> = ({
   
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const validationTimeoutRef = useRef<NodeJS.Timeout>();
+  const validationTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   // Convert value to string for display
   const displayValue = useMemo(() => String(value || ''), [value]);

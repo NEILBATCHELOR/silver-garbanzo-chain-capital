@@ -51,7 +51,7 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0",
-    "pnpm": ">=8.0.0"
+    "pnpm": ">=10.17.0"
   },
   "keywords": [
     "investment",
@@ -82,7 +82,7 @@
     "type": "company",
     "url": "https://chaincapital.io/funding"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.17.0",
   "dependencies": {
     "recharts": "^2.15.2"
   }

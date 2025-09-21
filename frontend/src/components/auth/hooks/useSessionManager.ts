@@ -31,7 +31,7 @@ export const useSessionManager = (options: SessionManagerOptions = {}) => {
   const [lastRefreshAttempt, setLastRefreshAttempt] = useState<Date | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   
-  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>(undefined);
   const refreshBufferMs = refreshBuffer * 60 * 1000;
 
   /**

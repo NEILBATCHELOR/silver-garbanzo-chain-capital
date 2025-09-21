@@ -8,7 +8,7 @@
 
 import { ethers } from 'ethers';
 import { priceFeedService } from './PriceFeedService';
-import { multiChainBalanceService } from './MultiChainBalanceService';
+import { balanceService, BalanceService } from './balances/BalanceService';
 
 export interface Transaction {
   id: string;
@@ -149,7 +149,7 @@ export class TransactionHistoryService {
   ): Promise<Transaction[]> {
     console.log(`Fetching transaction history for address: ${address}`);
 
-    const chains = multiChainBalanceService.getSupportedChains();
+    const chains = BalanceService.getSupportedChains();
     const targetChains = filter.chainIds 
       ? chains.filter(chain => filter.chainIds!.includes(chain.chainId))
       : chains;
@@ -203,7 +203,7 @@ export class TransactionHistoryService {
     }
 
     try {
-      const chain = multiChainBalanceService.getSupportedChains()
+      const chain = BalanceService.getSupportedChains()
         .find(c => c.chainId === chainId);
       
       if (!chain) {

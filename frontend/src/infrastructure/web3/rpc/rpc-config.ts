@@ -129,6 +129,7 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
       solana: 'VITE_SOLANA_DEVNET_RPC_URL',
       bitcoin: 'VITE_BITCOIN_TESTNET_RPC_URL',
       aptos: 'VITE_APTOS_TESTNET_RPC_URL',
+      sui: 'VITE_SUI_TESTNET_RPC_URL',
       near: 'VITE_NEAR_TESTNET_RPC_URL',
       avalanche: 'VITE_AVALANCHE_TESTNET_RPC_URL',
       mantle: 'VITE_MANTLE_TESTNET_RPC_URL',

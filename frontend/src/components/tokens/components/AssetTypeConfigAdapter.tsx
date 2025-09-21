@@ -203,7 +203,7 @@ const AssetTypeConfigAdapter: React.FC<AssetTypeConfigAdapterProps> = ({
   const enhancedChild = React.cloneElement(children, {
     assetGuidance: assetSpecificConfig?.guidance,
     assetCategory,
-  });
+  } as any);
 
   return (
     <>
