@@ -7,8 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
-  //  Allows to automatically instantiate createClient with right options
-  //  instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
@@ -11588,6 +11588,279 @@ export type Database = {
           },
         ]
       }
+      ripple_dex_orders: {
+        Row: {
+          account: string
+          book_node: string | null
+          created_at: string | null
+          expiration: number | null
+          filled_amount: number | null
+          id: string
+          metadata: Json | null
+          network_type: string
+          owner_id: string | null
+          owner_node: string | null
+          previous_txn_id: string | null
+          previous_txn_lgr: number | null
+          quality: number | null
+          sequence: number
+          status: string | null
+          taker_gets: Json
+          taker_pays: Json
+          updated_at: string | null
+        }
+        Insert: {
+          account: string
+          book_node?: string | null
+          created_at?: string | null
+          expiration?: number | null
+          filled_amount?: number | null
+          id?: string
+          metadata?: Json | null
+          network_type: string
+          owner_id?: string | null
+          owner_node?: string | null
+          previous_txn_id?: string | null
+          previous_txn_lgr?: number | null
+          quality?: number | null
+          sequence: number
+          status?: string | null
+          taker_gets: Json
+          taker_pays: Json
+          updated_at?: string | null
+        }
+        Update: {
+          account?: string
+          book_node?: string | null
+          created_at?: string | null
+          expiration?: number | null
+          filled_amount?: number | null
+          id?: string
+          metadata?: Json | null
+          network_type?: string
+          owner_id?: string | null
+          owner_node?: string | null
+          previous_txn_id?: string | null
+          previous_txn_lgr?: number | null
+          quality?: number | null
+          sequence?: number
+          status?: string | null
+          taker_gets?: Json
+          taker_pays?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ripple_escrows: {
+        Row: {
+          account: string
+          amount: number
+          cancel_after: number | null
+          condition: string | null
+          created_at: string | null
+          destination: string
+          destination_tag: number | null
+          escrow_id: string | null
+          finish_after: number | null
+          id: string
+          metadata: Json | null
+          network_type: string
+          owner: string
+          owner_id: string | null
+          prev_txn_id: string | null
+          source_tag: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account: string
+          amount: number
+          cancel_after?: number | null
+          condition?: string | null
+          created_at?: string | null
+          destination: string
+          destination_tag?: number | null
+          escrow_id?: string | null
+          finish_after?: number | null
+          id?: string
+          metadata?: Json | null
+          network_type: string
+          owner: string
+          owner_id?: string | null
+          prev_txn_id?: string | null
+          source_tag?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account?: string
+          amount?: number
+          cancel_after?: number | null
+          condition?: string | null
+          created_at?: string | null
+          destination?: string
+          destination_tag?: number | null
+          escrow_id?: string | null
+          finish_after?: number | null
+          id?: string
+          metadata?: Json | null
+          network_type?: string
+          owner?: string
+          owner_id?: string | null
+          prev_txn_id?: string | null
+          source_tag?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ripple_issuers: {
+        Row: {
+          address: string
+          created_at: string | null
+          domain: string | null
+          email_hash: string | null
+          id: string
+          metadata: Json | null
+          name: string | null
+          network_type: string
+          trust_level: number | null
+          updated_at: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          address: string
+          created_at?: string | null
+          domain?: string | null
+          email_hash?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string | null
+          network_type: string
+          trust_level?: number | null
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          address?: string
+          created_at?: string | null
+          domain?: string | null
+          email_hash?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string | null
+          network_type?: string
+          trust_level?: number | null
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      ripple_multisig_accounts: {
+        Row: {
+          address: string
+          created_at: string | null
+          id: string
+          master_key_disabled: boolean | null
+          metadata: Json | null
+          network_type: string
+          owner_id: string | null
+          quorum: number
+          regular_key: string | null
+          sequence: number | null
+          signer_list: Json
+          signers: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string | null
+          id?: string
+          master_key_disabled?: boolean | null
+          metadata?: Json | null
+          network_type: string
+          owner_id?: string | null
+          quorum: number
+          regular_key?: string | null
+          sequence?: number | null
+          signer_list: Json
+          signers: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string | null
+          id?: string
+          master_key_disabled?: boolean | null
+          metadata?: Json | null
+          network_type?: string
+          owner_id?: string | null
+          quorum?: number
+          regular_key?: string | null
+          sequence?: number | null
+          signer_list?: Json
+          signers?: string[]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ripple_multisig_proposals: {
+        Row: {
+          account: string
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          created_at: string | null
+          created_by: string | null
+          executed_at: string | null
+          execution_hash: string | null
+          execution_ledger: number | null
+          expires_at: string
+          id: string
+          metadata: Json | null
+          network_type: string
+          signatures: Json | null
+          status: string | null
+          transaction: Json
+          updated_at: string | null
+        }
+        Insert: {
+          account: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          executed_at?: string | null
+          execution_hash?: string | null
+          execution_ledger?: number | null
+          expires_at: string
+          id?: string
+          metadata?: Json | null
+          network_type: string
+          signatures?: Json | null
+          status?: string | null
+          transaction: Json
+          updated_at?: string | null
+        }
+        Update: {
+          account?: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          executed_at?: string | null
+          execution_hash?: string | null
+          execution_ledger?: number | null
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          network_type?: string
+          signatures?: Json | null
+          status?: string | null
+          transaction?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ripple_payments: {
         Row: {
           amount: number
@@ -11600,15 +11873,22 @@ export type Database = {
           from_country: string | null
           hash: string
           id: string
+          invoice_id: string | null
+          issuer: string | null
           ledger_index: number | null
           memo: string | null
+          metadata: Json | null
+          network_type: string
+          paths: Json | null
           payment_type: string | null
+          result_code: string | null
           sequence_number: number | null
           source_tag: number | null
           status: string
           to_account: string
           to_country: string | null
           updated_at: string | null
+          validated_at: string | null
         }
         Insert: {
           amount: number
@@ -11621,15 +11901,22 @@ export type Database = {
           from_country?: string | null
           hash: string
           id?: string
+          invoice_id?: string | null
+          issuer?: string | null
           ledger_index?: number | null
           memo?: string | null
+          metadata?: Json | null
+          network_type?: string
+          paths?: Json | null
           payment_type?: string | null
+          result_code?: string | null
           sequence_number?: number | null
           source_tag?: number | null
           status?: string
           to_account: string
           to_country?: string | null
           updated_at?: string | null
+          validated_at?: string | null
         }
         Update: {
           amount?: number
@@ -11642,14 +11929,123 @@ export type Database = {
           from_country?: string | null
           hash?: string
           id?: string
+          invoice_id?: string | null
+          issuer?: string | null
           ledger_index?: number | null
           memo?: string | null
+          metadata?: Json | null
+          network_type?: string
+          paths?: Json | null
           payment_type?: string | null
+          result_code?: string | null
           sequence_number?: number | null
           source_tag?: number | null
           status?: string
           to_account?: string
           to_country?: string | null
+          updated_at?: string | null
+          validated_at?: string | null
+        }
+        Relationships: []
+      }
+      ripple_tokens: {
+        Row: {
+          created_at: string | null
+          currency: string
+          decimals: number | null
+          id: string
+          issuer: string
+          logo_url: string | null
+          metadata: Json | null
+          name: string | null
+          network_type: string
+          symbol: string | null
+          updated_at: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency: string
+          decimals?: number | null
+          id?: string
+          issuer: string
+          logo_url?: string | null
+          metadata?: Json | null
+          name?: string | null
+          network_type: string
+          symbol?: string | null
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          decimals?: number | null
+          id?: string
+          issuer?: string
+          logo_url?: string | null
+          metadata?: Json | null
+          name?: string | null
+          network_type?: string
+          symbol?: string | null
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      ripple_trust_lines: {
+        Row: {
+          account: string
+          authorized: boolean | null
+          balance: number | null
+          created_at: string | null
+          currency: string
+          freeze: boolean | null
+          id: string
+          issuer: string
+          metadata: Json | null
+          network_type: string
+          no_ripple: boolean | null
+          owner_id: string | null
+          quality_in: number | null
+          quality_out: number | null
+          trust_limit: number
+          updated_at: string | null
+        }
+        Insert: {
+          account: string
+          authorized?: boolean | null
+          balance?: number | null
+          created_at?: string | null
+          currency: string
+          freeze?: boolean | null
+          id?: string
+          issuer: string
+          metadata?: Json | null
+          network_type: string
+          no_ripple?: boolean | null
+          owner_id?: string | null
+          quality_in?: number | null
+          quality_out?: number | null
+          trust_limit: number
+          updated_at?: string | null
+        }
+        Update: {
+          account?: string
+          authorized?: boolean | null
+          balance?: number | null
+          created_at?: string | null
+          currency?: string
+          freeze?: boolean | null
+          id?: string
+          issuer?: string
+          metadata?: Json | null
+          network_type?: string
+          no_ripple?: boolean | null
+          owner_id?: string | null
+          quality_in?: number | null
+          quality_out?: number | null
+          trust_limit?: number
           updated_at?: string | null
         }
         Relationships: []
@@ -20548,6 +20944,7 @@ export type Database = {
           signatories: Json
           status: string
           updated_at: string
+          user_id: string | null
           wallet_address: string | null
           wallet_type: string
         }
@@ -20561,6 +20958,7 @@ export type Database = {
           signatories?: Json
           status?: string
           updated_at?: string
+          user_id?: string | null
           wallet_address?: string | null
           wallet_type: string
         }
@@ -20574,6 +20972,7 @@ export type Database = {
           signatories?: Json
           status?: string
           updated_at?: string
+          user_id?: string | null
           wallet_address?: string | null
           wallet_type?: string
         }

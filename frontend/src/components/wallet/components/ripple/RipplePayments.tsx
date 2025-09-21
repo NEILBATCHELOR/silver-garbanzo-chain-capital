@@ -25,7 +25,7 @@ import {
   RipplePaymentParams,
   RippleQuote,
   RipplePaymentResult
-} from "@/services/wallet/RipplePaymentsService";
+} from "@/services/wallet/ripple/RipplePaymentsService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 

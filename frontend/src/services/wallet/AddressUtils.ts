@@ -39,7 +39,8 @@ export enum ChainType {
   STARGAZE = 'stargaze',
   REGEN = 'regen',
   KAVA = 'kava',
-  TERRA = 'terra'
+  TERRA = 'terra',
+  RIPPLE = 'ripple'
 }
 
 // Chain configuration interface
@@ -48,7 +49,7 @@ export interface ChainAddressConfig {
   chainName: string;
   chainType: ChainType;
   networkType: 'mainnet' | 'testnet' | 'devnet';
-  addressFormat: 'evm' | 'bitcoin' | 'solana' | 'aptos' | 'sui' | 'near' | 'cosmos';
+  addressFormat: 'evm' | 'bitcoin' | 'solana' | 'aptos' | 'sui' | 'near' | 'cosmos' | 'ripple';
   addressLength: number | number[]; // Single length or array of valid lengths
   prefix?: string;
   checksum?: boolean;
@@ -163,7 +164,11 @@ const CHAIN_CONFIGS: ChainAddressConfig[] = [
   { chainId: 1, chainName: 'Kava', chainType: ChainType.KAVA, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [43, 63], prefix: 'kava' },
   
   // Terra
-  { chainId: 1, chainName: 'Terra', chainType: ChainType.TERRA, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'terra' }
+  { chainId: 1, chainName: 'Terra', chainType: ChainType.TERRA, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'terra' },
+  
+  // Ripple Mainnet & Testnet
+  { chainId: 0, chainName: 'Ripple', chainType: ChainType.RIPPLE, networkType: 'mainnet', addressFormat: 'ripple', addressLength: [25, 34], prefix: 'r' },
+  { chainId: 1, chainName: 'Ripple Testnet', chainType: ChainType.RIPPLE, networkType: 'testnet', addressFormat: 'ripple', addressLength: [25, 34], prefix: 'r' }
 ];
 
 /**
@@ -323,6 +328,8 @@ export class AddressUtilsService {
         return this.validateNearAddress(address, config);
       case 'cosmos':
         return this.validateCosmosAddress(address, config);
+      case 'ripple':
+        return this.validateRippleAddress(address, config);
       default:
         return { isValid: false, error: 'Unknown address format' };
     }
@@ -506,6 +513,52 @@ export class AddressUtilsService {
     }
 
     return { isValid: true, normalizedAddress: address };
+  }
+
+  /**
+   * Validate Ripple address (X-Address and classic format)
+   */
+  private validateRippleAddress(address: string, config: ChainAddressConfig): AddressValidationResult {
+    const lengths = Array.isArray(config.addressLength) ? config.addressLength : [config.addressLength];
+    
+    // Classic address format (starts with 'r')
+    if (address.startsWith('r')) {
+      if (!lengths.includes(address.length)) {
+        return { isValid: false, error: `Ripple address must be one of these lengths: ${lengths.join(', ')} characters` };
+      }
+      
+      // Validate Base58 format for classic addresses
+      if (!this.validateBase58Address(address)) {
+        return { isValid: false, error: 'Invalid Ripple classic address format' };
+      }
+      
+      return { isValid: true, normalizedAddress: address };
+    }
+    
+    // X-Address format (starts with 'X' for mainnet, 'T' for testnet)
+    if (address.startsWith('X') || address.startsWith('T')) {
+      // X-Addresses are typically 46-48 characters
+      if (address.length < 46 || address.length > 48) {
+        return { isValid: false, error: 'Invalid X-Address length' };
+      }
+      
+      // Validate Base58 format
+      if (!this.validateBase58Address(address)) {
+        return { isValid: false, error: 'Invalid X-Address format' };
+      }
+      
+      // Validate network consistency
+      if (config.networkType === 'mainnet' && !address.startsWith('X')) {
+        return { isValid: false, error: 'Mainnet X-Address must start with X' };
+      }
+      if (config.networkType === 'testnet' && !address.startsWith('T')) {
+        return { isValid: false, error: 'Testnet X-Address must start with T' };
+      }
+      
+      return { isValid: true, normalizedAddress: address };
+    }
+    
+    return { isValid: false, error: 'Ripple address must start with r (classic) or X/T (X-Address)' };
   }
 
   // ============================================================================

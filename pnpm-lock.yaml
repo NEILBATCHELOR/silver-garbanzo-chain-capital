@@ -1613,7 +1613,7 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
       xrpl:
-        specifier: ^4.2.5
+        specifier: ^4.4.1
         version: 4.4.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       yup:
         specifier: ^1.6.1

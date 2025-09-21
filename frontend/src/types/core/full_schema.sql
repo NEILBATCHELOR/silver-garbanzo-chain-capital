@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict rg2cVISfkgzPi989l8fbh2l7zSCnxepyNPD5tqp4A7ueiJsySglzqFOaW5wvpPe
+\restrict gQfyZzOb2Sdaa3TtDQD4S0eCMxJ6lWdMhxwto1vp9eY9kUrfuva2Rs5c173PaXV
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -6320,6 +6320,34 @@ CREATE FUNCTION public.update_restriction_rules_updated_at() RETURNS trigger
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_ripple_payments_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_ripple_payments_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_ripple_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_ripple_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 
@@ -13951,6 +13979,167 @@ COMMENT ON TABLE public.restriction_validation_logs IS 'Logs all restriction val
 
 
 --
+-- Name: ripple_dex_orders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_dex_orders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account character varying(50) NOT NULL,
+    sequence integer NOT NULL,
+    taker_pays jsonb NOT NULL,
+    taker_gets jsonb NOT NULL,
+    quality numeric(30,15),
+    expiration integer,
+    book_node character varying(64),
+    owner_node character varying(64),
+    previous_txn_id character varying(64),
+    previous_txn_lgr integer,
+    status character varying(20) DEFAULT 'open'::character varying,
+    filled_amount numeric(30,15) DEFAULT 0,
+    network_type character varying(20) NOT NULL,
+    owner_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT ripple_dex_orders_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_dex_orders_status_check CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'filled'::character varying, 'partially_filled'::character varying, 'cancelled'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE ripple_dex_orders; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_dex_orders IS 'DEX order book entries';
+
+
+--
+-- Name: ripple_escrows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_escrows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account character varying(50) NOT NULL,
+    destination character varying(50) NOT NULL,
+    amount numeric(30,15) NOT NULL,
+    condition character varying(255),
+    cancel_after integer,
+    finish_after integer,
+    destination_tag integer,
+    source_tag integer,
+    owner character varying(50) NOT NULL,
+    escrow_id character varying(64),
+    prev_txn_id character varying(64),
+    status character varying(20) DEFAULT 'created'::character varying,
+    network_type character varying(20) NOT NULL,
+    owner_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT ripple_escrows_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_escrows_status_check CHECK (((status)::text = ANY ((ARRAY['created'::character varying, 'held'::character varying, 'finished'::character varying, 'cancelled'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE ripple_escrows; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_escrows IS 'Time-locked and conditional escrow transactions';
+
+
+--
+-- Name: ripple_issuers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_issuers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    address character varying(50) NOT NULL,
+    name character varying(100),
+    domain character varying(255),
+    email_hash character varying(64),
+    verified boolean DEFAULT false,
+    trust_level integer DEFAULT 0,
+    network_type character varying(20) NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT ripple_issuers_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_issuers_trust_level_check CHECK (((trust_level >= 0) AND (trust_level <= 10)))
+);
+
+
+--
+-- Name: TABLE ripple_issuers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_issuers IS 'Known and verified token issuers on XRP Ledger';
+
+
+--
+-- Name: ripple_multisig_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_multisig_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    address character varying(50) NOT NULL,
+    signer_list jsonb NOT NULL,
+    quorum integer NOT NULL,
+    signers text[] NOT NULL,
+    regular_key character varying(50),
+    master_key_disabled boolean DEFAULT false,
+    sequence integer DEFAULT 0,
+    network_type character varying(20) NOT NULL,
+    owner_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT ripple_multisig_accounts_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_multisig_accounts_quorum_check CHECK ((quorum > 0))
+);
+
+
+--
+-- Name: TABLE ripple_multisig_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_multisig_accounts IS 'Multi-signature account configurations';
+
+
+--
+-- Name: ripple_multisig_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_multisig_proposals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account character varying(50) NOT NULL,
+    transaction jsonb NOT NULL,
+    signatures jsonb DEFAULT '[]'::jsonb,
+    status character varying(20) DEFAULT 'pending'::character varying,
+    expires_at timestamp with time zone NOT NULL,
+    execution_hash character varying(64),
+    execution_ledger integer,
+    cancellation_reason text,
+    network_type character varying(20) NOT NULL,
+    created_by uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    executed_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    CONSTRAINT ripple_multisig_proposals_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_multisig_proposals_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'ready'::character varying, 'executed'::character varying, 'cancelled'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE ripple_multisig_proposals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_multisig_proposals IS 'Pending multi-sig transaction proposals';
+
+
+--
 -- Name: ripple_payments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13974,6 +14163,14 @@ CREATE TABLE public.ripple_payments (
     exchange_rate numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    issuer character varying(50),
+    result_code character varying(50),
+    invoice_id character varying(64),
+    paths jsonb,
+    network_type character varying(20) DEFAULT 'mainnet'::character varying NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    validated_at timestamp with time zone,
+    CONSTRAINT ripple_payments_network_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
     CONSTRAINT ripple_payments_payment_type_check CHECK ((payment_type = ANY (ARRAY['standard'::text, 'cross_border'::text, 'domestic'::text]))),
     CONSTRAINT ripple_payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'validated'::text, 'failed'::text])))
 );
@@ -13983,7 +14180,67 @@ CREATE TABLE public.ripple_payments (
 -- Name: TABLE ripple_payments; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.ripple_payments IS 'Stores Ripple/XRP payment transactions including cross-border payments via ODL';
+COMMENT ON TABLE public.ripple_payments IS 'Ripple payment transaction history with enhanced multi-sig support';
+
+
+--
+-- Name: ripple_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    currency character varying(40) NOT NULL,
+    issuer character varying(50) NOT NULL,
+    name character varying(100),
+    symbol character varying(20),
+    decimals integer DEFAULT 15,
+    logo_url text,
+    verified boolean DEFAULT false,
+    network_type character varying(20) NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT ripple_tokens_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE ripple_tokens; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_tokens IS 'Metadata for Ripple issued currencies (IOUs)';
+
+
+--
+-- Name: ripple_trust_lines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ripple_trust_lines (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account character varying(50) NOT NULL,
+    currency character varying(40) NOT NULL,
+    issuer character varying(50) NOT NULL,
+    trust_limit numeric(30,15) NOT NULL,
+    balance numeric(30,15) DEFAULT 0,
+    quality_in integer,
+    quality_out integer,
+    no_ripple boolean DEFAULT false,
+    "freeze" boolean DEFAULT false,
+    authorized boolean DEFAULT false,
+    network_type character varying(20) NOT NULL,
+    owner_id uuid,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT ripple_trust_lines_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE ripple_trust_lines; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ripple_trust_lines IS 'Account trust lines for issued currencies';
 
 
 --
@@ -17713,7 +17970,8 @@ CREATE TABLE public.wallets (
     signatories jsonb DEFAULT '[]'::jsonb NOT NULL,
     status text DEFAULT 'pending'::text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    user_id uuid
 );
 
 
@@ -20496,6 +20754,78 @@ ALTER TABLE ONLY public.restriction_validation_logs
 
 
 --
+-- Name: ripple_dex_orders ripple_dex_orders_account_sequence_network_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_dex_orders
+    ADD CONSTRAINT ripple_dex_orders_account_sequence_network_type_key UNIQUE (account, sequence, network_type);
+
+
+--
+-- Name: ripple_dex_orders ripple_dex_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_dex_orders
+    ADD CONSTRAINT ripple_dex_orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ripple_escrows ripple_escrows_escrow_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_escrows
+    ADD CONSTRAINT ripple_escrows_escrow_id_key UNIQUE (escrow_id);
+
+
+--
+-- Name: ripple_escrows ripple_escrows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_escrows
+    ADD CONSTRAINT ripple_escrows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ripple_issuers ripple_issuers_address_network_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_issuers
+    ADD CONSTRAINT ripple_issuers_address_network_type_key UNIQUE (address, network_type);
+
+
+--
+-- Name: ripple_issuers ripple_issuers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_issuers
+    ADD CONSTRAINT ripple_issuers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_accounts_address_network_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_multisig_accounts
+    ADD CONSTRAINT ripple_multisig_accounts_address_network_type_key UNIQUE (address, network_type);
+
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_multisig_accounts
+    ADD CONSTRAINT ripple_multisig_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ripple_multisig_proposals ripple_multisig_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_multisig_proposals
+    ADD CONSTRAINT ripple_multisig_proposals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: ripple_payments ripple_payments_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20504,11 +20834,51 @@ ALTER TABLE ONLY public.ripple_payments
 
 
 --
+-- Name: ripple_payments ripple_payments_hash_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_payments
+    ADD CONSTRAINT ripple_payments_hash_unique UNIQUE (hash);
+
+
+--
 -- Name: ripple_payments ripple_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ripple_payments
     ADD CONSTRAINT ripple_payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ripple_tokens ripple_tokens_currency_issuer_network_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_tokens
+    ADD CONSTRAINT ripple_tokens_currency_issuer_network_type_key UNIQUE (currency, issuer, network_type);
+
+
+--
+-- Name: ripple_tokens ripple_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_tokens
+    ADD CONSTRAINT ripple_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ripple_trust_lines ripple_trust_lines_account_currency_issuer_network_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_trust_lines
+    ADD CONSTRAINT ripple_trust_lines_account_currency_issuer_network_type_key UNIQUE (account, currency, issuer, network_type);
+
+
+--
+-- Name: ripple_trust_lines ripple_trust_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_trust_lines
+    ADD CONSTRAINT ripple_trust_lines_pkey PRIMARY KEY (id);
 
 
 --
@@ -25691,6 +26061,132 @@ CREATE INDEX idx_restriction_validation_logs_wallet_id ON public.restriction_val
 
 
 --
+-- Name: idx_ripple_dex_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_dex_account ON public.ripple_dex_orders USING btree (account);
+
+
+--
+-- Name: idx_ripple_dex_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_dex_created ON public.ripple_dex_orders USING btree (created_at);
+
+
+--
+-- Name: idx_ripple_dex_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_dex_network ON public.ripple_dex_orders USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_dex_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_dex_owner ON public.ripple_dex_orders USING btree (owner_id);
+
+
+--
+-- Name: idx_ripple_dex_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_dex_status ON public.ripple_dex_orders USING btree (status);
+
+
+--
+-- Name: idx_ripple_escrow_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_escrow_account ON public.ripple_escrows USING btree (account);
+
+
+--
+-- Name: idx_ripple_escrow_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_escrow_destination ON public.ripple_escrows USING btree (destination);
+
+
+--
+-- Name: idx_ripple_escrow_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_escrow_network ON public.ripple_escrows USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_escrow_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_escrow_owner ON public.ripple_escrows USING btree (owner_id);
+
+
+--
+-- Name: idx_ripple_escrow_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_escrow_status ON public.ripple_escrows USING btree (status);
+
+
+--
+-- Name: idx_ripple_issuers_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_issuers_address ON public.ripple_issuers USING btree (address);
+
+
+--
+-- Name: idx_ripple_issuers_domain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_issuers_domain ON public.ripple_issuers USING btree (domain);
+
+
+--
+-- Name: idx_ripple_issuers_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_issuers_network ON public.ripple_issuers USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_issuers_verified; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_issuers_verified ON public.ripple_issuers USING btree (verified);
+
+
+--
+-- Name: idx_ripple_multisig_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_multisig_address ON public.ripple_multisig_accounts USING btree (address);
+
+
+--
+-- Name: idx_ripple_multisig_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_multisig_network ON public.ripple_multisig_accounts USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_multisig_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_multisig_owner ON public.ripple_multisig_accounts USING btree (owner_id);
+
+
+--
+-- Name: idx_ripple_multisig_signers; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_multisig_signers ON public.ripple_multisig_accounts USING gin (signers);
+
+
+--
 -- Name: idx_ripple_payments_composite; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25698,10 +26194,31 @@ CREATE INDEX idx_ripple_payments_composite ON public.ripple_payments USING btree
 
 
 --
+-- Name: idx_ripple_payments_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_created ON public.ripple_payments USING btree (created_at);
+
+
+--
 -- Name: idx_ripple_payments_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_ripple_payments_created_at ON public.ripple_payments USING btree (created_at);
+
+
+--
+-- Name: idx_ripple_payments_currency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_currency ON public.ripple_payments USING btree (currency);
+
+
+--
+-- Name: idx_ripple_payments_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_from ON public.ripple_payments USING btree (from_account);
 
 
 --
@@ -25719,6 +26236,27 @@ CREATE INDEX idx_ripple_payments_hash ON public.ripple_payments USING btree (has
 
 
 --
+-- Name: idx_ripple_payments_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_issuer ON public.ripple_payments USING btree (issuer);
+
+
+--
+-- Name: idx_ripple_payments_ledger; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_ledger ON public.ripple_payments USING btree (ledger_index);
+
+
+--
+-- Name: idx_ripple_payments_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_network ON public.ripple_payments USING btree (network_type);
+
+
+--
 -- Name: idx_ripple_payments_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25726,10 +26264,122 @@ CREATE INDEX idx_ripple_payments_status ON public.ripple_payments USING btree (s
 
 
 --
+-- Name: idx_ripple_payments_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_payments_to ON public.ripple_payments USING btree (to_account);
+
+
+--
 -- Name: idx_ripple_payments_to_account; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_ripple_payments_to_account ON public.ripple_payments USING btree (to_account);
+
+
+--
+-- Name: idx_ripple_proposals_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_proposals_account ON public.ripple_multisig_proposals USING btree (account);
+
+
+--
+-- Name: idx_ripple_proposals_created_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_proposals_created_by ON public.ripple_multisig_proposals USING btree (created_by);
+
+
+--
+-- Name: idx_ripple_proposals_execution_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_proposals_execution_hash ON public.ripple_multisig_proposals USING btree (execution_hash);
+
+
+--
+-- Name: idx_ripple_proposals_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_proposals_expires ON public.ripple_multisig_proposals USING btree (expires_at);
+
+
+--
+-- Name: idx_ripple_proposals_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_proposals_network ON public.ripple_multisig_proposals USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_proposals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_proposals_status ON public.ripple_multisig_proposals USING btree (status);
+
+
+--
+-- Name: idx_ripple_tokens_currency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_tokens_currency ON public.ripple_tokens USING btree (currency);
+
+
+--
+-- Name: idx_ripple_tokens_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_tokens_issuer ON public.ripple_tokens USING btree (issuer);
+
+
+--
+-- Name: idx_ripple_tokens_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_tokens_network ON public.ripple_tokens USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_tokens_verified; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_tokens_verified ON public.ripple_tokens USING btree (verified);
+
+
+--
+-- Name: idx_ripple_trust_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_trust_account ON public.ripple_trust_lines USING btree (account);
+
+
+--
+-- Name: idx_ripple_trust_currency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_trust_currency ON public.ripple_trust_lines USING btree (currency);
+
+
+--
+-- Name: idx_ripple_trust_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_trust_issuer ON public.ripple_trust_lines USING btree (issuer);
+
+
+--
+-- Name: idx_ripple_trust_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_trust_network ON public.ripple_trust_lines USING btree (network_type);
+
+
+--
+-- Name: idx_ripple_trust_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ripple_trust_owner ON public.ripple_trust_lines USING btree (owner_id);
 
 
 --
@@ -27004,6 +27654,62 @@ CREATE TRIGGER prevent_issuer_document_duplicates BEFORE INSERT OR UPDATE ON pub
 --
 
 CREATE TRIGGER redemption_approvers_updated_at BEFORE UPDATE ON public.redemption_approvers FOR EACH ROW EXECUTE FUNCTION public.update_redemption_approvers_updated_at();
+
+
+--
+-- Name: ripple_dex_orders ripple_dex_orders_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_dex_orders_updated_at BEFORE UPDATE ON public.ripple_dex_orders FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
+
+
+--
+-- Name: ripple_escrows ripple_escrows_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_escrows_updated_at BEFORE UPDATE ON public.ripple_escrows FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
+
+
+--
+-- Name: ripple_issuers ripple_issuers_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_issuers_updated_at BEFORE UPDATE ON public.ripple_issuers FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
+
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_accounts_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_multisig_accounts_updated_at BEFORE UPDATE ON public.ripple_multisig_accounts FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
+
+
+--
+-- Name: ripple_multisig_proposals ripple_multisig_proposals_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_multisig_proposals_updated_at BEFORE UPDATE ON public.ripple_multisig_proposals FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
+
+
+--
+-- Name: ripple_payments ripple_payments_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_payments_updated_at BEFORE UPDATE ON public.ripple_payments FOR EACH ROW EXECUTE FUNCTION public.update_ripple_payments_updated_at();
+
+
+--
+-- Name: ripple_tokens ripple_tokens_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_tokens_updated_at BEFORE UPDATE ON public.ripple_tokens FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
+
+
+--
+-- Name: ripple_trust_lines ripple_trust_lines_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER ripple_trust_lines_updated_at BEFORE UPDATE ON public.ripple_trust_lines FOR EACH ROW EXECUTE FUNCTION public.update_ripple_updated_at();
 
 
 --
@@ -29912,6 +30618,46 @@ ALTER TABLE ONLY public.restriction_validation_logs
 
 
 --
+-- Name: ripple_dex_orders ripple_dex_orders_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_dex_orders
+    ADD CONSTRAINT ripple_dex_orders_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ripple_escrows ripple_escrows_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_escrows
+    ADD CONSTRAINT ripple_escrows_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_accounts_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_multisig_accounts
+    ADD CONSTRAINT ripple_multisig_accounts_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ripple_multisig_proposals ripple_multisig_proposals_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_multisig_proposals
+    ADD CONSTRAINT ripple_multisig_proposals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: ripple_trust_lines ripple_trust_lines_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ripple_trust_lines
+    ADD CONSTRAINT ripple_trust_lines_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: role_permissions role_permissions_permission_name_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -31052,6 +31798,212 @@ ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.regulatory_exemptions ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_dex_orders; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_dex_orders ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_dex_orders ripple_dex_owner_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_dex_owner_all ON public.ripple_dex_orders USING ((owner_id = auth.uid()));
+
+
+--
+-- Name: ripple_escrows ripple_escrow_owner_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_escrow_owner_all ON public.ripple_escrows USING ((owner_id = auth.uid()));
+
+
+--
+-- Name: ripple_escrows ripple_escrow_participant_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_escrow_participant_read ON public.ripple_escrows FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM public.signer_keys
+  WHERE ((signer_keys.user_id = auth.uid()) AND ((signer_keys.address = (ripple_escrows.account)::text) OR (signer_keys.address = (ripple_escrows.destination)::text))))) OR (EXISTS ( SELECT 1
+   FROM public.wallets
+  WHERE ((wallets.user_id = auth.uid()) AND ((wallets.wallet_address = (ripple_escrows.account)::text) OR (wallets.wallet_address = (ripple_escrows.destination)::text)))))));
+
+
+--
+-- Name: ripple_escrows; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_escrows ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_issuers; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_issuers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_issuers ripple_issuers_admin_write; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_issuers_admin_write ON public.ripple_issuers USING ((EXISTS ( SELECT 1
+   FROM (public.user_organization_roles uor
+     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
+  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = 'system.configure'::text)))));
+
+
+--
+-- Name: ripple_issuers ripple_issuers_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_issuers_public_read ON public.ripple_issuers FOR SELECT USING (true);
+
+
+--
+-- Name: ripple_multisig_accounts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_multisig_accounts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_owner_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_multisig_owner_all ON public.ripple_multisig_accounts USING ((owner_id = auth.uid()));
+
+
+--
+-- Name: ripple_multisig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_multisig_proposals ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_signer_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_multisig_signer_read ON public.ripple_multisig_accounts FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM public.signer_keys
+  WHERE ((signer_keys.user_id = auth.uid()) AND (signer_keys.address = ANY (ripple_multisig_accounts.signers))))) OR (EXISTS ( SELECT 1
+   FROM public.wallets
+  WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ANY (ripple_multisig_accounts.signers)))))));
+
+
+--
+-- Name: ripple_multisig_accounts ripple_multisig_wallet_create; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_multisig_wallet_create ON public.ripple_multisig_accounts FOR INSERT WITH CHECK (((owner_id = auth.uid()) AND (EXISTS ( SELECT 1
+   FROM (public.user_organization_roles uor
+     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
+  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['wallets.create'::text, 'system.configure'::text])))))));
+
+
+--
+-- Name: ripple_payments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_payments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_payments ripple_payments_participant_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_payments_participant_read ON public.ripple_payments FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.wallets
+  WHERE ((wallets.user_id = auth.uid()) AND ((wallets.wallet_address = ripple_payments.from_account) OR (wallets.wallet_address = ripple_payments.to_account))))));
+
+
+--
+-- Name: ripple_payments ripple_payments_user_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_payments_user_insert ON public.ripple_payments FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.wallets
+  WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ripple_payments.from_account)))));
+
+
+--
+-- Name: ripple_payments ripple_payments_user_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_payments_user_update ON public.ripple_payments FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM public.wallets
+  WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ripple_payments.from_account)))));
+
+
+--
+-- Name: ripple_multisig_proposals ripple_proposals_creator_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_proposals_creator_all ON public.ripple_multisig_proposals USING ((created_by = auth.uid()));
+
+
+--
+-- Name: ripple_multisig_proposals ripple_proposals_signer_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_proposals_signer_read ON public.ripple_multisig_proposals FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM public.ripple_multisig_accounts rma
+  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
+           FROM public.signer_keys
+          WHERE ((signer_keys.user_id = auth.uid()) AND (signer_keys.address = ANY (rma.signers)))))))) OR (EXISTS ( SELECT 1
+   FROM public.ripple_multisig_accounts rma
+  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
+           FROM public.wallets
+          WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ANY (rma.signers))))))))));
+
+
+--
+-- Name: ripple_multisig_proposals ripple_proposals_signer_sign; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_proposals_signer_sign ON public.ripple_multisig_proposals FOR UPDATE USING (((EXISTS ( SELECT 1
+   FROM public.ripple_multisig_accounts rma
+  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
+           FROM public.signer_keys
+          WHERE ((signer_keys.user_id = auth.uid()) AND (signer_keys.address = ANY (rma.signers)))))))) OR (EXISTS ( SELECT 1
+   FROM public.ripple_multisig_accounts rma
+  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
+           FROM public.wallets
+          WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ANY (rma.signers))))))))));
+
+
+--
+-- Name: ripple_tokens; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_tokens ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_tokens ripple_tokens_admin_write; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_tokens_admin_write ON public.ripple_tokens USING ((EXISTS ( SELECT 1
+   FROM (public.user_organization_roles uor
+     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
+  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = 'system.configure'::text)))));
+
+
+--
+-- Name: ripple_tokens ripple_tokens_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_tokens_public_read ON public.ripple_tokens FOR SELECT USING (true);
+
+
+--
+-- Name: ripple_trust_lines; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ripple_trust_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ripple_trust_lines ripple_trust_owner_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ripple_trust_owner_all ON public.ripple_trust_lines USING ((owner_id = auth.uid()));
+
 
 --
 -- Name: sidebar_configurations; Type: ROW SECURITY; Schema: public; Owner: -
@@ -32618,6 +33570,26 @@ GRANT ALL ON FUNCTION public.update_restriction_rules_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_restriction_rules_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_restriction_rules_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_restriction_rules_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_ripple_payments_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_ripple_payments_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_ripple_payments_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_ripple_payments_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_ripple_payments_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_ripple_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_ripple_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_ripple_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_ripple_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_ripple_updated_at() TO prisma;
 
 
 --
@@ -35211,6 +36183,56 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.re
 
 
 --
+-- Name: TABLE ripple_dex_orders; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO prisma;
+
+
+--
+-- Name: TABLE ripple_escrows; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO prisma;
+
+
+--
+-- Name: TABLE ripple_issuers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO prisma;
+
+
+--
+-- Name: TABLE ripple_multisig_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO prisma;
+
+
+--
+-- Name: TABLE ripple_multisig_proposals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO prisma;
+
+
+--
 -- Name: TABLE ripple_payments; Type: ACL; Schema: public; Owner: -
 --
 
@@ -35218,6 +36240,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ri
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO prisma;
+
+
+--
+-- Name: TABLE ripple_tokens; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO prisma;
+
+
+--
+-- Name: TABLE ripple_trust_lines; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO prisma;
 
 
 --
@@ -36438,5 +37480,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict rg2cVISfkgzPi989l8fbh2l7zSCnxepyNPD5tqp4A7ueiJsySglzqFOaW5wvpPe
+\unrestrict gQfyZzOb2Sdaa3TtDQD4S0eCMxJ6lWdMhxwto1vp9eY9kUrfuva2Rs5c173PaXV
 

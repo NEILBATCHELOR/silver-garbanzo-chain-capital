@@ -39,3 +39,6 @@ export * from './near';
 
 // Injective Services (2 services)
 export * from './injective';
+
+// Ripple Services (2 services)
+export * from './ripple';

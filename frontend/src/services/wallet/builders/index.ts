@@ -123,6 +123,10 @@ export type { NearAccessKeyResponse, NearTransactionRequest, NearGasEstimate, Ne
 export { InjectiveTransactionBuilder, InjectiveMainnetTransactionBuilder, InjectiveTestnetTransactionBuilder, getInjectiveTransactionBuilder } from './InjectiveTransactionBuilder';
 export type { InjectiveTransactionRequest, InjectiveGasEstimate, InjectiveSignedTransaction, InjectiveBroadcastResult, InjectiveTransactionBuilderConfig } from './InjectiveTransactionBuilder';
 
+// RIPPLE
+export { RippleTransactionBuilder, RippleMainnetTransactionBuilder, RippleTestnetTransactionBuilder, RippleDevnetTransactionBuilder, getRippleTransactionBuilder } from './RippleTransactionBuilder';
+export type { RippleTransactionRequest, RippleGasEstimate, RippleSignedTransaction, RippleBroadcastResult, RippleTransactionBuilderConfig, RippleCurrency, RippleAmount, RippleAccountInfo } from './RippleTransactionBuilder';
+
 // ============================================================================
 // SHARED UTILITIES
 // ============================================================================

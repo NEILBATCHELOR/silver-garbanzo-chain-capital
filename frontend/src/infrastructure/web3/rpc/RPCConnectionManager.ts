@@ -463,6 +463,27 @@ export class RPCConnectionManager {
   }
 
   /**
+   * Get Ripple endpoints for specific network
+   * Added to support RippleTransactionBuilder requirements
+   */
+  async getRippleEndpoints(networkKey: string): Promise<string[]> {
+    // Map network key to chain and network type
+    const chainType = networkKey.includes('mainnet') ? 'mainnet' : 'testnet';
+    
+    // Get optimal provider for Ripple
+    const provider = this.getOptimalProvider('ripple' as SupportedChain, chainType as NetworkType);
+    
+    if (!provider) {
+      // Return fallback endpoints if no provider configured
+      return chainType === 'mainnet' 
+        ? ['wss://s1.ripple.com/', 'wss://s2.ripple.com/']
+        : ['wss://s.altnet.rippletest.net/'];
+    }
+    
+    return [provider.config.url];
+  }
+
+  /**
    * Clean up resources
    */
   dispose(): void {

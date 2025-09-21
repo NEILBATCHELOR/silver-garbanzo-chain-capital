@@ -18,6 +18,8 @@ import {
 import { SuiClient } from '@mysten/sui/client';
 import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
 import * as nearAPI from 'near-api-js';
+// Ripple/XRP imports
+import { Client, xrpToDrops, dropsToXrp } from 'xrpl';
 // Cosmos-specific types from cosmjs-types (the official protobuf types)
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { TxRaw, TxBody, AuthInfo, SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
@@ -68,6 +70,17 @@ export interface CosmosMultiSigData {
   signerInfos: SignerInfo[];
 }
 
+export interface RippleMultiSigData {
+  signers: Array<{
+    signer: {
+      account: string;
+      signingPubKey: string;
+      txnSignature: string;
+    };
+  }>;
+  signerQuorum: number;
+}
+
 // ============================================================================
 // SIGNATURE AGGREGATOR
 // ============================================================================
@@ -107,6 +120,9 @@ export class SignatureAggregator {
       
       case ChainType.NEAR:
         return this.aggregateNEARSignatures(transaction, signatures, wallet);
+      
+      case ChainType.RIPPLE:
+        return this.aggregateRippleSignatures(transaction, signatures, wallet);
       
       case ChainType.INJECTIVE:
       case ChainType.COSMOS:
@@ -447,6 +463,42 @@ export class SignatureAggregator {
 
     } catch (error) {
       throw new Error(`${chainType} signature aggregation failed: ${error.message}`);
+    }
+  }
+
+  // ============================================================================
+  // RIPPLE SIGNATURE AGGREGATION
+  // ============================================================================
+
+  private aggregateRippleSignatures(
+    transaction: any,
+    signatures: ProposalSignature[],
+    wallet: MultiSigWallet
+  ): string {
+    try {
+      // Parse Ripple transaction
+      const tx = JSON.parse(transaction.txJson);
+      
+      // Ripple uses multi-signing with individual signature entries
+      const multiSigSignatures = signatures.map(sig => ({
+        Signer: {
+          Account: sig.signerAddress
+        },
+        TxnSignature: sig.signature
+      }));
+
+      // Create multi-signed transaction
+      const multiSignedTx = {
+        ...tx,
+        Signers: multiSigSignatures
+      };
+
+      // For Ripple, the transaction must include the multi-sig account setup
+      // and proper sequence numbers for each signer
+      return JSON.stringify(multiSignedTx);
+
+    } catch (error) {
+      throw new Error(`Ripple signature aggregation failed: ${error.message}`);
     }
   }
 

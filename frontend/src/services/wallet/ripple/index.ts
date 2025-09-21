@@ -1,47 +1,72 @@
 /**
- * Main exports for Ripple Payments integration
- * Comprehensive access to all Ripple services and types
+ * Ripple Services Index
+ * Central export point for all Ripple/XRP related services
  */
 
-// Configuration and utilities
-export * from './config';
-export * from './utils';
-export * from './types';
-
-// Authentication services
-export * from './auth';
-
-// Payment services
-export * from './payments';
-
-// Stablecoin services
+// Transaction Builders - specific exports to avoid conflicts
 export { 
-  StablecoinService,
-  createStablecoinService 
-} from './stablecoin';
+  RippleTransactionBuilder,
+  RippleMainnetTransactionBuilder,
+  RippleTestnetTransactionBuilder
+} from '../builders/RippleTransactionBuilder';
 
-// Main factory function for creating complete Ripple integration
-export interface RippleIntegrationConfig {
-  environment?: 'test' | 'production';
-  clientId?: string;
-  clientSecret?: string;
-  tenantId?: string;
-  enableODL?: boolean;
-  enableStablecoin?: boolean;
-  enableCustody?: boolean;
-  enableIdentity?: boolean;
-  enableReporting?: boolean;
-  enableWebhooks?: boolean;
-}
+export type {
+  RippleTransactionBuilderConfig,
+  RippleTransactionRequest,
+  RippleGasEstimate,
+  RippleSignedTransaction,
+  RippleAccountInfo
+} from '../builders/RippleTransactionBuilder';
 
-export class RippleIntegration {
-  // TODO: This will be implemented as we add more services
-  // Will provide a unified interface to all Ripple services
-  constructor(config: RippleIntegrationConfig) {
-    // Implementation pending
+// Token Transaction Builder
+export * from '../builders/ripple/RippleTokenTransactionBuilder';
+
+// Balance Service - avoiding RippleTrustLine conflict
+export { 
+  rippleMainnetBalanceService,
+  rippleTestnetBalanceService
+} from '../balances/ripple/RippleBalanceService';
+
+// Multi-Signature Service
+export * from '../multiSig/RippleMultiSigService';
+
+// Payment Services - specific exports to avoid conflicts
+export { RipplePaymentsService } from './RipplePaymentsService';
+export { RippleTransactionHistoryService } from './RippleTransactionHistoryService';
+export { 
+  RippleTokenDetectionService,
+  rippleTokenDetection,
+  rippleTestnetTokenDetection
+} from './RippleTokenDetectionService';
+
+// Export types from token detection service (including RippleTrustLine from this source)
+export type {
+  RippleToken,
+  RippleTrustLine
+} from './RippleTokenDetectionService';
+
+// Re-export main services for convenience
+import { rippleMainnetBalanceService, rippleTestnetBalanceService } from '../balances/ripple/RippleBalanceService';
+import { rippleMultiSigService, rippleTestnetMultiSigService } from '../multiSig/RippleMultiSigService';
+import { rippleTransactionHistory, rippleTestnetTransactionHistory } from './RippleTransactionHistoryService';
+import { rippleTokenDetection, rippleTestnetTokenDetection } from './RippleTokenDetectionService';
+import { RippleMainnetTransactionBuilder, RippleTestnetTransactionBuilder } from '../builders/RippleTransactionBuilder';
+
+export const rippleServices = {
+  mainnet: {
+    balance: rippleMainnetBalanceService,
+    multiSig: rippleMultiSigService,
+    transactionHistory: rippleTransactionHistory,
+    tokenDetection: rippleTokenDetection,
+    transactionBuilder: RippleMainnetTransactionBuilder
+  },
+  testnet: {
+    balance: rippleTestnetBalanceService,
+    multiSig: rippleTestnetMultiSigService,
+    transactionHistory: rippleTestnetTransactionHistory,
+    tokenDetection: rippleTestnetTokenDetection,
+    transactionBuilder: RippleTestnetTransactionBuilder
   }
-}
-
-export const createRippleIntegration = (config: RippleIntegrationConfig) => {
-  return new RippleIntegration(config);
 };
+
+export default rippleServices;

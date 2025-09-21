@@ -48,6 +48,9 @@ import { nearTestnetBalanceService } from './near/NearTestnetBalanceService';
 import { injectiveBalanceService } from './injective/InjectiveBalanceService';
 import { injectiveTestnetBalanceService } from './injective/InjectiveTestnetBalanceService';
 
+// Import Ripple balance services (2 services)
+import { rippleMainnetBalanceService, rippleTestnetBalanceService } from './ripple/RippleBalanceService';
+
 // Legacy interface for backward compatibility
 export interface TokenBalance {
   symbol: string;
@@ -163,6 +166,14 @@ export class BalanceService {
     'injective-testnet': injectiveTestnetBalanceService,
     'inj': injectiveBalanceService,
     'inj-testnet': injectiveTestnetBalanceService,
+    
+    // Ripple networks
+    'ripple': rippleMainnetBalanceService,
+    'ripple-testnet': rippleTestnetBalanceService,
+    'xrp': rippleMainnetBalanceService,
+    'xrp-testnet': rippleTestnetBalanceService,
+    'xrpl': rippleMainnetBalanceService,
+    'xrpl-testnet': rippleTestnetBalanceService,
   };
 
   constructor() {}
