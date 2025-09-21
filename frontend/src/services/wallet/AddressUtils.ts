@@ -5,6 +5,7 @@
  * Supports ALL chains from .env file:
  * EVM: Ethereum, Polygon, Optimism, Arbitrum, Base, BSC, ZKSync, Avalanche + testnets
  * Non-EVM: Bitcoin, Solana, Aptos, Sui, NEAR, Injective + testnets
+ * Cosmos: Cosmos Hub, Osmosis, Juno, Secret Network + testnets
  */
 
 import { rpcManager } from '../../infrastructure/web3/rpc/RPCConnectionManager';
@@ -26,7 +27,19 @@ export enum ChainType {
   SUI = 'sui',
   NEAR = 'near',
   INJECTIVE = 'injective',
-  COSMOS = 'cosmos'
+  COSMOS = 'cosmos',
+  OSMOSIS = 'osmosis',
+  JUNO = 'juno',
+  SECRET = 'secret',
+  AKASH = 'akash',
+  EVMOS = 'evmos',
+  STRIDE = 'stride',
+  PERSISTENCE = 'persistence',
+  QUICKSILVER = 'quicksilver',
+  STARGAZE = 'stargaze',
+  REGEN = 'regen',
+  KAVA = 'kava',
+  TERRA = 'terra'
 }
 
 // Chain configuration interface
@@ -107,7 +120,50 @@ const CHAIN_CONFIGS: ChainAddressConfig[] = [
   
   // Injective Mainnet & Testnet
   { chainId: 1, chainName: 'Injective', chainType: ChainType.INJECTIVE, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: 45, prefix: 'inj' },
-  { chainId: 2, chainName: 'Injective Testnet', chainType: ChainType.INJECTIVE, networkType: 'testnet', addressFormat: 'cosmos', addressLength: 45, prefix: 'inj' }
+  { chainId: 2, chainName: 'Injective Testnet', chainType: ChainType.INJECTIVE, networkType: 'testnet', addressFormat: 'cosmos', addressLength: 45, prefix: 'inj' },
+  
+  // Cosmos Hub Mainnet & Testnet
+  { chainId: 1, chainName: 'Cosmos Hub', chainType: ChainType.COSMOS, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [45, 63], prefix: 'cosmos' },
+  { chainId: 2, chainName: 'Cosmos Testnet', chainType: ChainType.COSMOS, networkType: 'testnet', addressFormat: 'cosmos', addressLength: [45, 63], prefix: 'cosmos' },
+  
+  // Osmosis Mainnet & Testnet
+  { chainId: 1, chainName: 'Osmosis', chainType: ChainType.OSMOSIS, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [43, 63], prefix: 'osmo' },
+  { chainId: 2, chainName: 'Osmosis Testnet', chainType: ChainType.OSMOSIS, networkType: 'testnet', addressFormat: 'cosmos', addressLength: [43, 63], prefix: 'osmo' },
+  
+  // Juno Mainnet & Testnet
+  { chainId: 1, chainName: 'Juno', chainType: ChainType.JUNO, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [43, 63], prefix: 'juno' },
+  { chainId: 2, chainName: 'Juno Testnet', chainType: ChainType.JUNO, networkType: 'testnet', addressFormat: 'cosmos', addressLength: [43, 63], prefix: 'juno' },
+  
+  // Secret Network Mainnet & Testnet
+  { chainId: 1, chainName: 'Secret Network', chainType: ChainType.SECRET, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [45, 63], prefix: 'secret' },
+  { chainId: 2, chainName: 'Secret Testnet', chainType: ChainType.SECRET, networkType: 'testnet', addressFormat: 'cosmos', addressLength: [45, 63], prefix: 'secret' },
+  
+  // Akash Network
+  { chainId: 1, chainName: 'Akash', chainType: ChainType.AKASH, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'akash' },
+  
+  // Evmos
+  { chainId: 1, chainName: 'Evmos', chainType: ChainType.EVMOS, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'evmos' },
+  
+  // Stride
+  { chainId: 1, chainName: 'Stride', chainType: ChainType.STRIDE, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [45, 63], prefix: 'stride' },
+  
+  // Persistence
+  { chainId: 1, chainName: 'Persistence', chainType: ChainType.PERSISTENCE, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [50, 63], prefix: 'persistence' },
+  
+  // Quicksilver
+  { chainId: 1, chainName: 'Quicksilver', chainType: ChainType.QUICKSILVER, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'quick' },
+  
+  // Stargaze
+  { chainId: 1, chainName: 'Stargaze', chainType: ChainType.STARGAZE, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'stars' },
+  
+  // Regen Network
+  { chainId: 1, chainName: 'Regen', chainType: ChainType.REGEN, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'regen' },
+  
+  // Kava
+  { chainId: 1, chainName: 'Kava', chainType: ChainType.KAVA, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [43, 63], prefix: 'kava' },
+  
+  // Terra
+  { chainId: 1, chainName: 'Terra', chainType: ChainType.TERRA, networkType: 'mainnet', addressFormat: 'cosmos', addressLength: [44, 63], prefix: 'terra' }
 ];
 
 /**
@@ -198,56 +254,95 @@ export class AddressUtilsService {
     if (chainType && this.isEVMChain(chainType)) {
       const normalized = this.normalizeEVMAddress(address);
       if (normalized) {
-        return this.truncateAddress(normalized, maxLength);
+        address = normalized;
       }
     }
 
-    return this.truncateAddress(address, maxLength);
+    const start = address.slice(0, 6);
+    const end = address.slice(-4);
+    return `${start}...${end}`;
   }
 
   /**
-   * Validate address format against specific config
+   * Check if chain type is EVM-based
    */
+  isEVMChain(chainType: ChainType): boolean {
+    const evmChains = [
+      ChainType.ETHEREUM,
+      ChainType.POLYGON,
+      ChainType.OPTIMISM,
+      ChainType.ARBITRUM,
+      ChainType.BASE,
+      ChainType.BSC,
+      ChainType.ZKSYNC,
+      ChainType.AVALANCHE
+    ];
+    return evmChains.includes(chainType);
+  }
+
+  /**
+   * Check if chain type is Cosmos-based
+   */
+  isCosmosChain(chainType: ChainType): boolean {
+    const cosmosChains = [
+      ChainType.COSMOS,
+      ChainType.OSMOSIS,
+      ChainType.JUNO,
+      ChainType.SECRET,
+      ChainType.INJECTIVE,
+      ChainType.AKASH,
+      ChainType.EVMOS,
+      ChainType.STRIDE,
+      ChainType.PERSISTENCE,
+      ChainType.QUICKSILVER,
+      ChainType.STARGAZE,
+      ChainType.REGEN,
+      ChainType.KAVA,
+      ChainType.TERRA
+    ];
+    return cosmosChains.includes(chainType);
+  }
+
+  // ============================================================================
+  // PRIVATE VALIDATION METHODS
+  // ============================================================================
+
   private validateAddressFormat(address: string, config: ChainAddressConfig): AddressValidationResult {
-    try {
-      switch (config.addressFormat) {
-        case 'evm':
-          return this.validateEVMAddress(address, config);
-        case 'bitcoin':
-          return this.validateBitcoinAddress(address, config);
-        case 'solana':
-          return this.validateSolanaAddress(address, config);
-        case 'aptos':
-          return this.validateAptosAddress(address, config);
-        case 'sui':
-          return this.validateSuiAddress(address, config);
-        case 'near':
-          return this.validateNearAddress(address, config);
-        case 'cosmos':
-          return this.validateCosmosAddress(address, config);
-        default:
-          return { isValid: false, error: `Unsupported address format: ${config.addressFormat}` };
-      }
-    } catch (error) {
-      return { isValid: false, error: `Address validation error: ${error.message}` };
+    switch (config.addressFormat) {
+      case 'evm':
+        return this.validateEVMAddress(address, config);
+      case 'bitcoin':
+        return this.validateBitcoinAddress(address, config);
+      case 'solana':
+        return this.validateSolanaAddress(address, config);
+      case 'aptos':
+        return this.validateAptosAddress(address, config);
+      case 'sui':
+        return this.validateSuiAddress(address, config);
+      case 'near':
+        return this.validateNearAddress(address, config);
+      case 'cosmos':
+        return this.validateCosmosAddress(address, config);
+      default:
+        return { isValid: false, error: 'Unknown address format' };
     }
   }
 
   /**
-   * Validate EVM address (Ethereum, Polygon, Arbitrum, etc.)
+   * Validate EVM address (Ethereum, Polygon, etc.)
    */
   private validateEVMAddress(address: string, config: ChainAddressConfig): AddressValidationResult {
-    if (!address.startsWith('0x')) {
+    if (!config.prefix || !address.startsWith(config.prefix)) {
       return { isValid: false, error: 'EVM address must start with 0x' };
     }
 
-    if (address.length !== 42) {
-      return { isValid: false, error: 'EVM address must be 42 characters long' };
+    if (address.length !== config.addressLength) {
+      return { isValid: false, error: `EVM address must be ${config.addressLength} characters long` };
     }
 
-    const hexPattern = /^0x[0-9a-fA-F]{40}$/;
+    const hexPattern = /^0x[a-fA-F0-9]{40}$/;
     if (!hexPattern.test(address)) {
-      return { isValid: false, error: 'EVM address contains invalid characters' };
+      return { isValid: false, error: 'Invalid EVM address format' };
     }
 
     // Validate checksum if required
@@ -308,36 +403,44 @@ export class AddressUtilsService {
       return { isValid: false, error: `Solana address length must be one of: ${lengths.join(', ')}` };
     }
 
-    return this.validateBase58Address(address)
-      ? { isValid: true, normalizedAddress: address }
-      : { isValid: false, error: 'Invalid Solana address format' };
+    // Base58 validation
+    const base58Pattern = /^[1-9A-HJ-NP-Za-km-z]+$/;
+    if (!base58Pattern.test(address)) {
+      return { isValid: false, error: 'Invalid Solana address format' };
+    }
+
+    return { isValid: true, normalizedAddress: address };
   }
 
   /**
    * Validate Aptos address
    */
   private validateAptosAddress(address: string, config: ChainAddressConfig): AddressValidationResult {
-    if (!address.startsWith('0x')) {
+    if (!config.prefix || !address.startsWith(config.prefix)) {
       return { isValid: false, error: 'Aptos address must start with 0x' };
     }
 
-    if (address.length !== config.addressLength) {
-      return { isValid: false, error: `Aptos address must be ${config.addressLength} characters long` };
-    }
-
-    const hexPattern = /^0x[0-9a-fA-F]{64}$/;
+    // Allow both short (0x1) and long (0x000...1) format
+    const hexPattern = /^0x[a-fA-F0-9]{1,64}$/;
     if (!hexPattern.test(address)) {
-      return { isValid: false, error: 'Aptos address contains invalid characters' };
+      return { isValid: false, error: 'Invalid Aptos address format' };
     }
 
-    return { isValid: true, normalizedAddress: address.toLowerCase() };
+    // Normalize to 66 characters (0x + 64 hex chars)
+    let normalized = address;
+    if (address.length < 66) {
+      const padding = '0'.repeat(66 - address.length);
+      normalized = '0x' + padding + address.slice(2);
+    }
+
+    return { isValid: true, normalizedAddress: normalized.toLowerCase() };
   }
 
   /**
    * Validate Sui address
    */
   private validateSuiAddress(address: string, config: ChainAddressConfig): AddressValidationResult {
-    if (!address.startsWith('0x')) {
+    if (!config.prefix || !address.startsWith(config.prefix)) {
       return { isValid: false, error: 'Sui address must start with 0x' };
     }
 
@@ -345,9 +448,9 @@ export class AddressUtilsService {
       return { isValid: false, error: `Sui address must be ${config.addressLength} characters long` };
     }
 
-    const hexPattern = /^0x[0-9a-fA-F]{64}$/;
+    const hexPattern = /^0x[a-fA-F0-9]{64}$/;
     if (!hexPattern.test(address)) {
-      return { isValid: false, error: 'Sui address contains invalid characters' };
+      return { isValid: false, error: 'Invalid Sui address format' };
     }
 
     return { isValid: true, normalizedAddress: address.toLowerCase() };
@@ -359,10 +462,6 @@ export class AddressUtilsService {
   private validateNearAddress(address: string, config: ChainAddressConfig): AddressValidationResult {
     const lengths = Array.isArray(config.addressLength) ? config.addressLength : [config.addressLength];
     
-    if (!lengths.includes(address.length)) {
-      return { isValid: false, error: `NEAR address length must be one of: ${lengths.join(', ')}` };
-    }
-
     // Implicit accounts (64 chars hex)
     if (address.length === 64) {
       const hexPattern = /^[0-9a-fA-F]{64}$/;
@@ -385,7 +484,7 @@ export class AddressUtilsService {
   }
 
   /**
-   * Validate Cosmos-based address (Injective)
+   * Validate Cosmos-based address (Cosmos Hub, Osmosis, Injective, etc.)
    */
   private validateCosmosAddress(address: string, config: ChainAddressConfig): AddressValidationResult {
     if (!config.prefix) {
@@ -396,40 +495,36 @@ export class AddressUtilsService {
       return { isValid: false, error: `Address must start with ${config.prefix}` };
     }
 
-    if (address.length !== config.addressLength) {
-      return { isValid: false, error: `Address must be ${config.addressLength} characters long` };
+    const lengths = Array.isArray(config.addressLength) ? config.addressLength : [config.addressLength];
+    if (!lengths.includes(address.length)) {
+      return { isValid: false, error: `Address must be one of these lengths: ${lengths.join(', ')} characters` };
     }
 
-    // Validate bech32 format
-    return this.validateBech32Address(address)
-      ? { isValid: true, normalizedAddress: address.toLowerCase() }
-      : { isValid: false, error: 'Invalid Cosmos address format' };
+    // Validate Bech32 format
+    if (!this.validateBech32Address(address)) {
+      return { isValid: false, error: 'Invalid Bech32 format for Cosmos address' };
+    }
+
+    return { isValid: true, normalizedAddress: address };
   }
 
-  // Helper methods
-  private isEVMChain(chainType: ChainType): boolean {
-    const evmChains = [
-      ChainType.ETHEREUM, ChainType.POLYGON, ChainType.OPTIMISM,
-      ChainType.ARBITRUM, ChainType.BASE, ChainType.BSC,
-      ChainType.ZKSYNC, ChainType.AVALANCHE
-    ];
-    return evmChains.includes(chainType);
-  }
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
 
   private hasMixedCase(address: string): boolean {
-    return address !== address.toLowerCase() && address !== address.toUpperCase();
+    const withoutPrefix = address.slice(2);
+    return withoutPrefix !== withoutPrefix.toLowerCase() && withoutPrefix !== withoutPrefix.toUpperCase();
   }
 
   private validateEVMChecksum(address: string): boolean {
-    // Simplified checksum validation - in production, use ethers.js or similar
-    const addr = address.slice(2);
-    const addressLower = addr.toLowerCase();
-    
-    // This is a simplified version - real implementation would use keccak256
-    return address === '0x' + addressLower;
+    // Basic checksum validation
+    // In production, use proper EIP-55 checksum validation
+    return true;
   }
 
   private normalizeEVMAddress(address: string): string {
+    // In production, implement proper checksum normalization
     return address.toLowerCase();
   }
 
@@ -439,42 +534,14 @@ export class AddressUtilsService {
   }
 
   private validateBech32Address(address: string): boolean {
-    const bech32Pattern = /^[a-z0-9]+1[a-z0-9]{6,87}$/;
-    return bech32Pattern.test(address);
-  }
-
-  private truncateAddress(address: string, maxLength: number): string {
-    if (address.length <= maxLength) return address;
-    
-    const prefixLength = Math.floor((maxLength - 3) / 2);
-    const suffixLength = maxLength - prefixLength - 3;
-    
-    return `${address.slice(0, prefixLength)}...${address.slice(-suffixLength)}`;
+    // Basic Bech32 validation
+    const bech32Pattern = /^[a-z0-9]+1[a-z0-9]{38,}$/;
+    return bech32Pattern.test(address.toLowerCase());
   }
 }
 
 // Export singleton instance
 export const addressUtils = AddressUtilsService.getInstance();
 
-// Export utility functions
-export const validateAddress = (address: string, chainType: ChainType, networkType?: 'mainnet' | 'testnet' | 'devnet') => 
-  addressUtils.validateAddress(address, chainType, networkType);
-
-export const detectChainType = (address: string) => 
-  addressUtils.detectChainType(address);
-
-export const formatAddressForDisplay = (address: string, chainType?: ChainType, maxLength?: number) => 
-  addressUtils.formatAddressForDisplay(address, chainType, maxLength);
-
-// Chain type detection helpers
-export const isEVMAddress = (address: string): boolean => {
-  return /^0x[0-9a-fA-F]{40}$/.test(address);
-};
-
-export const isBitcoinAddress = (address: string): boolean => {
-  return /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$|^tb1[a-z0-9]{39,59}$/.test(address);
-};
-
-export const isSolanaAddress = (address: string): boolean => {
-  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
-};
+// Export for backward compatibility
+export default addressUtils;

@@ -26,12 +26,9 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Shield,
-  DollarSign,
-  TrendingUp
+  Shield
 } from "lucide-react";
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
-import { BalanceService, ChainBalance } from "@/services/wallet/balances/index";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,24 +45,15 @@ interface ProjectWalletListProps {
   onRefresh?: () => void;
 }
 
-// Enhanced wallet with balance data
-interface WalletWithBalance extends ProjectWalletData {
-  balanceData?: ChainBalance;
-  multiChainBalance?: { address: string; totalUsdValue: number; chains: ChainBalance[]; lastUpdated: Date };
-  isLoadingBalance?: boolean;
-  balanceError?: string;
-}
-
 export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId, onRefresh }) => {
   const { toast } = useToast();
-  const [wallets, setWallets] = useState<WalletWithBalance[]>([]);
+  const [wallets, setWallets] = useState<ProjectWalletData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
   const [showPrivateKey, setShowPrivateKey] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
-  const [loadingBalances, setLoadingBalances] = useState(false);
   
   const fetchWallets = async () => {
     setLoading(true);
@@ -73,15 +61,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     
     try {
       const walletData = await projectWalletService.getProjectWallets(projectId);
-      const walletsWithBalance: WalletWithBalance[] = walletData.map(wallet => ({
-        ...wallet,
-        isLoadingBalance: true
-      }));
-      
-      setWallets(walletsWithBalance);
-      
-      // Fetch balances for all wallets
-      await fetchAllBalances(walletsWithBalance);
+      setWallets(walletData);
     } catch (err) {
       console.error('Error fetching project wallets:', err);
       setError('Failed to load project wallets');
@@ -93,189 +73,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     } finally {
       setLoading(false);
     }
-  };
-
-  /**
-   * OPTIMIZED: Fetch live blockchain balances with much better performance
-   * PERFORMANCE IMPROVEMENTS: Parallel processing, intelligent batching, faster rates
-   */
-  const fetchAllBalances = async (wallets: WalletWithBalance[]) => {
-    setLoadingBalances(true);
-    console.log(`🚀 PERFORMANCE OPTIMIZED: Fetching balances for ${wallets.length} wallets using enhanced MultiChainBalanceService`);
-    
-    // Debug: Show RPC configuration
-    BalanceService.debugConfiguration();
-    
-    // MAJOR OPTIMIZATION: Process more wallets concurrently with shorter delays
-    const BATCH_SIZE = 6; // Increased from 3 to 6 - process more wallets at once  
-    const BATCH_DELAY = 200; // Reduced from 1000ms to 200ms - much faster between batches
-    const REQUEST_DELAY = 50; // Reduced from 300ms to 50ms - faster within batch
-    
-    const updatedWallets: WalletWithBalance[] = [...wallets];
-    
-    // Process wallets in optimized batches
-    for (let i = 0; i < wallets.length; i += BATCH_SIZE) {
-      const batch = wallets.slice(i, i + BATCH_SIZE);
-      console.log(`📦 FAST Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(wallets.length/BATCH_SIZE)}: ${batch.length} wallets`);
-      
-      const batchPromises = batch.map(async (wallet, batchIndex) => {
-        const walletIndex = i + batchIndex;
-        
-        if (!wallet.wallet_address) {
-          console.warn(`❌ Wallet ${walletIndex + 1}: No wallet address provided`);
-          return {
-            walletIndex,
-            result: {
-              ...wallet,
-              isLoadingBalance: false,
-              balanceError: 'No wallet address'
-            }
-          };
-        }
-
-        try {
-          console.log(`📊 Wallet ${walletIndex + 1}: Checking ${wallet.wallet_type} balance for ${wallet.wallet_address.slice(0, 10)}...`);
-
-          // OPTIMIZATION: Minimal delay between requests (50ms instead of 300ms)
-          if (batchIndex > 0) {
-            await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * batchIndex));
-          }
-
-          // OPTIMIZATION: Reduced timeout and better error handling
-          const startTime = Date.now();
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Balance fetch timeout (8s) - RPC may be slow')), 8000)
-          );
-          
-          const multiChainBalance = await Promise.race([
-            BalanceService.fetchMultiChainBalance(wallet.wallet_address),
-            timeoutPromise
-          ]) as any;
-          
-          const fetchTime = Date.now() - startTime;
-
-          // Find the best balance data from the multi-chain result
-          let bestChainData = null;
-          let totalValue = 0;
-          
-          if (multiChainBalance && multiChainBalance.chains.length > 0) {
-            // Find chain with highest balance or first online chain
-            bestChainData = multiChainBalance.chains.find(chain => chain.totalUsdValue > 0) || 
-                           multiChainBalance.chains.find(chain => chain.isOnline) ||
-                           multiChainBalance.chains[0];
-            totalValue = multiChainBalance.totalUsdValue;
-            
-            console.log(`✅ Wallet ${walletIndex + 1} (${fetchTime}ms): Multi-chain = ${BalanceService.formatUsdValue(totalValue)}`);
-            
-            // Log chain details for successful high-value wallets
-            if (totalValue > 0.01) { // Only log wallets with more than 1 cent
-              console.group(`💰 Wallet ${walletIndex + 1} Multi-Chain Details`);
-              multiChainBalance.chains.forEach(chain => {
-                if (chain.isOnline && chain.totalUsdValue > 0) {
-                  console.log(`${chain.icon} ${chain.chainName}: ${chain.nativeBalance.slice(0, 8)} ${chain.symbol} = ${BalanceService.formatUsdValue(chain.totalUsdValue)}`);
-                }
-              });
-              console.groupEnd();
-            }
-          } else {
-            console.warn(`⚠️  Wallet ${walletIndex + 1}: No compatible chains found for address`);
-          }
-
-          return {
-            walletIndex,
-            result: {
-              ...wallet,
-              balanceData: bestChainData,
-              multiChainBalance: multiChainBalance,
-              isLoadingBalance: false,
-              balanceError: bestChainData ? undefined : 'No compatible chains found - check address format'
-            }
-          };
-
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error(`❌ Wallet ${walletIndex + 1}: Error fetching balance for ${wallet.wallet_type} ${wallet.wallet_address.slice(0, 10)}:`, errorMessage);
-          
-          // IMPROVEMENT: Provide more specific error messages
-          let userFriendlyError = errorMessage;
-          if (errorMessage.includes('timeout')) {
-            userFriendlyError = 'Request timeout - check RPC connection';
-          } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-            userFriendlyError = 'Network connection error - retrying in next refresh';
-          } else if (errorMessage.includes('invalid') || errorMessage.includes('address')) {
-            userFriendlyError = 'Invalid address format';
-          } else if (errorMessage.includes('RPC') || errorMessage.includes('provider')) {
-            userFriendlyError = 'RPC provider unavailable';
-          } else if (errorMessage.includes('rate limit')) {
-            userFriendlyError = 'Rate limited - please wait';
-          }
-
-          return {
-            walletIndex,
-            result: {
-              ...wallet,
-              isLoadingBalance: false,
-              balanceError: userFriendlyError
-            }
-          };
-        }
-      });
-
-      try {
-        const batchResults = await Promise.all(batchPromises);
-        
-        // Update wallets with batch results
-        batchResults.forEach(({ walletIndex, result }) => {
-          updatedWallets[walletIndex] = result;
-        });
-        
-        // Update state with current progress
-        setWallets([...updatedWallets]);
-        
-        console.log(`✅ FAST Batch ${Math.floor(i/BATCH_SIZE) + 1} completed successfully`);
-        
-        // OPTIMIZATION: Much shorter delay between batches (200ms instead of 1000ms)
-        if (i + BATCH_SIZE < wallets.length) {
-          console.log(`⏳ Brief wait ${BATCH_DELAY}ms before next batch...`);
-          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
-        }
-        
-      } catch (error) {
-        console.error(`❌ Error in fast batch ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
-      }
-    }
-
-    // Calculate final summary statistics
-    const successful = updatedWallets.filter(w => w.balanceData && !w.balanceError).length;
-    const failed = updatedWallets.filter(w => w.balanceError).length;
-    const totalValue = updatedWallets.reduce((sum, w) => sum + (w.multiChainBalance?.totalUsdValue || w.balanceData?.totalUsdValue || 0), 0);
-    
-    console.log(`🚀 OPTIMIZED Balance Summary: ${successful} successful, ${failed} failed, Total Value: ${BalanceService.formatUsdValue(totalValue)}`);
-    
-    setLoadingBalances(false);
-    
-    toast({
-      title: "Balances Updated",
-      description: `Fetched ${successful}/${wallets.length} wallet balances successfully`,
-      duration: 3000,
-    });
-  };
-
-  // REMOVED: Old chain ID mapping - now handled by fixed service
-
-  // REMOVED: Old address validation - now handled by AddressValidator in fixed service
-
-  /**
-   * Debug RPC configuration - FIXED: Now always available
-   */
-  const debugRPCConfiguration = () => {
-    console.group('🔧 ProjectWalletList RPC Debug - FIXED VERSION');
-    console.log('MultiChainBalanceServiceFixed instance:', BalanceService);
-    
-    // Debug RPC configuration through the FIXED service
-    BalanceService.debugConfiguration();
-    
-    console.groupEnd();
   };
 
   useEffect(() => {
@@ -346,58 +143,16 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   };
 
   const getNetworkIcon = (network: string) => {
-    // Enhanced network icon mapping with comprehensive chain support
+    // Map network names to their icons/symbols
     const networkMap: Record<string, string> = {
-      // Ethereum
       ethereum: '⟠',
-      eth: '⟠',
-      sepolia: '⟠',
-      holesky: '⟠',
-      
-      // Polygon
-      polygon: '⬢',
-      matic: '⬢',
-      amoy: '⬢',
-      
-      // Bitcoin
-      bitcoin: '₿',
-      btc: '₿',
-      
-      // Arbitrum
-      arbitrum: '🔷',
-      arb: '🔷',
-      
-      // Optimism
-      optimism: '🔴',
-      op: '🔴',
-      
-      // Base
-      base: '🔵',
-      
-      // Avalanche
-      avalanche: '🏔️',
-      avax: '🏔️',
-      fuji: '🏔️',
-      
-      // BSC
-      bsc: '🟡',
-      binance: '🟡',
-      bnb: '🟡',
-      
-      // Fantom
-      fantom: '👻',
-      ftm: '👻',
-      
-      // Gnosis
-      gnosis: '🟢',
-      xdai: '🟢',
-      
-      // Injective
-      injective: '🔸',
-      inj: '🔸',
-      
-      // Other chains
+      polygon: '⬟',
       solana: '◎',
+      bitcoin: '₿',
+      avalanche: '🔺',
+      optimism: '🔴',
+      arbitrum: '🔵',
+      base: '🔷',
       sui: '🌊',
       aptos: '🅰️',
       near: '◇',
@@ -406,49 +161,10 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
       xrp: 'Ⓡ',
     };
     
-    const icon = networkMap[network.toLowerCase()];
-    if (!icon) {
-      console.debug(`🔗 No icon found for network: ${network}, using default`);
-    }
-    
-    return icon || '🔗';
+    return networkMap[network.toLowerCase()] || '🔗';
   };
 
   return (
-    <div className="space-y-4">
-      {/* Portfolio Summary Card */}
-      {wallets.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {BalanceService.formatUsdValue(
-                    wallets.reduce((total, wallet) => 
-                      total + (wallet.multiChainBalance?.totalUsdValue || wallet.balanceData?.totalUsdValue || 0), 0
-                    )
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">Total Portfolio Value</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">
-                  {wallets.length}
-                </div>
-                <p className="text-sm text-muted-foreground">Total Wallets</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">
-                  {new Set(wallets.map(w => w.wallet_type)).size}
-                </div>
-                <p className="text-sm text-muted-foreground">Networks</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Main Wallet Table */}
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
@@ -456,32 +172,15 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             <CardTitle className="flex items-center">
               <Wallet className="mr-2 h-5 w-5" />
               Project Wallets
-              {loadingBalances && (
-                <RefreshCw className="ml-2 h-4 w-4 animate-spin text-blue-500" />
-              )}
             </CardTitle>
             <CardDescription>
-              Manage blockchain wallets for this project with live balance data
+              Manage blockchain wallets for this project
             </CardDescription>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fetchAllBalances(wallets)} 
-              disabled={loading || loadingBalances}
-            >
-              <DollarSign className={`h-4 w-4 mr-2 ${loadingBalances ? 'animate-pulse' : ''}`} />
-              {loadingBalances ? 'Fetching...' : 'Refresh Balances'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button variant="ghost" size="sm" onClick={debugRPCConfiguration} className="bg-blue-50 hover:bg-blue-100 text-blue-700">
-              🔧 Debug RPC
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -509,8 +208,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                 <TableRow>
                   <TableHead>Network</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>USD Value</TableHead>
                   <TableHead>Private Key</TableHead>
                   <TableHead>Mnemonic</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -539,56 +236,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                           <Copy className="h-3 w-3" />
                         </Button>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {wallet.isLoadingBalance ? (
-                        <div className="flex items-center space-x-2">
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                          <span className="text-xs text-muted-foreground">Loading...</span>
-                        </div>
-                      ) : wallet.balanceError ? (
-                        <Badge variant="destructive" className="text-xs">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Error
-                        </Badge>
-                      ) : wallet.balanceData ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1">
-                          <span className="font-mono text-sm">
-                          {BalanceService.formatBalance(wallet.balanceData.nativeBalance)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                          {wallet.balanceData.symbol}
-                          </span>
-                          </div>
-                          {wallet.balanceData.erc20Tokens.length > 0 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{wallet.balanceData.erc20Tokens.length} tokens
-                            </Badge>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No data</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {wallet.isLoadingBalance ? (
-                        <RefreshCw className="h-3 w-3 animate-spin" />
-                      ) : wallet.balanceError ? (
-                        <span className="text-xs text-muted-foreground">--</span>
-                      ) : wallet.balanceData ? (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="h-3 w-3 text-green-600" />
-                          <span className="font-medium text-green-600">
-                            {BalanceService.formatUsdValue(wallet.multiChainBalance?.totalUsdValue || wallet.balanceData.totalUsdValue)}
-                          </span>
-                          {wallet.balanceData.totalUsdValue > 0 && (
-                            <TrendingUp className="h-3 w-3 text-green-500" />
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">$0.00</span>
-                      )}
                     </TableCell>
                     <TableCell>
                       {wallet.private_key ? (
@@ -699,7 +346,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
         </AlertDialogContent>
       </AlertDialog>
     </Card>
-    </div>
   );
 };
 

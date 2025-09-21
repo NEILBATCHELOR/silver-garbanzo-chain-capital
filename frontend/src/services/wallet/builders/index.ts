@@ -9,6 +9,7 @@
  * - Sui
  * - NEAR
  * - Injective
+ * - Cosmos Ecosystem (Cosmos Hub, Osmosis, Juno, Secret, etc.)
  */
 
 // ============================================================================
@@ -73,6 +74,30 @@ export type {
   BitcoinTransactionBuilderConfig,
   BitcoinUTXO,
 } from './BitcoinTransactionBuilder';
+
+// ============================================================================
+// COSMOS ECOSYSTEM TRANSACTION BUILDER
+// ============================================================================
+
+// COSMOS
+export { 
+  CosmosTransactionBuilder, 
+  CosmosHubTransactionBuilder, 
+  OsmosisTransactionBuilder,
+  JunoTransactionBuilder,
+  SecretNetworkTransactionBuilder,
+  CosmosTestnetTransactionBuilder,
+  getCosmosTransactionBuilder 
+} from './CosmosTransactionBuilder';
+
+export type { 
+  CosmosTransactionRequest, 
+  CosmosGasEstimate, 
+  CosmosSignedTransaction, 
+  CosmosBroadcastResult, 
+  CosmosTransactionBuilderConfig,
+  CosmosAccountInfo
+} from './CosmosTransactionBuilder';
 
 // ============================================================================
 // OTHER BLOCKCHAIN BUILDERS

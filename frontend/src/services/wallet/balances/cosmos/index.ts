@@ -1,16 +1,17 @@
 /**
  * Cosmos Balance Services
  * 
- * Currently no Cosmos-based chains are configured in the .env file.
- * This directory is reserved for future Cosmos ecosystem chains like:
- * - Cosmos Hub (ATOM)
- * - Osmosis (OSMO) 
- * - Juno (JUNO)
- * - Secret Network (SCRT)
- * 
- * When Cosmos chains are added to the project, their balance services
- * will be implemented here following the BaseChainBalanceService pattern.
+ * Exports balance services for Cosmos ecosystem chains
  */
 
-// Placeholder - no services to export yet
-export const cosmosBalanceServices = {};
+// Cosmos Hub
+export { CosmosBalanceService, cosmosBalanceService } from './CosmosBalanceService';
+
+// Osmosis DEX
+export { OsmosisBalanceService, osmosisBalanceService } from './OsmosisBalanceService';
+
+// Export all services as a collection
+export const cosmosBalanceServices = {
+  cosmos: () => import('./CosmosBalanceService').then(m => m.cosmosBalanceService),
+  osmosis: () => import('./OsmosisBalanceService').then(m => m.osmosisBalanceService),
+};

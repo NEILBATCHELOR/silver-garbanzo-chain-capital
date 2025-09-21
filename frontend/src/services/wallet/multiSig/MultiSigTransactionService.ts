@@ -13,7 +13,7 @@ import { SignatureAggregator } from './SignatureAggregator';
 import { LocalSigner } from './LocalSigner';
 
 // ============================================================================
-// INTERFACES
+// INTERFACES 
 // ============================================================================
 
 export interface MultiSigProposal {
@@ -276,16 +276,36 @@ export class MultiSigTransactionService {
         throw new Error(`Proposal ${signedTx.proposalId} not found`);
       }
 
+      // Get network type from wallet configuration
+      const { data: walletData } = await supabase
+        .from('multi_sig_wallets')
+        .select('network_type')
+        .eq('id', proposal.walletId)
+        .single();
+      
+      const networkType = walletData?.network_type || 'mainnet';
+      
       // Get appropriate builder for chain
       const builder = universalTransactionBuilder.getBuilder(
         signedTx.chainType,
-        'mainnet' // TODO: Get from proposal/wallet config
+        networkType
       );
 
-      // Broadcast transaction
-      const result = await builder.broadcastTransaction({
-        rawTransaction: signedTx.rawTransaction
-      });
+      // Broadcast transaction with retry logic
+      let result;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          result = await builder.broadcastTransaction({
+            rawTransaction: signedTx.rawTransaction
+          });
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) throw error;
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s between retries
+        }
+      }
 
       if (result.success) {
         // Update proposal with execution details

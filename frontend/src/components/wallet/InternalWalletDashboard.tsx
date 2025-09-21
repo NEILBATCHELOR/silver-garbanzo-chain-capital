@@ -36,6 +36,10 @@ import { useAccount } from 'wagmi';
 import { CombinedOrgProjectSelector } from '@/components/organizations';
 import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
 
+// Import multi-sig components
+import { SignatureCollectionDashboard } from './components/multisig/SignatureCollectionDashboard';
+import { MultiSigWalletWizard } from './components/multisig/MultiSigWalletWizard';
+
 interface InternalWalletDashboardProps {
   className?: string;
 }
@@ -148,44 +152,19 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   const handleCreateWallet = async () => {
     console.log('🔧 DEBUG: handleCreateWallet called');
     console.log('🔧 DEBUG: wallets.length:', wallets.length);
-    console.log('🔧 DEBUG: createWallet function:', typeof createWallet);
-    
+  
     try {
-      // Default to EOA wallet - could be enhanced with a dialog to choose type
-      const walletName = `Wallet ${wallets.length + 1}`;
-      console.log('🔧 DEBUG: About to call createWallet with:', { walletName, type: 'eoa', network: 'ethereum' });
-      
-      // Test database connectivity first
-      console.log('🔧 DEBUG: Testing Supabase connectivity...');
-      
-      const newWallet = await createWallet(walletName, 'eoa', 'ethereum');
-      console.log('🔧 DEBUG: Wallet created successfully:', newWallet);
-      
-      setShowCreateWallet(false);
+      const newWallet = await createWallet('New Wallet', 'eoa', 'ethereum-mainnet');
       toast({
-        title: "Internal Wallet Created",
-        description: `${walletName} created successfully: ${newWallet.address.slice(0, 10)}...`,
+        title: "Wallet Created",
+        description: `New wallet created successfully: ${newWallet.address}`,
       });
-
-      // Force refresh the wallet list
-      console.log('🔧 DEBUG: Refreshing wallet list...');
-      
-    } catch (error: any) {
-      console.error('🚨 DEBUG: Wallet creation error details:', {
-        message: error?.message,
-        stack: error?.stack,
-        error: error
-      });
-      
-      let errorMessage = 'Failed to create internal wallet address';
-      if (error?.message) {
-        errorMessage = `Creation failed: ${error.message}`;
-      }
-      
+      await refreshBalances();
+    } catch (error) {
       toast({
         variant: "destructive",
-        title: "Wallet Creation Failed",
-        description: errorMessage,
+        title: "Failed to create wallet",
+        description: error instanceof Error ? error.message : "Unknown error",
       });
     }
   };
@@ -193,6 +172,8 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   const handleConnectExternalWallet = () => {
     open();
   };
+
+  const isLoadingWallets = loading || wallets.length === 0 && loading;
 
   return (
     <div className="w-full h-full bg-gray-50">
@@ -316,12 +297,13 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="wallets">Internal Wallets</TabsTrigger>
           <TabsTrigger value="external">Connect External</TabsTrigger>
           <TabsTrigger value="tokens">Tokens</TabsTrigger>
           <TabsTrigger value="transfer">Transfer</TabsTrigger>
+          <TabsTrigger value="multisig">Multi-Sig</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="testnet">Testnet Testing</TabsTrigger>
         </TabsList>
@@ -406,6 +388,17 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
         <TabsContent value="transfer" className="space-y-6">
           <TransferTab />
+        </TabsContent>
+
+        <TabsContent value="multisig" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Multi-Signature Transactions</h3>
+              <p className="text-sm text-muted-foreground">Manage proposals, collect signatures, and execute multi-sig transactions</p>
+            </div>
+            <MultiSigWalletWizard />
+          </div>
+          <SignatureCollectionDashboard />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6">
