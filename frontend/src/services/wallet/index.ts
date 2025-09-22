@@ -4,6 +4,7 @@ export * from './TransactionHistoryService';
 export * from './PriceFeedService';
 
 // Enhanced Wallet Services - Full SDK Integration
+export * from './evm';
 export * from './solana';
 export * from './bitcoin';
 export * from './aptos';
@@ -105,6 +106,7 @@ import { enhancedTokenDetectionService } from './EnhancedTokenDetectionService';
 import { walletApiService } from './WalletApiService';
 
 // Import enhanced wallet service instances
+import { evmWalletService, ethereumWalletService, polygonWalletService, arbitrumWalletService, optimismWalletService, baseWalletService, avalancheWalletService, bscWalletService } from './evm';
 import { solanaWalletService } from './solana';
 import { bitcoinWalletService } from './bitcoin';
 import { aptosWalletService } from './aptos';
@@ -120,6 +122,14 @@ export {
   enhancedTokenDetectionService,
   walletApiService,
   // Enhanced wallet services
+  evmWalletService,
+  ethereumWalletService,
+  polygonWalletService,
+  arbitrumWalletService,
+  optimismWalletService,
+  baseWalletService,
+  avalancheWalletService,
+  bscWalletService,
   solanaWalletService,
   bitcoinWalletService,
   aptosWalletService,
@@ -153,6 +163,13 @@ export type {
 export type { Transaction } from '@/types/core/centralModels';
 
 // Enhanced wallet service types
+export type {
+  EVMAccountInfo,
+  EVMGenerationOptions,
+  EVMEncryptedWallet,
+  EVMNetworkInfo
+} from './evm';
+
 export type {
   SolanaAccountInfo,
   SolanaGenerationOptions,

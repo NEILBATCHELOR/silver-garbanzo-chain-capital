@@ -1,14 +1,18 @@
 import type { IBlockchainAdapter, TokenBalance } from './IBlockchainAdapter';
 import * as StellarSdk from '@stellar/stellar-sdk';
+import { stellarWalletService, stellarTestnetWalletService } from '@/services/wallet/stellar';
 
 /**
  * Adapter for Stellar blockchain
+ * Enhanced to use comprehensive StellarWalletService for wallet operations
+ * while keeping blockchain protocol operations in the adapter
  */
 export class StellarAdapter implements IBlockchainAdapter {
   private server: StellarSdk.Horizon.Server;
   private network: string;
   private networkPassphrase: string;
   private _isConnected = false;
+  private walletService: typeof stellarWalletService;
 
   // Required interface properties
   readonly chainId = 'stellar-mainnet';
@@ -26,6 +30,9 @@ export class StellarAdapter implements IBlockchainAdapter {
     this.networkPassphrase = network === 'mainnet' 
       ? StellarSdk.Networks.PUBLIC 
       : StellarSdk.Networks.TESTNET;
+    
+    // Initialize appropriate wallet service based on network
+    this.walletService = network === 'mainnet' ? stellarWalletService : stellarTestnetWalletService;
   }
 
   // Connection management
@@ -61,22 +68,93 @@ export class StellarAdapter implements IBlockchainAdapter {
 
   // Account operations
   async generateAccount(): Promise<any> {
-    const keyPair = StellarSdk.Keypair.random();
+    this.validateConnection();
+    
+    // Use wallet service for sophisticated account generation
+    const walletAccount = this.walletService.generateAccount({
+      includeSecretKey: false // Adapter doesn't need secret key for security
+    });
+    
+    // Adapter adds blockchain-specific data
+    const balance = await this.getBalance(walletAccount.address).catch(() => BigInt(0));
+    
     return {
-      address: keyPair.publicKey(),
-      balance: BigInt(0),
-      publicKey: keyPair.publicKey()
+      address: walletAccount.address,
+      balance,
+      publicKey: walletAccount.publicKey
     };
   }
 
   async importAccount(privateKey: string): Promise<any> {
-    const keyPair = StellarSdk.Keypair.fromSecret(privateKey);
-    const balance = await this.getBalance(keyPair.publicKey()).catch(() => BigInt(0));
+    this.validateConnection();
+    
+    try {
+      // Use wallet service for sophisticated import with error handling
+      const walletAccount = await this.walletService.importAccount(privateKey, {
+        includeSecretKey: false // Security: adapter doesn't store secret keys
+      });
+      
+      // Adapter adds blockchain-specific data
+      const balance = await this.getBalance(walletAccount.address).catch(() => BigInt(0));
+      
+      return {
+        address: walletAccount.address,
+        balance,
+        publicKey: walletAccount.publicKey
+      };
+    } catch (error) {
+      throw new Error(`Stellar import failed: ${error}`);
+    }
+  }
+
+  // Enhanced features from wallet service
+  async generateHDAccount(mnemonic: string, index: number = 0): Promise<any> {
+    this.validateConnection();
+    
+    // Use wallet service for HD wallet support
+    const walletAccount = this.walletService.fromMnemonic(mnemonic, { path: `m/44'/148'/${index}'/0'` });
+    const balance = await this.getBalance(walletAccount.address).catch(() => BigInt(0));
+    
     return {
-      address: keyPair.publicKey(),
+      address: walletAccount.address,
       balance,
-      publicKey: keyPair.publicKey()
+      publicKey: walletAccount.publicKey
     };
+  }
+
+  async generateMultipleAccounts(count: number): Promise<any[]> {
+    this.validateConnection();
+    
+    const accounts = [];
+    for (let i = 0; i < count; i++) {
+      const account = await this.generateAccount();
+      accounts.push(account);
+    }
+    
+    return accounts;
+  }
+
+  generateMnemonic(): string {
+    return this.walletService.generateMnemonic();
+  }
+
+  isValidWalletAccount(account: unknown): boolean {
+    try {
+      const acc = account as any;
+      return Boolean(
+        acc?.address && 
+        this.isValidAddress(acc.address) &&
+        acc?.publicKey
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private validateConnection(): void {
+    if (!this._isConnected) {
+      throw new Error('Stellar adapter is not connected');
+    }
   }
 
   async getAccount(address: string): Promise<any> {

@@ -1,62 +1,199 @@
-import type { IBlockchainAdapter, TokenBalance } from './IBlockchainAdapter';
-import { signMessage } from "../CryptoUtils";
-import { Account, Aptos, AptosConfig, Ed25519PrivateKey, Network } from "@aptos-labs/ts-sdk";
-
 /**
- * Adapter for Aptos blockchain
- * TODO: Complete implementation to fully satisfy IBlockchainAdapter interface
- * Missing: chainId, chainName, networkType, nativeCurrency properties and several methods
+ * Aptos Adapter Implementation
+ * 
+ * Aptos-specific adapter implementing account-based model with AptosWalletService integration
+ * Supports mainnet, testnet, and devnet networks
  */
-export class AptosAdapter implements IBlockchainAdapter {
+
+import { Account, Aptos, AptosConfig, Ed25519PrivateKey, Network } from "@aptos-labs/ts-sdk";
+import type {
+  IBlockchainAdapter,
+  NetworkType,
+  TransactionParams,
+  TransactionResult,
+  TransactionStatus,
+  AccountInfo,
+  TokenBalance,
+  ConnectionConfig,
+  HealthStatus
+} from './IBlockchainAdapter';
+import { BaseBlockchainAdapter } from './IBlockchainAdapter';
+import { aptosWalletService } from '@/services/wallet/aptos';
+
+export class AptosAdapter extends BaseBlockchainAdapter {
   private client: Aptos;
+  private walletService = aptosWalletService;
   private network: string;
 
-  // Required interface properties - temporary implementation
-  readonly chainId = 'aptos-1';
-  readonly chainName = 'Aptos';
-  readonly networkType: 'mainnet' | 'testnet' | 'devnet' | 'regtest' = 'mainnet';
+  readonly chainId: string;
+  readonly chainName = 'aptos';
+  readonly networkType: NetworkType;
   readonly nativeCurrency = {
     name: 'Aptos',
     symbol: 'APT',
     decimals: 8
   };
 
-  constructor(client: Aptos, network: string) {
-    this.client = client;
-    this.network = network;
+  constructor(networkType: NetworkType = 'mainnet') {
+    super();
+    this.networkType = networkType;
+    
+    // Map network types to Aptos networks
+    const networkMap = {
+      mainnet: Network.MAINNET,
+      testnet: Network.TESTNET,
+      devnet: Network.DEVNET
+    };
+
+    const aptosNetwork = networkMap[networkType as keyof typeof networkMap];
+    if (!aptosNetwork) {
+      throw new Error(`Unsupported Aptos network: ${networkType}`);
+    }
+
+    this.chainId = `aptos-${networkType}`;
+    this.network = networkType;
+    
+    const config = new AptosConfig({ 
+      network: aptosNetwork 
+    });
+    this.client = new Aptos(config);
   }
 
-  // Connection management - basic implementations
-  async connect(config: any): Promise<void> {
-    // TODO: Implement connection logic
+  // Connection management
+  async connect(config: ConnectionConfig): Promise<void> {
+    try {
+      this.config = config;
+      
+      // Test connection with a simple request
+      await this.client.getLedgerInfo();
+      
+      this._isConnected = true;
+      console.log(`Connected to Aptos ${this.networkType}`);
+    } catch (error) {
+      this._isConnected = false;
+      throw new Error(`Failed to connect to Aptos: ${error}`);
+    }
   }
 
   async disconnect(): Promise<void> {
-    // TODO: Implement disconnect logic
+    this._isConnected = false;
+    console.log(`Disconnected from Aptos ${this.networkType}`);
   }
 
-  isConnected(): boolean {
-    return true; // TODO: Implement actual connection status
+  async getHealth(): Promise<HealthStatus> {
+    const startTime = Date.now();
+    try {
+      const ledgerInfo = await this.client.getLedgerInfo();
+      const latency = Date.now() - startTime;
+      
+      return {
+        isHealthy: true,
+        latency,
+        blockHeight: Number(ledgerInfo.block_height),
+        lastChecked: Date.now()
+      };
+    } catch (error) {
+      return {
+        isHealthy: false,
+        latency: Date.now() - startTime,
+        lastChecked: Date.now()
+      };
+    }
   }
 
-  async getHealth(): Promise<any> {
-    return { isHealthy: true, latency: 0, lastChecked: Date.now() };
+  // Account operations with wallet service integration
+  async generateAccount(): Promise<AccountInfo> {
+    this.validateConnection();
+    
+    // Use wallet service for sophisticated account generation
+    const walletAccount = this.walletService.generateAccount({
+      includePrivateKey: false // Adapter doesn't need private key for security
+    });
+    
+    // Adapter adds blockchain-specific data
+    const balance = await this.getBalance(walletAccount.address);
+    
+    return {
+      address: walletAccount.address,
+      balance,
+      publicKey: walletAccount.publicKey
+    };
   }
 
-  // Account operations - basic implementations
-  async generateAccount(): Promise<any> {
-    // TODO: Implement account generation
-    throw new Error('Not implemented');
+  async importAccount(privateKey: string): Promise<AccountInfo> {
+    this.validateConnection();
+    
+    try {
+      // Use wallet service for sophisticated import with error handling
+      const walletAccount = await this.walletService.importAccount(privateKey, {
+        includePrivateKey: false // Security: adapter doesn't store private keys
+      });
+      
+      // Adapter adds blockchain-specific data
+      const balance = await this.getBalance(walletAccount.address);
+      
+      return {
+        address: walletAccount.address,
+        balance,
+        publicKey: walletAccount.publicKey
+      };
+    } catch (error) {
+      throw new Error(`Aptos import failed: ${error}`);
+    }
   }
 
-  async importAccount(privateKey: string): Promise<any> {
-    // TODO: Implement account import
-    throw new Error('Not implemented');
+  // Enhanced wallet service features
+  async generateHDAccount(mnemonic: string, index: number): Promise<AccountInfo> {
+    this.validateConnection();
+    
+    const walletAccount = this.walletService.fromMnemonic(mnemonic, index, {
+      includePrivateKey: false
+    });
+    
+    const balance = await this.getBalance(walletAccount.address);
+    
+    return {
+      address: walletAccount.address,
+      balance,
+      publicKey: walletAccount.publicKey
+    };
   }
 
-  async getAccount(address: string): Promise<any> {
+  async generateMultipleAccounts(count: number): Promise<AccountInfo[]> {
+    this.validateConnection();
+    
+    const walletAccounts = this.walletService.generateMultipleAccounts(count, {
+      includePrivateKey: false
+    });
+    
+    return Promise.all(walletAccounts.map(async (account) => ({
+      address: account.address,
+      balance: await this.getBalance(account.address),
+      publicKey: account.publicKey
+    })));
+  }
+
+  isValidWalletAccount(account: unknown): boolean {
+    return this.walletService.isValidAddress((account as any)?.address) && 
+           this.isValidAddress((account as any)?.address);
+  }
+
+  generateMnemonic(): string {
+    return this.walletService.generateMnemonic();
+  }
+
+  async getAccount(address: string): Promise<AccountInfo> {
+    this.validateConnection();
+    
+    if (!this.isValidAddress(address)) {
+      throw new Error(`Invalid Aptos address: ${address}`);
+    }
+
     const balance = await this.getBalance(address);
-    return { address, balance };
+    return { 
+      address, 
+      balance 
+    };
   }
 
   // Transaction operations - basic implementations
@@ -75,7 +212,20 @@ export class AptosAdapter implements IBlockchainAdapter {
   }
 
   async signMessage(message: string, privateKey: string): Promise<string> {
-    return signMessage("aptos", message, privateKey);
+    try {
+      // Create account from private key
+      const cleanPrivateKey = privateKey.replace(/^0x/i, '');
+      const privKey = new Ed25519PrivateKey(cleanPrivateKey);
+      const account = Account.fromPrivateKey({ privateKey: privKey });
+      
+      // Sign the message
+      const messageBytes = new TextEncoder().encode(message);
+      const signature = account.sign(messageBytes);
+      
+      return signature.toString();
+    } catch (error) {
+      throw new Error(`Failed to sign message: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   // Block operations - basic implementations

@@ -24,6 +24,10 @@ import type {
 } from '../IBlockchainAdapter';
 import { BaseBlockchainAdapter } from '../IBlockchainAdapter';
 
+// Import Bitcoin Wallet Service for enhanced wallet operations
+import { bitcoinWalletService, bitcoinTestnetWalletService } from '@/services/wallet/bitcoin';
+import type { BitcoinGenerationOptions, BitcoinAccountInfo } from '@/services/wallet/bitcoin';
+
 // Derive the PSBT instance type from the runtime class to avoid TS2709
 type PsbtInstance = InstanceType<typeof bitcoin.Psbt>;
 
@@ -67,6 +71,7 @@ export interface BitcoinAddressInfo {
 export class BitcoinAdapter extends BaseBlockchainAdapter {
   private apiUrl?: string;
   private network: any; // Using any to avoid import type issues across module settings
+  private walletService: typeof bitcoinWalletService; // Wallet service for enhanced operations
 
   readonly chainId: string;
   readonly chainName = 'bitcoin';
@@ -87,6 +92,9 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     }
 
     this.chainId = `bitcoin-${networkType}`;
+    
+    // Initialize appropriate wallet service based on network
+    this.walletService = networkType === 'mainnet' ? bitcoinWalletService : bitcoinTestnetWalletService;
   }
 
   // Connection management
@@ -141,21 +149,52 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  // Enhanced account operations with multiple address types
+  // Enhanced account operations with wallet service delegation
   async generateAccount(addressType: BitcoinAddressType = BitcoinAddressType.P2WPKH): Promise<AccountInfo> {
     this.validateConnection();
 
-    const keyPair = ECPair.makeRandom({ network: this.network });
-    const publicKey = Buffer.from(keyPair.publicKey);
-    const addressInfo = this.generateAddress(publicKey, addressType);
+    try {
+      // Delegate to wallet service for sophisticated account generation
+      const options: BitcoinGenerationOptions = {
+        addressType: this.addressTypeToWalletServiceType(addressType),
+        includePrivateKey: false, // Adapter doesn't store private keys for security
+        includeWIF: false
+      };
 
-    const balance = await this.getBalance(addressInfo.address);
+      const walletAccount = this.walletService.generateAccount(options);
 
-    return {
-      address: addressInfo.address,
-      balance,
-      publicKey: publicKey.toString('hex')
-    };
+      // Adapter adds blockchain-specific data
+      const balance = await this.getBalance(walletAccount.address);
+
+      return {
+        address: walletAccount.address,
+        balance,
+        publicKey: walletAccount.publicKey
+      };
+    } catch (error) {
+      throw new Error(`Bitcoin account generation failed: ${error}`);
+    }
+  }
+
+  /**
+   * Convert adapter address type to wallet service address type
+   * Enables seamless integration between adapter and wallet service
+   */
+  private addressTypeToWalletServiceType(addressType: BitcoinAddressType): 'legacy' | 'p2sh-segwit' | 'bech32' | 'taproot' {
+    switch (addressType) {
+      case BitcoinAddressType.P2PKH:
+        return 'legacy';
+      case BitcoinAddressType.P2SH:
+        return 'p2sh-segwit';
+      case BitcoinAddressType.P2WPKH:
+        return 'bech32';
+      case BitcoinAddressType.P2WSH:
+        return 'bech32'; // Use bech32 for P2WSH
+      case BitcoinAddressType.P2TR:
+        return 'taproot';
+      default:
+        return 'bech32'; // Default to bech32
+    }
   }
 
   generateAddress(publicKey: Buffer, addressType: BitcoinAddressType): BitcoinAddressInfo {
@@ -565,26 +604,153 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     this.validateConnection();
 
     try {
-      const keyPair = ECPair.fromWIF(privateKey, this.network);
-      const { address } = bitcoin.payments.p2pkh({
-        pubkey: Buffer.from(keyPair.publicKey),
-        network: this.network
+      // Delegate to wallet service for sophisticated import with error handling
+      const walletAccount = await this.walletService.importAccount(privateKey, {
+        includePrivateKey: false, // Security: adapter doesn't store private keys
+        includeWIF: false,
+        addressType: 'bech32' // Default to modern address type
       });
 
-      if (!address) {
-        throw new Error('Failed to derive address from private key');
-      }
-
-      const balance = await this.getBalance(address);
+      // Adapter adds blockchain-specific data
+      const balance = await this.getBalance(walletAccount.address);
 
       return {
-        address,
+        address: walletAccount.address,
         balance,
-        publicKey: Buffer.from(keyPair.publicKey).toString('hex')
+        publicKey: walletAccount.publicKey
       };
     } catch (error) {
-      throw new Error(`Invalid Bitcoin private key: ${error}`);
+      throw new Error(`Bitcoin import failed: ${error}`);
     }
+  }
+
+  // ============================================================================
+  // ENHANCED WALLET SERVICE FEATURES
+  // ============================================================================
+
+  /**
+   * Generate HD Account from mnemonic
+   * Enhanced feature available through wallet service integration
+   */
+  async generateHDAccount(mnemonic: string, index: number = 0, addressType: BitcoinAddressType = BitcoinAddressType.P2WPKH): Promise<AccountInfo> {
+    this.validateConnection();
+
+    try {
+      const walletAccount = this.walletService.fromMnemonic(mnemonic, index, {
+        addressType: this.addressTypeToWalletServiceType(addressType),
+        includePrivateKey: false,
+        includeWIF: false
+      });
+
+      const balance = await this.getBalance(walletAccount.address);
+
+      return {
+        address: walletAccount.address,
+        balance,
+        publicKey: walletAccount.publicKey
+      };
+    } catch (error) {
+      throw new Error(`HD account generation failed: ${error}`);
+    }
+  }
+
+  /**
+   * Generate multiple accounts
+   * Enhanced feature leveraging wallet service batch operations
+   */
+  async generateMultipleAccounts(count: number, addressType: BitcoinAddressType = BitcoinAddressType.P2WPKH): Promise<AccountInfo[]> {
+    this.validateConnection();
+
+    const accounts: AccountInfo[] = [];
+    const options: BitcoinGenerationOptions = {
+      addressType: this.addressTypeToWalletServiceType(addressType),
+      includePrivateKey: false,
+      includeWIF: false
+    };
+
+    const walletAccounts = this.walletService.generateMultipleAccounts(count, options);
+
+    for (const walletAccount of walletAccounts) {
+      const balance = await this.getBalance(walletAccount.address);
+      accounts.push({
+        address: walletAccount.address,
+        balance,
+        publicKey: walletAccount.publicKey
+      });
+    }
+
+    return accounts;
+  }
+
+  /**
+   * Import from WIF (Wallet Import Format)
+   * Enhanced feature available through wallet service
+   */
+  async importFromWIF(wif: string): Promise<AccountInfo> {
+    this.validateConnection();
+
+    try {
+      const walletAccount = await this.walletService.importFromWIF(wif, {
+        includePrivateKey: false,
+        includeWIF: false,
+        addressType: 'bech32'
+      });
+
+      const balance = await this.getBalance(walletAccount.address);
+
+      return {
+        address: walletAccount.address,
+        balance,
+        publicKey: walletAccount.publicKey
+      };
+    } catch (error) {
+      throw new Error(`WIF import failed: ${error}`);
+    }
+  }
+
+  /**
+   * Enhanced address validation
+   * Uses wallet service validation for comprehensive checking
+   */
+  isValidWalletAccount(account: unknown): boolean {
+    if (typeof account !== 'object' || account === null) {
+      return false;
+    }
+
+    const addr = (account as any).address;
+    return this.walletService.isValidAddress(addr) && this.isValidAddress(addr);
+  }
+
+  /**
+   * Validate mnemonic phrase
+   * Enhanced feature from wallet service
+   */
+  isValidMnemonic(mnemonic: string): boolean {
+    return this.walletService.isValidMnemonic(mnemonic);
+  }
+
+  /**
+   * Validate private key
+   * Enhanced validation using wallet service
+   */
+  isValidPrivateKey(privateKey: string): boolean {
+    return this.walletService.isValidPrivateKey(privateKey);
+  }
+
+  /**
+   * Validate WIF format
+   * Enhanced validation using wallet service
+   */
+  isValidWIF(wif: string): boolean {
+    return this.walletService.isValidWIF(wif);
+  }
+
+  /**
+   * Detect address type
+   * Enhanced detection using wallet service
+   */
+  detectAddressTypeEnhanced(address: string): string | null {
+    return this.walletService.detectAddressType(address);
   }
 
   async getAccount(address: string): Promise<AccountInfo> {

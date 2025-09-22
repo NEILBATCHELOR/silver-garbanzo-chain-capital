@@ -614,7 +614,7 @@ export class EnhancedTokenDetectionService {
       helperUrl: chainConfig.isTestnet ? 'https://helper.testnet.near.org' : 'https://helper.near.org'
     });
 
-    const adapter = new NEARAdapter(nearConnection, chainConfig.isTestnet ? 'testnet' : 'mainnet');
+    const adapter = new NEARAdapter(chainConfig.isTestnet ? 'testnet' : 'mainnet');
     const tokens: EnhancedTokenBalance[] = [];
     const knownContracts = this.knownTokenContracts.get(chainConfig.chainId) || [];
 
@@ -666,7 +666,7 @@ export class EnhancedTokenDetectionService {
     const config = new AptosConfig({ network: chainConfig.isTestnet ? Network.TESTNET : Network.MAINNET });
     const aptos = new Aptos(config);
     
-    const adapter = new AptosAdapter(aptos, chainConfig.isTestnet ? 'testnet' : 'mainnet');
+    const adapter = new AptosAdapter(chainConfig.isTestnet ? 'testnet' : 'mainnet');
     const tokens: EnhancedTokenBalance[] = [];
     const knownContracts = this.knownTokenContracts.get(chainConfig.chainId) || [];
 
@@ -714,7 +714,7 @@ export class EnhancedTokenDetectionService {
    * Detect Sui Object token balances
    */
   private async detectSuiTokenBalances(address: string, chainConfig: ChainConfig): Promise<ChainTokenBalances> {
-    const adapter = new SuiAdapter(null, chainConfig.isTestnet ? 'testnet' : 'mainnet');
+    const adapter = new SuiAdapter(chainConfig.isTestnet ? 'testnet' : 'mainnet');
     const tokens: EnhancedTokenBalance[] = [];
 
     console.log(`  Checking Sui Objects on ${chainConfig.name}`);

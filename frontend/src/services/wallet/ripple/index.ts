@@ -3,6 +3,21 @@
  * Central export point for all Ripple/XRP related services
  */
 
+// Wallet Service - core wallet operations
+export { 
+  RippleWalletService,
+  rippleWalletService,
+  rippleTestnetWalletService,
+  RippleWallet
+} from './RippleWalletService';
+
+export type {
+  RippleAccountInfo,
+  RippleGenerationOptions,
+  RippleEncryptedWallet,
+  RippleNetworkInfo
+} from './RippleWalletService';
+
 // Transaction Builders - specific exports to avoid conflicts
 export { 
   RippleTransactionBuilder,
@@ -14,8 +29,7 @@ export type {
   RippleTransactionBuilderConfig,
   RippleTransactionRequest,
   RippleGasEstimate,
-  RippleSignedTransaction,
-  RippleAccountInfo
+  RippleSignedTransaction
 } from '../builders/RippleTransactionBuilder';
 
 // Token Transaction Builder

@@ -16,7 +16,7 @@ import { PolygonAdapter, ArbitrumAdapter, OptimismAdapter, BaseAdapter, Avalanch
 import { SolanaAdapter } from '../adapters/solana/SolanaAdapter';
 // Phase 3+ adapters (to be implemented)
 // import { NEARAdapter } from '../adapters/near/NEARAdapter';
-// import { RippleAdapter } from '../adapters/ripple/RippleAdapter';
+import { RippleAdapter } from '../adapters/RippleAdapter';
 // import { StellarAdapter } from '../adapters/stellar/StellarAdapter';
 // import { SuiAdapter } from '../adapters/sui/SuiAdapter';
 // import { AptosAdapter } from '../adapters/aptos/AptosAdapter';
@@ -329,8 +329,7 @@ export class BlockchainFactory {
         break;
         
       case 'ripple':
-        throw new Error('Ripple adapter not yet implemented - coming in Phase 3');
-        // adapter = new RippleAdapter(config);
+        adapter = new RippleAdapter(networkType);
         break;
         
       case 'stellar':

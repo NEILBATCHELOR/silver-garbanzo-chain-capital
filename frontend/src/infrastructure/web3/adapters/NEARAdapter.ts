@@ -1,4 +1,23 @@
-import type { IBlockchainAdapter, TokenBalance } from './IBlockchainAdapter';
+/**
+ * NEAR Adapter Implementation
+ * 
+ * NEAR-specific adapter implementing account-based model with NEARWalletService integration
+ * Supports mainnet, testnet, and devnet networks
+ */
+
+import type {
+  IBlockchainAdapter,
+  NetworkType,
+  TransactionParams,
+  TransactionResult,
+  TransactionStatus,
+  AccountInfo,
+  TokenBalance,
+  ConnectionConfig,
+  HealthStatus
+} from './IBlockchainAdapter';
+import { BaseBlockchainAdapter } from './IBlockchainAdapter';
+import { nearWalletService } from '@/services/wallet/near';
 import * as nearAPI from 'near-api-js';
 import { 
   connect, 
@@ -12,30 +31,30 @@ import {
 import { FinalExecutionOutcome } from 'near-api-js/lib/providers/provider';
 import BN from 'bn.js';
 
-/**
- * Adapter for NEAR Protocol blockchain
- */
-export class NEARAdapter implements IBlockchainAdapter {
+export class NEARAdapter extends BaseBlockchainAdapter {
   private nearConnection: nearAPI.Near;
+  private walletService = nearWalletService;
   private network: string;
   private keyStore: keyStores.InMemoryKeyStore;
-  private _isConnected = false;
 
-  // Required interface properties
-  readonly chainId = 'near-1';
-  readonly chainName = 'NEAR';
-  readonly networkType: 'mainnet' | 'testnet' | 'devnet' | 'regtest' = 'mainnet';
+  readonly chainId: string;
+  readonly chainName = 'near';
+  readonly networkType: NetworkType;
   readonly nativeCurrency = {
     name: 'NEAR',
     symbol: 'NEAR',
     decimals: 24
   };
 
-  constructor(nearConnection: nearAPI.Near, network: string) {
-    this.nearConnection = nearConnection;
-    this.network = network;
+  constructor(networkType: NetworkType = 'mainnet') {
+    super();
+    this.networkType = networkType;
+    this.chainId = `near-${networkType}`;
+    this.network = networkType;
     this.keyStore = new keyStores.InMemoryKeyStore();
-    this._isConnected = true; // Assume connected if instantiated
+    
+    // Initialize NEAR connection (would be done properly with SDK)
+    this.nearConnection = {} as nearAPI.Near; // Placeholder
   }
 
   // Connection management

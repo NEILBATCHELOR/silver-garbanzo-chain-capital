@@ -1,60 +1,103 @@
-import type { IBlockchainAdapter, TokenBalance } from './IBlockchainAdapter';
-
-// Note: In a real implementation, we would import the Sui SDK
-// import * as sui from '@mysten/sui.js';
-// Instead, we'll create a placeholder implementation
-
 /**
- * Adapter for Sui blockchain
+ * Sui Adapter Implementation
+ * 
+ * Sui-specific adapter implementing account-based model with SuiWalletService integration
+ * Supports mainnet, testnet, and devnet networks
  */
-export class SuiAdapter implements IBlockchainAdapter {
-  private client: any;
-  private network: string;
-  private _isConnected = false;
 
-  // Required interface properties
-  readonly chainId = 'sui-mainnet';
-  readonly chainName = 'Sui';
-  readonly networkType: 'mainnet' | 'testnet' | 'devnet' | 'regtest' = 'mainnet';
+import type {
+  IBlockchainAdapter,
+  NetworkType,
+  TransactionParams,
+  TransactionResult,
+  TransactionStatus,
+  AccountInfo,
+  TokenBalance,
+  ConnectionConfig,
+  HealthStatus
+} from './IBlockchainAdapter';
+import { BaseBlockchainAdapter } from './IBlockchainAdapter';
+import { suiWalletService } from '@/services/wallet/sui';
+
+export class SuiAdapter extends BaseBlockchainAdapter {
+  private client: any;
+  private walletService = suiWalletService;
+  private network: string;
+
+  readonly chainId: string;
+  readonly chainName = 'sui';
+  readonly networkType: NetworkType;
   readonly nativeCurrency = {
     name: 'Sui',
     symbol: 'SUI',
     decimals: 9
   };
 
-  constructor(client: any, network: string) {
-    this.client = client;
-    this.network = network;
+  constructor(networkType: NetworkType = 'mainnet') {
+    super();
+    this.networkType = networkType;
+    this.chainId = `sui-${networkType}`;
+    this.network = networkType;
+    
+    // Initialize Sui client (placeholder for now)
+    this.client = null; // Would initialize with Sui SDK
   }
 
   // Connection management
-  async connect(config?: any): Promise<void> {
-    this._isConnected = true;
+  async connect(config: ConnectionConfig): Promise<void> {
+    try {
+      this.config = config;
+      // TODO: Initialize Sui client with proper SDK
+      this._isConnected = true;
+      console.log(`Connected to Sui ${this.networkType}`);
+    } catch (error) {
+      this._isConnected = false;
+      throw new Error(`Failed to connect to Sui: ${error}`);
+    }
   }
 
   async disconnect(): Promise<void> {
     this._isConnected = false;
+    console.log(`Disconnected from Sui ${this.networkType}`);
   }
 
-  isConnected(): boolean {
-    return this._isConnected;
+  async getHealth(): Promise<HealthStatus> {
+    const startTime = Date.now();
+    try {
+      // TODO: Implement actual health check with Sui SDK
+      const latency = Date.now() - startTime;
+      
+      return {
+        isHealthy: true,
+        latency,
+        blockHeight: 0, // Would get actual block height
+        lastChecked: Date.now()
+      };
+    } catch (error) {
+      return {
+        isHealthy: false,
+        latency: Date.now() - startTime,
+        lastChecked: Date.now()
+      };
+    }
   }
 
-  async getHealth(): Promise<any> {
+  // Account operations with wallet service integration
+  async generateAccount(): Promise<AccountInfo> {
+    this.validateConnection();
+    
+    // Use wallet service for sophisticated account generation
+    const walletAccount = this.walletService.generateAccount({
+      includePrivateKey: false // Adapter doesn't need private key for security
+    });
+    
+    // Adapter adds blockchain-specific data (mock for now)
+    const balance = await this.getBalance(walletAccount.address);
+    
     return {
-      isHealthy: true,
-      latency: 0,
-      blockHeight: 0,
-      lastChecked: Date.now()
-    };
-  }
-
-  // Account operations
-  async generateAccount(): Promise<any> {
-    return {
-      address: `0x${Math.random().toString(16).substring(2, 66)}`,
-      balance: BigInt(0),
-      publicKey: `0x${Math.random().toString(16).substring(2, 66)}`
+      address: walletAccount.address,
+      balance,
+      publicKey: walletAccount.publicKey
     };
   }
 

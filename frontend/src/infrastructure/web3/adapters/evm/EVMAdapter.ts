@@ -2,7 +2,7 @@
  * EVM Adapter Implementation
  * 
  * Unified adapter for all EVM-compatible chains (Ethereum, Polygon, Arbitrum, Optimism, Base, Avalanche)
- * Uses ethers.js for blockchain interactions
+ * Uses ethers.js for blockchain interactions and EVMWalletService for enhanced wallet operations
  */
 
 import { ethers, BigNumberish, JsonRpcProvider, Wallet, Contract } from 'ethers';
@@ -19,6 +19,7 @@ import type {
   HealthStatus
 } from '../IBlockchainAdapter';
 import { BaseBlockchainAdapter } from '../IBlockchainAdapter';
+import { EVMWalletService } from '@/services/wallet/evm/EVMWalletService';
 
 // ERC-20 ABI for token operations
 const ERC20_ABI = [
@@ -36,6 +37,7 @@ const ERC20_ABI = [
 export class EVMAdapter extends BaseBlockchainAdapter {
   private provider?: JsonRpcProvider;
   private explorerUrl?: string;
+  private walletService: EVMWalletService;
   
   readonly chainId: string;
   readonly chainName: string;
@@ -59,6 +61,9 @@ export class EVMAdapter extends BaseBlockchainAdapter {
     this.networkType = networkType;
     this.nativeCurrency = nativeCurrency;
     this.explorerUrl = explorerUrl;
+    
+    // Initialize wallet service with chain-specific configuration
+    this.walletService = new EVMWalletService(chain, chainId);
   }
 
   // Connection management
@@ -126,13 +131,19 @@ export class EVMAdapter extends BaseBlockchainAdapter {
   async generateAccount(): Promise<AccountInfo> {
     this.validateConnection();
     
-    const wallet = Wallet.createRandom();
-    const balance = await this.getBalance(wallet.address);
+    // Use wallet service for sophisticated account generation
+    const walletAccount = this.walletService.generateAccount({
+      includePrivateKey: false, // Adapter doesn't need private key for security
+      chainId: this.chainId
+    });
+    
+    // Adapter adds blockchain-specific data
+    const balance = await this.getBalance(walletAccount.address);
     
     return {
-      address: wallet.address,
+      address: walletAccount.address,
       balance,
-      publicKey: wallet.signingKey.publicKey
+      publicKey: walletAccount.publicKey
     };
   }
 
@@ -140,16 +151,22 @@ export class EVMAdapter extends BaseBlockchainAdapter {
     this.validateConnection();
     
     try {
-      const wallet = new Wallet(privateKey);
-      const balance = await this.getBalance(wallet.address);
+      // Use wallet service for sophisticated import with error handling
+      const walletAccount = await this.walletService.importAccount(privateKey, {
+        includePrivateKey: false, // Security: adapter doesn't store private keys
+        chainId: this.chainId
+      });
+      
+      // Adapter adds blockchain-specific data
+      const balance = await this.getBalance(walletAccount.address);
       
       return {
-        address: wallet.address,
+        address: walletAccount.address,
         balance,
-        publicKey: wallet.signingKey.publicKey
+        publicKey: walletAccount.publicKey
       };
     } catch (error) {
-      throw new Error(`Invalid private key: ${error}`);
+      throw new Error(`${this.chainName} import failed: ${error}`);
     }
   }
 
@@ -178,6 +195,63 @@ export class EVMAdapter extends BaseBlockchainAdapter {
     }
 
     return await this.provider!.getBalance(address);
+  }
+
+  // ============================================================================
+  // ENHANCED WALLET SERVICE FEATURES
+  // ============================================================================
+
+  /**
+   * Generate HD wallet account from mnemonic
+   */
+  async generateHDAccount(mnemonic: string, index: number): Promise<AccountInfo> {
+    this.validateConnection();
+    
+    const walletAccount = this.walletService.fromMnemonic(mnemonic, index, {
+      includePrivateKey: false,
+      chainId: this.chainId
+    });
+    
+    const balance = await this.getBalance(walletAccount.address);
+    
+    return {
+      address: walletAccount.address,
+      balance,
+      publicKey: walletAccount.publicKey
+    };
+  }
+
+  /**
+   * Generate multiple accounts at once
+   */
+  async generateMultipleAccounts(count: number): Promise<AccountInfo[]> {
+    this.validateConnection();
+    
+    const walletAccounts = this.walletService.generateMultipleAccounts(count, {
+      includePrivateKey: false,
+      chainId: this.chainId
+    });
+    
+    return Promise.all(walletAccounts.map(async (account) => ({
+      address: account.address,
+      balance: await this.getBalance(account.address),
+      publicKey: account.publicKey
+    })));
+  }
+
+  /**
+   * Enhanced account validation using wallet service
+   */
+  isValidWalletAccount(account: unknown): boolean {
+    return this.walletService.isValidAccount(account) && 
+           this.isValidAddress((account as any)?.address);
+  }
+
+  /**
+   * Generate new mnemonic phrase
+   */
+  generateMnemonic(): string {
+    return this.walletService.generateMnemonic();
   }
 
   // Transaction operations

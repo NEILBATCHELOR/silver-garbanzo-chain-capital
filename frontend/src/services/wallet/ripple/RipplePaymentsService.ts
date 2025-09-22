@@ -1,4 +1,5 @@
 import { RippleAdapter } from '@/infrastructure/web3/adapters/RippleAdapter';
+import type { TransactionParams } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { supabase } from '@/infrastructure/database/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as xrpl from 'xrpl';
@@ -78,7 +79,7 @@ export class RipplePaymentsService {
       ? "wss://s.altnet.rippletest.net:51233"
       : "wss://xrplcluster.com";
     
-    this.adapter = new RippleAdapter(seed || this.generateSeed(), server);
+    this.adapter = new RippleAdapter(testnet ? 'testnet' : 'mainnet');
     
     // Ripple Payments Direct API configuration
     this.apiBaseUrl = testnet 
@@ -91,19 +92,27 @@ export class RipplePaymentsService {
    * Initialize the Ripple connection
    */
   async initialize(): Promise<void> {
-    await this.adapter.connect();
+    await this.adapter.connect({
+      rpcUrl: this.adapter.networkType === 'testnet' 
+        ? "wss://s.altnet.rippletest.net:51233"
+        : "wss://xrplcluster.com",
+      networkId: this.adapter.networkType === 'testnet' ? 'testnet' : 'mainnet'
+    });
   }
 
   /**
    * Create a new Ripple account (wallet)
    */
   async createAccount(): Promise<{ address: string; secret: string }> {
-    const seed = this.generateSeed();
-    const adapter = new RippleAdapter(seed);
+    const networkType = this.adapter.networkType as 'mainnet' | 'testnet';
+    const adapter = new RippleAdapter(networkType);
+    
+    // Generate account using adapter
+    const account = await adapter.generateAccount();
     
     return {
-      address: adapter.getAddress(),
-      secret: seed
+      address: account.address,
+      secret: '' // Secret should be handled by wallet service for security
     };
   }
 
@@ -111,7 +120,12 @@ export class RipplePaymentsService {
    * Get account information including balance and trust lines
    */
   async getAccountInfo(address: string): Promise<RippleAccountInfo> {
-    await this.adapter.connect();
+    await this.adapter.connect({
+      rpcUrl: this.adapter.networkType === 'testnet' 
+        ? "wss://s.altnet.rippletest.net:51233"
+        : "wss://xrplcluster.com",
+      networkId: this.adapter.networkType === 'testnet' ? 'testnet' : 'mainnet'
+    });
     
     try {
       // Get basic account info
@@ -184,7 +198,12 @@ export class RipplePaymentsService {
    * Execute a Ripple payment
    */
   async executePayment(params: RipplePaymentParams): Promise<RipplePaymentResult> {
-    await this.adapter.connect();
+    await this.adapter.connect({
+      rpcUrl: this.adapter.networkType === 'testnet' 
+        ? "wss://s.altnet.rippletest.net:51233"
+        : "wss://xrplcluster.com",
+      networkId: this.adapter.networkType === 'testnet' ? 'testnet' : 'mainnet'
+    });
 
     try {
       // Validate accounts
@@ -195,22 +214,21 @@ export class RipplePaymentsService {
       // Create payment transaction
       const paymentTx = await this.buildPaymentTransaction(params);
       
-      // Sign the transaction
-      const signedTx = await this.adapter.signTransaction(
-        JSON.stringify(paymentTx),
-        'PRIVATE_KEY_HERE' // In real implementation, get from secure key storage
-      );
+      // Use sendTransaction method from adapter (requires proper TransactionParams)
+      const transactionParams = {
+        from: params.fromAccount,
+        to: params.toAccount,
+        amount: params.amount,
+        data: JSON.stringify(paymentTx),
+        gasLimit: '12', // Standard XRP fee in drops
+        gasPrice: '1'
+      };
 
-      // Submit transaction
-      const hash = await this.adapter.executeTransaction(
-        params.fromAccount,
-        signedTx,
-        []
-      );
+      const result = await this.adapter.sendTransaction(transactionParams);
 
       // Store payment record
       await this.storePaymentRecord({
-        hash,
+        hash: result.txHash,
         fromAccount: params.fromAccount,
         toAccount: params.toAccount,
         amount: params.amount,
@@ -220,7 +238,7 @@ export class RipplePaymentsService {
       });
 
       return {
-        hash,
+        hash: result.txHash,
         ledgerVersion: 0, // Would get from actual transaction result
         status: 'pending',
         fee: '0.000012', // Standard XRP transaction fee
@@ -236,15 +254,21 @@ export class RipplePaymentsService {
    * Get payment status and details
    */
   async getPaymentStatus(hash: string): Promise<RipplePaymentResult> {
-    await this.adapter.connect();
+    await this.adapter.connect({
+      rpcUrl: this.adapter.networkType === 'testnet' 
+        ? "wss://s.altnet.rippletest.net:51233"
+        : "wss://xrplcluster.com",
+      networkId: this.adapter.networkType === 'testnet' ? 'testnet' : 'mainnet'
+    });
 
     try {
-      // In a real implementation, you would query the XRP ledger
-      // for transaction details using the hash
+      // Use getTransaction method from adapter to get transaction status
+      const txStatus = await this.adapter.getTransaction(hash);
+      
       return {
         hash,
-        ledgerVersion: 0,
-        status: 'validated', // Would get actual status
+        ledgerVersion: txStatus.blockNumber || 0,
+        status: txStatus.status === 'confirmed' ? 'validated' : 'failed',
         fee: '0.000012',
         sequence: 0
       };
@@ -406,7 +430,12 @@ export class RipplePaymentsService {
     requiresDestinationTag: boolean;
     info?: any;
   }> {
-    await this.adapter.connect();
+    await this.adapter.connect({
+      rpcUrl: this.adapter.networkType === 'testnet' 
+        ? "wss://s.altnet.rippletest.net:51233"
+        : "wss://xrplcluster.com",
+      networkId: this.adapter.networkType === 'testnet' ? 'testnet' : 'mainnet'
+    });
 
     try {
       const isValid = this.adapter.isValidAddress(address);

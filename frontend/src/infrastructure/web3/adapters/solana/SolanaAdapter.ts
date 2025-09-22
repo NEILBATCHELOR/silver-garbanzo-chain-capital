@@ -38,6 +38,7 @@ import type {
   HealthStatus
 } from '../IBlockchainAdapter';
 import { BaseBlockchainAdapter } from '../IBlockchainAdapter';
+import { solanaWalletService } from '@/services/wallet/solana';
 
 // Solana-specific types
 interface SolanaTokenInfo {
@@ -53,6 +54,7 @@ interface SolanaTokenInfo {
 export class SolanaAdapter extends BaseBlockchainAdapter {
   private connection?: Connection;
   private cluster: string;
+  private walletService = solanaWalletService;
 
   readonly chainId: string;
   readonly chainName = 'solana';
@@ -137,17 +139,23 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  // Account operations
+  // Account operations - Enhanced with Wallet Service
   async generateAccount(): Promise<AdapterAccountInfo> {
     this.validateConnection();
     
-    const keypair = Keypair.generate();
-    const balance = await this.getBalance(keypair.publicKey.toString());
+    // Use wallet service for sophisticated account generation
+    const walletAccount = this.walletService.generateAccount({
+      includePrivateKey: false, // Adapter doesn't need private key
+      includeSecretKey: false
+    });
+    
+    // Adapter adds blockchain-specific data
+    const balance = await this.getBalance(walletAccount.address);
     
     return {
-      address: keypair.publicKey.toString(),
+      address: walletAccount.address,
       balance,
-      publicKey: keypair.publicKey.toString()
+      publicKey: walletAccount.publicKey
     };
   }
 
@@ -155,34 +163,61 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
     this.validateConnection();
     
     try {
-      // Solana private keys can be in different formats
-      let keypair: Keypair;
+      // Use wallet service for sophisticated import with error handling
+      const walletAccount = await this.walletService.importAccount(privateKey, {
+        includePrivateKey: false // Security: adapter doesn't store private keys
+      });
       
-      if (privateKey.length === 128) {
-        // Hex format
-        const privateKeyBytes = Uint8Array.from(Buffer.from(privateKey, 'hex'));
-        keypair = Keypair.fromSecretKey(privateKeyBytes);
-      } else if (privateKey.length === 88) {
-        // Base58 format
-        const bs58 = await import('bs58');
-        const privateKeyBytes = bs58.default.decode(privateKey);
-        keypair = Keypair.fromSecretKey(privateKeyBytes);
-      } else {
-        // Assume it's a byte array string
-        const privateKeyBytes = JSON.parse(privateKey);
-        keypair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
-      }
-
-      const balance = await this.getBalance(keypair.publicKey.toString());
+      // Adapter adds blockchain-specific data
+      const balance = await this.getBalance(walletAccount.address);
       
       return {
-        address: keypair.publicKey.toString(),
-        balance,
-        publicKey: keypair.publicKey.toString()
+        address: walletAccount.address,
+        balance: BigInt(parseFloat(walletAccount.balance || '0') * LAMPORTS_PER_SOL),
+        publicKey: walletAccount.publicKey
       };
     } catch (error) {
-      throw new Error(`Invalid Solana private key: ${error}`);
+      throw new Error(`Solana import failed: ${error}`);
     }
+  }
+
+  // Enhanced features using Wallet Service
+  async generateHDAccount(mnemonic: string, index: number): Promise<AdapterAccountInfo> {
+    this.validateConnection();
+    
+    const walletAccount = this.walletService.fromMnemonic(mnemonic, index, {
+      includePrivateKey: false,
+      includeSecretKey: false
+    });
+    
+    const balance = await this.getBalance(walletAccount.address);
+    
+    return {
+      address: walletAccount.address,
+      balance,
+      publicKey: walletAccount.publicKey
+    };
+  }
+
+  async generateMultipleAccounts(count: number): Promise<AdapterAccountInfo[]> {
+    this.validateConnection();
+    
+    const walletAccounts = this.walletService.generateMultipleAccounts(count, {
+      includePrivateKey: false,
+      includeSecretKey: false
+    });
+    
+    return Promise.all(walletAccounts.map(async (account) => ({
+      address: account.address,
+      balance: await this.getBalance(account.address),
+      publicKey: account.publicKey
+    })));
+  }
+
+  // Enhanced validation using wallet service
+  isValidWalletAccount(account: unknown): boolean {
+    return this.walletService.isValidAddress((account as any)?.address) && 
+           this.isValidAddress((account as any)?.address);
   }
 
   async getAccount(address: string): Promise<AdapterAccountInfo> {
@@ -490,21 +525,22 @@ export class SolanaAdapter extends BaseBlockchainAdapter {
     }
   }
 
-  // Helper method to import keypair from private key
+  // Helper method to import keypair from private key - Uses wallet service
   private async importKeypairFromPrivateKey(privateKey: string): Promise<Keypair> {
-    if (privateKey.length === 128) {
-      // Hex format
-      const privateKeyBytes = Uint8Array.from(Buffer.from(privateKey, 'hex'));
-      return Keypair.fromSecretKey(privateKeyBytes);
-    } else if (privateKey.length === 88) {
-      // Base58 format
-      const bs58 = await import('bs58');
-      const privateKeyBytes = bs58.default.decode(privateKey);
-      return Keypair.fromSecretKey(privateKeyBytes);
-    } else {
-      // Assume it's a byte array string
-      const privateKeyBytes = JSON.parse(privateKey);
-      return Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
+    try {
+      // Use wallet service for proper format handling
+      const walletAccount = await this.walletService.importAccount(privateKey, {
+        includePrivateKey: false,
+        includeSecretKey: true
+      });
+      
+      if (!walletAccount.secretKey) {
+        throw new Error('Secret key not available from wallet service');
+      }
+      
+      return Keypair.fromSecretKey(walletAccount.secretKey);
+    } catch (error) {
+      throw new Error(`Failed to import keypair: ${error}`);
     }
   }
 
