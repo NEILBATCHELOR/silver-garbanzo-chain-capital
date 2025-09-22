@@ -127,6 +127,10 @@ export type { InjectiveTransactionRequest, InjectiveGasEstimate, InjectiveSigned
 export { RippleTransactionBuilder, RippleMainnetTransactionBuilder, RippleTestnetTransactionBuilder, RippleDevnetTransactionBuilder, getRippleTransactionBuilder } from './RippleTransactionBuilder';
 export type { RippleTransactionRequest, RippleGasEstimate, RippleSignedTransaction, RippleBroadcastResult, RippleTransactionBuilderConfig, RippleCurrency, RippleAmount, RippleAccountInfo } from './RippleTransactionBuilder';
 
+// STELLAR
+export { StellarTransactionBuilder } from './StellarTransactionBuilder';
+export type { StellarTransactionParams, StellarSignedTransaction } from './StellarTransactionBuilder';
+
 // ============================================================================
 // SHARED UTILITIES
 // ============================================================================

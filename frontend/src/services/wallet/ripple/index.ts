@@ -19,7 +19,7 @@ export type {
 } from '../builders/RippleTransactionBuilder';
 
 // Token Transaction Builder
-export * from '../builders/ripple/RippleTokenTransactionBuilder';
+export * from '../builders/RippleTokenTransactionBuilder';
 
 // Balance Service - avoiding RippleTrustLine conflict
 export { 

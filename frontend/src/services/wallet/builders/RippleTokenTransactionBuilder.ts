@@ -4,13 +4,13 @@
  * Supports trust lines, paths, and cross-currency payments
  */
 
-import { ChainType, addressUtils } from '../../AddressUtils';
+import { ChainType, addressUtils } from '../AddressUtils';
 import type { 
   RippleTransactionBuilder,
   RippleCurrency, 
   RippleAmount,
   RippleTransactionRequest 
-} from '../RippleTransactionBuilder';
+} from './RippleTransactionBuilder';
 
 export interface RippleTokenTransactionRequest extends RippleTransactionRequest {
   // Trust line specific

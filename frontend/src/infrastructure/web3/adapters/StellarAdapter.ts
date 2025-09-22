@@ -1,5 +1,5 @@
 import type { IBlockchainAdapter, TokenBalance } from './IBlockchainAdapter';
-import * as StellarSdk from 'stellar-sdk';
+import * as StellarSdk from '@stellar/stellar-sdk';
 
 /**
  * Adapter for Stellar blockchain

@@ -1,28 +1,140 @@
 import { Wallet, WalletGenerator, WalletGenerationOptions, WalletMetadata } from '../WalletGenerator';
+import { rippleWalletService } from '../ripple/RippleWalletService';
 
 /**
  * Implementation of WalletGenerator for XRP (Ripple)
+ * Updated to use real RippleWalletService instead of mock implementation
  */
 export class XRPWalletGenerator implements WalletGenerator {
   /**
-   * Generate a new XRP wallet
+   * Generate a new XRP wallet using real xrpl library
    * @param options Optional wallet generation options
    * @returns Generated wallet object
    */
   async generateWallet(options?: WalletGenerationOptions): Promise<Wallet> {
-    // This is a placeholder implementation
-    // In a real implementation, you would use an XRP library like ripple-lib
-    
-    // Simulate wallet generation with random values
-    const address = `r${this.generateRandomString(33)}`;
-    const privateKey = this.generateRandomHex(64);
-    
-    return {
-      address,
-      privateKey,
-      publicKey: this.generateRandomHex(66),
-      metadata: this.getMetadata()
-    };
+    try {
+      const account = rippleWalletService.generateAccount({
+        includePrivateKey: true,
+        includeSeed: true,
+        includeMnemonic: options?.includeMnemonic
+      });
+      
+      return {
+        address: account.address,
+        privateKey: account.privateKey || '',
+        publicKey: account.publicKey,
+        metadata: this.getMetadata()
+      };
+    } catch (error) {
+      throw new Error(`Failed to generate XRP wallet: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Generate multiple wallets
+   * @param count Number of wallets to generate
+   * @param options Generation options
+   * @returns Array of generated wallets
+   */
+  async generateMultiple(
+    count: number, 
+    options?: WalletGenerationOptions
+  ): Promise<Wallet[]> {
+    try {
+      const accounts = rippleWalletService.generateMultipleAccounts(count, {
+        includePrivateKey: true,
+        includeSeed: true,
+        includeMnemonic: options?.includeMnemonic
+      });
+
+      return accounts.map(account => ({
+        address: account.address,
+        privateKey: account.privateKey || '',
+        publicKey: account.publicKey,
+        metadata: this.getMetadata()
+      }));
+    } catch (error) {
+      throw new Error(`Failed to generate XRP wallets: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Create wallet from private key
+   * @param privateKey XRP private key
+   * @returns Generated wallet
+   */
+  async fromPrivateKey(privateKey: string): Promise<Wallet> {
+    try {
+      const account = rippleWalletService.fromPrivateKey(privateKey, {
+        includePrivateKey: true,
+        includeSeed: true
+      });
+      
+      return {
+        address: account.address,
+        privateKey: account.privateKey || '',
+        publicKey: account.publicKey,
+        metadata: this.getMetadata()
+      };
+    } catch (error) {
+      throw new Error(`Failed to create XRP wallet from private key: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Create wallet from seed
+   * @param seed XRP seed
+   * @returns Generated wallet
+   */
+  async fromSeed(seed: string): Promise<Wallet> {
+    try {
+      const account = rippleWalletService.fromSeed(seed, {
+        includePrivateKey: true,
+        includeSeed: true
+      });
+      
+      return {
+        address: account.address,
+        privateKey: account.privateKey || '',
+        publicKey: account.publicKey,
+        metadata: this.getMetadata()
+      };
+    } catch (error) {
+      throw new Error(`Failed to create XRP wallet from seed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Create wallet from mnemonic
+   * @param mnemonic Mnemonic phrase
+   * @param index Derivation index
+   * @returns Generated wallet
+   */
+  async fromMnemonic(mnemonic: string, index: number = 0): Promise<Wallet> {
+    try {
+      const account = rippleWalletService.restoreFromMnemonic(mnemonic, index);
+      
+      return {
+        address: account.address,
+        privateKey: account.privateKey || '',
+        publicKey: account.publicKey,
+        metadata: this.getMetadata()
+      };
+    } catch (error) {
+      throw new Error(`Failed to create XRP wallet from mnemonic: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Generate mnemonic phrase
+   * @returns Mnemonic phrase
+   */
+  generateMnemonic(): string {
+    try {
+      return rippleWalletService.generateMnemonic();
+    } catch (error) {
+      throw new Error(`Failed to generate mnemonic: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
   
   /**
@@ -40,39 +152,116 @@ export class XRPWalletGenerator implements WalletGenerator {
   }
   
   /**
-   * Validate an XRP address
+   * Validate an XRP address using real validation
    * @param address Address to validate
    * @returns Boolean indicating if address is valid
    */
   validateAddress(address: string): boolean {
-    // This is a placeholder implementation
-    // In a real implementation, you would use proper validation from ripple-lib
-    
-    // Basic validation: check if address starts with r and has proper length
-    return address.startsWith('r') && address.length >= 25 && address.length <= 35;
+    return rippleWalletService.isValidAddress(address);
   }
-  
+
   /**
-   * Helper method to generate random hex string of specified length
+   * Validate an XRP seed
+   * @param seed Seed to validate
+   * @returns Boolean indicating if seed is valid
    */
-  private generateRandomHex(length: number): string {
-    const characters = '0123456789abcdef';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
+  validateSeed(seed: string): boolean {
+    return rippleWalletService.isValidSeed(seed);
   }
-  
+
   /**
-   * Helper method to generate random alphanumeric string
+   * Validate an XRP private key
+   * @param privateKey Private key to validate
+   * @returns Boolean indicating if private key is valid
    */
-  private generateRandomString(length: number): string {
-    const characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * characters.length));
+  validatePrivateKey(privateKey: string): boolean {
+    return rippleWalletService.isValidPrivateKey(privateKey);
+  }
+
+  /**
+   * Get wallet type
+   * @returns Wallet type string
+   */
+  getWalletType(): string {
+    return 'xrp';
+  }
+
+  /**
+   * Format address for display
+   * @param address Address to format
+   * @param length Display length
+   * @returns Formatted address
+   */
+  formatAddress(address: string, length: number = 6): string {
+    return rippleWalletService.formatAddress(address, length);
+  }
+
+  /**
+   * Get explorer URL
+   * @param address Address or transaction hash
+   * @param type Type of URL ('address' or 'tx')
+   * @returns Explorer URL
+   */
+  getExplorerUrl(address: string, type: 'address' | 'tx' = 'address'): string {
+    return rippleWalletService.getExplorerUrl(address, type);
+  }
+
+  /**
+   * Get balance for address
+   * @param address Address to check
+   * @returns Promise with balance in XRP
+   */
+  async getBalance(address: string): Promise<string> {
+    try {
+      return await rippleWalletService.getBalance(address);
+    } catch (error) {
+      throw new Error(`Failed to get balance: ${error instanceof Error ? error.message : String(error)}`);
     }
-    return result;
+  }
+
+  /**
+   * Check if account exists on network
+   * @param address Address to check
+   * @returns Promise with existence status
+   */
+  async accountExists(address: string): Promise<boolean> {
+    try {
+      return await rippleWalletService.accountExists(address);
+    } catch (error) {
+      console.error('Error checking account existence:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get account information from network
+   * @param address Address to query
+   * @returns Promise with account info or null
+   */
+  async getAccountInfo(address: string) {
+    try {
+      return await rippleWalletService.getAccountInfo(address);
+    } catch (error) {
+      console.error('Error getting account info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Convert XRP to drops
+   * @param xrp XRP amount
+   * @returns Drops amount as string
+   */
+  xrpToDrops(xrp: string | number): string {
+    return rippleWalletService.xrpToDrops(xrp);
+  }
+
+  /**
+   * Convert drops to XRP
+   * @param drops Drops amount
+   * @returns XRP amount as string
+   */
+  dropsToXrp(drops: string | number): string {
+    return rippleWalletService.dropsToXrp(drops);
   }
 }

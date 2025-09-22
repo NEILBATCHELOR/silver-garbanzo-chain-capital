@@ -42,3 +42,6 @@ export * from './injective';
 
 // Ripple Services (2 services)
 export * from './ripple';
+
+// Stellar Services (1 service)
+export * from './stellar';
