@@ -580,59 +580,83 @@ export class WebhookHandler {
 
   /**
    * Store webhook configuration in database
-   * Note: Using moonpay_webhook_events table temporarily until moonpay_webhook_config table is created
    */
   private async storeWebhookConfig(config: WebhookConfig): Promise<void> {
-    // TODO: Create moonpay_webhook_config table and implement proper storage
-    console.log('Webhook config would be stored:', config.id);
-    /*
-    await supabase
+    const { error } = await supabase
       .from('moonpay_webhook_config')
-      .upsert({
+      .insert({
         webhook_id: config.id,
         url: config.url,
-        events: config.events,
         environment: config.environment,
+        events: config.events,
         status: config.status,
         version: config.version,
-        secret_hash: createHmac('sha256', config.secret).update(config.secret, 'utf8').digest('hex'),
-        created_at: config.createdAt,
-        updated_at: config.updatedAt
+        secret_key: config.secret,
+        description: `MoonPay webhook for ${config.environment}`,
+        retry_policy: config.retryPolicy,
+        headers: config.headers || {},
+        delivery_settings: {},
+        metadata: {},
+        delivery_attempts_count: 0,
+        successful_deliveries_count: 0,
+        failed_deliveries_count: 0,
+        is_active: config.status === 'active',
+        created_by: 'system',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       });
-    */
+      
+    if (error) {
+      console.error('Failed to store webhook config:', error);
+      throw new Error(`Failed to store webhook configuration: ${error.message}`);
+    }
   }
 
   /**
    * Update webhook configuration in database
-   * Note: Using moonpay_webhook_events table temporarily until moonpay_webhook_config table is created
    */
   private async updateWebhookConfig(webhookId: string, updates: Partial<WebhookConfig>): Promise<void> {
-    // TODO: Create moonpay_webhook_config table and implement proper update
-    console.log('Webhook config would be updated:', webhookId, updates);
-    /*
-    await supabase
+    // Transform WebhookConfig updates to match database schema
+    const dbUpdates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (updates.url) dbUpdates.url = updates.url;
+    if (updates.events) dbUpdates.events = updates.events;
+    if (updates.environment) dbUpdates.environment = updates.environment;
+    if (updates.status) {
+      dbUpdates.status = updates.status;
+      dbUpdates.is_active = updates.status === 'active';
+    }
+    if (updates.version) dbUpdates.version = updates.version;
+    if (updates.secret) dbUpdates.secret_key = updates.secret;
+    if (updates.headers) dbUpdates.headers = updates.headers;
+    if (updates.retryPolicy) dbUpdates.retry_policy = updates.retryPolicy;
+
+    const { error } = await supabase
       .from('moonpay_webhook_config')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(dbUpdates)
       .eq('webhook_id', webhookId);
-    */
+      
+    if (error) {
+      console.error('Failed to update webhook config:', error);
+      throw new Error(`Failed to update webhook configuration: ${error.message}`);
+    }
   }
 
   /**
    * Delete webhook configuration from database
-   * Note: Using moonpay_webhook_events table temporarily until moonpay_webhook_config table is created
    */
   private async deleteWebhookConfig(webhookId: string): Promise<void> {
-    // TODO: Create moonpay_webhook_config table and implement proper deletion
-    console.log('Webhook config would be deleted:', webhookId);
-    /*
-    await supabase
+    const { error } = await supabase
       .from('moonpay_webhook_config')
       .delete()
       .eq('webhook_id', webhookId);
-    */
+      
+    if (error) {
+      console.error('Failed to delete webhook config:', error);
+      throw new Error(`Failed to delete webhook configuration: ${error.message}`);
+    }
   }
 
   // ===== EVENT PROCESSING METHODS =====

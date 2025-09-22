@@ -487,12 +487,21 @@ export class MultiSigTransactionService {
     throw new Error(`Hash calculation not implemented for ${chainType}`);
   }
 
+  /**
+   * Get network type from environment (defaulting to mainnet for production)
+   */
+  private getNetworkType(chainType: ChainType): 'mainnet' | 'testnet' {
+    // In development, use testnet; in production, use mainnet
+    const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
+    return isDevelopment ? 'testnet' : 'mainnet';
+  }
+
   private async validateTransaction(transaction: any, chainType: ChainType): Promise<boolean> {
     // Use address utils for validation
     const validation = addressUtils.validateAddress(
       transaction.to,
       chainType,
-      'mainnet' // TODO: Get from config
+      this.getNetworkType(chainType)
     );
 
     if (!validation.isValid) {

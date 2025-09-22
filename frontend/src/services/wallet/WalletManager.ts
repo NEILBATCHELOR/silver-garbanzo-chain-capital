@@ -25,14 +25,9 @@ import { providerManager, NetworkEnvironment } from "@/infrastructure/web3/Provi
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet } from 'viem/chains';
-
-// Mock key vault client - replace with actual implementation
-const keyVaultClient = {
-  getKey: async (keyId: string) => {
-    // Mock implementation - in production would get from secure key vault
-    return process.env.VITE_DEPLOYER_PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000001';
-  }
-};
+import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import type { ProjectCredential } from '@/types/credentials';
 
 // Wallet types
 export enum WalletType {
@@ -111,13 +106,81 @@ export class WalletManager {
     return WalletManager.instance;
   }
 
+  /**
+   * Get the latest key ID from the secure_keys table
+   */
+  private async getLatestKeyId(): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('secure_keys')
+        .select('key_id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (error || !data) {
+        throw new Error('No keys found in vault');
+      }
+      
+      return data.key_id;
+    } catch (error) {
+      console.error('Failed to get latest key ID:', error);
+      throw new Error('Failed to retrieve key from vault');
+    }
+  }
+
+  /**
+   * Initialize Key Vault connection with proper credentials
+   */
+  private async initializeKeyVault(): Promise<void> {
+    try {
+      // Check if already connected
+      const testKey = await keyVaultClient.getKey('test-connection').catch(() => null);
+      if (testKey) {
+        return; // Already connected
+      }
+      
+      // Create minimal credentials for development
+      const credentials = {
+        id: 'dev-credentials',
+        name: 'Development Key Vault',
+        service: 'local' as const,
+        config: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      await keyVaultClient.connect(credentials);
+    } catch (error) {
+      console.error('Failed to initialize key vault:', error);
+      throw new Error('Key vault initialization failed');
+    }
+  }
+
   // Initialize the wallet manager
   async initialize(config: { chainId?: string }): Promise<void> {
     try {
-      const privateKey = await keyVaultClient.getKey('wallet');
+      // Connect to key vault first with proper credentials
+      await this.initializeKeyVault();
       
-      if (!privateKey) {
-        throw new Error("No private key found in key vault");
+      // Get the latest key ID dynamically
+      const keyId = await this.getLatestKeyId();
+      
+      // Get the key from the vault
+      const keyResult = await keyVaultClient.getKey(keyId);
+      
+      if (!keyResult) {
+        throw new Error("No key result from key vault");
+      }
+
+      // Handle KeyResult union type (string | KeyData)
+      let privateKey: string;
+      if (typeof keyResult === 'string') {
+        privateKey = keyResult;
+      } else if (keyResult.privateKey) {
+        privateKey = keyResult.privateKey;
+      } else {
+        throw new Error("No private key found in key result");
       }
       
       const account = privateKeyToAccount(privateKey as `0x${string}`);
@@ -131,6 +194,10 @@ export class WalletManager {
       // Get provider from provider manager
       const ethProvider = providerManager.getProvider(this.currentBlockchain as SupportedChain);
       
+      // Get RPC URL from the RPC manager
+      const rpcUrl = rpcManager.getRPCUrl(this.currentBlockchain as SupportedChain, this.currentEnvironment) || [];
+      const rpcEndpoint = Array.isArray(rpcUrl) ? rpcUrl[0] : 'https://eth-mainnet.g.alchemy.com/v2/demo';
+      
       // Use provider manager's provider for public client
       this.publicClient = createPublicClient({
         chain: {
@@ -142,11 +209,11 @@ export class WalletManager {
             decimals: 18
           },
           rpcUrls: {
-            default: { http: ["https://mainnet.infura.io/v3/"] },
-            public: { http: ["https://mainnet.infura.io/v3/"] }
+            default: { http: [rpcEndpoint] },
+            public: { http: [rpcEndpoint] }
           }
         },
-        transport: http("https://mainnet.infura.io/v3/"),
+        transport: http(rpcEndpoint),
       }) as any;
       
       // Create wallet client with account from private key
@@ -161,8 +228,8 @@ export class WalletManager {
             decimals: 18
           },
           rpcUrls: {
-            default: { http: ["https://mainnet.infura.io/v3/"] },
-            public: { http: ["https://mainnet.infura.io/v3/"] }
+            default: { http: [rpcEndpoint] },
+            public: { http: [rpcEndpoint] }
           }
         },
         transport: custom(window.ethereum || {}),
@@ -191,7 +258,9 @@ export class WalletManager {
     if (this.provider && this.account) {
       // Get provider from provider manager
       const ethProvider = providerManager.getProvider(this.currentBlockchain as SupportedChain);
-      const providerUrl = "https://mainnet.infura.io/v3/";
+      // Get RPC URL from RPC manager
+      const rpcUrl = rpcManager.getRPCUrl(this.currentBlockchain as SupportedChain, this.currentEnvironment) || [];
+      const providerUrl = Array.isArray(rpcUrl) ? rpcUrl[0] : 'https://eth-mainnet.g.alchemy.com/v2/demo';
       
       // Initialize dependent managers would go here if we had tokenManager
       console.log("Wallet manager initialized with provider:", providerUrl);
@@ -209,6 +278,10 @@ export class WalletManager {
       // Get provider from provider manager
       const ethProvider = providerManager.getProvider(this.currentBlockchain as SupportedChain);
       
+      // Get RPC URL for the new environment
+      const rpcUrl = rpcManager.getRPCUrl(this.currentBlockchain as SupportedChain, environment) || [];
+      const rpcEndpoint = Array.isArray(rpcUrl) ? rpcUrl[0] : 'https://eth-mainnet.g.alchemy.com/v2/demo';
+      
       // Update public client with the new provider
       this.publicClient = createPublicClient({
         chain: {
@@ -220,11 +293,11 @@ export class WalletManager {
             decimals: 18
           },
           rpcUrls: {
-            default: { http: ["https://mainnet.infura.io/v3/"] },
-            public: { http: ["https://mainnet.infura.io/v3/"] }
+            default: { http: [rpcEndpoint] },
+            public: { http: [rpcEndpoint] }
           }
         },
-        transport: http("https://mainnet.infura.io/v3/"),
+        transport: http(rpcEndpoint),
       }) as any;
       
       // For wallet client, update with the new chain info but keep using window.ethereum
@@ -240,8 +313,8 @@ export class WalletManager {
               decimals: 18
             },
             rpcUrls: {
-              default: { http: ["https://mainnet.infura.io/v3/"] },
-              public: { http: ["https://mainnet.infura.io/v3/"] }
+              default: { http: [rpcEndpoint] },
+              public: { http: [rpcEndpoint] }
             }
           },
           transport: custom(window.ethereum || {}),
@@ -291,6 +364,10 @@ export class WalletManager {
       // Get provider from provider manager
       const provider = providerManager.getProvider(blockchain as SupportedChain);
       
+      // Get RPC URL from RPC manager
+      const rpcUrl = rpcManager.getRPCUrl(blockchain as SupportedChain, this.currentEnvironment) || [];
+      const rpcEndpoint = Array.isArray(rpcUrl) ? rpcUrl[0] : 'https://eth-mainnet.g.alchemy.com/v2/demo';
+      
       // Update public client with the new provider
       this.publicClient = createPublicClient({
         chain: {
@@ -302,11 +379,11 @@ export class WalletManager {
             decimals: 18
           },
           rpcUrls: {
-            default: { http: ["https://mainnet.infura.io/v3/"] },
-            public: { http: ["https://mainnet.infura.io/v3/"] }
+            default: { http: [rpcEndpoint] },
+            public: { http: [rpcEndpoint] }
           }
         },
-        transport: http("https://mainnet.infura.io/v3/"),
+        transport: http(rpcEndpoint),
       }) as any;
       
       // For wallet client, update with the new chain info but keep using window.ethereum
@@ -322,8 +399,8 @@ export class WalletManager {
               decimals: 18
             },
             rpcUrls: {
-              default: { http: ["https://mainnet.infura.io/v3/"] },
-              public: { http: ["https://mainnet.infura.io/v3/"] }
+              default: { http: [rpcEndpoint] },
+              public: { http: [rpcEndpoint] }
             }
           },
           transport: custom(window.ethereum || {}),
@@ -468,7 +545,9 @@ export class WalletManager {
 
         // Get provider from provider manager
         const ethProvider = providerManager.getProvider(this.currentBlockchain as SupportedChain);
-        const providerUrl = "https://mainnet.infura.io/v3/";
+        // Get RPC URL from RPC manager
+        const rpcUrl = rpcManager.getRPCUrl(this.currentBlockchain as SupportedChain, this.currentEnvironment) || [];
+        const providerUrl = Array.isArray(rpcUrl) ? rpcUrl[0] : 'https://eth-mainnet.g.alchemy.com/v2/demo';
         
         // Submit transaction using MultiSigWalletService
         const transactionId = await MultiSigWalletService.proposeTransaction(
@@ -593,7 +672,9 @@ export class WalletManager {
 
         // Get provider from provider manager
         const ethProvider = providerManager.getProvider(this.currentBlockchain as SupportedChain);
-        const providerUrl = "https://mainnet.infura.io/v3/";
+        // Get RPC URL from RPC manager
+        const rpcUrl = rpcManager.getRPCUrl(this.currentBlockchain as SupportedChain, this.currentEnvironment) || [];
+        const providerUrl = Array.isArray(rpcUrl) ? rpcUrl[0] : 'https://eth-mainnet.g.alchemy.com/v2/demo';
         
         // Create data for token transfer
         let data: string;
@@ -827,7 +908,28 @@ export class WalletManager {
         throw new Error("No injected web3 provider found");
       }
 
-      const privateKey = await keyVaultClient.getKey('wallet');
+      // Initialize key vault if not already connected
+      await this.initializeKeyVault();
+      
+      // Get the latest key ID dynamically
+      const keyId = await this.getLatestKeyId();
+      
+      const keyResult = await keyVaultClient.getKey(keyId);
+      
+      if (!keyResult) {
+        throw new Error("No key result from key vault");
+      }
+
+      // Handle KeyResult union type (string | KeyData)
+      let privateKey: string;
+      if (typeof keyResult === 'string') {
+        privateKey = keyResult;
+      } else if (keyResult.privateKey) {
+        privateKey = keyResult.privateKey;
+      } else {
+        throw new Error("No private key found in key result");
+      }
+      
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       
       // Get network configuration from provider manager
@@ -847,8 +949,8 @@ export class WalletManager {
             decimals: 18
           },
           rpcUrls: {
-            default: { http: ["https://mainnet.infura.io/v3/"] },
-            public: { http: ["https://mainnet.infura.io/v3/"] }
+            default: { http: [rpcManager.getRPCUrl('ethereum', 'mainnet') || 'https://cloudflare-eth.com'] },
+            public: { http: [rpcManager.getRPCUrl('ethereum', 'mainnet') || 'https://cloudflare-eth.com'] }
           }
         },
         transport: custom(ethereum)
@@ -874,11 +976,11 @@ export class WalletManager {
             decimals: 18
           },
           rpcUrls: {
-            default: { http: ["https://mainnet.infura.io/v3/"] },
-            public: { http: ["https://mainnet.infura.io/v3/"] }
+            default: { http: [rpcManager.getRPCUrl('ethereum', 'mainnet') || 'https://cloudflare-eth.com'] },
+            public: { http: [rpcManager.getRPCUrl('ethereum', 'mainnet') || 'https://cloudflare-eth.com'] }
           }
         },
-        transport: http("https://mainnet.infura.io/v3/"),
+        transport: http(rpcManager.getRPCUrl('ethereum', 'mainnet') || 'https://cloudflare-eth.com'),
       }) as any;
 
       this.chainId = networkConfig.chainId;

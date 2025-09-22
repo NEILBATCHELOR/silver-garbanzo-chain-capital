@@ -8,15 +8,34 @@
  * - User operation building and execution
  */
 
-export { bundlerService, BundlerService } from './BundlerService'
+export { bundlerService, BundlerService } from './BundlerService';
 export type {
   BundlerConfiguration,
   BundleOperation,
   BundleStatus,
   BundleAnalytics
-} from './BundlerService'
+} from './BundlerService';
 
-// TODO: Add other services as they're implemented
-// export { paymasterService, PaymasterService } from './PaymasterService'
-// export { sessionKeyService, SessionKeyService } from './SessionKeyService'
-// export { userOperationService, UserOperationService } from './UserOperationService'
+export { paymasterService, PaymasterService } from './PaymasterService';
+export type {
+  PaymasterConfiguration,
+  SponsorshipRequest,
+  SponsorshipResponse
+} from './PaymasterService';
+
+export { sessionKeyService, SessionKeyService } from './SessionKeyService';
+export type {
+  SessionKeyRequest,
+  SessionPermission,
+  SessionKeyData,
+  SessionValidationResult
+} from './SessionKeyService';
+
+export { userOperationService, UserOperationService } from './UserOperationService';
+export type {
+  UserOperationRequest,
+  UserOperationData,
+  UserOperationResponse,
+  GasEstimation,
+  BatchOperationRequest
+} from './UserOperationService';

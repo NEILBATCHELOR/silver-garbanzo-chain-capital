@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '@/infrastructure/database/client';
+import { priceFeedService } from '../PriceFeedService';
 import type { TokenBalance } from '../balances/types';
 
 export interface RippleToken {
@@ -189,10 +190,17 @@ export class RippleTokenDetectionService {
         });
         
         if (token) {
+          // Calculate USD value from token price
+          const valueUsd = await priceFeedService.calculateUsdValue(
+            token.symbol || token.currency,
+            parseFloat(balance.toString()),
+            token.decimals || 15
+          );
+          
           balances.push({
             symbol: token.symbol || token.currency,
             balance: balance.toString(),
-            valueUsd: 0, // TODO: Calculate USD value from token price
+            valueUsd,
             decimals: token.decimals || 15,
             contractAddress: `${token.currency}-${token.issuer}`,
             standard: 'other',

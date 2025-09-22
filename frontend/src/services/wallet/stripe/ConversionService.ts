@@ -557,20 +557,106 @@ export class ConversionService {
   // ==========================================
 
   /**
-   * Get exchange rate between currencies
+   * Get real-time exchange rate between currencies using CoinGecko API
+   * NO FALLBACK DATA - throws error if live data unavailable
    */
   private async getExchangeRate(fromCurrency: string, toCurrency: string): Promise<number> {
-    // In production, this would fetch real exchange rates from Stripe or external APIs
-    // For now, return mock rates
-    const mockRates: Record<string, Record<string, number>> = {
-      'USD': { 'USDC': 1.0, 'USDB': 1.0 },
-      'EUR': { 'USDC': 1.1, 'USDB': 1.1 },
-      'GBP': { 'USDC': 1.25, 'USDB': 1.25 },
-      'USDC': { 'USD': 1.0, 'EUR': 0.91, 'GBP': 0.8 },
-      'USDB': { 'USD': 1.0, 'EUR': 0.91, 'GBP': 0.8 }
-    };
+    try {
+      // Normalize currency codes for CoinGecko API
+      const fromId = this.getCoinGeckoId(fromCurrency);
+      const toId = this.getCoinGeckoId(toCurrency);
+      
+      if (!fromId || !toId) {
+        throw new Error(`Unsupported currency pair: ${fromCurrency}/${toCurrency}. Supported currencies: ${Object.keys(this.getCurrencyMap()).join(', ')}`);
+      }
 
-    return mockRates[fromCurrency]?.[toCurrency] || 1.0;
+      // Use CoinGecko simple price API with enhanced error handling
+      const response = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${fromId}&vs_currencies=${toId}&precision=6`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Chain-Capital-Wallet/1.0',
+            // Add API key if available for better rate limits
+            ...(import.meta.env.VITE_COINGECKO_API_KEY && {
+              'x-cg-demo-api-key': import.meta.env.VITE_COINGECKO_API_KEY
+            })
+          }
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`CoinGecko API rate limit exceeded. Please try again later.`);
+        }
+        if (response.status === 404) {
+          throw new Error(`Currency pair ${fromCurrency}/${toCurrency} not found on CoinGecko.`);
+        }
+        throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const rate = data[fromId]?.[toId];
+      
+      if (typeof rate !== 'number' || rate <= 0) {
+        throw new Error(`No valid exchange rate found for ${fromCurrency}/${toCurrency}. API returned: ${JSON.stringify(data)}`);
+      }
+
+      debugLog(`Live exchange rate fetched: ${fromCurrency}/${toCurrency} = ${rate}`, { fromId, toId });
+      return rate;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      debugError(`CRITICAL: Failed to fetch live exchange rate for ${fromCurrency}/${toCurrency}`, error);
+      
+      // NO FALLBACK - throw error to ensure only live data is used
+      throw new Error(`Live exchange rate unavailable for ${fromCurrency}/${toCurrency}: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get comprehensive currency mapping for CoinGecko API
+   */
+  private getCurrencyMap(): Record<string, string> {
+    return {
+      // Fiat currencies
+      'USD': 'usd',
+      'EUR': 'eur', 
+      'GBP': 'gbp',
+      'JPY': 'jpy',
+      'AUD': 'aud',
+      'CAD': 'cad',
+      'CHF': 'chf',
+      'CNY': 'cny',
+      // Major cryptocurrencies
+      'BTC': 'bitcoin',
+      'ETH': 'ethereum',
+      // Stablecoins
+      'USDC': 'usd-coin',
+      'USDT': 'tether',
+      'USDB': 'usd-coin', // Map USDB to USDC for compatibility
+      'DAI': 'dai',
+      'BUSD': 'binance-usd',
+      'FRAX': 'frax',
+      'TUSD': 'true-usd',
+      // Wrapped tokens
+      'WETH': 'ethereum',
+      'WBTC': 'wrapped-bitcoin',
+      // Layer 2 tokens
+      'MATIC': 'matic-network',
+      'OP': 'optimism',
+      'ARB': 'arbitrum'
+    };
+  }
+
+  /**
+   * Map currency codes to CoinGecko IDs with enhanced coverage
+   */
+  private getCoinGeckoId(currency: string): string | null {
+    const currencyMap = this.getCurrencyMap();
+    const normalizedCurrency = currency.toUpperCase();
+    
+    return currencyMap[normalizedCurrency] || null;
   }
 
   /**
