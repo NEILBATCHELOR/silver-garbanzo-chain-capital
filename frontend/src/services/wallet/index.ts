@@ -12,6 +12,8 @@ export * from './sui';
 export * from './near';
 export * from './stellar';
 export * from './ripple';
+export * from './cosmos';
+export * from './injective';
 
 // Enhanced token detection service types (excluding conflicting exports)
 export type {
@@ -84,7 +86,39 @@ export * from './generators';
 export * from './UserOperationApiService';
 export * from './SessionKeyApiService';
 export * from './PaymasterApiService';
-export * from './account-abstraction';
+
+// Export account abstraction services with explicit type resolution for conflicts
+export {
+  bundlerService,
+  BundlerService,
+  paymasterService,
+  PaymasterService,
+  sessionKeyService,
+  SessionKeyService,
+  userOperationService,
+  UserOperationService
+} from './account-abstraction';
+
+export type {
+  BundlerConfiguration,
+  BundleOperation,
+  BundleStatus,
+  BundleAnalytics,
+  // Use PaymasterConfiguration from account-abstraction as PaymasterAAConfig to avoid conflict
+  PaymasterConfiguration as PaymasterAAConfig,
+  SponsorshipRequest,
+  SponsorshipResponse,
+  SessionKeyRequest,
+  SessionPermission,
+  SessionKeyData,
+  SessionValidationResult,
+  // Use UserOperationRequest from account-abstraction as UserOperationAARequest to avoid conflict
+  UserOperationRequest as UserOperationAARequest,
+  UserOperationData,
+  UserOperationResponse,
+  GasEstimation,
+  BatchOperationRequest
+} from './account-abstraction';
 
 // Multi-signature services
 export * from './multiSig';
@@ -114,6 +148,7 @@ import { suiWalletService } from './sui';
 import { nearWalletService } from './near';
 import { stellarWalletService } from './stellar';
 import { rippleServices } from './ripple';
+import { injectiveWalletService } from './injective';
 
 export {   
   BalanceService,
@@ -136,7 +171,8 @@ export {
   suiWalletService,
   nearWalletService,
   stellarWalletService,
-  rippleServices
+  rippleServices,
+  injectiveWalletService
 };
 
 export type {
@@ -215,3 +251,12 @@ export type {
 export type {
   RippleAccountInfo
 } from './ripple';
+
+export type {
+  InjectiveAccountInfo,
+  InjectiveGenerationOptions,
+  InjectiveEncryptedWallet,
+  InjectiveNetworkInfo,
+  InjectiveMarketOrder,
+  InjectiveTransferParams
+} from './injective';

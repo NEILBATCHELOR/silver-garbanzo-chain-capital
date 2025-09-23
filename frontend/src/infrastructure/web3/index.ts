@@ -114,7 +114,8 @@ export const WEB3_UTILS = {
       ripple: 'XRP Ledger',
       stellar: 'Stellar',
       sui: 'Sui',
-      aptos: 'Aptos'
+      aptos: 'Aptos',
+      injective: 'Injective Protocol'
     };
     return names[chain] || chain;
   },

@@ -34,6 +34,7 @@ import {
   Settings
 } from 'lucide-react'
 import { LightningNetworkService, type PaymentRoute, type LightningInvoice } from '@/services/wallet/LightningNetworkService'
+import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient'
 
 interface PaymentForm {
   invoice: string;
@@ -64,7 +65,14 @@ interface DecodedInvoice extends LightningInvoice {
   timeLeft: number; // seconds
 }
 
-export function LightningPaymentInterface() {
+interface LightningPaymentInterfaceProps {
+  wallet?: {
+    address: string;
+    keyVaultId?: string;
+  };
+}
+
+export function LightningPaymentInterface({ wallet }: LightningPaymentInterfaceProps = {}) {
   // State management
   const [paymentForm, setPaymentForm] = useState<PaymentForm>({
     invoice: '',
@@ -91,28 +99,46 @@ export function LightningPaymentInterface() {
   const [paymentProgress, setPaymentProgress] = useState(0)
 
   // Lightning service instance
-  const privateKey = Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
-  const lightningService = new LightningNetworkService(privateKey)
+  const [lightningService, setLightningService] = useState<LightningNetworkService | null>(null);
+
+  // Initialize Lightning service with proper key management
+  const initializeLightningService = useCallback(async () => {
+    try {
+      if (!wallet?.keyVaultId) {
+        throw new Error('Wallet key vault ID not found');
+      }
+
+      // Get private key from secure key vault
+      const keyData = await keyVaultClient.getKey(wallet.keyVaultId);
+      const privateKey = typeof keyData === 'string' ? keyData : keyData.privateKey;
+      
+      // Convert hex private key to Buffer
+      const privateKeyBuffer = Buffer.from(privateKey.startsWith('0x') ? privateKey.slice(2) : privateKey, 'hex');
+      const service = new LightningNetworkService(privateKeyBuffer);
+      setLightningService(service);
+      
+      return service;
+    } catch (error) {
+      console.error('Failed to initialize Lightning service:', error);
+      setError('Failed to initialize Lightning Network service');
+      return null;
+    }
+  }, [wallet]);
 
   // Decode Lightning invoice
   const decodeInvoice = useCallback(async (bolt11: string) => {
     if (!bolt11 || !bolt11.startsWith('ln')) return
 
+    if (!lightningService) {
+      setError('Lightning service not initialized')
+      return
+    }
+
     try {
       setError('')
       
-      // Mock decoding since the service doesn't expose decoding publicly
-      // In production, this would use the proper Lightning service method
-      const decoded = {
-        bolt11,
-        paymentHash: bolt11.slice(-64), // Mock extraction
-        paymentSecret: 'mock_secret_' + bolt11.slice(-32), // Add required paymentSecret
-        amount: Math.floor(Math.random() * 100000), // Mock amount in msat
-        description: 'Lightning Payment',
-        expiry: 3600,
-        timestamp: Math.floor(Date.now() / 1000),
-        nodeId: lightningService.getNodeId()
-      }
+      // Use the Lightning service to decode the invoice
+      const decoded = await lightningService.decodeInvoice(bolt11);
       
       const now = Date.now() / 1000
       const expiry = decoded.timestamp + decoded.expiry
@@ -142,33 +168,21 @@ export function LightningPaymentInterface() {
 
   // Find payment routes
   const findRoutes = useCallback(async (destination: string, amount: number) => {
+    if (!lightningService) {
+      setError('Lightning service not initialized')
+      return
+    }
+
     try {
-      // Mock route finding since the service doesn't expose this publicly
-      // In production, this would use proper Lightning routing
-      const foundRoutes: PaymentRoute[] = [
-        {
-          totalAmount: amount,
-          totalFees: Math.floor(amount * 0.001), // 0.1% fee
-          totalTimeLock: 144,
-          hops: [
-            {
-              pubkey: destination,
-              shortChannelId: `${Math.floor(Math.random() * 1000000)}x${Math.floor(Math.random() * 100)}x${Math.floor(Math.random() * 10)}`,
-              amountToForward: amount,
-              feeBaseMsat: 1000,
-              feeProportionalMillionths: 1000,
-              cltvExpiryDelta: 144
-            }
-          ]
-        }
-      ]
-      
-      setRoutes(foundRoutes)
+      // Use the Lightning service to find routes
+      const foundRoutes = await lightningService.findRoutes(destination, amount);
+      setRoutes(foundRoutes);
     } catch (error) {
       console.warn('Route finding failed:', error)
       setRoutes([])
+      setError(`Route finding failed: ${error}`)
     }
-  }, [])
+  }, [lightningService])
 
   // Send Lightning payment
   const sendPayment = async () => {
@@ -191,19 +205,14 @@ export function LightningPaymentInterface() {
       setError('')
       setPaymentProgress(0)
       
-      // Simulate payment progress
-      const progressInterval = setInterval(() => {
-        setPaymentProgress(prev => Math.min(prev + 20, 90))
-      }, 500)
-
-      const maxFeeMsat = Math.floor(parseFloat(paymentForm.maxFee) * 100000000 * 1000)
+      // Calculate max fee in millisatoshis
+      const maxFeeMsat = Math.floor(parseFloat(paymentForm.maxFee) * 100000000 * 1000);
       
+      // Start real-time payment monitoring instead of mock progress
       const result = await lightningService.payInvoice(
         paymentForm.invoice,
         maxFeeMsat
       )
-
-      clearInterval(progressInterval)
       setPaymentProgress(100)
 
       // Since payInvoice returns a payment ID string, create mock result for UI
@@ -253,6 +262,11 @@ export function LightningPaymentInterface() {
       return
     }
 
+    if (!lightningService) {
+      setError('Lightning service not initialized')
+      return
+    }
+
     try {
       setIsLoading(true)
       setError('')
@@ -260,28 +274,25 @@ export function LightningPaymentInterface() {
       const amountMsat = Math.floor(parseFloat(keysendForm.amount) * 100000000 * 1000)
       const maxFeeMsat = Math.floor(parseFloat(keysendForm.maxFee) * 100000000 * 1000)
 
-      // Mock keysend payment since the service doesn't implement this
-      // In production, this would use proper Lightning keysend functionality
-      await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate network delay
-      
-      const result = {
-        paymentHash: Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-        preimage: Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-        route: { 
-          totalAmount: amountMsat,
-          totalFees: maxFeeMsat,
-          totalTimeLock: 144,
-          hops: []
-        },
-        fees: Math.floor(Math.random() * maxFeeMsat)
-      }
+      // Use the Lightning service for keysend payment
+      const result = await lightningService.sendKeysendPayment(
+        keysendForm.destination,
+        amountMsat,
+        keysendForm.message,
+        maxFeeMsat
+      );
 
       const paymentResult: PaymentResult = {
         success: true,
         paymentHash: result.paymentHash,
         preimage: result.preimage,
-        route: result.route,
-        fees: result.fees,
+        route: result.route || { 
+          totalAmount: amountMsat,
+          totalFees: result.fees || 0,
+          totalTimeLock: 144,
+          hops: []
+        },
+        fees: result.fees || 0,
         timestamp: new Date()
       }
 
@@ -325,6 +336,12 @@ export function LightningPaymentInterface() {
   }
 
   // Effects
+  useEffect(() => {
+    if (wallet?.keyVaultId) {
+      initializeLightningService();
+    }
+  }, [wallet, initializeLightningService]);
+
   useEffect(() => {
     if (paymentForm.invoice) {
       decodeInvoice(paymentForm.invoice)

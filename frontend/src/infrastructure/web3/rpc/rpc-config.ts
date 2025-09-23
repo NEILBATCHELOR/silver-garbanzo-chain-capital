@@ -93,6 +93,12 @@ export const RPC_CONFIG = {
   hedera: {
     mainnet: "https://mainnet.hashio.io/api",
     testnet: "https://testnet.hashio.io/api"
+  },
+  
+  // Injective Networks
+  injective: {
+    mainnet: "https://sentry.tm.injective.network:443",
+    testnet: "https://testnet.sentry.tm.injective.network:443"
   }
 };
 
@@ -133,7 +139,8 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
       near: 'VITE_NEAR_TESTNET_RPC_URL',
       avalanche: 'VITE_AVALANCHE_TESTNET_RPC_URL',
       mantle: 'VITE_MANTLE_TESTNET_RPC_URL',
-      holesky: 'VITE_HOLEKSY_RPC_URL'
+      holesky: 'VITE_HOLEKSY_RPC_URL',
+      injective: 'VITE_INJECTIVE_TESTNET_RPC_URL'
     };
     
     const envKey = testnetEnvMap[blockchain];
@@ -160,7 +167,8 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
       aptos: 'VITE_APTOS_RPC_URL',
       sui: 'VITE_SUI_RPC_URL',
       near: 'VITE_NEAR_RPC_URL',
-      avalanche: 'VITE_AVALANCHE_RPC_URL'
+      avalanche: 'VITE_AVALANCHE_RPC_URL',
+      injective: 'VITE_INJECTIVE_RPC_URL'
     };
     
     const envKey = mainnetEnvMap[blockchain];

@@ -875,6 +875,247 @@ export class CosmosEcosystemService {
   }
 
   // ============================================================================
+  // CONVENIENCE METHODS FOR UI
+  // ============================================================================
+
+  /**
+   * Get wallet balances (convenience method for UI)
+   */
+  async getBalances(chainId: string, address: string): Promise<{
+    available: string;
+    staked?: string;
+    unbonding?: string;
+    rewards?: string;
+  }> {
+    const client = await this.getClient(chainId);
+    const config = this.chains.get(chainId);
+    if (!config) {
+      throw new Error(`Unsupported chain: ${chainId}`);
+    }
+
+    try {
+      // Get available balance
+      const balance = await client.getBalance(address, config.denom);
+      
+      // Get staking info if staking is enabled
+      let staked = '0';
+      let unbonding = '0';
+      let rewards = '0';
+      
+      if (config.stakingEnabled) {
+        try {
+          const stakingInfo = await this.getStakingInfo(chainId, address);
+          staked = stakingInfo.totalStaked;
+          unbonding = stakingInfo.totalUnbonding;
+          rewards = stakingInfo.totalRewards;
+        } catch (error) {
+          console.warn('Failed to get staking info:', error);
+        }
+      }
+
+      return {
+        available: balance.amount,
+        staked,
+        unbonding,
+        rewards
+      };
+    } catch (error) {
+      console.error('Failed to get balances:', error);
+      return { available: '0', staked: '0', unbonding: '0', rewards: '0' };
+    }
+  }
+
+  /**
+   * Get staking information (convenience method for UI)
+   */
+  async getStakingInfo(chainId: string, address: string): Promise<{
+    totalStaked: string;
+    totalUnbonding: string;
+    totalRewards: string;
+    delegations: any[];
+  }> {
+    const config = this.chains.get(chainId);
+    if (!config || !config.stakingEnabled) {
+      return { totalStaked: '0', totalUnbonding: '0', totalRewards: '0', delegations: [] };
+    }
+
+    try {
+      // Get delegations
+      const delegations = await this.getDelegations(chainId, address);
+      
+      // Get rewards
+      const rewardsData = await this.getStakingRewards(chainId, address);
+      
+      // Calculate totals
+      let totalStaked = '0';
+      let totalRewards = '0';
+      
+      if (delegations.length > 0) {
+        totalStaked = delegations.reduce((sum, del) => 
+          (parseInt(sum) + parseInt(del.balance?.amount || '0')).toString(), '0'
+        );
+      }
+      
+      if (rewardsData?.total) {
+        totalRewards = rewardsData.total.reduce((sum: string, reward: any) => 
+          (parseFloat(sum) + parseFloat(reward.amount || '0')).toString(), '0'
+        );
+      }
+
+      return {
+        totalStaked,
+        totalUnbonding: '0', // TODO: Fetch unbonding delegations
+        totalRewards,
+        delegations
+      };
+    } catch (error) {
+      console.error('Failed to get staking info:', error);
+      return { totalStaked: '0', totalUnbonding: '0', totalRewards: '0', delegations: [] };
+    }
+  }
+
+  /**
+   * Get governance proposals (convenience alias)
+   */
+  async getGovernanceProposals(chainId: string, status?: string): Promise<ProposalInfo[]> {
+    return this.getProposals(chainId, status);
+  }
+
+  /**
+   * Stake tokens (convenience wrapper for delegate)
+   */
+  async stake(
+    chainId: string, 
+    address: string, 
+    params: { validatorAddress: string; amount: string; denom: string }
+  ): Promise<DeliverTxResponse> {
+    const privateKey = await this.getPrivateKey(address);
+    
+    const stakingParams: StakingParams = {
+      delegatorAddress: address,
+      validatorAddress: params.validatorAddress,
+      amount: params.amount,
+      denom: params.denom,
+      chain: chainId
+    };
+
+    return this.delegate(stakingParams, privateKey);
+  }
+
+  /**
+   * Unstake tokens (convenience wrapper for undelegate)
+   */
+  async unstake(
+    chainId: string,
+    address: string, 
+    params: { validatorAddress: string; amount: string; denom: string }
+  ): Promise<DeliverTxResponse> {
+    const privateKey = await this.getPrivateKey(address);
+    
+    const stakingParams: StakingParams = {
+      delegatorAddress: address,
+      validatorAddress: params.validatorAddress,
+      amount: params.amount,
+      denom: params.denom,
+      chain: chainId
+    };
+
+    return this.undelegate(stakingParams, privateKey);
+  }
+
+  /**
+   * Claim staking rewards
+   */
+  async claimRewards(
+    chainId: string,
+    address: string,
+    validatorAddress: string
+  ): Promise<DeliverTxResponse> {
+    const config = this.chains.get(chainId);
+    if (!config || !config.stakingEnabled) {
+      throw new Error(`Staking not supported on chain: ${chainId}`);
+    }
+
+    const privateKey = await this.getPrivateKey(address);
+    
+    // Create wallet
+    const privKeyBytes = fromHex(privateKey.replace('0x', ''));
+    const wallet = await DirectSecp256k1Wallet.fromKey(privKeyBytes, config.prefix);
+    
+    // Get signing client
+    const signingClient = await this.getSigningClient(chainId, wallet);
+
+    // Create withdraw rewards message
+    const msg = {
+      typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+      value: {
+        delegatorAddress: address,
+        validatorAddress: validatorAddress
+      }
+    };
+
+    // Calculate fee
+    const gasPrice = GasPrice.fromString(`${config.gasPrice}${config.denom}`);
+    const fee = calculateFee(150000, gasPrice);
+
+    // Execute claim
+    const result = await signingClient.signAndBroadcast(
+      address,
+      [msg],
+      fee,
+      'Claim staking rewards'
+    );
+
+    if (result.code !== 0) {
+      throw new Error(`Claim rewards failed: ${result.rawLog}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * IBC Transfer (convenience wrapper)
+   */
+  async ibcTransfer(
+    chainId: string,
+    address: string,
+    params: {
+      sourcePort: string;
+      sourceChannel: string;
+      token: { denom: string; amount: string };
+      receiver: string;
+      timeoutHeight?: { revisionNumber: number; revisionHeight: number };
+      timeoutTimestamp?: number;
+    }
+  ): Promise<DeliverTxResponse> {
+    const privateKey = await this.getPrivateKey(address);
+    
+    const transferParams: IBCTransferParams = {
+      sourceChain: chainId,
+      destinationChain: 'target', // This should be determined from channel
+      sourceChannel: params.sourceChannel,
+      amount: params.token.amount,
+      denom: params.token.denom,
+      sender: address,
+      receiver: params.receiver,
+      timeoutHeight: params.timeoutHeight?.revisionHeight,
+      timeoutTimestamp: params.timeoutTimestamp
+    };
+
+    return this.executeIBCTransfer(transferParams, privateKey);
+  }
+
+  /**
+   * Get private key for address (placeholder - implement proper key management)
+   */
+  private async getPrivateKey(address: string): Promise<string> {
+    // TODO: Implement proper key vault integration
+    // This should retrieve the private key for the address from secure storage
+    const privateKey = process.env.VITE_COSMOS_PRIVATE_KEY || '0x' + '0'.repeat(64);
+    return privateKey;
+  }
+
+  // ============================================================================
   // UTILITY METHODS
   // ============================================================================
 

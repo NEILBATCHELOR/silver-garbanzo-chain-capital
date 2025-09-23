@@ -76,6 +76,10 @@ const RPC_ENV_MAPPING: Record<SupportedChain, EnvironmentRPCMapping> = {
   aptos: {
     mainnet: import.meta.env.VITE_APTOS_RPC_URL,
     testnet: import.meta.env.VITE_APTOS_TESTNET_RPC_URL
+  },
+  injective: {
+    mainnet: import.meta.env.VITE_INJECTIVE_RPC_URL || 'https://sentry.chain.grpc-web.injective.network:443',
+    testnet: import.meta.env.VITE_INJECTIVE_TESTNET_RPC_URL || 'https://testnet.sentry.chain.grpc-web.injective.network:443'
   }
 };
 

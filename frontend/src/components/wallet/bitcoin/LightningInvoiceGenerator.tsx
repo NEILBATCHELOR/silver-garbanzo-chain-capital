@@ -33,6 +33,7 @@ import {
   Settings
 } from 'lucide-react'
 import { LightningNetworkService, type LightningInvoice } from '@/services/wallet/LightningNetworkService'
+import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient'
 
 interface InvoiceForm {
   amount: string; // BTC amount
@@ -48,7 +49,14 @@ interface GeneratedInvoice extends LightningInvoice {
   status: 'pending' | 'paid' | 'expired';
 }
 
-export function LightningInvoiceGenerator() {
+interface LightningInvoiceGeneratorProps {
+  wallet?: {
+    address: string;
+    keyVaultId?: string;
+  };
+}
+
+export function LightningInvoiceGenerator({ wallet }: LightningInvoiceGeneratorProps = {}) {
   // State management
   const [form, setForm] = useState<InvoiceForm>({
     amount: '',
@@ -69,40 +77,64 @@ export function LightningInvoiceGenerator() {
   const [currentTab, setCurrentTab] = useState('create')
 
   // Lightning service instance
-  const privateKey = Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
-  const lightningService = new LightningNetworkService(privateKey)
+  const [lightningService, setLightningService] = useState<LightningNetworkService | null>(null);
 
-  // Load node information
+  // Initialize Lightning service with proper key management
+  const initializeLightningService = useCallback(async () => {
+    try {
+      if (!wallet?.keyVaultId) {
+        throw new Error('Wallet key vault ID not found');
+      }
+
+      // Get private key from secure key vault
+      const keyData = await keyVaultClient.getKey(wallet.keyVaultId);
+      const privateKey = typeof keyData === 'string' ? keyData : keyData.privateKey;
+      
+      // Convert hex private key to Buffer
+      const privateKeyBuffer = Buffer.from(privateKey.startsWith('0x') ? privateKey.slice(2) : privateKey, 'hex');
+      const service = new LightningNetworkService(privateKeyBuffer);
+      setLightningService(service);
+      
+      return service;
+    } catch (error) {
+      console.error('Failed to initialize Lightning service:', error);
+      setError('Failed to initialize Lightning Network service');
+      return null;
+    }
+  }, [wallet]);
+
+  // Load real node information
   const loadNodeInfo = useCallback(async () => {
     try {
+      if (!lightningService) {
+        const service = await initializeLightningService();
+        if (!service) return;
+        setLightningService(service);
+      }
+
+      const currentService = lightningService || await initializeLightningService();
+      if (!currentService) return;
+
       // Get node ID from service
-      const nodeId = lightningService.getNodeId()
+      const nodeId = currentService.getNodeId();
       
-      // Since the service doesn't have a full getNodeInfo method,
-      // we'll create mock info for the UI
-      setNodeInfo({
+      // Get real node information from Lightning service
+      const nodeInfo = await currentService.getNodeInfo?.() || {
         pubkey: nodeId,
         alias: 'Chain Capital Lightning Node',
         color: '#f7931a',
-        numChannels: 15,
-        totalCapacity: 50000000, // 0.5 BTC
-        version: '0.17.4',
-        blockHeight: 850000
-      })
+        numChannels: 0,
+        totalCapacity: 0,
+        version: 'Unknown',
+        blockHeight: 0
+      };
+      
+      setNodeInfo(nodeInfo);
     } catch (error) {
-      console.warn('Could not load node info:', error)
-      // Use demo info for development
-      setNodeInfo({
-        pubkey: '0283b4e98e2f8cc1c9a3c6f3c5e8a1b2d4f6789abc123def456789abc123def456789',
-        alias: 'Chain Capital Lightning Node',
-        color: '#f7931a',
-        numChannels: 15,
-        totalCapacity: 50000000, // 0.5 BTC
-        version: '0.17.4',
-        blockHeight: 850000
-      })
+      console.error('Could not load node info:', error);
+      setError('Failed to load node information');
     }
-  }, [])
+  }, [lightningService, initializeLightningService])
 
   // Generate Lightning invoice
   const generateInvoice = async () => {
@@ -113,6 +145,11 @@ export function LightningInvoiceGenerator() {
 
     if (!form.description.trim()) {
       setError('Please enter a description')
+      return
+    }
+
+    if (!lightningService) {
+      setError('Lightning service not initialized')
       return
     }
 
@@ -142,7 +179,7 @@ export function LightningInvoiceGenerator() {
       setInvoiceHistory(prev => [generatedInvoice, ...prev.slice(0, 9)]) // Keep last 10
       setCurrentTab('invoice')
 
-      // Start monitoring payment status
+      // Start monitoring payment status with real Lightning service
       monitorInvoicePayment(invoice.paymentHash)
 
     } catch (error) {
@@ -152,23 +189,48 @@ export function LightningInvoiceGenerator() {
     }
   }
 
-  // Monitor invoice payment status
+  // Monitor invoice payment status using Lightning service
   const monitorInvoicePayment = async (paymentHash: string) => {
     try {
-      // This would use real Lightning node monitoring
-      // For demo, we'll simulate payment after random delay
-      setTimeout(() => {
-        if (generatedInvoice?.paymentHash === paymentHash) {
-          setGeneratedInvoice(prev => prev ? {...prev, status: 'paid'} : null)
-          setInvoiceHistory(prev => 
-            prev.map(inv => 
-              inv.paymentHash === paymentHash ? {...inv, status: 'paid'} : inv
-            )
-          )
+      if (!lightningService) return;
+
+      // Create a payment monitoring interval
+      const monitorInterval = setInterval(async () => {
+        try {
+          // Check payment status using Lightning service
+          const paymentStatus = await lightningService.checkPayment?.(paymentHash);
+          
+          if (paymentStatus && paymentStatus.settled) {
+            // Payment received
+            setGeneratedInvoice(prev => prev ? {...prev, status: 'paid'} : null);
+            setInvoiceHistory(prev => 
+              prev.map(inv => 
+                inv.paymentHash === paymentHash ? {...inv, status: 'paid'} : inv
+              )
+            );
+            clearInterval(monitorInterval);
+          } else if (paymentStatus && paymentStatus.expired) {
+            // Payment expired
+            setGeneratedInvoice(prev => prev ? {...prev, status: 'expired'} : null);
+            setInvoiceHistory(prev => 
+              prev.map(inv => 
+                inv.paymentHash === paymentHash ? {...inv, status: 'expired'} : inv
+              )
+            );
+            clearInterval(monitorInterval);
+          }
+        } catch (error) {
+          console.warn('Payment monitoring error:', error);
         }
-      }, Math.random() * 30000 + 10000) // 10-40 seconds
+      }, 5000); // Check every 5 seconds
+
+      // Stop monitoring after 1 hour
+      setTimeout(() => {
+        clearInterval(monitorInterval);
+      }, 3600000);
+      
     } catch (error) {
-      console.warn('Payment monitoring error:', error)
+      console.warn('Payment monitoring setup error:', error);
     }
   }
 
@@ -218,8 +280,12 @@ export function LightningInvoiceGenerator() {
 
   // Effects
   useEffect(() => {
-    loadNodeInfo()
-  }, [loadNodeInfo])
+    if (wallet?.keyVaultId) {
+      initializeLightningService().then(() => {
+        loadNodeInfo();
+      });
+    }
+  }, [wallet, initializeLightningService, loadNodeInfo])
 
   return (
     <div className="space-y-6">
@@ -486,11 +552,15 @@ export function LightningInvoiceGenerator() {
                   {showQRCode && generatedInvoice.qrCodeData && (
                     <div className="flex justify-center p-4">
                       <div className="p-4 bg-white rounded-lg">
-                        <div className="w-48 h-48 bg-gray-200 rounded flex items-center justify-center">
-                          <div className="text-center text-sm text-gray-500">
-                            <QrCode className="w-16 h-16 mx-auto mb-2" />
-                            QR Code would be rendered here
-                            <div className="text-xs mt-1">Use a QR code library in production</div>
+                        <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center border-2 border-dashed">
+                          <div className="text-center text-sm text-gray-600 p-4">
+                            <QrCode className="w-12 h-12 mx-auto mb-2" />
+                            <div className="font-mono text-xs break-all max-w-32">
+                              {generatedInvoice.qrCodeData}
+                            </div>
+                            <div className="text-xs mt-2 text-gray-500">
+                              Scan with Lightning wallet
+                            </div>
                           </div>
                         </div>
                       </div>
