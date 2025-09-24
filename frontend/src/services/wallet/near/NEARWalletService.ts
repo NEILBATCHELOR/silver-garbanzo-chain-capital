@@ -4,14 +4,12 @@
  * Updated to match project patterns with improved error handling and functionality
  */
 
-import {
-  connect,
-  keyStores,
-  KeyPair,
-  utils,
-  providers,
-  Account
-} from 'near-api-js';
+// Replace near-api-js with individual @near-js/* packages
+import { Account } from '@near-js/accounts';
+import { InMemoryKeyStore } from '@near-js/keystores';
+import { KeyPair } from '@near-js/crypto';
+import { JsonRpcProvider } from '@near-js/providers';
+import { NEAR } from '@near-js/tokens';
 import * as bip39 from 'bip39';
 import { HDKey } from '@scure/bip32';
 
@@ -63,20 +61,23 @@ export interface NEARAccessKey {
 export class NEARWalletService {
   private network: 'mainnet' | 'testnet';
   private config: any;
-  private keyStore: keyStores.InMemoryKeyStore;
-  private near: any;
-  private connection: any;
+  private keyStore: InMemoryKeyStore;
+  private provider: JsonRpcProvider;
 
   constructor(network: 'mainnet' | 'testnet' = 'mainnet') {
     this.network = network;
-    this.keyStore = new keyStores.InMemoryKeyStore();
+    this.keyStore = new InMemoryKeyStore();
+    
+    const nodeUrl = network === 'mainnet' 
+      ? 'https://rpc.mainnet.near.org' 
+      : 'https://rpc.testnet.near.org';
+      
+    this.provider = new JsonRpcProvider({ url: nodeUrl });
     
     this.config = {
       networkId: network,
       keyStore: this.keyStore,
-      nodeUrl: network === 'mainnet' 
-        ? 'https://rpc.mainnet.near.org' 
-        : 'https://rpc.testnet.near.org',
+      nodeUrl: nodeUrl,
       walletUrl: network === 'mainnet'
         ? 'https://wallet.near.org'
         : 'https://wallet.testnet.near.org',
@@ -95,8 +96,8 @@ export class NEARWalletService {
    */
   async connect(): Promise<void> {
     try {
-      this.near = await connect(this.config);
-      this.connection = this.near.connection;
+      // Test connection by checking status
+      await this.provider.status();
     } catch (error) {
       throw new Error(`Failed to connect to NEAR network: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -108,11 +109,7 @@ export class NEARWalletService {
   async getNetworkInfo(): Promise<NEARNetworkInfo> {
     try {
       // Test connection
-      if (!this.near) {
-        await this.connect();
-      }
-      
-      const status = await this.connection.provider.status();
+      const status = await this.provider.status();
       
       return {
         name: this.network,
@@ -139,14 +136,18 @@ export class NEARWalletService {
    */
   updateNetwork(network: 'mainnet' | 'testnet'): void {
     this.network = network;
-    this.keyStore = new keyStores.InMemoryKeyStore();
+    this.keyStore = new InMemoryKeyStore();
+    
+    const nodeUrl = network === 'mainnet' 
+      ? 'https://rpc.mainnet.near.org' 
+      : 'https://rpc.testnet.near.org';
+      
+    this.provider = new JsonRpcProvider({ url: nodeUrl });
     
     this.config = {
       networkId: network,
       keyStore: this.keyStore,
-      nodeUrl: network === 'mainnet' 
-        ? 'https://rpc.mainnet.near.org' 
-        : 'https://rpc.testnet.near.org',
+      nodeUrl: nodeUrl,
       walletUrl: network === 'mainnet'
         ? 'https://wallet.near.org'
         : 'https://wallet.testnet.near.org',
@@ -154,10 +155,6 @@ export class NEARWalletService {
         ? 'https://helper.mainnet.near.org'
         : 'https://helper.testnet.near.org'
     };
-    
-    // Reset connection
-    this.near = null;
-    this.connection = null;
   }
 
   // ============================================================================
@@ -239,15 +236,11 @@ export class NEARWalletService {
       
       // Try to fetch balance and account info
       try {
-        if (!this.near) {
-          await this.connect();
-        }
-
-        const account = new Account(this.connection, accountId);
+        const account = new Account(accountId, this.provider);
         const accountState = await account.state();
-        const balance = utils.format.formatNearAmount(accountState.amount);
+        const balance = NEAR.toDecimal(accountState.amount.toString());
         
-        result.balance = accountState.amount;
+        result.balance = accountState.amount.toString();
         result.nearBalance = balance;
       } catch (balanceError) {
         console.warn(`Could not fetch account info for ${accountId}:`, balanceError);
@@ -527,11 +520,7 @@ export class NEARWalletService {
         throw new Error('Invalid NEAR account ID format');
       }
 
-      if (!this.near) {
-        await this.connect();
-      }
-
-      const account = new Account(this.connection, accountId);
+      const account = new Account(accountId, this.provider);
       const accountState = await account.state();
       const accessKeys = await account.getAccessKeys();
       
@@ -539,8 +528,8 @@ export class NEARWalletService {
         address: accountId,
         accountId: accountId,
         publicKey: '', // Would need to get from access keys
-        balance: accountState.amount,
-        nearBalance: utils.format.formatNearAmount(accountState.amount),
+        balance: accountState.amount.toString(),
+        nearBalance: NEAR.toDecimal(accountState.amount.toString()),
         accessKeys: accessKeys
       };
     } catch (error) {
@@ -579,13 +568,9 @@ export class NEARWalletService {
         throw new Error('Invalid NEAR account ID');
       }
 
-      if (!this.near) {
-        await this.connect();
-      }
-
-      const account = new Account(this.connection, accountId);
+      const account = new Account(accountId, this.provider);
       const accountState = await account.state();
-      return utils.format.formatNearAmount(accountState.amount);
+      return NEAR.toDecimal(accountState.amount.toString());
     } catch (error) {
       console.error('Error fetching balance:', error);
       return '0';
@@ -601,11 +586,7 @@ export class NEARWalletService {
         throw new Error('Invalid NEAR account ID');
       }
 
-      if (!this.near) {
-        await this.connect();
-      }
-
-      const account = new Account(this.connection, accountId);
+      const account = new Account(accountId, this.provider);
       return await account.getAccessKeys() as NEARAccessKey[];
     } catch (error) {
       console.error('Error fetching access keys:', error);
@@ -671,14 +652,14 @@ export class NEARWalletService {
    * Convert NEAR to yoctoNEAR (smallest unit)
    */
   nearToYocto(near: string): string {
-    return utils.format.parseNearAmount(near) || '0';
+    return NEAR.toUnits(near).toString();
   }
 
   /**
    * Convert yoctoNEAR to NEAR
    */
   yoctoToNear(yocto: string): string {
-    return utils.format.formatNearAmount(yocto);
+    return NEAR.toDecimal(yocto);
   }
 
   // ============================================================================

@@ -98,6 +98,7 @@ export interface CalculationInput {
   projectId?: string
   valuationDate: Date
   targetCurrency?: string
+  baseCurrency?: string // Currency of the assets before conversion
   holdings?: AssetHolding[]
   fees?: number
   liabilities?: number

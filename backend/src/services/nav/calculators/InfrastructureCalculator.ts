@@ -21,6 +21,7 @@
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
 import { DatabaseService } from '../DatabaseService'
+import { infrastructureModels } from '../models'
 import {
   AssetType,
   CalculationInput,
@@ -162,6 +163,9 @@ export interface OperationalMetrics {
   laborCosts: number
   contractorCosts: number
   insuranceCosts: number
+  // Derived revenue metrics
+  operatingRevenue?: number
+  operatingExpenses?: number
 }
 
 export interface ESGMetrics {
@@ -208,41 +212,6 @@ export interface MaintenancePlan {
   deferralImpact: number
 }
 
-export interface CashFlowProjection {
-  year: number
-  operatingRevenue: Decimal
-  operatingExpenses: Decimal
-  ebitda: Decimal
-  maintenanceCapex: Decimal
-  growthCapex: Decimal
-  workingCapitalChange: Decimal
-  freeCashFlow: Decimal
-  terminalValue?: Decimal
-  discountFactor: number
-  presentValue: Decimal
-}
-
-export interface ValuationScenario {
-  scenario: string // base, upside, downside, stress
-  probability: number
-  assumptions: ScenarioAssumptions
-  cashFlows: CashFlowProjection[]
-  terminalValue: Decimal
-  enterpriseValue: Decimal
-  equityValue: Decimal
-}
-
-export interface ScenarioAssumptions {
-  revenueGrowth: number
-  inflationRate: number
-  discountRate: number
-  terminalGrowthRate: number
-  capexAsPercentOfRevenue: number
-  operatingMargin: number
-  taxRate: number
-  regulatoryChangeProbability: number
-}
-
 export interface InfrastructureRiskAssessment {
   overallRisk: string // low, moderate, high, very_high
   constructionRisk: number
@@ -286,11 +255,8 @@ export class InfrastructureCalculator extends BaseCalculator {
       // Perform risk assessment
       const riskAssessment = await this.performRiskAssessment(assetDetails, infraInput)
       
-      // Generate cash flow projections
-      const scenarios = await this.generateValuationScenarios(assetDetails, riskAssessment)
-      
-      // Calculate present value using multiple scenarios
-      const valuation = await this.calculateScenarioWeightedValuation(scenarios)
+      // Calculate valuation using infrastructure models
+      const valuation = await this.calculateInfrastructureValuation(assetDetails, riskAssessment, infraInput)
       
       // Apply infrastructure-specific adjustments
       const adjustments = await this.calculateInfrastructureAdjustments(
@@ -300,7 +266,7 @@ export class InfrastructureCalculator extends BaseCalculator {
       )
       
       // Calculate final NAV
-      const grossAssetValue = valuation.equityValue
+      const grossAssetValue = valuation.totalValue
       const totalLiabilities = adjustments.operationalLiabilities
         .plus(adjustments.regulatoryLiabilities)
         .plus(adjustments.maintenanceReserves)
@@ -319,7 +285,7 @@ export class InfrastructureCalculator extends BaseCalculator {
         netAssets: this.toNumber(netAssetValue),
         navValue: this.toNumber(netAssetValue),
         currency: input.targetCurrency || 'USD',
-        pricingSources: this.buildInfrastructurePricingSources(scenarios, valuation),
+        pricingSources: this.buildInfrastructurePricingSources(valuation, assetDetails),
         calculatedAt: new Date(),
         status: CalculationStatus.COMPLETED,
         metadata: {
@@ -347,12 +313,16 @@ export class InfrastructureCalculator extends BaseCalculator {
             riskPremium: riskAssessment.riskPremium
           },
           valuationSummary: {
-            baseCase: this.toNumber(scenarios[0]?.equityValue || this.decimal(0)),
-            upside: this.toNumber(scenarios[1]?.equityValue || this.decimal(0)),
-            downside: this.toNumber(scenarios[2]?.equityValue || this.decimal(0)),
-            probabilityWeighted: this.toNumber(valuation.equityValue)
+            pppValue: valuation.pppValue ? this.toNumber(valuation.pppValue) : undefined,
+            regulatedAssetBase: valuation.rab ? this.toNumber(valuation.rab) : undefined,
+            tariffRevenue: valuation.tariffRevenue ? this.toNumber(valuation.tariffRevenue) : undefined,
+            totalValue: this.toNumber(valuation.totalValue)
           },
-          keyAssumptions: scenarios[0]?.assumptions
+          financialMetrics: valuation.metrics ? {
+            projectIRR: this.toNumber(valuation.metrics.irr),
+            debtServiceCoverageRatio: this.toNumber(valuation.metrics.dscr),
+            loanLifeCoverageRatio: this.toNumber(valuation.metrics.llcr)
+          } : undefined
         }
       }
 
@@ -373,10 +343,120 @@ export class InfrastructureCalculator extends BaseCalculator {
   // ==================== INFRASTRUCTURE SPECIFIC METHODS ====================
 
   /**
+   * Calculates infrastructure valuation using specialized models
+   */
+  private async calculateInfrastructureValuation(
+    asset: InfrastructureAsset,
+    riskAssessment: InfrastructureRiskAssessment,
+    input: InfrastructureCalculationInput
+  ): Promise<any> {
+    const discountRate = 0.08 + riskAssessment.riskPremium
+    
+    // Use appropriate valuation method based on regulatory framework
+    if (asset.regulatoryFramework === 'ppp' || asset.regulatoryFramework === 'concession') {
+      // PPP Valuation for Public-Private Partnerships
+      const pppValue = infrastructureModels.pppValuation({
+        availabilityPayments: this.generateAvailabilityPayments(asset),
+        concessionPeriod: asset.remainingConcessionLife,
+        discountRate: discountRate,
+        inflationRate: 0.025,
+        operatingCosts: this.generateOperatingCostArray(asset)
+      })
+      
+      // Also calculate infrastructure DCF
+      const dcfValue = infrastructureModels.infrastructureDCF({
+        cashFlows: this.generateInfrastructureCashFlows(asset),
+        discountRate: discountRate,
+        inflationRate: 0.02,
+        taxRate: 0.25
+      })
+      
+      return {
+        pppValue,
+        dcfValue,
+        totalValue: pppValue.plus(dcfValue).div(2), // Average of two methods
+        metrics: infrastructureModels.calculateMetrics(
+          asset.totalInvestment,
+          this.generateCashFlows(asset),
+          asset.totalInvestment * 0.7,
+          this.generateDebtServiceArray(asset.totalInvestment * 0.7, 0.045, Math.min(20, asset.remainingConcessionLife)),
+          discountRate
+        )
+      }
+    } else if (asset.regulatoryFramework === 'regulated_utility') {
+      // Regulatory Asset Base valuation for regulated utilities
+      const rab = infrastructureModels.regulatoryAssetBase({
+        initialInvestment: asset.totalInvestment,
+        depreciation: this.calculateAccumulatedDepreciation(asset),
+        additions: this.calculateCapitalAdditions(asset),
+        workingCapital: this.calculateWorkingCapital(asset),
+        regulatoryPeriod: 1,
+        allowedReturn: 0.025 // regulatory depreciation rate
+      })
+      
+      // Calculate allowed revenue
+      const allowedRevenue = infrastructureModels.calculateAllowedRevenue(
+        this.toNumber(rab),
+        input.allowedReturnOnEquity || 0.095,
+        this.calculateDepreciation(asset),
+        asset.operationalMetrics.operatingCosts,
+        0.25 // tax rate
+      )
+      
+      const dcfValue = infrastructureModels.infrastructureDCF({
+        cashFlows: this.generateRegulatedInfrastructureCashFlows(asset, allowedRevenue),
+        discountRate: discountRate,
+        inflationRate: 0.02,
+        taxRate: 0.25
+      })
+      
+      return {
+        rab,
+        allowedRevenue,
+        dcfValue,
+        totalValue: dcfValue,
+        metrics: infrastructureModels.calculateMetrics(
+          asset.totalInvestment,
+          this.generateRegulatedCashFlows(asset, allowedRevenue),
+          asset.totalInvestment * 0.6,
+          this.generateDebtServiceArray(asset.totalInvestment * 0.6, 0.04, 25),
+          discountRate
+        )
+      }
+    } else {
+      // Merchant/Tariff model for other infrastructure
+      const tariffRevenue = infrastructureModels.tariffModel({
+        usageVolume: asset.operationalMetrics.throughput,
+        fixedTariff: 25, // fixed tariff per unit
+        variableTariff: asset.operationalMetrics.throughput * 0.15 // variable tariff
+      })
+      
+      const dcfValue = infrastructureModels.infrastructureDCF({
+        cashFlows: this.generateMerchantInfrastructureCashFlows(asset, tariffRevenue),
+        discountRate: discountRate,
+        inflationRate: 0.02,
+        taxRate: 0.25
+      })
+      
+      return {
+        tariffRevenue,
+        dcfValue,
+        totalValue: dcfValue,
+        metrics: infrastructureModels.calculateMetrics(
+          asset.totalInvestment,
+          this.generateMerchantCashFlows(asset, tariffRevenue),
+          asset.totalInvestment * 0.5,
+          this.generateDebtServiceArray(asset.totalInvestment * 0.5, 0.05, 20),
+          discountRate
+        )
+      }
+    }
+  }
+
+  /**
    * Fetches infrastructure asset details from database
    */
   private async getInfrastructureAssetDetails(input: InfrastructureCalculationInput): Promise<InfrastructureAsset> {
-    
     try {
       // Get real infrastructure product data from database
       const productDetails = await this.databaseService.getInfrastructureProductById(input.assetId!)
@@ -427,8 +507,8 @@ export class InfrastructureCalculator extends BaseCalculator {
     // Assess different risk categories
     const constructionRisk = asset.operationalDate ? 0.02 : 0.15 // Lower if operational
     const operationalRisk = this.assessOperationalRisk(asset)
-    const regulatoryRisk = this.assessRegulatoryRisk(asset)
-    const politicalRisk = this.assessPoliticalRisk(asset)
+    const regulatoryRisk = input.regulatoryRisk || this.assessRegulatoryRisk(asset)
+    const politicalRisk = input.politicalRisk || this.assessPoliticalRisk(asset)
     const technologyRisk = this.assessTechnologyRisk(asset)
     const environmentalRisk = this.assessEnvironmentalRisk(asset)
     const demandRisk = this.assessDemandRisk(asset)
@@ -475,122 +555,89 @@ export class InfrastructureCalculator extends BaseCalculator {
     }
   }
 
-  /**
-   * Generates multiple valuation scenarios
-   */
-  private async generateValuationScenarios(
-    asset: InfrastructureAsset,
-    riskAssessment: InfrastructureRiskAssessment
-  ): Promise<ValuationScenario[]> {
-    const scenarios: ValuationScenario[] = []
-    
-    // Base case scenario
-    const baseAssumptions: ScenarioAssumptions = {
-      revenueGrowth: 0.03,
-      inflationRate: 0.025,
-      discountRate: 0.08 + riskAssessment.riskPremium,
-      terminalGrowthRate: 0.02,
-      capexAsPercentOfRevenue: 0.15,
-      operatingMargin: asset.operationalMetrics.operatingMargin,
-      taxRate: 0.25,
-      regulatoryChangeProbability: 0.20
-    }
-    
-    const baseCashFlows = this.projectCashFlows(asset, baseAssumptions)
-    const baseTerminalValue = this.calculateTerminalValue(baseCashFlows, baseAssumptions)
-    const baseEquityValue = this.calculateEquityValue(baseCashFlows, baseTerminalValue, baseAssumptions)
-    
-    scenarios.push({
-      scenario: 'base',
-      probability: 0.60,
-      assumptions: baseAssumptions,
-      cashFlows: baseCashFlows,
-      terminalValue: baseTerminalValue,
-      enterpriseValue: baseEquityValue,
-      equityValue: baseEquityValue
-    })
-    
-    // Upside scenario
-    const upsideAssumptions: ScenarioAssumptions = {
-      ...baseAssumptions,
-      revenueGrowth: 0.05,
-      operatingMargin: baseAssumptions.operatingMargin + 0.05,
-      discountRate: baseAssumptions.discountRate - 0.01,
-      regulatoryChangeProbability: 0.10
-    }
-    
-    const upsideCashFlows = this.projectCashFlows(asset, upsideAssumptions)
-    const upsideTerminalValue = this.calculateTerminalValue(upsideCashFlows, upsideAssumptions)
-    const upsideEquityValue = this.calculateEquityValue(upsideCashFlows, upsideTerminalValue, upsideAssumptions)
-    
-    scenarios.push({
-      scenario: 'upside',
-      probability: 0.20,
-      assumptions: upsideAssumptions,
-      cashFlows: upsideCashFlows,
-      terminalValue: upsideTerminalValue,
-      enterpriseValue: upsideEquityValue,
-      equityValue: upsideEquityValue
-    })
-    
-    // Downside scenario
-    const downsideAssumptions: ScenarioAssumptions = {
-      ...baseAssumptions,
-      revenueGrowth: 0.01,
-      operatingMargin: baseAssumptions.operatingMargin - 0.05,
-      discountRate: baseAssumptions.discountRate + 0.02,
-      capexAsPercentOfRevenue: 0.20,
-      regulatoryChangeProbability: 0.40
-    }
-    
-    const downsideCashFlows = this.projectCashFlows(asset, downsideAssumptions)
-    const downsideTerminalValue = this.calculateTerminalValue(downsideCashFlows, downsideAssumptions)
-    const downsideEquityValue = this.calculateEquityValue(downsideCashFlows, downsideTerminalValue, downsideAssumptions)
-    
-    scenarios.push({
-      scenario: 'downside',
-      probability: 0.20,
-      assumptions: downsideAssumptions,
-      cashFlows: downsideCashFlows,
-      terminalValue: downsideTerminalValue,
-      enterpriseValue: downsideEquityValue,
-      equityValue: downsideEquityValue
-    })
-    
-    return scenarios
-  }
-
-  /**
-   * Calculates scenario-weighted valuation
-   */
-  private async calculateScenarioWeightedValuation(scenarios: ValuationScenario[]): Promise<any> {
-    let weightedValue = new Decimal(0)
-    let totalProbability = 0
-    
-    scenarios.forEach(scenario => {
-      weightedValue = weightedValue.plus(scenario.equityValue.times(scenario.probability))
-      totalProbability += scenario.probability
-    })
-    
-    // Normalize if probabilities don't sum to 1
-    if (totalProbability !== 1.0 && totalProbability > 0) {
-      weightedValue = weightedValue.div(totalProbability)
-    }
-    
-    return {
-      equityValue: weightedValue,
-      scenarios: scenarios,
-      weightedAverage: true
-    }
-  }
-
   // ==================== HELPER METHODS ====================
 
-  private calculateYearsRemaining(endDate: Date): number {
-    const now = new Date()
-    const yearsDiff = endDate.getFullYear() - now.getFullYear()
-    const monthsDiff = endDate.getMonth() - now.getMonth()
-    return yearsDiff + (monthsDiff / 12)
+  private generateAvailabilityPayments(asset: InfrastructureAsset): number[] {
+    // Generate annual availability payments for PPP projects
+    const basePayment = asset.totalInvestment * 0.08 // 8% of investment
+    const payments: number[] = []
+    
+    for (let year = 0; year < Math.floor(asset.remainingConcessionLife); year++) {
+      const inflationAdjustment = Math.pow(1.025, year) // 2.5% annual inflation
+      payments.push(basePayment * inflationAdjustment)
+    }
+    
+    return payments
+  }
+
+  private generateCashFlows(asset: InfrastructureAsset): number[] {
+    const cashFlows: number[] = []
+    const baseRevenue = asset.operationalMetrics.operatingRevenue || asset.totalInvestment * 0.12
+    const baseExpenses = asset.operationalMetrics.operatingExpenses || asset.operationalMetrics.operatingCosts
+    
+    for (let year = 0; year < Math.floor(asset.assetLifeRemaining); year++) {
+      const revenue = baseRevenue * Math.pow(1.03, year) // 3% growth
+      const expenses = baseExpenses * Math.pow(1.025, year) // 2.5% inflation
+      const capex = revenue * 0.15 // 15% of revenue for maintenance capex
+      
+      cashFlows.push(revenue - expenses - capex)
+    }
+    
+    return cashFlows
+  }
+
+  private generateRegulatedCashFlows(asset: InfrastructureAsset, allowedRevenue: Decimal): number[] {
+    const cashFlows: number[] = []
+    const baseRevenue = this.toNumber(allowedRevenue)
+    
+    for (let year = 0; year < Math.floor(asset.assetLifeRemaining); year++) {
+      const revenue = baseRevenue * Math.pow(1.025, year) // Regulated escalation
+      const expenses = (asset.operationalMetrics.operatingExpenses || asset.operationalMetrics.operatingCosts) * Math.pow(1.02, year)
+      const capex = revenue * 0.12 // Lower capex for regulated utilities
+      
+      cashFlows.push(revenue - expenses - capex)
+    }
+    
+    return cashFlows
+  }
+
+  private generateMerchantCashFlows(asset: InfrastructureAsset, tariffRevenue: Decimal): number[] {
+    const cashFlows: number[] = []
+    const baseRevenue = this.toNumber(tariffRevenue)
+    
+    for (let year = 0; year < Math.floor(asset.assetLifeRemaining); year++) {
+      const demandGrowth = Math.pow(1.02, year) // 2% demand growth
+      const priceEscalation = Math.pow(1.025, year) // 2.5% price escalation
+      const revenue = baseRevenue * demandGrowth * priceEscalation
+      const expenses = (asset.operationalMetrics.operatingExpenses || asset.operationalMetrics.operatingCosts) * Math.pow(1.025, year)
+      const capex = revenue * 0.18 // Higher capex for merchant assets
+      
+      cashFlows.push(revenue - expenses - capex)
+    }
+    
+    return cashFlows
+  }
+
+  private calculateAccumulatedDepreciation(asset: InfrastructureAsset): number {
+    const ageYears = this.calculateAssetAge(asset.operationalDate)
+    const annualDepreciation = asset.totalInvestment / 40 // 40-year life
+    return annualDepreciation * ageYears
+  }
+
+  private calculateCapitalAdditions(asset: InfrastructureAsset): number {
+    // Estimate capital additions based on asset age
+    const ageYears = this.calculateAssetAge(asset.operationalDate)
+    const annualCapex = asset.totalInvestment * 0.02 // 2% of initial investment
+    return annualCapex * Math.min(ageYears, 10) // Cap at 10 years
+  }
+
+  private calculateWorkingCapital(asset: InfrastructureAsset): number {
+    // Working capital as % of operating costs
+    return asset.operationalMetrics.operatingCosts * 0.15
+  }
+
+  private calculateDepreciation(asset: InfrastructureAsset): number {
+    return asset.totalInvestment / 40 // Straight-line over 40 years
   }
 
   private calculateAssetAge(operationalDate: Date): number {
@@ -600,524 +647,226 @@ export class InfrastructureCalculator extends BaseCalculator {
     return yearsDiff + (monthsDiff / 12)
   }
 
-  private assessOperationalRisk(asset: InfrastructureAsset): number {
-    let risk = 0.05 // Base operational risk
-    
-    // Adjust for asset condition
-    if (asset.assetCondition.overallCondition === 'poor') risk += 0.03
-    else if (asset.assetCondition.overallCondition === 'fair') risk += 0.01
-    
-    // Adjust for utilization
-    if (asset.operationalMetrics.utilization < 0.70) risk += 0.02
-    
-    // Adjust for availability
-    if (asset.operationalMetrics.availability < 0.95) risk += 0.015
-    
-    return Math.min(0.20, risk)
+  private calculateYearsRemaining(endDate: Date): number {
+    const now = new Date()
+    const yearsDiff = endDate.getFullYear() - now.getFullYear()
+    const monthsDiff = endDate.getMonth() - now.getMonth()
+    return Math.max(0, yearsDiff + (monthsDiff / 12))
   }
 
-  private assessRegulatoryRisk(asset: InfrastructureAsset): number {
-    let risk = 0.05 // Base regulatory risk
-    
-    // Adjust for regulatory framework
-    switch (asset.regulatoryFramework) {
-      case 'regulated_utility':
-        risk = 0.03 // Lower risk due to regulated returns
-        break
-      case 'concession':
-        risk = 0.05
-        break
-      case 'merchant':
-        risk = 0.10 // Higher risk for merchant assets
-        break
-    }
-    
-    // Adjust for time to next rate review
-    const timeToReview = this.calculateYearsRemaining(asset.regulatoryMetrics.nextRateReview)
-    if (timeToReview < 1) risk += 0.02
-    
-    return Math.min(0.25, risk)
-  }
-
-  private assessPoliticalRisk(asset: InfrastructureAsset): number {
-    // Simplified political risk based on geography
-    const countryRisk: Record<string, number> = {
-      'United States': 0.02,
-      'Canada': 0.02,
-      'United Kingdom': 0.03,
-      'Germany': 0.025,
-      'Australia': 0.025,
-      'Emerging Market': 0.08
-    }
-    
-    return countryRisk[asset.country] || 0.05
-  }
-
-  private assessTechnologyRisk(asset: InfrastructureAsset): number {
-    // Technology risk varies by asset type
-    const technologyRisk: Record<string, number> = {
-      'toll_roads': 0.01,
-      'airports': 0.03,
-      'power_generation': 0.05,
-      'telecom': 0.08,
-      'water_treatment': 0.02
-    }
-    
-    return technologyRisk[asset.subAssetType] || 0.03
-  }
-
-  private assessEnvironmentalRisk(asset: InfrastructureAsset): number {
-    let risk = 0.03 // Base environmental risk
-    
-    // Adjust for ESG score
-    if (asset.esgMetrics.environmentalScore < 50) risk += 0.05
-    else if (asset.esgMetrics.environmentalScore > 80) risk -= 0.01
-    
-    // Adjust for carbon intensity
-    if (asset.esgMetrics.carbonIntensity > 0.20) risk += 0.02
-    
-    return Math.min(0.15, Math.max(0.01, risk))
-  }
-
-  private assessDemandRisk(asset: InfrastructureAsset): number {
-    let risk = 0.05 // Base demand risk
-    
-    // Adjust for utilization trends
-    if (asset.operationalMetrics.utilization < 0.60) risk += 0.05
-    else if (asset.operationalMetrics.utilization > 0.90) risk -= 0.01
-    
-    // Adjust for asset type
-    if (asset.subAssetType === 'toll_roads') risk += 0.02 // Traffic risk
-    
-    return Math.min(0.15, risk)
-  }
-
-  private assessCreditRisk(asset: InfrastructureAsset): number {
-    // Average counterparty credit risk
-    let totalRisk = 0
-    let count = 0
-    
-    asset.keyContracts.forEach(contract => {
-      const rating = contract.creditRating
-      const ratingRisk = this.convertRatingToRisk(rating)
-      totalRisk += ratingRisk
-      count++
-    })
-    
-    return count > 0 ? totalRisk / count : 0.03
-  }
-
-  private convertRatingToRisk(rating: string): number {
-    const ratingRisk: Record<string, number> = {
-      'AAA': 0.001, 'AA+': 0.002, 'AA': 0.003, 'AA-': 0.005,
-      'A+': 0.008, 'A': 0.012, 'A-': 0.020,
-      'BBB+': 0.035, 'BBB': 0.055, 'BBB-': 0.085,
-      'BB+': 0.140, 'BB': 0.220, 'BB-': 0.340
-    }
-    
-    return ratingRisk[rating] || 0.05
-  }
-
-  private identifyRiskMitigationFactors(asset: InfrastructureAsset): string[] {
-    const mitigationFactors = []
-    
-    // Contract-based mitigations
-    asset.keyContracts.forEach(contract => {
-      if (contract.guarantees.length > 0) {
-        mitigationFactors.push('government_guarantee')
-      }
-      if (contract.escalation.type === 'cpi_linked') {
-        mitigationFactors.push('inflation_protection')
-      }
-    })
-    
-    // Asset-specific mitigations
-    if (asset.assetCondition.overallCondition === 'excellent') {
-      mitigationFactors.push('excellent_asset_condition')
-    }
-    
-    if (asset.operationalMetrics.availability > 0.99) {
-      mitigationFactors.push('high_availability')
-    }
-    
-    if (asset.esgMetrics.overallScore > 80) {
-      mitigationFactors.push('strong_esg_profile')
-    }
-    
-    return mitigationFactors
-  }
-
-  private applyRiskMitigation(baseRiskPremium: number, mitigationFactors: string[]): number {
-    let mitigatedPremium = baseRiskPremium
-    
-    // Apply mitigation discounts
-    const mitigationDiscounts: Record<string, number> = {
-      'government_guarantee': 0.30,
-      'inflation_protection': 0.15,
-      'excellent_asset_condition': 0.10,
-      'high_availability': 0.05,
-      'strong_esg_profile': 0.05
-    }
-    
-    mitigationFactors.forEach(factor => {
-      const discount = mitigationDiscounts[factor] || 0
-      mitigatedPremium *= (1 - discount)
-    })
-    
-    return Math.max(0.01, mitigatedPremium) // Minimum 1% risk premium
-  }
-
-  private projectCashFlows(asset: InfrastructureAsset, assumptions: ScenarioAssumptions): CashFlowProjection[] {
-    const projectionYears = Math.min(asset.remainingConcessionLife, 30)
-    const cashFlows = []
-    
-    let baseRevenue = asset.operationalMetrics.operatingCosts / (1 - assumptions.operatingMargin)
-    let baseOpex = asset.operationalMetrics.operatingCosts
-    
-    for (let year = 1; year <= projectionYears; year++) {
-      const inflatedRevenue = this.decimal(baseRevenue).times(
-        Math.pow(1 + assumptions.revenueGrowth, year)
-      )
-      
-      const inflatedOpex = this.decimal(baseOpex).times(
-        Math.pow(1 + assumptions.inflationRate, year)
-      )
-      
-      const ebitda = inflatedRevenue.minus(inflatedOpex)
-      
-      const maintenanceCapex = inflatedRevenue.times(assumptions.capexAsPercentOfRevenue * 0.7)
-      const growthCapex = inflatedRevenue.times(assumptions.capexAsPercentOfRevenue * 0.3)
-      
-      const workingCapitalChange = this.decimal(0) // Minimal for infrastructure
-      
-      const freeCashFlow = ebitda.minus(maintenanceCapex).minus(growthCapex).minus(workingCapitalChange)
-      
-      const discountFactor = Math.pow(1 + assumptions.discountRate, year)
-      const presentValue = freeCashFlow.div(discountFactor)
-      
-      cashFlows.push({
-        year,
-        operatingRevenue: inflatedRevenue,
-        operatingExpenses: inflatedOpex,
-        ebitda,
-        maintenanceCapex,
-        growthCapex,
-        workingCapitalChange,
-        freeCashFlow,
-        discountFactor,
-        presentValue
-      })
-    }
-    
-    return cashFlows
-  }
-
-  private calculateTerminalValue(cashFlows: CashFlowProjection[], assumptions: ScenarioAssumptions): Decimal {
-    if (cashFlows.length === 0) return new Decimal(0)
-    
-    const finalYearCashFlow = cashFlows[cashFlows.length - 1]?.freeCashFlow || this.decimal(0)
-    const terminalCashFlow = finalYearCashFlow.times(1 + assumptions.terminalGrowthRate)
-    const terminalValue = terminalCashFlow.div(assumptions.discountRate - assumptions.terminalGrowthRate)
-    
-    // Discount terminal value to present
-    const terminalDiscountFactor = Math.pow(1 + assumptions.discountRate, cashFlows.length)
-    return terminalValue.div(terminalDiscountFactor)
-  }
-
-  private calculateEquityValue(
-    cashFlows: CashFlowProjection[], 
-    terminalValue: Decimal, 
-    assumptions: ScenarioAssumptions
-  ): Decimal {
-    let totalPresentValue = new Decimal(0)
-    
-    cashFlows.forEach(cf => {
-      totalPresentValue = totalPresentValue.plus(cf.presentValue)
-    })
-    
-    return totalPresentValue.plus(terminalValue)
-  }
-
-  private async calculateInfrastructureAdjustments(
-    asset: InfrastructureAsset,
-    riskAssessment: InfrastructureRiskAssessment,
-    input: InfrastructureCalculationInput
-  ): Promise<any> {
-    const totalInvestment = this.decimal(asset.totalInvestment)
-    
-    // Operational liabilities (maintenance backlog, etc.)
-    const operationalLiabilities = this.decimal(asset.assetCondition.maintenanceBacklog)
-      .plus(asset.assetCondition.replacementCapexRequired * 0.5) // 50% of replacement capex as liability
-    
-    // Regulatory liabilities (potential fines, compliance costs)
-    const regulatoryLiabilities = totalInvestment.times(0.01) // 1% of investment
-    
-    // Maintenance reserves
-    const maintenanceReserves = this.decimal(asset.operationalMetrics.maintenanceCosts).times(2) // 2 years of reserves
-    
-    return {
-      operationalLiabilities,
-      regulatoryLiabilities,
-      maintenanceReserves,
-      total: operationalLiabilities.plus(regulatoryLiabilities).plus(maintenanceReserves)
-    }
-  }
-
-  private buildInfrastructurePricingSources(scenarios: ValuationScenario[], valuation: any): Record<string, PriceData> {
-    return {
-      base_case: {
-        price: this.toNumber(scenarios[0]?.equityValue || this.decimal(0)),
-        currency: 'USD',
-        asOf: new Date(),
-        source: 'dcf_base_case'
-      },
-      upside_case: {
-        price: this.toNumber(scenarios[1]?.equityValue || this.decimal(0)),
-        currency: 'USD',
-        asOf: new Date(),
-        source: 'dcf_upside_case'
-      },
-      downside_case: {
-        price: this.toNumber(scenarios[2]?.equityValue || this.decimal(0)),
-        currency: 'USD',
-        asOf: new Date(),
-        source: 'dcf_downside_case'
-      },
-      probability_weighted: {
-        price: this.toNumber(valuation.equityValue),
-        currency: 'USD',
-        asOf: new Date(),
-        source: 'scenario_weighted_valuation'
-      }
-    }
-  }
-
-  protected override generateRunId(): string {
-    return `infra_nav_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
-
-  // Helper methods for building infrastructure asset details from database
   private calculateConcessionEndDate(operationalDate: Date, concessionYears: number): Date {
     const endDate = new Date(operationalDate)
     endDate.setFullYear(endDate.getFullYear() + concessionYears)
     return endDate
   }
 
-  private getSubAssetType(infrastructureType: string): string {
-    const subTypes: Record<string, string> = {
-      transportation: 'toll_roads',
-      energy: 'power_transmission',
-      utilities: 'water_treatment',
-      social: 'hospitals',
-      telecom: 'fiber_networks'
+  private getSubAssetType(infrastructureType: string | undefined): string {
+    const mapping: Record<string, string> = {
+      'transportation': 'toll_roads',
+      'energy': 'power_generation',
+      'utilities': 'water_treatment',
+      'social': 'hospitals',
+      'telecom': 'fiber_networks'
     }
-    return subTypes[infrastructureType?.toLowerCase()] || 'toll_roads'
+    return mapping[infrastructureType || ''] || 'general_infrastructure'
   }
 
-  private getRegularoryFramework(infrastructureType: string): string {
-    const frameworks: Record<string, string> = {
-      transportation: 'concession',
-      energy: 'regulated_utility',
-      utilities: 'regulated_utility',
-      social: 'ppp',
-      telecom: 'regulated_utility'
+  private getRegularoryFramework(infrastructureType: string | undefined): string {
+    const mapping: Record<string, string> = {
+      'utilities': 'regulated_utility',
+      'transportation': 'concession',
+      'social': 'ppp',
+      'energy': 'merchant',
+      'telecom': 'merchant'
     }
-    return frameworks[infrastructureType?.toLowerCase()] || 'concession'
+    return mapping[infrastructureType || ''] || 'merchant'
   }
 
-  private buildInfrastructureContracts(
-    productDetails: any, 
-    operationalDate: Date, 
-    concessionEndDate: Date
-  ): ContractDetails[] {
-    return [
-      {
-        contractType: 'concession',
-        counterparty: 'State Transportation Authority',
-        contractLength: Math.floor((concessionEndDate.getTime() - operationalDate.getTime()) / (365 * 24 * 60 * 60 * 1000)),
-        startDate: operationalDate,
-        endDate: concessionEndDate,
-        revenueType: 'variable',
-        escalation: {
-          type: 'cpi_linked',
-          baseRate: 0.025,
-          inflationIndex: 'CPI',
-          cappedRate: 0.045,
-          flooredRate: 0.01,
-          reviewFrequency: 'annual'
-        },
-        terminationClauses: [
-          {
-            trigger: 'default',
-            noticePeriod: 90,
-            compensationMechanism: 'debt_plus_equity',
-            assetOwnership: 'revert'
-          }
-        ],
-        performanceMetrics: [
-          {
-            metric: 'availability',
-            target: 0.99,
-            actual: 0.995,
-            penaltyRate: 0.01,
-            bonusRate: 0.005,
-            measurementFrequency: 'monthly'
-          }
-        ],
-        creditRating: 'A-',
-        guarantees: ['government_guarantee', 'revenue_guarantee']
-      }
-    ]
+  // Risk assessment helper methods
+  private assessOperationalRisk(asset: InfrastructureAsset): number {
+    let risk = 0.05
+    if (asset.operationalMetrics.availability < 0.95) risk += 0.02
+    if (asset.operationalMetrics.utilization < 0.70) risk += 0.03
+    if (asset.assetCondition.overallCondition === 'poor') risk += 0.05
+    return Math.min(0.25, risk)
+  }
+
+  private assessRegulatoryRisk(asset: InfrastructureAsset): number {
+    if (asset.regulatoryFramework === 'regulated_utility') return 0.03
+    if (asset.regulatoryFramework === 'ppp') return 0.05
+    if (asset.regulatoryFramework === 'concession') return 0.07
+    return 0.10 // merchant
+  }
+
+  private assessPoliticalRisk(asset: InfrastructureAsset): number {
+    // Simplified political risk based on region
+    if (asset.region === 'North America' || asset.region === 'Europe') return 0.02
+    if (asset.region === 'Asia Pacific') return 0.05
+    return 0.10 // Emerging markets
+  }
+
+  private assessTechnologyRisk(asset: InfrastructureAsset): number {
+    if (asset.assetType === 'telecom') return 0.15 // High tech risk
+    if (asset.assetType === 'energy' && asset.subAssetType?.includes('renewable')) return 0.08
+    return 0.03 // Traditional infrastructure
+  }
+
+  private assessEnvironmentalRisk(asset: InfrastructureAsset): number {
+    let risk = 0.02
+    if (asset.esgMetrics.carbonIntensity > 100) risk += 0.05
+    if (asset.esgMetrics.environmentalScore < 50) risk += 0.03
+    return Math.min(0.20, risk)
+  }
+
+  private assessDemandRisk(asset: InfrastructureAsset): number {
+    if (asset.revenueModel === 'availability_payment') return 0.02 // Low demand risk
+    if (asset.operationalMetrics.utilization < 0.60) return 0.15
+    if (asset.operationalMetrics.utilization < 0.80) return 0.08
+    return 0.04
+  }
+
+  private assessCreditRisk(asset: InfrastructureAsset): number {
+    // Simplified credit risk assessment
+    const avgCreditScore = this.getAverageCounterpartyCredit(asset)
+    if (avgCreditScore === 'AAA' || avgCreditScore === 'AA') return 0.01
+    if (avgCreditScore === 'A' || avgCreditScore === 'BBB') return 0.03
+    return 0.08
+  }
+
+  private getAverageCounterpartyCredit(asset: InfrastructureAsset): string {
+    // Would aggregate from contracts
+    return 'A'
+  }
+
+  private identifyRiskMitigationFactors(asset: InfrastructureAsset): string[] {
+    const factors: string[] = []
+    
+    if (asset.regulatoryFramework === 'regulated_utility') {
+      factors.push('Regulated revenue framework')
+    }
+    if (asset.revenueModel === 'availability_payment') {
+      factors.push('Availability-based payments reduce demand risk')
+    }
+    if (asset.keyContracts.some(c => c.guarantees.length > 0)) {
+      factors.push('Government guarantees')
+    }
+    if (asset.esgMetrics.overallScore > 75) {
+      factors.push('Strong ESG credentials')
+    }
+    if (asset.operationalMetrics.availability > 0.95) {
+      factors.push('Excellent operational track record')
+    }
+    
+    return factors
+  }
+
+  private applyRiskMitigation(baseRiskPremium: number, factors: string[]): number {
+    // Each mitigation factor reduces risk premium by 10%
+    const mitigationFactor = Math.pow(0.9, factors.length)
+    return baseRiskPremium * mitigationFactor
+  }
+
+  // Database helper methods
+  private buildInfrastructureContracts(productDetails: any, operationalDate: Date, concessionEndDate?: Date): ContractDetails[] {
+    return [{
+      contractType: 'concession',
+      counterparty: 'Government Authority',
+      contractLength: productDetails.concession_period_years || 30,
+      startDate: operationalDate,
+      endDate: concessionEndDate || new Date('2050-01-01'),
+      revenueType: productDetails.revenue_model === 'availability_payment' ? 'fixed' : 'variable',
+      escalation: {
+        type: 'cpi_linked',
+        baseRate: 0.025,
+        inflationIndex: 'CPI',
+        cappedRate: 0.05,
+        flooredRate: 0,
+        reviewFrequency: 'annual'
+      },
+      terminationClauses: [],
+      performanceMetrics: [],
+      creditRating: 'A',
+      guarantees: []
+    }]
   }
 
   private buildRegulatoryMetrics(input: InfrastructureCalculationInput, productDetails: any): RegulatoryMetrics {
     return {
-      framework: input.regulatoryFramework || this.getRegularoryFramework(productDetails.infrastructure_type),
-      regulator: 'Transportation Authority',
-      rateBase: input.regulatedAssetBase || (productDetails.asset_value ? productDetails.asset_value * 0.8 : 400000000),
+      framework: input.regulatoryFramework || 'merchant',
+      regulator: 'Federal Infrastructure Authority',
+      rateBase: input.regulatedAssetBase || productDetails.asset_value || 500000000,
       allowedROE: input.allowedReturnOnEquity || 0.095,
-      allowedROA: 0.065,
+      allowedROA: 0.075,
       nextRateReview: new Date('2026-01-01'),
       rateReviewFrequency: 5,
-      tariffEscalation: 0.03,
+      tariffEscalation: 0.025,
       subsidiesReceived: 0,
       regulatoryChanges: []
     }
   }
 
   private buildOperationalMetrics(input: InfrastructureCalculationInput, productDetails: any): OperationalMetrics {
-    const capacity = this.getCapacityByType(productDetails.infrastructure_type)
+    const revenue = input.operatingRevenue || productDetails.asset_value * 0.12 || 60000000
+    const expenses = input.operatingExpenses || revenue * 0.4
+    
     return {
-      capacity,
-      utilization: 0.75,
-      throughput: capacity * 0.75,
-      availability: 0.995,
-      operatingCosts: (productDetails.asset_value || 500000000) * 0.05, // 5% of asset value
-      maintenanceCosts: (productDetails.asset_value || 500000000) * 0.03, // 3% of asset value
-      capitalExpenditures: (productDetails.asset_value || 500000000) * 0.02, // 2% of asset value
-      operatingMargin: 0.65,
-      ebitdaMargin: 0.70,
-      laborCosts: (productDetails.asset_value || 500000000) * 0.016, // 1.6% of asset value
-      contractorCosts: (productDetails.asset_value || 500000000) * 0.01, // 1% of asset value
-      insuranceCosts: (productDetails.asset_value || 500000000) * 0.004 // 0.4% of asset value
+      capacity: 100000, // Units depend on asset type
+      utilization: 0.85,
+      throughput: 85000,
+      availability: 0.96,
+      operatingCosts: expenses,
+      maintenanceCosts: expenses * 0.25,
+      capitalExpenditures: revenue * 0.15,
+      operatingMargin: 0.6,
+      ebitdaMargin: 0.5,
+      laborCosts: expenses * 0.3,
+      contractorCosts: expenses * 0.2,
+      insuranceCosts: expenses * 0.05,
+      // Derived revenue metrics
+      operatingRevenue: revenue,
+      operatingExpenses: expenses
     }
-  }
-
-  private getCapacityByType(infrastructureType: string): number {
-    const capacities: Record<string, number> = {
-      transportation: 100000, // vehicles per day
-      energy: 500, // MW
-      utilities: 50000, // m³ per day
-      social: 500, // patients per day
-      telecom: 10000 // Gbps
-    }
-    return capacities[infrastructureType?.toLowerCase()] || 100000
   }
 
   private buildEsgMetrics(input: InfrastructureCalculationInput, productDetails: any): ESGMetrics {
     return {
-      overallScore: input.esgScore || this.getESGScoreByType(productDetails.infrastructure_type),
-      environmentalScore: this.getEnvironmentalScoreByType(productDetails.infrastructure_type),
-      socialScore: 78,
-      socialImpactScore: input.socialImpactScore || 82,
-      governanceScore: 76,
-      carbonEmissions: input.carbonIntensity || this.getCarbonEmissionsByType(productDetails.infrastructure_type),
-      carbonIntensity: 0.15,
-      waterUsage: 50000,
-      wasteGeneration: 500,
-      jobsCreated: Math.floor((productDetails.asset_value || 500000000) / 2000000), // 1 job per $2M investment
-      localCommunityImpact: 85,
+      overallScore: input.esgScore || 75,
+      environmentalScore: 70,
+      socialScore: 80,
+      socialImpactScore: input.socialImpactScore || 85,
+      governanceScore: 75,
+      carbonEmissions: 50000,
+      carbonIntensity: input.carbonIntensity || 50,
+      waterUsage: 100000,
+      wasteGeneration: 5000,
+      jobsCreated: 500,
+      localCommunityImpact: 8,
       safetyIncidents: 2,
       complianceScore: 95
     }
   }
 
-  private getESGScoreByType(infrastructureType: string): number {
-    const scores: Record<string, number> = {
-      transportation: 75,
-      energy: 80, // Assuming renewable energy
-      utilities: 85,
-      social: 90,
-      telecom: 70
-    }
-    return scores[infrastructureType?.toLowerCase()] || 75
-  }
-
-  private getEnvironmentalScoreByType(infrastructureType: string): number {
-    const scores: Record<string, number> = {
-      transportation: 72,
-      energy: 85, // Assuming renewable energy
-      utilities: 80,
-      social: 78,
-      telecom: 75
-    }
-    return scores[infrastructureType?.toLowerCase()] || 72
-  }
-
-  private getCarbonEmissionsByType(infrastructureType: string): number {
-    const emissions: Record<string, number> = {
-      transportation: 1200,
-      energy: 500, // Assuming renewable energy
-      utilities: 800,
-      social: 600,
-      telecom: 300
-    }
-    return emissions[infrastructureType?.toLowerCase()] || 1200
-  }
-
-  private buildAssetCondition(
-    input: InfrastructureCalculationInput, 
-    productDetails: any, 
-    operationalDate: Date
-  ): AssetCondition {
+  private buildAssetCondition(input: InfrastructureCalculationInput, productDetails: any, operationalDate: Date): AssetCondition {
+    const ageYears = this.calculateAssetAge(operationalDate)
+    
     return {
-      overallCondition: 'good',
-      ageYears: this.calculateAssetAge(operationalDate),
-      expectedLifeRemaining: 25,
-      maintenanceBacklog: (productDetails.asset_value || 500000000) * 0.01, // 1% of asset value
-      replacementCapexRequired: (productDetails.asset_value || 500000000) * 0.10, // 10% of asset value
-      conditionAssessments: [
-        {
-          assessmentDate: new Date('2024-06-01'),
-          component: this.getMainComponentByType(productDetails.infrastructure_type),
-          condition: 'good',
-          recommendedAction: 'routine_maintenance',
-          costEstimate: (productDetails.asset_value || 500000000) * 0.004, // 0.4% of asset value
-          urgency: 'within_year'
-        }
-      ],
-      maintenancePlans: [
-        {
-          component: this.getMainComponentByType(productDetails.infrastructure_type),
-          maintenanceType: 'preventive',
-          frequency: 'quarterly',
-          annualCost: (productDetails.asset_value || 500000000) * 0.003, // 0.3% of asset value
-          nextScheduledDate: new Date('2025-04-01'),
-          deferralImpact: 0.05
-        }
-      ]
+      overallCondition: ageYears < 5 ? 'excellent' : ageYears < 15 ? 'good' : 'fair',
+      ageYears,
+      expectedLifeRemaining: Math.max(0, 40 - ageYears),
+      maintenanceBacklog: ageYears * 1000000,
+      replacementCapexRequired: ageYears > 20 ? productDetails.asset_value * 0.3 : 0,
+      conditionAssessments: [],
+      maintenancePlans: []
     }
-  }
-
-  private getMainComponentByType(infrastructureType: string): string {
-    const components: Record<string, string> = {
-      transportation: 'road_surface',
-      energy: 'transmission_lines',
-      utilities: 'treatment_equipment',
-      social: 'medical_equipment',
-      telecom: 'fiber_cables'
-    }
-    return components[infrastructureType?.toLowerCase()] || 'road_surface'
   }
 
   private buildFallbackInfrastructureAsset(input: InfrastructureCalculationInput): InfrastructureAsset {
     const operationalDate = input.operationalDate || new Date('2020-01-01')
     const concessionEndDate = input.concessionEndDate || new Date('2050-01-01')
-    const remainingConcessionLife = this.calculateYearsRemaining(concessionEndDate)
     
     return {
       assetId: input.assetId || 'infra_001',
-      assetName: `Infrastructure Asset ${input.assetId}`,
+      assetName: 'Infrastructure Asset',
       assetType: input.assetType || 'transportation',
       subAssetType: input.subAssetType || 'toll_roads',
       geographicLocation: input.geographicLocation || 'United States',
@@ -1126,17 +875,148 @@ export class InfrastructureCalculator extends BaseCalculator {
       constructionStartDate: input.constructionStartDate,
       operationalDate,
       concessionEndDate,
-      remainingConcessionLife,
+      remainingConcessionLife: this.calculateYearsRemaining(concessionEndDate),
       assetLifeRemaining: 25,
       totalInvestment: input.totalInvestment || 500000000,
       constructionCost: input.constructionCost || 450000000,
       regulatoryFramework: input.regulatoryFramework || 'concession',
       revenueModel: input.revenueModel || 'merchant_revenue',
-      keyContracts: this.buildInfrastructureContracts({infrastructure_type: 'transportation'}, operationalDate, concessionEndDate),
-      regulatoryMetrics: this.buildRegulatoryMetrics(input, {infrastructure_type: 'transportation', asset_value: 500000000}),
-      operationalMetrics: this.buildOperationalMetrics(input, {infrastructure_type: 'transportation', asset_value: 500000000}),
-      esgMetrics: this.buildEsgMetrics(input, {infrastructure_type: 'transportation', asset_value: 500000000}),
-      assetCondition: this.buildAssetCondition(input, {infrastructure_type: 'transportation', asset_value: 500000000}, operationalDate)
+      keyContracts: [],
+      regulatoryMetrics: this.buildRegulatoryMetrics(input, {}),
+      operationalMetrics: this.buildOperationalMetrics(input, {}),
+      esgMetrics: this.buildEsgMetrics(input, {}),
+      assetCondition: this.buildAssetCondition(input, { asset_value: 500000000 }, operationalDate)
     }
+  }
+
+  private async calculateInfrastructureAdjustments(
+    asset: InfrastructureAsset,
+    riskAssessment: InfrastructureRiskAssessment,
+    input: InfrastructureCalculationInput
+  ): Promise<any> {
+    const operationalLiabilities = this.decimal(asset.operationalMetrics.operatingCosts * 0.25)
+    const regulatoryLiabilities = this.decimal(asset.regulatoryMetrics.subsidiesReceived || 0)
+    const maintenanceReserves = this.decimal(asset.assetCondition.maintenanceBacklog || 0)
+    
+    return {
+      operationalLiabilities,
+      regulatoryLiabilities,
+      maintenanceReserves
+    }
+  }
+
+  private generateOperatingCostArray(asset: InfrastructureAsset): number[] {
+    const costs: number[] = []
+    const baseCost = asset.operationalMetrics.operatingCosts
+    
+    for (let year = 0; year < Math.floor(asset.remainingConcessionLife); year++) {
+      costs.push(baseCost * Math.pow(1.025, year)) // 2.5% inflation
+    }
+    
+    return costs
+  }
+
+  private generateInfrastructureCashFlows(asset: InfrastructureAsset): any[] {
+    const cashFlows: any[] = []
+    const baseRevenue = asset.operationalMetrics.operatingRevenue || asset.totalInvestment * 0.12
+    const baseOpex = asset.operationalMetrics.operatingExpenses || asset.operationalMetrics.operatingCosts
+    
+    for (let year = 0; year < Math.floor(asset.assetLifeRemaining); year++) {
+      cashFlows.push({
+        period: year,
+        revenue: baseRevenue * Math.pow(1.03, year),
+        opex: baseOpex * Math.pow(1.025, year),
+        capex: baseRevenue * 0.15 * Math.pow(1.025, year)
+      })
+    }
+    
+    return cashFlows
+  }
+
+  private generateRegulatedInfrastructureCashFlows(asset: InfrastructureAsset, allowedRevenue: Decimal): any[] {
+    const cashFlows: any[] = []
+    const baseRevenue = this.toNumber(allowedRevenue)
+    const baseOpex = asset.operationalMetrics.operatingExpenses || asset.operationalMetrics.operatingCosts
+    
+    for (let year = 0; year < Math.floor(asset.assetLifeRemaining); year++) {
+      cashFlows.push({
+        period: year,
+        revenue: baseRevenue * Math.pow(1.025, year),
+        opex: baseOpex * Math.pow(1.02, year),
+        capex: baseRevenue * 0.12 * Math.pow(1.025, year)
+      })
+    }
+    
+    return cashFlows
+  }
+
+  private generateMerchantInfrastructureCashFlows(asset: InfrastructureAsset, tariffRevenue: Decimal): any[] {
+    const cashFlows: any[] = []
+    const baseRevenue = this.toNumber(tariffRevenue)
+    const baseOpex = asset.operationalMetrics.operatingExpenses || asset.operationalMetrics.operatingCosts
+    
+    for (let year = 0; year < Math.floor(asset.assetLifeRemaining); year++) {
+      const demandGrowth = Math.pow(1.02, year)
+      const priceEscalation = Math.pow(1.025, year)
+      
+      cashFlows.push({
+        period: year,
+        revenue: baseRevenue * demandGrowth * priceEscalation,
+        opex: baseOpex * Math.pow(1.025, year),
+        capex: baseRevenue * 0.18 * Math.pow(1.025, year)
+      })
+    }
+    
+    return cashFlows
+  }
+
+  private generateDebtServiceArray(principal: number, interestRate: number, term: number): number[] {
+    const debtService: number[] = []
+    const r = interestRate
+    const n = Math.floor(term)
+    
+    // Calculate annual payment for amortizing loan
+    const payment = principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)
+    
+    for (let year = 0; year < n; year++) {
+      debtService.push(payment)
+    }
+    
+    return debtService
+  }
+
+  private buildInfrastructurePricingSources(valuation: any, asset: InfrastructureAsset): Record<string, PriceData> {
+    const sources: Record<string, PriceData> = {
+      dcf_valuation: {
+        price: this.toNumber(valuation.totalValue),
+        currency: 'USD',
+        asOf: new Date(),
+        source: 'discounted_cash_flow'
+      }
+    }
+    
+    if (valuation.pppValue) {
+      sources.ppp_valuation = {
+        price: this.toNumber(valuation.pppValue),
+        currency: 'USD',
+        asOf: new Date(),
+        source: 'ppp_model'
+      }
+    }
+    
+    if (valuation.rab) {
+      sources.regulatory_asset_base = {
+        price: this.toNumber(valuation.rab),
+        currency: 'USD',
+        asOf: new Date(),
+        source: 'regulatory_framework'
+      }
+    }
+    
+    return sources
+  }
+
+  protected override generateRunId(): string {
+    return `infra_nav_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 }

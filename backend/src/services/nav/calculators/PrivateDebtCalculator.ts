@@ -31,6 +31,9 @@ import {
   ValidationSeverity,
   MarketDataProvider
 } from '../types'
+// Import the new credit models
+import { creditModels } from '../models'
+import { yieldCurveModels } from '../models'
 
 export interface PrivateDebtCalculationInput extends CalculationInput {
   // Private debt specific parameters
@@ -255,7 +258,7 @@ export class PrivateDebtCalculator extends BaseCalculator {
       const loanDetails = await this.getLoanDetails(pdInput)
       const portfolioMetrics = await this.calculatePortfolioMetrics(pdInput)
       
-      // Perform credit risk assessment
+      // Perform credit risk assessment using real models
       const creditAssessment = await this.performCreditRiskAssessment(loanDetails)
       
       // Calculate collateral and recovery analysis
@@ -572,41 +575,151 @@ export class PrivateDebtCalculator extends BaseCalculator {
   }
 
   /**
-   * Performs comprehensive credit risk assessment
+   * Performs comprehensive credit risk assessment using CreditModels
    */
   private async performCreditRiskAssessment(loan: LoanDetails): Promise<CreditRiskAssessment> {
-    // Calculate base probability of default based on rating and metrics
-    const basePD = this.calculateBaseProbabilityOfDefault(loan.creditRating, loan.internalRating)
+    // Use real credit models with proper Decimal precision
+    const assetValue = this.decimal(loan.outstandingPrincipal + loan.collateralValue)
+    const debtValue = this.decimal(loan.outstandingPrincipal)
+    const assetVolatility = this.decimal(this.getAssetVolatilityForIndustry(loan.industry))
+    const timeToMaturity = this.calculateTimeToMaturity(loan.maturityDate) / 12 // Convert to years
+    const riskFreeRate = this.decimal(0.045) // Risk-free rate
     
-    // Adjust for loan-specific factors
-    const adjustedPD = this.adjustPDForLoanFactors(basePD, loan)
+    // Use Merton structural model for probability of default
+    const pd = creditModels.mertonDefaultProbability({
+      assetValue,
+      debtFaceValue: debtValue,
+      assetVolatility,
+      timeToMaturity,
+      riskFreeRate
+    })
     
-    // Calculate loss given default
-    const lgd = this.calculateLossGivenDefault(loan)
+    // Calculate recovery rate based on collateral and loan type
+    const recoveryRate = creditModels.estimateRecoveryRate({
+      seniorityClass: this.mapLoanTypeToSeniority(loan.loanType) as any,
+      collateralValue: this.decimal(loan.collateralValue),
+      industryType: loan.industry,
+      economicCycle: 'expansion'
+    })
     
-    // Calculate expected loss
-    const expectedLoss = adjustedPD * lgd
+    // Loss given default
+    const lgd = this.decimal(1).minus(recoveryRate)
     
-    // Calculate credit spread
-    const creditSpread = this.calculateCreditSpread(adjustedPD, lgd, loan)
+    // Calculate credit spread using the models  
+    const creditSpread = creditModels.calculateCreditSpread({
+      defaultProbability: pd,
+      recoveryRate,
+      riskFreeRate,
+      maturity: timeToMaturity,
+      riskPremium: this.decimal(0.40) // 40% Sharpe ratio for credit risk
+    })
     
-    // Estimate recovery rate
-    const recoveryRate = 1 - lgd
+    // Generate credit migration matrix
+    const migrationMatrix = creditModels.generateMigrationMatrix(loan.creditRating, 1)
+    const downgradeProbability = Array.from(migrationMatrix.entries())
+      .filter(([rating, prob]) => this.getRatingIndex(rating) > this.getRatingIndex(loan.creditRating))
+      .reduce((sum, [, prob]) => sum.plus(prob), this.decimal(0))
     
-    // Perform stress testing
-    const stressTests = this.performStressTests(adjustedPD, lgd, loan)
+    // Stress testing using real models
+    const stressTests = this.performModelBasedStressTests(pd, lgd.toNumber(), loan, assetValue.toNumber(), debtValue.toNumber(), assetVolatility.toNumber())
     
     return {
       internalRating: loan.internalRating,
       externalRating: loan.creditRating,
-      probabilityOfDefault: adjustedPD,
-      lossGivenDefault: lgd,
-      expectedLoss,
-      creditSpread,
-      migrationRisk: 0.15, // 15% chance of rating migration
-      recoveryRate,
+      probabilityOfDefault: pd.toNumber(),
+      lossGivenDefault: lgd.toNumber(),
+      expectedLoss: pd.times(lgd).toNumber(),
+      creditSpread: creditSpread.toNumber(),
+      migrationRisk: downgradeProbability.toNumber(),
+      recoveryRate: recoveryRate.toNumber(),
       stressTestResults: stressTests
     }
+  }
+  
+  private getAssetVolatilityForIndustry(industry: string): number {
+    const volatilityMap: Record<string, number> = {
+      'technology': 0.40,
+      'healthcare': 0.35,
+      'manufacturing': 0.30,
+      'services': 0.28,
+      'utilities': 0.20,
+      'real_estate': 0.25
+    }
+    return volatilityMap[industry.toLowerCase()] || 0.30
+  }
+  
+  private mapLoanTypeToSeniority(loanType: string): string {
+    const seniorityMap: Record<string, string> = {
+      'senior_secured': 'senior',
+      'subordinated': 'subordinated',
+      'mezzanine': 'mezzanine',
+      'unitranche': 'senior',
+      'unsecured': 'unsecured'
+    }
+    return seniorityMap[loanType] || 'senior'
+  }
+  
+  private performModelBasedStressTests(
+    basePD: Decimal,
+    baseLGD: number,
+    loan: LoanDetails,
+    assetValue: number,
+    debtValue: number,
+    assetVolatility: number
+  ): StressTestScenario[] {
+    const timeToMaturity = this.calculateTimeToMaturity(loan.maturityDate) / 12
+    
+    // Base scenario
+    const baseExpectedLoss = creditModels.calculateExpectedLoss(basePD, new Decimal(baseLGD))
+    
+    // Adverse scenario - increase volatility by 50%
+    const adversePD = creditModels.mertonDefaultProbability({
+      assetValue: new Decimal(assetValue * 0.90), // 10% asset value decline
+      debtFaceValue: new Decimal(debtValue),
+      assetVolatility: new Decimal(assetVolatility * 1.5),
+      timeToMaturity: timeToMaturity,
+      riskFreeRate: new Decimal(0.045)
+    })
+    const adverseLGD = baseLGD * 1.1
+    const adverseExpectedLoss = creditModels.calculateExpectedLoss(adversePD, new Decimal(adverseLGD))
+    
+    // Severely adverse scenario - double volatility, significant asset decline
+    const severePD = creditModels.mertonDefaultProbability({
+      assetValue: new Decimal(assetValue * 0.70), // 30% asset value decline
+      debtFaceValue: new Decimal(debtValue),
+      assetVolatility: new Decimal(assetVolatility * 2.0),
+      timeToMaturity: timeToMaturity,
+      riskFreeRate: new Decimal(0.045)
+    })
+    const severeLGD = baseLGD * 1.25
+    const severeExpectedLoss = creditModels.calculateExpectedLoss(severePD, new Decimal(severeLGD))
+    
+    return [
+      {
+        scenario: 'base',
+        newPD: basePD.toNumber(),
+        newLGD: baseLGD,
+        expectedLoss: baseExpectedLoss.toNumber(),
+        fairValue: loan.outstandingPrincipal * (1 - baseExpectedLoss.toNumber()),
+        markdownPercentage: 0
+      },
+      {
+        scenario: 'adverse',
+        newPD: adversePD.toNumber(),
+        newLGD: adverseLGD,
+        expectedLoss: adverseExpectedLoss.toNumber(),
+        fairValue: loan.outstandingPrincipal * (1 - adverseExpectedLoss.toNumber()),
+        markdownPercentage: 0.15
+      },
+      {
+        scenario: 'severely_adverse',
+        newPD: severePD.toNumber(),
+        newLGD: severeLGD,
+        expectedLoss: severeExpectedLoss.toNumber(),
+        fairValue: loan.outstandingPrincipal * (1 - severeExpectedLoss.toNumber()),
+        markdownPercentage: 0.35
+      }
+    ]
   }
 
   /**
@@ -818,112 +931,6 @@ export class PrivateDebtCalculator extends BaseCalculator {
 
   // ==================== HELPER METHODS ====================
 
-  private calculateBaseProbabilityOfDefault(externalRating: string, internalRating: string): number {
-    // Simplified PD mapping based on ratings
-    const ratingToPD: Record<string, number> = {
-      'AAA': 0.0001, 'AA+': 0.0002, 'AA': 0.0003, 'AA-': 0.0005,
-      'A+': 0.0008, 'A': 0.0012, 'A-': 0.0020,
-      'BBB+': 0.0035, 'BBB': 0.0055, 'BBB-': 0.0085,
-      'BB+': 0.0140, 'BB': 0.0220, 'BB-': 0.0340,
-      'B+': 0.0520, 'B': 0.0780, 'B-': 0.1150,
-      'CCC+': 0.1650, 'CCC': 0.2350, 'CCC-': 0.3200
-    }
-    
-    return ratingToPD[externalRating] || 0.05 // Default to 5% if rating not found
-  }
-
-  private adjustPDForLoanFactors(basePD: number, loan: LoanDetails): number {
-    let adjustedPD = basePD
-    
-    // Adjust for LTV
-    if (loan.currentLTV > 0.80) {
-      adjustedPD *= 1.3 // 30% increase for high LTV
-    } else if (loan.currentLTV < 0.60) {
-      adjustedPD *= 0.8 // 20% decrease for low LTV
-    }
-    
-    // Adjust for covenant compliance
-    const covenantBreaches = loan.covenant_compliance.filter(c => !c.compliant).length
-    if (covenantBreaches > 0) {
-      adjustedPD *= (1 + covenantBreaches * 0.25) // 25% increase per breach
-    }
-    
-    // Adjust for payment history
-    const latePayments = loan.paymentHistory.filter(p => p.status !== 'on_time').length
-    if (latePayments > 0) {
-      adjustedPD *= (1 + latePayments * 0.15) // 15% increase per late payment
-    }
-    
-    return Math.min(0.50, adjustedPD) // Cap at 50%
-  }
-
-  private calculateLossGivenDefault(loan: LoanDetails): number {
-    let baseLGD = 0.40 // 40% base LGD for senior secured
-    
-    // Adjust based on loan type
-    switch (loan.loanType) {
-      case 'senior_secured':
-        baseLGD = 0.35
-        break
-      case 'subordinated':
-        baseLGD = 0.65
-        break
-      case 'mezzanine':
-        baseLGD = 0.75
-        break
-      case 'unsecured':
-        baseLGD = 0.80
-        break
-    }
-    
-    // Adjust for collateral coverage
-    const collateralCoverage = loan.collateralValue / loan.outstandingPrincipal
-    if (collateralCoverage > 1.5) {
-      baseLGD *= 0.8 // Better collateral = lower LGD
-    } else if (collateralCoverage < 1.0) {
-      baseLGD *= 1.2 // Poor collateral = higher LGD
-    }
-    
-    return Math.min(0.90, Math.max(0.10, baseLGD)) // Cap between 10% and 90%
-  }
-
-  private calculateCreditSpread(pd: number, lgd: number, loan: LoanDetails): number {
-    const expectedLoss = pd * lgd
-    const riskPremium = expectedLoss * 2.5 // Risk premium multiplier
-    const liquidityPremium = 0.015 // 150bps liquidity premium for private debt
-    
-    return riskPremium + liquidityPremium
-  }
-
-  private performStressTests(pd: number, lgd: number, loan: LoanDetails): StressTestScenario[] {
-    return [
-      {
-        scenario: 'base',
-        newPD: pd,
-        newLGD: lgd,
-        expectedLoss: pd * lgd,
-        fairValue: loan.outstandingPrincipal * (1 - pd * lgd),
-        markdownPercentage: 0
-      },
-      {
-        scenario: 'adverse',
-        newPD: pd * 1.5,
-        newLGD: lgd * 1.1,
-        expectedLoss: (pd * 1.5) * (lgd * 1.1),
-        fairValue: loan.outstandingPrincipal * (1 - (pd * 1.5) * (lgd * 1.1)),
-        markdownPercentage: 0.15
-      },
-      {
-        scenario: 'severely_adverse',
-        newPD: pd * 2.5,
-        newLGD: lgd * 1.25,
-        expectedLoss: (pd * 2.5) * (lgd * 1.25),
-        fairValue: loan.outstandingPrincipal * (1 - (pd * 2.5) * (lgd * 1.25)),
-        markdownPercentage: 0.35
-      }
-    ]
-  }
-
   private projectLoanCashFlows(loan: LoanDetails): number[] {
     const monthsToMaturity = this.calculateTimeToMaturity(loan.maturityDate)
     const monthlyRate = loan.interestRate / 12
@@ -1017,6 +1024,12 @@ export class PrivateDebtCalculator extends BaseCalculator {
         source: 'credit_risk_model'
       }
     }
+  }
+
+  private getRatingIndex(rating: string): number {
+    const ratings = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D']
+    const index = ratings.findIndex(r => rating.startsWith(r))
+    return index >= 0 ? index : 4 // Default to BBB if not found
   }
 
   protected override generateRunId(): string {

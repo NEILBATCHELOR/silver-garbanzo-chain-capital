@@ -17,6 +17,7 @@
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
 import { DatabaseService } from '../DatabaseService'
+import { stablecoinModels } from '../models'
 import {
   AssetType,
   CalculationInput,
@@ -320,7 +321,7 @@ export class StablecoinCryptoCalculator extends BaseCalculator {
   }
 
   /**
-   * Calculates collateralization metrics
+   * Calculates collateralization metrics using digital models
    */
   private async calculateCollateralizationMetrics(
     collateralData: CollateralAsset[],
@@ -331,6 +332,7 @@ export class StablecoinCryptoCalculator extends BaseCalculator {
     collateralizationRatio: number
     excessCollateral: number
     liquidationBuffer: number
+    collateralStatus: any
   }> {
     let totalCollateralValue = 0
     
@@ -339,8 +341,18 @@ export class StablecoinCryptoCalculator extends BaseCalculator {
     }
     
     const totalDebt = productDetails.circulatingSupply
-    const collateralizationRatio = totalDebt > 0 ? totalCollateralValue / totalDebt : Infinity
-    const minimumRequired = totalDebt * productDetails.minimumCollateralizationRatio
+    const minimumRatio = productDetails.minimumCollateralizationRatio || 1.5
+    
+    // Use stablecoinModels.cryptoBackedValuation for proper analysis
+    const collateralStatus = stablecoinModels.cryptoBackedValuation(
+      totalCollateralValue,
+      totalDebt,
+      minimumRatio,
+      1.0 // Current peg price - assuming USD stablecoin
+    )
+    
+    const collateralizationRatio = this.toNumber(collateralStatus.collateralizationRatio)
+    const minimumRequired = totalDebt * minimumRatio
     const excessCollateral = Math.max(0, totalCollateralValue - minimumRequired)
     const liquidationRequired = totalDebt * productDetails.liquidationThreshold
     const liquidationBuffer = Math.max(0, totalCollateralValue - liquidationRequired)
@@ -350,43 +362,84 @@ export class StablecoinCryptoCalculator extends BaseCalculator {
       totalDebt,
       collateralizationRatio,
       excessCollateral,
-      liquidationBuffer
+      liquidationBuffer,
+      collateralStatus
     }
   }
 
   /**
-   * Assesses liquidation risk based on collateralization
+   * Assesses liquidation risk using digital models
    */
   private async assessLiquidationRisk(
     metrics: any,
     productDetails: any,
     collateralData: CollateralAsset[]
   ): Promise<LiquidationRisk> {
-    const { collateralizationRatio, liquidationBuffer } = metrics
+    const { collateralizationRatio, liquidationBuffer, collateralStatus } = metrics
     const liquidationThreshold = productDetails.liquidationThreshold
+    
+    // Get real price history from database
+    let priceHistory: number[] = []
+    try {
+      const lookbackDate = new Date()
+      lookbackDate.setDate(lookbackDate.getDate() - 7) // 7 days back
+      
+      const historicalPrices = await this.databaseService.getPriceHistory(
+        productDetails.symbol + '-USD',
+        lookbackDate, 
+        new Date()
+      )
+      
+      if (historicalPrices.length > 0) {
+        priceHistory = historicalPrices.map(p => p.price)
+      } else {
+        // Use collateral price data if direct price history unavailable
+        const currentPrice = collateralData.length > 0 && collateralData[0] ? collateralData[0].priceUSD : 1.0
+        priceHistory = [currentPrice]
+      }
+    } catch (error) {
+      throw new Error(`Failed to fetch price history for liquidation analysis: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+    
+    const riskAssessment = stablecoinModels.calculateDeathSpiralRisk(
+      1.0, // Current market price (assuming USD stablecoin)
+      1.0, // Target peg price
+      priceHistory,
+      this.toNumber(collateralStatus.collateralizationRatio)
+    )
     
     let riskLevel: 'low' | 'medium' | 'high' | 'critical'
     let timeToLiquidation = Infinity
     let priceDropRequired = 0
     const recommendedActions: string[] = []
     
-    if (collateralizationRatio > liquidationThreshold * 1.5) {
-      riskLevel = 'low'
-      priceDropRequired = (collateralizationRatio - liquidationThreshold) / collateralizationRatio
-    } else if (collateralizationRatio > liquidationThreshold * 1.2) {
-      riskLevel = 'medium'
-      priceDropRequired = (collateralizationRatio - liquidationThreshold) / collateralizationRatio
-      recommendedActions.push('Monitor collateral prices closely')
-    } else if (collateralizationRatio > liquidationThreshold * 1.05) {
+    // Use collateral status from digital models
+    if (collateralStatus.needsLiquidation) {
+      riskLevel = 'critical'
+      timeToLiquidation = 1 // 1 hour estimated
+      recommendedActions.push('Immediate liquidation imminent')
+      recommendedActions.push('Add collateral immediately or repay debt')
+    } else if (collateralStatus.healthFactor.lessThan(1.2)) {
       riskLevel = 'high'
       priceDropRequired = (collateralizationRatio - liquidationThreshold) / collateralizationRatio
       timeToLiquidation = 24 // 24 hours estimated
       recommendedActions.push('Consider adding collateral', 'Prepare for potential liquidation')
-    } else {
-      riskLevel = 'critical'
+    } else if (collateralStatus.healthFactor.lessThan(1.5)) {
+      riskLevel = 'medium'
       priceDropRequired = (collateralizationRatio - liquidationThreshold) / collateralizationRatio
-      timeToLiquidation = 1 // 1 hour estimated
-      recommendedActions.push('Immediate action required', 'Add collateral or repay debt')
+      recommendedActions.push('Monitor collateral prices closely')
+    } else {
+      riskLevel = 'low'
+      priceDropRequired = (collateralizationRatio - liquidationThreshold) / collateralizationRatio
+    }
+    
+    // Add death spiral risk warnings
+    if (riskAssessment.shouldHalt) {
+      recommendedActions.push('Death spiral risk detected - emergency protocol activation recommended')
+      riskLevel = 'critical'
+    } else if (riskAssessment.riskScore.greaterThan(0.7)) {
+      recommendedActions.push('High death spiral risk - monitor closely')
+      if (riskLevel === 'low') riskLevel = 'medium'
     }
     
     return {
@@ -399,21 +452,41 @@ export class StablecoinCryptoCalculator extends BaseCalculator {
   }
 
   /**
-   * Calculates governance token value component
+   * Calculates governance token value component using real market data
    */
   private async calculateGovernanceValue(
     productDetails: any,
     input: StablecoinCryptoCalculationInput
   ): Promise<number> {
-    // Mock governance token price
-    const governanceTokenPrice = 2500 // Example MKR price
-    const governanceSupply = input.governanceTokenSupply || 1000000
-    
-    // Calculate protocol revenue capture value
-    const protocolRevenue = productDetails.systemSurplus || 0
-    const governanceValueCapture = protocolRevenue * 0.7 // 70% flows to governance
-    
-    return governanceValueCapture
+    try {
+      // Get real governance token price from database
+      let governanceTokenPrice = 0
+      const governanceSymbol = productDetails.governanceToken || 'GOVERNANCE'
+      
+      // Fetch current governance token price
+      const governancePriceData = await this.fetchPriceData(
+        `${governanceSymbol}_USD`,
+        input.valuationDate
+      )
+      governanceTokenPrice = governancePriceData.price
+      
+      const governanceSupply = input.governanceTokenSupply || productDetails.governanceTokenSupply || 1000000
+      
+      // Calculate protocol revenue capture value
+      const protocolRevenue = productDetails.systemSurplus || 0
+      const governanceValueCapture = protocolRevenue * 0.7 // 70% flows to governance
+      
+      // Calculate per-unit governance value contribution to stablecoin NAV
+      const governanceMarketCap = governanceTokenPrice * governanceSupply
+      const governanceNAVContribution = governanceValueCapture / productDetails.totalSupply
+      
+      return governanceNAVContribution
+    } catch (error) {
+      // If governance token price unavailable, fall back to protocol revenue only
+      const protocolRevenue = productDetails.systemSurplus || 0
+      const governanceValueCapture = protocolRevenue * 0.7
+      return governanceValueCapture / productDetails.totalSupply
+    }
   }
 
   /**

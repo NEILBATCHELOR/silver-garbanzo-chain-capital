@@ -17,7 +17,11 @@ import {
 } from '@aptos-labs/ts-sdk';
 import { SuiClient } from '@mysten/sui/client';
 import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
-import * as nearAPI from 'near-api-js';
+// Replace near-api-js with individual @near-js/* packages
+import { Account as NEARAccount } from '@near-js/accounts';
+import { KeyPair, PublicKey as NEARPublicKey } from '@near-js/crypto';
+import { Transaction as NEARTransaction, SignedTransaction as NEARSignedTransaction, Signature as NEARSignature } from '@near-js/transactions';
+import { parseNearAmount, formatNearAmount } from '@near-js/utils';
 // Ripple/XRP imports
 import { Client, xrpToDrops, dropsToXrp } from 'xrpl';
 // Cosmos-specific types from cosmjs-types (the official protobuf types)
@@ -390,21 +394,21 @@ export class SignatureAggregator {
   ): string {
     try {
       // Parse transaction
-      const tx = nearAPI.transactions.Transaction.decode(
+      const tx = NEARTransaction.decode(
         Buffer.from(transaction.encoded, 'base64')
       );
 
       // Create signature array
       const nearSignatures = signatures.map(sig => ({
         signature: Buffer.from(sig.signature, 'hex'),
-        publicKey: nearAPI.utils.PublicKey.from(sig.signerAddress)
+        publicKey: NEARPublicKey.from(sig.signerAddress)
       }));
 
       // Create signed transaction
-      const signedTx = new nearAPI.transactions.SignedTransaction({
+      const signedTx = new NEARSignedTransaction({
         transaction: tx,
-        signature: new nearAPI.transactions.Signature({
-          keyType: nearAPI.utils.key_pair.KeyType.ED25519,
+        signature: new NEARSignature({
+          keyType: 0, // ED25519
           data: Buffer.concat(nearSignatures.map(s => s.signature))
         })
       });
@@ -669,7 +673,7 @@ export class SignatureAggregator {
       const nacl = require('tweetnacl');
       const messageBytes = Buffer.from(message);
       const signatureBytes = Buffer.from(signature, 'hex');
-      const publicKeyBytes = nearAPI.utils.PublicKey.from(publicKey).data;
+      const publicKeyBytes = NEARPublicKey.from(publicKey).data;
       
       return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
     } catch {

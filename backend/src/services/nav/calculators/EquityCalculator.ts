@@ -7,6 +7,7 @@
  * - Multi-exchange price aggregation
  * - Currency conversion for international equities
  * - Dividend accrual and ex-dividend adjustments
+ * - DDM, CAPM, and Beta calculations using financial models
  * 
  * Supports equity products from equity_products table
  */
@@ -14,6 +15,8 @@
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
 import { DatabaseService } from '../DatabaseService'
+import { equityModels } from '../models'
+import { FinancialModelsService } from '../FinancialModelsService'
 import {
   AssetType,
   CalculationInput,
@@ -51,8 +54,11 @@ export interface EquityPriceData extends PriceData {
 }
 
 export class EquityCalculator extends BaseCalculator {
+  private financialModels: FinancialModelsService
+
   constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
     super(databaseService, options)
+    this.financialModels = new FinancialModelsService()
   }
 
   // ==================== ABSTRACT METHOD IMPLEMENTATIONS ====================
@@ -87,6 +93,16 @@ export class EquityCalculator extends BaseCalculator {
       // Calculate accrued dividends if applicable
       const accruedDividends = await this.calculateAccruedDividends(adjustedHoldings, productDetails)
       
+      // INSTITUTIONAL VALUATION: Use equity models for comprehensive valuation
+      const fundamentalValue = await this.calculateFundamentalValue(productDetails, priceData)
+      const relativeValue = await this.calculateRelativeValue(productDetails, priceData)
+      
+      // Use weighted average of market and fundamental values for final NAV
+      const marketWeight = new Decimal(0.7) // 70% market price
+      const fundamentalWeight = new Decimal(0.3) // 30% fundamental value
+      const weightedValue = marketValue.times(marketWeight)
+        .plus(fundamentalValue.times(fundamentalWeight))
+      
       // Build calculation result
       const result: CalculationResult = {
         runId: this.generateRunId(),
@@ -94,10 +110,10 @@ export class EquityCalculator extends BaseCalculator {
         productType: AssetType.EQUITY,
         projectId: input.projectId,
         valuationDate: input.valuationDate,
-        totalAssets: this.toNumber(marketValue.plus(accruedDividends)),
+        totalAssets: this.toNumber(weightedValue.plus(accruedDividends)),
         totalLiabilities: 0, // Equities typically don't have liabilities
-        netAssets: this.toNumber(marketValue.plus(accruedDividends)),
-        navValue: this.toNumber(marketValue.plus(accruedDividends)),
+        netAssets: this.toNumber(weightedValue.plus(accruedDividends)),
+        navValue: this.toNumber(weightedValue.plus(accruedDividends)),
         navPerShare: input.sharesOutstanding ? 
           this.toNumber(marketValue.plus(accruedDividends).div(this.decimal(input.sharesOutstanding))) : 
           undefined,
@@ -191,17 +207,54 @@ export class EquityCalculator extends BaseCalculator {
       
       const price = priceData.price
       
+      // Get market microstructure data from database or calculate spread
+      let bidAskData = { bid: price, ask: price, volume: 0 }
+      try {
+        const marketData = await this.databaseService.getMarketMicrostructure(instrumentKey)
+        if (marketData) {
+          bidAskData = marketData
+        }
+      } catch (error) {
+        // Calculate bid/ask spread based on liquidity metrics
+        const liquidityScore = productDetails.marketCap ? 
+          Math.min(1, Math.log10(productDetails.marketCap) / 10) : 0.5
+        const spreadBps = Math.max(1, Math.floor((1 - liquidityScore) * 20)) // 1-20 bps based on liquidity
+        const spreadMultiplier = 1 + (spreadBps / 10000)
+        
+        bidAskData = {
+          bid: price / spreadMultiplier,
+          ask: price * spreadMultiplier,
+          volume: productDetails.sharesOutstanding ? 
+            Math.floor(productDetails.sharesOutstanding * 0.01) : // Assume 1% daily turnover
+            100000 // Default volume
+        }
+      }
+      
+      // Calculate beta if we have market returns data
+      let beta = 1.0 // Market beta default
+      try {
+        const returns = await this.databaseService.getHistoricalReturns(instrumentKey, 252) // 1 year
+        const marketReturns = await this.databaseService.getMarketReturns('SPX', 252)
+        if (returns && marketReturns) {
+          beta = this.financialModels.calculateBeta(returns, marketReturns)
+        }
+      } catch (error) {
+        // Use sector-based beta as fallback
+        beta = this.getSectorBeta(productDetails.sector) 
+      }
+      
       return {
         price,
         currency: priceData.currency,
         source: priceData.source,
         asOf: new Date(priceData.as_of),
         exchange: productDetails.exchange,
-        bid: price * 0.999, // TODO: Get actual bid/ask from market data
-        ask: price * 1.001,
-        volume: 1000000, // TODO: Get actual volume
+        bid: bidAskData.bid,
+        ask: bidAskData.ask,
+        volume: bidAskData.volume,
         dividendYield: productDetails.dividendYield,
         exDividendDate: productDetails.exDividendDate,
+        beta,
         staleness: 0,
         confidence: priceData.source === 'fallback' ? 0.5 : 0.95
       }
@@ -271,6 +324,220 @@ export class EquityCalculator extends BaseCalculator {
     }
 
     return this.decimal(0)
+  }
+
+  /**
+   * Gets sector-based beta as fallback when individual beta unavailable
+   */
+  private getSectorBeta(sector: string | undefined): number {
+    const sectorBetas: Record<string, number> = {
+      'Technology': 1.25,
+      'Healthcare': 0.90,
+      'Financials': 1.15,
+      'Consumer Discretionary': 1.10,
+      'Consumer Staples': 0.70,
+      'Energy': 1.20,
+      'Materials': 1.05,
+      'Industrials': 1.00,
+      'Utilities': 0.60,
+      'Real Estate': 0.85,
+      'Communication Services': 1.05
+    }
+    
+    return sectorBetas[sector || ''] || 1.0  // Default to market beta
+  }
+
+  /**
+   * Calculate fundamental value using DDM, DCF, and CAPM models
+   * Spec: "Dividend Discount Model values equity as present value of expected future dividends"
+   */
+  private async calculateFundamentalValue(
+    productDetails: any,
+    priceData: EquityPriceData
+  ): Promise<Decimal> {
+    const currentPrice = this.decimal(priceData.price)
+    
+    // Calculate required return using CAPM
+    const riskFreeRate = 0.04 // Current 10-year Treasury yield approximation
+    const marketReturn = 0.10 // Long-term equity market return
+    
+    const requiredReturn = equityModels.calculateCAPM({
+      riskFreeRate,
+      marketReturn,
+      beta: priceData.beta || 1.0
+    })
+
+    // Use DDM if dividend-paying stock
+    if (productDetails.dividendPerShare && productDetails.dividendPerShare > 0) {
+      const dividendGrowthRate = productDetails.dividendYield ? 
+        productDetails.dividendYield * 0.6 : // Payout ratio assumption
+        0.03 // Conservative growth assumption
+      
+      const ddmValue = equityModels.dividendDiscountModel({
+        currentDividend: productDetails.dividendPerShare,
+        growthRate: dividendGrowthRate,
+        requiredReturn: requiredReturn
+      })
+      
+      // For mature companies, use multi-stage DDM
+      if (productDetails.marketCap > 10000000000) { // $10B+ market cap
+        const multiStageValue = equityModels.dividendDiscountModel({
+          currentDividend: productDetails.dividendPerShare,
+          growthRate: 0.08, // Higher initial growth
+          terminalGrowthRate: 0.03, // Terminal growth
+          forecastPeriod: 5,
+          requiredReturn: requiredReturn
+        })
+        return multiStageValue
+      }
+      
+      return ddmValue
+    }
+    
+    // For non-dividend stocks, use earnings-based DCF
+    if (productDetails.earningsPerShare && productDetails.earningsPerShare > 0) {
+      const fcfePerShare = new Decimal(productDetails.earningsPerShare * 0.7) // Free cash flow approximation
+      const growthRate = new Decimal(0.05) // Moderate growth assumption
+      
+      // Simple perpetuity model for FCFE
+      const dcfValue = fcfePerShare.times(new Decimal(1).plus(growthRate))
+        .div(new Decimal(requiredReturn).minus(growthRate))
+      
+      return dcfValue
+    }
+    
+    // Fallback to current market price if no fundamental data
+    return currentPrice
+  }
+
+  /**
+   * Calculate relative value using P/E, P/B, EV/EBITDA multiples
+   * Spec: "Multiplier models (P/E, P/B) for relative valuation"
+   */
+  private async calculateRelativeValue(
+    productDetails: any,
+    priceData: EquityPriceData
+  ): Promise<Decimal> {
+    const currentPrice = this.decimal(priceData.price)
+    let valuationSum = new Decimal(0)
+    let valuationCount = 0
+    
+    // P/E Valuation
+    if (productDetails.earningsPerShare && productDetails.earningsPerShare > 0) {
+      // Industry average P/E (would normally fetch from database)
+      const industryPE = this.getIndustryPE(productDetails.sector)
+      const peImpliedValue = equityModels.peRatioValuation(
+        productDetails.earningsPerShare,
+        industryPE.toNumber(),
+        1.0 // Adjustment factor
+      )
+      
+      valuationSum = valuationSum.plus(peImpliedValue)
+      valuationCount++
+    }
+    
+    // P/B Valuation
+    if (productDetails.bookValuePerShare && productDetails.bookValuePerShare > 0) {
+      // Industry average P/B
+      const industryPB = this.getIndustryPB(productDetails.sector)
+      const pbImpliedValue = equityModels.pbRatioValuation(
+        productDetails.bookValuePerShare,
+        industryPB.toNumber(),
+        1.0 // Adjustment factor
+      )
+      
+      valuationSum = valuationSum.plus(pbImpliedValue)
+      valuationCount++
+    }
+    
+    // EV/EBITDA Valuation
+    if (productDetails.ebitdaPerShare && productDetails.ebitdaPerShare > 0) {
+      // Industry average EV/EBITDA
+      const industryEVEBITDA = this.getIndustryEVEBITDA(productDetails.sector)
+      const totalEbitda = productDetails.ebitdaPerShare * (productDetails.sharesOutstanding || 1)
+      const evImpliedValue = equityModels.evEbitdaValuation(
+        totalEbitda,
+        industryEVEBITDA.toNumber(),
+        productDetails.netDebt || 0,
+        productDetails.cash || 0
+      )
+      
+      // Convert to per-share value
+      const evPerShare = evImpliedValue.div(productDetails.sharesOutstanding || 1)
+      valuationSum = valuationSum.plus(evPerShare)
+      valuationCount++
+    }
+    
+    // Return average of all valuation methods
+    if (valuationCount > 0) {
+      return valuationSum.div(valuationCount)
+    }
+    
+    // Fallback to current price if no relative metrics available
+    return currentPrice
+  }
+
+  /**
+   * Get industry average P/E ratio by sector
+   */
+  private getIndustryPE(sector: string | undefined): Decimal {
+    const industryPEs: Record<string, number> = {
+      'Technology': 25,
+      'Healthcare': 20,
+      'Financials': 15,
+      'Consumer Discretionary': 18,
+      'Consumer Staples': 20,
+      'Energy': 12,
+      'Materials': 15,
+      'Industrials': 18,
+      'Utilities': 16,
+      'Real Estate': 20,
+      'Communication Services': 22
+    }
+    
+    return new Decimal(industryPEs[sector || ''] || 18)
+  }
+
+  /**
+   * Get industry average P/B ratio by sector
+   */
+  private getIndustryPB(sector: string | undefined): Decimal {
+    const industryPBs: Record<string, number> = {
+      'Technology': 4.5,
+      'Healthcare': 3.5,
+      'Financials': 1.2,
+      'Consumer Discretionary': 3.0,
+      'Consumer Staples': 3.5,
+      'Energy': 1.5,
+      'Materials': 2.0,
+      'Industrials': 2.5,
+      'Utilities': 1.8,
+      'Real Estate': 2.2,
+      'Communication Services': 3.0
+    }
+    
+    return new Decimal(industryPBs[sector || ''] || 2.5)
+  }
+
+  /**
+   * Get industry average EV/EBITDA ratio by sector
+   */
+  private getIndustryEVEBITDA(sector: string | undefined): Decimal {
+    const industryEVs: Record<string, number> = {
+      'Technology': 20,
+      'Healthcare': 15,
+      'Financials': 10,
+      'Consumer Discretionary': 12,
+      'Consumer Staples': 14,
+      'Energy': 6,
+      'Materials': 8,
+      'Industrials': 11,
+      'Utilities': 10,
+      'Real Estate': 15,
+      'Communication Services': 12
+    }
+    
+    return new Decimal(industryEVs[sector || ''] || 12)
   }
 
   /**

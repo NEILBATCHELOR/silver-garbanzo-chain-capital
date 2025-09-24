@@ -15,7 +15,7 @@ import {
   Ed25519Signature 
 } from '@aptos-labs/ts-sdk';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import * as nearAPI from 'near-api-js';
+import { KeyPair } from '@near-js/crypto';
 import { DirectSecp256k1Wallet } from '@cosmjs/proto-signing';
 import { keyVaultClient } from '../../../infrastructure/keyVault/keyVaultClient';
 import { ChainType } from '../AddressUtils';
@@ -472,7 +472,7 @@ export class LocalSigner {
   private signNear(message: string, privateKey: string): string {
     // NEAR private keys need to be formatted as "ed25519:..." for KeyPair.fromString
     const formattedKey = privateKey.startsWith('ed25519:') ? privateKey : `ed25519:${privateKey}`;
-    const keyPair = nearAPI.utils.KeyPair.fromString(formattedKey as any);
+    const keyPair = KeyPair.fromString(formattedKey as any); // Cast to any to handle KeyPairString type
     const messageBytes = Buffer.from(message);
     const signature = keyPair.sign(messageBytes);
     return Buffer.from(signature.signature).toString('hex');

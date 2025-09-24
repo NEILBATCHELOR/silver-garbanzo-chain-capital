@@ -26,6 +26,7 @@ import {
 } from '../types'
 import { NavServiceResult } from '../types'
 import { DatabaseService } from '../DatabaseService'
+import { createLogger } from '../../../utils/logger'
 
 // Configure Decimal.js for financial precision
 Decimal.set({
@@ -62,12 +63,15 @@ export interface CalculatorMetrics {
 
 export abstract class BaseCalculator implements AssetNavCalculator {
   protected readonly options: CalculatorOptions
-  protected readonly logger: any // Use existing logging infrastructure
+  protected readonly logger: any
   protected readonly databaseService: DatabaseService
   protected metrics: CalculatorMetrics
 
   constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
     this.databaseService = databaseService
+    this.logger = createLogger('NavCalculator', { 
+      calculatorType: this.constructor.name 
+    })
     this.options = {
       enableRiskControls: true,
       enableObservability: true,
@@ -481,11 +485,11 @@ export abstract class BaseCalculator implements AssetNavCalculator {
   }
 
   /**
-   * Logs calculation metrics (to be integrated with existing logging)
+   * Logs calculation metrics using integrated pino logging infrastructure
    */
   private logCalculationMetrics(result: CalculationResult): void {
-    // TODO: Integrate with existing logging infrastructure
-    console.log(`[${this.constructor.name}] Calculation completed`, {
+    this.logger.info({
+      event: 'calculation_completed',
       runId: result.runId,
       assetId: result.assetId,
       productType: result.productType,
@@ -493,23 +497,28 @@ export abstract class BaseCalculator implements AssetNavCalculator {
       navValue: result.navValue,
       status: result.status,
       pricingSources: Object.keys(result.pricingSources).length,
-      riskControlsTriggered: this.metrics.riskControlsTriggered.length
-    })
+      riskControlsTriggered: this.metrics.riskControlsTriggered.length,
+      validationErrors: this.metrics.validationResults.errors.length,
+      validationWarnings: this.metrics.validationResults.warnings.length
+    }, 'NAV calculation completed successfully')
   }
 
   /**
-   * Logs calculation errors (to be integrated with existing logging)
+   * Logs calculation errors using integrated pino logging infrastructure
    */
   private logCalculationError(result: CalculationResult, error: unknown): void {
-    // TODO: Integrate with existing logging infrastructure
-    console.error(`[${this.constructor.name}] Calculation failed`, {
+    this.logger.error({
+      event: 'calculation_failed',
       runId: result.runId,
       assetId: result.assetId,
       productType: result.productType,
       executionTimeMs: this.metrics.executionTimeMs,
       error: error instanceof Error ? error.message : 'Unknown error',
-      riskControlsTriggered: this.metrics.riskControlsTriggered
-    })
+      errorStack: error instanceof Error ? error.stack : undefined,
+      riskControlsTriggered: this.metrics.riskControlsTriggered,
+      validationErrors: this.metrics.validationResults.errors,
+      pricingSources: this.metrics.priceDataSources
+    }, 'NAV calculation failed')
   }
 
   /**

@@ -9,38 +9,42 @@ import {
   SignedTransaction,
   TransactionStatus,
 } from './TransactionBuilder';
-import * as nearAPI from 'near-api-js';
-import { connect, keyStores, utils, transactions, providers } from 'near-api-js';
-import { PublicKey } from 'near-api-js/lib/utils/key_pair';
-import { KeyPair } from 'near-api-js/lib/utils/key_pair';
+import { Account, Connection } from '@near-js/accounts';
+import { InMemoryKeyStore } from '@near-js/keystores';
+import { parseNearAmount, formatNearAmount, baseDecode, baseEncode } from '@near-js/utils';
+import { 
+  createTransaction,
+  actionCreators,
+  Transaction as NEARTransaction,
+  SignedTransaction as NEARSignedTransaction,
+  SCHEMA
+} from '@near-js/transactions';
+import { JsonRpcProvider } from '@near-js/providers';
+import { PublicKey, KeyPair } from '@near-js/crypto';
+import { serialize, deserialize } from 'borsh';
 import BN from 'bn.js';
 
 /**
  * Implementation of TransactionBuilder for NEAR Protocol blockchain
  */
 export class NEARTransactionBuilder extends BaseTransactionBuilder {
-  private near: nearAPI.Near | null = null;
+  protected provider: JsonRpcProvider | null = null;
   private networkId: string;
   private nodeUrl: string;
-  private keyStore: keyStores.InMemoryKeyStore;
+  private keyStore: InMemoryKeyStore;
 
   constructor(provider: any, blockchain: string) {
     super(provider, blockchain);
     this.nodeUrl = provider.nodeUrl || "https://rpc.testnet.near.org";
     this.networkId = provider.networkId || "testnet";
-    this.keyStore = new keyStores.InMemoryKeyStore();
+    this.keyStore = new InMemoryKeyStore();
   }
 
-  private async getNearConnection(): Promise<nearAPI.Near> {
-    if (!this.near) {
-      this.near = await connect({
-        networkId: this.networkId,
-        nodeUrl: this.nodeUrl,
-        keyStore: this.keyStore,
-        headers: {}
-      });
+  private async getProvider(): Promise<JsonRpcProvider> {
+    if (!this.provider) {
+      this.provider = new JsonRpcProvider({ url: this.nodeUrl });
     }
-    return this.near;
+    return this.provider;
   }
 
   /**
@@ -54,37 +58,40 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
     options?: any
   ): Promise<Transaction> {
     try {
-      const near = await this.getNearConnection();
-      const account = await near.account(from);
+      const provider = await this.getProvider();
       
       // Convert NEAR amount to yoctoNEAR (1 NEAR = 10^24 yoctoNEAR)
-      const yoctoNEARAmount = utils.format.parseNearAmount(value);
+      const yoctoNEARAmount = parseNearAmount(value);
       
       if (!yoctoNEARAmount) {
         throw new Error('Invalid NEAR amount');
       }
       
-      // Get the current access key and nonce
-      const accessKey = await account.findAccessKey(to, []);
-      if (!accessKey) {
+      // Get access key information for the account
+      const accessKeys = await provider.query({
+        request_type: 'view_access_key_list',
+        account_id: from,
+        finality: 'final'
+      }) as any;
+      
+      if (!accessKeys || !accessKeys.keys || accessKeys.keys.length === 0) {
         throw new Error(`No access key found for ${from}`);
       }
       
-      // Get the account's public key
-      const publicKey = accessKey.publicKey;
+      const accessKey = accessKeys.keys[0];
+      const publicKey = PublicKey.fromString(accessKey.public_key);
       
       // Get the latest block hash
-      const provider = new providers.JsonRpcProvider({ url: this.nodeUrl });
       const blockInfo = await provider.block({ finality: 'final' });
-      const blockHash = utils.serialize.base_decode(blockInfo.header.hash);
+      const blockHash = baseDecode(blockInfo.header.hash);
       
       // Create a transfer action
-      const actions = [transactions.transfer(BigInt(yoctoNEARAmount))];
+      const actions = [actionCreators.transfer(BigInt(yoctoNEARAmount))];
       
       // Create a transaction with a properly converted nonce
-      const nonce = Number(accessKey.accessKey.nonce) + 1;
+      const nonce = Number(accessKey.access_key.nonce) + 1;
       
-      const transaction = transactions.createTransaction(
+      const transaction = createTransaction(
         from,
         publicKey,
         to,
@@ -93,11 +100,8 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
         blockHash
       );
       
-      // Serialize the transaction for later use (using any to bypass type issues)
-      const serializedTx = utils.serialize.serialize(
-        transactions.SCHEMA as any,
-        transaction
-      );
+      // Serialize the transaction for later use
+      const serializedTx = serialize(SCHEMA.Transaction, transaction);
 
       // Generate a transaction ID
       const txId = `near_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -211,31 +215,33 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
         throw new Error('Transaction missing required NEAR transaction data');
       }
       
-      // Deserialize the transaction (using any to bypass type issues)
+      // Deserialize the transaction
       const serializedTx = Buffer.from(transaction.simulationResult.returnValue, 'base64');
-      const tx = utils.serialize.deserialize(
-        transactions.SCHEMA as any,
-        transactions.Transaction as any,
-        serializedTx as any
-      );
+      const tx = deserialize(
+        SCHEMA.Transaction,
+        serializedTx
+      ) as NEARTransaction;
       
-      // Create a key pair from the private key (using any to bypass KeyPairString type)
-      const keyPair = KeyPair.fromString(privateKey as any);
+      // Create a key pair from the private key
+      // Ensure the private key is in the correct KeyPairString format
+      let keyPairString = privateKey;
+      if (!privateKey.includes(':')) {
+        // If no curve type specified, assume ed25519
+        keyPairString = `ed25519:${privateKey}`;
+      }
+      const keyPair = KeyPair.fromString(keyPairString as any);
       
       // Sign the transaction
       const signature = keyPair.sign(serializedTx);
       
-      // Create a signed transaction (using any to bypass type issues)
-      const signedTx = new transactions.SignedTransaction({
+      // Create a signed transaction - the signature from keyPair.sign is already in correct format
+      const signedTx = {
         transaction: tx,
         signature: signature
-      } as any);
+      };
       
-      // Serialize the signed transaction (using any to bypass type issues)
-      const serializedSignedTx = utils.serialize.serialize(
-        transactions.SCHEMA as any,
-        signedTx
-      );
+      // Serialize the signed transaction
+      const serializedSignedTx = serialize(SCHEMA.SignedTransaction, signedTx);
       
       // Create a signature object
       const signatureObj: TransactionSignature = {
@@ -266,21 +272,20 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
       }
       
       // Create a direct provider to avoid connection issues
-      const provider = new providers.JsonRpcProvider({ url: this.nodeUrl });
+      const provider = await this.getProvider();
       
       // Get the signed transaction blob
       const signedTxBase64 = transaction.signatures[0].signature;
       const signedTxBytes = Buffer.from(signedTxBase64, 'base64');
       
-      // Deserialize the signed transaction (using any to bypass type issues)
-      const signedTx = utils.serialize.deserialize(
-        transactions.SCHEMA as any,
-        transactions.SignedTransaction as any,
-        signedTxBytes as any
-      );
+      // Deserialize the signed transaction
+      const signedTx = deserialize(
+        SCHEMA.SignedTransaction,
+        signedTxBytes
+      ) as NEARSignedTransaction;
       
-      // Send the transaction to the network (using any to bypass type issues)
-      const result = await provider.sendTransaction(signedTx as any);
+      // Send the transaction to the network
+      const result = await provider.sendTransaction(signedTx);
       
       // Return the transaction hash
       return result.transaction.hash;
@@ -295,10 +300,10 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
   async getTransaction(hash: string): Promise<Transaction> {
     try {
       // Create a provider instance with specific config
-      const provider = new providers.JsonRpcProvider({ url: this.nodeUrl });
+      const provider = await this.getProvider();
       
       // Use the provider directly to call JSON-RPC to avoid type issues
-      const encodedHash = utils.serialize.base_encode(Buffer.from(hash, 'hex'));
+      const encodedHash = baseEncode(Buffer.from(hash, 'hex'));
       
       // Make the request directly with type casting
       const txResult = await provider.sendJsonRpc('tx', [encodedHash, 'sender_account_id']) as any;
@@ -329,10 +334,10 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
   async getTransactionReceipt(hash: string): Promise<TransactionReceipt> {
     try {
       // Create a provider instance
-      const provider = new providers.JsonRpcProvider({ url: this.nodeUrl });
+      const provider = await this.getProvider();
       
       // Use the provider directly to call JSON-RPC to avoid type issues
-      const encodedHash = utils.serialize.base_encode(Buffer.from(hash, 'hex'));
+      const encodedHash = baseEncode(Buffer.from(hash, 'hex'));
       
       // Make the request directly with type casting
       const txResult = await provider.sendJsonRpc('tx', [encodedHash, 'sender_account_id']) as any;
@@ -369,10 +374,10 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
   async getTransactionStatus(hash: string): Promise<TransactionStatus> {
     try {
       // Create a provider instance
-      const provider = new providers.JsonRpcProvider({ url: this.nodeUrl });
+      const provider = await this.getProvider();
       
       // Use the provider directly to call JSON-RPC to avoid type issues
-      const encodedHash = utils.serialize.base_encode(Buffer.from(hash, 'hex'));
+      const encodedHash = baseEncode(Buffer.from(hash, 'hex'));
       
       // Make the request directly with type casting
       const txResult = await provider.sendJsonRpc('tx', [encodedHash, 'sender_account_id']) as any;
@@ -470,7 +475,7 @@ export class NEARTransactionBuilder extends BaseTransactionBuilder {
       for (const action of actions) {
         if (action.Transfer) {
           // Convert from yoctoNEAR to NEAR
-          return utils.format.formatNearAmount(action.Transfer.deposit);
+          return formatNearAmount(action.Transfer.deposit);
         }
       }
       return '0';

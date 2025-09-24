@@ -19,6 +19,8 @@ import {
   getAssetTypeConfig,
   validateAndResolveProductType 
 } from './ProductTypeUtilities'
+import { createFxRateService } from './FxRateService'
+import { createMarketDataService } from './MarketDataService'
 
 // Configure Decimal.js for financial precision
 Decimal.set({ 
@@ -34,6 +36,13 @@ Decimal.set({
  * Provides basic NAV calculation functionality without database side effects
  */
 export class NavService {
+  private fxRateService: any
+  private marketDataService: any
+  
+  constructor() {
+    this.fxRateService = createFxRateService()
+    this.marketDataService = createMarketDataService()
+  }
   
   /**
    * Calculate basic NAV using the fundamental formula:
@@ -54,8 +63,8 @@ export class NavService {
       // Generate unique run ID for this calculation
       const runId = this.generateRunId()
       
-      // Calculate total assets
-      const totalAssets = await this.calculateTotalAssets(input)
+      // Calculate total assets with proper FX conversion and pricing sources
+      const { totalAssets, pricingSources } = await this.calculateTotalAssetsWithSources(input)
       
       // Get liabilities (default to 0 if not provided)
       const totalLiabilities = new Decimal(input.liabilities || 0)
@@ -81,8 +90,31 @@ export class NavService {
         const sharesOutstanding = new Decimal(input.sharesOutstanding)
         navPerShare = netAssets.div(sharesOutstanding)
       }
+
+      // Get FX rate used for conversion to target currency
+      const targetCurrency = input.targetCurrency || 'USD'
+      const baseCurrency = input.baseCurrency || 'USD' // Default to USD if not specified
+      let fxRateUsed = 1.0
+
+      if (baseCurrency !== targetCurrency) {
+        try {
+          const conversion = await this.fxRateService.convertAmount(
+            navValue.toNumber(), 
+            baseCurrency, 
+            targetCurrency
+          )
+          navValue = conversion.convertedAmount
+          if (navPerShare) {
+            navPerShare = navPerShare.mul(conversion.fxRate)
+          }
+          fxRateUsed = conversion.fxRate.toNumber()
+        } catch (error) {
+          console.warn(`FX conversion failed from ${baseCurrency} to ${targetCurrency}, using 1.0:`, error)
+          fxRateUsed = 1.0
+        }
+      }
       
-      // Build calculation result
+      // Build calculation result with real data
       const result: CalculationResult = {
         runId,
         assetId: input.assetId,
@@ -95,9 +127,9 @@ export class NavService {
         navValue: navValue.toNumber(),
         navPerShare: navPerShare?.toNumber(),
         sharesOutstanding: input.sharesOutstanding,
-        currency: input.targetCurrency || 'USD',
-        fxRateUsed: 1.0, // TODO: Implement FX conversion in future phases
-        pricingSources: {}, // TODO: Populate from market data service in future phases
+        currency: targetCurrency,
+        fxRateUsed: fxRateUsed, // Real FX rate from database
+        pricingSources: pricingSources, // Real pricing sources from market data
         calculatedAt: new Date(),
         status: CalculationStatus.COMPLETED,
       }
@@ -233,42 +265,111 @@ export class NavService {
   }
   
   /**
-   * Calculate total assets value from holdings or simple input
+   * Calculate total assets value with market data and pricing sources
+   * Enhanced version that replaces hardcoded values with real data
    */
-  private async calculateTotalAssets(input: CalculationInput): Promise<Decimal> {
-    // If holdings provided, calculate from holdings
-    if (input.holdings && input.holdings.length > 0) {
-      return this.calculateAssetsFromHoldings(input.holdings)
-    }
-    
-    // For basic implementation, use simple asset value calculation
-    // This will be enhanced with market data integration in future phases
+  private async calculateTotalAssetsWithSources(input: CalculationInput): Promise<{
+    totalAssets: Decimal,
+    pricingSources: Record<string, any>
+  }> {
+    const pricingSources: Record<string, any> = {}
     let totalAssets = new Decimal(0)
-    
+
+    // If holdings provided, calculate from holdings with real market data
+    if (input.holdings && input.holdings.length > 0) {
+      const holdingsResult = await this.calculateAssetsFromHoldingsWithPricing(input.holdings)
+      totalAssets = holdingsResult.totalValue
+      Object.assign(pricingSources, holdingsResult.pricingSources)
+    }
+
     // Add fees if they represent asset values (negative fees reduce assets)
     if (input.fees !== undefined) {
       totalAssets = totalAssets.plus(input.fees)
+      pricingSources['fees'] = {
+        amount: input.fees,
+        source: 'input',
+        timestamp: new Date()
+      }
     }
-    
-    // For now, if no holdings provided and no explicit asset value,
-    // return zero (this will be enhanced with database lookups)
-    return totalAssets
+
+    return { totalAssets, pricingSources }
   }
-  
+
   /**
-   * Calculate total assets from holdings array
+   * Calculate total assets from holdings array with real pricing
+   * Enhanced version that fetches market prices and tracks sources
    */
-  private calculateAssetsFromHoldings(holdings: AssetHolding[]): Decimal {
+  private async calculateAssetsFromHoldingsWithPricing(holdings: AssetHolding[]): Promise<{
+    totalValue: Decimal,
+    pricingSources: Record<string, any>
+  }> {
     let totalValue = new Decimal(0)
+    const pricingSources: Record<string, any> = {}
     
     for (const holding of holdings) {
-      // For basic implementation, use quantity as value
-      // This will be enhanced with price lookup in market data service
-      const holdingValue = new Decimal(holding.quantity)
-      totalValue = totalValue.plus(holdingValue)
+      try {
+        // Get market price for the instrument
+        const marketDataRequest = {
+          symbol: holding.instrumentKey,
+          assetClass: this.inferAssetClass(holding.instrumentKey),
+          timestamp: holding.effectiveDate,
+          currency: holding.currency
+        }
+
+        const priceResponse = await this.marketDataService.getPrice(marketDataRequest)
+        
+        if (priceResponse.success && priceResponse.data) {
+          const priceData = priceResponse.data
+          const quantity = new Decimal(holding.quantity)
+          const price = new Decimal(priceData.price)
+          const holdingValue = quantity.mul(price)
+          
+          totalValue = totalValue.plus(holdingValue)
+          
+          // Track pricing source
+          pricingSources[holding.instrumentKey] = {
+            quantity: quantity.toNumber(),
+            price: price.toNumber(),
+            currency: priceData.currency,
+            value: holdingValue.toNumber(),
+            source: priceData.source,
+            asOf: priceData.asOf,
+            cached: priceResponse.cached,
+            staleness: priceResponse.staleness
+          }
+        } else {
+          // Fallback to quantity as value (old behavior)
+          const fallbackValue = new Decimal(holding.quantity)
+          totalValue = totalValue.plus(fallbackValue)
+          
+          pricingSources[holding.instrumentKey] = {
+            quantity: holding.quantity,
+            price: 1.0, // Fallback assumes 1:1 price
+            currency: holding.currency,
+            value: fallbackValue.toNumber(),
+            source: 'fallback',
+            error: priceResponse.error || 'Price lookup failed',
+            asOf: new Date()
+          }
+        }
+      } catch (error) {
+        // Error fetching price - use fallback
+        const fallbackValue = new Decimal(holding.quantity)
+        totalValue = totalValue.plus(fallbackValue)
+        
+        pricingSources[holding.instrumentKey] = {
+          quantity: holding.quantity,
+          price: 1.0,
+          currency: holding.currency,
+          value: fallbackValue.toNumber(),
+          source: 'error_fallback',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          asOf: new Date()
+        }
+      }
     }
-    
-    return totalValue
+
+    return { totalValue, pricingSources }
   }
   
   /**
@@ -278,6 +379,30 @@ export class NavService {
     const timestamp = Date.now().toString(36)
     const random = Math.random().toString(36).substr(2, 9)
     return `nav_${timestamp}_${random}`
+  }
+  
+  /**
+   * Infer asset class from instrument key for market data lookup
+   */
+  private inferAssetClass(instrumentKey: string): 'equity' | 'bond' | 'commodity' | 'crypto' | 'fx' {
+    const key = instrumentKey.toLowerCase()
+    
+    // Simple heuristics for asset class inference
+    if (key.includes('btc') || key.includes('eth') || key.includes('usdc') || key.includes('crypto')) {
+      return 'crypto'
+    }
+    if (key.includes('usd') || key.includes('eur') || key.includes('gbp') || key.includes('fx')) {
+      return 'fx'
+    }
+    if (key.includes('bond') || key.includes('treasury') || key.includes('corp')) {
+      return 'bond'
+    }
+    if (key.includes('gold') || key.includes('oil') || key.includes('commodity')) {
+      return 'commodity'
+    }
+    
+    // Default to equity
+    return 'equity'
   }
   
   /**

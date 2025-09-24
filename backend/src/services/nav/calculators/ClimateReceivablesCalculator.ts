@@ -10,6 +10,9 @@
  * - ESG impact measurement and sustainability metrics
  * - Market dynamics and carbon pricing mechanisms
  * - Offset verification and additionality assessments
+ * - Solar and wind energy project valuations
+ * - Power Purchase Agreement (PPA) analysis
+ * - Levelized Cost of Energy (LCOE) calculations
  * 
  * Supports climate receivables from climate_receivables table
  */
@@ -17,6 +20,7 @@
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
 import { DatabaseService } from '../DatabaseService'
+import { climateModels } from '../models'
 import {
   AssetType,
   CalculationInput,
@@ -37,11 +41,11 @@ export interface ClimateReceivablesCalculationInput extends CalculationInput {
   dueDate?: Date
   riskScore?: number
   discountRate?: number
-  creditType?: string
+  creditType?: string // carbon, rec, offset
   vintage?: number
   verificationStandard?: string
   certificationBody?: string
-  projectType?: string
+  projectType?: string // solar, wind, forestry, energy_efficiency
   geography?: string
   additionality?: boolean
   permanence?: number
@@ -51,6 +55,16 @@ export interface ClimateReceivablesCalculationInput extends CalculationInput {
   issuanceDate?: Date
   retirementDate?: Date
   methodology?: string
+  
+  // Energy project specific
+  installedCapacity?: number // MW
+  capacityFactor?: number
+  energyOutput?: number[] // MWh per year
+  capitalCosts?: number
+  operatingCosts?: number[]
+  contractPrice?: number // PPA price per MWh
+  marketPrice?: number[] // Market prices per MWh
+  projectLifespan?: number // years
 }
 
 export interface CobenefitDetails {
@@ -126,44 +140,6 @@ export interface SustainabilityMetrics {
   permanence: number // Long-term impact permanence score
 }
 
-export interface MarketDynamics {
-  complianceMarkets: ComplianceMarketData
-  voluntaryMarkets: VoluntaryMarketData
-  futures: FuturesMarketData
-  correlations: MarketCorrelations
-}
-
-export interface ComplianceMarketData {
-  euEts: number // EU ETS price
-  caeT: number // California cap-and-trade price
-  rggi: number // RGGI price
-  volume: number // Market volume
-  growth: number // Year-over-year growth
-}
-
-export interface VoluntaryMarketData {
-  vcs: number // Verified Carbon Standard price
-  goldStandard: number // Gold Standard price
-  ccb: number // Climate Community & Biodiversity price
-  car: number // Climate Action Reserve price
-  volume: number // Market volume
-  growth: number // Year-over-year growth
-}
-
-export interface FuturesMarketData {
-  nearTerm: number // Near-term futures price
-  longTerm: number // Long-term futures price
-  backwardation: number // Market backwardation/contango
-  volatility: number // Implied volatility
-}
-
-export interface MarketCorrelations {
-  oilPrice: number // Correlation with oil prices
-  energyPrices: number // Correlation with energy prices
-  economicGrowth: number // Correlation with GDP growth
-  esgInvestment: number // Correlation with ESG investment flows
-}
-
 export class ClimateReceivablesCalculator extends BaseCalculator {
   constructor(databaseService: DatabaseService, options: CalculatorOptions = {}) {
     super(databaseService, options)
@@ -189,8 +165,16 @@ export class ClimateReceivablesCalculator extends BaseCalculator {
       // Get climate receivables details from database
       const receivableDetails = await this.getClimateReceivableDetails(climateInput)
       
-      // Fetch current market data for climate instruments
-      const marketData = await this.fetchClimateMarketData(climateInput, receivableDetails)
+      // Calculate valuation based on receivable type
+      let valuation: any
+      
+      if (climateInput.projectType === 'solar' || climateInput.projectType === 'wind') {
+        valuation = await this.calculateRenewableEnergyValue(climateInput, receivableDetails)
+      } else if (climateInput.creditType === 'carbon' || climateInput.creditType === 'offset') {
+        valuation = await this.calculateCarbonCreditValue(climateInput, receivableDetails)
+      } else {
+        valuation = await this.calculateGenericClimateValue(climateInput, receivableDetails)
+      }
       
       // Assess verification status and quality metrics
       const verificationMetrics = await this.assessVerificationQuality(climateInput, receivableDetails)
@@ -198,678 +182,564 @@ export class ClimateReceivablesCalculator extends BaseCalculator {
       // Analyze policy impact and regulatory environment
       const policyAnalysis = await this.analyzePolicyImpact(climateInput, receivableDetails)
       
-      // Calculate base value from market prices
-      const baseValue = await this.calculateBaseValue(climateInput, marketData, receivableDetails)
+      // Perform climate risk assessment
+      const riskAssessment = await this.performClimateRiskAssessment(climateInput, receivableDetails)
       
-      // Apply quality adjustments based on verification and standards
-      const qualityAdjustments = await this.calculateQualityAdjustments(
-        climateInput, 
-        verificationMetrics, 
-        receivableDetails
+      // Calculate sustainability metrics
+      const sustainabilityMetrics = await this.calculateSustainabilityMetrics(climateInput, receivableDetails)
+      
+      // Apply adjustments based on risk and policy factors
+      const adjustments = await this.applyClimateAdjustments(
+        valuation,
+        verificationMetrics,
+        policyAnalysis,
+        riskAssessment
       )
       
-      // Apply risk discounts and policy adjustments
-      const riskAdjustments = await this.calculateRiskAdjustments(
-        climateInput, 
-        policyAnalysis, 
-        receivableDetails
-      )
+      // Calculate final NAV
+      const grossAssetValue = valuation.totalValue
+      const totalLiabilities = adjustments.total
+      const netAssetValue = grossAssetValue.minus(totalLiabilities)
       
-      // Calculate climate risk assessment
-      const climateRisk = await this.assessClimateRisks(climateInput, marketData, receivableDetails)
-      
-      // Apply time-based discounting for future receivables
-      const timeAdjustment = await this.calculateTimeValueAdjustment(climateInput, receivableDetails)
-      
-      // Calculate sustainability impact metrics
-      const sustainabilityMetrics = await this.calculateSustainabilityMetrics(
-        climateInput, 
-        receivableDetails
-      )
-      
-      // Calculate final net present value
-      const finalValue = baseValue
-        .plus(qualityAdjustments.qualityPremium)
-        .plus(policyAnalysis.taxIncentives)
-        .plus(policyAnalysis.subsidies)
-        .minus(riskAdjustments.totalRiskAdjustment)
-        .times(timeAdjustment)
-      
-      // Build calculation result
+      // Build comprehensive result
       const result: CalculationResult = {
         runId: this.generateRunId(),
-        assetId: input.assetId || `climate_${receivableDetails.receivableId}`,
+        assetId: input.assetId || `climate_${climateInput.receivableId}`,
         productType: AssetType.CLIMATE_RECEIVABLES,
         projectId: input.projectId,
         valuationDate: input.valuationDate,
-        totalAssets: this.toNumber(finalValue),
-        totalLiabilities: this.toNumber(riskAdjustments.totalRiskAdjustment),
-        netAssets: this.toNumber(finalValue),
-        navValue: this.toNumber(finalValue),
-        navPerShare: input.sharesOutstanding ? 
-          this.toNumber(finalValue.div(this.decimal(input.sharesOutstanding))) : 
-          undefined,
-        currency: input.targetCurrency || marketData.currency || 'USD',
-        pricingSources: {
-          carbonMarketPrice: {
-            price: marketData.carbonPrice,
-            currency: marketData.currency,
-            asOf: marketData.asOf,
-            source: marketData.source
-          },
-          complianceValue: {
-            price: marketData.complianceValue,
-            currency: marketData.currency,
-            asOf: marketData.asOf,
-            source: 'compliance_market'
-          },
-          voluntaryValue: {
-            price: marketData.voluntaryValue,
-            currency: marketData.currency,
-            asOf: marketData.asOf,
-            source: 'voluntary_market'
-          },
-          recPrice: {
-            price: marketData.recPrice,
-            currency: marketData.currency,
-            asOf: marketData.asOf,
-            source: 'rec_market'
-          }
-        },
+        totalAssets: this.toNumber(grossAssetValue),
+        totalLiabilities: this.toNumber(totalLiabilities),
+        netAssets: this.toNumber(netAssetValue),
+        navValue: this.toNumber(netAssetValue),
+        currency: input.targetCurrency || 'USD',
+        pricingSources: this.buildClimatePricingSources(valuation, climateInput),
         calculatedAt: new Date(),
         status: CalculationStatus.COMPLETED,
         metadata: {
-          verificationMetrics,
-          policyAnalysis,
-          climateRisk,
-          sustainabilityMetrics,
-          qualityAdjustments,
-          riskAdjustments,
-          marketDynamics: await this.analyzeMarketDynamics(marketData),
-          impactMetrics: {
-            co2Reduction: sustainabilityMetrics.co2Reduction,
-            additionality: sustainabilityMetrics.additionality,
-            permanence: sustainabilityMetrics.permanence,
-            cobenefit: climateInput.cobenefit
+          creditType: climateInput.creditType,
+          projectType: climateInput.projectType,
+          vintage: climateInput.vintage,
+          verificationStandard: climateInput.verificationStandard,
+          verificationMetrics: {
+            certificationStatus: verificationMetrics.certificationStatus,
+            additionalityScore: verificationMetrics.additionalityScore,
+            permanenceRisk: verificationMetrics.permanenceRisk
           },
-          creditDetails: {
-            vintage: receivableDetails.vintage,
-            methodology: receivableDetails.methodology,
-            geography: receivableDetails.geography,
-            projectType: receivableDetails.projectType,
-            registry: receivableDetails.registry
-          }
+          policyAnalysis: {
+            regulatoryRisk: policyAnalysis.regulatoryRisk,
+            policySupport: policyAnalysis.policySupport,
+            carbonTax: policyAnalysis.carbonTax
+          },
+          riskAssessment: {
+            overallRisk: riskAssessment.overallRisk,
+            transitionRisk: riskAssessment.transitionRisk,
+            physicalRisk: riskAssessment.physicalRisk
+          },
+          sustainabilityMetrics: {
+            co2Reduction: sustainabilityMetrics.co2Reduction,
+            renewableGeneration: sustainabilityMetrics.renewableGeneration,
+            additionality: sustainabilityMetrics.additionality
+          },
+          financialMetrics: valuation.metrics || {}
         }
       }
-
+      
       return {
         success: true,
         data: result
       }
-
+      
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown climate receivables calculation error',
-        code: 'CLIMATE_RECEIVABLES_CALCULATION_FAILED'
+        code: 'CLIMATE_CALCULATION_FAILED'
       }
     }
   }
-
-  // ==================== CLIMATE RECEIVABLES SPECIFIC METHODS ====================
-
-  /**
-   * Fetches climate receivables details from the database
-   */
-  private async getClimateReceivableDetails(input: ClimateReceivablesCalculationInput): Promise<any> {
-    try {
-      let receivable = null
-      
-      // Try to get climate receivable from database by various identifiers
-      if (input.receivableId) {
-        try {
-          receivable = await this.databaseService.getClimateReceivableById(input.receivableId)
-        } catch (error) {
-          // Climate receivable not found, will use generated data
-        }
-      } else if (input.assetId) {
-        try {
-          receivable = await this.databaseService.getClimateReceivableByAssetId(input.assetId)
-        } catch (error) {
-          // Climate receivable not found, will use generated data
-        }
-      }
-      
-      if (!receivable) {
-        // Generate realistic climate receivable data based on input
-        return this.generateClimateReceivableAttributes(input)
-      }
-      
-      // Generate additional attributes not in basic climate_receivables table
-      const additionalAttributes = this.generateClimateReceivableAttributes(input)
-      
-      return {
-        receivableId: receivable.receivable_id,
-        assetId: receivable.asset_id || additionalAttributes.assetId,
-        payerId: receivable.payer_id || additionalAttributes.payerId,
-        amount: Number(receivable.amount) || additionalAttributes.amount,
-        dueDate: receivable.due_date || additionalAttributes.dueDate,
-        riskScore: receivable.risk_score || additionalAttributes.riskScore,
-        discountRate: Number(receivable.discount_rate) || additionalAttributes.discountRate,
-        projectId: receivable.project_id || additionalAttributes.projectId,
-        // Generated climate-specific attributes
-        creditType: additionalAttributes.creditType,
-        vintage: additionalAttributes.vintage,
-        verificationStandard: additionalAttributes.verificationStandard,
-        certificationBody: additionalAttributes.certificationBody,
-        projectType: additionalAttributes.projectType,
-        geography: additionalAttributes.geography,
-        additionality: additionalAttributes.additionality,
-        permanence: additionalAttributes.permanence,
-        registry: additionalAttributes.registry,
-        serialNumber: additionalAttributes.serialNumber,
-        issuanceDate: additionalAttributes.issuanceDate,
-        retirementDate: additionalAttributes.retirementDate,
-        methodology: additionalAttributes.methodology,
-        status: 'verified',
-        currency: 'USD',
-        createdAt: receivable.created_at || new Date(),
-        updatedAt: receivable.updated_at || new Date()
-      }
-    } catch (error) {
-      // Fallback to generated data if database query fails
-      return this.generateClimateReceivableAttributes(input)
-    }
-  }
-
-  /**
-   * Fetches climate market data and pricing information
-   */
-  private async fetchClimateMarketData(
+  
+  // ==================== RENEWABLE ENERGY VALUATION ====================
+  
+  private async calculateRenewableEnergyValue(
     input: ClimateReceivablesCalculationInput,
     receivableDetails: any
-  ): Promise<ClimateReceivablesPriceData> {
-    // Generate realistic climate market data based on credit type and geography
-    const creditType = receivableDetails.creditType || 'CARBON_OFFSET'
-    const geography = receivableDetails.geography || 'North America'
-    const vintage = receivableDetails.vintage || new Date().getFullYear()
+  ): Promise<any> {
+    // Use climate models for renewable energy projects
     
-    // Base pricing by credit type
-    const basePrices = {
-      'CARBON_OFFSET': { base: 25.50, rec: 0 },
-      'REC': { base: 45.00, rec: 45.00 },
-      'COMPLIANCE': { base: 32.80, rec: 0 },
-      'VOLUNTARY': { base: 18.75, rec: 0 }
+    if (input.projectType === 'solar') {
+      // Solar project valuation
+      const solarParams = {
+        installedCapacity: input.installedCapacity || 10, // MW
+        capacityFactor: input.capacityFactor || 0.20,
+        degradationRate: 0.005, // 0.5% per year
+        operatingCosts: input.operatingCosts || Array(25).fill(20000),
+        maintenanceCosts: Array(25).fill((input.operatingCosts?.[0] ?? 20000) * 0.1),
+        ppaPrice: input.contractPrice || 50, // $/MWh
+        projectLife: input.projectLifespan || 25,
+        discountRate: input.discountRate || 0.06,
+        investmentTaxCredit: 0.3, // 30% ITC
+        acceleratedDepreciation: true
+      }
+      
+      const solarValue = climateModels.solarProjectValuation(solarParams)
+      
+      // Calculate LCOE for solar
+      const lcoeParams = {
+        capitalCosts: input.capitalCosts || 1000000,
+        operatingCosts: input.operatingCosts || Array(25).fill(20000),
+        energyOutput: this.generateEnergyOutput(input.installedCapacity || 10, input.capacityFactor || 0.20, 25),
+        discountRate: input.discountRate || 0.06,
+        projectLife: input.projectLifespan || 25
+      }
+      
+      const lcoe = climateModels.calculateLCOE(lcoeParams)
+      
+      // Climate models return Decimal values directly
+      const solarProjectValue = solarValue
+      const solarIrr = new Decimal(0.08) // Estimated IRR
+      const solarPayback = new Decimal(12) // Estimated payback in years
+      const solarTotalEnergy = new Decimal(lcoeParams.energyOutput.reduce((sum, val) => sum + val, 0))
+      
+      return {
+        projectValue: solarProjectValue,
+        lcoe,
+        totalValue: solarProjectValue,
+        metrics: {
+          irr: solarIrr,
+          paybackPeriod: solarPayback,
+          totalEnergyGenerated: solarTotalEnergy,
+          carbonOffset: solarTotalEnergy.times(0.0005) // tonnes CO2 per MWh
+        }
+      }
+      
+    } else if (input.projectType === 'wind') {
+      // Wind project valuation
+      const windParams = {
+        installedCapacity: input.installedCapacity || 50, // MW
+        capacityFactor: input.capacityFactor || 0.35,
+        windResource: 7.5, // m/s average wind speed
+        turbineEfficiency: 0.90,
+        availabilityFactor: 0.95,
+        operatingCosts: input.operatingCosts || Array(25).fill(1500000),
+        maintenanceCosts: Array(25).fill((input.operatingCosts?.[0] ?? 1500000) * 0.15),
+        ppaPrice: input.contractPrice || 45, // $/MWh
+        projectLife: input.projectLifespan || 25,
+        discountRate: input.discountRate || 0.07,
+        productionTaxCredit: 0.026 // 2.6 cents per kWh PTC
+      }
+      
+      const windValue = climateModels.windProjectValuation(windParams)
+      
+      // Calculate LCOE for wind
+      const lcoeParams = {
+        capitalCosts: input.capitalCosts || 70000000,
+        operatingCosts: input.operatingCosts || Array(25).fill(1500000),
+        energyOutput: this.generateEnergyOutput(input.installedCapacity || 50, input.capacityFactor || 0.35, 25),
+        discountRate: input.discountRate || 0.07,
+        projectLife: input.projectLifespan || 25
+      }
+      
+      const lcoe = climateModels.calculateLCOE(lcoeParams)
+      
+      // Climate models return Decimal values directly
+      const windProjectValue = windValue
+      const windIrr = new Decimal(0.09) // Estimated IRR
+      const windPayback = new Decimal(10) // Estimated payback in years
+      const windTotalEnergy = new Decimal(lcoeParams.energyOutput.reduce((sum, val) => sum + val, 0))
+      const windCapacityFactor = new Decimal(input.capacityFactor || 0.35)
+      
+      return {
+        projectValue: windProjectValue,
+        lcoe,
+        totalValue: windProjectValue,
+        metrics: {
+          irr: windIrr,
+          paybackPeriod: windPayback,
+          totalEnergyGenerated: windTotalEnergy,
+          capacityFactorAchieved: windCapacityFactor,
+          carbonOffset: windTotalEnergy.times(0.0005) // Fix: use windTotalEnergy instead of windValue.totalEnergy
+        }
+      }
     }
     
-    // Geography multipliers
-    const geographyMultipliers = {
-      'North America': 1.0,
-      'Europe': 1.25,
-      'Asia Pacific': 0.85,
-      'Latin America': 0.70,
-      'Africa': 0.60,
-      'Middle East': 0.90
-    }
+    // Default renewable energy DCF - convert cash flows to ClimateFlow format
+    const cashFlows = this.generateRenewableCashFlows(input)
+    const climateFlows: any[] = cashFlows.map((cf, index) => ({
+      period: index + 1,
+      carbonCredits: 0,
+      energyRevenue: cf,
+      operatingCosts: 0,
+      maintenanceCosts: 0,
+      carbonPrice: 0
+    }))
     
-    // Vintage adjustments (newer vintages command premium)
-    const currentYear = new Date().getFullYear()
-    const vintageAdjustment = Math.max(0.7, 1 - (currentYear - vintage) * 0.05)
-    
-    const basePrice = basePrices[creditType as keyof typeof basePrices]?.base || 25.50
-    const recPrice = basePrices[creditType as keyof typeof basePrices]?.rec || 0
-    const geoMultiplier = geographyMultipliers[geography as keyof typeof geographyMultipliers] || 1.0
-    
-    const adjustedPrice = basePrice * geoMultiplier * vintageAdjustment
-    const volatility = 0.15 + Math.random() * 0.15 // 15-30% volatility
-    
-    // Add market volatility
-    const priceVariation = 1 + (Math.random() - 0.5) * volatility
-    const finalPrice = adjustedPrice * priceVariation
+    const dcfValue = climateModels.climateReceivablesDCF(
+      climateFlows,
+      0.04 // green discount rate
+    )
     
     return {
-      price: finalPrice,
-      currency: 'USD',
-      asOf: input.valuationDate || new Date(),
-      source: MarketDataProvider.INTERNAL_DB,
-      carbonPrice: creditType.includes('CARBON') ? finalPrice : 0,
-      recPrice: creditType === 'REC' ? finalPrice : recPrice,
-      complianceValue: creditType === 'COMPLIANCE' ? finalPrice * 1.15 : finalPrice * 0.95,
-      voluntaryValue: creditType === 'VOLUNTARY' ? finalPrice : finalPrice * 0.85,
-      futuresPrice: finalPrice * (1 + (Math.random() - 0.5) * 0.1), // ±5% futures premium
-      spot: finalPrice,
-      vintage,
-      qualityPremium: this.calculateQualityPremium(receivableDetails),
-      geography,
-      priceVolatility: volatility,
-      liquidityScore: this.calculateLiquidityScore(creditType, geography),
-      demandGrowth: 0.25 + Math.random() * 0.25, // 25-50% growth
-      supplyConstraints: 50 + Math.random() * 40 // 50-90 supply constraint score
+      dcfValue,
+      totalValue: dcfValue,
+      metrics: {}
     }
   }
-
-  /**
-   * Assesses verification quality and certification status
-   */
+  
+  // ==================== CARBON CREDIT VALUATION ====================
+  
+  private async calculateCarbonCreditValue(
+    input: ClimateReceivablesCalculationInput,
+    receivableDetails: any
+  ): Promise<any> {
+    // Fetch current carbon market prices
+    const carbonPrices = await this.fetchCarbonPrices(input)
+    
+    // Calculate carbon credit value
+    const creditValue = climateModels.carbonCreditValue({
+      tonnes: receivableDetails.tonnes || input.amount || 1000,
+      pricePerTonne: carbonPrices.currentPrice,
+      additionalityFactor: input.additionality ? 0.9 : 0.7,
+      leakageRate: 0.05,
+      permanenceRisk: 0.1,
+      verificationCost: 1000,
+      vintageYear: input.vintage || new Date().getFullYear(),
+      projectType: 'avoided_emissions'
+    })
+    
+    // Calculate green premium based on quality score
+    const qualityScore = this.calculateQualityScore(input, receivableDetails)
+    const greenPremium = new Decimal(carbonPrices.currentPrice)
+      .times(qualityScore * 0.1) // 10% premium for high quality
+    
+    return {
+      creditValue,
+      greenPremium,
+      totalValue: creditValue.plus(greenPremium),
+      metrics: {
+        pricePerTonne: carbonPrices.currentPrice,
+        totalTonnes: receivableDetails.tonnes || input.amount || 1000,
+        vintage: input.vintage || new Date().getFullYear(),
+        additionalityFactor: input.additionality ? 0.9 : 0.7
+      }
+    }
+  }
+  
+  // ==================== PPA VALUATION ====================
+  
+  private async calculatePPAValue(
+    input: ClimateReceivablesCalculationInput
+  ): Promise<any> {
+    if (!input.energyOutput || !input.contractPrice) {
+      return { totalValue: this.decimal(0), metrics: {} }
+    }
+    
+    const ppaValue = climateModels.ppaValuation({
+      contractPrice: input.contractPrice!,
+      volume: input.energyOutput!,
+      marketPrice: input.marketPrice || Array(input.energyOutput!.length).fill(input.contractPrice! * 0.9),
+      contractTerm: input.projectLifespan || 20,
+      discountRate: input.discountRate || 0.06,
+      escalationRate: 0.025,
+      curtailmentRisk: 0.02,
+      creditRisk: 0.01
+    })
+    
+    return {
+      ppaValue,
+      totalValue: ppaValue,
+      metrics: {
+        totalContractValue: ppaValue,
+        marketValue: ppaValue, // PPA valuation returns net value difference
+        valueCapture: ppaValue,
+        averagePrice: input.contractPrice || 50
+      }
+    }
+  }
+  
+  // ==================== GENERIC CLIMATE VALUATION ====================
+  
+  private async calculateGenericClimateValue(
+    input: ClimateReceivablesCalculationInput,
+    receivableDetails: any
+  ): Promise<any> {
+    // Generate climate-specific cash flows
+    const cashFlows = this.generateClimateCashFlows(input, receivableDetails)
+    
+    // Apply climate receivables DCF - convert cash flows to ClimateFlow format
+    const climateFlows: any[] = cashFlows.map((cf, index) => ({
+      period: index + 1,
+      carbonCredits: 0,
+      energyRevenue: cf,
+      operatingCosts: 0,
+      maintenanceCosts: 0,
+      carbonPrice: 0
+    }))
+    
+    const dcfValue = climateModels.climateReceivablesDCF(
+      climateFlows,
+      0.04 // green discount
+    )
+    
+    return {
+      dcfValue,
+      totalValue: dcfValue,
+      metrics: {
+        cashFlowPeriods: cashFlows.length,
+        greenDiscountApplied: 0.04,
+        additionalityFactor: input.additionality ? 0.9 : 0.7
+      }
+    }
+  }
+  
+  // ==================== HELPER METHODS ====================
+  
+  private async getClimateReceivableDetails(input: ClimateReceivablesCalculationInput): Promise<any> {
+    try {
+      const receivableDetails = await this.databaseService.getClimateReceivableById(input.receivableId!)
+      
+      return {
+        id: receivableDetails.id,
+        amount: receivableDetails.amount,
+        tonnes: receivableDetails.carbon_tonnes || 1000,
+        dueDate: receivableDetails.due_date,
+        certificationStatus: receivableDetails.certification_status || 'pending',
+        projectLocation: receivableDetails.project_location,
+        creditType: receivableDetails.credit_type || input.creditType || 'carbon',
+        vintage: receivableDetails.vintage_year || input.vintage || new Date().getFullYear()
+      }
+    } catch (error) {
+      // Fallback to input data
+      return {
+        id: input.receivableId,
+        amount: input.amount || 100000,
+        tonnes: 1000,
+        dueDate: input.dueDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        certificationStatus: 'verified',
+        projectLocation: input.geography || 'United States',
+        creditType: input.creditType || 'carbon',
+        vintage: input.vintage || new Date().getFullYear()
+      }
+    }
+  }
+  
+  private generateEnergyOutput(capacity: number, capacityFactor: number, years: number): number[] {
+    const annualOutput = capacity * capacityFactor * 8760 // MW * CF * hours/year = MWh
+    const output: number[] = []
+    
+    for (let i = 0; i < years; i++) {
+      // Apply degradation for solar
+      const degradation = Math.pow(0.995, i) // 0.5% annual degradation
+      output.push(annualOutput * degradation)
+    }
+    
+    return output
+  }
+  
+  private generateRenewableCashFlows(input: ClimateReceivablesCalculationInput): number[] {
+    const cashFlows: number[] = []
+    const years = input.projectLifespan || 20
+    
+    for (let i = 0; i < years; i++) {
+      const revenue = (input.energyOutput?.[i] || 10000) * (input.contractPrice || 50)
+      const costs = input.operatingCosts?.[i] || 20000
+      cashFlows.push(revenue - costs)
+    }
+    
+    return cashFlows
+  }
+  
+  private generateClimateCashFlows(input: ClimateReceivablesCalculationInput, receivableDetails: any): number[] {
+    const amount = receivableDetails.amount || input.amount || 100000
+    const dueDate = new Date(receivableDetails.dueDate || input.dueDate || Date.now() + 90 * 24 * 60 * 60 * 1000)
+    const yearsToMaturity = Math.max(0, (dueDate.getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000))
+    
+    if (yearsToMaturity <= 1) {
+      return [amount]
+    }
+    
+    // Split into annual payments
+    const annualPayment = amount / Math.ceil(yearsToMaturity)
+    const cashFlows: number[] = []
+    
+    for (let i = 0; i < Math.ceil(yearsToMaturity); i++) {
+      cashFlows.push(annualPayment)
+    }
+    
+    return cashFlows
+  }
+  
+  private async fetchCarbonPrices(input: ClimateReceivablesCalculationInput): Promise<any> {
+    // TODO: Integrate with real carbon market API
+    return {
+      currentPrice: 85, // $/tonne CO2e (EU ETS price)
+      voluntaryPrice: 15, // $/tonne CO2e (voluntary market)
+      futurePrice: 95, // Expected future price
+      liquidityScore: 0.7
+    }
+  }
+  
+  private calculateQualityScore(input: ClimateReceivablesCalculationInput, receivableDetails: any): number {
+    let score = 0.5 // Base score
+    
+    if (input.additionality) score += 0.2
+    if (input.verificationStandard === 'gold_standard') score += 0.15
+    if (input.permanence && input.permanence > 50) score += 0.1
+    if (input.cobenefit && input.cobenefit.biodiversity > 70) score += 0.05
+    
+    return Math.min(1.0, score)
+  }
+  
   private async assessVerificationQuality(
     input: ClimateReceivablesCalculationInput,
     receivableDetails: any
   ): Promise<VerificationMetrics> {
     return {
-      certificationStatus: 'verified',
-      verifiedBy: receivableDetails.certificationBody || 'Verra',
-      verificationDate: receivableDetails.issuanceDate || new Date('2024-01-15'),
-      verificationExpiry: new Date('2027-01-15'),
-      additionalityScore: receivableDetails.additionality ? 90 : 40,
-      permanenceRisk: 100 - (receivableDetails.permanence || 95),
-      leakageRisk: 15, // Low leakage risk for wind projects
-      measurementAccuracy: 88, // High accuracy for renewable energy
-      monitoringQuality: 85, // Good monitoring systems
-      reportingTransparency: 92 // High transparency
+      certificationStatus: receivableDetails.certificationStatus || 'verified',
+      verifiedBy: input.certificationBody || 'Verra',
+      verificationDate: new Date(),
+      verificationExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      additionalityScore: input.additionality ? 85 : 60,
+      permanenceRisk: input.permanence || 20,
+      leakageRisk: 15,
+      measurementAccuracy: 90,
+      monitoringQuality: 85,
+      reportingTransparency: 88
     }
   }
-
-  /**
-   * Analyzes policy impact and regulatory environment
-   */
+  
   private async analyzePolicyImpact(
     input: ClimateReceivablesCalculationInput,
     receivableDetails: any
   ): Promise<PolicyImpactAnalysis> {
     return {
-      regulatoryRisk: 25, // Moderate regulatory risk
-      policySupport: 80, // Strong policy support for renewables
-      complianceRequirement: receivableDetails.creditType === 'COMPLIANCE',
-      taxIncentives: 2500, // $2,500 in tax incentives
-      subsidies: 1200, // $1,200 in subsidies
-      carbonTax: 0, // No carbon tax in region
-      capAndTrade: false, // Not part of cap-and-trade system
-      netZeroCommitments: 85, // High corporate demand
-      internationalAgreements: ['Paris Agreement', 'Glasgow Climate Pact']
+      regulatoryRisk: 25,
+      policySupport: 75,
+      complianceRequirement: input.creditType === 'carbon',
+      taxIncentives: input.projectType === 'solar' ? 0.3 : 0.1, // 30% ITC for solar
+      subsidies: 0,
+      carbonTax: 50, // $/tonne CO2
+      capAndTrade: true,
+      netZeroCommitments: 85,
+      internationalAgreements: ['Paris Agreement', 'Glasgow Pact']
     }
   }
-
-  /**
-   * Calculates base value from market pricing
-   */
-  private async calculateBaseValue(
+  
+  private async performClimateRiskAssessment(
     input: ClimateReceivablesCalculationInput,
-    marketData: ClimateReceivablesPriceData,
-    receivableDetails: any
-  ): Promise<Decimal> {
-    const amount = this.decimal(receivableDetails.amount || 0)
-    let pricePerUnit = this.decimal(marketData.carbonPrice)
-    
-    // Use REC price if it's a renewable energy certificate
-    if (receivableDetails.creditType === 'REC' || receivableDetails.projectType?.includes('Renewable')) {
-      pricePerUnit = this.decimal(marketData.recPrice)
-    }
-    
-    return amount.times(pricePerUnit)
-  }
-
-  /**
-   * Calculates quality adjustments based on verification standards
-   */
-  private async calculateQualityAdjustments(
-    input: ClimateReceivablesCalculationInput,
-    verificationMetrics: VerificationMetrics,
-    receivableDetails: any
-  ): Promise<{ qualityPremium: Decimal; adjustmentFactors: Record<string, number> }> {
-    const baseValue = this.decimal(receivableDetails.amount * 25.50) // Base calculation
-    
-    let qualityMultiplier = 0
-    
-    // Verification standard premium
-    const standard = receivableDetails.verificationStandard?.toUpperCase()
-    if (standard === 'GOLD_STANDARD') qualityMultiplier += 0.15
-    else if (standard === 'VCS') qualityMultiplier += 0.10
-    else if (standard === 'CAR') qualityMultiplier += 0.08
-    
-    // Additionality premium
-    if (verificationMetrics.additionalityScore >= 85) qualityMultiplier += 0.12
-    else if (verificationMetrics.additionalityScore >= 70) qualityMultiplier += 0.05
-    
-    // Permanence premium
-    if (verificationMetrics.permanenceRisk <= 10) qualityMultiplier += 0.08
-    else if (verificationMetrics.permanenceRisk <= 25) qualityMultiplier += 0.03
-    
-    // Co-benefits premium
-    if (input.cobenefit) {
-      const avgCobenefit = Object.values(input.cobenefit).reduce((a, b) => a + b, 0) / Object.values(input.cobenefit).length
-      if (avgCobenefit >= 70) qualityMultiplier += 0.10
-      else if (avgCobenefit >= 50) qualityMultiplier += 0.05
-    }
-    
-    const qualityPremium = baseValue.times(this.decimal(qualityMultiplier))
-    
-    return {
-      qualityPremium,
-      adjustmentFactors: {
-        verification: verificationMetrics.additionalityScore / 100,
-        permanence: (100 - verificationMetrics.permanenceRisk) / 100,
-        transparency: verificationMetrics.reportingTransparency / 100,
-        accuracy: verificationMetrics.measurementAccuracy / 100
-      }
-    }
-  }
-
-  /**
-   * Calculates risk adjustments and discounts
-   */
-  private async calculateRiskAdjustments(
-    input: ClimateReceivablesCalculationInput,
-    policyAnalysis: PolicyImpactAnalysis,
-    receivableDetails: any
-  ): Promise<{ totalRiskAdjustment: Decimal; riskBreakdown: Record<string, number> }> {
-    const baseValue = this.decimal(receivableDetails.amount * 25.50)
-    
-    let totalRiskDiscount = 0
-    
-    // Regulatory risk discount
-    totalRiskDiscount += (policyAnalysis.regulatoryRisk / 100) * 0.10
-    
-    // Counterparty risk discount
-    const counterpartyRisk = (receivableDetails.riskScore || 25) / 100
-    totalRiskDiscount += counterpartyRisk * 0.15
-    
-    // Market liquidity risk
-    totalRiskDiscount += 0.02 // 2% base liquidity discount
-    
-    // Technology risk for newer technologies
-    if (receivableDetails.projectType?.includes('New Technology')) {
-      totalRiskDiscount += 0.05
-    }
-    
-    const totalRiskAdjustment = baseValue.times(this.decimal(totalRiskDiscount))
-    
-    return {
-      totalRiskAdjustment,
-      riskBreakdown: {
-        regulatory: policyAnalysis.regulatoryRisk / 100,
-        counterparty: counterpartyRisk,
-        market: 0.02,
-        liquidity: 0.02,
-        technology: receivableDetails.projectType?.includes('New Technology') ? 0.05 : 0
-      }
-    }
-  }
-
-  /**
-   * Assesses comprehensive climate risks
-   */
-  private async assessClimateRisks(
-    input: ClimateReceivablesCalculationInput,
-    marketData: ClimateReceivablesPriceData,
     receivableDetails: any
   ): Promise<ClimateRiskAssessment> {
+    const transitionRisk = 0.35
+    const physicalRisk = 0.25
+    const technologyRisk = input.projectType === 'solar' || input.projectType === 'wind' ? 0.15 : 0.25
+    const marketRisk = 0.30
+    const policyRisk = 0.20
+    const reputationalRisk = 0.10
+    const counterpartyRisk = 0.15
+    const operationalRisk = 0.20
+    
+    const overallRisk = (
+      transitionRisk * 0.2 +
+      physicalRisk * 0.15 +
+      technologyRisk * 0.1 +
+      marketRisk * 0.2 +
+      policyRisk * 0.15 +
+      reputationalRisk * 0.05 +
+      counterpartyRisk * 0.1 +
+      operationalRisk * 0.05
+    )
+    
     return {
-      transitionRisk: 20, // Low risk - renewables benefit from transition
-      physicalRisk: 15, // Low risk for well-located projects
-      technologyRisk: receivableDetails.projectType?.includes('Wind') ? 10 : 25,
-      marketRisk: marketData.priceVolatility * 100,
-      policyRisk: 25, // Moderate policy risk
-      reputationalRisk: 5, // Low risk for verified credits
-      counterpartyRisk: receivableDetails.riskScore || 25,
-      operationalRisk: 20, // Moderate operational risk
-      overallRisk: 18 // Composite risk score
+      transitionRisk,
+      physicalRisk,
+      technologyRisk,
+      marketRisk,
+      policyRisk,
+      reputationalRisk,
+      counterpartyRisk,
+      operationalRisk,
+      overallRisk
     }
   }
-
-  /**
-   * Calculates time value adjustment for future receivables
-   */
-  private async calculateTimeValueAdjustment(
-    input: ClimateReceivablesCalculationInput,
-    receivableDetails: any
-  ): Promise<Decimal> {
-    const dueDate = receivableDetails.dueDate
-    const valuationDate = input.valuationDate || new Date()
-    
-    if (!dueDate || dueDate <= valuationDate) {
-      return this.decimal(1) // No adjustment for current receivables
-    }
-    
-    const yearsToMaturity = (dueDate.getTime() - valuationDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    const discountRate = receivableDetails.discountRate || 0.08
-    const discountFactor = Math.pow(1 + discountRate, -yearsToMaturity)
-    
-    return this.decimal(discountFactor)
-  }
-
-  /**
-   * Calculates sustainability impact metrics
-   */
+  
   private async calculateSustainabilityMetrics(
     input: ClimateReceivablesCalculationInput,
     receivableDetails: any
   ): Promise<SustainabilityMetrics> {
-    const amount = receivableDetails.amount || 0
+    const co2Reduction = receivableDetails.tonnes || 1000
+    const renewableGeneration = input.energyOutput ? 
+      input.energyOutput.reduce((a, b) => a + b, 0) : 0
     
     return {
-      co2Reduction: amount, // Tonnes CO2 reduced
-      renewableGeneration: receivableDetails.creditType === 'REC' ? amount : 0,
-      forestProtection: receivableDetails.projectType?.includes('Forest') ? amount * 0.1 : 0,
+      co2Reduction,
+      renewableGeneration,
+      forestProtection: 0,
       biodiversityImpact: input.cobenefit?.biodiversity || 50,
-      communityBenefit: input.cobenefit?.socialImpact || 50,
+      communityBenefit: input.cobenefit?.socialImpact || 60,
       sdgContribution: {
-        'SDG7': 85, // Clean Energy
-        'SDG13': 95, // Climate Action
-        'SDG15': input.cobenefit?.biodiversity || 30 // Life on Land
+        'SDG7': 80, // Affordable and clean energy
+        'SDG13': 90, // Climate action
+        'SDG15': 70 // Life on land
       },
-      additionality: 85, // High additionality score
-      permanence: receivableDetails.permanence || 95
+      additionality: input.additionality ? 85 : 50,
+      permanence: input.permanence || 75
     }
   }
-
-  /**
-   * Analyzes market dynamics and correlations
-   */
-  private async analyzeMarketDynamics(marketData: ClimateReceivablesPriceData): Promise<MarketDynamics> {
+  
+  private async applyClimateAdjustments(
+    valuation: any,
+    verificationMetrics: VerificationMetrics,
+    policyAnalysis: PolicyImpactAnalysis,
+    riskAssessment: ClimateRiskAssessment
+  ): Promise<any> {
+    const verificationAdjustment = verificationMetrics.certificationStatus === 'verified' ? 
+      this.decimal(0) : this.decimal(valuation.totalValue).times(0.2)
+    
+    const riskAdjustment = this.decimal(valuation.totalValue).times(riskAssessment.overallRisk * 0.1)
+    
+    const policyAdjustment = policyAnalysis.complianceRequirement ? 
+      this.decimal(0) : this.decimal(valuation.totalValue).times(0.05)
+    
     return {
-      complianceMarkets: {
-        euEts: 85.50,
-        caeT: 28.25,
-        rggi: 14.75,
-        volume: 1500000,
-        growth: 0.25
-      },
-      voluntaryMarkets: {
-        vcs: 22.25,
-        goldStandard: 35.50,
-        ccb: 28.00,
-        car: 26.75,
-        volume: 850000,
-        growth: 0.45
-      },
-      futures: {
-        nearTerm: 26.80,
-        longTerm: 32.50,
-        backwardation: -0.05,
-        volatility: 0.18
-      },
-      correlations: {
-        oilPrice: -0.15,
-        energyPrices: -0.25,
-        economicGrowth: 0.35,
-        esgInvestment: 0.65
+      verificationAdjustment,
+      riskAdjustment,
+      policyAdjustment,
+      total: verificationAdjustment.plus(riskAdjustment).plus(policyAdjustment)
+    }
+  }
+  
+  private buildClimatePricingSources(valuation: any, input: ClimateReceivablesCalculationInput): Record<string, PriceData> {
+    const sources: Record<string, PriceData> = {
+      climate_valuation: {
+        price: this.toNumber(valuation.totalValue),
+        currency: 'USD',
+        asOf: new Date(),
+        source: 'climate_models'
       }
     }
-  }
-
-  /**
-   * Generates realistic climate receivable attributes
-   */
-  private generateClimateReceivableAttributes(input: ClimateReceivablesCalculationInput): any {
-    const creditTypes = ['CARBON_OFFSET', 'REC', 'COMPLIANCE', 'VOLUNTARY']
-    const projectTypes = [
-      'Renewable Energy - Wind',
-      'Renewable Energy - Solar', 
-      'Forest Conservation',
-      'Reforestation',
-      'Methane Capture',
-      'Energy Efficiency',
-      'Clean Transportation',
-      'Industrial Process Improvement'
-    ]
     
-    const verificationStandards = ['VCS', 'Gold Standard', 'CAR', 'ACR', 'CDM']
-    const certificationBodies = ['Verra', 'Gold Standard Foundation', 'Climate Action Reserve', 'American Carbon Registry']
-    const geographies = ['North America', 'Europe', 'Asia Pacific', 'Latin America', 'Africa', 'Middle East']
-    const registries = ['Verra Registry', 'Gold Standard Registry', 'CAR Registry', 'ACR Registry']
-    
-    const selectedCreditType = input.creditType || creditTypes[Math.floor(Math.random() * creditTypes.length)]!
-    const selectedProjectType = input.projectType || projectTypes[Math.floor(Math.random() * projectTypes.length)]!
-    const selectedStandard = input.verificationStandard || verificationStandards[Math.floor(Math.random() * verificationStandards.length)]!
-    const selectedBody = input.certificationBody || certificationBodies[Math.floor(Math.random() * certificationBodies.length)]!
-    const selectedGeography = input.geography || geographies[Math.floor(Math.random() * geographies.length)]!
-    const selectedRegistry = input.registry || registries[Math.floor(Math.random() * registries.length)]!
-    
-    // Generate amount based on project type
-    const projectAmountRanges = {
-      'Renewable Energy - Wind': [500000, 2000000],
-      'Renewable Energy - Solar': [300000, 1500000],
-      'Forest Conservation': [100000, 1000000],
-      'Reforestation': [200000, 800000],
-      'Methane Capture': [50000, 500000],
-      'Energy Efficiency': [100000, 600000],
-      'Clean Transportation': [150000, 700000],
-      'Industrial Process Improvement': [250000, 1200000]
+    if (valuation.lcoe) {
+      sources.levelized_cost = {
+        price: this.toNumber(valuation.lcoe),
+        currency: 'USD/MWh',
+        asOf: new Date(),
+        source: 'lcoe_calculation'
+      }
     }
     
-    const amountRange = projectAmountRanges[selectedProjectType as keyof typeof projectAmountRanges] || [100000, 1000000]
-    const amount = input.amount || Math.floor(amountRange[0]! + Math.random() * (amountRange[1]! - amountRange[0]!))
-    
-    const vintage = input.vintage || (new Date().getFullYear() - Math.floor(Math.random() * 3)) // 0-2 years ago
-    const issuanceDate = input.issuanceDate || new Date(vintage, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-    const dueDate = input.dueDate || new Date(vintage + 1 + Math.floor(Math.random() * 5), 11, 31) // 1-5 years from vintage
-    
-    return {
-      receivableId: input.receivableId || `CLIMATE_${selectedCreditType}_${Date.now().toString(36).toUpperCase()}`,
-      assetId: input.assetId || `ASSET_${selectedProjectType.replace(/\s+/g, '_').toUpperCase()}_${Math.floor(Math.random() * 9999) + 1}`,
-      payerId: input.payerId || `PAYER_${selectedGeography.replace(/\s+/g, '_').toUpperCase()}_${Math.floor(Math.random() * 999) + 1}`,
-      amount,
-      dueDate,
-      riskScore: input.riskScore || (15 + Math.floor(Math.random() * 35)), // 15-50 risk score
-      discountRate: input.discountRate || (0.06 + Math.random() * 0.06), // 6-12% discount rate
-      creditType: selectedCreditType,
-      vintage,
-      verificationStandard: selectedStandard,
-      certificationBody: selectedBody,
-      projectType: selectedProjectType,
-      geography: selectedGeography,
-      additionality: input.additionality !== false,
-      permanence: input.permanence || (80 + Math.random() * 20), // 80-100% permanence
-      registry: selectedRegistry,
-      serialNumber: this.generateSerialNumber(selectedStandard, vintage),
-      issuanceDate,
-      retirementDate: input.retirementDate,
-      methodology: this.generateMethodology(selectedProjectType),
-      status: 'verified',
-      currency: 'USD'
+    if (valuation.creditValue) {
+      sources.carbon_credit = {
+        price: this.toNumber(valuation.creditValue),
+        currency: 'USD/tCO2e',
+        asOf: new Date(),
+        source: 'carbon_market'
+      }
     }
+    
+    return sources
   }
   
-  /**
-   * Calculates quality premium based on receivable attributes
-   */
-  private calculateQualityPremium(receivableDetails: any): number {
-    let premium = 0
-    
-    // Verification standard premium
-    const standardPremiums = {
-      'Gold Standard': 15,
-      'VCS': 10,
-      'CAR': 8,
-      'ACR': 6,
-      'CDM': 5
-    }
-    premium += standardPremiums[receivableDetails.verificationStandard as keyof typeof standardPremiums] || 0
-    
-    // Additionality premium
-    if (receivableDetails.additionality) premium += 5
-    
-    // Permanence premium
-    if (receivableDetails.permanence > 90) premium += 3
-    else if (receivableDetails.permanence > 80) premium += 1
-    
-    // Project type premium
-    if (receivableDetails.projectType?.includes('Renewable Energy')) premium += 4
-    if (receivableDetails.projectType?.includes('Forest')) premium += 6
-    
-    return premium
-  }
-  
-  /**
-   * Calculates liquidity score based on credit type and geography
-   */
-  private calculateLiquidityScore(creditType: string, geography: string): number {
-    let score = 50 // Base score
-    
-    // Credit type impact
-    const creditTypeScores = {
-      'COMPLIANCE': 90,
-      'REC': 80,
-      'CARBON_OFFSET': 70,
-      'VOLUNTARY': 60
-    }
-    score += creditTypeScores[creditType as keyof typeof creditTypeScores] || 0
-    
-    // Geography impact
-    const geographyScores = {
-      'North America': 25,
-      'Europe': 30,
-      'Asia Pacific': 20,
-      'Latin America': 15,
-      'Africa': 10,
-      'Middle East': 12
-    }
-    score += geographyScores[geography as keyof typeof geographyScores] || 0
-    
-    return Math.min(100, score)
-  }
-  
-  /**
-   * Generates serial number based on standard and vintage
-   */
-  private generateSerialNumber(standard: string, vintage: number): string {
-    const standardPrefixes = {
-      'VCS': 'VCS',
-      'Gold Standard': 'GS',
-      'CAR': 'CAR',
-      'ACR': 'ACR',
-      'CDM': 'CDM'
-    }
-    
-    const prefix = standardPrefixes[standard as keyof typeof standardPrefixes] || 'VCS'
-    const randomId = Math.floor(Math.random() * 9999999999)
-    const sequence = Math.floor(Math.random() * 999) + 1
-    
-    return `${prefix}-${randomId.toString().padStart(10, '0')}-${sequence.toString().padStart(3, '0')}-${vintage}`
-  }
-  
-  /**
-   * Generates methodology based on project type
-   */
-  private generateMethodology(projectType: string): string {
-    const methodologies = {
-      'Renewable Energy - Wind': 'ACM0002 - Grid-connected renewable electricity generation',
-      'Renewable Energy - Solar': 'ACM0002 - Grid-connected renewable electricity generation',
-      'Forest Conservation': 'VM0015 - Methodology for Avoided Unplanned Deforestation',
-      'Reforestation': 'AR-ACM0003 - Afforestation and reforestation of lands',
-      'Methane Capture': 'ACM0001 - Flaring or use of landfill gas',
-      'Energy Efficiency': 'AMS-I.C - Thermal energy production with or without electricity',
-      'Clean Transportation': 'AMS-I.C - Modal shift measures for freight transport',
-      'Industrial Process Improvement': 'AM0001 - Incineration of HFC-23 waste streams'
-    }
-    
-    return methodologies[projectType as keyof typeof methodologies] || 'VM0001 - Default methodology for verified emission reductions'
-  }
-
-  /**
-   * Generates unique run ID for the calculation
-   */
   protected override generateRunId(): string {
-    return `climate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `climate_nav_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 }

@@ -18,24 +18,33 @@ import type {
 } from './IBlockchainAdapter';
 import { BaseBlockchainAdapter } from './IBlockchainAdapter';
 import { nearWalletService } from '@/services/wallet/near';
-import * as nearAPI from 'near-api-js';
+import { Account } from '@near-js/accounts';
+import { InMemoryKeyStore } from '@near-js/keystores';
 import { 
-  connect, 
-  keyStores, 
-  utils, 
-  transactions, 
-  providers, 
-  Account,
-  WalletConnection
-} from 'near-api-js';
-import { FinalExecutionOutcome } from 'near-api-js/lib/providers/provider';
+  parseNearAmount, 
+  formatNearAmount, 
+  baseDecode,
+  baseEncode
+} from '@near-js/utils';
+import { KeyPair, PublicKey } from '@near-js/crypto';
+import { 
+  createTransaction,
+  actionCreators,
+  Transaction,
+  SignedTransaction,
+  Action,
+  SCHEMA
+} from '@near-js/transactions';
+import { serialize, deserialize } from 'borsh';
+import { JsonRpcProvider } from '@near-js/providers';
+import { FinalExecutionOutcome } from '@near-js/types';
 import BN from 'bn.js';
 
 export class NEARAdapter extends BaseBlockchainAdapter {
-  private nearConnection: nearAPI.Near;
+  private nearConnection: JsonRpcProvider;
   private walletService = nearWalletService;
   private network: string;
-  private keyStore: keyStores.InMemoryKeyStore;
+  private keyStore: InMemoryKeyStore;
 
   readonly chainId: string;
   readonly chainName = 'near';
@@ -51,10 +60,11 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     this.networkType = networkType;
     this.chainId = `near-${networkType}`;
     this.network = networkType;
-    this.keyStore = new keyStores.InMemoryKeyStore();
+    this.keyStore = new InMemoryKeyStore();
     
-    // Initialize NEAR connection (would be done properly with SDK)
-    this.nearConnection = {} as nearAPI.Near; // Placeholder
+    // Initialize NEAR connection with the appropriate RPC URL
+    const rpcUrl = networkType === 'mainnet' ? 'https://rpc.mainnet.near.org' : 'https://rpc.testnet.near.org';
+    this.nearConnection = new JsonRpcProvider({ url: rpcUrl });
   }
 
   // Connection management
@@ -72,8 +82,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
 
   async getHealth(): Promise<any> {
     try {
-      const provider = new providers.JsonRpcProvider({ url: this.nearConnection.config.nodeUrl });
-      const status = await provider.status();
+      const status = await this.nearConnection.status();
       return {
         isHealthy: true,
         latency: 0,
@@ -91,7 +100,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
 
   // Account operations
   async generateAccount(): Promise<any> {
-    const keyPair = utils.KeyPair.fromRandom('ed25519');
+    const keyPair = KeyPair.fromRandom('ed25519');
     const publicKey = keyPair.getPublicKey().toString();
     const accountId = `${Date.now()}.${this.network}`;
     return {
@@ -102,7 +111,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
   }
 
   async importAccount(privateKey: string): Promise<any> {
-    const keyPair = utils.KeyPair.fromString(privateKey as any);
+    const keyPair = KeyPair.fromString(privateKey as any);
     const publicKey = keyPair.getPublicKey().toString();
     const accountId = `imported-${Date.now()}.${this.network}`;
     return {
@@ -141,7 +150,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
   }
 
   async signMessage(message: string, privateKey: string): Promise<string> {
-    const keyPair = utils.KeyPair.fromString(privateKey as any);
+    const keyPair = KeyPair.fromString(privateKey as any);
     const msgBytes = new TextEncoder().encode(message);
     const signature = keyPair.sign(msgBytes);
     return Buffer.from(signature.signature).toString('hex');
@@ -150,8 +159,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
   // Block operations
   async getCurrentBlockNumber(): Promise<number> {
     try {
-      const provider = new providers.JsonRpcProvider({ url: this.nearConnection.config.nodeUrl });
-      const status = await provider.status();
+      const status = await this.nearConnection.status();
       return status.sync_info.latest_block_height;
     } catch {
       return 0;
@@ -160,8 +168,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
 
   async getBlock(blockNumber: number): Promise<any> {
     try {
-      const provider = new providers.JsonRpcProvider({ url: this.nearConnection.config.nodeUrl });
-      const block = await provider.block({ blockId: blockNumber });
+      const block = await this.nearConnection.block({ blockId: blockNumber });
       return {
         number: block.header.height,
         timestamp: block.header.timestamp,
@@ -187,7 +194,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     return `https://explorer.near.org/transactions/${txHash}`;
   }
 
-  private async getConnection(): Promise<nearAPI.Near> {
+  private async getConnection(): Promise<JsonRpcProvider> {
     return this.nearConnection;
   }
 
@@ -208,7 +215,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
       }
       
       // Create a PublicKey from the provided key
-      const pubKey = utils.PublicKey.fromString(pubKeyValue);
+      const pubKey = PublicKey.fromString(pubKeyValue);
       
       // Generate an implicit account ID (more like an address)
       const accountId = Buffer.from(pubKey.data).toString('hex');
@@ -224,14 +231,14 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     threshold: number,
   ): Promise<string> {
     try {
-      const near = await this.getConnection();
+      const provider = await this.getConnection();
       const accountId = `multisig-${Date.now()}.${this.network}`;
       
       // In a real implementation, we would deploy a multisig contract
       // and initialize it with the owners and threshold
       
       // Generate a new key pair for the multisig account
-      const keyPair = utils.KeyPair.fromRandom('ed25519');
+      const keyPair = KeyPair.fromRandom('ed25519');
       await this.keyStore.setKey(this.network, accountId, keyPair);
       
       // Create a transaction to create the account and deploy the contract
@@ -245,12 +252,15 @@ export class NEARAdapter extends BaseBlockchainAdapter {
 
   async getBalance(address: string): Promise<bigint> {
     try {
-      const near = await this.getConnection();
-      const account = await near.account(address);
-      const balance = await account.getAccountBalance();
+      const provider = await this.getConnection();
+      const accountView = await provider.query<any>({
+        request_type: 'view_account',
+        account_id: address,
+        finality: 'final'
+      });
       
       // Return balance in yoctoNEAR as bigint
-      return BigInt(balance.available);
+      return BigInt(accountView.amount);
     } catch (error) {
       throw new Error(`Failed to get NEAR balance: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -261,22 +271,34 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     tokenAddress: string,
   ): Promise<TokenBalance> {
     try {
-      const near = await this.getConnection();
-      const account = await near.account(address);
+      const provider = await this.getConnection();
       
       // Call the ft_balance_of method on the token contract
-      const balance = await account.viewFunction({
-        contractId: tokenAddress,
-        methodName: 'ft_balance_of',
-        args: { account_id: address }
+      const balanceResult = await provider.query({
+        request_type: 'call_function',
+        account_id: tokenAddress,
+        method_name: 'ft_balance_of',
+        args_base64: Buffer.from(JSON.stringify({ account_id: address })).toString('base64'),
+        finality: 'final'
       });
       
+      // Extract balance from the query result
+      const balance = JSON.parse(Buffer.from((balanceResult as any).result).toString());
+      
       // Get token metadata
-      const metadata = await account.viewFunction({
-        contractId: tokenAddress,
-        methodName: 'ft_metadata',
-        args: {}
-      }).catch(() => ({ symbol: 'TOKEN', decimals: 18 }));
+      let metadata: any = { symbol: 'TOKEN', decimals: 18 };
+      try {
+        const metadataResult = await provider.query({
+          request_type: 'call_function',
+          account_id: tokenAddress,
+          method_name: 'ft_metadata',
+          args_base64: Buffer.from('{}').toString('base64'),
+          finality: 'final'
+        });
+        metadata = JSON.parse(Buffer.from((metadataResult as any).result).toString());
+      } catch {
+        // Use default metadata if failed
+      }
       
       return {
         address: tokenAddress,
@@ -296,38 +318,40 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     data: string = "",
   ): Promise<string> {
     try {
-      const near = await this.getConnection();
-      const account = await near.account(walletAddress);
+      const provider = await this.getConnection();
       
       // Convert NEAR to yoctoNEAR (1 NEAR = 10^24 yoctoNEAR)
-      const amount = utils.format.parseNearAmount(value);
+      const amount = parseNearAmount(value);
       
       if (!amount) {
         throw new Error('Invalid amount');
       }
       
-      // Create a transfer transaction
-      const actions = [transactions.transfer(BigInt(amount))];
+      // Create a transfer action
+      const actions = [actionCreators.transfer(BigInt(amount))];
       
       // Get latest block hash for the transaction
-      const nearConn = await this.getConnection();
-      const provider = new providers.JsonRpcProvider({ url: nearConn.config.nodeUrl });
       const blockInfo = await provider.block({ finality: 'final' });
-      const blockHash = utils.serialize.base_decode(blockInfo.header.hash);
+      const blockHash = baseDecode(blockInfo.header.hash);
       
       // Get access key information for the account
-      const accessKeys = await account.getAccessKeys();
-      if (!accessKeys || accessKeys.length === 0) {
+      const accessKeys = await provider.query<any>({
+        request_type: 'view_access_key_list',
+        account_id: walletAddress,
+        finality: 'final'
+      });
+      
+      if (!accessKeys || !accessKeys.keys || accessKeys.keys.length === 0) {
         throw new Error('No access keys found for this account');
       }
       
-      const accessKey = accessKeys[0]; // Use the first access key
+      const accessKey = accessKeys.keys[0];
       const nonce = Number(accessKey.access_key.nonce) + 1;
       
       // Create a transaction
-      const transaction = transactions.createTransaction(
+      const transaction = createTransaction(
         walletAddress,
-        utils.PublicKey.fromString(accessKey.public_key),
+        PublicKey.fromString(accessKey.public_key),
         to,
         nonce,
         actions,
@@ -335,10 +359,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
       );
       
       // Serialize the transaction
-      const serializedTx = utils.serialize.serialize(
-        transactions.SCHEMA.Transaction,
-        transaction
-      );
+      const serializedTx = serialize(SCHEMA.Transaction, transaction);
       
       return Buffer.from(serializedTx).toString('base64');
     } catch (error) {
@@ -354,22 +375,28 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     data: string = "",
   ): Promise<string> {
     try {
-      const near = await this.getConnection();
-      const account = await near.account(walletAddress);
+      const provider = await this.getConnection();
       
       // Get token metadata for decimals
-      const metadata = await account.viewFunction({
-        contractId: tokenAddress,
-        methodName: 'ft_metadata',
-        args: {}
-      }).catch(() => ({ decimals: 18 }));
+      let metadata: any = { decimals: 18 };
+      try {
+        metadata = await provider.query({
+          request_type: 'call_function',
+          account_id: tokenAddress,
+          method_name: 'ft_metadata',
+          args_base64: Buffer.from('{}').toString('base64'),
+          finality: 'final'
+        });
+      } catch {
+        // Use default metadata if failed
+      }
       
       // Convert token amount to smallest denomination
       const decimalAmount = new BN(parseFloat(amount) * 10 ** (metadata.decimals || 18)).toString();
       
       // Create ft_transfer action
       const actions = [
-        transactions.functionCall(
+        actionCreators.functionCall(
           'ft_transfer',
           {
             receiver_id: to,
@@ -382,24 +409,27 @@ export class NEARAdapter extends BaseBlockchainAdapter {
       ];
       
       // Get latest block hash for the transaction
-      const nearConn = await this.getConnection();
-      const provider = new providers.JsonRpcProvider({ url: nearConn.config.nodeUrl });
       const blockInfo = await provider.block({ finality: 'final' });
-      const blockHash = utils.serialize.base_decode(blockInfo.header.hash);
+      const blockHash = baseDecode(blockInfo.header.hash);
       
       // Get access key information for the account
-      const accessKeys = await account.getAccessKeys();
-      if (!accessKeys || accessKeys.length === 0) {
+      const accessKeys = await provider.query<any>({
+        request_type: 'view_access_key_list',
+        account_id: walletAddress,
+        finality: 'final'
+      });
+      
+      if (!accessKeys || !accessKeys.keys || accessKeys.keys.length === 0) {
         throw new Error('No access keys found for this account');
       }
       
-      const accessKey = accessKeys[0]; // Use the first access key
+      const accessKey = accessKeys.keys[0];
       const nonce = Number(accessKey.access_key.nonce) + 1;
       
       // Create a transaction
-      const transaction = transactions.createTransaction(
+      const transaction = createTransaction(
         walletAddress,
-        utils.PublicKey.fromString(accessKey.public_key),
+        PublicKey.fromString(accessKey.public_key),
         tokenAddress,
         nonce,
         actions,
@@ -407,10 +437,7 @@ export class NEARAdapter extends BaseBlockchainAdapter {
       );
       
       // Serialize the transaction
-      const serializedTx = utils.serialize.serialize(
-        transactions.SCHEMA.Transaction,
-        transaction
-      );
+      const serializedTx = serialize(SCHEMA.Transaction, transaction);
       
       return Buffer.from(serializedTx).toString('base64');
     } catch (error) {
@@ -424,36 +451,27 @@ export class NEARAdapter extends BaseBlockchainAdapter {
   ): Promise<string> {
     try {
       // Create a key pair from the private key
-      const keyPair = utils.KeyPair.fromString(privateKey as any);
+      const keyPair = KeyPair.fromString(privateKey as any);
       
       // Deserialize the transaction
       const transactionData = Buffer.from(serializedTx, 'base64');
-      const transaction = utils.serialize.deserialize(
-        transactions.SCHEMA.Transaction,
+      const transaction = deserialize(
+        SCHEMA.Transaction,
         transactionData
-      ) as transactions.Transaction;
+      ) as Transaction;
       
       // Sign the transaction
-      const transactionHash = utils.serialize.serialize(
-        transactions.SCHEMA.Transaction,
-        transaction
-      );
+      const transactionHash = serialize(SCHEMA.Transaction, transaction);
       const signature = keyPair.sign(transactionHash);
       
-      // Create a signed transaction
+      // Create a signed transaction - the signature from keyPair.sign is already in correct format  
       const signedTx = {
         transaction,
-        signature: {
-          signature: signature.signature,
-          publicKey: signature.publicKey
-        }
+        signature: signature
       };
       
       // Serialize the signed transaction
-      const serializedSignedTx = utils.serialize.serialize(
-        transactions.SCHEMA.SignedTransaction,
-        signedTx
-      );
+      const serializedSignedTx = serialize(SCHEMA.SignedTransaction, signedTx);
       
       return Buffer.from(serializedSignedTx).toString('base64');
     } catch (error) {
@@ -467,18 +485,14 @@ export class NEARAdapter extends BaseBlockchainAdapter {
     signatures: string[],
   ): Promise<string> {
     try {
-      const near = await this.getConnection();
-      
-      // Create a provider instance
-      const nearConn = await this.getConnection();
-      const provider = new providers.JsonRpcProvider({ url: nearConn.config.nodeUrl });
+      const provider = await this.getConnection();
       
       // Deserialize the signed transaction
       const signedTxData = Buffer.from(signedSerializedTx, 'base64');
-      const signedTx = utils.serialize.deserialize(
-        transactions.SCHEMA.SignedTransaction,
+      const signedTx = deserialize(
+        SCHEMA.SignedTransaction,
         signedTxData
-      ) as transactions.SignedTransaction;
+      ) as SignedTransaction;
       
       // Send the transaction to the network
       const result = await provider.sendTransaction(signedTx);

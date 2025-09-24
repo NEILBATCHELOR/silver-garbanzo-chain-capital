@@ -606,13 +606,12 @@ export class EnhancedTokenDetectionService {
    * Detect NEAR FT token balances
    */
   private async detectNEARTokenBalances(address: string, chainConfig: ChainConfig): Promise<ChainTokenBalances> {
-    const { connect } = await import('near-api-js');
-    const nearConnection = await connect({
-      networkId: chainConfig.isTestnet ? 'testnet' : 'mainnet',
-      nodeUrl: chainConfig.rpcUrl,
-      walletUrl: chainConfig.isTestnet ? 'https://wallet.testnet.near.org' : 'https://wallet.near.org',
-      helperUrl: chainConfig.isTestnet ? 'https://helper.testnet.near.org' : 'https://helper.near.org'
-    });
+    // Import NEAR packages - using new modular structure
+    const { JsonRpcProvider } = await import('@near-js/providers');
+    const { Account } = await import('@near-js/accounts');
+    
+    const provider = new JsonRpcProvider({ url: chainConfig.rpcUrl });
+    const nearConnection = { provider, networkId: chainConfig.isTestnet ? 'testnet' : 'mainnet' };
 
     const adapter = new NEARAdapter(chainConfig.isTestnet ? 'testnet' : 'mainnet');
     const tokens: EnhancedTokenBalance[] = [];

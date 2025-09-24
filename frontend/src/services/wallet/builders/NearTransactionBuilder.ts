@@ -381,7 +381,7 @@ export class NearTransactionBuilder {
       // For read-only operations, we don't need a signer
       const account = new Account(accountId, this.provider);
       const accountState = await account.state();
-      return accountState.amount;
+      return accountState.amount.toString();
     } catch (error) {
       console.error(`Failed to get balance for ${accountId}:`, error);
       return '0';

@@ -21,6 +21,7 @@
 import { Decimal } from 'decimal.js'
 import { BaseCalculator, CalculatorOptions } from './BaseCalculator'
 import { DatabaseService } from '../DatabaseService';
+import { digitalFundModels } from '../models'
 import {
   AssetType,
   CalculationInput,
@@ -530,37 +531,56 @@ export class DigitalTokenizedFundCalculator extends BaseCalculator {
   }
 
   /**
-   * Calculates token valuation using multiple methods
+   * Calculates token valuation using digital fund models
    */
   private async calculateTokenValuation(fund: DigitalAsset, exposures: DeFiProtocolExposure[]): Promise<any> {
-    // Asset-based valuation
-    const underlyingAssetValue = exposures.reduce((sum, exp) => sum + exp.exposure, 0)
+    // Calculate total assets from protocol exposures
+    const totalAssets = exposures.reduce((sum, exp) => sum + exp.exposure, 0)
     
-    // Market-based valuation
+    // Calculate liabilities (fees, operational costs, etc.)
+    const managementFees = totalAssets * 0.02 // 2% management fee
+    const operationalCosts = 50000 // $50k annual operational costs
+    const totalLiabilities = managementFees + operationalCosts
+    
+    // Use digitalFundModels.calculateTokenizedNAV for proper NAV calculation
+    const navPerToken = digitalFundModels.calculateTokenizedNAV(
+      totalAssets,
+      totalLiabilities,
+      fund.circulatingSupply
+    )
+    
+    // Get comprehensive NAV with validation
+    const comprehensiveNav = digitalFundModels.computeComprehensiveNAV(
+      totalAssets,
+      totalLiabilities,
+      fund.circulatingSupply,
+      true // Include validation
+    )
+    
+    // Calculate market-based valuation for comparison
     const marketValue = fund.tokenMetrics.tokenPrice * fund.circulatingSupply
     
-    // Earnings-based valuation (for yield-generating funds)
-    const annualYield = underlyingAssetValue * fund.defiMetrics.averageApr
+    // Calculate earnings-based valuation for comparison
+    const annualYield = totalAssets * fund.defiMetrics.averageApr
     const earningsMultiple = 15 // P/E ratio
     const earningsBasedValue = annualYield * earningsMultiple
     
-    // Weight different approaches
-    const assetWeight = 0.50
-    const marketWeight = 0.30
-    const earningsWeight = 0.20
-    
-    const weightedValue = this.decimal(underlyingAssetValue).times(assetWeight)
-      .plus(this.decimal(marketValue).times(marketWeight))
-      .plus(this.decimal(earningsBasedValue).times(earningsWeight))
+    // The NAV model provides the authoritative valuation
+    const authoritative = this.toNumber(navPerToken) * fund.circulatingSupply
     
     return {
-      underlyingAssetValue: this.decimal(underlyingAssetValue),
+      underlyingAssetValue: this.decimal(totalAssets),
       marketValue: this.decimal(marketValue),
       earningsBasedValue: this.decimal(earningsBasedValue),
-      weightedValue,
-      tokenPrice: fund.tokenMetrics.tokenPrice,
-      priceToNav: marketValue / underlyingAssetValue,
-      yieldOnNav: fund.defiMetrics.averageApr
+      weightedValue: this.decimal(authoritative), // Use digital model result
+      navPerToken: navPerToken,
+      tokenPrice: this.toNumber(navPerToken),
+      priceToNav: marketValue / authoritative,
+      yieldOnNav: fund.defiMetrics.averageApr,
+      comprehensiveNav: comprehensiveNav,
+      isValid: comprehensiveNav.isValid,
+      totalAssets: totalAssets,
+      totalLiabilities: totalLiabilities
     }
   }
 
@@ -718,11 +738,39 @@ export class DigitalTokenizedFundCalculator extends BaseCalculator {
     const managementFees = fund.defiMetrics.totalValueLocked * 0.02 // 2% management fee
     const performanceFees = fund.defiMetrics.totalValueLocked * fund.defiMetrics.averageApr * 0.20 // 20% performance fee
     
+    // Example: Calculate redemption costs using digital fund models
+    const sampleRedemptionAmount = 10000 // $10k redemption
+    const navPerToken = digitalFundModels.calculateTokenizedNAV(
+      fund.defiMetrics.totalValueLocked,
+      managementFees + performanceFees,
+      fund.circulatingSupply
+    )
+    
+    const redemptionResult = digitalFundModels.calculateRedemptionRate(
+      this.toNumber(navPerToken),
+      sampleRedemptionAmount / this.toNumber(navPerToken), // Tokens to redeem
+      0.01 // 1% slippage
+    )
+    
+    // Calculate price impact for large transactions
+    const priceImpact = digitalFundModels.calculatePriceImpact(
+      sampleRedemptionAmount,
+      fund.tokenMetrics.liquidityDepth,
+      2 // Elasticity factor
+    )
+    
     return {
       gasCosts: this.decimal(annualGasCosts),
       managementFees: this.decimal(managementFees),
       performanceFees: this.decimal(performanceFees),
-      total: this.decimal(annualGasCosts + managementFees + performanceFees)
+      total: this.decimal(annualGasCosts + managementFees + performanceFees),
+      // Digital fund model results
+      sampleRedemption: {
+        requestedAmount: sampleRedemptionAmount,
+        navPerToken: navPerToken,
+        redemptionResult: redemptionResult,
+        priceImpact: priceImpact
+      }
     }
   }
 
