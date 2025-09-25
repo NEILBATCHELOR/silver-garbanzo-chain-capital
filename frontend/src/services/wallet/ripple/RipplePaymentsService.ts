@@ -467,12 +467,15 @@ export class RipplePaymentsService {
       const wallet = xrpl.Wallet.generate();
       return wallet.seed;
     } catch (error) {
-      // Fallback: Generate a random seed using base58-compatible characters
+      // Fallback: Generate a cryptographically secure seed
       // Base58 excludes: 0 (zero), O (capital o), I (capital i), l (lowercase L)
+      const crypto = require('crypto');
       const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
       let result = 's';
+      const randomBytes = crypto.randomBytes(28);
       for (let i = 0; i < 28; i++) {
-        result += base58Chars.charAt(Math.floor(Math.random() * base58Chars.length));
+        const randomIndex = randomBytes[i] % base58Chars.length;
+        result += base58Chars.charAt(randomIndex);
       }
       return result;
     }

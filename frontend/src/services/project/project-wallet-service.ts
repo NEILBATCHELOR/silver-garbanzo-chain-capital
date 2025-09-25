@@ -217,59 +217,43 @@ export const enhancedProjectWalletService = {
       // Create a key vault ID (simulated for now)
       const keyVaultId = `kv-${uuidv4()}`;
       
-      // Generate a new wallet with mnemonic
-      console.log(`[ProjectWalletService] Generating wallet for network: ${network}`);
+      // Generate a new wallet using the WalletGeneratorFactory for consistency
+      console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
       
-      // For Ethereum and EVM-compatible chains, use ethers.js
-      let wallet: any;
+      const generator = WalletGeneratorFactory.getGenerator(network);
+      const wallet = await generator.generateWallet();
+      
+      // For mnemonic generation, use ethers.js for all chains as a consistent approach
       let mnemonic: string | undefined;
-      
-      if (['ethereum', 'polygon', 'avalanche', 'optimism', 'base', 'arbitrum'].includes(network.toLowerCase())) {
+      if (includeMnemonic) {
         const ethWallet = ethers.Wallet.createRandom();
-        wallet = {
-          address: ethWallet.address,
-          privateKey: ethWallet.privateKey,
-          publicKey: ethWallet.address // In ethers.js v6, we use the address as public key
-        };
-        
-        // Get the mnemonic if required
-        if (includeMnemonic && ethWallet.mnemonic) {
-          mnemonic = ethWallet.mnemonic.phrase;
-        }
-        
-        console.log(`[ProjectWalletService] Generated Ethereum-compatible wallet: ${wallet.address}`);
-      } else {
-        // For other chains, use the generator factory
-        const generator = WalletGeneratorFactory.getGenerator(network);
-        wallet = await generator.generateWallet();
-        
-        // For non-ETH chains, we'll need to implement specific mnemonic generation
-        if (includeMnemonic) {
-          // Generate a BIP39 mnemonic for chains that don't natively provide one
-          const ethWallet = ethers.Wallet.createRandom();
-          mnemonic = ethWallet.mnemonic?.phrase;
-        }
-        
-        console.log(`[ProjectWalletService] Generated ${network} wallet: ${wallet.address}`);
+        mnemonic = ethWallet.mnemonic?.phrase;
       }
       
+      console.log(`[ProjectWalletService] Generated ${network} wallet: ${wallet.address}`);
+      
+      // Ensure we have the required properties from the generator
+      const walletAddress = wallet.address;
+      const publicKey = wallet.publicKey || wallet.address;
+      const privateKey = wallet.privateKey;
+      
       // Register this generation to prevent duplicates
-      inProgressGenerations.set(requestId, { address: wallet.address, requestId });
+      inProgressGenerations.set(requestId, { address: walletAddress, requestId });
       
       // In a real implementation, we would store the private key in a secure vault
       // For now, we're just storing it in the database for demonstration purposes
       const walletData: ProjectWalletData = {
         project_id: projectId,
         wallet_type: network,
-        wallet_address: wallet.address,
-        public_key: wallet.publicKey || wallet.address,
+        wallet_address: walletAddress,
+        public_key: publicKey,
         key_vault_id: keyVaultId,
         // Only include sensitive data if requested
-        ...(includePrivateKey && { private_key: wallet.privateKey }),
+        ...(includePrivateKey && { private_key: privateKey }),
         ...(includeMnemonic && mnemonic && { mnemonic }),
       };
 
-      console.log(`[ProjectWalletService] Saving wallet to database: ${wallet.address}, request ID: ${requestId}`);
+      console.log(`[ProjectWalletService] Saving wallet to database: ${walletAddress}, request ID: ${requestId}`);
       
       // Pass the request ID to track duplicates
       const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
@@ -318,37 +302,33 @@ export const enhancedProjectWalletService = {
       const requestId = `req-${uuidv4()}`;
       try {
         const keyVaultId = `kv-${uuidv4()}`;
-        let wallet: any;
+        
+        // Use WalletGeneratorFactory consistently for all chains
+        console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
+        const generator = WalletGeneratorFactory.getGenerator(network);
+        const wallet = await generator.generateWallet();
+        
+        // Generate mnemonic consistently for all chains
         let mnemonic: string | undefined;
-
-        if (['ethereum', 'polygon', 'avalanche', 'optimism', 'base', 'arbitrum'].includes(network.toLowerCase())) {
+        if (includeMnemonic) {
           const ethWallet = ethers.Wallet.createRandom();
-          wallet = {
-            address: ethWallet.address,
-            privateKey: ethWallet.privateKey,
-            publicKey: ethWallet.publicKey,
-          };
-          if (includeMnemonic && ethWallet.mnemonic) {
-            mnemonic = ethWallet.mnemonic.phrase;
-          }
-        } else {
-          const generator = WalletGeneratorFactory.getGenerator(network);
-          wallet = await generator.generateWallet();
-          if (includeMnemonic) {
-            const ethWallet = ethers.Wallet.createRandom();
-            mnemonic = ethWallet.mnemonic?.phrase;
-          }
+          mnemonic = ethWallet.mnemonic?.phrase;
         }
+        
+        // Ensure we have the required properties from the generator
+        const walletAddress = wallet.address;
+        const publicKey = wallet.publicKey || wallet.address;
+        const privateKey = wallet.privateKey;
 
-        inProgressGenerations.set(requestId, { address: wallet.address, requestId });
+        inProgressGenerations.set(requestId, { address: walletAddress, requestId });
 
         const walletData: ProjectWalletData = {
           project_id: projectId,
           wallet_type: network,
-          wallet_address: wallet.address,
-          public_key: wallet.publicKey || wallet.address,
+          wallet_address: walletAddress,
+          public_key: publicKey,
           key_vault_id: keyVaultId,
-          ...(includePrivateKey && { private_key: wallet.privateKey }),
+          ...(includePrivateKey && { private_key: privateKey }),
           ...(includeMnemonic && mnemonic && { mnemonic }),
         };
 

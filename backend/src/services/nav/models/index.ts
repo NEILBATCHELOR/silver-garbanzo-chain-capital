@@ -10,6 +10,7 @@ export * from './utils/DateUtils'
 // Export model classes
 export { equityModels } from './EquityModels'
 export { alternativeAssetModels } from './AlternativeAssetModels'
+export { commodityModels } from './CommodityModels'
 
 // Export alternative asset models
 export * from './alternatives'

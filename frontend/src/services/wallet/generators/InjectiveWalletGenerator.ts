@@ -1,6 +1,7 @@
 import { PrivateKey, Address } from '@injectivelabs/sdk-ts';
 import * as bip39 from 'bip39';
 import { WalletGenerator, Wallet as WalletInterface, WalletMetadata } from '../WalletGenerator';
+import { injectiveWalletService } from '../injective/InjectiveWalletService';
 
 /**
  * Interface for a generated wallet
@@ -25,14 +26,19 @@ export class InjectiveWalletGenerator implements WalletGenerator {
    * Generate a new Injective wallet
    * @returns A wallet generation result with address and private key
    */
-  public async generateWallet(): Promise<WalletInterface> {
-    const mnemonic = bip39.generateMnemonic();
-    const privateKey = PrivateKey.fromMnemonic(mnemonic);
+  public async generateWallet(options?: WalletGenerationOptions): Promise<WalletInterface> {
+    const includePrivateKey = options?.includePrivateKey ?? true;
+    const includeMnemonic = options?.includeMnemonic ?? false;
+
+    const account = await injectiveWalletService.generateAccount({
+      includePrivateKey,
+      includeMnemonic
+    });
 
     return {
-      address: privateKey.toAddress().toBech32(),
-      privateKey: privateKey.toHex(),
-      publicKey: privateKey.toPublicKey().toBase64(),
+      address: account.address,
+      privateKey: includePrivateKey ? account.privateKey ?? '' : '',
+      publicKey: account.publicKey,
       metadata: this.getMetadata()
     };
   }

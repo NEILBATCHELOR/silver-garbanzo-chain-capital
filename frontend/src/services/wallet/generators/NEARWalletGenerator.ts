@@ -7,7 +7,7 @@ import { nearWalletService } from '../near/NEARWalletService';
  */
 export class NEARWalletGenerator implements WalletGenerator {
   /**
-   * Generate a new NEAR wallet using real near-api-js
+   * Generate a new NEAR wallet using real near-js
    * @param options Optional wallet generation options
    * @returns Generated wallet object
    */

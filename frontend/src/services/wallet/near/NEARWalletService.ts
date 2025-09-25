@@ -7,7 +7,7 @@
 // Replace near-api-js with individual @near-js/* packages
 import { Account } from '@near-js/accounts';
 import { InMemoryKeyStore } from '@near-js/keystores';
-import { KeyPair } from '@near-js/crypto';
+import { KeyPair, PublicKey } from '@near-js/crypto';
 import { JsonRpcProvider } from '@near-js/providers';
 import { NEAR } from '@near-js/tokens';
 import * as bip39 from 'bip39';
@@ -17,6 +17,7 @@ export interface NEARAccountInfo {
   address: string;
   accountId: string; // NEAR uses human-readable account IDs
   publicKey: string;
+  implicitAccountId?: string;
   privateKey?: string;
   secretKey?: string;
   mnemonic?: string;
@@ -169,12 +170,18 @@ export class NEARWalletService {
     try {
       const keyPair = KeyPair.fromRandom('ed25519');
       const publicKey = keyPair.getPublicKey().toString();
-      const accountId = options.accountId || this.generateRandomAccountId();
+      if (options.accountId && !this.isValidAccountId(options.accountId)) {
+        throw new Error('Invalid NEAR account ID format');
+      }
+
+      const implicitAccountId = this.getImplicitAccountId(keyPair.getPublicKey());
+      const accountId = options.accountId || implicitAccountId;
       
       const result: NEARAccountInfo = {
-        address: accountId, // For compatibility with other wallets
+        address: accountId,
         accountId: accountId,
-        publicKey: publicKey
+        publicKey: publicKey,
+        implicitAccountId
       };
 
       if (options.includePrivateKey !== false) {
@@ -200,12 +207,18 @@ export class NEARWalletService {
     options: NEARGenerationOptions = {}
   ): NEARAccountInfo[] {
     const accounts: NEARAccountInfo[] = [];
+    if (options.accountId && !this.isValidAccountId(options.accountId)) {
+      throw new Error('Invalid base NEAR account ID format');
+    }
     
     for (let i = 0; i < count; i++) {
-      const accountOptions = { 
-        ...options,
-        accountId: options.accountId ? `${options.accountId}${i}` : undefined
-      };
+      const accountOptions: NEARGenerationOptions = { ...options };
+
+      if (!options.accountId) {
+        delete accountOptions.accountId;
+      } else {
+        accountOptions.accountId = this.buildIndexedAccountId(options.accountId, i);
+      }
       accounts.push(this.generateAccount(accountOptions));
     }
     
@@ -223,7 +236,8 @@ export class NEARWalletService {
       const result: NEARAccountInfo = {
         address: accountId,
         accountId: accountId,
-        publicKey: keyPair.getPublicKey().toString()
+        publicKey: keyPair.getPublicKey().toString(),
+        implicitAccountId: this.getImplicitAccountId(keyPair.getPublicKey())
       };
 
       if (options.includePrivateKey !== false) {
@@ -315,7 +329,8 @@ export class NEARWalletService {
       const result: NEARAccountInfo = {
         address: accountId,
         accountId: accountId,
-        publicKey: keyPair.getPublicKey().toString()
+        publicKey: keyPair.getPublicKey().toString(),
+        implicitAccountId: this.getImplicitAccountId(keyPair.getPublicKey())
       };
 
       if (options.includePrivateKey !== false) {
@@ -346,10 +361,14 @@ export class NEARWalletService {
     numWallets: number = 1,
     options: NEARGenerationOptions = {}
   ): NEARAccountInfo[] {
+    if (!this.isValidAccountId(baseAccountId)) {
+      throw new Error(`Invalid NEAR base account ID format: ${baseAccountId}`);
+    }
+
     const wallets: NEARAccountInfo[] = [];
     
     for (let i = 0; i < numWallets; i++) {
-      const accountId = `${baseAccountId}${i > 0 ? i : ''}`;
+      const accountId = this.buildIndexedAccountId(baseAccountId, i);
       const wallet = this.fromMnemonic(mnemonic, accountId, i, {
         ...options,
         includeMnemonic: false // Don't include mnemonic in each wallet
@@ -671,8 +690,41 @@ export class NEARWalletService {
    */
   private generateRandomAccountId(): string {
     const prefix = this.network === 'testnet' ? 'test' : 'user';
-    const randomId = Math.random().toString(36).substring(2, 12);
+    // Use crypto for secure random generation
+    const crypto = require('crypto');
+    const randomBytes = crypto.randomBytes(6);
+    const randomId = randomBytes.toString('hex').toLowerCase();
     return `${prefix}${randomId}.${this.network}`;
+  }
+
+  /**
+   * Derive implicit account ID (64-character hex) from public key
+   */
+  private getImplicitAccountId(publicKey: PublicKey): string {
+    const data = publicKey.data;
+    if (!data || data.length === 0) {
+      throw new Error('Failed to derive implicit NEAR account ID');
+    }
+    return Buffer.from(data).toString('hex');
+  }
+
+  /**
+   * Build incremental account IDs when a base account is provided
+   */
+  private buildIndexedAccountId(baseAccountId: string, index: number): string {
+    if (index === 0) {
+      return baseAccountId;
+    }
+
+    const [root, ...rest] = baseAccountId.split('.');
+    const candidateRoot = `${root}${index}`;
+    const candidate = rest.length ? [candidateRoot, ...rest].join('.') : candidateRoot;
+
+    if (!this.isValidAccountId(candidate)) {
+      throw new Error(`Generated NEAR account ID is invalid: ${candidate}`);
+    }
+
+    return candidate;
   }
 }
 

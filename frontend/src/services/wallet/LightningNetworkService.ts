@@ -12,6 +12,7 @@ import * as ecc from 'tiny-secp256k1';
 import { createHash, randomBytes } from 'crypto';
 import { bech32 } from 'bech32';
 import { Buffer } from 'buffer';
+import { generateSecureNumericString } from '@/infrastructure/web3/utils/CryptoUtils';
 
 // Initialize ECPair with tiny-secp256k1
 const ECPair = ECPairFactory(ecc);
@@ -513,8 +514,9 @@ export class LightningNetworkService {
 
   private generateShortChannelId(): string {
     // Format: block_height:tx_index:output_index
-    const blockHeight = Math.floor(Math.random() * 800000);
-    const txIndex = Math.floor(Math.random() * 1000);
+    // Use secure random generation for channel IDs
+    const blockHeight = parseInt(generateSecureNumericString(6)); // Random 6-digit block height
+    const txIndex = parseInt(generateSecureNumericString(3)); // Random 3-digit tx index
     const outputIndex = 0;
     return `${blockHeight}:${txIndex}:${outputIndex}`;
   }

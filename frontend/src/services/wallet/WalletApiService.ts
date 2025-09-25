@@ -23,6 +23,8 @@ export interface WalletApiResponse {
   created_at: string;
 }
 
+import { generateSecureRandom, generateSecureInt, generateSecureTxHash, generateSecureAddress } from '@/utils/wallet/crypto';
+
 export class WalletApiService {
   private static instance: WalletApiService;
 
@@ -117,13 +119,11 @@ export class WalletApiService {
    * In production, this would be handled by the backend HDWalletService
    */
   private generateAddress(): string {
-    // Generate a random Ethereum-like address for testing
-    const chars = '0123456789abcdef';
-    let address = '0x';
-    for (let i = 0; i < 40; i++) {
-      address += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return address;
+    // Use proper cryptographic wallet generation
+    // Import ethers at top of file for real address generation
+    const { Wallet } = require('ethers');
+    const wallet = Wallet.createRandom();
+    return wallet.address;
   }
 
   /**
@@ -135,14 +135,14 @@ export class WalletApiService {
         chain_id: '1',
         from_address: '0x742d35Cc6642C4532C0532C08D23e59AC52b08F4',
         to_address: walletAddress,
-        value: (Math.random() * 10).toFixed(4),
-        tx_hash: '0x' + Math.random().toString(16).substring(2, 66),
+        value: (generateSecureRandom() * 10).toFixed(4),
+        tx_hash: generateSecureTxHash(),
         status: 'confirmed',
         token_symbol: 'ETH',
-        confirmation_count: Math.floor(Math.random() * 20) + 1,
+        confirmation_count: generateSecureInt(1, 20),
         gas_limit: '21000',
         gas_price: '20000000000',
-        nonce: Math.floor(Math.random() * 100)
+        nonce: generateSecureInt(0, 100)
       };
 
       const { error } = await supabase

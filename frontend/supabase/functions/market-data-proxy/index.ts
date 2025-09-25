@@ -91,6 +91,37 @@ Deno.serve(async (req) => {
         response = await fetch(`${apiUrl}?${govInfoParams.toString()}`);
         break;
 
+      case 'coingecko':
+        // CoinGecko API - API KEY OPTIONAL (but recommended for higher rate limits)
+        const coinGeckoApiKey = params?.api_key;
+        apiUrl = `https://api.coingecko.com/api/v3/${endpoint}`;
+        
+        // Build query parameters
+        const coinGeckoParams = new URLSearchParams();
+        Object.entries(params || {}).forEach(([key, value]) => {
+          if (key !== 'api_key' && value) {
+            coinGeckoParams.append(key, String(value));
+          }
+        });
+        
+        if (coinGeckoParams.toString()) {
+          apiUrl += `?${coinGeckoParams.toString()}`;
+        }
+        
+        // Set headers with API key if available
+        const coinGeckoHeaders: Record<string, string> = {
+          'User-Agent': 'ChainCapital/1.0'
+        };
+        
+        if (coinGeckoApiKey && coinGeckoApiKey !== 'demo') {
+          coinGeckoHeaders['x-cg-demo-api-key'] = coinGeckoApiKey;
+        }
+        
+        response = await fetch(apiUrl, {
+          headers: coinGeckoHeaders
+        });
+        break;
+
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }

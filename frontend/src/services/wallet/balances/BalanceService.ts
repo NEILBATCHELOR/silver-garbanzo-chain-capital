@@ -1,12 +1,13 @@
 /**
  * Master Balance Service Orchestrator
- * Integrates all 27 chain-specific balance services for comprehensive wallet balance fetching
+ * Integrates all chain-specific balance services for comprehensive wallet balance fetching
+ * Includes both mainnet and testnet support for all chains
  */
 
 // Import types
 import type { TokenBalance as ChainTokenBalance, ChainBalance, BaseBalanceService, BalanceServiceConfig } from './types';
 
-// Import all EVM balance services (16 services)
+// Import all EVM balance services (Mainnet and Testnet)
 import { ethereumBalanceService } from './evm/EthereumBalanceService';
 import { sepoliaBalanceService } from './evm/SepoliaBalanceService';
 import { holeskyBalanceService } from './evm/HoleskyBalanceService';
@@ -28,27 +29,19 @@ import { avalancheTestnetBalanceService } from './evm/AvalancheTestnetBalanceSer
 import { bitcoinBalanceService } from './bitcoin/BitcoinBalanceService';
 import { bitcoinTestnetBalanceService } from './bitcoin/BitcoinTestnetBalanceService';
 
-// Import Solana balance services (2 services)
+// Import Solana balance services (3 services)
 import { solanaBalanceService } from './solana/SolanaBalanceService';
 import { solanaDevnetBalanceService } from './solana/SolanaDevnetBalanceService';
 
-// Import Aptos balance services (2 services)
+// Import other chain services
 import { aptosBalanceService } from './aptos/AptosBalanceService';
 import { aptosTestnetBalanceService } from './aptos/AptosTestnetBalanceService';
-
-// Import Sui balance services (2 services)
 import { suiBalanceService } from './sui/SuiBalanceService';
 import { suiTestnetBalanceService } from './sui/SuiTestnetBalanceService';
-
-// Import Near balance services (2 services)
 import { nearBalanceService } from './near/NearBalanceService';
 import { nearTestnetBalanceService } from './near/NearTestnetBalanceService';
-
-// Import Injective balance services (2 services)
 import { injectiveBalanceService } from './injective/InjectiveBalanceService';
 import { injectiveTestnetBalanceService } from './injective/InjectiveTestnetBalanceService';
-
-// Import Ripple balance services (2 services)
 import { rippleMainnetBalanceService, rippleTestnetBalanceService } from './ripple/RippleBalanceService';
 
 // Legacy interface for backward compatibility
@@ -71,6 +64,7 @@ export interface WalletBalance {
   lastUpdated: Date;
   isOnline?: boolean;
   error?: string;
+  isTestnet?: boolean;
 }
 
 // Export new types for future use
@@ -91,7 +85,8 @@ export class BalanceService {
     'sepolia': sepoliaBalanceService,
     'holesky': holeskyBalanceService,
     'eth-mainnet': ethereumBalanceService,
-    'eth-testnet': sepoliaBalanceService,
+    'eth-sepolia': sepoliaBalanceService,
+    'eth-holesky': holeskyBalanceService,
     
     // Polygon networks  
     'polygon': polygonBalanceService,
@@ -99,35 +94,36 @@ export class BalanceService {
     'matic': polygonBalanceService,
     'polygon-mainnet': polygonBalanceService,
     'polygon-testnet': amoyBalanceService,
+    'polygon-amoy': amoyBalanceService,
     
     // Optimism networks
     'optimism': optimismBalanceService,
     'optimism-sepolia': optimismSepoliaBalanceService,
     'opt-mainnet': optimismBalanceService,
-    'opt-testnet': optimismSepoliaBalanceService,
+    'opt-sepolia': optimismSepoliaBalanceService,
     
     // Arbitrum networks
     'arbitrum': arbitrumBalanceService,
     'arbitrum-sepolia': arbitrumSepoliaBalanceService,
     'arb-mainnet': arbitrumBalanceService,
-    'arb-testnet': arbitrumSepoliaBalanceService,
+    'arb-sepolia': arbitrumSepoliaBalanceService,
     
     // Base networks
     'base': baseBalanceService,
     'base-sepolia': baseSepoliaBalanceService,
     'base-mainnet': baseBalanceService,
-    'base-testnet': baseSepoliaBalanceService,
     
     // BSC network
     'bsc': bscBalanceService,
     'binance': bscBalanceService,
     'bnb': bscBalanceService,
+    // 'bsc-testnet': bscTestnetBalanceService,
+    // 'bnb-testnet': bscTestnetBalanceService,
     
     // zkSync networks
     'zksync': zkSyncBalanceService,
     'zksync-sepolia': zkSyncSepoliaBalanceService,
     'zksync-mainnet': zkSyncBalanceService,
-    'zksync-testnet': zkSyncSepoliaBalanceService,
     
     // Avalanche networks
     'avalanche': avalancheBalanceService,
@@ -144,6 +140,7 @@ export class BalanceService {
     // Solana networks
     'solana': solanaBalanceService,
     'solana-devnet': solanaDevnetBalanceService,
+    // 'solana-testnet': solanaTestnetBalanceService,
     'sol': solanaBalanceService,
     'sol-devnet': solanaDevnetBalanceService,
     
@@ -174,6 +171,62 @@ export class BalanceService {
     'xrp-testnet': rippleTestnetBalanceService,
     'xrpl': rippleMainnetBalanceService,
     'xrpl-testnet': rippleTestnetBalanceService,
+    
+    // Additional EVM chains (to be implemented)
+    // 'fantom': fantomBalanceService,
+    // 'fantom-testnet': fantomTestnetBalanceService,
+    // 'ftm': fantomBalanceService,
+    // 'ftm-testnet': fantomTestnetBalanceService,
+    // 'cronos': cronosBalanceService,
+    // 'cronos-testnet': cronosTestnetBalanceService,
+    // 'cro': cronosBalanceService,
+    // 'cro-testnet': cronosTestnetBalanceService,
+    // 'sei': seiBalanceService,
+    // 'sei-testnet': seiTestnetBalanceService,
+    // 'ronin': roninBalanceService,
+    // 'ronin-testnet': roninTestnetBalanceService,
+    // 'ron': roninBalanceService,
+    // 'ron-testnet': roninTestnetBalanceService,
+    // 'core': coreBalanceService,
+    // 'core-testnet': coreTestnetBalanceService,
+  };
+
+  // Define testnet networks for easy identification
+  private readonly testnetNetworks = new Set([
+    'sepolia', 'holesky', 'amoy', 'optimism-sepolia', 'arbitrum-sepolia',
+    'base-sepolia', 'bsc-testnet', 'zksync-sepolia', 'avalanche-testnet',
+    'fuji', 'bitcoin-testnet', 'solana-devnet', 'solana-testnet',
+    'aptos-testnet', 'sui-testnet', 'near-testnet', 'injective-testnet',
+    'ripple-testnet', 'fantom-testnet', 'cronos-testnet', 'sei-testnet',
+    'ronin-testnet', 'core-testnet', 'eth-sepolia', 'eth-holesky',
+    'polygon-testnet', 'polygon-amoy', 'opt-sepolia', 'arb-sepolia',
+    'bnb-testnet', 'ftm-testnet', 'cro-testnet', 'ron-testnet',
+    'btc-testnet', 'sol-devnet', 'apt-testnet', 'inj-testnet',
+    'xrp-testnet', 'xrpl-testnet'
+  ]);
+
+  // Mainnet to testnet mapping
+  private readonly mainnetToTestnet: Record<string, string[]> = {
+    'ethereum': ['sepolia', 'holesky'],
+    'polygon': ['amoy'],
+    'optimism': ['optimism-sepolia'],
+    'arbitrum': ['arbitrum-sepolia'],
+    'base': ['base-sepolia'],
+    'bsc': ['bsc-testnet'],
+    'avalanche': ['fuji'],
+    'bitcoin': ['bitcoin-testnet'],
+    'solana': ['solana-devnet', 'solana-testnet'],
+    'aptos': ['aptos-testnet'],
+    'sui': ['sui-testnet'],
+    'near': ['near-testnet'],
+    'injective': ['injective-testnet'],
+    'ripple': ['ripple-testnet'],
+    'zksync': ['zksync-sepolia'],
+    'fantom': ['fantom-testnet'],
+    'cronos': ['cronos-testnet'],
+    'sei': ['sei-testnet'],
+    'ronin': ['ronin-testnet'],
+    'core': ['core-testnet']
   };
 
   constructor() {}
@@ -192,13 +245,150 @@ export class BalanceService {
     const instance = BalanceService.getInstance();
     console.group('🔧 BalanceService Configuration Debug');
     console.log(`📊 Total Networks Supported: ${Object.keys(instance.services).length}`);
+    console.log(`🧪 Testnet Networks: ${instance.testnetNetworks.size}`);
     console.log('🌐 Network Configurations:');
     
     Object.entries(instance.services).forEach(([network, service]) => {
       const config = service.getChainConfig();
-      console.log(`  ${network}: ${config.chainName} (Chain ID: ${config.chainId}) - ${config.networkType}`);
+      const isTestnet = instance.testnetNetworks.has(network);
+      console.log(`  ${network}: ${config.chainName} (Chain ID: ${config.chainId}) - ${config.networkType} ${isTestnet ? '🧪' : '💎'}`);
     });
     console.groupEnd();
+  }
+
+  /**
+   * Fetch balances including both mainnet and testnets for a given address
+   * This is the main method to get ALL balances including testnets
+   */
+  public async fetchAllBalancesIncludingTestnets(address: string): Promise<WalletBalance[]> {
+    const allBalances: WalletBalance[] = [];
+    
+    console.log(`🔍 Scanning ALL networks (mainnet + testnet) for ${address.slice(0, 10)}...`);
+    
+    // Get all unique services (both mainnet and testnet)
+    const uniqueServices = new Map<string, BaseBalanceService>();
+    Object.entries(this.services).forEach(([network, service]) => {
+      const config = service.getChainConfig();
+      const key = `${config.chainId}_${config.chainName}`;
+      if (!uniqueServices.has(key)) {
+        uniqueServices.set(key, service);
+      }
+    });
+
+    // Process in batches to avoid overwhelming the system
+    const serviceArray = Array.from(uniqueServices.values());
+    const batchSize = 5; // Process 5 chains at a time
+    
+    for (let i = 0; i < serviceArray.length; i += batchSize) {
+      const batch = serviceArray.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (service) => {
+        try {
+          const config = service.getChainConfig();
+          const isTestnet = config.networkType === 'testnet' || 
+                           this.testnetNetworks.has(config.chainName.toLowerCase());
+          
+          const balance = await service.fetchBalance(address);
+          
+          // Convert to WalletBalance format
+          const walletBalance: WalletBalance = {
+            address,
+            network: config.chainName,
+            nativeBalance: balance.nativeBalance,
+            nativeValueUsd: isTestnet ? 0 : balance.nativeValueUsd, // Testnet tokens have no real value
+            tokens: balance.tokens.map(token => ({
+              ...token,
+              valueUsd: isTestnet ? 0 : token.valueUsd // Testnet tokens have no real value
+            })),
+            totalValueUsd: isTestnet ? 0 : balance.totalValueUsd,
+            lastUpdated: balance.lastUpdated,
+            isOnline: balance.isOnline,
+            error: balance.error,
+            isTestnet
+          };
+          
+          // Only include if there's a balance or it's a major network
+          if (parseFloat(balance.nativeBalance) > 0 || balance.tokens.length > 0) {
+            console.log(`✅ ${config.chainName}: Found balance`);
+            return walletBalance;
+          }
+          
+          return null;
+        } catch (error) {
+          console.warn(`⚠️ Failed to fetch from ${service.getChainConfig().chainName}:`, error);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(batchPromises);
+      results.forEach(result => {
+        if (result) {
+          allBalances.push(result);
+        }
+      });
+    }
+    
+    console.log(`📊 Found balances on ${allBalances.length} networks`);
+    return allBalances;
+  }
+
+  /**
+   * Fetch multi-chain balance for an address across all supported networks
+   * Including testnets
+   */
+  public static async fetchMultiChainBalanceWithTestnets(address: string): Promise<{
+    address: string;
+    totalUsdValue: number;
+    mainnets: ChainBalance[];
+    testnets: ChainBalance[];
+    lastUpdated: Date;
+  }> {
+    const instance = BalanceService.getInstance();
+    const mainnets: ChainBalance[] = [];
+    const testnets: ChainBalance[] = [];
+    let totalUsdValue = 0;
+
+    // Get all networks to check (mainnet + testnet)
+    const allNetworks = Object.keys(instance.services);
+
+    const balancePromises = allNetworks.map(async (network) => {
+      try {
+        const service = instance.services[network];
+        if (service) {
+          const balance = await service.fetchBalance(address);
+          const isTestnet = instance.testnetNetworks.has(network);
+          
+          if (balance.totalValueUsd > 0 || balance.nativeBalance !== '0') {
+            return { balance, isTestnet };
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch balance for ${address} on ${network}:`, error);
+        return null;
+      }
+      return null;
+    });
+
+    const results = await Promise.all(balancePromises);
+    
+    results.forEach((result) => {
+      if (result) {
+        if (result.isTestnet) {
+          testnets.push(result.balance);
+        } else {
+          mainnets.push(result.balance);
+          totalUsdValue += result.balance.totalValueUsd;
+        }
+      }
+    });
+
+    return {
+      address,
+      totalUsdValue,
+      mainnets,
+      testnets,
+      lastUpdated: new Date()
+    };
   }
 
   /**
@@ -214,10 +404,22 @@ export class BalanceService {
     const chains: ChainBalance[] = [];
     let totalUsdValue = 0;
 
-    // Get a representative set of main networks to check
+    // Get primary networks plus testnets  
     const primaryNetworks = [
-      'ethereum', 'polygon', 'optimism', 'arbitrum', 'base', 'bsc', 
-      'avalanche', 'bitcoin', 'solana', 'aptos', 'sui', 'near'
+      'ethereum', 'sepolia', 'holesky', // Ethereum + testnets
+      'polygon', 'amoy', // Polygon + testnet
+      'optimism', 'optimism-sepolia', // Optimism + testnet
+      'arbitrum', 'arbitrum-sepolia', // Arbitrum + testnet
+      'base', 'base-sepolia', // Base + testnet
+      'bsc', 'bsc-testnet', // BSC + testnet
+      'avalanche', 'fuji', // Avalanche + testnet
+      'bitcoin', 'bitcoin-testnet', // Bitcoin + testnet
+      'solana', 'solana-devnet', // Solana + devnet
+      'aptos', 'aptos-testnet', // Aptos + testnet
+      'sui', 'sui-testnet', // Sui + testnet
+      'near', 'near-testnet', // Near + testnet
+      'injective', 'injective-testnet', // Injective + testnet
+      'zksync', 'zksync-sepolia' // zkSync + testnet
     ];
 
     const balancePromises = primaryNetworks.map(async (network) => {
@@ -251,6 +453,21 @@ export class BalanceService {
       chains,
       lastUpdated: new Date()
     };
+  }
+
+  /**
+   * Get testnet networks for a mainnet
+   */
+  public getTestnetsForMainnet(mainnet: string): string[] {
+    const normalizedMainnet = mainnet.toLowerCase().trim();
+    return this.mainnetToTestnet[normalizedMainnet] || [];
+  }
+
+  /**
+   * Check if a network is a testnet
+   */
+  public isTestnet(network: string): boolean {
+    return this.testnetNetworks.has(network.toLowerCase().trim());
   }
 
   /**
@@ -319,6 +536,7 @@ export class BalanceService {
         lastUpdated: new Date(),
         isOnline: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        isTestnet: this.isTestnet(network)
       };
     }
   }
@@ -344,6 +562,7 @@ export class BalanceService {
           lastUpdated: new Date(),
           isOnline: false,
           error: error instanceof Error ? error.message : 'Unknown error',
+          isTestnet: this.isTestnet(wallet.network)
         };
       }
     });
@@ -417,53 +636,8 @@ export class BalanceService {
       lastUpdated: chainBalance.lastUpdated,
       isOnline: chainBalance.isOnline,
       error: chainBalance.error,
+      isTestnet: this.isTestnet(network)
     };
-  }
-
-  /**
-   * Update a single wallet's balance in localStorage (legacy method)
-   */
-  async updateWalletBalance(walletId: string, address: string, network: string): Promise<void> {
-    try {
-      const balance = await this.fetchWalletBalance(address, network);
-      
-      const storedWallets = localStorage.getItem('userWallets');
-      if (!storedWallets) return;
-      
-      const wallets = JSON.parse(storedWallets);
-      const walletIndex = wallets.findIndex((w: any) => w.id === walletId);
-      
-      if (walletIndex !== -1) {
-        wallets[walletIndex].balance = balance.totalValueUsd.toFixed(2);
-        wallets[walletIndex].lastUpdated = new Date().toISOString();
-        localStorage.setItem('userWallets', JSON.stringify(wallets));
-        console.log(`💰 Updated balance for wallet ${walletId}: $${balance.totalValueUsd.toFixed(2)}`);
-      }
-    } catch (error) {
-      console.error(`❌ Error updating wallet ${walletId} balance:`, error);
-    }
-  }
-
-  /**
-   * Update all wallets' balances (legacy method)
-   */
-  async updateAllWalletBalances(): Promise<void> {
-    try {
-      const storedWallets = localStorage.getItem('userWallets');
-      if (!storedWallets) return;
-      
-      const wallets = JSON.parse(storedWallets);
-      console.log(`🔄 Updating balances for ${wallets.length} stored wallets`);
-      
-      for (const wallet of wallets) {
-        await this.updateWalletBalance(wallet.id, wallet.address, wallet.network);
-        await new Promise(resolve => setTimeout(resolve, 200)); // Rate limiting
-      }
-      
-      console.log('✅ Updated all wallet balances');
-    } catch (error) {
-      console.error('❌ Error updating all wallet balances:', error);
-    }
   }
 }
 

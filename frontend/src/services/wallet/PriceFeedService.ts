@@ -1,7 +1,8 @@
 /**
  * Price Feed Service
  * 
- * Integrates with CoinGecko API to fetch real-time cryptocurrency prices
+ * Integrates with CoinGecko API via Supabase Edge Function to fetch real-time cryptocurrency prices
+ * Avoids CORS issues by using edge function proxy
  * Provides USD valuations for portfolio balances and transaction history
  * Implements caching and rate limiting for production use
  */
@@ -26,16 +27,15 @@ export interface PriceResponse {
 }
 
 /**
- * CoinGecko API integration for cryptocurrency price data
+ * CoinGecko API integration via Edge Function for cryptocurrency price data
  * Implements proper rate limiting and caching for production use
  */
 export class PriceFeedService {
   private static instance: PriceFeedService;
-  private readonly baseUrl = 'https://api.coingecko.com/api/v3';
   private readonly priceCache = new Map<string, TokenPrice>();
   private readonly cacheExpiry = 60000; // 1 minute cache
   private lastRequestTime = 0;
-  private readonly rateLimit = 1000; // 1 second between requests (free tier limit)
+  private readonly rateLimit = 500; // 500ms between requests
   private readonly apiKey: string | undefined;
 
   constructor() {
@@ -43,28 +43,67 @@ export class PriceFeedService {
     this.apiKey = import.meta.env.VITE_COINGECKO_API_KEY;
     
     if (this.apiKey) {
-      console.log('CoinGecko API key loaded from environment');
-      // With API key, we can make more requests per minute
-      Object.defineProperty(this, 'rateLimit', { value: 500, writable: false }); // 500ms with API key
+      console.log('💰 CoinGecko API key loaded from environment');
     } else {
-      console.warn('No CoinGecko API key found. Using free tier rate limits.');
+      console.log('💰 Using CoinGecko free tier (no API key)');
     }
   }
 
   // CoinGecko ID mappings for common tokens
   private readonly coinGeckoIds: { [symbol: string]: string } = {
+    // Major cryptocurrencies
     'ETH': 'ethereum',
     'BTC': 'bitcoin',
-    'MATIC': 'matic-network',
-    'AVAX': 'avalanche-2',
     'SOL': 'solana',
-    'NEAR': 'near',
     'BNB': 'binancecoin',
     'ADA': 'cardano',
     'DOT': 'polkadot',
+    'AVAX': 'avalanche-2',
+    'MATIC': 'matic-network',
+    'POL': 'matic-network', // POL is the new ticker for MATIC
+    'NEAR': 'near',
+    'FTM': 'fantom',
+    'CRO': 'crypto-com-chain',
+    'SEI': 'sei-network',
+    'RON': 'ronin',
+    'CORE': 'coredaoorg',
+    
+    // Layer 2 and Alternative Chains
+    'INJ': 'injective-protocol',
+    'APT': 'aptos',
+    'SUI': 'sui',
+    'ATOM': 'cosmos',
+    'OSMO': 'osmosis',
+    'JUNO': 'juno-network',
+    'XRP': 'ripple',
+    'SCRT': 'secret',
+    'TRX': 'tron',
+    'TON': 'the-open-network',
+    'HBAR': 'hedera-hashgraph',
+    'XLM': 'stellar',
+    'ALGO': 'algorand',
+    'KAS': 'kaspa',
+    'TIA': 'celestia',
+    'ICP': 'internet-computer',
+    'DOGE': 'dogecoin',
+    'LTC': 'litecoin',
+    'BCH': 'bitcoin-cash',
+    'XMR': 'monero',
+    'VET': 'vechain',
+    'FIL': 'filecoin',
+    'THETA': 'theta-token',
+    'RUNE': 'thorchain',
+    'BEAM': 'beam',
+    
+    // Stablecoins
     'USDC': 'usd-coin',
     'USDT': 'tether',
     'DAI': 'dai',
+    'BUSD': 'binance-usd',
+    'TUSD': 'true-usd',
+    'FRAX': 'frax',
+    
+    // DeFi tokens
     'LINK': 'chainlink',
     'UNI': 'uniswap',
     'AAVE': 'aave',
@@ -76,8 +115,38 @@ export class PriceFeedService {
     'SNX': 'synthetix-network-token',
     '1INCH': '1inch',
     'BAL': 'balancer',
-    'WBTC': 'wrapped-bitcoin'
+    'LDO': 'lido-dao',
+    'ONDO': 'ondo-finance',
+    'ENS': 'ethereum-name-service',
+    'GRT': 'the-graph',
+    
+    // Meme coins
+    'SHIB': 'shiba-inu',
+    'FLOKI': 'floki',
+    'PEPE': 'pepe',
+    'WIF': 'dogwifhat',
+    'BONK': 'bonk',
+    'BRETT': 'based-brett',
+    
+    // Gaming/Metaverse
+    'AXS': 'axie-infinity',
+    'SAND': 'the-sandbox',
+    'MANA': 'decentraland',
+    'GALA': 'gala',
+    'IMX': 'immutable-x',
+    
+    // Wrapped tokens
+    'WBTC': 'wrapped-bitcoin',
+    'WETH': 'weth',
+    'WMATIC': 'wmatic',
+    'WAVAX': 'wrapped-avax'
   };
+
+  // Reverse mapping: CoinGecko ID to symbol for backward compatibility
+  private readonly reverseCoinGeckoIds: { [coingeckoId: string]: string } = Object.entries(this.coinGeckoIds).reduce((acc, [symbol, id]) => {
+    acc[id] = symbol;
+    return acc;
+  }, {} as { [coingeckoId: string]: string });
 
   public static getInstance(): PriceFeedService {
     if (!PriceFeedService.instance) {
@@ -87,54 +156,105 @@ export class PriceFeedService {
   }
 
   /**
-   * Get price for a single token
+   * Call CoinGecko API via Supabase Edge Function to avoid CORS issues
    */
-  async getTokenPrice(symbol: string, vsCurrency: string = 'usd'): Promise<TokenPrice | null> {
-    const cacheKey = `${symbol}-${vsCurrency}`;
-    
-    // Check cache first
-    const cached = this.priceCache.get(cacheKey);
-    if (cached && this.isCacheValid(cached.lastUpdated)) {
-      return cached;
+  private async callEdgeFunction(endpoint: string, params: Record<string, string | number>): Promise<any> {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Supabase configuration missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
     }
 
     try {
-      const coinGeckoId = this.getCoinGeckoId(symbol);
+      const response = await fetch(`${supabaseUrl}/functions/v1/market-data-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
+          provider: 'coingecko',
+          endpoint,
+          params: {
+            ...params,
+            ...(this.apiKey && { api_key: this.apiKey })
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Edge Function response error:', errorText);
+        throw new Error(`Edge Function failed: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(`CoinGecko API error: ${result.error}`);
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error('Edge function call failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get price for a single token
+   * @param symbolOrId Token symbol (e.g., 'ETH') or CoinGecko ID (e.g., 'ethereum')
+   * @param vsCurrency Currency to convert to (default: 'usd')
+   * @param forceRefresh Force refresh from API, bypassing cache
+   */
+  async getTokenPrice(symbolOrId: string, vsCurrency: string = 'usd', forceRefresh: boolean = false): Promise<TokenPrice | null> {
+    const cacheKey = `${symbolOrId}-${vsCurrency}`;
+    
+    // Check cache first unless force refresh is requested
+    if (!forceRefresh) {
+      const cached = this.priceCache.get(cacheKey);
+      if (cached && this.isCacheValid(cached.lastUpdated)) {
+        console.log(`💾 Using cached price for ${symbolOrId}: $${cached.priceUsd}`);
+        return cached;
+      }
+    }
+
+    try {
+      const coinGeckoId = this.getCoinGeckoId(symbolOrId);
       if (!coinGeckoId) {
-        console.warn(`No CoinGecko ID found for symbol: ${symbol}`);
+        console.warn(`No CoinGecko ID found for symbol: ${symbolOrId}`);
         return null;
       }
 
       await this.respectRateLimit();
+      console.log(`📊 Fetching price for ${symbolOrId} (${coinGeckoId}) from CoinGecko...`);
 
-      const headers: HeadersInit = {
-        'Accept': 'application/json'
-      };
+      // Use Edge Function proxy instead of direct API calls to avoid CORS
+      const data = await this.callEdgeFunction('simple/price', {
+        ids: coinGeckoId,
+        vs_currencies: vsCurrency,
+        include_24hr_change: 'true',
+        include_market_cap: 'true',
+        include_24hr_vol: 'true'
+      });
 
-      // Add API key to headers if available
-      if (this.apiKey) {
-        headers['x-cg-demo-api-key'] = this.apiKey;
-      }
-
-      const response = await fetch(
-        `${this.baseUrl}/simple/price?ids=${coinGeckoId}&vs_currencies=${vsCurrency}&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`,
-        { headers }
-      );
-
-      if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
-      }
-
-      const data = await response.json();
       const tokenData = data[coinGeckoId];
       
       if (!tokenData) {
-        console.warn(`No price data found for ${symbol} (${coinGeckoId})`);
+        console.warn(`No price data found for ${symbolOrId} (${coinGeckoId})`);
         return null;
       }
 
+      // Use the original symbol if it was a symbol, otherwise use the reverse mapping or uppercase coinGeckoId
+      let displaySymbol = symbolOrId.toUpperCase();
+      if (this.reverseCoinGeckoIds[coinGeckoId]) {
+        displaySymbol = this.reverseCoinGeckoIds[coinGeckoId];
+      }
+
       const price: TokenPrice = {
-        symbol: symbol.toUpperCase(),
+        symbol: displaySymbol,
         coinGeckoId,
         priceUsd: tokenData[vsCurrency] || 0,
         priceChange24h: tokenData[`${vsCurrency}_24h_change`] || 0,
@@ -143,12 +263,20 @@ export class PriceFeedService {
         lastUpdated: new Date()
       };
 
+      console.log(`✅ Got price for ${displaySymbol}: $${price.priceUsd}`);
+
       // Cache the result
       this.priceCache.set(cacheKey, price);
       return price;
 
     } catch (error) {
-      console.error(`Error fetching price for ${symbol}:`, error);
+      console.error(`❌ Error fetching price for ${symbolOrId}:`, error);
+      // Return cached value if available, even if expired
+      const cached = this.priceCache.get(cacheKey);
+      if (cached) {
+        console.log(`⚠️ Using expired cached price for ${symbolOrId}`);
+        return cached;
+      }
       return null;
     }
   }
@@ -182,47 +310,41 @@ export class PriceFeedService {
 
         if (coinGeckoIds.length > 0) {
           await this.respectRateLimit();
+          console.log(`📊 Fetching prices for ${coinGeckoIds.length} tokens from CoinGecko...`);
 
-          const headers: HeadersInit = {
-            'Accept': 'application/json'
-          };
+          // Use Edge Function proxy instead of direct API calls to avoid CORS
+          const data = await this.callEdgeFunction('simple/price', {
+            ids: coinGeckoIds.join(','),
+            vs_currencies: vsCurrency,
+            include_24hr_change: 'true',
+            include_market_cap: 'true',
+            include_24hr_vol: 'true'
+          });
 
-          // Add API key to headers if available
-          if (this.apiKey) {
-            headers['x-cg-demo-api-key'] = this.apiKey;
-          }
-
-          const response = await fetch(
-            `${this.baseUrl}/simple/price?ids=${coinGeckoIds.join(',')}&vs_currencies=${vsCurrency}&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`,
-            { headers }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-
-            for (const symbol of nonCachedSymbols) {
-              const coinGeckoId = this.getCoinGeckoId(symbol);
-              if (coinGeckoId && data[coinGeckoId]) {
-                const tokenData = data[coinGeckoId];
+          for (const symbol of nonCachedSymbols) {
+            const coinGeckoId = this.getCoinGeckoId(symbol);
+            if (coinGeckoId && data[coinGeckoId]) {
+              const tokenData = data[coinGeckoId];
                 
-                const price: TokenPrice = {
-                  symbol: symbol.toUpperCase(),
-                  coinGeckoId,
-                  priceUsd: tokenData[vsCurrency] || 0,
-                  priceChange24h: tokenData[`${vsCurrency}_24h_change`] || 0,
-                  marketCap: tokenData[`${vsCurrency}_market_cap`] || 0,
-                  volume24h: tokenData[`${vsCurrency}_24h_vol`] || 0,
-                  lastUpdated: new Date()
-                };
+              const price: TokenPrice = {
+                symbol: symbol.toUpperCase(),
+                coinGeckoId,
+                priceUsd: tokenData[vsCurrency] || 0,
+                priceChange24h: tokenData[`${vsCurrency}_24h_change`] || 0,
+                marketCap: tokenData[`${vsCurrency}_market_cap`] || 0,
+                volume24h: tokenData[`${vsCurrency}_24h_vol`] || 0,
+                lastUpdated: new Date()
+              };
 
-                result[symbol] = price;
-                this.priceCache.set(`${symbol}-${vsCurrency}`, price);
-              }
+              result[symbol] = price;
+              this.priceCache.set(`${symbol}-${vsCurrency}`, price);
             }
           }
+          
+          console.log(`✅ Got prices for ${Object.keys(result).length} tokens`);
         }
       } catch (error) {
-        console.error('Error fetching multiple token prices:', error);
+        console.error('❌ Error fetching multiple token prices:', error);
       }
     }
 
@@ -245,26 +367,15 @@ export class PriceFeedService {
       }
 
       await this.respectRateLimit();
+      console.log(`📊 Fetching price for contract ${contractAddress.slice(0, 10)}... on ${platformId}`);
 
-      const headers: HeadersInit = {
-        'Accept': 'application/json'
-      };
+      // Use Edge Function proxy instead of direct API calls to avoid CORS
+      const data = await this.callEdgeFunction(`simple/token_price/${platformId}`, {
+        contract_addresses: contractAddress.toLowerCase(),
+        vs_currencies: vsCurrency,
+        include_24hr_change: 'true'
+      });
 
-      // Add API key to headers if available
-      if (this.apiKey) {
-        headers['x-cg-demo-api-key'] = this.apiKey;
-      }
-
-      const response = await fetch(
-        `${this.baseUrl}/simple/token_price/${platformId}?contract_addresses=${contractAddress}&vs_currencies=${vsCurrency}&include_24hr_change=true`,
-        { headers }
-      );
-
-      if (!response.ok) {
-        throw new Error(`CoinGecko token API error: ${response.status}`);
-      }
-
-      const data = await response.json();
       const tokenData = data[contractAddress.toLowerCase()];
       
       if (!tokenData) {
@@ -283,7 +394,7 @@ export class PriceFeedService {
       };
 
     } catch (error) {
-      console.error(`Error fetching price for contract ${contractAddress}:`, error);
+      console.error(`❌ Error fetching price for contract ${contractAddress}:`, error);
       return null;
     }
   }
@@ -303,26 +414,13 @@ export class PriceFeedService {
       }
 
       await this.respectRateLimit();
+      console.log(`📈 Fetching ${days}-day historical prices for ${symbol}`);
 
-      const headers: HeadersInit = {
-        'Accept': 'application/json'
-      };
-
-      // Add API key to headers if available
-      if (this.apiKey) {
-        headers['x-cg-demo-api-key'] = this.apiKey;
-      }
-
-      const response = await fetch(
-        `${this.baseUrl}/coins/${coinGeckoId}/market_chart?vs_currency=${vsCurrency}&days=${days}`,
-        { headers }
-      );
-
-      if (!response.ok) {
-        throw new Error(`CoinGecko historical API error: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Use Edge Function proxy instead of direct API calls to avoid CORS
+      const data = await this.callEdgeFunction(`coins/${coinGeckoId}/market_chart`, {
+        vs_currency: vsCurrency,
+        days: days.toString()
+      });
       
       if (!data.prices) {
         return null;
@@ -334,7 +432,7 @@ export class PriceFeedService {
       }));
 
     } catch (error) {
-      console.error(`Error fetching historical prices for ${symbol}:`, error);
+      console.error(`❌ Error fetching historical prices for ${symbol}:`, error);
       return null;
     }
   }
@@ -368,6 +466,7 @@ export class PriceFeedService {
    */
   addTokenMapping(symbol: string, coinGeckoId: string): void {
     this.coinGeckoIds[symbol.toUpperCase()] = coinGeckoId;
+    this.reverseCoinGeckoIds[coinGeckoId] = symbol.toUpperCase();
   }
 
   /**
@@ -375,31 +474,48 @@ export class PriceFeedService {
    */
   clearCache(): void {
     this.priceCache.clear();
+    console.log('🗑️ Price cache cleared');
   }
 
   /**
    * Get cache stats
    */
-  getCacheStats(): { size: number; expiredCount: number } {
+  getCacheStats(): { size: number; expiredCount: number; validCount: number } {
     let expiredCount = 0;
-    const now = new Date();
+    let validCount = 0;
     
     for (const [, price] of this.priceCache) {
-      if (!this.isCacheValid(price.lastUpdated)) {
+      if (this.isCacheValid(price.lastUpdated)) {
+        validCount++;
+      } else {
         expiredCount++;
       }
     }
 
     return {
       size: this.priceCache.size,
-      expiredCount
+      expiredCount,
+      validCount
     };
   }
 
   // Private helper methods
 
-  private getCoinGeckoId(symbol: string): string | null {
-    return this.coinGeckoIds[symbol.toUpperCase()] || null;
+  private getCoinGeckoId(symbolOrId: string): string | null {
+    const upperSymbol = symbolOrId.toUpperCase();
+    
+    // First check if it's a symbol we can map to CoinGecko ID
+    if (this.coinGeckoIds[upperSymbol]) {
+      return this.coinGeckoIds[upperSymbol];
+    }
+    
+    // Check if it's already a CoinGecko ID (for backward compatibility)
+    if (this.reverseCoinGeckoIds[symbolOrId.toLowerCase()]) {
+      return symbolOrId.toLowerCase();
+    }
+    
+    // For unknown tokens, assume it's already a CoinGecko ID
+    return symbolOrId.toLowerCase();
   }
 
   private getChainPlatformId(chainId: number): string | null {
@@ -410,7 +526,26 @@ export class PriceFeedService {
       10: 'optimistic-ethereum',
       43114: 'avalanche',
       56: 'binance-smart-chain',
-      8453: 'base'
+      8453: 'base',
+      250: 'fantom',
+      25: 'cronos',
+      1329: 'sei-network',
+      2020: 'ronin',
+      1116: 'coredaoorg',
+      // Testnets (return mainnet platform for price reference)
+      11155111: 'ethereum', // Sepolia
+      17000: 'ethereum', // Holesky
+      80002: 'polygon-pos', // Amoy
+      11155420: 'optimistic-ethereum', // Optimism Sepolia
+      421614: 'arbitrum-one', // Arbitrum Sepolia
+      84532: 'base', // Base Sepolia
+      43113: 'avalanche', // Fuji
+      97: 'binance-smart-chain', // BSC Testnet
+      4002: 'fantom', // Fantom Testnet
+      338: 'cronos', // Cronos Testnet
+      1328: 'sei-network', // Sei Testnet
+      2021: 'ronin', // Ronin Testnet
+      1115: 'coredaoorg', // Core Testnet
     };
 
     return platformIds[chainId] || null;

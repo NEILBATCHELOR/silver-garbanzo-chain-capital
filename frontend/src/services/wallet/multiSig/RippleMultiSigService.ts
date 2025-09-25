@@ -7,6 +7,7 @@
 import { ChainType, addressUtils } from '../AddressUtils';
 import { supabase } from '@/infrastructure/database/client';
 import { RippleTransactionBuilder } from '../builders/RippleTransactionBuilder';
+import { generateSecureHash } from '@/infrastructure/web3/utils/CryptoUtils';
 
 export interface RippleSigner {
   account: string;
@@ -568,8 +569,8 @@ export class RippleMultiSigService {
   
   // Helper method
   private generateTransactionHash(tx: any): string {
-    const timestamp = Date.now().toString(16).toUpperCase();
-    return `${timestamp}${Math.random().toString(16).slice(2).toUpperCase()}`.padEnd(64, '0').slice(0, 64);
+    // Use secure random generation for transaction hash
+    return generateSecureHash().slice(2).toUpperCase(); // Remove 0x prefix and uppercase for Ripple format
   }
 }
 

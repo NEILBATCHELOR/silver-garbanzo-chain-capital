@@ -177,11 +177,18 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
   }
 
   /**
-   * Get native token price from CoinGecko
+   * Get native token price from CoinGecko using the chain's native symbol
    */
   protected async getNativeTokenPrice(): Promise<number> {
+    // For testnets, return 0 as testnet tokens have no real value
+    if (this.config.networkType === 'testnet') {
+      console.log(`🧪 ${this.config.chainName} is a testnet - using $0 value`);
+      return 0;
+    }
+    
     try {
-      const tokenPrice = await priceFeedService.getTokenPrice(this.config.coingeckoId);
+      // Use the chain's native symbol (e.g., 'ETH', 'MATIC', 'AVAX') instead of CoinGecko ID
+      const tokenPrice = await priceFeedService.getTokenPrice(this.config.symbol);
       return tokenPrice?.priceUsd || 0;
     } catch (error) {
       console.warn(`⚠️ Price fetch failed for ${this.config.symbol}:`, error.message);
@@ -203,24 +210,44 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
   }
 
   /**
-   * Retry mechanism for network calls
+   * Retry mechanism for network calls with improved error handling
    */
   protected async withRetry<T>(operation: () => Promise<T>): Promise<T> {
     let lastError: Error;
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
-        const timeout = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error(`${this.config.chainName} request timeout`)), this.timeout)
-        );
+        // Create timeout promise with abort controller for better cleanup
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, this.timeout);
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          controller.signal.addEventListener('abort', () => {
+            reject(new Error(`${this.config.chainName} request timeout`));
+          });
+        });
         
-        return await Promise.race([operation(), timeout]);
+        // Execute operation with timeout
+        const result = await Promise.race([operation(), timeoutPromise]);
+        
+        // Clean up timeout
+        clearTimeout(timeoutId);
+        
+        return result;
       } catch (error) {
         lastError = error as Error;
         console.warn(`⚠️ ${this.config.chainName} attempt ${attempt}/${this.retryAttempts} failed:`, error.message);
         
         if (attempt < this.retryAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          // Exponential backoff with jitter
+          const baseDelay = 1000 * attempt;
+          const jitter = Math.random() * 500; // Add up to 500ms random jitter
+          const delay = baseDelay + jitter;
+          
+          console.log(`⏱️ Retrying ${this.config.chainName} in ${delay.toFixed(0)}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }

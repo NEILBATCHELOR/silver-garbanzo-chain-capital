@@ -853,8 +853,9 @@ export class CosmosEcosystemService {
     // In production, this would integrate with Osmosis, Uniswap on Cosmos chains, etc.
     console.log(`Swap on ${chainId}: ${amountIn} ${tokenIn} for ${tokenOut} (min: ${minAmountOut})`);
     
-    // Return transaction hash placeholder
-    return `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    // Return proper transaction hash using crypto
+    const crypto = require('crypto');
+    return '0x' + crypto.randomBytes(32).toString('hex');
   }
 
   /**

@@ -1,5 +1,6 @@
 import { supabase } from "@/infrastructure/database/client";
 import type { Tables } from "@/types/core/database";
+import { generateSecureHash } from "@/infrastructure/web3/utils/CryptoUtils";
 
 /**
  * Checks if a wallet is a multi-signature wallet
@@ -307,8 +308,8 @@ export async function proposeTransaction(
   data?: string,
   proposer?: string
 ): Promise<string | null> {
-  // Generate transaction hash
-  const hash = '0x' + Math.random().toString(16).substr(2, 64);
+  // Generate transaction hash using secure random generation
+  const hash = generateSecureHash();
   
   const { data: txData, error } = await supabase
     .from("multi_sig_transactions")

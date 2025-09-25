@@ -83,7 +83,7 @@ export class WalletGeneratorFactory {
       'solana',      // ✅ Enhanced with @solana/web3.js  
       'aptos',       // ✅ Enhanced with @aptos-labs/ts-sdk
       'sui',         // ✅ Enhanced with @mysten/sui.js
-      'near',        // ✅ Enhanced with near-api-js
+      'near',        // ✅ Enhanced with near-js
       
       // Previously enhanced
       'ripple',      // ✅ Enhanced with xrpl

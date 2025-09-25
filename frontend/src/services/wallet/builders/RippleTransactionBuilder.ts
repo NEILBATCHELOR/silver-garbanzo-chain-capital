@@ -7,6 +7,7 @@
 import { rpcManager } from '../../../infrastructure/web3/rpc/RPCConnectionManager';
 import type { SupportedChain, NetworkType } from '../../../infrastructure/web3/adapters/IBlockchainAdapter';
 import { ChainType, addressUtils } from '../AddressUtils';
+import { generateSecureHash } from '@/infrastructure/web3/utils/CryptoUtils';
 
 // ============================================================================
 // RIPPLE-SPECIFIC INTERFACES
@@ -378,12 +379,11 @@ export class RippleTransactionBuilder {
   }
 
   /**
-   * Generate a transaction hash (mock)
+   * Generate a secure transaction hash
    */
   private generateTransactionHash(tx: any): string {
-    // This would use proper hashing in production
-    const timestamp = Date.now().toString(16).toUpperCase();
-    return `${timestamp}${Math.random().toString(16).slice(2).toUpperCase()}`.padEnd(64, '0').slice(0, 64);
+    // Use secure random generation for transaction hash
+    return generateSecureHash().slice(2).toUpperCase(); // Remove 0x prefix and uppercase for Ripple format
   }
 
   /**

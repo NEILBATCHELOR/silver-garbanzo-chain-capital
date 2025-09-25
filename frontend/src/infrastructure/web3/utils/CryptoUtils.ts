@@ -225,3 +225,182 @@ export const parseAmount = (blockchain: string, amount: string): string => {
       return  parseEther(amount).toString();
   }
 };
+
+
+// ============================================================================
+// SECURE RANDOM GENERATION METHODS
+// ============================================================================
+// Critical security functions for replacing Math.random() in cryptographic operations
+// All methods use the Web Crypto API for cryptographically secure randomness
+
+/**
+ * Generate cryptographically secure random bytes
+ * @param length Number of bytes to generate
+ * @returns Uint8Array of random bytes
+ */
+export const generateSecureRandomBytes = (length: number): Uint8Array => {
+  const buffer = new Uint8Array(length);
+  crypto.getRandomValues(buffer);
+  return buffer;
+};
+
+/**
+ * Generate a cryptographically secure random hex string
+ * @param length Number of bytes (output will be 2x this length in hex characters)
+ * @returns Hex string with 0x prefix
+ */
+export const generateSecureRandomHex = (length: number): string => {
+  const bytes = generateSecureRandomBytes(length);
+  const hex = Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  return `0x${hex}`;
+};
+
+/**
+ * Generate a cryptographically secure random base64 string
+ * @param length Number of bytes
+ * @returns Base64 encoded string
+ */
+export const generateSecureRandomBase64 = (length: number): string => {
+  const bytes = generateSecureRandomBytes(length);
+  // Convert to base64 using browser's btoa function
+  const binaryString = Array.from(bytes)
+    .map(byte => String.fromCharCode(byte))
+    .join('');
+  return btoa(binaryString);
+};
+
+/**
+ * Generate a cryptographically secure unique ID
+ * @param prefix Optional prefix for the ID
+ * @returns Unique ID string
+ */
+export const generateSecureId = (prefix: string = ''): string => {
+  const timestamp = Date.now().toString(36);
+  const randomPart = generateSecureRandomHex(16).slice(2); // Remove 0x prefix
+  return prefix ? `${prefix}_${timestamp}_${randomPart}` : `${timestamp}_${randomPart}`;
+};
+
+/**
+ * Generate a cryptographically secure transaction hash
+ * @param length Number of bytes for the hash (default 32 for standard hash)
+ * @returns Hex string representing transaction hash
+ */
+export const generateSecureHash = (length: number = 32): string => {
+  return generateSecureRandomHex(length);
+};
+
+/**
+ * Generate a cryptographically secure seed for wallet generation
+ * @param length Number of bytes for the seed (default 32)
+ * @returns Hex string seed
+ */
+export const generateSecureSeed = (length: number = 32): string => {
+  return generateSecureRandomHex(length);
+};
+
+/**
+ * Generate a cryptographically secure numeric string
+ * @param digits Number of digits
+ * @returns Numeric string of specified length
+ */
+export const generateSecureNumericString = (digits: number): string => {
+  let result = '';
+  const bytes = generateSecureRandomBytes(Math.ceil(digits * 1.3)); // Extra bytes to ensure enough digits
+  
+  for (const byte of bytes) {
+    // Convert each byte to digits (0-255 -> 0-9)
+    const digit = byte % 10;
+    result += digit.toString();
+    if (result.length === digits) break;
+  }
+  
+  return result.slice(0, digits);
+};
+
+/**
+ * Generate a cryptographically secure alphanumeric string
+ * @param length Length of the string
+ * @param options Customization options
+ * @returns Random alphanumeric string
+ */
+export const generateSecureAlphanumeric = (
+  length: number,
+  options: {
+    uppercase?: boolean;
+    lowercase?: boolean;
+    numbers?: boolean;
+    special?: boolean;
+  } = { uppercase: true, lowercase: true, numbers: true }
+): string => {
+  let charset = '';
+  if (options.uppercase) charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  if (options.lowercase) charset += 'abcdefghijklmnopqrstuvwxyz';
+  if (options.numbers) charset += '0123456789';
+  if (options.special) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+  
+  if (charset.length === 0) {
+    throw new Error('At least one character type must be enabled');
+  }
+  
+  const bytes = generateSecureRandomBytes(length);
+  let result = '';
+  
+  for (const byte of bytes) {
+    result += charset[byte % charset.length];
+  }
+  
+  return result;
+};
+
+/**
+ * Generate a cryptographically secure channel ID for Lightning Network
+ * @returns Channel ID as hex string
+ */
+export const generateSecureChannelId = (): string => {
+  // Lightning Network channel IDs are typically 32 bytes
+  return generateSecureRandomHex(32);
+};
+
+/**
+ * Generate a secure account ID for NEAR protocol
+ * @param prefix Optional prefix for the account
+ * @returns NEAR account ID
+ */
+export const generateNearAccountId = (prefix: string = 'account'): string => {
+  const randomPart = generateSecureAlphanumeric(12, { 
+    uppercase: false, 
+    lowercase: true, 
+    numbers: true 
+  });
+  return `${prefix}-${randomPart}.near`;
+};
+
+/**
+ * Generate a secure Ripple destination tag
+ * @returns Destination tag as number
+ */
+export const generateRippleDestinationTag = (): number => {
+  // Ripple destination tags are 32-bit unsigned integers (0 to 4,294,967,295)
+  const bytes = generateSecureRandomBytes(4);
+  const view = new DataView(bytes.buffer);
+  return view.getUint32(0, false); // Big-endian
+};
+
+/**
+ * Check if crypto.getRandomValues is available
+ * @returns Boolean indicating if secure random generation is available
+ */
+export const isSecureRandomAvailable = (): boolean => {
+  return typeof crypto !== 'undefined' && 
+         typeof crypto.getRandomValues === 'function';
+};
+
+// Validate that secure random generation is available
+if (!isSecureRandomAvailable()) {
+  console.warn(
+    'WARNING: Secure random generation (crypto.getRandomValues) is not available. ' +
+    'This is a critical security issue for cryptographic operations.'
+  );
+}
