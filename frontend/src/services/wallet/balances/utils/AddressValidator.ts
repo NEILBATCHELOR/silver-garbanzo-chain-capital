@@ -19,10 +19,15 @@ export function detectAddressFormat(address: string): AddressValidationResult {
     return { isValid: false, category: 'unknown', compatibleChains: [] };
   }
 
+  // Normalize address: trim whitespace and handle case sensitivity appropriately
   const trimmedAddress = address.trim();
+  
+  console.log(`🔍 Address format detection for: "${trimmedAddress}"`);
+
 
   // EVM addresses (0x + 40 hex characters)
   if (/^0x[a-fA-F0-9]{40}$/.test(trimmedAddress)) {
+    console.log(`✅ Detected EVM address: ${trimmedAddress.slice(0, 20)}...`);
     return {
       isValid: true,
       category: 'evm',
@@ -86,8 +91,10 @@ export function detectAddressFormat(address: string): AddressValidationResult {
     };
   }
 
-  // Injective addresses (inj1 for mainnet, inj1 for testnet - 39-59 chars)
-  if (/^inj1[a-z0-9]{38,58}$/.test(trimmedAddress)) {
+  // Injective addresses (inj1 for mainnet, inj1 for testnet - flexible length 39-59 chars total)
+  // Examples: inj1rnmz5myv403g6nwukceeldh0sw92fq5cd4z0pv (43 chars total)
+  if (/^inj1[a-z0-9]{38,58}$/.test(trimmedAddress.toLowerCase())) {
+    console.log(`✅ Detected Injective address: ${trimmedAddress.slice(0, 20)}...`);
     return {
       isValid: true,
       category: 'injective',
@@ -104,6 +111,7 @@ export function detectAddressFormat(address: string): AddressValidationResult {
     };
   }
 
+  console.log(`❌ Unknown address format: ${trimmedAddress.slice(0, 30)}...`);
   return { isValid: false, category: 'unknown', compatibleChains: [] };
 }
 
@@ -159,7 +167,17 @@ export function isAddressCompatibleWithChain(address: string, chainName: string)
   const addressInfo = detectAddressFormat(address);
   const chainCategory = getChainCategory(chainName);
   
-  return addressInfo.category === chainCategory;
+  const isCompatible = addressInfo.category === chainCategory;
+  
+  console.log(`🔍 Compatibility check:`, {
+    address: address.slice(0, 15) + '...',
+    chainName,
+    addressCategory: addressInfo.category,
+    chainCategory,
+    isCompatible
+  });
+  
+  return isCompatible;
 }
 
 /**

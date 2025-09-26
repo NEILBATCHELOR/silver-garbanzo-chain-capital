@@ -8,10 +8,30 @@ import * as bitcoin from 'bitcoinjs-lib';
 import { networks } from 'bitcoinjs-lib';
 import * as bip39 from 'bip39';
 import * as bip32 from '@scure/bip32';
-import * as ecc from 'tiny-secp256k1';
 
-// Initialize ECC library
-bitcoin.initEccLib(ecc);
+// ECC library initialization
+let eccLib: any = null;
+let initPromise: Promise<void> | null = null;
+
+async function initEcc() {
+  if (eccLib) return;
+  if (initPromise) return initPromise;
+  
+  initPromise = (async () => {
+    // Dynamic import for ESM-only tiny-secp256k1
+    const ecc = await import('tiny-secp256k1');
+    eccLib = ecc;
+    bitcoin.initEccLib(ecc);
+  })();
+  
+  return initPromise;
+}
+
+function ensureEccInit() {
+  if (!eccLib) {
+    throw new Error('ECC library not initialized. Call initEcc() first.');
+  }
+}
 
 export interface BitcoinAccountInfo {
   address: string;
@@ -104,8 +124,12 @@ export class BitcoinWalletService {
    * Generate a new Bitcoin account
    * Enhanced with multiple address types and options support
    */
-  generateAccount(options: BitcoinGenerationOptions = {}): BitcoinAccountInfo {
+  async generateAccount(options: BitcoinGenerationOptions = {}): Promise<BitcoinAccountInfo> {
     try {
+      // Ensure ECC library is initialized
+      await initEcc();
+      ensureEccInit();
+      
       const keyPair = bitcoin.ECPair.makeRandom({ network: this.network });
       const addressType = options.addressType || 'bech32';
       const address = this.generateAddress(keyPair.publicKey!, addressType);
@@ -134,14 +158,18 @@ export class BitcoinWalletService {
    * Generate multiple Bitcoin accounts at once
    * Following project patterns
    */
-  generateMultipleAccounts(
+  async generateMultipleAccounts(
     count: number, 
     options: BitcoinGenerationOptions = {}
-  ): BitcoinAccountInfo[] {
+  ): Promise<BitcoinAccountInfo[]> {
+    // Ensure ECC is initialized once before loop
+    await initEcc();
+    ensureEccInit();
+    
     const accounts: BitcoinAccountInfo[] = [];
     
     for (let i = 0; i < count; i++) {
-      accounts.push(this.generateAccount(options));
+      accounts.push(await this.generateAccount(options));
     }
     
     return accounts;
@@ -153,7 +181,10 @@ export class BitcoinWalletService {
    */
   async importAccount(privateKey: string, options: BitcoinGenerationOptions = {}): Promise<BitcoinAccountInfo> {
     try {
-      const keyPair = this.privateKeyToECPair(privateKey);
+      await initEcc();
+      ensureEccInit();
+      
+      const keyPair = await this.privateKeyToECPair(privateKey);
       const addressType = options.addressType || 'bech32';
       const address = this.generateAddress(keyPair.publicKey!, addressType);
       
@@ -185,6 +216,9 @@ export class BitcoinWalletService {
    */
   async importFromWIF(wif: string, options: BitcoinGenerationOptions = {}): Promise<BitcoinAccountInfo> {
     try {
+      await initEcc();
+      ensureEccInit();
+      
       const keyPair = bitcoin.ECPair.fromWIF(wif, this.network);
       const addressType = options.addressType || 'bech32';
       const address = this.generateAddress(keyPair.publicKey!, addressType);
@@ -211,9 +245,12 @@ export class BitcoinWalletService {
   /**
    * Create account from private key (alias for consistency)
    */
-  fromPrivateKey(privateKey: string, options: BitcoinGenerationOptions = {}): BitcoinAccountInfo {
+  async fromPrivateKey(privateKey: string, options: BitcoinGenerationOptions = {}): Promise<BitcoinAccountInfo> {
     try {
-      const keyPair = this.privateKeyToECPair(privateKey);
+      await initEcc();
+      ensureEccInit();
+      
+      const keyPair = await this.privateKeyToECPair(privateKey);
       const addressType = options.addressType || 'bech32';
       const address = this.generateAddress(keyPair.publicKey!, addressType);
       
@@ -240,8 +277,11 @@ export class BitcoinWalletService {
   /**
    * Create account from WIF (alias for consistency)
    */
-  fromWIF(wif: string, options: BitcoinGenerationOptions = {}): BitcoinAccountInfo {
+  async fromWIF(wif: string, options: BitcoinGenerationOptions = {}): Promise<BitcoinAccountInfo> {
     try {
+      await initEcc();
+      ensureEccInit();
+      
       const keyPair = bitcoin.ECPair.fromWIF(wif, this.network);
       const addressType = options.addressType || 'bech32';
       const address = this.generateAddress(keyPair.publicKey!, addressType);
@@ -279,12 +319,15 @@ export class BitcoinWalletService {
    * Create account from mnemonic phrase
    * Enhanced HD wallet support with multiple derivation paths
    */
-  fromMnemonic(
+  async fromMnemonic(
     mnemonic: string,
     derivationIndex: number = 0,
     options: BitcoinGenerationOptions = {}
-  ): BitcoinAccountInfo {
+  ): Promise<BitcoinAccountInfo> {
     try {
+      await initEcc();
+      ensureEccInit();
+      
       const addressType = options.addressType || 'bech32';
       const basePath = this.getDerivationPath(addressType);
       const derivationPath = options.derivationPath || `${basePath}/${derivationIndex}`;
@@ -334,15 +377,18 @@ export class BitcoinWalletService {
    * Generate HD wallets from mnemonic
    * Multiple wallet generation from single mnemonic
    */
-  generateHDWallets(
+  async generateHDWallets(
     mnemonic: string,
     numWallets: number = 1,
     options: BitcoinGenerationOptions = {}
-  ): BitcoinAccountInfo[] {
+  ): Promise<BitcoinAccountInfo[]> {
+    await initEcc();
+    ensureEccInit();
+    
     const wallets: BitcoinAccountInfo[] = [];
     
     for (let i = 0; i < numWallets; i++) {
-      const wallet = this.fromMnemonic(mnemonic, i, {
+      const wallet = await this.fromMnemonic(mnemonic, i, {
         ...options,
         includeMnemonic: false // Don't include mnemonic in each wallet
       });
@@ -361,9 +407,9 @@ export class BitcoinWalletService {
    * Restore account from mnemonic
    * Replaces placeholder implementation
    */
-  restoreFromMnemonic(mnemonic: string, index: number = 0): BitcoinAccountInfo {
+  async restoreFromMnemonic(mnemonic: string, index: number = 0): Promise<BitcoinAccountInfo> {
     try {
-      return this.fromMnemonic(mnemonic, index, {
+      return await this.fromMnemonic(mnemonic, index, {
         includePrivateKey: true,
         includeWIF: true,
         includeMnemonic: true,
@@ -519,9 +565,9 @@ export class BitcoinWalletService {
   /**
    * Validate private key
    */
-  isValidPrivateKey(privateKey: string): boolean {
+  async isValidPrivateKey(privateKey: string): Promise<boolean> {
     try {
-      this.privateKeyToECPair(privateKey);
+      await this.privateKeyToECPair(privateKey);
       return true;
     } catch {
       return false;
@@ -531,8 +577,10 @@ export class BitcoinWalletService {
   /**
    * Validate WIF (Wallet Import Format)
    */
-  isValidWIF(wif: string): boolean {
+  async isValidWIF(wif: string): Promise<boolean> {
     try {
+      await initEcc();
+      ensureEccInit();
       bitcoin.ECPair.fromWIF(wif, this.network);
       return true;
     } catch {
@@ -687,7 +735,10 @@ export class BitcoinWalletService {
   /**
    * Convert private key to ECPair
    */
-  private privateKeyToECPair(privateKey: string): any {
+  private async privateKeyToECPair(privateKey: string): Promise<any> {
+    await initEcc();
+    ensureEccInit();
+    
     try {
       // Handle different private key formats
       let keyBuffer: Buffer;

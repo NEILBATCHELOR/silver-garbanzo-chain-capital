@@ -141,31 +141,26 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     console.log(`🔄 Fetching balances for ${wallets.length} wallet addresses (project-specific networks)${forceRefresh ? ' (force refresh)' : ''}`);
 
     try {
-      // Get unique addresses and wallet types from project wallets
-      const uniqueAddresses = Array.from(new Set(wallets.map(w => w.wallet_address.toLowerCase())));
-      const projectWalletTypes = Array.from(new Set(wallets.map(w => w.wallet_type)));
+      // NEW: Prepare wallets with their specific chain types instead of trying to match addresses
+      const walletsToFetch = wallets.map(w => ({
+        address: w.wallet_address.toLowerCase(),
+        walletType: w.wallet_type
+      }));
       
-      console.log(`📋 Project wallet types: ${projectWalletTypes.join(', ')}`);
+      console.log(`📋 Fetching balances for ${walletsToFetch.length} wallet(s) with specific chain types`);
       
-      // Create a map to store all balances by address
+      // Fetch all balances using the new method that respects wallet-specific chains
+      const allBalances = await balanceService.fetchBalancesForWallets(walletsToFetch);
+      
+      // Create a map to store balances by address
       const addressBalancesMap = new Map<string, WalletBalance[]>();
       
-      // Fetch balances for each unique address across project-specific networks
-      for (const address of uniqueAddresses) {
-        try {
-          console.log(`🔍 Scanning project networks for ${address.slice(0, 10)}...`);
-          const allBalances = await balanceService.fetchBalancesForProject(address, projectWalletTypes);
-          
-          if (allBalances.length > 0) {
-            addressBalancesMap.set(address, allBalances);
-            console.log(`✅ Found ${allBalances.length} balance(s) for ${address.slice(0, 10)}: ${allBalances.map(b => b.network).join(', ')}`);
-          } else {
-            console.log(`ℹ️ No balances found for ${address.slice(0, 10)}`);
-          }
-        } catch (err) {
-          console.warn(`⚠️ Failed to fetch balances for ${address}:`, err);
-        }
-      }
+      allBalances.forEach(balance => {
+        const existing = addressBalancesMap.get(balance.address) || [];
+        addressBalancesMap.set(balance.address, [...existing, balance]);
+      });
+      
+      console.log(`✅ Found ${allBalances.length} total balance(s) across ${addressBalancesMap.size} address(es)`);
 
       // Update wallet data with found balances
       setWallets(prev => prev.map(wallet => {

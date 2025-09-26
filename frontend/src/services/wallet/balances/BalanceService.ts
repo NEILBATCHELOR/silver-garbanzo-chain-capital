@@ -705,16 +705,21 @@ export class BalanceService {
     const allBalances: WalletBalance[] = [];
     
     console.log(`🔍 Scanning project networks for ${address.slice(0, 10)}...`);
+    console.log(`📋 Input wallet types:`, projectWalletTypes);
+    
+    // Normalize and trim the address
+    const normalizedAddress = address.trim();
     
     // Detect address format for compatibility check
-    const addressInfo = detectAddressFormat(address);
+    const addressInfo = detectAddressFormat(normalizedAddress);
     
     if (!addressInfo.isValid) {
-      console.warn(`⚠️ Invalid or unrecognized address format: ${address}`);
+      console.warn(`⚠️ Invalid or unrecognized address format: ${normalizedAddress}`);
       return allBalances;
     }
     
     console.log(`✓ Detected ${addressInfo.category.toUpperCase()} address format`);
+    console.log(`✓ Address compatible with chains:`, addressInfo.compatibleChains);
     
     // Get all service keys from project wallet types
     const projectServiceKeys = new Set<string>();
@@ -726,18 +731,38 @@ export class BalanceService {
     console.log(`📋 Project wallet types: ${projectWalletTypes.join(', ')}`);
     console.log(`🔗 Checking ${projectServiceKeys.size} service keys: ${Array.from(projectServiceKeys).join(', ')}`);
     
+    // DEBUG: Show what services are actually registered
+    console.log(`🗂️ Available services in registry:`, Object.keys(this.services));
+    
     // Get services that match both: (1) exist in project, (2) compatible with address
     const relevantServices = new Map<string, BaseBalanceService>();
     projectServiceKeys.forEach(key => {
       const service = this.services[key];
+      console.log(`🔑 Checking service key: ${key}, exists: ${!!service}`);
+      
       if (service) {
         const config = service.getChainConfig();
         const serviceKey = `${config.chainId}_${config.chainName}`;
         
+        console.log(`📊 Service config for ${key}:`, { 
+          chainId: config.chainId, 
+          chainName: config.chainName,
+          name: config.name 
+        });
+        
+        // Check address compatibility
+        const isCompatible = isAddressCompatibleWithChain(normalizedAddress, config.chainName);
+        console.log(`🔍 Address compatibility check: ${normalizedAddress.slice(0, 15)}... vs ${config.chainName} = ${isCompatible}`);
+        
         // Only add if compatible with address format
-        if (isAddressCompatibleWithChain(address, config.chainName)) {
+        if (isCompatible) {
           relevantServices.set(serviceKey, service);
+          console.log(`✅ Added ${key} to relevant services`);
+        } else {
+          console.log(`❌ Skipped ${key} - not compatible`);
         }
+      } else {
+        console.log(`❌ Service not found in registry for key: ${key}`);
       }
     });
 
@@ -761,10 +786,10 @@ export class BalanceService {
           const isTestnet = config.networkType === 'testnet' || 
                            this.testnetNetworks.has(config.chainName.toLowerCase());
           
-          const balance = await service.fetchBalance(address);
+          const balance = await service.fetchBalance(normalizedAddress);
           
           const walletBalance: WalletBalance = {
-            address,
+            address: normalizedAddress,
             network: config.chainName,
             nativeBalance: balance.nativeBalance,
             nativeValueUsd: isTestnet ? 0 : balance.nativeValueUsd,
@@ -800,6 +825,82 @@ export class BalanceService {
     }
     
     console.log(`📊 Found balances on ${allBalances.length} networks`);
+    return allBalances;
+  }
+
+  /**
+   * NEW METHOD: Fetch balances for wallets with their specific chain types
+   * This avoids trying to match one address against incompatible chains
+   * 
+   * @param wallets Array of {address, walletType} objects
+   * @returns Array of WalletBalance objects
+   */
+  public async fetchBalancesForWallets(
+    wallets: Array<{ address: string; walletType: string }>
+  ): Promise<WalletBalance[]> {
+    const allBalances: WalletBalance[] = [];
+    
+    console.log(`🔍 Fetching balances for ${wallets.length} specific wallet(s)`);
+    
+    // Process each wallet with its specific chain
+    for (const { address, walletType } of wallets) {
+      try {
+        const normalizedAddress = address.trim();
+        
+        // Get service keys for this specific wallet type
+        const serviceKeys = this.getServiceKeysForWalletType(walletType);
+        console.log(`📋 Wallet ${normalizedAddress.slice(0, 10)}... (${walletType}) → services:`, serviceKeys);
+        
+        // Query each service (mainnet + testnet variants)
+        for (const serviceKey of serviceKeys) {
+          const service = this.services[serviceKey];
+          
+          if (!service) {
+            console.warn(`⚠️ Service not found: ${serviceKey}`);
+            continue;
+          }
+          
+          try {
+            const config = service.getChainConfig();
+            const isTestnet = config.networkType === 'testnet' || 
+                             this.testnetNetworks.has(config.chainName.toLowerCase());
+            
+            const balance = await service.fetchBalance(normalizedAddress);
+            
+            // Always include balance, even if zero (user wants to see their wallets)
+            const walletBalance: WalletBalance = {
+              address: normalizedAddress,
+              network: config.chainName,
+              nativeBalance: balance.nativeBalance,
+              nativeValueUsd: isTestnet ? 0 : balance.nativeValueUsd,
+              tokens: balance.tokens.map(token => ({
+                ...token,
+                valueUsd: isTestnet ? 0 : token.valueUsd
+              })),
+              totalValueUsd: isTestnet ? 0 : balance.totalValueUsd,
+              lastUpdated: balance.lastUpdated,
+              isOnline: balance.isOnline,
+              error: balance.error,
+              isTestnet
+            };
+            
+            const balanceAmount = parseFloat(balance.nativeBalance);
+            if (balanceAmount > 0 || balance.tokens.length > 0) {
+              console.log(`✅ ${config.chainName}: ${balance.nativeBalance} ${config.symbol}`);
+            } else {
+              console.log(`💰 ${config.chainName}: 0 ${config.symbol} (zero balance)`);
+            }
+            allBalances.push(walletBalance);
+          } catch (error) {
+            console.warn(`⚠️ Failed to fetch balance for ${normalizedAddress} on ${serviceKey}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error processing wallet ${address}:`, error);
+      }
+    }
+    
+    console.log(`✅ Fetched ${allBalances.length} balance(s) across all wallets`);
     return allBalances;
   }
 }

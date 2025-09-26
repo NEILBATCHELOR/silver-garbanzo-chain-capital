@@ -13,7 +13,7 @@ export class BTCWalletGenerator implements WalletGenerator {
    */
   async generateWallet(options?: WalletGenerationOptions): Promise<Wallet> {
     try {
-      const account = bitcoinWalletService.generateAccount({
+      const account = await bitcoinWalletService.generateAccount({
         includePrivateKey: true,
         includeWIF: true,
         includeMnemonic: options?.includeMnemonic,
@@ -42,7 +42,7 @@ export class BTCWalletGenerator implements WalletGenerator {
     options?: WalletGenerationOptions
   ): Promise<Wallet[]> {
     try {
-      const accounts = bitcoinWalletService.generateMultipleAccounts(count, {
+      const accounts = await bitcoinWalletService.generateMultipleAccounts(count, {
         includePrivateKey: true,
         includeWIF: true,
         includeMnemonic: options?.includeMnemonic,
@@ -67,7 +67,7 @@ export class BTCWalletGenerator implements WalletGenerator {
    */
   async fromPrivateKey(privateKey: string): Promise<Wallet> {
     try {
-      const account = bitcoinWalletService.fromPrivateKey(privateKey, {
+      const account = await bitcoinWalletService.fromPrivateKey(privateKey, {
         includePrivateKey: true,
         includeWIF: true,
         addressType: 'bech32'
@@ -91,7 +91,7 @@ export class BTCWalletGenerator implements WalletGenerator {
    */
   async fromWIF(wif: string): Promise<Wallet> {
     try {
-      const account = bitcoinWalletService.fromWIF(wif, {
+      const account = await bitcoinWalletService.fromWIF(wif, {
         includePrivateKey: true,
         includeWIF: true,
         addressType: 'bech32'
@@ -116,7 +116,7 @@ export class BTCWalletGenerator implements WalletGenerator {
    */
   async fromMnemonic(mnemonic: string, index: number = 0): Promise<Wallet> {
     try {
-      const account = bitcoinWalletService.restoreFromMnemonic(mnemonic, index);
+      const account = await bitcoinWalletService.restoreFromMnemonic(mnemonic, index);
       
       return {
         address: account.address,
@@ -140,7 +140,7 @@ export class BTCWalletGenerator implements WalletGenerator {
     count: number = 1
   ): Promise<Wallet[]> {
     try {
-      const accounts = bitcoinWalletService.generateHDWallets(mnemonic, count, {
+      const accounts = await bitcoinWalletService.generateHDWallets(mnemonic, count, {
         includePrivateKey: true,
         includeWIF: true,
         includeMnemonic: true,
@@ -170,7 +170,7 @@ export class BTCWalletGenerator implements WalletGenerator {
     options?: WalletGenerationOptions
   ): Promise<Wallet> {
     try {
-      const account = bitcoinWalletService.generateAccount({
+      const account = await bitcoinWalletService.generateAccount({
         includePrivateKey: true,
         includeWIF: true,
         includeMnemonic: options?.includeMnemonic,
@@ -217,8 +217,8 @@ export class BTCWalletGenerator implements WalletGenerator {
    * @param privateKey Private key to validate
    * @returns Boolean indicating if private key is valid
    */
-  validatePrivateKey(privateKey: string): boolean {
-    return bitcoinWalletService.isValidPrivateKey(privateKey);
+  async validatePrivateKey(privateKey: string): Promise<boolean> {
+    return await bitcoinWalletService.isValidPrivateKey(privateKey);
   }
 
   /**
@@ -226,8 +226,8 @@ export class BTCWalletGenerator implements WalletGenerator {
    * @param wif WIF to validate
    * @returns Boolean indicating if WIF is valid
    */
-  validateWIF(wif: string): boolean {
-    return bitcoinWalletService.isValidWIF(wif);
+  async validateWIF(wif: string): Promise<boolean> {
+    return await bitcoinWalletService.isValidWIF(wif);
   }
 
   /**

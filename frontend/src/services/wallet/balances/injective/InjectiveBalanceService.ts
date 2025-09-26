@@ -39,11 +39,14 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
     
     super(config);
     
-    // Use REST API for browser compatibility (gRPC uses Node.js https module)
-    this.endpoints = getNetworkEndpoints(Network.Mainnet);
-    this.bankApi = new ChainRestBankApi(this.endpoints.rest);
+    // Use custom RPC URL if configured, otherwise fall back to SDK defaults
+    const restEndpoint = config.rpcUrl || getNetworkEndpoints(Network.Mainnet).rest;
+    this.bankApi = new ChainRestBankApi(restEndpoint);
     
-    console.log(`🔧 Injective Mainnet Service initialized with REST: ${this.endpoints.rest}`);
+    // Store endpoints for reference (even if using custom URL)
+    this.endpoints = getNetworkEndpoints(Network.Mainnet);
+    
+    console.log(`🔧 Injective Mainnet Service initialized with REST: ${restEndpoint}`);
   }
 
   validateAddress(address: string): boolean {
@@ -86,7 +89,11 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
       if (error instanceof Error) {
         if (error.message.includes('decoding bech32') || error.message.includes('invalid bech32')) {
           console.warn(`⚠️ Invalid bech32 address format: ${address.trim()}`);
+        } else if (error.message.includes('balance was not found') || error.message.includes('not found')) {
+          // Normal case: address has no balance
+          console.log(`💰 No INJ balance for ${address.trim()} (balance not found)`);
         } else {
+          // Actual error
           console.error(`❌ Injective balance fetch failed:`, error.message);
         }
       } else {
