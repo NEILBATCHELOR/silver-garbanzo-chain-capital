@@ -3,6 +3,9 @@
  * Exports all EVM-compatible blockchain balance services (mainnet and testnet)
  */
 
+// Base Service (for extending)
+export { BaseEVMBalanceService } from './BaseEVMBalanceService';
+
 // Mainnet Services
 export { EthereumBalanceService, ethereumBalanceService } from './EthereumBalanceService';
 export { PolygonBalanceService, polygonBalanceService } from './PolygonBalanceService';

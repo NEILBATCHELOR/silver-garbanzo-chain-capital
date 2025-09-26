@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Wallet,
@@ -27,15 +28,15 @@ import {
   EyeOff,
   Copy,
   Shield,
-  DollarSign,
-  Coins,
-  TestTube,
-  Globe
+  Search,
+  Filter,
+  X,
+  SortAsc,
+  SortDesc
 } from "lucide-react";
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
-import { balanceService, BalanceService } from "@/services/wallet/balances/BalanceService";
-import { priceFeedService } from "@/services/wallet/PriceFeedService";
-import type { WalletBalance, TokenBalance } from "@/services/wallet/balances/BalanceService";
+import { BalanceFormatter, balanceService } from "@/services/wallet/balances";
+import type { WalletBalance } from "@/services/wallet/balances";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface ProjectWalletListProps {
   projectId: string;
@@ -54,10 +67,12 @@ interface ProjectWalletListProps {
 
 interface WalletWithBalance extends ProjectWalletData {
   balance?: WalletBalance;
-  testnetBalances?: WalletBalance[];
   isLoadingBalance?: boolean;
   balanceError?: string;
 }
+
+type NetworkFilterType = 'all' | 'mainnet' | 'testnet';
+type SortOption = 'network_asc' | 'network_desc' | 'balance_desc' | 'balance_asc';
 
 export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId, onRefresh }) => {
   const { toast } = useToast();
@@ -69,21 +84,41 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const [showPrivateKey, setShowPrivateKey] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
   const [fetchingBalances, setFetchingBalances] = useState(false);
-  const [scanningTestnets, setScanningTestnets] = useState(false);
-  const [showTestnetBalances, setShowTestnetBalances] = useState(false);
+  const [networkFilter, setNetworkFilter] = useState<NetworkFilterType>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('network_asc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
   
-  const fetchWallets = async () => {
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch wallets and auto-load balances
+  const fetchWallets = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
       const walletData = await projectWalletService.getProjectWallets(projectId);
-      setWallets(walletData.map(wallet => ({ ...wallet, isLoadingBalance: false })));
       
-      // Automatically fetch balances after loading wallets
-      if (walletData.length > 0) {
-        await fetchAllBalances(walletData);
+      const initializedWallets = walletData.map(wallet => ({
+        ...wallet,
+        isLoadingBalance: false,
+        balance: undefined
+      }));
+      
+      setWallets(initializedWallets);
+      
+      // Auto-load balances after wallets are fetched
+      if (initializedWallets.length > 0) {
+        setTimeout(() => {
+          fetchBalances(false);
+        }, 100);
       }
+      
     } catch (err) {
       console.error('Error fetching project wallets:', err);
       setError('Failed to load project wallets');
@@ -95,277 +130,167 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, toast]);
 
-  const fetchAllBalances = async (walletsToFetch?: ProjectWalletData[]) => {
-    const targetWallets = walletsToFetch || wallets;
-    if (targetWallets.length === 0) return;
+  // Fetch balances for all wallets - checks BOTH mainnet AND testnets
+  const fetchBalances = useCallback(async (forceRefresh: boolean = false) => {
+    if (fetchingBalances || wallets.length === 0) return;
 
     setFetchingBalances(true);
-    console.log(`🔄 Fetching mainnet balances for ${targetWallets.length} project wallets`);
-
-    // Set loading states for all wallets
-    setWallets(prev => prev.map(wallet => ({
-      ...wallet,
-      isLoadingBalance: true,
-      balanceError: undefined
-    })));
-
-    const balancePromises = targetWallets.map(async (wallet) => {
-      try {
-        console.log(`🔍 Fetching mainnet balance for ${wallet.wallet_address} on ${wallet.wallet_type}`);
-        const balance = await balanceService.fetchWalletBalance(wallet.wallet_address, wallet.wallet_type);
-        
-        return {
-          walletId: wallet.id,
-          balance,
-          error: null
-        };
-      } catch (error) {
-        console.error(`❌ Failed to fetch balance for ${wallet.wallet_address}:`, error);
-        return {
-          walletId: wallet.id,
-          balance: null,
-          error: error instanceof Error ? error.message : 'Failed to fetch balance'
-        };
-      }
-    });
+    
+    console.log(`🔄 Fetching balances for ${wallets.length} wallet addresses (project-specific networks)${forceRefresh ? ' (force refresh)' : ''}`);
 
     try {
-      const results = await Promise.all(balancePromises);
+      // Get unique addresses and wallet types from project wallets
+      const uniqueAddresses = Array.from(new Set(wallets.map(w => w.wallet_address.toLowerCase())));
+      const projectWalletTypes = Array.from(new Set(wallets.map(w => w.wallet_type)));
       
-      // Update wallet balances
-      setWallets(prev => prev.map(wallet => {
-        const result = results.find(r => r.walletId === wallet.id);
-        if (!result) return { ...wallet, isLoadingBalance: false };
-
-        return {
-          ...wallet,
-          balance: result.balance || undefined,
-          balanceError: result.error || undefined,
-          isLoadingBalance: false
-        };
-      }));
-
-      const successCount = results.filter(r => r.balance).length;
-      console.log(`✅ Successfully fetched ${successCount}/${results.length} mainnet wallet balances`);
+      console.log(`📋 Project wallet types: ${projectWalletTypes.join(', ')}`);
       
-      if (successCount > 0) {
-        toast({
-          title: "Balances Updated",
-          description: `Successfully loaded mainnet balances for ${successCount} wallet${successCount !== 1 ? 's' : ''}`,
-        });
+      // Create a map to store all balances by address
+      const addressBalancesMap = new Map<string, WalletBalance[]>();
+      
+      // Fetch balances for each unique address across project-specific networks
+      for (const address of uniqueAddresses) {
+        try {
+          console.log(`🔍 Scanning project networks for ${address.slice(0, 10)}...`);
+          const allBalances = await balanceService.fetchBalancesForProject(address, projectWalletTypes);
+          
+          if (allBalances.length > 0) {
+            addressBalancesMap.set(address, allBalances);
+            console.log(`✅ Found ${allBalances.length} balance(s) for ${address.slice(0, 10)}: ${allBalances.map(b => b.network).join(', ')}`);
+          } else {
+            console.log(`ℹ️ No balances found for ${address.slice(0, 10)}`);
+          }
+        } catch (err) {
+          console.warn(`⚠️ Failed to fetch balances for ${address}:`, err);
+        }
       }
-    } catch (error) {
-      console.error('❌ Error in batch balance fetching:', error);
-      toast({
-        title: "Balance Error",
-        description: "Failed to load some wallet balances",
-        variant: "destructive"
-      });
-    } finally {
-      setFetchingBalances(false);
-    }
-  };
 
-  const scanTestnetBalances = async () => {
-    const targetWallets = wallets;
-    if (targetWallets.length === 0) return;
-
-    setScanningTestnets(true);
-    console.log(`🧪 Scanning testnet balances for ${targetWallets.length} project wallets`);
-
-    toast({
-      title: "Scanning Testnets",
-      description: "This may take a moment as we check multiple testnets...",
-    });
-
-    const testnetPromises = targetWallets.map(async (wallet) => {
-      try {
-        // Get testnets for the wallet's mainnet
-        const testnets = balanceService.getTestnetsForMainnet(wallet.wallet_type);
+      // Update wallet data with found balances
+      setWallets(prev => prev.map(wallet => {
+        const addressBalances = addressBalancesMap.get(wallet.wallet_address.toLowerCase());
         
-        if (testnets.length === 0) {
-          console.log(`ℹ️ No testnets found for ${wallet.wallet_type}`);
+        if (addressBalances && addressBalances.length > 0) {
+          // Find the most relevant balance for this wallet:
+          // 1. First try exact network match
+          // 2. If no match, use the first available balance (likely a testnet)
+          const exactMatch = addressBalances.find(
+            b => b.network.toLowerCase() === wallet.wallet_type.toLowerCase()
+          );
+          const balance = exactMatch || addressBalances[0];
+          
           return {
-            walletId: wallet.id,
-            testnetBalances: []
+            ...wallet,
+            balance,
+            isLoadingBalance: false,
+            balanceError: undefined
           };
         }
-
-        console.log(`🔍 Scanning ${testnets.length} testnets for ${wallet.wallet_address}`);
         
-        const testnetBalancePromises = testnets.map(async (testnet) => {
-          try {
-            const balance = await balanceService.fetchWalletBalance(wallet.wallet_address, testnet);
-            // Only return if there's actual balance
-            if (parseFloat(balance.nativeBalance) > 0 || balance.tokens.length > 0) {
-              return balance;
-            }
-            return null;
-          } catch (error) {
-            console.warn(`⚠️ Failed to fetch ${testnet} balance:`, error);
-            return null;
-          }
+        // No balance found - return wallet as-is
+        return {
+          ...wallet,
+          isLoadingBalance: false,
+          balance: undefined,
+          balanceError: 'No balance found'
+        };
+      }));
+
+      setLastFetchTime(new Date());
+      
+      const totalBalances = Array.from(addressBalancesMap.values()).reduce((sum, arr) => sum + arr.length, 0);
+      if (forceRefresh) {
+        toast({
+          title: "Balances Refreshed",
+          description: `Found ${totalBalances} balance(s) across all networks`,
         });
-
-        const testnetResults = await Promise.all(testnetBalancePromises);
-        const validTestnetBalances = testnetResults.filter(b => b !== null) as WalletBalance[];
-
-        return {
-          walletId: wallet.id,
-          testnetBalances: validTestnetBalances
-        };
-      } catch (error) {
-        console.error(`❌ Failed to scan testnets for ${wallet.wallet_address}:`, error);
-        return {
-          walletId: wallet.id,
-          testnetBalances: []
-        };
       }
-    });
-
-    try {
-      const results = await Promise.all(testnetPromises);
       
-      // Update wallet testnet balances
-      setWallets(prev => prev.map(wallet => {
-        const result = results.find(r => r.walletId === wallet.id);
-        if (!result) return wallet;
-
-        return {
-          ...wallet,
-          testnetBalances: result.testnetBalances
-        };
-      }));
-
-      const totalTestnetBalances = results.reduce((sum, r) => sum + r.testnetBalances.length, 0);
-      console.log(`✅ Found ${totalTestnetBalances} testnet balances across all wallets`);
-      
-      toast({
-        title: "Testnet Scan Complete",
-        description: totalTestnetBalances > 0 
-          ? `Found ${totalTestnetBalances} testnet balance${totalTestnetBalances !== 1 ? 's' : ''}`
-          : "No testnet balances found",
-      });
-
-      if (totalTestnetBalances > 0) {
-        setShowTestnetBalances(true);
-      }
     } catch (error) {
-      console.error('❌ Error scanning testnets:', error);
-      toast({
-        title: "Testnet Scan Error",
-        description: "Failed to scan testnet balances",
-        variant: "destructive"
-      });
-    } finally {
-      setScanningTestnets(false);
-    }
-  };
-
-  const scanAllNetworks = async () => {
-    const targetWallets = wallets;
-    if (targetWallets.length === 0) return;
-
-    setFetchingBalances(true);
-    setScanningTestnets(true);
-    console.log(`🌐 Scanning ALL networks (mainnet + testnet) for ${targetWallets.length} wallets`);
-
-    toast({
-      title: "Scanning All Networks",
-      description: "Checking both mainnet and testnet balances...",
-    });
-
-    const allNetworkPromises = targetWallets.map(async (wallet) => {
-      try {
-        console.log(`🔍 Scanning all networks for ${wallet.wallet_address}`);
-        
-        // Use the comprehensive scan method
-        const allBalances = await balanceService.fetchAllBalancesIncludingTestnets(wallet.wallet_address);
-        
-        // Separate mainnet and testnet balances
-        const mainnetBalances = allBalances.filter(b => !b.isTestnet);
-        const testnetBalances = allBalances.filter(b => b.isTestnet);
-        
-        // Find the mainnet balance for the wallet's primary network
-        const primaryBalance = mainnetBalances.find(b => 
-          b.network.toLowerCase() === wallet.wallet_type.toLowerCase()
-        );
-
-        return {
-          walletId: wallet.id,
-          balance: primaryBalance || null,
-          testnetBalances: testnetBalances,
-          additionalMainnets: mainnetBalances.filter(b => 
-            b.network.toLowerCase() !== wallet.wallet_type.toLowerCase()
-          )
-        };
-      } catch (error) {
-        console.error(`❌ Failed to scan all networks for ${wallet.wallet_address}:`, error);
-        return {
-          walletId: wallet.id,
-          balance: null,
-          testnetBalances: [],
-          additionalMainnets: []
-        };
-      }
-    });
-
-    try {
-      const results = await Promise.all(allNetworkPromises);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      // Update wallet balances
-      setWallets(prev => prev.map(wallet => {
-        const result = results.find(r => r.walletId === wallet.id);
-        if (!result) return { ...wallet, isLoadingBalance: false };
-
-        return {
-          ...wallet,
-          balance: result.balance || undefined,
-          testnetBalances: result.testnetBalances,
-          isLoadingBalance: false
-        };
-      }));
-
-      const totalMainnet = results.filter(r => r.balance).length;
-      const totalTestnet = results.reduce((sum, r) => sum + r.testnetBalances.length, 0);
-      const totalAdditional = results.reduce((sum, r) => sum + r.additionalMainnets.length, 0);
-
-      console.log(`✅ Scan complete: ${totalMainnet} mainnet, ${totalTestnet} testnet, ${totalAdditional} additional networks`);
-      
-      toast({
-        title: "Network Scan Complete",
-        description: `Found balances on ${totalMainnet + totalTestnet + totalAdditional} networks`,
-      });
-
-      if (totalTestnet > 0) {
-        setShowTestnetBalances(true);
+      if (errorMessage.includes('Rate limited')) {
+        toast({
+          title: "Rate Limited",
+          description: "Too many requests. Please wait a moment.",
+          variant: "destructive"
+        });
+      } else {
+        console.error('❌ Balance fetch error:', error);
+        toast({
+          title: "Balance Error",
+          description: "Failed to load some wallet balances",
+          variant: "destructive"
+        });
       }
-    } catch (error) {
-      console.error('❌ Error scanning all networks:', error);
-      toast({
-        title: "Network Scan Error",
-        description: "Failed to scan all networks",
-        variant: "destructive"
-      });
     } finally {
       setFetchingBalances(false);
-      setScanningTestnets(false);
     }
-  };
+  }, [wallets, fetchingBalances, toast]);
 
+  // Initial load
   useEffect(() => {
     fetchWallets();
-  }, [projectId]);
+  }, [fetchWallets]);
+
+  // Auto-refresh every 15 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('⏰ Auto-refreshing balances...');
+      fetchBalances(false);
+    }, 15 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [fetchBalances]);
+
+  // Sort and filter wallets
+  const sortedAndFilteredWallets = useMemo(() => {
+    let filtered = wallets.filter(wallet => {
+      // Search filter
+      const matchesSearch = debouncedSearch === '' ||
+        wallet.wallet_address.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        wallet.wallet_type.toLowerCase().includes(debouncedSearch.toLowerCase());
+
+      // Network filter
+      if (networkFilter === 'all') return matchesSearch;
+      
+      const isTestnet = wallet.balance?.isTestnet || balanceService.isTestnet(wallet.wallet_type);
+      const matchesNetwork = networkFilter === 'testnet' ? isTestnet : !isTestnet;
+
+      return matchesSearch && matchesNetwork;
+    });
+
+    // Sort wallets
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'network_asc':
+          return a.wallet_type.localeCompare(b.wallet_type);
+        case 'network_desc':
+          return b.wallet_type.localeCompare(a.wallet_type);
+        case 'balance_desc':
+          return (b.balance?.totalValueUsd || 0) - (a.balance?.totalValueUsd || 0);
+        case 'balance_asc':
+          return (a.balance?.totalValueUsd || 0) - (b.balance?.totalValueUsd || 0);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [wallets, debouncedSearch, networkFilter, sortBy]);
+
+  // Sort options
+  const sortOptions = [
+    { value: 'network_asc', label: 'Network A-Z', icon: SortAsc },
+    { value: 'network_desc', label: 'Network Z-A', icon: SortDesc },
+    { value: 'balance_desc', label: 'Highest Balance', icon: SortDesc },
+    { value: 'balance_asc', label: 'Lowest Balance', icon: SortAsc },
+  ];
 
   const handleRefresh = async () => {
     await fetchWallets();
     onRefresh?.();
-  };
-
-  const handleRefreshBalances = async () => {
-    await fetchAllBalances();
   };
 
   const handleDeleteWallet = async () => {
@@ -426,55 +351,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     }
   };
 
-  const getNetworkIcon = (network: string) => {
-    // Map network names to their icons/symbols
-    const networkMap: Record<string, string> = {
-      ethereum: '⟠',
-      polygon: '⬟',
-      solana: '◎',
-      bitcoin: '₿',
-      avalanche: '🔺',
-      optimism: '🔴',
-      arbitrum: '🔵',
-      base: '🔷',
-      sui: '🌊',
-      aptos: '🅰️',
-      near: '◇',
-      stellar: '✶',
-      ripple: 'Ⓡ',
-      xrp: 'Ⓡ',
-      injective: '⚛️',
-      sepolia: '⟠ᵀ',
-      holesky: '⟠ᴴ',
-      amoy: '⬟ᵀ',
-      'optimism-sepolia': '🔴ᵀ',
-      'arbitrum-sepolia': '🔵ᵀ',
-      'base-sepolia': '🔷ᵀ',
-      fuji: '🔺ᵀ',
-    };
-    
-    return networkMap[network.toLowerCase()] || '🔗';
-  };
-
-  const formatBalance = (balance: string, symbol: string): string => {
-    const num = parseFloat(balance);
-    if (num === 0) return `0 ${symbol}`;
-    if (num < 0.000001) return `<0.000001 ${symbol}`;
-    if (num < 0.01) return `${num.toFixed(6)} ${symbol}`;
-    if (num < 1) return `${num.toFixed(4)} ${symbol}`;
-    if (num < 1000) return `${num.toFixed(3)} ${symbol}`;
-    if (num < 1000000) return `${(num / 1000).toFixed(2)}K ${symbol}`;
-    return `${(num / 1000000).toFixed(2)}M ${symbol}`;
-  };
-
-  const formatUsdValue = (value: number): string => {
-    if (value < 0.01) return '$0.00';
-    if (value < 1) return `$${value.toFixed(3)}`;
-    if (value < 1000) return `$${value.toFixed(2)}`;
-    if (value < 1000000) return `$${(value / 1000).toFixed(1)}K`;
-    return `$${(value / 1000000).toFixed(2)}M`;
-  };
-
   const renderBalanceCell = (wallet: WalletWithBalance) => {
     if (wallet.isLoadingBalance) {
       return (
@@ -495,91 +371,81 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     }
 
     if (!wallet.balance) {
-      return <span className="text-xs text-muted-foreground">No data</span>;
+      return (
+        <div className="text-xs text-muted-foreground">
+          Refresh to retrieve
+        </div>
+      );
     }
 
     const { balance } = wallet;
     const hasTokens = balance.tokens.length > 0;
-    const hasTestnetBalances = wallet.testnetBalances && wallet.testnetBalances.length > 0;
-
+    const isTestnet = balance.isTestnet;
+    
     return (
       <div className="space-y-1">
-        {/* Mainnet Badge */}
-        {!balance.isTestnet && (
-          <Badge variant="outline" className="text-xs bg-green-50">
-            <Globe className="h-3 w-3 mr-1" />
-            Mainnet
-          </Badge>
-        )}
-        
         {/* Native Balance */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">
-            {formatBalance(balance.nativeBalance, balance.network.toUpperCase())}
+            {BalanceFormatter.formatBalance(
+              balance.nativeBalance, 
+              balance.network.toUpperCase(),
+              { showFullPrecision: true, useAbbreviation: false }
+            )}
           </span>
           <span className="text-xs text-muted-foreground">
-            {balance.isTestnet ? 'Testnet' : formatUsdValue(balance.nativeValueUsd)}
+            {isTestnet ? (
+              <Badge variant="outline" className="text-xs">Test</Badge>
+            ) : (
+              BalanceFormatter.formatUsdValue(balance.nativeValueUsd)
+            )}
           </span>
         </div>
         
-        {/* Top Tokens (show up to 3) */}
+        {/* Token Details - Show actual amounts and symbols */}
         {hasTokens && (
-          <div className="space-y-0.5">
+          <div className="text-xs text-muted-foreground space-y-0.5">
             {balance.tokens.slice(0, 3).map((token, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground truncate max-w-[80px]">
-                  {formatBalance(token.balance, token.symbol)}
+              <div key={idx} className="flex items-center justify-between">
+                <span>
+                  {BalanceFormatter.formatBalance(
+                    token.balance,
+                    token.symbol,
+                    { showFullPrecision: false, useAbbreviation: true, maxDecimals: 2 }
+                  )}
                 </span>
-                <span className="text-muted-foreground">
-                  {balance.isTestnet ? 'Test' : formatUsdValue(token.valueUsd)}
-                </span>
+                {!isTestnet && token.valueUsd > 0 && (
+                  <span className="ml-2 text-muted-foreground/70">
+                    {BalanceFormatter.formatUsdValue(token.valueUsd)}
+                  </span>
+                )}
               </div>
             ))}
             {balance.tokens.length > 3 && (
-              <div className="text-xs text-muted-foreground">
-                +{balance.tokens.length - 3} more tokens
+              <div className="text-muted-foreground/60 italic">
+                +{balance.tokens.length - 3} more token{balance.tokens.length - 3 !== 1 ? 's' : ''}
               </div>
             )}
           </div>
         )}
         
-        {/* Testnet Balances Summary */}
-        {hasTestnetBalances && showTestnetBalances && (
-          <div className="pt-1 border-t">
-            <Badge variant="outline" className="text-xs bg-blue-50">
-              <TestTube className="h-3 w-3 mr-1" />
-              {wallet.testnetBalances.length} Testnet{wallet.testnetBalances.length > 1 ? 's' : ''}
-            </Badge>
-            <div className="mt-1 space-y-0.5">
-              {wallet.testnetBalances.slice(0, 2).map((testnet, idx) => (
-                <div key={idx} className="text-xs text-muted-foreground">
-                  {getNetworkIcon(testnet.network)} {testnet.network}: {formatBalance(testnet.nativeBalance, 'ETH')}
-                </div>
-              ))}
-              {wallet.testnetBalances.length > 2 && (
-                <div className="text-xs text-muted-foreground">
-                  +{wallet.testnetBalances.length - 2} more testnets
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
         {/* Total Value (mainnet only) */}
-        {!balance.isTestnet && (
-          <div className="flex items-center justify-between pt-1 border-t">
-            <span className="text-sm font-semibold flex items-center">
-              <DollarSign className="h-3 w-3 mr-1" />
-              Total
-            </span>
-            <span className="text-sm font-semibold text-green-600">
-              {formatUsdValue(balance.totalValueUsd)}
-            </span>
+        {!isTestnet && balance.totalValueUsd > 0 && (
+          <div className="text-sm font-semibold text-green-600 pt-1 border-t border-muted">
+            {BalanceFormatter.formatUsdValue(balance.totalValueUsd)}
           </div>
         )}
       </div>
     );
   };
+
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (networkFilter !== 'all') count++;
+    return count;
+  }, [searchQuery, networkFilter]);
 
   return (
     <Card>
@@ -591,42 +457,143 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
               Project Wallets
             </CardTitle>
             <CardDescription>
-              Manage blockchain wallets with live balance tracking for this project
+              Manage blockchain wallets for this project
             </CardDescription>
           </div>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={scanAllNetworks} 
-              disabled={fetchingBalances || scanningTestnets || loading}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={loading}
+              title="Refresh wallets"
             >
-              <Globe className={`h-4 w-4 mr-2 ${(fetchingBalances && scanningTestnets) ? 'animate-spin' : ''}`} />
-              All Networks
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={scanTestnetBalances} 
-              disabled={scanningTestnets || loading}
-            >
-              <TestTube className={`h-4 w-4 mr-2 ${scanningTestnets ? 'animate-spin' : ''}`} />
-              Testnets
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefreshBalances} 
-              disabled={fetchingBalances || loading}
-            >
-              <Coins className={`h-4 w-4 mr-2 ${fetchingBalances ? 'animate-spin' : ''}`} />
-              Mainnet
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+
+        {/* Search and Filter Controls - Matching ProjectsList Style */}
+        <div className="mt-4 space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by address or network..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-7 w-7 p-0"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const selectedOption = sortOptions.find(opt => opt.value === sortBy);
+                      const IconComponent = selectedOption?.icon || SortAsc;
+                      return <IconComponent className="h-4 w-4" />;
+                    })()}
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((option) => {
+                    const IconComponent = option.icon;
+                    return (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex items-center gap-2">
+                          <IconComponent className="h-4 w-4" />
+                          {option.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Network Filter */}
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    Network
+                    {activeFiltersCount > 0 && (
+                      <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+                        {activeFiltersCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56">
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Network Type</h4>
+                    <Select value={networkFilter} onValueChange={(value) => setNetworkFilter(value as NetworkFilterType)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Networks</SelectItem>
+                        <SelectItem value="mainnet">Mainnet Only</SelectItem>
+                        <SelectItem value="testnet">Testnet Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setNetworkFilter('all');
+                  }}
+                  className="text-muted-foreground"
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+
+            {/* Force Refresh Button */}
+            <Button 
+              variant="outline"
+              onClick={() => fetchBalances(true)} 
+              disabled={fetchingBalances || loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${fetchingBalances ? 'animate-spin' : ''}`} />
+              {fetchingBalances ? 'Refresh to retrieve' : 'Refresh Balances'}
+            </Button>
+          </div>
+
+          {/* Status Info */}
+          {lastFetchTime && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Showing {sortedAndFilteredWallets.length} of {wallets.length} wallets
+              </span>
+              <span>
+                Last updated: {lastFetchTime.toLocaleTimeString()} • Auto-refresh: ✓ Enabled (15 min)
+              </span>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -639,57 +606,52 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           <div className="flex justify-center py-8">
             <RefreshCw className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : wallets.length === 0 ? (
+        ) : sortedAndFilteredWallets.length === 0 ? (
           <div className="text-center py-8">
             <Wallet className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
-            <h3 className="text-lg font-medium mb-2">No wallets yet</h3>
+            <h3 className="text-lg font-medium mb-2">
+              {wallets.length === 0 ? 'No wallets yet' : 'No wallets match your filters'}
+            </h3>
             <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-              Use the wallet generator above to create blockchain wallets for this project. 
-              Balances and token holdings will be automatically tracked across all supported networks.
+              {wallets.length === 0 
+                ? 'Use the wallet generator above to create blockchain wallets for this project.'
+                : 'Try adjusting your search or filter criteria.'}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {showTestnetBalances && (
-              <div className="flex items-center justify-between p-2 bg-blue-50 rounded-md">
-                <div className="flex items-center text-sm">
-                  <TestTube className="h-4 w-4 text-blue-600 mr-2" />
-                  <span>Showing testnet balances</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowTestnetBalances(!showTestnetBalances)}
-                >
-                  {showTestnetBalances ? 'Hide' : 'Show'} Testnets
-                </Button>
-              </div>
-            )}
-            
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Network</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Balance & Tokens</TableHead>
+                  <TableHead>Balance</TableHead>
                   <TableHead>Private Key</TableHead>
                   <TableHead>Mnemonic</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {wallets.map(wallet => (
+                {sortedAndFilteredWallets.map(wallet => (
                   <TableRow key={wallet.id}>
                     <TableCell>
                       <Badge variant="outline" className="font-normal flex items-center space-x-1">
-                        <span>{getNetworkIcon(wallet.wallet_type)}</span>
-                        <span className="capitalize">{wallet.wallet_type}</span>
+                        <span>{BalanceFormatter.getNetworkIcon(wallet.balance?.network || wallet.wallet_type)}</span>
+                        <span className="capitalize">{BalanceFormatter.formatNetworkName(wallet.balance?.network || wallet.wallet_type)}</span>
+                        {wallet.balance?.isTestnet && (
+                          <Badge variant="outline" className="ml-1 text-xs">Test</Badge>
+                        )}
                       </Badge>
+                      {wallet.balance && wallet.balance.network.toLowerCase() !== wallet.wallet_type.toLowerCase() && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Chain: {wallet.wallet_type}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       <div className="flex items-center space-x-2">
                         <span className="truncate max-w-[150px]">
-                          {wallet.wallet_address}
+                          {BalanceFormatter.formatAddress(wallet.wallet_address, 8)}
                         </span>
                         <Button
                           size="icon"
@@ -701,7 +663,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell className="min-w-[200px]">
+                    <TableCell className="min-w-[180px]">
                       {renderBalanceCell(wallet)}
                     </TableCell>
                     <TableCell>
@@ -782,35 +744,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                 ))}
               </TableBody>
             </Table>
-            
-            <div className="bg-muted/50 p-3 rounded-md space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center text-sm">
-                  <DollarSign className="h-4 w-4 text-green-600 mr-2" />
-                  <span><strong>Total Portfolio Value:</strong></span>
-                </div>
-                <span className="text-lg font-semibold text-green-600">
-                  {formatUsdValue(
-                    wallets.reduce((total, wallet) => 
-                      total + (wallet.balance?.totalValueUsd || 0), 0
-                    )
-                  )}
-                </span>
-              </div>
-              {scanningTestnets && (
-                <div className="flex items-center text-sm">
-                  <RefreshCw className="h-4 w-4 animate-spin text-blue-500 mr-2" />
-                  <span>Scanning testnet networks...</span>
-                </div>
-              )}
-              <div className="flex items-center text-sm">
-                <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
-                <p>
-                  <strong>Security Notice:</strong> Keep private keys and mnemonics secure. 
-                  Balances are fetched live from blockchain networks. Testnet tokens have no real value.
-                </p>
-              </div>
-            </div>
           </div>
         )}
       </CardContent>
@@ -821,7 +754,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             <AlertDialogTitle>Delete Wallet</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this wallet? This action cannot be undone.
-              The wallet and its credentials will be permanently removed from this project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

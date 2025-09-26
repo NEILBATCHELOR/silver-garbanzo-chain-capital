@@ -7,6 +7,9 @@
 // Import types
 import type { TokenBalance as ChainTokenBalance, ChainBalance, BaseBalanceService, BalanceServiceConfig } from './types';
 
+// Import address validation utilities
+import { detectAddressFormat, getChainCategory, isAddressCompatibleWithChain } from './utils/AddressValidator';
+
 // Import all EVM balance services (Mainnet and Testnet)
 import { ethereumBalanceService } from './evm/EthereumBalanceService';
 import { sepoliaBalanceService } from './evm/SepoliaBalanceService';
@@ -265,15 +268,29 @@ export class BalanceService {
     
     console.log(`🔍 Scanning ALL networks (mainnet + testnet) for ${address.slice(0, 10)}...`);
     
+    // Detect address format to filter compatible services
+    const addressInfo = detectAddressFormat(address);
+    
+    if (!addressInfo.isValid) {
+      console.warn(`⚠️ Invalid or unrecognized address format: ${address}`);
+      return allBalances;
+    }
+    
+    console.log(`✓ Detected ${addressInfo.category.toUpperCase()} address format`);
+    
     // Get all unique services (both mainnet and testnet)
     const uniqueServices = new Map<string, BaseBalanceService>();
     Object.entries(this.services).forEach(([network, service]) => {
       const config = service.getChainConfig();
       const key = `${config.chainId}_${config.chainName}`;
-      if (!uniqueServices.has(key)) {
+      
+      // Only add service if it's compatible with the address format
+      if (!uniqueServices.has(key) && isAddressCompatibleWithChain(address, config.chainName)) {
         uniqueServices.set(key, service);
       }
     });
+
+    console.log(`📋 Checking ${uniqueServices.size} compatible chains for ${addressInfo.category} address`);
 
     // Process in batches to avoid overwhelming the system
     const serviceArray = Array.from(uniqueServices.values());
@@ -638,6 +655,152 @@ export class BalanceService {
       error: chainBalance.error,
       isTestnet: this.isTestnet(network)
     };
+  }
+
+  /**
+   * Map wallet type to service keys (including mainnet and testnet variants)
+   */
+  private getServiceKeysForWalletType(walletType: string): string[] {
+    const normalized = walletType.toLowerCase();
+    
+    const mapping: Record<string, string[]> = {
+      'ethereum': ['ethereum', 'sepolia', 'holesky'],
+      'polygon': ['polygon', 'amoy'],
+      'optimism': ['optimism', 'optimism-sepolia'],
+      'arbitrum': ['arbitrum', 'arbitrum-sepolia'],
+      'base': ['base', 'base-sepolia'],
+      'bsc': ['bsc'],
+      'binance': ['bsc'],
+      'bnb': ['bsc'],
+      'zksync': ['zksync', 'zksync-sepolia'],
+      'avalanche': ['avalanche', 'avalanche-testnet', 'fuji'],
+      'avax': ['avalanche', 'avalanche-testnet', 'fuji'],
+      'bitcoin': ['bitcoin', 'bitcoin-testnet'],
+      'btc': ['bitcoin', 'bitcoin-testnet'],
+      'solana': ['solana', 'solana-devnet'],
+      'sol': ['solana', 'solana-devnet'],
+      'aptos': ['aptos', 'aptos-testnet'],
+      'apt': ['aptos', 'aptos-testnet'],
+      'sui': ['sui', 'sui-testnet'],
+      'near': ['near', 'near-testnet'],
+      'injective': ['injective', 'injective-testnet'],
+      'inj': ['injective', 'injective-testnet'],
+      'ripple': ['ripple', 'ripple-testnet'],
+      'xrp': ['ripple', 'ripple-testnet'],
+      'xrpl': ['ripple', 'ripple-testnet'],
+    };
+    
+    return mapping[normalized] || [normalized];
+  }
+
+  /**
+   * Fetch balances only for chains that exist in the project
+   * @param address Wallet address
+   * @param projectWalletTypes Array of wallet_type values from project_wallets table
+   */
+  public async fetchBalancesForProject(
+    address: string, 
+    projectWalletTypes: string[]
+  ): Promise<WalletBalance[]> {
+    const allBalances: WalletBalance[] = [];
+    
+    console.log(`🔍 Scanning project networks for ${address.slice(0, 10)}...`);
+    
+    // Detect address format for compatibility check
+    const addressInfo = detectAddressFormat(address);
+    
+    if (!addressInfo.isValid) {
+      console.warn(`⚠️ Invalid or unrecognized address format: ${address}`);
+      return allBalances;
+    }
+    
+    console.log(`✓ Detected ${addressInfo.category.toUpperCase()} address format`);
+    
+    // Get all service keys from project wallet types
+    const projectServiceKeys = new Set<string>();
+    projectWalletTypes.forEach(walletType => {
+      const serviceKeys = this.getServiceKeysForWalletType(walletType);
+      serviceKeys.forEach(key => projectServiceKeys.add(key));
+    });
+    
+    console.log(`📋 Project wallet types: ${projectWalletTypes.join(', ')}`);
+    console.log(`🔗 Checking ${projectServiceKeys.size} service keys: ${Array.from(projectServiceKeys).join(', ')}`);
+    
+    // Get services that match both: (1) exist in project, (2) compatible with address
+    const relevantServices = new Map<string, BaseBalanceService>();
+    projectServiceKeys.forEach(key => {
+      const service = this.services[key];
+      if (service) {
+        const config = service.getChainConfig();
+        const serviceKey = `${config.chainId}_${config.chainName}`;
+        
+        // Only add if compatible with address format
+        if (isAddressCompatibleWithChain(address, config.chainName)) {
+          relevantServices.set(serviceKey, service);
+        }
+      }
+    });
+
+    if (relevantServices.size === 0) {
+      console.warn(`⚠️ No compatible services found for this project and address`);
+      return allBalances;
+    }
+
+    console.log(`🎯 Querying ${relevantServices.size} compatible chains`);
+
+    // Process in batches
+    const serviceArray = Array.from(relevantServices.values());
+    const batchSize = 5;
+    
+    for (let i = 0; i < serviceArray.length; i += batchSize) {
+      const batch = serviceArray.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (service) => {
+        try {
+          const config = service.getChainConfig();
+          const isTestnet = config.networkType === 'testnet' || 
+                           this.testnetNetworks.has(config.chainName.toLowerCase());
+          
+          const balance = await service.fetchBalance(address);
+          
+          const walletBalance: WalletBalance = {
+            address,
+            network: config.chainName,
+            nativeBalance: balance.nativeBalance,
+            nativeValueUsd: isTestnet ? 0 : balance.nativeValueUsd,
+            tokens: balance.tokens.map(token => ({
+              ...token,
+              valueUsd: isTestnet ? 0 : token.valueUsd
+            })),
+            totalValueUsd: isTestnet ? 0 : balance.totalValueUsd,
+            lastUpdated: balance.lastUpdated,
+            isOnline: balance.isOnline,
+            error: balance.error,
+            isTestnet
+          };
+          
+          if (parseFloat(balance.nativeBalance) > 0 || balance.tokens.length > 0) {
+            console.log(`✅ ${config.chainName}: ${balance.nativeBalance} ${config.symbol}`);
+            return walletBalance;
+          }
+          
+          return null;
+        } catch (error) {
+          console.warn(`⚠️ Failed to fetch from ${service.getChainConfig().chainName}:`, error);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(batchPromises);
+      results.forEach(result => {
+        if (result) {
+          allBalances.push(result);
+        }
+      });
+    }
+    
+    console.log(`📊 Found balances on ${allBalances.length} networks`);
+    return allBalances;
   }
 }
 

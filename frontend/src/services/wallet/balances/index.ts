@@ -9,6 +9,12 @@
 // Master orchestrator service (recommended entry point)
 export { BalanceService, balanceService } from './BalanceService';
 
+// Balance formatting utilities
+export { BalanceFormatter, balanceFormatter } from './BalanceFormatter';
+
+// Address validation utilities
+export * from './utils/AddressValidator';
+
 // Legacy interfaces (backward compatibility)
 export type { WalletBalance, TokenBalance } from './BalanceService';
 
