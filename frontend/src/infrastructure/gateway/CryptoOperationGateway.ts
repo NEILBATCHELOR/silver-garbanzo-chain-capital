@@ -49,7 +49,7 @@ export class CryptoOperationGateway {
       await this.validateRequest(request);
       
       // 2. Policy evaluation
-      const policyResult = await this.evaluatePolicies(request);
+      const policyResult = await this.evaluatePoliciesForRequest(request);
       if (!policyResult.allowed) {
         return this.buildRejectionResult(operationId, policyResult);
       }
@@ -96,9 +96,19 @@ export class CryptoOperationGateway {
   }
   
   /**
-   * Evaluate policies for the operation
+   * Evaluate policies for the operation (Public method for TransactionValidator)
    */
-  private async evaluatePolicies(request: OperationRequest): Promise<PolicyEvaluationResult> {
+  public async evaluatePolicies(
+    operation: CryptoOperation, 
+    context: PolicyContext
+  ): Promise<PolicyEvaluationResult> {
+    return await this.policyEngine.evaluateOperation(operation, context);
+  }
+  
+  /**
+   * Evaluate policies for the operation request (Internal method)
+   */
+  private async evaluatePoliciesForRequest(request: OperationRequest): Promise<PolicyEvaluationResult> {
     const context = this.buildPolicyContext(request);
     const operation = this.mapToCryptoOperation(request);
     
