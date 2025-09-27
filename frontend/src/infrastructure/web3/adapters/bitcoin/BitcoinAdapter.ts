@@ -161,7 +161,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
         includeWIF: false
       };
 
-      const walletAccount = this.walletService.generateAccount(options);
+      const walletAccount = await this.walletService.generateAccount(options);
 
       // Adapter adds blockchain-specific data
       const balance = await this.getBalance(walletAccount.address);
@@ -636,7 +636,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
     this.validateConnection();
 
     try {
-      const walletAccount = this.walletService.fromMnemonic(mnemonic, index, {
+      const walletAccount = await this.walletService.fromMnemonic(mnemonic, index, {
         addressType: this.addressTypeToWalletServiceType(addressType),
         includePrivateKey: false,
         includeWIF: false
@@ -668,7 +668,7 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
       includeWIF: false
     };
 
-    const walletAccounts = this.walletService.generateMultipleAccounts(count, options);
+    const walletAccounts = await this.walletService.generateMultipleAccounts(count, options);
 
     for (const walletAccount of walletAccounts) {
       const balance = await this.getBalance(walletAccount.address);
@@ -733,16 +733,16 @@ export class BitcoinAdapter extends BaseBlockchainAdapter {
    * Validate private key
    * Enhanced validation using wallet service
    */
-  isValidPrivateKey(privateKey: string): boolean {
-    return this.walletService.isValidPrivateKey(privateKey);
+  async isValidPrivateKey(privateKey: string): Promise<boolean> {
+    return await this.walletService.isValidPrivateKey(privateKey);
   }
 
   /**
    * Validate WIF format
    * Enhanced validation using wallet service
    */
-  isValidWIF(wif: string): boolean {
-    return this.walletService.isValidWIF(wif);
+  async isValidWIF(wif: string): Promise<boolean> {
+    return await this.walletService.isValidWIF(wif);
   }
 
   /**

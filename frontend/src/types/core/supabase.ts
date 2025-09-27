@@ -2227,6 +2227,56 @@ export type Database = {
           },
         ]
       }
+      compliance_audit_logs: {
+        Row: {
+          audit_trail: Json
+          compliance_status: Json
+          created_at: string | null
+          id: string
+          integrity_hash: string
+          operation_id: string | null
+          operation_type: string
+          operator: string
+          regulatory_flags: Json[] | null
+          reporting_required: boolean | null
+          violations: Json[] | null
+        }
+        Insert: {
+          audit_trail: Json
+          compliance_status: Json
+          created_at?: string | null
+          id?: string
+          integrity_hash: string
+          operation_id?: string | null
+          operation_type: string
+          operator: string
+          regulatory_flags?: Json[] | null
+          reporting_required?: boolean | null
+          violations?: Json[] | null
+        }
+        Update: {
+          audit_trail?: Json
+          compliance_status?: Json
+          created_at?: string | null
+          id?: string
+          integrity_hash?: string
+          operation_id?: string | null
+          operation_type?: string
+          operator?: string
+          regulatory_flags?: Json[] | null
+          reporting_required?: boolean | null
+          violations?: Json[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_audit_logs_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_checks: {
         Row: {
           created_at: string
@@ -2280,6 +2330,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      compliance_metrics: {
+        Row: {
+          avg_compliance_score: number | null
+          compliant_operations: number | null
+          created_at: string | null
+          id: string
+          metric_date: string
+          non_compliant: number | null
+          partial_compliance: number | null
+          reports_generated: number | null
+          total_operations: number | null
+          violations_count: number | null
+        }
+        Insert: {
+          avg_compliance_score?: number | null
+          compliant_operations?: number | null
+          created_at?: string | null
+          id?: string
+          metric_date: string
+          non_compliant?: number | null
+          partial_compliance?: number | null
+          reports_generated?: number | null
+          total_operations?: number | null
+          violations_count?: number | null
+        }
+        Update: {
+          avg_compliance_score?: number | null
+          compliant_operations?: number | null
+          created_at?: string | null
+          id?: string
+          metric_date?: string
+          non_compliant?: number | null
+          partial_compliance?: number | null
+          reports_generated?: number | null
+          total_operations?: number | null
+          violations_count?: number | null
+        }
+        Relationships: []
       }
       compliance_reports: {
         Row: {
@@ -2355,6 +2444,63 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      compliance_violations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          operation_id: string | null
+          remediation: string | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          type: string
+          violation_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          operation_id?: string | null
+          remediation?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          type: string
+          violation_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          operation_id?: string | null
+          remediation?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          type?: string
+          violation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_violations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_violations_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       consensus_settings: {
         Row: {
@@ -8828,6 +8974,64 @@ export type Database = {
           },
         ]
       }
+      operation_validations: {
+        Row: {
+          created_at: string | null
+          id: string
+          operation_id: string | null
+          policy_id: string | null
+          rejection_reasons: string[] | null
+          rule_evaluations: Json | null
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          policy_id?: string | null
+          rejection_reasons?: string[] | null
+          rule_evaluations?: Json | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          policy_id?: string | null
+          rejection_reasons?: string[] | null
+          rule_evaluations?: Json | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_validations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_validations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "operation_validations_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           address: Json | null
@@ -9037,6 +9241,47 @@ export type Database = {
         }
         Relationships: []
       }
+      policy_operation_mappings: {
+        Row: {
+          chain_id: string | null
+          conditions: Json | null
+          created_at: string | null
+          id: string
+          operation_type: string
+          policy_id: string | null
+          token_standard: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          chain_id?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          id?: string
+          operation_type: string
+          policy_id?: string | null
+          token_standard?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          chain_id?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          id?: string
+          operation_type?: string
+          policy_id?: string | null
+          token_standard?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_operation_mappings_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+        ]
+      }
       policy_rule_approvers: {
         Row: {
           comment: string | null
@@ -9182,6 +9427,67 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      policy_violations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          operation_id: string | null
+          policy_id: string | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          violation_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          operation_id?: string | null
+          policy_id?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          violation_type: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          operation_id?: string | null
+          policy_id?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_violations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_violations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "policy_violations_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pool: {
         Row: {
@@ -12151,6 +12457,106 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      rule_conflicts: {
+        Row: {
+          conflict_type: string | null
+          created_at: string | null
+          id: string
+          operation_id: string | null
+          resolution: Json | null
+          rule1_id: string | null
+          rule2_id: string | null
+        }
+        Insert: {
+          conflict_type?: string | null
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          resolution?: Json | null
+          rule1_id?: string | null
+          rule2_id?: string | null
+        }
+        Update: {
+          conflict_type?: string | null
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          resolution?: Json | null
+          rule1_id?: string | null
+          rule2_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_conflicts_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rule_conflicts_rule1_id_fkey"
+            columns: ["rule1_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+          {
+            foreignKeyName: "rule_conflicts_rule2_id_fkey"
+            columns: ["rule2_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+        ]
+      }
+      rule_evaluations: {
+        Row: {
+          conditions: Json | null
+          created_at: string | null
+          evaluation_time_ms: number | null
+          id: string
+          operation_id: string | null
+          passed: boolean
+          rule_id: string | null
+          score: number | null
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string | null
+          evaluation_time_ms?: number | null
+          id?: string
+          operation_id?: string | null
+          passed: boolean
+          rule_id?: string | null
+          score?: number | null
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string | null
+          evaluation_time_ms?: number | null
+          id?: string
+          operation_id?: string | null
+          passed?: boolean
+          rule_id?: string | null
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_evaluations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rule_evaluations_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+        ]
       }
       rules: {
         Row: {
@@ -20154,6 +20560,65 @@ export type Database = {
           },
         ]
       }
+      transaction_validations: {
+        Row: {
+          created_at: string | null
+          data: string | null
+          from_address: string
+          id: string
+          override_by: string | null
+          override_used: boolean | null
+          policies_checked: string[] | null
+          proceeded: boolean | null
+          rules_checked: string[] | null
+          to_address: string
+          transaction_hash: string | null
+          valid: boolean
+          validation_result: Json
+          value: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data?: string | null
+          from_address: string
+          id?: string
+          override_by?: string | null
+          override_used?: boolean | null
+          policies_checked?: string[] | null
+          proceeded?: boolean | null
+          rules_checked?: string[] | null
+          to_address: string
+          transaction_hash?: string | null
+          valid: boolean
+          validation_result: Json
+          value?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string | null
+          from_address?: string
+          id?: string
+          override_by?: string | null
+          override_used?: boolean | null
+          policies_checked?: string[] | null
+          proceeded?: boolean | null
+          rules_checked?: string[] | null
+          to_address?: string
+          transaction_hash?: string | null
+          valid?: boolean
+          validation_result?: Json
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_validations_override_by_fkey"
+            columns: ["override_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           block_hash: string | null
@@ -20549,6 +21014,74 @@ export type Database = {
           public_key?: string | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      validation_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          id: string
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          transaction_data: Json | null
+          validation_data: Json | null
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          id?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          transaction_data?: Json | null
+          validation_data?: Json | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          id?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          transaction_data?: Json | null
+          validation_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      validation_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          expires_at: string
+          hit_count: number | null
+          validation_result: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          expires_at: string
+          hit_count?: number | null
+          validation_result: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string
+          hit_count?: number | null
+          validation_result?: Json
         }
         Relationships: []
       }

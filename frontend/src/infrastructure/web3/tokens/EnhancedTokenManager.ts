@@ -4,10 +4,23 @@
  * Comprehensive token management supporting all major token standards:
  * ERC-20, ERC-721, ERC-1155, ERC-1400, ERC-3525, ERC-4626
  * Plus native tokens for non-EVM chains (SPL, NEAR, Stellar assets, etc.)
+ * 
+ * UPDATED: Integrated with PolicyEngine for policy-compliant operations
  */
 
 import type { IBlockchainAdapter, SupportedChain, NetworkType } from '../adapters/IBlockchainAdapter';
 import { multiChainWalletManager } from '../managers/MultiChainWalletManager';
+import { PolicyEngine } from '@/infrastructure/policy/PolicyEngine';
+import type { 
+  CryptoOperation, 
+  PolicyContext, 
+  PolicyEvaluationResult,
+  UserContext,
+  TokenContext,
+  EnvironmentContext 
+} from '@/infrastructure/policy/types';
+import { supabase } from '@/infrastructure/database/client';
+import { generateUUID } from '@/utils/shared/formatting/uuidUtils';
 // BigNumber replaced with native bigint in ethers v6
 
 // Token standard definitions
@@ -35,6 +48,27 @@ export interface BaseToken {
   metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
+}
+
+// Union type for all token types
+export type AnyToken = 
+  | ERC20Token 
+  | ERC721Token 
+  | ERC1155Token 
+  | ERC1400Token 
+  | ERC3525Token 
+  | ERC4626Token 
+  | SPLToken 
+  | NEARToken;
+
+// Transaction result from blockchain adapter
+export interface TransactionResult {
+  txHash: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  gasUsed?: string;
+  fee?: string;
+  blockNumber?: number;
+  blockHash?: string;
 }
 
 // ERC-20 Token
@@ -103,20 +137,21 @@ export interface ERC4626Token extends BaseToken {
   standard: 'ERC-4626';
   type: 'yield-bearing';
   // ERC-4626 specific properties
-  asset: string; // underlying asset address
+  asset: string; // Underlying asset
   totalAssets: bigint;
-  exchangeRate: bigint; // shares per asset
-  previewDeposit?: (assets: bigint) => bigint;
-  previewRedeem?: (shares: bigint) => bigint;
-  maxDeposit?: (receiver: string) => bigint;
-  maxWithdraw?: (owner: string) => bigint;
+  exchangeRate: bigint;
+  vaultMetadata?: {
+    strategy: string;
+    performanceFee: number;
+    managementFee: number;
+  };
 }
 
 // Native token types for non-EVM chains
 export interface SPLToken extends BaseToken {
   standard: 'SPL';
   type: 'fungible';
-  mintAuthority?: string;
+  mintAuthority: string;
   freezeAuthority?: string;
   supply: bigint;
 }
@@ -124,20 +159,12 @@ export interface SPLToken extends BaseToken {
 export interface NEARToken extends BaseToken {
   standard: 'NEAR-FT' | 'NEAR-NFT';
   type: 'fungible' | 'non-fungible';
-  accountId: string;
-  spec: string; // NEP-141, NEP-171, etc.
+  ownerId: string;
+  spec: string; // e.g., 'ft-1.0.0' or 'nft-1.0.0'
+  metadata?: Record<string, any>;
 }
 
-export interface StellarAsset extends BaseToken {
-  standard: 'STELLAR-ASSET';
-  type: 'fungible';
-  assetCode: string;
-  issuer: string;
-  authorized: boolean;
-  clawbackEnabled: boolean;
-}
-
-// Token operation interfaces
+// Token deployment parameters
 export interface TokenDeploymentParams {
   chain: SupportedChain;
   networkType: NetworkType;
@@ -162,321 +189,920 @@ export interface TokenTransferParams {
   data?: string;
 }
 
+export interface TokenMintParams {
+  to: string;
+  amount: string;
+  tokenId?: string; // For NFTs
+  metadata?: Record<string, any>;
+}
+
+export interface TokenBurnParams {
+  from: string;
+  amount: string;
+  tokenId?: string; // For NFTs
+}
+
+export interface TokenLockParams {
+  from: string;
+  amount: string;
+  duration: number; // seconds
+  reason?: string;
+}
+
 export interface TokenOperationResult {
   txHash: string;
   tokenAddress?: string;
   tokenId?: string;
+  operationId?: string;
   status: 'pending' | 'confirmed' | 'failed';
   gasUsed?: string;
   fee?: string;
+  policyValidation?: PolicyEvaluationResult;
+}
+
+// Policy violation error
+export class PolicyViolationError extends Error {
+  constructor(
+    public violations: any[],
+    public operation: CryptoOperation
+  ) {
+    super(`Policy violation: ${violations[0]?.description || 'Operation not allowed'}`);
+    this.name = 'PolicyViolationError';
+  }
 }
 
 /**
- * Enhanced Token Manager class
+ * Enhanced Token Manager class with Policy Integration
  */
 export class EnhancedTokenManager {
-  private tokenRegistry = new Map<string, BaseToken>();
+  private tokenRegistry = new Map<string, AnyToken>();
+  private policyEngine: PolicyEngine;
   
+  constructor() {
+    this.policyEngine = new PolicyEngine({
+      cacheEnabled: true,
+      cacheTTL: 300,
+      evaluationTimeout: 5000
+    });
+  }
+
   /**
-   * Deploy a new token contract
+   * Mint new tokens (with policy validation)
    */
-  async deployToken(params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    const { chain, networkType, standard } = params;
+  async mint(
+    tokenAddress: string,
+    params: TokenMintParams,
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
     
-    // Get wallet connection for the chain
-    const walletConnections = multiChainWalletManager.getWalletConnections('default'); // TODO: Use actual wallet ID
-    const connection = walletConnections.find(conn => conn.chain === chain && conn.networkType === networkType);
-    
-    if (!connection) {
-      throw new Error(`No wallet connection found for ${chain} ${networkType}`);
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'mint',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        to: params.to,
+        amount: params.amount,
+        tokenId: params.tokenId,
+        metadata: params.metadata
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
     }
 
-    // Deploy based on token standard
-    switch (standard) {
-      case 'ERC-20':
-        return this.deployERC20Token(connection.adapter, params);
-      
-      case 'ERC-721':
-        return this.deployERC721Token(connection.adapter, params);
-      
-      case 'ERC-1155':
-        return this.deployERC1155Token(connection.adapter, params);
-      
-      case 'ERC-1400':
-        return this.deployERC1400Token(connection.adapter, params);
-      
-      case 'ERC-3525':
-        return this.deployERC3525Token(connection.adapter, params);
-      
-      case 'ERC-4626':
-        return this.deployERC4626Token(connection.adapter, params);
-      
-      case 'SPL':
-        return this.deploySPLToken(connection.adapter, params);
-      
-      case 'NEAR-FT':
-      case 'NEAR-NFT':
-        return this.deployNEARToken(connection.adapter, params);
-      
-      case 'STELLAR-ASSET':
-        return this.deployStellarAsset(connection.adapter, params);
-      
-      default:
-        throw new Error(`Token standard ${standard} not yet implemented`);
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute mint operation
+    const result = await this.executeMintOperation(
+      connection.adapter,
+      tokenAddress,
+      params
+    );
+
+    // Log operation
+    await this.logOperation(operationId, 'mint', tokenAddress, params, result, policyResult);
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
+  }
+
+  /**
+   * Burn tokens (with policy validation)
+   */
+  async burn(
+    tokenAddress: string,
+    params: TokenBurnParams,
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'burn',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        from: params.from,
+        amount: params.amount,
+        tokenId: params.tokenId
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
     }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute burn operation
+    const result = await this.executeBurnOperation(
+      connection.adapter,
+      tokenAddress,
+      params
+    );
+
+    // Log operation
+    await this.logOperation(operationId, 'burn', tokenAddress, params, result, policyResult);
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
   }
 
   /**
-   * Deploy ERC-20 token
+   * Lock tokens (with policy validation)
    */
-  private async deployERC20Token(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    // This would use the adapter to deploy an ERC-20 contract
-    // For now, return a placeholder
-    throw new Error('ERC-20 deployment not yet implemented - coming in Phase 2');
+  async lock(
+    tokenAddress: string,
+    params: TokenLockParams,
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'lock',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        from: params.from,
+        amount: params.amount,
+        lockDuration: params.duration,
+        lockReason: params.reason
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute lock operation
+    const result = await this.executeLockOperation(
+      connection.adapter,
+      tokenAddress,
+      params
+    );
+
+    // Log operation with unlock time
+    const unlockTime = new Date(Date.now() + params.duration * 1000).toISOString();
+    await this.logOperation(
+      operationId, 
+      'lock', 
+      tokenAddress, 
+      { ...params, unlockTime }, 
+      result, 
+      policyResult
+    );
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
   }
 
   /**
-   * Deploy ERC-721 NFT
+   * Unlock tokens (with policy validation)
    */
-  private async deployERC721Token(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('ERC-721 deployment not yet implemented - coming in Phase 2');
+  async unlock(
+    tokenAddress: string,
+    lockId: string,
+    amount: string,
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Get lock details
+    const lockDetails = await this.getLockDetails(lockId);
+    if (!lockDetails) {
+      throw new Error(`Lock not found: ${lockId}`);
+    }
+
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'unlock',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        from: lockDetails.operator,
+        amount,
+        tokenId: lockId,
+        metadata: { lockId }
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute unlock operation
+    const result = await this.executeUnlockOperation(
+      connection.adapter,
+      tokenAddress,
+      lockId,
+      amount
+    );
+
+    // Log operation
+    await this.logOperation(operationId, 'unlock', tokenAddress, { lockId, amount }, result, policyResult);
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
   }
 
   /**
-   * Deploy ERC-1155 multi-token
+   * Block account (freeze assets) with policy validation
    */
-  private async deployERC1155Token(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('ERC-1155 deployment not yet implemented - coming in Phase 2');
+  async blockAccount(
+    tokenAddress: string,
+    account: string,
+    reason: string,
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet',
+    duration?: number
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'block',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        from: account,
+        lockReason: reason,
+        lockDuration: duration
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute block operation
+    const result = await this.executeBlockOperation(
+      connection.adapter,
+      tokenAddress,
+      account,
+      reason,
+      duration
+    );
+
+    // Log operation
+    await this.logOperation(
+      operationId, 
+      'block', 
+      tokenAddress, 
+      { account, reason, duration }, 
+      result, 
+      policyResult
+    );
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
   }
 
   /**
-   * Deploy ERC-1400 security token
+   * Unblock account (unfreeze assets) with policy validation
    */
-  private async deployERC1400Token(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('ERC-1400 deployment not yet implemented - coming in Phase 2');
+  async unblockAccount(
+    tokenAddress: string,
+    account: string,
+    reason: string,
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'unblock',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        from: account,
+        lockReason: reason
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute unblock operation
+    const result = await this.executeUnblockOperation(
+      connection.adapter,
+      tokenAddress,
+      account,
+      reason
+    );
+
+    // Log operation
+    await this.logOperation(
+      operationId, 
+      'unblock', 
+      tokenAddress, 
+      { account, reason }, 
+      result, 
+      policyResult
+    );
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
   }
 
   /**
-   * Deploy ERC-3525 semi-fungible token
+   * Transfer tokens (existing method - updated with policy validation)
    */
-  private async deployERC3525Token(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('ERC-3525 deployment not yet implemented - coming in Phase 2');
-  }
-
-  /**
-   * Deploy ERC-4626 yield vault
-   */
-  private async deployERC4626Token(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('ERC-4626 deployment not yet implemented - coming in Phase 2');
-  }
-
-  /**
-   * Deploy SPL token on Solana
-   */
-  private async deploySPLToken(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('SPL token deployment not yet implemented - coming in Phase 2');
-  }
-
-  /**
-   * Deploy NEAR token
-   */
-  private async deployNEARToken(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('NEAR token deployment not yet implemented - coming in Phase 3');
-  }
-
-  /**
-   * Deploy Stellar asset
-   */
-  private async deployStellarAsset(adapter: IBlockchainAdapter, params: TokenDeploymentParams): Promise<TokenOperationResult> {
-    throw new Error('Stellar asset deployment not yet implemented - coming in Phase 4');
-  }
-
-  /**
-   * Transfer tokens
-   */
-  async transferToken(
+  async transferTokens(
     tokenAddress: string,
     params: TokenTransferParams,
     chain: SupportedChain,
     networkType: NetworkType = 'mainnet'
   ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'transfer',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        from: params.from,
+        to: params.to,
+        amount: params.amount,
+        tokenId: params.tokenId,
+        metadata: { data: params.data }
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
     const token = this.tokenRegistry.get(`${chain}-${networkType}-${tokenAddress}`);
     if (!token) {
       throw new Error(`Token not found: ${tokenAddress} on ${chain}`);
     }
 
     // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Handle transfer based on token standard
+    const result = await this.executeTokenTransfer(connection.adapter, token, params);
+
+    // Log operation
+    await this.logOperation(operationId, 'transfer', tokenAddress, params, result, policyResult);
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
+  }
+
+  /**
+   * Execute token transfer based on token standard
+   * @private
+   */
+  private async executeTokenTransfer(
+    adapter: IBlockchainAdapter,
+    token: AnyToken,
+    params: TokenTransferParams
+  ): Promise<TransactionResult> {
+    // Handle based on token standard
+    switch (token.standard) {
+      case 'ERC-20':
+      case 'SPL':
+      case 'NEAR-FT':
+        // Fungible token transfer
+        return await adapter.sendTransaction({
+          to: token.contractAddress,
+          amount: '0', // Gas only, actual transfer is in data
+          data: this.encodeTransferData(token.standard, params)
+        });
+
+      case 'ERC-721':
+      case 'NEAR-NFT':
+        // NFT transfer
+        if (!params.tokenId) {
+          throw new Error('Token ID required for NFT transfer');
+        }
+        return await adapter.sendTransaction({
+          to: token.contractAddress,
+          amount: '0',
+          data: this.encodeNFTTransferData(token.standard, params)
+        });
+
+      case 'ERC-1155':
+        // Multi-token transfer
+        return await adapter.sendTransaction({
+          to: token.contractAddress,
+          amount: '0',
+          data: this.encodeMultiTokenTransferData(params)
+        });
+
+      case 'ERC-1400':
+        // Security token transfer (with compliance)
+        return await adapter.sendTransaction({
+          to: token.contractAddress,
+          amount: '0',
+          data: this.encodeSecurityTokenTransferData(params)
+        });
+
+      default:
+        throw new Error(`Unsupported token standard: ${token.standard}`);
+    }
+  }
+
+  /**
+   * Get token information
+   * @private
+   */
+  private async getTokenInfo(
+    tokenAddress: string,
+    chain: SupportedChain,
+    networkType: NetworkType
+  ): Promise<AnyToken | null> {
+    // Check registry first
+    const registryKey = `${chain}-${networkType}-${tokenAddress}`;
+    const cachedToken = this.tokenRegistry.get(registryKey);
+    
+    if (cachedToken) {
+      return cachedToken;
+    }
+
+    // Query database for token info
+    try {
+      const { data, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('address', tokenAddress)
+        .eq('chain_id', chain)
+        .eq('network_type', networkType)
+        .single();
+
+      if (error || !data) {
+        return null;
+      }
+
+      // Convert to token object based on standard
+      const baseTokenData = {
+        id: data.id,
+        contractAddress: tokenAddress,
+        name: data.name,
+        symbol: data.symbol,
+        decimals: data.decimals,
+        standard: data.standard as TokenStandard,
+        type: data.token_type as TokenType,
+        chain,
+        networkType,
+        totalSupply: BigInt(data.total_supply || 0),
+        metadata: data.metadata as Record<string, any>,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+
+      // Build specific token type based on standard
+      let token: AnyToken;
+      
+      switch (data.standard as TokenStandard) {
+        case 'ERC-20':
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-20',
+            type: 'fungible',
+            allowances: data.allowances || {}
+          } as ERC20Token;
+          break;
+          
+        case 'ERC-721':
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-721',
+            type: 'non-fungible',
+            tokenId: data.token_id || '',
+            tokenURI: data.token_uri,
+            owner: data.owner,
+            approved: data.approved
+          } as ERC721Token;
+          break;
+          
+        case 'ERC-1155':
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-1155',
+            type: 'semi-fungible',
+            tokenIds: data.token_ids || [],
+            balances: data.balances || {},
+            uri: data.uri
+          } as ERC1155Token;
+          break;
+          
+        case 'ERC-1400':
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-1400',
+            type: 'security',
+            partitions: data.partitions || [],
+            controllers: data.controllers || [],
+            defaultPartition: data.default_partition || '',
+            issuableByPartition: data.issuable_by_partition || {},
+            granularity: BigInt(data.granularity || 1),
+            complianceRules: data.compliance_rules
+          } as ERC1400Token;
+          break;
+          
+        case 'ERC-3525':
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-3525',
+            type: 'semi-fungible',
+            slots: data.slots || [],
+            valueDecimals: data.value_decimals || 0,
+            slotURI: data.slot_uri
+          } as ERC3525Token;
+          break;
+          
+        case 'ERC-4626':
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-4626',
+            type: 'yield-bearing',
+            asset: data.asset || '',
+            totalAssets: BigInt(data.total_assets || 0),
+            exchangeRate: BigInt(data.exchange_rate || 0),
+            vaultMetadata: data.vault_metadata
+          } as ERC4626Token;
+          break;
+          
+        case 'SPL':
+          token = {
+            ...baseTokenData,
+            standard: 'SPL',
+            type: 'fungible',
+            mintAuthority: data.mint_authority || '',
+            freezeAuthority: data.freeze_authority,
+            supply: BigInt(data.supply || 0)
+          } as SPLToken;
+          break;
+          
+        case 'NEAR-FT':
+        case 'NEAR-NFT':
+          token = {
+            ...baseTokenData,
+            standard: data.standard as 'NEAR-FT' | 'NEAR-NFT',
+            type: data.standard === 'NEAR-FT' ? 'fungible' : 'non-fungible',
+            ownerId: data.owner_id || '',
+            spec: data.spec || ''
+          } as NEARToken;
+          break;
+          
+        default:
+          // Fallback to ERC-20 structure for unknown standards
+          token = {
+            ...baseTokenData,
+            standard: 'ERC-20',
+            type: 'fungible'
+          } as ERC20Token;
+      }
+
+      // Cache it
+      this.tokenRegistry.set(registryKey, token);
+
+      return token;
+    } catch (error) {
+      console.error('Error fetching token info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Encode transfer data for different token standards
+   * @private
+   */
+  private encodeTransferData(standard: string, params: TokenTransferParams): string {
+    // This would use web3 ABI encoding in a real implementation
+    // Simplified for now
+    return `transfer(${params.to},${params.amount})`;
+  }
+
+  private encodeNFTTransferData(standard: string, params: TokenTransferParams): string {
+    return `transferFrom(${params.from},${params.to},${params.tokenId})`;
+  }
+
+  private encodeMultiTokenTransferData(params: TokenTransferParams): string {
+    return `safeTransferFrom(${params.from},${params.to},${params.tokenId},${params.amount},${params.data || '0x'})`;
+  }
+
+  private encodeSecurityTokenTransferData(params: TokenTransferParams): string {
+    return `transferWithData(${params.to},${params.amount},${params.data || '0x'})`;
+  }
+
+  /**
+   * Build policy context for an operation
+   */
+  private async buildPolicyContext(
+    operationType: string,
+    tokenAddress: string,
+    chain: SupportedChain,
+    networkType: NetworkType,
+    operationData: any
+  ): Promise<PolicyContext> {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get token info
+    const token = await this.getTokenInfo(tokenAddress, chain, networkType);
+    if (!token) {
+      throw new Error(`Token not found: ${tokenAddress}`);
+    }
+
+    // Build contexts
+    const userContext: UserContext = {
+      id: user?.id || '',
+      address: operationData.from || operationData.to || '',
+      role: user?.user_metadata?.role,
+      permissions: user?.user_metadata?.permissions || [],
+      kycStatus: user?.user_metadata?.kycStatus,
+      jurisdiction: user?.user_metadata?.jurisdiction
+    };
+
+    const tokenContext: TokenContext = {
+      id: token.id,
+      address: token.contractAddress,
+      name: token.name,
+      symbol: token.symbol,
+      standard: token.standard,
+      chainId: chain,
+      totalSupply: token.totalSupply?.toString(),
+      decimals: token.decimals
+    };
+
+    const environmentContext: EnvironmentContext = {
+      chainId: chain,
+      network: networkType,
+      timestamp: Date.now()
+    };
+
+    const operation: CryptoOperation = {
+      type: operationType as any,
+      ...operationData,
+      tokenAddress,
+      chainId: chain
+    };
+
+    return {
+      operation,
+      user: userContext,
+      token: tokenContext,
+      environment: environmentContext
+    };
+  }
+
+  /**
+   * Get wallet connection for a chain
+   */
+  private async getWalletConnection(
+    chain: SupportedChain,
+    networkType: NetworkType
+  ): Promise<any> {
     const walletConnections = multiChainWalletManager.getWalletConnections('default'); // TODO: Use actual wallet ID
-    const connection = walletConnections.find(conn => conn.chain === chain && conn.networkType === networkType);
+    const connection = walletConnections.find(
+      conn => conn.chain === chain && conn.networkType === networkType
+    );
     
     if (!connection) {
       throw new Error(`No wallet connection found for ${chain} ${networkType}`);
     }
 
-    // Handle transfer based on token standard
-    return this.executeTokenTransfer(connection.adapter, token, params);
+    return connection;
   }
 
   /**
-   * Execute token transfer based on standard
+   * Get lock details from database
    */
-  private async executeTokenTransfer(
+  private async getLockDetails(lockId: string): Promise<any> {
+    const { data } = await supabase
+      .from('token_operations')
+      .select('*')
+      .eq('id', lockId)
+      .eq('operation_type', 'lock')
+      .single();
+
+    return data;
+  }
+
+  /**
+   * Log operation to database
+   */
+  private async logOperation(
+    operationId: string,
+    operationType: string,
+    tokenAddress: string,
+    params: any,
+    result: TokenOperationResult,
+    policyResult: PolicyEvaluationResult
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('token_operations')
+      .insert({
+        id: operationId,
+        token_id: tokenAddress,
+        operation_type: operationType,
+        operator: params.from || params.to || params.account,
+        amount: params.amount?.toString(),
+        recipient: params.to,
+        sender: params.from,
+        lock_duration: params.duration,
+        lock_reason: params.reason,
+        unlock_time: params.unlockTime,
+        transaction_hash: result.txHash,
+        status: result.status,
+        timestamp: new Date().toISOString(),
+        blocks: {
+          gasUsed: result.gasUsed,
+          fee: result.fee
+        }
+      });
+
+    if (error) {
+      console.error('Failed to log operation:', error);
+    }
+
+    // Log policy validation
+    const { error: validationError } = await supabase
+      .from('operation_validations')
+      .insert({
+        operation_id: operationId,
+        policy_id: policyResult.policies[0]?.policyId,
+        rule_evaluations: policyResult.policies,
+        validation_status: policyResult.allowed ? 'approved' : 'rejected',
+        rejection_reasons: policyResult.violations.map(v => v.description),
+        validated_by: (await supabase.auth.getUser()).data.user?.id,
+        validated_at: new Date().toISOString()
+      });
+
+    if (validationError) {
+      console.error('Failed to log validation:', validationError);
+    }
+  }
+
+  // Execution methods (stubs for now - would implement actual blockchain calls)
+  private async executeMintOperation(
     adapter: IBlockchainAdapter,
-    token: BaseToken,
-    params: TokenTransferParams
+    tokenAddress: string,
+    params: TokenMintParams
   ): Promise<TokenOperationResult> {
     // Implementation would vary by token standard
-    throw new Error(`Token transfer for ${token.standard} not yet implemented`);
+    throw new Error(`Mint operation not yet implemented`);
   }
 
-  /**
-   * Get token information
-   */
-  async getTokenInfo(
+  private async executeBurnOperation(
+    adapter: IBlockchainAdapter,
     tokenAddress: string,
-    chain: SupportedChain,
-    networkType: NetworkType = 'mainnet'
-  ): Promise<BaseToken | null> {
-    const key = `${chain}-${networkType}-${tokenAddress}`;
-    
-    // Check registry first
-    if (this.tokenRegistry.has(key)) {
-      return this.tokenRegistry.get(key)!;
-    }
-
-    // Fetch from blockchain if not in registry
-    const walletConnections = multiChainWalletManager.getWalletConnections('default');
-    const connection = walletConnections.find(conn => conn.chain === chain && conn.networkType === networkType);
-    
-    if (!connection || !connection.adapter.getTokenInfo) {
-      return null;
-    }
-
-    try {
-      const tokenInfo = await connection.adapter.getTokenInfo(tokenAddress);
-      
-      // Create basic token object
-      const token: BaseToken = {
-        id: key,
-        contractAddress: tokenAddress,
-        chain,
-        networkType,
-        standard: 'ERC-20', // Default assumption, would need detection logic
-        type: 'fungible',
-        name: tokenInfo.name,
-        symbol: tokenInfo.symbol,
-        decimals: tokenInfo.decimals,
-        totalSupply: tokenInfo.totalSupply,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      // Register the token
-      this.tokenRegistry.set(key, token);
-      
-      return token;
-    } catch (error) {
-      console.error(`Failed to get token info for ${tokenAddress}:`, error);
-      return null;
-    }
+    params: TokenBurnParams
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Burn operation not yet implemented`);
   }
 
-  /**
-   * Get token balance for an address
-   */
-  async getTokenBalance(
-    walletAddress: string,
+  private async executeLockOperation(
+    adapter: IBlockchainAdapter,
     tokenAddress: string,
-    chain: SupportedChain,
-    networkType: NetworkType = 'mainnet'
-  ): Promise<bigint | null> {
-    const walletConnections = multiChainWalletManager.getWalletConnections('default');
-    const connection = walletConnections.find(conn => conn.chain === chain && conn.networkType === networkType);
-    
-    if (!connection || !connection.adapter.getTokenBalance) {
-      return null;
-    }
-
-    try {
-      const balance = await connection.adapter.getTokenBalance(walletAddress, tokenAddress);
-      return balance.balance;
-    } catch (error) {
-      console.error(`Failed to get token balance:`, error);
-      return null;
-    }
+    params: TokenLockParams
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Lock operation not yet implemented`);
   }
 
-  /**
-   * Register a token in the local registry
-   */
-  registerToken(token: BaseToken): void {
-    const key = `${token.chain}-${token.networkType}-${token.contractAddress}`;
-    this.tokenRegistry.set(key, token);
+  private async executeUnlockOperation(
+    adapter: IBlockchainAdapter,
+    tokenAddress: string,
+    lockId: string,
+    amount: string
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Unlock operation not yet implemented`);
   }
 
-  /**
-   * Get all registered tokens
-   */
-  getRegisteredTokens(chain?: SupportedChain, standard?: TokenStandard): BaseToken[] {
-    const tokens = Array.from(this.tokenRegistry.values());
-    
-    return tokens.filter(token => {
-      if (chain && token.chain !== chain) return false;
-      if (standard && token.standard !== standard) return false;
-      return true;
-    });
+  private async executeBlockOperation(
+    adapter: IBlockchainAdapter,
+    tokenAddress: string,
+    account: string,
+    reason: string,
+    duration?: number
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Block operation not yet implemented`);
   }
 
-  /**
-   * Get supported token standards for a chain
-   */
-  getSupportedStandards(chain: SupportedChain): TokenStandard[] {
-    switch (chain) {
-      case 'ethereum':
-      case 'polygon':
-      case 'arbitrum':
-      case 'optimism':
-      case 'base':
-      case 'avalanche':
-        return ['ERC-20', 'ERC-721', 'ERC-1155', 'ERC-1400', 'ERC-3525', 'ERC-4626'];
-      
-      case 'solana':
-        return ['SPL'];
-      
-      case 'near':
-        return ['NEAR-FT', 'NEAR-NFT'];
-      
-      case 'stellar':
-        return ['STELLAR-ASSET'];
-      
-      case 'bitcoin':
-        return ['NATIVE']; // Bitcoin doesn't support tokens natively
-      
-      case 'sui':
-        return ['SUI-COIN'];
-      
-      case 'aptos':
-        return ['APTOS-COIN'];
-      
-      default:
-        return [];
-    }
-  }
-
-  /**
-   * Validate token standard compatibility
-   */
-  isStandardSupported(chain: SupportedChain, standard: TokenStandard): boolean {
-    return this.getSupportedStandards(chain).includes(standard);
-  }
-
-  /**
-   * Clear token registry
-   */
-  clearRegistry(): void {
-    this.tokenRegistry.clear();
+  private async executeUnblockOperation(
+    adapter: IBlockchainAdapter,
+    tokenAddress: string,
+    account: string,
+    reason: string
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Unblock operation not yet implemented`);
   }
 }
-
-// Global instance
-export const enhancedTokenManager = new EnhancedTokenManager();

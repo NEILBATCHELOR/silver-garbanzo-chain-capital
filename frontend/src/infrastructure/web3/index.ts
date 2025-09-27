@@ -63,8 +63,7 @@ export type {
 
 // Token management
 export {
-  EnhancedTokenManager,
-  enhancedTokenManager
+  EnhancedTokenManager
 } from './tokens/EnhancedTokenManager';
 
 export type {
@@ -79,7 +78,6 @@ export type {
   ERC4626Token,
   SPLToken,
   NEARToken,
-  StellarAsset,
   TokenDeploymentParams,
   TokenTransferParams,
   TokenOperationResult

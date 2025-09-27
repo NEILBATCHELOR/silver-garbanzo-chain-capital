@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict gQfyZzOb2Sdaa3TtDQD4S0eCMxJ6lWdMhxwto1vp9eY9kUrfuva2Rs5c173PaXV
+\restrict 0767UpSCRfqfeqkVjHu1wRKElGzmoYb2WoBCBkxaiKYS4LmAIhusChl4CBr3LyQ
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -8608,6 +8608,25 @@ CREATE TABLE public.commodities_products (
 
 
 --
+-- Name: compliance_audit_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.compliance_audit_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    operation_type text NOT NULL,
+    operator text NOT NULL,
+    compliance_status jsonb NOT NULL,
+    violations jsonb[],
+    audit_trail jsonb NOT NULL,
+    regulatory_flags jsonb[],
+    reporting_required boolean DEFAULT false,
+    integrity_hash text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: compliance_checks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8624,6 +8643,24 @@ CREATE TABLE public.compliance_checks (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT compliance_checks_risk_level_check CHECK ((risk_level = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT compliance_checks_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'approved'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: compliance_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.compliance_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    metric_date date NOT NULL,
+    total_operations integer DEFAULT 0,
+    compliant_operations integer DEFAULT 0,
+    partial_compliance integer DEFAULT 0,
+    non_compliant integer DEFAULT 0,
+    violations_count integer DEFAULT 0,
+    reports_generated integer DEFAULT 0,
+    avg_compliance_score numeric,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -8659,6 +8696,26 @@ CREATE TABLE public.compliance_settings (
     investor_count integer DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: compliance_violations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.compliance_violations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    violation_id text NOT NULL,
+    operation_id uuid,
+    type text NOT NULL,
+    severity text NOT NULL,
+    description text,
+    remediation text,
+    resolved boolean DEFAULT false,
+    resolved_at timestamp with time zone,
+    resolved_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT compliance_violations_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
 );
 
 
@@ -12089,6 +12146,24 @@ CREATE TABLE public.onchain_verification_history (
 
 
 --
+-- Name: operation_validations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.operation_validations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    policy_id uuid,
+    rule_evaluations jsonb,
+    validation_status text NOT NULL,
+    rejection_reasons text[],
+    validated_by uuid,
+    validated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT operation_validations_validation_status_check CHECK ((validation_status = ANY (ARRAY['approved'::text, 'rejected'::text, 'pending'::text])))
+);
+
+
+--
 -- Name: organizations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12241,6 +12316,23 @@ CREATE TABLE public.permissions (
 
 
 --
+-- Name: policy_operation_mappings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.policy_operation_mappings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    policy_id uuid,
+    operation_type text NOT NULL,
+    chain_id text,
+    token_standard text,
+    conditions jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT policy_operation_mappings_operation_type_check CHECK ((operation_type = ANY (ARRAY['mint'::text, 'burn'::text, 'transfer'::text, 'lock'::text, 'unlock'::text, 'block'::text, 'unblock'::text])))
+);
+
+
+--
 -- Name: policy_rule_approvers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12317,6 +12409,25 @@ COMMENT ON TABLE public.policy_templates IS 'Stores reusable policy templates';
 --
 
 COMMENT ON COLUMN public.policy_templates.status IS 'Status of the template (active, inactive)';
+
+
+--
+-- Name: policy_violations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.policy_violations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    policy_id uuid,
+    violation_type text NOT NULL,
+    severity text NOT NULL,
+    description text,
+    resolved boolean DEFAULT false,
+    resolved_by uuid,
+    resolved_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT policy_violations_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
+);
 
 
 --
@@ -14271,6 +14382,37 @@ CREATE TABLE public.role_permissions (
     role_id uuid NOT NULL,
     permission_name text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: rule_conflicts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.rule_conflicts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    rule1_id uuid,
+    rule2_id uuid,
+    conflict_type text,
+    resolution jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: rule_evaluations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.rule_evaluations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    rule_id uuid,
+    passed boolean NOT NULL,
+    score numeric,
+    conditions jsonb,
+    evaluation_time_ms integer,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -17460,6 +17602,28 @@ COMMENT ON TABLE public.transaction_signatures IS 'Signatures for multi-signatur
 
 
 --
+-- Name: transaction_validations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transaction_validations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    transaction_hash text,
+    from_address text NOT NULL,
+    to_address text NOT NULL,
+    value text,
+    data text,
+    validation_result jsonb NOT NULL,
+    policies_checked uuid[],
+    rules_checked uuid[],
+    valid boolean NOT NULL,
+    proceeded boolean,
+    override_used boolean DEFAULT false,
+    override_by uuid,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: transactions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -17728,6 +17892,37 @@ CREATE VIEW public.valid_policy_approvers AS
     a."timestamp"
    FROM (public.policy_rule_approvers a
      JOIN public.rules r ON ((a.policy_rule_id = r.rule_id)));
+
+
+--
+-- Name: validation_alerts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.validation_alerts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    alert_type text NOT NULL,
+    severity text NOT NULL,
+    transaction_data jsonb,
+    validation_data jsonb,
+    resolved boolean DEFAULT false,
+    resolved_by uuid,
+    resolved_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT validation_alerts_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
+);
+
+
+--
+-- Name: validation_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.validation_cache (
+    cache_key text NOT NULL,
+    validation_result jsonb NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    hit_count integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
+);
 
 
 --
@@ -18595,6 +18790,14 @@ COMMENT ON CONSTRAINT commodities_products_project_id_key ON public.commodities_
 
 
 --
+-- Name: compliance_audit_logs compliance_audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_audit_logs
+    ADD CONSTRAINT compliance_audit_logs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: compliance_checks compliance_checks_investor_id_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18608,6 +18811,22 @@ ALTER TABLE ONLY public.compliance_checks
 
 ALTER TABLE ONLY public.compliance_checks
     ADD CONSTRAINT compliance_checks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: compliance_metrics compliance_metrics_metric_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_metrics
+    ADD CONSTRAINT compliance_metrics_metric_date_key UNIQUE (metric_date);
+
+
+--
+-- Name: compliance_metrics compliance_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_metrics
+    ADD CONSTRAINT compliance_metrics_pkey PRIMARY KEY (id);
 
 
 --
@@ -18632,6 +18851,22 @@ ALTER TABLE ONLY public.compliance_settings
 
 ALTER TABLE ONLY public.compliance_settings
     ADD CONSTRAINT compliance_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: compliance_violations compliance_violations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_violations
+    ADD CONSTRAINT compliance_violations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: compliance_violations compliance_violations_violation_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_violations
+    ADD CONSTRAINT compliance_violations_violation_id_key UNIQUE (violation_id);
 
 
 --
@@ -20342,6 +20577,14 @@ ALTER TABLE ONLY public.token_erc20_properties
 
 
 --
+-- Name: operation_validations operation_validations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_validations
+    ADD CONSTRAINT operation_validations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20382,6 +20625,14 @@ ALTER TABLE ONLY public.permissions
 
 
 --
+-- Name: policy_operation_mappings policy_operation_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_operation_mappings
+    ADD CONSTRAINT policy_operation_mappings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: policy_rule_approvers policy_rule_approvers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20403,6 +20654,14 @@ ALTER TABLE ONLY public.policy_template_approvers
 
 ALTER TABLE ONLY public.policy_templates
     ADD CONSTRAINT policy_templates_pkey PRIMARY KEY (template_id);
+
+
+--
+-- Name: policy_violations policy_violations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_violations
+    ADD CONSTRAINT policy_violations_pkey PRIMARY KEY (id);
 
 
 --
@@ -20911,6 +21170,22 @@ ALTER TABLE ONLY public.roles
 
 ALTER TABLE ONLY public.roles
     ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rule_conflicts rule_conflicts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_conflicts
+    ADD CONSTRAINT rule_conflicts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rule_evaluations rule_evaluations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_evaluations
+    ADD CONSTRAINT rule_evaluations_pkey PRIMARY KEY (id);
 
 
 --
@@ -21672,6 +21947,14 @@ ALTER TABLE ONLY public.transaction_signatures
 
 
 --
+-- Name: transaction_validations transaction_validations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transaction_validations
+    ADD CONSTRAINT transaction_validations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: transactions transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21936,6 +22219,22 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: validation_alerts validation_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.validation_alerts
+    ADD CONSTRAINT validation_alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: validation_cache validation_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.validation_cache
+    ADD CONSTRAINT validation_cache_pkey PRIMARY KEY (cache_key);
+
+
+--
 -- Name: wallet_details wallet_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -22138,6 +22437,13 @@ CREATE INDEX idx_alerts_severity ON public.alerts USING btree (severity);
 --
 
 CREATE INDEX idx_alerts_status ON public.alerts USING btree (status);
+
+
+--
+-- Name: idx_alerts_unresolved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_alerts_unresolved ON public.validation_alerts USING btree (resolved) WHERE (resolved = false);
 
 
 --
@@ -22344,6 +22650,13 @@ CREATE INDEX idx_audit_logs_category ON public.audit_logs USING btree (category)
 
 
 --
+-- Name: idx_audit_logs_compliance; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_compliance ON public.compliance_audit_logs USING btree (((compliance_status ->> 'level'::text)));
+
+
+--
 -- Name: idx_audit_logs_correlation; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -22355,6 +22668,13 @@ CREATE INDEX idx_audit_logs_correlation ON public.audit_logs USING btree (correl
 --
 
 CREATE INDEX idx_audit_logs_correlation_id ON public.audit_logs USING btree (correlation_id);
+
+
+--
+-- Name: idx_audit_logs_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_created ON public.compliance_audit_logs USING btree (created_at);
 
 
 --
@@ -22376,6 +22696,13 @@ CREATE INDEX idx_audit_logs_entity_type ON public.audit_logs USING btree (entity
 --
 
 CREATE INDEX idx_audit_logs_is_automated ON public.audit_logs USING btree (is_automated);
+
+
+--
+-- Name: idx_audit_logs_operation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_operation ON public.compliance_audit_logs USING btree (operation_id);
 
 
 --
@@ -22586,6 +22913,13 @@ CREATE INDEX idx_bundler_operations_created_at ON public.bundler_operations USIN
 --
 
 CREATE INDEX idx_bundler_operations_status ON public.bundler_operations USING btree (status);
+
+
+--
+-- Name: idx_cache_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cache_expires ON public.validation_cache USING btree (expires_at);
 
 
 --
@@ -22887,6 +23221,20 @@ CREATE INDEX idx_compliance_reports_issuer_id ON public.compliance_reports USING
 --
 
 CREATE INDEX idx_compliance_reports_status ON public.compliance_reports USING btree (status);
+
+
+--
+-- Name: idx_compliance_violations_operation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_violations_operation ON public.compliance_violations USING btree (operation_id);
+
+
+--
+-- Name: idx_compliance_violations_unresolved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_violations_unresolved ON public.compliance_violations USING btree (resolved) WHERE (resolved = false);
 
 
 --
@@ -24598,6 +24946,13 @@ CREATE INDEX idx_market_data_snapshots_date ON public.market_data_snapshots USIN
 
 
 --
+-- Name: idx_metrics_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_metrics_date ON public.compliance_metrics USING btree (metric_date);
+
+
+--
 -- Name: idx_monitoring_metrics_metric_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25179,6 +25534,13 @@ CREATE INDEX idx_onchain_verification_history_identity_id ON public.onchain_veri
 
 
 --
+-- Name: idx_operation_validations_op; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_operation_validations_op ON public.operation_validations USING btree (operation_id);
+
+
+--
 -- Name: idx_organizations_entity_structure; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25298,6 +25660,13 @@ CREATE INDEX idx_paymaster_policies_chain_id ON public.paymaster_policies USING 
 
 
 --
+-- Name: idx_policy_op_mappings; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_op_mappings ON public.policy_operation_mappings USING btree (operation_type, chain_id);
+
+
+--
 -- Name: idx_policy_rule_approvers_rule_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25344,6 +25713,13 @@ CREATE INDEX idx_policy_templates_status ON public.policy_templates USING btree 
 --
 
 CREATE INDEX idx_policy_templates_type ON public.policy_templates USING btree (template_type);
+
+
+--
+-- Name: idx_policy_violations_unresolved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_violations_unresolved ON public.policy_violations USING btree (resolved) WHERE (resolved = false);
 
 
 --
@@ -26397,6 +26773,27 @@ CREATE INDEX idx_risk_assessments_wallet_address ON public.risk_assessments USIN
 
 
 --
+-- Name: idx_rule_conflicts_operation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rule_conflicts_operation ON public.rule_conflicts USING btree (operation_id);
+
+
+--
+-- Name: idx_rule_evaluations_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rule_evaluations_created ON public.rule_evaluations USING btree (created_at);
+
+
+--
+-- Name: idx_rule_evaluations_operation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rule_evaluations_operation ON public.rule_evaluations USING btree (operation_id);
+
+
+--
 -- Name: idx_rules_is_template; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -27283,6 +27680,20 @@ CREATE INDEX idx_user_sidebar_prefs_org ON public.user_sidebar_preferences USING
 --
 
 CREATE INDEX idx_user_sidebar_prefs_user ON public.user_sidebar_preferences USING btree (user_id);
+
+
+--
+-- Name: idx_validations_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_validations_created ON public.transaction_validations USING btree (created_at);
+
+
+--
+-- Name: idx_validations_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_validations_from ON public.transaction_validations USING btree (from_address);
 
 
 --
@@ -29323,6 +29734,14 @@ ALTER TABLE ONLY public.climate_user_data_sources
 
 
 --
+-- Name: compliance_audit_logs compliance_audit_logs_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_audit_logs
+    ADD CONSTRAINT compliance_audit_logs_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
+
+
+--
 -- Name: compliance_checks compliance_checks_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -29352,6 +29771,22 @@ ALTER TABLE ONLY public.compliance_reports
 
 ALTER TABLE ONLY public.compliance_reports
     ADD CONSTRAINT compliance_reports_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: compliance_violations compliance_violations_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_violations
+    ADD CONSTRAINT compliance_violations_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
+
+
+--
+-- Name: compliance_violations compliance_violations_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_violations
+    ADD CONSTRAINT compliance_violations_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id);
 
 
 --
@@ -30403,11 +30838,43 @@ ALTER TABLE ONLY public.onchain_verification_history
 
 
 --
+-- Name: operation_validations operation_validations_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_validations
+    ADD CONSTRAINT operation_validations_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
+
+
+--
+-- Name: operation_validations operation_validations_policy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_validations
+    ADD CONSTRAINT operation_validations_policy_id_fkey FOREIGN KEY (policy_id) REFERENCES public.rules(rule_id);
+
+
+--
+-- Name: operation_validations operation_validations_validated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_validations
+    ADD CONSTRAINT operation_validations_validated_by_fkey FOREIGN KEY (validated_by) REFERENCES public.users(id);
+
+
+--
 -- Name: paymaster_operations paymaster_operations_user_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.paymaster_operations
     ADD CONSTRAINT paymaster_operations_user_operation_id_fkey FOREIGN KEY (user_operation_id) REFERENCES public.user_operations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: policy_operation_mappings policy_operation_mappings_policy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_operation_mappings
+    ADD CONSTRAINT policy_operation_mappings_policy_id_fkey FOREIGN KEY (policy_id) REFERENCES public.rules(rule_id);
 
 
 --
@@ -30439,6 +30906,30 @@ COMMENT ON CONSTRAINT policy_template_approvers_template_id_fkey ON public.polic
 
 ALTER TABLE ONLY public.policy_template_approvers
     ADD CONSTRAINT policy_template_approvers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: policy_violations policy_violations_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_violations
+    ADD CONSTRAINT policy_violations_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
+
+
+--
+-- Name: policy_violations policy_violations_policy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_violations
+    ADD CONSTRAINT policy_violations_policy_id_fkey FOREIGN KEY (policy_id) REFERENCES public.rules(rule_id);
+
+
+--
+-- Name: policy_violations policy_violations_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_violations
+    ADD CONSTRAINT policy_violations_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id);
 
 
 --
@@ -30671,6 +31162,46 @@ ALTER TABLE ONLY public.role_permissions
 
 ALTER TABLE ONLY public.role_permissions
     ADD CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rule_conflicts rule_conflicts_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_conflicts
+    ADD CONSTRAINT rule_conflicts_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
+
+
+--
+-- Name: rule_conflicts rule_conflicts_rule1_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_conflicts
+    ADD CONSTRAINT rule_conflicts_rule1_id_fkey FOREIGN KEY (rule1_id) REFERENCES public.rules(rule_id);
+
+
+--
+-- Name: rule_conflicts rule_conflicts_rule2_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_conflicts
+    ADD CONSTRAINT rule_conflicts_rule2_id_fkey FOREIGN KEY (rule2_id) REFERENCES public.rules(rule_id);
+
+
+--
+-- Name: rule_evaluations rule_evaluations_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_evaluations
+    ADD CONSTRAINT rule_evaluations_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
+
+
+--
+-- Name: rule_evaluations rule_evaluations_rule_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rule_evaluations
+    ADD CONSTRAINT rule_evaluations_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.rules(rule_id);
 
 
 --
@@ -31306,6 +31837,14 @@ ALTER TABLE ONLY public.transaction_signatures
 
 
 --
+-- Name: transaction_validations transaction_validations_override_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transaction_validations
+    ADD CONSTRAINT transaction_validations_override_by_fkey FOREIGN KEY (override_by) REFERENCES public.users(id);
+
+
+--
 -- Name: user_mfa_settings user_mfa_settings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -31391,6 +31930,14 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: validation_alerts validation_alerts_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.validation_alerts
+    ADD CONSTRAINT validation_alerts_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id);
 
 
 --
@@ -34443,6 +34990,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.co
 
 
 --
+-- Name: TABLE compliance_audit_logs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO prisma;
+
+
+--
 -- Name: TABLE compliance_checks; Type: ACL; Schema: public; Owner: -
 --
 
@@ -34450,6 +35007,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.co
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO prisma;
+
+
+--
+-- Name: TABLE compliance_metrics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO prisma;
 
 
 --
@@ -34470,6 +35037,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.co
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO prisma;
+
+
+--
+-- Name: TABLE compliance_violations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO prisma;
 
 
 --
@@ -35693,6 +36270,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.on
 
 
 --
+-- Name: TABLE operation_validations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO prisma;
+
+
+--
 -- Name: TABLE organizations; Type: ACL; Schema: public; Owner: -
 --
 
@@ -35753,6 +36340,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pe
 
 
 --
+-- Name: TABLE policy_operation_mappings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO prisma;
+
+
+--
 -- Name: TABLE policy_rule_approvers; Type: ACL; Schema: public; Owner: -
 --
 
@@ -35790,6 +36387,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.po
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO prisma;
+
+
+--
+-- Name: TABLE policy_violations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO prisma;
 
 
 --
@@ -36280,6 +36887,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ro
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO prisma;
+
+
+--
+-- Name: TABLE rule_conflicts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO prisma;
+
+
+--
+-- Name: TABLE rule_evaluations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO prisma;
 
 
 --
@@ -37133,6 +37760,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.tr
 
 
 --
+-- Name: TABLE transaction_validations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO prisma;
+
+
+--
 -- Name: TABLE transactions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -37240,6 +37877,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.va
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO prisma;
+
+
+--
+-- Name: TABLE validation_alerts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO prisma;
+
+
+--
+-- Name: TABLE validation_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO prisma;
 
 
 --
@@ -37480,5 +38137,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict gQfyZzOb2Sdaa3TtDQD4S0eCMxJ6lWdMhxwto1vp9eY9kUrfuva2Rs5c173PaXV
+\unrestrict 0767UpSCRfqfeqkVjHu1wRKElGzmoYb2WoBCBkxaiKYS4LmAIhusChl4CBr3LyQ
 

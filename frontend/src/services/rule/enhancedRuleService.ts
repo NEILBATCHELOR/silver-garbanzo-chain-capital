@@ -15,6 +15,7 @@ export interface PolicyRule {
   conditions?: any[];
   actions?: any[];
   priority?: 'high' | 'medium' | 'low';
+  critical?: boolean; // Added for rule evaluation pipeline
   isActive?: boolean;
   isTemplate?: boolean;
   policyId?: string;
