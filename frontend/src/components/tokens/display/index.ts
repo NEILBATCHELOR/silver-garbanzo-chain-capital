@@ -2,6 +2,7 @@
 export { default as UnifiedTokenCard } from './UnifiedTokenCard';
 export { default as UnifiedTokenDetail } from './UnifiedTokenDetail';
 export { default as OptimizedTokenCard } from './OptimizedTokenCard';
+export { PolicyStatusBar } from './PolicyStatusBar';
 
 // Shared components
 export { default as TokenHeader } from './shared/TokenHeader';
