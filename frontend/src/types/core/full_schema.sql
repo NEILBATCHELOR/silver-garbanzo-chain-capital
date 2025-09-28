@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0767UpSCRfqfeqkVjHu1wRKElGzmoYb2WoBCBkxaiKYS4LmAIhusChl4CBr3LyQ
+\restrict YkC9R9k8tSHKrUThqnwMmszcOjTUMbWKnQLtS4pDLV3eCvEFKLbRaMmlgAalHwx
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -1070,6 +1070,84 @@ BEGIN
   END LOOP;
 
   RETURN;
+END;
+$$;
+
+
+--
+-- Name: calculate_daily_compliance_metrics(date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calculate_daily_compliance_metrics(target_date date) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_total INTEGER;
+    v_compliant INTEGER;
+    v_partial INTEGER;
+    v_noncompliant INTEGER;
+    v_violations INTEGER;
+    v_reports INTEGER;
+    v_avg_score NUMERIC;
+BEGIN
+    -- Calculate metrics for the specified date
+    SELECT 
+        COUNT(*),
+        COUNT(*) FILTER (WHERE (compliance_status->>'level') = 'full'),
+        COUNT(*) FILTER (WHERE (compliance_status->>'level') = 'partial'),
+        COUNT(*) FILTER (WHERE (compliance_status->>'level') = 'non-compliant')
+    INTO v_total, v_compliant, v_partial, v_noncompliant
+    FROM compliance_audit_logs
+    WHERE DATE(created_at) = target_date;
+    
+    -- Count violations
+    SELECT COUNT(*)
+    INTO v_violations
+    FROM compliance_violations
+    WHERE DATE(created_at) = target_date;
+    
+    -- Count reports
+    SELECT COUNT(*)
+    INTO v_reports
+    FROM compliance_reports
+    WHERE DATE(created_at) = target_date;
+    
+    -- Calculate average compliance score
+    SELECT AVG((compliance_status->>'score')::NUMERIC)
+    INTO v_avg_score
+    FROM compliance_audit_logs
+    WHERE DATE(created_at) = target_date
+      AND compliance_status->>'score' IS NOT NULL;
+    
+    -- Insert or update metrics
+    INSERT INTO compliance_metrics (
+        metric_date,
+        total_operations,
+        compliant_operations,
+        partial_compliance,
+        non_compliant,
+        violations_count,
+        reports_generated,
+        avg_compliance_score
+    ) VALUES (
+        target_date,
+        v_total,
+        v_compliant,
+        v_partial,
+        v_noncompliant,
+        v_violations,
+        v_reports,
+        v_avg_score
+    )
+    ON CONFLICT (metric_date) DO UPDATE SET
+        total_operations = EXCLUDED.total_operations,
+        compliant_operations = EXCLUDED.compliant_operations,
+        partial_compliance = EXCLUDED.partial_compliance,
+        non_compliant = EXCLUDED.non_compliant,
+        violations_count = EXCLUDED.violations_count,
+        reports_generated = EXCLUDED.reports_generated,
+        avg_compliance_score = EXCLUDED.avg_compliance_score,
+        created_at = NOW();
 END;
 $$;
 
@@ -6611,8 +6689,8 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$;
 
@@ -7150,6 +7228,17 @@ COMMENT ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) IS
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: _migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public._migrations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    executed_at timestamp with time zone DEFAULT now()
+);
+
 
 --
 -- Name: distributions; Type: TABLE; Schema: public; Owner: -
@@ -7764,6 +7853,36 @@ CREATE TABLE public.auth_events (
 
 
 --
+-- Name: authorized_activities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.authorized_activities (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    activity_name text NOT NULL,
+    category text,
+    active boolean DEFAULT true,
+    authorized_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: authorized_signatories; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.authorized_signatories (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    role text NOT NULL,
+    active boolean DEFAULT true,
+    digital_signature text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: batch_operations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7800,6 +7919,22 @@ COMMENT ON COLUMN public.batch_operations.operation_index IS 'Index of operation
 --
 
 COMMENT ON COLUMN public.batch_operations.success IS 'Whether this individual operation succeeded';
+
+
+--
+-- Name: blacklisted_addresses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.blacklisted_addresses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    address text NOT NULL,
+    reason text,
+    severity text,
+    added_by uuid,
+    added_at timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT blacklisted_addresses_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
+);
 
 
 --
@@ -8608,6 +8743,32 @@ CREATE TABLE public.commodities_products (
 
 
 --
+-- Name: compliance_alerts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.compliance_alerts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    type text NOT NULL,
+    severity text NOT NULL,
+    message text NOT NULL,
+    details jsonb,
+    "timestamp" timestamp with time zone NOT NULL,
+    acknowledged boolean DEFAULT false,
+    acknowledged_by uuid,
+    acknowledged_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT compliance_alerts_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
+);
+
+
+--
+-- Name: TABLE compliance_alerts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.compliance_alerts IS 'Stores all compliance alerts generated by the system';
+
+
+--
 -- Name: compliance_audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8746,6 +8907,48 @@ CREATE TABLE public.credential_usage_logs (
     performed_at timestamp with time zone DEFAULT now(),
     ip_address text,
     user_agent text
+);
+
+
+--
+-- Name: critical_alerts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.critical_alerts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    type text NOT NULL,
+    severity text DEFAULT 'critical'::text,
+    message text NOT NULL,
+    details jsonb,
+    "timestamp" timestamp with time zone NOT NULL,
+    escalated boolean DEFAULT false,
+    escalation_level integer DEFAULT 0,
+    notification_channels text[],
+    acknowledged boolean DEFAULT false,
+    acknowledged_by uuid,
+    acknowledged_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE critical_alerts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.critical_alerts IS 'Tracks critical alerts requiring escalation';
+
+
+--
+-- Name: dashboard_updates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dashboard_updates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    compliance_status jsonb,
+    violations integer,
+    "timestamp" timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -11149,6 +11352,26 @@ CREATE TABLE public.mfa_policies (
 
 
 --
+-- Name: ml_baseline_statistics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ml_baseline_statistics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operator text NOT NULL,
+    statistics jsonb NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE ml_baseline_statistics; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.ml_baseline_statistics IS 'Machine learning baseline statistics for anomaly detection';
+
+
+--
 -- Name: monitoring_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12146,6 +12369,28 @@ CREATE TABLE public.onchain_verification_history (
 
 
 --
+-- Name: operation_metadata; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.operation_metadata (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    gas_estimate jsonb,
+    simulation_result jsonb,
+    execution_context jsonb,
+    performance_metrics jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE operation_metadata; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.operation_metadata IS 'Operation metadata for enhanced tracking';
+
+
+--
 -- Name: operation_validations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12160,6 +12405,46 @@ CREATE TABLE public.operation_validations (
     validated_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
     CONSTRAINT operation_validations_validation_status_check CHECK ((validation_status = ANY (ARRAY['approved'::text, 'rejected'::text, 'pending'::text])))
+);
+
+
+--
+-- Name: operator_status; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.operator_status (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operator text NOT NULL,
+    status text,
+    blocked_reason text,
+    blocked_at timestamp with time zone,
+    blocked_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT operator_status_status_check CHECK ((status = ANY (ARRAY['active'::text, 'blocked'::text, 'restricted'::text, 'under-review'::text])))
+);
+
+
+--
+-- Name: TABLE operator_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.operator_status IS 'Tracks operator status including blocks and restrictions';
+
+
+--
+-- Name: organization_details; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organization_details (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    registration_number text,
+    jurisdiction text,
+    address jsonb,
+    contact jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -14006,6 +14291,64 @@ CREATE TABLE public.regulatory_exemptions (
 
 
 --
+-- Name: regulatory_registrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.regulatory_registrations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    type text NOT NULL,
+    registration_number text,
+    issued_by text,
+    issued_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    status text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: regulatory_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.regulatory_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    type text NOT NULL,
+    jurisdiction text NOT NULL,
+    reporting_period_start timestamp with time zone NOT NULL,
+    reporting_period_end timestamp with time zone NOT NULL,
+    compliance_status jsonb,
+    violations jsonb[],
+    remediation_actions jsonb[],
+    attestation jsonb,
+    submission_details jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE regulatory_reports; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.regulatory_reports IS 'Regulatory compliance reports for various jurisdictions';
+
+
+--
+-- Name: remediation_actions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.remediation_actions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    violation_id text NOT NULL,
+    action_description text NOT NULL,
+    status text,
+    completion_date timestamp with time zone,
+    responsible_party text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT remediation_actions_status_check CHECK ((status = ANY (ARRAY['planned'::text, 'in-progress'::text, 'completed'::text])))
+);
+
+
+--
 -- Name: renewable_energy_credits; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -14371,6 +14714,21 @@ CREATE TABLE public.risk_assessments (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT risk_assessments_risk_level_check CHECK ((risk_level = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])))
+);
+
+
+--
+-- Name: risk_thresholds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.risk_thresholds (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    amount_high numeric,
+    amount_critical numeric,
+    frequency_high integer,
+    frequency_critical integer,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -15037,6 +15395,33 @@ CREATE TABLE public.subscriptions (
 
 
 --
+-- Name: suspicious_activity_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.suspicious_activity_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    filing_date timestamp with time zone NOT NULL,
+    suspicious_activity jsonb NOT NULL,
+    involved_parties jsonb[],
+    transaction_details jsonb[],
+    narrative text,
+    recommendations text[],
+    status text,
+    filed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT suspicious_activity_reports_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'filed'::text, 'acknowledged'::text])))
+);
+
+
+--
+-- Name: TABLE suspicious_activity_reports; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.suspicious_activity_reports IS 'Suspicious Activity Reports (SARs) for regulatory filing';
+
+
+--
 -- Name: system_processes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15157,6 +15542,23 @@ CREATE TABLE public.system_settings (
     key text NOT NULL,
     value text NOT NULL,
     created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: threshold_breaches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.threshold_breaches (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    breach_type text NOT NULL,
+    threshold_value numeric,
+    actual_value numeric,
+    severity text NOT NULL,
+    operator text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT threshold_breaches_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
 );
 
 
@@ -17878,6 +18280,24 @@ CREATE TABLE public.user_sidebar_preferences (
 
 
 --
+-- Name: user_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    kyc_verified boolean DEFAULT false,
+    kyc_verified_at timestamp with time zone,
+    aml_verified boolean DEFAULT false,
+    aml_verified_at timestamp with time zone,
+    verification_level text,
+    documents jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: valid_policy_approvers; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -17923,6 +18343,33 @@ CREATE TABLE public.validation_cache (
     hit_count integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: violation_patterns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.violation_patterns (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operator text NOT NULL,
+    pattern_type text NOT NULL,
+    count integer NOT NULL,
+    severity text NOT NULL,
+    timeframe integer,
+    first_occurrence timestamp with time zone,
+    last_occurrence timestamp with time zone,
+    violation_ids text[],
+    detected_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT violation_patterns_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
+);
+
+
+--
+-- Name: TABLE violation_patterns; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.violation_patterns IS 'Detected patterns in compliance violations';
 
 
 --
@@ -18394,6 +18841,22 @@ ALTER TABLE ONLY public.nav_calculation_history ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- Name: _migrations _migrations_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public._migrations
+    ADD CONSTRAINT _migrations_name_key UNIQUE (name);
+
+
+--
+-- Name: _migrations _migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public._migrations
+    ADD CONSTRAINT _migrations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: alerts alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18497,11 +18960,43 @@ ALTER TABLE ONLY public.auth_events
 
 
 --
+-- Name: authorized_activities authorized_activities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.authorized_activities
+    ADD CONSTRAINT authorized_activities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: authorized_signatories authorized_signatories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.authorized_signatories
+    ADD CONSTRAINT authorized_signatories_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: batch_operations batch_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.batch_operations
     ADD CONSTRAINT batch_operations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: blacklisted_addresses blacklisted_addresses_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blacklisted_addresses
+    ADD CONSTRAINT blacklisted_addresses_address_key UNIQUE (address);
+
+
+--
+-- Name: blacklisted_addresses blacklisted_addresses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blacklisted_addresses
+    ADD CONSTRAINT blacklisted_addresses_pkey PRIMARY KEY (id);
 
 
 --
@@ -18790,6 +19285,14 @@ COMMENT ON CONSTRAINT commodities_products_project_id_key ON public.commodities_
 
 
 --
+-- Name: compliance_alerts compliance_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_alerts
+    ADD CONSTRAINT compliance_alerts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: compliance_audit_logs compliance_audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18891,6 +19394,22 @@ ALTER TABLE ONLY public.consensus_settings
 
 ALTER TABLE ONLY public.credential_usage_logs
     ADD CONSTRAINT credential_usage_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: critical_alerts critical_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.critical_alerts
+    ADD CONSTRAINT critical_alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dashboard_updates dashboard_updates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dashboard_updates
+    ADD CONSTRAINT dashboard_updates_pkey PRIMARY KEY (id);
 
 
 --
@@ -20129,6 +20648,22 @@ ALTER TABLE ONLY public.mfa_policies
 
 
 --
+-- Name: ml_baseline_statistics ml_baseline_statistics_operator_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ml_baseline_statistics
+    ADD CONSTRAINT ml_baseline_statistics_operator_key UNIQUE (operator);
+
+
+--
+-- Name: ml_baseline_statistics ml_baseline_statistics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ml_baseline_statistics
+    ADD CONSTRAINT ml_baseline_statistics_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: monitoring_metrics monitoring_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20577,11 +21112,51 @@ ALTER TABLE ONLY public.token_erc20_properties
 
 
 --
+-- Name: operation_metadata operation_metadata_operation_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_metadata
+    ADD CONSTRAINT operation_metadata_operation_id_key UNIQUE (operation_id);
+
+
+--
+-- Name: operation_metadata operation_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_metadata
+    ADD CONSTRAINT operation_metadata_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: operation_validations operation_validations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.operation_validations
     ADD CONSTRAINT operation_validations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: operator_status operator_status_operator_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operator_status
+    ADD CONSTRAINT operator_status_operator_key UNIQUE (operator);
+
+
+--
+-- Name: operator_status operator_status_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operator_status
+    ADD CONSTRAINT operator_status_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organization_details organization_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_details
+    ADD CONSTRAINT organization_details_pkey PRIMARY KEY (id);
 
 
 --
@@ -20997,6 +21572,38 @@ ALTER TABLE ONLY public.regulatory_exemptions
 
 
 --
+-- Name: regulatory_registrations regulatory_registrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.regulatory_registrations
+    ADD CONSTRAINT regulatory_registrations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: regulatory_registrations regulatory_registrations_registration_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.regulatory_registrations
+    ADD CONSTRAINT regulatory_registrations_registration_number_key UNIQUE (registration_number);
+
+
+--
+-- Name: regulatory_reports regulatory_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.regulatory_reports
+    ADD CONSTRAINT regulatory_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: remediation_actions remediation_actions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.remediation_actions
+    ADD CONSTRAINT remediation_actions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: renewable_energy_credits renewable_energy_credits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21146,6 +21753,14 @@ ALTER TABLE ONLY public.ripple_trust_lines
 
 ALTER TABLE ONLY public.risk_assessments
     ADD CONSTRAINT risk_assessments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: risk_thresholds risk_thresholds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.risk_thresholds
+    ADD CONSTRAINT risk_thresholds_pkey PRIMARY KEY (id);
 
 
 --
@@ -21451,6 +22066,14 @@ ALTER TABLE ONLY public.subscriptions
 
 
 --
+-- Name: suspicious_activity_reports suspicious_activity_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.suspicious_activity_reports
+    ADD CONSTRAINT suspicious_activity_reports_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: system_processes system_processes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21472,6 +22095,14 @@ ALTER TABLE ONLY public.system_settings
 
 ALTER TABLE ONLY public.system_settings
     ADD CONSTRAINT system_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: threshold_breaches threshold_breaches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.threshold_breaches
+    ADD CONSTRAINT threshold_breaches_pkey PRIMARY KEY (id);
 
 
 --
@@ -22203,6 +22834,22 @@ ALTER TABLE ONLY public.user_sidebar_preferences
 
 
 --
+-- Name: user_verifications user_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_verifications
+    ADD CONSTRAINT user_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_verifications user_verifications_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_verifications
+    ADD CONSTRAINT user_verifications_user_id_key UNIQUE (user_id);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -22232,6 +22879,14 @@ ALTER TABLE ONLY public.validation_alerts
 
 ALTER TABLE ONLY public.validation_cache
     ADD CONSTRAINT validation_cache_pkey PRIMARY KEY (cache_key);
+
+
+--
+-- Name: violation_patterns violation_patterns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.violation_patterns
+    ADD CONSTRAINT violation_patterns_pkey PRIMARY KEY (id);
 
 
 --
@@ -22839,6 +23494,13 @@ CREATE INDEX idx_batch_operations_user_op ON public.batch_operations USING btree
 
 
 --
+-- Name: idx_blacklisted_addresses_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_blacklisted_addresses_address ON public.blacklisted_addresses USING btree (address);
+
+
+--
 -- Name: idx_bond_products_bond_isin_cusip; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -23196,6 +23858,13 @@ CREATE UNIQUE INDEX idx_commodities_products_project_id_unique ON public.commodi
 
 
 --
+-- Name: idx_compliance_alerts_unacknowledged; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_alerts_unacknowledged ON public.compliance_alerts USING btree (acknowledged) WHERE (acknowledged = false);
+
+
+--
 -- Name: idx_compliance_checks_project_risk; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -23249,6 +23918,13 @@ CREATE INDEX idx_config_wallet_id ON public.multi_sig_configurations USING btree
 --
 
 CREATE INDEX idx_credential_usage_logs_credential_id ON public.credential_usage_logs USING btree (credential_id);
+
+
+--
+-- Name: idx_critical_alerts_escalated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_critical_alerts_escalated ON public.critical_alerts USING btree (escalated, escalation_level);
 
 
 --
@@ -25534,10 +26210,24 @@ CREATE INDEX idx_onchain_verification_history_identity_id ON public.onchain_veri
 
 
 --
+-- Name: idx_operation_metadata_operation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_operation_metadata_operation ON public.operation_metadata USING btree (operation_id);
+
+
+--
 -- Name: idx_operation_validations_op; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_operation_validations_op ON public.operation_validations USING btree (operation_id);
+
+
+--
+-- Name: idx_operator_status_operator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_operator_status_operator ON public.operator_status USING btree (operator, status);
 
 
 --
@@ -26395,6 +27085,13 @@ CREATE INDEX idx_regulatory_exemptions_region ON public.regulatory_exemptions US
 
 
 --
+-- Name: idx_regulatory_reports_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_regulatory_reports_period ON public.regulatory_reports USING btree (reporting_period_start, reporting_period_end);
+
+
+--
 -- Name: idx_renewable_energy_credits_incentive_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -27200,6 +27897,13 @@ CREATE INDEX idx_structured_products_status ON public.structured_products USING 
 
 
 --
+-- Name: idx_suspicious_reports_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_suspicious_reports_status ON public.suspicious_activity_reports USING btree (status, filed_at);
+
+
+--
 -- Name: idx_system_processes_process_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -27694,6 +28398,20 @@ CREATE INDEX idx_validations_created ON public.transaction_validations USING btr
 --
 
 CREATE INDEX idx_validations_from ON public.transaction_validations USING btree (from_address);
+
+
+--
+-- Name: idx_violation_patterns_detected; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_violation_patterns_detected ON public.violation_patterns USING btree (detected_at DESC);
+
+
+--
+-- Name: idx_violation_patterns_operator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_violation_patterns_operator ON public.violation_patterns USING btree (operator, pattern_type);
 
 
 --
@@ -28957,6 +29675,13 @@ CREATE TRIGGER update_asset_backed_products_updated_at BEFORE UPDATE ON public.a
 
 
 --
+-- Name: authorized_signatories update_authorized_signatories_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_authorized_signatories_updated_at BEFORE UPDATE ON public.authorized_signatories FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: bond_products update_bond_products_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -29097,6 +29822,13 @@ CREATE TRIGGER update_investors_timestamp BEFORE UPDATE ON public.investors FOR 
 
 
 --
+-- Name: ml_baseline_statistics update_ml_baseline_statistics_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_ml_baseline_statistics_updated_at BEFORE UPDATE ON public.ml_baseline_statistics FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: onboarding_restrictions update_onboarding_restrictions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -29115,6 +29847,20 @@ CREATE TRIGGER update_onchain_identities_timestamp BEFORE UPDATE ON public.oncha
 --
 
 CREATE TRIGGER update_onchain_issuers_timestamp BEFORE UPDATE ON public.onchain_issuers FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
+
+--
+-- Name: operator_status update_operator_status_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_operator_status_updated_at BEFORE UPDATE ON public.operator_status FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: organization_details update_organization_details_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_organization_details_updated_at BEFORE UPDATE ON public.organization_details FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -29220,6 +29966,13 @@ CREATE TRIGGER update_ripple_payments_updated_at BEFORE UPDATE ON public.ripple_
 --
 
 CREATE TRIGGER update_risk_assessments_updated_at BEFORE UPDATE ON public.risk_assessments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: risk_thresholds update_risk_thresholds_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_risk_thresholds_updated_at BEFORE UPDATE ON public.risk_thresholds FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -29353,6 +30106,13 @@ CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON public.transactio
 --
 
 CREATE TRIGGER update_user_sidebar_preferences_updated_at BEFORE UPDATE ON public.user_sidebar_preferences FOR EACH ROW EXECUTE FUNCTION public.update_user_sidebar_preferences_updated_at();
+
+
+--
+-- Name: user_verifications update_user_verifications_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_user_verifications_updated_at BEFORE UPDATE ON public.user_verifications FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -30838,6 +31598,14 @@ ALTER TABLE ONLY public.onchain_verification_history
 
 
 --
+-- Name: operation_metadata operation_metadata_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operation_metadata
+    ADD CONSTRAINT operation_metadata_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id) ON DELETE CASCADE;
+
+
+--
 -- Name: operation_validations operation_validations_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -31394,6 +32162,14 @@ ALTER TABLE ONLY public.subscriptions
 
 ALTER TABLE ONLY public.subscriptions
     ADD CONSTRAINT subscriptions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: threshold_breaches threshold_breaches_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.threshold_breaches
+    ADD CONSTRAINT threshold_breaches_operation_id_fkey FOREIGN KEY (operation_id) REFERENCES public.token_operations(id);
 
 
 --
@@ -32262,6 +33038,24 @@ CREATE POLICY "Users can view their wallet proposals" ON public.multi_sig_propos
 
 
 --
+-- Name: authorized_activities; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.authorized_activities ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: authorized_signatories; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.authorized_signatories ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: blacklisted_addresses; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.blacklisted_addresses ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: climate_risk_calculations; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -32296,6 +33090,24 @@ CREATE POLICY climate_user_data_sources_user_policy ON public.climate_user_data_
 
 
 --
+-- Name: compliance_alerts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.compliance_alerts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: critical_alerts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.critical_alerts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: dashboard_updates; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.dashboard_updates ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: data_source_mappings; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -32309,6 +33121,12 @@ CREATE POLICY data_source_mappings_user_policy ON public.data_source_mappings US
    FROM public.climate_user_data_sources
   WHERE (climate_user_data_sources.user_id = auth.uid()))));
 
+
+--
+-- Name: ml_baseline_statistics; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.ml_baseline_statistics ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: multi_sig_audit_log; Type: ROW SECURITY; Schema: public; Owner: -
@@ -32329,6 +33147,24 @@ ALTER TABLE public.multi_sig_configurations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: operation_metadata; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.operation_metadata ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: operator_status; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.operator_status ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: organization_details; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organization_details ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: project_organization_assignments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -32345,6 +33181,24 @@ ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.regulatory_exemptions ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: regulatory_registrations; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.regulatory_registrations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: regulatory_reports; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.regulatory_reports ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: remediation_actions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.remediation_actions ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: ripple_dex_orders; Type: ROW SECURITY; Schema: public; Owner: -
@@ -32553,6 +33407,12 @@ CREATE POLICY ripple_trust_owner_all ON public.ripple_trust_lines USING ((owner_
 
 
 --
+-- Name: risk_thresholds; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.risk_thresholds ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: sidebar_configurations; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -32577,10 +33437,34 @@ ALTER TABLE public.sidebar_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.signer_keys ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: suspicious_activity_reports; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.suspicious_activity_reports ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: threshold_breaches; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.threshold_breaches ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: user_sidebar_preferences; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.user_sidebar_preferences ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: user_verifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: violation_patterns; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.violation_patterns ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -32767,6 +33651,16 @@ GRANT ALL ON FUNCTION public.calculate_batch_climate_risk(p_receivable_ids uuid[
 GRANT ALL ON FUNCTION public.calculate_batch_climate_risk(p_receivable_ids uuid[], p_calculation_metadata jsonb) TO authenticated;
 GRANT ALL ON FUNCTION public.calculate_batch_climate_risk(p_receivable_ids uuid[], p_calculation_metadata jsonb) TO service_role;
 GRANT ALL ON FUNCTION public.calculate_batch_climate_risk(p_receivable_ids uuid[], p_calculation_metadata jsonb) TO prisma;
+
+
+--
+-- Name: FUNCTION calculate_daily_compliance_metrics(target_date date); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.calculate_daily_compliance_metrics(target_date date) TO anon;
+GRANT ALL ON FUNCTION public.calculate_daily_compliance_metrics(target_date date) TO authenticated;
+GRANT ALL ON FUNCTION public.calculate_daily_compliance_metrics(target_date date) TO service_role;
+GRANT ALL ON FUNCTION public.calculate_daily_compliance_metrics(target_date date) TO prisma;
 
 
 --
@@ -34460,6 +35354,16 @@ GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) 
 
 
 --
+-- Name: TABLE _migrations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO prisma;
+
+
+--
 -- Name: TABLE distributions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -34650,6 +35554,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.au
 
 
 --
+-- Name: TABLE authorized_activities; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO prisma;
+
+
+--
+-- Name: TABLE authorized_signatories; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO prisma;
+
+
+--
 -- Name: TABLE batch_operations; Type: ACL; Schema: public; Owner: -
 --
 
@@ -34657,6 +35581,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ba
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO prisma;
+
+
+--
+-- Name: TABLE blacklisted_addresses; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO prisma;
 
 
 --
@@ -34990,6 +35924,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.co
 
 
 --
+-- Name: TABLE compliance_alerts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO prisma;
+
+
+--
 -- Name: TABLE compliance_audit_logs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -35067,6 +36011,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cr
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO prisma;
+
+
+--
+-- Name: TABLE critical_alerts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO prisma;
+
+
+--
+-- Name: TABLE dashboard_updates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO prisma;
 
 
 --
@@ -35910,6 +36874,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mf
 
 
 --
+-- Name: TABLE ml_baseline_statistics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO prisma;
+
+
+--
 -- Name: TABLE monitoring_metrics; Type: ACL; Schema: public; Owner: -
 --
 
@@ -36270,6 +37244,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.on
 
 
 --
+-- Name: TABLE operation_metadata; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO prisma;
+
+
+--
 -- Name: TABLE operation_validations; Type: ACL; Schema: public; Owner: -
 --
 
@@ -36277,6 +37261,26 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.op
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO prisma;
+
+
+--
+-- Name: TABLE operator_status; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO prisma;
+
+
+--
+-- Name: TABLE organization_details; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO prisma;
 
 
 --
@@ -36760,6 +37764,36 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.re
 
 
 --
+-- Name: TABLE regulatory_registrations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO prisma;
+
+
+--
+-- Name: TABLE regulatory_reports; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO prisma;
+
+
+--
+-- Name: TABLE remediation_actions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO prisma;
+
+
+--
 -- Name: TABLE renewable_energy_credits; Type: ACL; Schema: public; Owner: -
 --
 
@@ -36877,6 +37911,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ri
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO prisma;
+
+
+--
+-- Name: TABLE risk_thresholds; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO prisma;
 
 
 --
@@ -37140,6 +38184,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.su
 
 
 --
+-- Name: TABLE suspicious_activity_reports; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO prisma;
+
+
+--
 -- Name: TABLE system_processes; Type: ACL; Schema: public; Owner: -
 --
 
@@ -37187,6 +38241,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sy
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO prisma;
+
+
+--
+-- Name: TABLE threshold_breaches; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO prisma;
 
 
 --
@@ -37870,6 +38934,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.us
 
 
 --
+-- Name: TABLE user_verifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO prisma;
+
+
+--
 -- Name: TABLE valid_policy_approvers; Type: ACL; Schema: public; Owner: -
 --
 
@@ -37897,6 +38971,16 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.va
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO authenticated;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO service_role;
 GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO prisma;
+
+
+--
+-- Name: TABLE violation_patterns; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO anon;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO service_role;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO prisma;
 
 
 --
@@ -38137,5 +39221,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0767UpSCRfqfeqkVjHu1wRKElGzmoYb2WoBCBkxaiKYS4LmAIhusChl4CBr3LyQ
+\unrestrict YkC9R9k8tSHKrUThqnwMmszcOjTUMbWKnQLtS4pDLV3eCvEFKLbRaMmlgAalHwx
 

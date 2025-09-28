@@ -15,6 +15,7 @@ export type {
   OperationResult,
   OperationError,
   PolicyValidationSummary,
+  PolicyValidationMetadata,
   GasEstimate,
   TransactionResult,
   OperationValidator,

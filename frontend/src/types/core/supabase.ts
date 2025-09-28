@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _migrations: {
+        Row: {
+          executed_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          executed_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          executed_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       alerts: {
         Row: {
           assignee: string | null
@@ -673,6 +691,66 @@ export type Database = {
         }
         Relationships: []
       }
+      authorized_activities: {
+        Row: {
+          active: boolean | null
+          activity_name: string
+          authorized_at: string | null
+          category: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+        }
+        Insert: {
+          active?: boolean | null
+          activity_name: string
+          authorized_at?: string | null
+          category?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+        }
+        Update: {
+          active?: boolean | null
+          activity_name?: string
+          authorized_at?: string | null
+          category?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      authorized_signatories: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          digital_signature: string | null
+          id: string
+          name: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          digital_signature?: string | null
+          id?: string
+          name: string
+          role: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          digital_signature?: string | null
+          id?: string
+          name?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       batch_operations: {
         Row: {
           call_data: string
@@ -719,6 +797,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      blacklisted_addresses: {
+        Row: {
+          added_at: string | null
+          added_by: string | null
+          address: string
+          created_at: string | null
+          id: string
+          reason: string | null
+          severity: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          added_by?: string | null
+          address: string
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          severity?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          added_by?: string | null
+          address?: string
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          severity?: string | null
+        }
+        Relationships: []
       }
       bond_products: {
         Row: {
@@ -2227,6 +2335,45 @@ export type Database = {
           },
         ]
       }
+      compliance_alerts: {
+        Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          message: string
+          severity: string
+          timestamp: string
+          type: string
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message: string
+          severity: string
+          timestamp: string
+          type: string
+        }
+        Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string
+          severity?: string
+          timestamp?: string
+          type?: string
+        }
+        Relationships: []
+      }
       compliance_audit_logs: {
         Row: {
           audit_trail: Json
@@ -2559,6 +2706,81 @@ export type Database = {
           performed_at?: string | null
           performed_by?: string | null
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      critical_alerts: {
+        Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string | null
+          details: Json | null
+          escalated: boolean | null
+          escalation_level: number | null
+          id: string
+          message: string
+          notification_channels: string[] | null
+          severity: string | null
+          timestamp: string
+          type: string
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string | null
+          details?: Json | null
+          escalated?: boolean | null
+          escalation_level?: number | null
+          id?: string
+          message: string
+          notification_channels?: string[] | null
+          severity?: string | null
+          timestamp: string
+          type: string
+        }
+        Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string | null
+          details?: Json | null
+          escalated?: boolean | null
+          escalation_level?: number | null
+          id?: string
+          message?: string
+          notification_channels?: string[] | null
+          severity?: string | null
+          timestamp?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      dashboard_updates: {
+        Row: {
+          compliance_status: Json | null
+          created_at: string | null
+          id: string
+          operation_id: string | null
+          timestamp: string | null
+          violations: number | null
+        }
+        Insert: {
+          compliance_status?: Json | null
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          timestamp?: string | null
+          violations?: number | null
+        }
+        Update: {
+          compliance_status?: Json | null
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          timestamp?: string | null
+          violations?: number | null
         }
         Relationships: []
       }
@@ -7319,6 +7541,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ml_baseline_statistics: {
+        Row: {
+          created_at: string | null
+          id: string
+          operator: string
+          statistics: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          operator: string
+          statistics: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          operator?: string
+          statistics?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       monitoring_metrics: {
         Row: {
           created_at: string | null
@@ -8974,6 +9220,44 @@ export type Database = {
           },
         ]
       }
+      operation_metadata: {
+        Row: {
+          created_at: string | null
+          execution_context: Json | null
+          gas_estimate: Json | null
+          id: string
+          operation_id: string | null
+          performance_metrics: Json | null
+          simulation_result: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          execution_context?: Json | null
+          gas_estimate?: Json | null
+          id?: string
+          operation_id?: string | null
+          performance_metrics?: Json | null
+          simulation_result?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          execution_context?: Json | null
+          gas_estimate?: Json | null
+          id?: string
+          operation_id?: string | null
+          performance_metrics?: Json | null
+          simulation_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_metadata_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: true
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operation_validations: {
         Row: {
           created_at: string | null
@@ -9031,6 +9315,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      operator_status: {
+        Row: {
+          blocked_at: string | null
+          blocked_reason: string | null
+          blocked_until: string | null
+          created_at: string | null
+          id: string
+          operator: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          blocked_until?: string | null
+          created_at?: string | null
+          id?: string
+          operator: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          blocked_until?: string | null
+          created_at?: string | null
+          id?: string
+          operator?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      organization_details: {
+        Row: {
+          address: Json | null
+          contact: Json | null
+          created_at: string | null
+          id: string
+          jurisdiction: string | null
+          name: string
+          registration_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: Json | null
+          contact?: Json | null
+          created_at?: string | null
+          id?: string
+          jurisdiction?: string | null
+          name: string
+          registration_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: Json | null
+          contact?: Json | null
+          created_at?: string | null
+          id?: string
+          jurisdiction?: string | null
+          name?: string
+          registration_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       organizations: {
         Row: {
@@ -11776,6 +12126,111 @@ export type Database = {
         }
         Relationships: []
       }
+      regulatory_registrations: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          issued_at: string | null
+          issued_by: string | null
+          registration_number: string | null
+          status: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          issued_at?: string | null
+          issued_by?: string | null
+          registration_number?: string | null
+          status?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          issued_at?: string | null
+          issued_by?: string | null
+          registration_number?: string | null
+          status?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
+      regulatory_reports: {
+        Row: {
+          attestation: Json | null
+          compliance_status: Json | null
+          created_at: string | null
+          id: string
+          jurisdiction: string
+          remediation_actions: Json[] | null
+          reporting_period_end: string
+          reporting_period_start: string
+          submission_details: Json | null
+          type: string
+          violations: Json[] | null
+        }
+        Insert: {
+          attestation?: Json | null
+          compliance_status?: Json | null
+          created_at?: string | null
+          id?: string
+          jurisdiction: string
+          remediation_actions?: Json[] | null
+          reporting_period_end: string
+          reporting_period_start: string
+          submission_details?: Json | null
+          type: string
+          violations?: Json[] | null
+        }
+        Update: {
+          attestation?: Json | null
+          compliance_status?: Json | null
+          created_at?: string | null
+          id?: string
+          jurisdiction?: string
+          remediation_actions?: Json[] | null
+          reporting_period_end?: string
+          reporting_period_start?: string
+          submission_details?: Json | null
+          type?: string
+          violations?: Json[] | null
+        }
+        Relationships: []
+      }
+      remediation_actions: {
+        Row: {
+          action_description: string
+          completion_date: string | null
+          created_at: string | null
+          id: string
+          responsible_party: string | null
+          status: string | null
+          violation_id: string
+        }
+        Insert: {
+          action_description: string
+          completion_date?: string | null
+          created_at?: string | null
+          id?: string
+          responsible_party?: string | null
+          status?: string | null
+          violation_id: string
+        }
+        Update: {
+          action_description?: string
+          completion_date?: string | null
+          created_at?: string | null
+          id?: string
+          responsible_party?: string | null
+          status?: string | null
+          violation_id?: string
+        }
+        Relationships: []
+      }
       renewable_energy_credits: {
         Row: {
           asset_id: string | null
@@ -12395,6 +12850,36 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      risk_thresholds: {
+        Row: {
+          amount_critical: number | null
+          amount_high: number | null
+          created_at: string | null
+          frequency_critical: number | null
+          frequency_high: number | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount_critical?: number | null
+          amount_high?: number | null
+          created_at?: string | null
+          frequency_critical?: number | null
+          frequency_high?: number | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount_critical?: number | null
+          amount_high?: number | null
+          created_at?: string | null
+          frequency_critical?: number | null
+          frequency_high?: number | null
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -13934,6 +14419,48 @@ export type Database = {
           },
         ]
       }
+      suspicious_activity_reports: {
+        Row: {
+          created_at: string | null
+          filed_at: string | null
+          filing_date: string
+          id: string
+          involved_parties: Json[] | null
+          narrative: string | null
+          operation_id: string | null
+          recommendations: string[] | null
+          status: string | null
+          suspicious_activity: Json
+          transaction_details: Json[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          filed_at?: string | null
+          filing_date: string
+          id?: string
+          involved_parties?: Json[] | null
+          narrative?: string | null
+          operation_id?: string | null
+          recommendations?: string[] | null
+          status?: string | null
+          suspicious_activity: Json
+          transaction_details?: Json[] | null
+        }
+        Update: {
+          created_at?: string | null
+          filed_at?: string | null
+          filing_date?: string
+          id?: string
+          involved_parties?: Json[] | null
+          narrative?: string | null
+          operation_id?: string | null
+          recommendations?: string[] | null
+          status?: string | null
+          suspicious_activity?: Json
+          transaction_details?: Json[] | null
+        }
+        Relationships: []
+      }
       system_processes: {
         Row: {
           cancellable: boolean | null
@@ -14002,6 +14529,47 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      threshold_breaches: {
+        Row: {
+          actual_value: number | null
+          breach_type: string
+          created_at: string | null
+          id: string
+          operation_id: string | null
+          operator: string | null
+          severity: string
+          threshold_value: number | null
+        }
+        Insert: {
+          actual_value?: number | null
+          breach_type: string
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          operator?: string | null
+          severity: string
+          threshold_value?: number | null
+        }
+        Update: {
+          actual_value?: number | null
+          breach_type?: string
+          created_at?: string | null
+          id?: string
+          operation_id?: string | null
+          operator?: string | null
+          severity?: string
+          threshold_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "threshold_breaches_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "token_operations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       token_allocations: {
         Row: {
@@ -20981,6 +21549,45 @@ export type Database = {
           },
         ]
       }
+      user_verifications: {
+        Row: {
+          aml_verified: boolean | null
+          aml_verified_at: string | null
+          created_at: string | null
+          documents: Json | null
+          id: string
+          kyc_verified: boolean | null
+          kyc_verified_at: string | null
+          updated_at: string | null
+          user_id: string
+          verification_level: string | null
+        }
+        Insert: {
+          aml_verified?: boolean | null
+          aml_verified_at?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          id?: string
+          kyc_verified?: boolean | null
+          kyc_verified_at?: string | null
+          updated_at?: string | null
+          user_id: string
+          verification_level?: string | null
+        }
+        Update: {
+          aml_verified?: boolean | null
+          aml_verified_at?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          id?: string
+          kyc_verified?: boolean | null
+          kyc_verified_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+          verification_level?: string | null
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           auth_id: string | null
@@ -21082,6 +21689,48 @@ export type Database = {
           expires_at?: string
           hit_count?: number | null
           validation_result?: Json
+        }
+        Relationships: []
+      }
+      violation_patterns: {
+        Row: {
+          count: number
+          created_at: string | null
+          detected_at: string
+          first_occurrence: string | null
+          id: string
+          last_occurrence: string | null
+          operator: string
+          pattern_type: string
+          severity: string
+          timeframe: number | null
+          violation_ids: string[] | null
+        }
+        Insert: {
+          count: number
+          created_at?: string | null
+          detected_at: string
+          first_occurrence?: string | null
+          id?: string
+          last_occurrence?: string | null
+          operator: string
+          pattern_type: string
+          severity: string
+          timeframe?: number | null
+          violation_ids?: string[] | null
+        }
+        Update: {
+          count?: number
+          created_at?: string | null
+          detected_at?: string
+          first_occurrence?: string | null
+          id?: string
+          last_occurrence?: string | null
+          operator?: string
+          pattern_type?: string
+          severity?: string
+          timeframe?: number | null
+          violation_ids?: string[] | null
         }
         Relationships: []
       }
@@ -23130,6 +23779,10 @@ export type Database = {
           risk_score: number
           status: string
         }[]
+      }
+      calculate_daily_compliance_metrics: {
+        Args: { target_date: string }
+        Returns: undefined
       }
       calculate_portfolio_climate_valuation: {
         Args: { p_calculation_mode?: string; p_receivable_ids: string[] }

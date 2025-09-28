@@ -51,7 +51,7 @@ export class CryptoOperationGateway {
       // 2. Policy evaluation
       const policyResult = await this.evaluatePoliciesForRequest(request);
       if (!policyResult.allowed) {
-        return this.buildRejectionResult(operationId, policyResult);
+        return this.buildRejectionResult(operationId, policyResult, request);
       }
       
       // 3. Gas estimation
@@ -68,7 +68,7 @@ export class CryptoOperationGateway {
         success: true,
         transactionHash: txResult.hash,
         operationId,
-        policyValidation: this.summarizePolicyValidation(policyResult),
+        policyValidation: this.summarizePolicyValidation(policyResult, request),
         gasUsed: txResult.gasUsed?.toString(),
         timestamp: new Date().toISOString(),
         blockNumber: txResult.blockNumber,
@@ -247,12 +247,13 @@ export class CryptoOperationGateway {
    */
   private buildRejectionResult(
     operationId: string, 
-    policyResult: PolicyEvaluationResult
+    policyResult: PolicyEvaluationResult,
+    request: OperationRequest
   ): OperationResult {
     return {
       success: false,
       operationId,
-      policyValidation: this.summarizePolicyValidation(policyResult),
+      policyValidation: this.summarizePolicyValidation(policyResult, request),
       timestamp: new Date().toISOString(),
       error: {
         code: 'POLICY_VIOLATION',
@@ -285,7 +286,16 @@ export class CryptoOperationGateway {
         allowed: false,
         policiesEvaluated: 0,
         violations: [],
-        warnings: []
+        warnings: [],
+        metadata: {
+          operator: request.parameters.from || this.getCurrentUser(),
+          amount: request.parameters.amount,
+          operationType: request.type,
+          chainId: request.chain,
+          tokenAddress: request.tokenAddress,
+          recipient: request.parameters.to,
+          sender: request.parameters.from
+        }
       },
       timestamp: new Date().toISOString(),
       error: errorObj
@@ -293,15 +303,34 @@ export class CryptoOperationGateway {
   }
   
   /**
-   * Summarize policy validation
+   * Summarize policy validation with operation context
    */
-  private summarizePolicyValidation(result: PolicyEvaluationResult): PolicyValidationSummary {
+  private summarizePolicyValidation(
+    result: PolicyEvaluationResult, 
+    request?: OperationRequest
+  ): PolicyValidationSummary {
+    const metadata: any = {
+      score: result.metadata?.score as number | undefined
+    };
+
+    // Add operation context if request is provided
+    if (request) {
+      metadata.operator = request.parameters.from || this.getCurrentUser();
+      metadata.amount = request.parameters.amount;
+      metadata.operationType = request.type;
+      metadata.chainId = request.chain;
+      metadata.tokenAddress = request.tokenAddress;
+      metadata.recipient = request.parameters.to;
+      metadata.sender = request.parameters.from;
+    }
+
     return {
       allowed: result.allowed,
       policiesEvaluated: result.policies?.length || 0,
       violations: result.violations?.map(v => v.description) || [],
       warnings: result.warnings || [],
-      score: result.metadata?.score as number | undefined
+      score: metadata.score,
+      metadata
     };
   }
   

@@ -74,6 +74,19 @@ export interface PolicyValidationSummary {
   violations: string[];
   warnings: string[];
   score?: number;
+  metadata?: PolicyValidationMetadata;
+}
+
+// Policy Validation Metadata
+export interface PolicyValidationMetadata {
+  operator?: string;
+  amount?: string | bigint;
+  operationType?: string;
+  chainId?: string;
+  tokenAddress?: string;
+  recipient?: string;
+  sender?: string;
+  [key: string]: any; // Allow additional metadata fields
 }
 
 // Operation Error
