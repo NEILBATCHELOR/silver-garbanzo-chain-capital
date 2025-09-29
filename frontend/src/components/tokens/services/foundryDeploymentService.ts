@@ -10,6 +10,7 @@ import { providerManager, NetworkEnvironment } from '@/infrastructure/web3/Provi
 import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
 import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
+import type { ProjectCredential } from '@/types/credentials';
 import { 
   FoundryDeploymentParams, 
   FoundryTokenConfig, 
@@ -84,6 +85,59 @@ const FACTORY_ADDRESSES: Record<string, Record<string, string>> = {
  * Foundry-based token deployment service
  */
 export class FoundryDeploymentService {
+  /**
+   * Initialize Key Vault connection with proper credentials
+   */
+  private async initializeKeyVault(): Promise<void> {
+    try {
+      // Check if already connected by attempting to get a test key
+      try {
+        await keyVaultClient.getKey('test-connection');
+        return; // Already connected
+      } catch {
+        // Not connected, proceed with initialization
+      }
+      
+      // Create minimal credentials for development
+      const credentials: ProjectCredential = {
+        id: 'foundry-deployment-credentials',
+        name: 'Foundry Deployment Key Vault',
+        service: 'local',
+        config: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      await keyVaultClient.connect(credentials);
+    } catch (error) {
+      console.error('Failed to initialize key vault:', error);
+      throw new Error('Key vault initialization failed');
+    }
+  }
+
+  /**
+   * Get the latest key ID from the secure_keys table
+   */
+  private async getLatestKeyId(): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('secure_keys')
+        .select('key_id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (error || !data) {
+        throw new Error('No keys found in vault');
+      }
+      
+      return data.key_id;
+    } catch (error) {
+      console.error('Failed to get latest key ID:', error);
+      throw new Error('Failed to retrieve key from vault');
+    }
+  }
+
   /**
    * Encode Enhanced ERC721 configuration for contract deployment
    */
@@ -201,15 +255,21 @@ export class FoundryDeploymentService {
   async deployToken(
     params: FoundryDeploymentParams,
     userId: string,
-    keyId: string
+    keyId?: string // Made optional - will auto-fetch if not provided
   ): Promise<DeploymentResult> {
     try {
+      // Initialize key vault connection
+      await this.initializeKeyVault();
+      
+      // Get the key ID - either from parameter or fetch latest
+      const vaultKeyId = keyId || await this.getLatestKeyId();
+      
       // Get wallet key from key vault
-      const keyData = await keyVaultClient.getKey(keyId);
+      const keyData = await keyVaultClient.getKey(vaultKeyId);
       const privateKey = typeof keyData === 'string' ? keyData : keyData.privateKey;
       
       if (!privateKey) {
-        throw new Error(`Private key not found for keyId: ${keyId}`);
+        throw new Error(`Private key not found for keyId: ${vaultKeyId}`);
       }
 
       // Get provider for the target blockchain

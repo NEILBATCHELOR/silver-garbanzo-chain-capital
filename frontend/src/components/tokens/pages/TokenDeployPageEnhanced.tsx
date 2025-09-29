@@ -494,6 +494,7 @@ const TokenDeployPageEnhanced: React.FC = () => {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <TokenDeploymentFormProjectWalletIntegrated
+                        tokenId={tokenId || ''} // ADD: Pass tokenId from URL params
                         tokenConfig={{
                           name: token.name,
                           symbol: token.symbol,

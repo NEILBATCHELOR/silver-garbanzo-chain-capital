@@ -30,7 +30,7 @@ export function mapToFoundryERC20Config(
     name: tokenData.name || 'Unnamed Token',
     symbol: tokenData.symbol || 'UNK',
     decimals: parseInt(blocks.decimals || erc20Properties.decimals || '18'),
-    initialSupply: blocks.initialSupply || erc20Properties.initialSupply || '0',
+    initialSupply: blocks.initialSupply || blocks.initial_supply || erc20Properties.initialSupply || tokenData.total_supply || '0',
     maxSupply: blocks.maxSupply || erc20Properties.maxSupply || '0',
     transfersPaused: Boolean(blocks.transfersPaused || erc20Properties.transfersPaused),
     mintingEnabled: Boolean(blocks.mintingEnabled ?? erc20Properties.mintingEnabled ?? true),

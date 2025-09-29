@@ -86,6 +86,23 @@ export const enhancedTokenDeploymentService = {
       const tokenConfig = token.blocks || {};
       const tokenStandard = token.standard as TokenStandard;
       
+      // Normalize configuration: Ensure required fields are set from token record or blocks
+      // Name and Symbol - use token record if not in blocks
+      if (!tokenConfig.name) {
+        tokenConfig.name = token.name;
+      }
+      if (!tokenConfig.symbol) {
+        tokenConfig.symbol = token.symbol;
+      }
+      // Decimals - default to 18 if not specified
+      if (tokenConfig.decimals === undefined && tokenStandard === 'ERC-20') {
+        tokenConfig.decimals = token.decimals || 18;
+      }
+      // InitialSupply - Priority: blocks.initialSupply > blocks.initial_supply > token.total_supply
+      if (!tokenConfig.initialSupply) {
+        tokenConfig.initialSupply = tokenConfig.initial_supply || token.total_supply || '0';
+      }
+      
       // Validate token configuration
       const validationResult = validateTokenConfiguration(tokenConfig, tokenStandard);
       
@@ -210,7 +227,8 @@ export const enhancedTokenDeploymentService = {
       };
       
       // Deploy using Foundry service
-      return await foundryDeploymentService.deployToken(deploymentParams, userId, userId);
+      // Note: keyId is optional and will auto-fetch from secure_keys table
+      return await foundryDeploymentService.deployToken(deploymentParams, userId);
     } catch (error) {
       console.error('Foundry deployment failed:', error);
       
@@ -269,6 +287,23 @@ export const enhancedTokenDeploymentService = {
       // Parse token configuration from blocks
       const tokenConfig = token.blocks || {};
       const tokenStandard = token.standard as TokenStandard;
+      
+      // Normalize configuration: Ensure required fields are set from token record or blocks
+      // Name and Symbol - use token record if not in blocks
+      if (!tokenConfig.name) {
+        tokenConfig.name = token.name;
+      }
+      if (!tokenConfig.symbol) {
+        tokenConfig.symbol = token.symbol;
+      }
+      // Decimals - default to 18 if not specified
+      if (tokenConfig.decimals === undefined && tokenStandard === 'ERC-20') {
+        tokenConfig.decimals = token.decimals || 18;
+      }
+      // InitialSupply - Priority: blocks.initialSupply > blocks.initial_supply > token.total_supply
+      if (!tokenConfig.initialSupply) {
+        tokenConfig.initialSupply = tokenConfig.initial_supply || token.total_supply || '0';
+      }
       
       // Validate token configuration
       const validationResult = validateTokenConfiguration(tokenConfig, tokenStandard);

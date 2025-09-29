@@ -51,6 +51,7 @@ import { tokenProjectWalletIntegrationService, TokenWalletIntegrationResult } fr
 import { useToast } from '@/components/ui/use-toast';
 import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
 import { FeePriority } from '@/services/blockchain/FeeEstimator';
+import { supabase } from '@/infrastructure/database/client'; // ✅ ADD: Import Supabase client
 
 // Utility function for conditional class names
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -73,6 +74,7 @@ export interface TokenConfig {
 }
 
 interface TokenDeploymentFormProjectWalletIntegratedProps {
+  tokenId: string; // ✅ ADD: Token ID from URL params
   tokenConfig: TokenConfig;
   projectId: string;
   projectName?: string;
@@ -90,6 +92,7 @@ interface TokenDeploymentFormProjectWalletIntegratedProps {
 }
 
 const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormProjectWalletIntegratedProps> = ({
+  tokenId, // ✅ ADD: Extract tokenId prop
   tokenConfig,
   projectId,
   projectName = 'Chain Capital Project',
@@ -129,6 +132,9 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
   const [copiedPrivateKey, setCopiedPrivateKey] = useState<boolean>(false);
   
+  // ✅ ADD: Auth state
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
   // Gas configuration state
   const [gasConfigMode, setGasConfigMode] = useState<'estimator' | 'manual'>('estimator');
   const [gasPrice, setGasPrice] = useState<string>(parentGasPrice || '20'); // Default 20 Gwei or use parent value
@@ -140,6 +146,30 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [maxFeePerGas, setMaxFeePerGas] = useState<string>(parentMaxFeePerGas || '');
   const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>(parentMaxPriorityFeePerGas || '');
   const [isEIP1559Network, setIsEIP1559Network] = useState<boolean>(false);
+  
+  // ✅ ADD: Fetch current user on component mount
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('Error fetching current user:', error);
+          setError('Unable to authenticate user. Please log in again.');
+          return;
+        }
+        if (user) {
+          setCurrentUserId(user.id);
+        } else {
+          setError('No authenticated user found. Please log in.');
+        }
+      } catch (err) {
+        console.error('Error in fetchCurrentUser:', err);
+        setError('Authentication error occurred.');
+      }
+    };
+    
+    fetchCurrentUser();
+  }, []); // Run once on mount
   
   // Get network details when blockchain or environment changes
   useEffect(() => {
@@ -414,6 +444,12 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       return;
     }
     
+    // ✅ ADD: Validate user authentication
+    if (!currentUserId) {
+      setError('User authentication required. Please log in and try again.');
+      return;
+    }
+    
     setShowConfirmation(false);
     
     try {
@@ -422,14 +458,15 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       
       console.log(`Deploying token to ${blockchain} (${environment}) with optimization: ${useOptimization}`);
       console.log(`Using wallet: ${walletAddress}`);
+      console.log(`Token ID: ${tokenId}, User ID: ${currentUserId}`); // ✅ ADD: Debug log
       
       if (useOptimization) {
         // ✅ Use unified deployment service with optimization
         // Note: Wallet information is handled internally by the deployment service
         // through the tokenProjectWalletIntegrationService that was called earlier
         const result = await unifiedTokenDeploymentService.deployToken(
-          'token-id-placeholder', // You'll need to pass actual token ID
-          'current-user-id', // You'll need to get from auth context
+          tokenId, // ✅ FIXED: Use real token ID from props
+          currentUserId, // ✅ FIXED: Use real user ID from auth
           projectId,
           {
             useOptimization: true,
@@ -447,8 +484,8 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       } else {
         // ✅ Use enhanced deployment service without optimization
         const result = await enhancedTokenDeploymentService.deployToken(
-          'token-id-placeholder',
-          'current-user-id',
+          tokenId, // ✅ FIXED: Use real token ID from props
+          currentUserId, // ✅ FIXED: Use real user ID from auth
           projectId
         );
         

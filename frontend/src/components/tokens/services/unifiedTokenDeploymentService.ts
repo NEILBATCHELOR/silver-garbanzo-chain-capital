@@ -1399,7 +1399,7 @@ export class UnifiedTokenDeploymentService {
           ...baseConfig,
           ...(normalizedStandard === 'ERC20' && {
             decimals: blocks.decimals || 18,
-            initialSupply: blocks.initialSupply || '1000000',
+            initialSupply: blocks.initialSupply || blocks.initial_supply || token.total_supply || '1000000',
             maxSupply: blocks.maxSupply
           }),
           ...(normalizedStandard === 'ERC721' && {

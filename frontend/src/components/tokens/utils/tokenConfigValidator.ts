@@ -54,21 +54,57 @@ export const erc20ValidationSchema = baseTokenSchema.extend({
   allowanceManagement: z.boolean().default(false),
   permit: z.boolean().default(false),
   snapshot: z.boolean().default(false),
-  feeOnTransfer: z.boolean().default(false),
-  feePercentage: z.number().min(0).max(100).optional(),
-  feeRecipient: z.string().optional().refine(
-    (val) => {
-      if (!val) return true;
-      return ethers.isAddress(val);
-    },
-    {
-      message: 'Fee recipient must be a valid Ethereum address',
+  feeOnTransfer: z.union([
+    z.boolean(), // For backward compatibility
+    z.object({
+      enabled: z.boolean().default(false),
+      fee: z.number().min(0).max(100).optional(),
+      recipient: z.string().optional().refine(
+        (val) => {
+          if (!val) return true;
+          return ethers.isAddress(val);
+        },
+        {
+          message: 'Fee recipient must be a valid Ethereum address',
+        }
+      )
+    }).refine((data) => {
+      if (data.enabled) {
+        return data.fee && data.recipient;
+      }
+      return true;
+    }, {
+      message: 'Fee percentage and recipient are required when fee on transfer is enabled'
+    })
+  ]).optional().transform((val) => {
+    // Transform boolean to object format for consistency
+    if (typeof val === 'boolean') {
+      return { enabled: val };
     }
-  ),
-  rebasing: z.boolean().default(false),
-  rebasingMode: z.enum(['manual', 'automatic']).optional(),
-  targetSupply: z.string().optional()
-});
+    return val;
+  }),
+  rebasing: z.union([
+    z.boolean(), // For backward compatibility
+    z.object({
+      enabled: z.boolean().default(false),
+      mode: z.enum(['automatic', 'governance']).optional(),
+      targetSupply: z.string().optional()
+    }).refine((data) => {
+      if (data.enabled) {
+        return data.mode;
+      }
+      return true;
+    }, {
+      message: 'Rebasing mode is required when rebasing is enabled'
+    })
+  ]).optional().transform((val) => {
+    // Transform boolean to object format for consistency
+    if (typeof val === 'boolean') {
+      return { enabled: val };
+    }
+    return val;
+  })
+}).passthrough(); // Allow non-critical JSONB fields to pass through without validation
 
 // ERC-721 token validation schema
 export const erc721ValidationSchema = baseTokenSchema.extend({
@@ -90,7 +126,7 @@ export const erc721ValidationSchema = baseTokenSchema.extend({
     }
   ),
   royaltyPercentage: z.number().min(0).max(100).optional()
-});
+}).passthrough(); // Allow non-critical JSONB fields to pass through without validation
 
 // ERC-1155 token validation schema
 export const erc1155ValidationSchema = baseTokenSchema.extend({
@@ -113,7 +149,7 @@ export const erc1155ValidationSchema = baseTokenSchema.extend({
     }
   ),
   royaltyPercentage: z.number().min(0).max(100).optional()
-});
+}).passthrough(); // Allow non-critical JSONB fields to pass through without validation
 
 // ERC-3525 token validation schema
 export const erc3525ValidationSchema = baseTokenSchema.extend({
@@ -136,7 +172,7 @@ export const erc3525ValidationSchema = baseTokenSchema.extend({
     }
   ),
   royaltyPercentage: z.number().min(0).max(100).optional()
-});
+}).passthrough(); // Allow non-critical JSONB fields to pass through without validation
 
 // ERC-4626 token validation schema
 export const erc4626ValidationSchema = baseTokenSchema.extend({
@@ -169,7 +205,7 @@ export const erc4626ValidationSchema = baseTokenSchema.extend({
     maxAmount: z.string().optional(),
     periodLength: z.number().min(0).optional()
   }).optional()
-});
+}).passthrough(); // Allow non-critical JSONB fields to pass through without validation
 
 // ERC-1400 token validation schema
 export const erc1400ValidationSchema = baseTokenSchema.extend({
@@ -204,7 +240,7 @@ export const erc1400ValidationSchema = baseTokenSchema.extend({
     }
   )).optional(),
   partitions: z.array(z.string()).optional()
-});
+}).passthrough(); // Allow non-critical JSONB fields to pass through without validation
 
 /**
  * Validate token configuration based on token standard
@@ -300,21 +336,33 @@ export function checkTokenSecurityVulnerabilities(config: any, standard: TokenSt
   switch (standard) {
     case 'ERC-20':
       // Check for fee-on-transfer vulnerabilities
-      if (config.feeOnTransfer && (config.feePercentage > 10)) {
-        findings.push({
-          severity: 'high',
-          issue: 'High transfer fee may lead to user confusion and economic attacks',
-          recommendation: 'Consider reducing the transfer fee to less than 10%'
-        });
+      if (config.feeOnTransfer) {
+        const feeConfig = typeof config.feeOnTransfer === 'boolean' 
+          ? { enabled: config.feeOnTransfer } 
+          : config.feeOnTransfer;
+        
+        if (feeConfig.enabled && feeConfig.fee && feeConfig.fee > 10) {
+          findings.push({
+            severity: 'high',
+            issue: 'High transfer fee may lead to user confusion and economic attacks',
+            recommendation: 'Consider reducing the transfer fee to less than 10%'
+          });
+        }
       }
       
       // Check for rebasing vulnerabilities
-      if (config.rebasing && config.rebasingMode === 'automatic') {
-        findings.push({
-          severity: 'medium',
-          issue: 'Automatic rebasing can cause unexpected behavior in integrations',
-          recommendation: 'Consider using manual rebasing or providing clear documentation for integrators'
-        });
+      if (config.rebasing) {
+        const rebasingConfig = typeof config.rebasing === 'boolean' 
+          ? { enabled: config.rebasing } 
+          : config.rebasing;
+        
+        if (rebasingConfig.enabled && rebasingConfig.mode === 'automatic') {
+          findings.push({
+            severity: 'medium',
+            issue: 'Automatic rebasing can cause unexpected behavior in integrations',
+            recommendation: 'Consider using governance-based rebasing or providing clear documentation for integrators'
+          });
+        }
       }
       break;
       
