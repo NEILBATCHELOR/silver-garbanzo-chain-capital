@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Settings } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Settings, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 
-// Import the existing operations components
-import OperationsPanel from '@/components/tokens/operations/OperationsPanel';
-import { getToken } from '@/components/tokens/services/tokenService';
+// Import the PolicyAware operations panel
+import PolicyAwareOperationsPanel from '@/components/tokens/operations/PolicyAwareOperationsPanel';
+import { getToken, getTokens } from '@/components/tokens/services/tokenService';
 import TokenPageLayout from '@/components/tokens/layout/TokenPageLayout';
+import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
 // Types
 interface Token {
@@ -20,8 +21,11 @@ interface Token {
   standard: string;
   status: string;
   address?: string;
+  chain?: string;
   isPaused?: boolean;
   hasPauseFeature?: boolean;
+  hasLockFeature?: boolean;
+  hasBlockFeature?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,19 +35,7 @@ interface TokenOperationsPageProps {}
 /**
  * TokenOperationsPage - Unified interface for all token operations
  * 
- * Replaces the fragmented TokenMintPage approach with a comprehensive
- * operations center that includes:
- * - Mint Operations (all standards)
- * - Burn Operations (all standards)  
- * - Pause/Unpause Operations
- * - Lock Operations
- * - Block Operations (ERC-20, ERC-1400)
- * 
- * Features:
- * - Standard-aware operation visibility
- * - Deployment validation and redirection
- * - Real-time status updates
- * - Comprehensive error handling
+ * Features token selection when no token is specified
  */
 const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
   const { tokenId, projectId } = useParams<{ tokenId: string; projectId?: string }>();
@@ -52,14 +44,48 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
 
   // State management
   const [token, setToken] = useState<Token | null>(null);
+  const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showTokenSelection, setShowTokenSelection] = useState(false);
+
+  // Validate UUID format
+  const isValidUUID = (uuid: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+  };
+
+  // Fetch available tokens for selection
+  const fetchAvailableTokens = async () => {
+    if (!projectId) return;
+    
+    try {
+      const projectTokens = await getTokens(projectId);
+      // Filter for deployed tokens that can have operations performed on them
+      const deployedTokens = projectTokens.filter(t => 
+        t.status === 'deployed' || t.address
+      );
+      setTokens(deployedTokens);
+    } catch (error) {
+      console.error('Error fetching tokens:', error);
+    }
+  };
 
   // Fetch token data
   const fetchTokenData = async () => {
-    if (!tokenId) {
-      setError('Token ID is required');
+    // Check if we need to show token selection
+    if (!tokenId || tokenId === 'select') {
+      setShowTokenSelection(true);
       setLoading(false);
+      await fetchAvailableTokens();
+      return;
+    }
+
+    // Validate tokenId is a proper UUID
+    if (!isValidUUID(tokenId)) {
+      setShowTokenSelection(true);
+      setLoading(false);
+      await fetchAvailableTokens();
       return;
     }
 
@@ -68,329 +94,270 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
       setError(null);
       
       const tokenData = await getToken(tokenId);
-      
+
       if (!tokenData) {
         setError('Token not found');
+        setShowTokenSelection(true);
+        await fetchAvailableTokens();
         return;
       }
 
-      setToken(tokenData as Token);
-    } catch (err) {
-      console.error('Error fetching token:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch token data');
-      
-      toast({
-        title: "Error",
-        description: "Failed to load token data. Please try again.",
-        variant: "destructive",
-      });
+      // Check if token is deployed
+      if (!tokenData.address && tokenData.status !== 'deployed') {
+        setError('This token has not been deployed yet. Please deploy the token first.');
+        toast({
+          title: "Token Not Deployed",
+          description: "Deploy the token to perform operations on it.",
+          variant: "destructive",
+        });
+
+        // Redirect to deployment page
+        setTimeout(() => {
+          navigate(`/projects/${projectId}/tokens/${tokenId}/deploy`);
+        }, 2000);
+        return;
+      }
+
+      setToken(tokenData);
+      setShowTokenSelection(false);
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      setError('Failed to load token data');
+      setShowTokenSelection(true);
+      await fetchAvailableTokens();
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle navigation back to dashboard
-  const handleBackToDashboard = () => {
-    if (projectId) {
-      navigate(`/projects/${projectId}/tokens`);
-    } else {
-      navigate('/tokens');
-    }
-  };
-
-  // Handle navigation to token edit page
-  const handleEditToken = () => {
-    if (projectId) {
-      navigate(`/projects/${projectId}/tokens/${tokenId}/edit`);
-    } else {
-      navigate(`/tokens/${tokenId}/edit`);
-    }
-  };
-
-  // Handle navigation to deployment page
-  const handleDeployToken = () => {
-    if (projectId) {
-      navigate(`/projects/${projectId}/tokens/${tokenId}/deploy`);
-    } else {
-      navigate(`/tokens/${tokenId}/deploy`);
-    }
-  };
-
-  // Initialize component
+  // Load data on mount or when tokenId changes
   useEffect(() => {
     fetchTokenData();
   }, [tokenId]);
 
-  // Refresh token data callback for operations
-  const refreshTokenData = async () => {
-    await fetchTokenData();
+  // Handle token selection
+  const handleTokenSelect = (selectedToken: Token) => {
+    navigate(`/projects/${projectId}/tokens/${selectedToken.id}/operations`);
   };
 
   // Loading state
   if (loading) {
     return (
-      <TokenPageLayout
-        title="Loading Token Operations..."
-        description="Please wait while we load the token operations interface"
-      >
+      <TokenPageLayout>
         <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </TokenPageLayout>
+    );
+  }
+
+  // Token Selection UI
+  if (showTokenSelection) {
+    return (
+      <TokenPageLayout>
+        <div className="container mx-auto p-4 max-w-6xl">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Coins className="h-5 w-5" />
+                Select a Token for Operations
+              </CardTitle>
+              <CardDescription>
+                Choose a deployed token to perform operations on
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {tokens.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No deployed tokens found. Please deploy a token first.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {tokens.map((t) => (
+                    <Card 
+                      key={t.id}
+                      className="cursor-pointer hover:border-primary transition-colors"
+                      onClick={() => handleTokenSelect(t)}
+                    >
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold">{t.name}</h3>
+                            <p className="text-sm text-muted-foreground">{t.symbol}</p>
+                          </div>
+                          <Badge variant="outline">{t.standard}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-1 text-sm">
+                          {t.address && (
+                            <p className="font-mono text-xs truncate">
+                              {t.address}
+                            </p>
+                          )}
+                          {t.chain && (
+                            <p className="text-muted-foreground">
+                              Chain: {t.chain}
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </TokenPageLayout>
     );
   }
 
   // Error state
-  if (error || !token) {
+  if (error) {
     return (
-      <TokenPageLayout
-        title="Token Operations Error"
-        description="Unable to load token operations"
-      >
-        <div className="max-w-2xl mx-auto">
+      <TokenPageLayout>
+        <div className="container mx-auto p-4 max-w-6xl">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error || 'Token not found'}
+              {error}
             </AlertDescription>
           </Alert>
-          
-          <div className="mt-6 flex justify-center">
-            <Button onClick={handleBackToDashboard} variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Token Dashboard
-            </Button>
-          </div>
         </div>
       </TokenPageLayout>
     );
   }
 
-  // Check if token is deployed
-  const isDeployed = !!(token.address && token.address.trim());
-  const canPerformOperations = isDeployed && token.status !== 'DRAFT';
+  // No token state
+  if (!token) {
+    return (
+      <TokenPageLayout>
+        <div className="container mx-auto p-4 max-w-6xl">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              No token data available
+            </AlertDescription>
+          </Alert>
+        </div>
+      </TokenPageLayout>
+    );
+  }
 
+  // Main operations view
   return (
-    <TokenPageLayout
-      title={`Token Operations - ${token.name}`}
-      description={`Manage operations for ${token.symbol} (${token.standard})`}
-    >
-      <div className="space-y-6">
-        {/* Header Section */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button 
-              onClick={handleBackToDashboard} 
-              variant="outline" 
-              size="sm"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            
-            <div>
-              <h1 className="text-2xl font-bold">{token.name} Operations</h1>
-              <p className="text-muted-foreground">
-                {token.symbol} • {token.standard}
-              </p>
+    <TokenPageLayout>
+      <div className="container mx-auto p-4 max-w-7xl">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(`/projects/${projectId}/tokens`)}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Tokens
+              </Button>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/projects/${projectId}/tokens/${tokenId}/deploy`)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Deployment Settings
+            </Button>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Badge 
-              variant={
-                token.status === 'DEPLOYED' ? 'default' :
-                token.status === 'DRAFT' ? 'secondary' :
-                token.status === 'PAUSED' ? 'destructive' :
-                'outline'
-              }
-            >
+          <div className="mt-4">
+            <h1 className="text-3xl font-bold">{token.name} Operations</h1>
+            <p className="text-muted-foreground mt-2">
+              Perform policy-compliant operations on your {token.standard} token
+            </p>
+          </div>
+
+          {/* Token Status */}
+          <div className="flex items-center gap-4 mt-4">
+            <Badge variant={token.status === 'deployed' ? 'success' : 'secondary'}>
               {token.status}
             </Badge>
-            
-            <Button 
-              onClick={handleEditToken} 
-              variant="outline" 
-              size="sm"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Edit Token
-            </Button>
+            <span className="text-sm text-muted-foreground">
+              Symbol: {token.symbol}
+            </span>
+            {token.chain && (
+              <span className="text-sm text-muted-foreground">
+                Chain: {token.chain}
+              </span>
+            )}
+            {token.isPaused && (
+              <Badge variant="destructive">Paused</Badge>
+            )}
           </div>
+
+          {/* Contract Address */}
+          {token.address && (
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Contract Address:</span>
+                <code className="text-sm font-mono">{token.address}</code>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Token Status Card */}
-        <Card>
+        {/* PolicyAware Operations Panel */}
+        <PolicyAwareOperationsPanel
+          tokenId={token.id}
+          tokenName={token.name}
+          tokenSymbol={token.symbol}
+          tokenStandard={token.standard}
+          tokenAddress={token.address}
+          chain={(token.chain as SupportedChain) || 'ethereum'}
+          isDeployed={!!token.address && token.address !== ''}
+        />
+
+        {/* Feature Availability Info */}
+        <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Token Status
-              {token.isPaused && (
-                <Badge variant="destructive">Paused</Badge>
-              )}
-            </CardTitle>
+            <CardTitle>Available Features</CardTitle>
             <CardDescription>
-              Current deployment and operational status
+              Operations available based on token configuration
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <p className="text-lg font-semibold">{token.status}</p>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${true ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm">Mint</span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Standard</p>
-                <p className="text-lg font-semibold">{token.standard}</p>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${true ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm">Burn</span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Deployed</p>
-                <p className="text-lg font-semibold">{isDeployed ? 'Yes' : 'No'}</p>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${true ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm">Transfer</span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Operations</p>
-                <p className="text-lg font-semibold">
-                  {canPerformOperations ? 'Available' : 'Unavailable'}
-                </p>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${token.hasPauseFeature ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm">Pause</span>
               </div>
-            </div>
-            
-            {token.address && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm font-medium text-muted-foreground">Contract Address</p>
-                <p className="text-sm font-mono bg-muted px-2 py-1 rounded mt-1">
-                  {token.address}
-                </p>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${token.hasLockFeature ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm">Lock</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Deployment Required Alert */}
-        {!isDeployed && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="flex items-center justify-between">
-              <span>This token must be deployed to blockchain before operations can be performed.</span>
-              <Button 
-                onClick={handleDeployToken}
-                size="sm"
-                className="ml-4"
-              >
-                Deploy Token
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Operations Panel */}
-        {canPerformOperations ? (
-          <OperationsPanel
-            tokenId={tokenId!}
-            tokenStandard={token.standard}
-            tokenName={token.name}
-            tokenSymbol={token.symbol}
-            isDeployed={isDeployed}
-            isPaused={token.isPaused || false}
-            hasPauseFeature={token.hasPauseFeature || false}
-            refreshTokenData={refreshTokenData}
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Operations Unavailable</CardTitle>
-              <CardDescription>
-                Token operations are not available in the current state
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  {!isDeployed 
-                    ? 'Deploy your token to blockchain to enable operations'
-                    : 'Token operations are currently unavailable'
-                  }
-                </p>
-                {!isDeployed && (
-                  <Button onClick={handleDeployToken}>
-                    Deploy Token
-                  </Button>
-                )}
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${token.hasBlockFeature ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-sm">Block</span>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Help Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Operations</CardTitle>
-            <CardDescription>
-              Operations available for {token.standard} tokens
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Mint Operations */}
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-semibold mb-2">Mint Operations</h4>
-                <p className="text-sm text-muted-foreground">
-                  Create new tokens and distribute to addresses
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Available for all standards
-                </p>
-              </div>
-
-              {/* Burn Operations */}
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-semibold mb-2">Burn Operations</h4>
-                <p className="text-sm text-muted-foreground">
-                  Permanently destroy tokens from circulation
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Available for most standards
-                </p>
-              </div>
-
-              {/* Pause Operations */}
-              {token.hasPauseFeature && (
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold mb-2">Pause Operations</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Emergency pause/unpause token transfers
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Available if pause feature enabled
-                  </p>
-                </div>
-              )}
-
-              {/* Lock Operations */}
-              {['ERC-20', 'ERC-721', 'ERC-1155', 'ERC-1400', 'ERC-3525'].includes(token.standard) && (
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold mb-2">Lock Operations</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Temporarily restrict token transfers
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Available for most standards
-                  </p>
-                </div>
-              )}
-
-              {/* Block Operations */}
-              {['ERC-20', 'ERC-1400'].includes(token.standard) && (
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold mb-2">Block Operations</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Block specific addresses from token interactions
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Available for ERC-20 and ERC-1400
-                  </p>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>

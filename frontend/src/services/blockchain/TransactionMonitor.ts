@@ -1,8 +1,10 @@
 /**
- * Transaction monitoring service with fee estimation capabilities
+ * Transaction monitoring service with REAL-TIME fee estimation capabilities
+ * Now integrated with RealTimeFeeEstimator for actual blockchain data
  */
 
-import { feeEstimator, type FeeData, type FeePriority } from './FeeEstimator';
+import { realTimeFeeEstimator, type FeePriority } from './RealTimeFeeEstimator';
+import type { FeeData } from './RealTimeFeeEstimator';
 
 export interface TransactionStatus {
   status: 'pending' | 'confirmed' | 'failed';
@@ -36,10 +38,10 @@ export class TransactionMonitor {
   private constructor() {}
 
   /**
-   * Get optimal fee data for a transaction
+   * Get optimal fee data for a transaction using REAL blockchain APIs
    */
   async getOptimalFeeData(blockchain: string, priority: FeePriority): Promise<FeeData> {
-    return feeEstimator.getOptimalFeeData(blockchain, priority);
+    return realTimeFeeEstimator.getOptimalFeeData(blockchain, priority);
   }
 
   /**
@@ -150,16 +152,17 @@ export class TransactionMonitor {
   }
 
   /**
-   * Get deployment status for a token
+   * Estimate gas for a transaction using REAL blockchain APIs
    */
-  async getDeploymentStatus(tokenId: string): Promise<string | null> {
-    // Mock implementation
-    return 'pending';
+  async estimateGas(
+    blockchain: string,
+    to: string,
+    data?: string,
+    value?: string
+  ): Promise<any> {
+    return realTimeFeeEstimator.estimateGas(blockchain, to, data, value);
   }
 }
 
-// Export singleton instance
+// Export singleton
 export const transactionMonitor = TransactionMonitor.getInstance();
-
-// Default export
-export default TransactionMonitor;

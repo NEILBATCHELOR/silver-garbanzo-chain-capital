@@ -61,6 +61,10 @@ import {
   useTokenization 
 } from '@/components/tokens/hooks/useTokenization';
 
+// Hooks
+import { useDeploymentConfig } from '@/hooks/useDeploymentConfig';
+import useTokenProjectContext from '@/hooks/project/useTokenProjectContext';
+
 // Utils
 import { formatAddress } from '@/utils/shared/addressUtils';
 import { getExplorerUrl } from '@/utils/shared/explorerUtils';
@@ -68,9 +72,6 @@ import { getExplorerUrl } from '@/utils/shared/explorerUtils';
 // Types
 import { TokenDetails } from '@/components/tokens/interfaces/TokenInterfaces';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
-
-// Add the import for useTokenProjectContext at the top of the file
-import useTokenProjectContext from '@/hooks/project/useTokenProjectContext';
 
 /**
  * Enhanced TokenDeployPage with real-time deployment status monitoring
@@ -91,6 +92,28 @@ const TokenDeployPageEnhanced: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('configure');
   const [standardInfo, setStandardInfo] = useState<Record<string, any>>({});
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus | null>(null);
+  const [selectedChain, setSelectedChain] = useState<string>('polygon');
+  
+  // Gas configuration state
+  const [gasPrice, setGasPrice] = useState<string>('20'); // Default 20 Gwei
+  const [gasLimit, setGasLimit] = useState<number>(3000000); // Default 3M gas
+  
+  // EIP-1559 specific state
+  const [maxFeePerGas, setMaxFeePerGas] = useState<string>('');
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>('');
+  
+  // Use deployment config hook to get dynamic configuration
+  const { 
+    config: deploymentConfig, 
+    loading: configLoading, 
+    saveContractAddresses,
+    updateGasConfig 
+  } = useDeploymentConfig({
+    projectId,
+    chain: selectedChain,
+    gasPrice,
+    gasLimit
+  });
   
   // Standard-specific information for deployment guidance
   const standardInfoMap: Record<string, any> = {
@@ -335,10 +358,18 @@ const TokenDeployPageEnhanced: React.FC = () => {
     transactionHash: string
   ) => {
     try {
+      // Save contract addresses dynamically
+      if (deploymentConfig && saveContractAddresses) {
+        await saveContractAddresses({
+          token: tokenAddress,
+          // Policy engine address if deployed (will be added later)
+        });
+      }
+
       // Update database with the new deployment details
       await updateTokenDeployment(tokenId as string, {
         address: tokenAddress,
-        blockchain: 'ethereum', // Should get this from the deployment form
+        blockchain: selectedChain,
         transaction_hash: transactionHash,
         status: 'DEPLOYED'
       });
@@ -475,6 +506,14 @@ const TokenDeployPageEnhanced: React.FC = () => {
                         projectId={projectId || ''}
                         projectName={project?.name || 'Chain Capital Project'}
                         onDeploymentSuccess={handleDeploymentSuccess}
+                        gasPrice={gasPrice}
+                        gasLimit={gasLimit}
+                        onGasPriceChange={setGasPrice}
+                        onGasLimitChange={setGasLimit}
+                        maxFeePerGas={maxFeePerGas}
+                        maxPriorityFeePerGas={maxPriorityFeePerGas}
+                        onMaxFeePerGasChange={setMaxFeePerGas}
+                        onMaxPriorityFeePerGasChange={setMaxPriorityFeePerGas}
                       />
                     </CardContent>
                   </Card>

@@ -49,6 +49,8 @@ import { enhancedTokenDeploymentService } from '@/components/tokens/services/tok
 import { unifiedTokenDeploymentService } from '@/components/tokens/services/unifiedTokenDeploymentService';
 import { tokenProjectWalletIntegrationService, TokenWalletIntegrationResult } from '@/services/token/tokenProjectWalletIntegrationService';
 import { useToast } from '@/components/ui/use-toast';
+import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
+import { FeePriority } from '@/services/blockchain/FeeEstimator';
 
 // Utility function for conditional class names
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -75,13 +77,31 @@ interface TokenDeploymentFormProjectWalletIntegratedProps {
   projectId: string;
   projectName?: string;
   onDeploymentSuccess: (tokenAddress: string, transactionHash: string) => void;
+  // Gas configuration props (Legacy)
+  gasPrice?: string;
+  gasLimit?: number;
+  onGasPriceChange?: (gasPrice: string) => void;
+  onGasLimitChange?: (gasLimit: number) => void;
+  // EIP-1559 props
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  onMaxFeePerGasChange?: (maxFeePerGas: string) => void;
+  onMaxPriorityFeePerGasChange?: (maxPriorityFeePerGas: string) => void;
 }
 
 const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormProjectWalletIntegratedProps> = ({
   tokenConfig,
   projectId,
   projectName = 'Chain Capital Project',
-  onDeploymentSuccess
+  onDeploymentSuccess,
+  gasPrice: parentGasPrice,
+  gasLimit: parentGasLimit,
+  onGasPriceChange,
+  onGasLimitChange,
+  maxFeePerGas: parentMaxFeePerGas,
+  maxPriorityFeePerGas: parentMaxPriorityFeePerGas,
+  onMaxFeePerGasChange,
+  onMaxPriorityFeePerGasChange
 }) => {
   const { toast } = useToast();
   
@@ -108,6 +128,18 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [showPrivateKey, setShowPrivateKey] = useState<boolean>(false);
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
   const [copiedPrivateKey, setCopiedPrivateKey] = useState<boolean>(false);
+  
+  // Gas configuration state
+  const [gasConfigMode, setGasConfigMode] = useState<'estimator' | 'manual'>('estimator');
+  const [gasPrice, setGasPrice] = useState<string>(parentGasPrice || '20'); // Default 20 Gwei or use parent value
+  const [gasLimit, setGasLimit] = useState<number>(parentGasLimit || 3000000); // Default 3M gas or use parent value
+  const [showGasConfig, setShowGasConfig] = useState<boolean>(false);
+  const [estimatedGasData, setEstimatedGasData] = useState<EIP1559FeeData | null>(null);
+  
+  // EIP-1559 specific state
+  const [maxFeePerGas, setMaxFeePerGas] = useState<string>(parentMaxFeePerGas || '');
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>(parentMaxPriorityFeePerGas || '');
+  const [isEIP1559Network, setIsEIP1559Network] = useState<boolean>(false);
   
   // Get network details when blockchain or environment changes
   useEffect(() => {
@@ -264,6 +296,82 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         variant: "destructive",
       });
     }
+  };
+  
+  /**
+   * Handle gas estimation from GasEstimatorEIP1559 component
+   */
+  const handleGasEstimate = (feeData: EIP1559FeeData) => {
+    setEstimatedGasData(feeData);
+    
+    // Determine if network supports EIP-1559
+    const supportsEIP1559 = !!(feeData.maxFeePerGas && feeData.maxPriorityFeePerGas);
+    setIsEIP1559Network(supportsEIP1559);
+    
+    if (supportsEIP1559) {
+      // EIP-1559 network - use maxFeePerGas and maxPriorityFeePerGas
+      const maxFeeGwei = (Number(feeData.maxFeePerGas) / 1e9).toFixed(2);
+      const priorityFeeGwei = (Number(feeData.maxPriorityFeePerGas) / 1e9).toFixed(2);
+      
+      setMaxFeePerGas(maxFeeGwei);
+      setMaxPriorityFeePerGas(priorityFeeGwei);
+      
+      onMaxFeePerGasChange?.(maxFeeGwei);
+      onMaxPriorityFeePerGasChange?.(priorityFeeGwei);
+      
+      // Also set legacy gasPrice for compatibility
+      setGasPrice(maxFeeGwei);
+      onGasPriceChange?.(maxFeeGwei);
+    } else {
+      // Legacy network - use gasPrice
+      let newGasPrice = gasPrice;
+      if (feeData.gasPrice) {
+        const gasPriceGwei = (Number(feeData.gasPrice) / 1e9).toFixed(2);
+        newGasPrice = gasPriceGwei;
+        setGasPrice(gasPriceGwei);
+        onGasPriceChange?.(gasPriceGwei);
+      }
+    }
+    
+    // Set default gas limit if not already set
+    if (!gasLimit || gasLimit === 3000000) {
+      const newGasLimit = 3000000; // Keep default for deployment
+      setGasLimit(newGasLimit);
+      onGasLimitChange?.(newGasLimit);
+    }
+  };
+  
+  /**
+   * Get network-specific gas recommendations
+   */
+  const getGasRecommendation = () => {
+    const recommendations: Record<string, { price: string; limit: number; note: string }> = {
+      ethereum: { price: '20-50', limit: 3000000, note: 'Mainnet: 20-50 Gwei typical' },
+      polygon: { price: '30-100', limit: 3000000, note: 'Polygon: 30-100 Gwei typical' },
+      base: { price: '0.001-0.01', limit: 3000000, note: 'Base: 0.001-0.01 Gwei typical' },
+      arbitrum: { price: '0.1-1', limit: 3000000, note: 'Arbitrum: 0.1-1 Gwei typical' },
+      optimism: { price: '0.001-0.1', limit: 3000000, note: 'Optimism: 0.001-0.1 Gwei typical' },
+      avalanche: { price: '25-50', limit: 3000000, note: 'Avalanche: 25-50 Gwei typical' },
+      bsc: { price: '3-5', limit: 3000000, note: 'BSC: 3-5 Gwei typical' }
+    };
+    
+    return recommendations[blockchain] || { price: '20', limit: 3000000, note: 'Default: 20 Gwei' };
+  };
+  
+  /**
+   * Handle manual gas price change
+   */
+  const handleGasPriceChange = (value: string) => {
+    setGasPrice(value);
+    onGasPriceChange?.(value);
+  };
+  
+  /**
+   * Handle manual gas limit change
+   */
+  const handleGasLimitChange = (value: number) => {
+    setGasLimit(value);
+    onGasLimitChange?.(value);
   };
   
   const handleBlockchainChange = (value: string) => {
@@ -650,6 +758,155 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
                 <p className="text-xs text-muted-foreground">
                   Address that will own the deployed contract
                 </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        {/* Gas Configuration Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Gas Configuration
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowGasConfig(!showGasConfig)}
+              >
+                {showGasConfig ? (
+                  <>Hide Details</>
+                ) : (
+                  <>Show Details</>
+                )}
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Configure gas price and limit for the deployment transaction
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Gas Configuration Mode Selector */}
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div>
+                <Label className="text-base">Automatic Gas Estimation</Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically estimate optimal gas fees based on network conditions
+                </p>
+              </div>
+              <Switch
+                checked={gasConfigMode === 'estimator'}
+                onCheckedChange={(checked) => {
+                  setGasConfigMode(checked ? 'estimator' : 'manual');
+                }}
+                disabled={isDeploying}
+              />
+            </div>
+            
+            {gasConfigMode === 'estimator' ? (
+              // Automatic Gas Estimation with GasEstimatorEIP1559 component
+              <div className="space-y-4">
+                <GasEstimatorEIP1559
+                  blockchain={blockchain}
+                  onSelectFeeData={handleGasEstimate}
+                  defaultPriority={FeePriority.MEDIUM}
+                  showAdvanced={true}
+                />
+                
+                {estimatedGasData && showGasConfig && (
+                  <div className="pt-4 space-y-2">
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      {isEIP1559Network ? (
+                        <>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Max Fee Per Gas</Label>
+                            <div className="text-sm font-medium">{maxFeePerGas} Gwei</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Max Priority Fee</Label>
+                            <div className="text-sm font-medium">{maxPriorityFeePerGas} Gwei</div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Estimated Gas Price</Label>
+                            <div className="text-sm font-medium">{gasPrice} Gwei</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Gas Limit</Label>
+                            <div className="text-sm font-medium">{gasLimit.toLocaleString()}</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Manual Gas Configuration
+              <div className="space-y-4">
+                <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertTitle className="text-amber-800 dark:text-amber-300">Manual Configuration</AlertTitle>
+                  <AlertDescription className="text-amber-700 dark:text-amber-400">
+                    {getGasRecommendation().note}
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="gasPrice">Gas Price (Gwei)</Label>
+                  <Input
+                    id="gasPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={gasPrice}
+                    onChange={(e) => handleGasPriceChange(e.target.value)}
+                    disabled={isDeploying}
+                    placeholder="20"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Recommended: {getGasRecommendation().price} Gwei for {blockchain}
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="gasLimit">Gas Limit</Label>
+                  <Input
+                    id="gasLimit"
+                    type="number"
+                    step="100000"
+                    min="21000"
+                    value={gasLimit}
+                    onChange={(e) => handleGasLimitChange(parseInt(e.target.value) || 3000000)}
+                    disabled={isDeploying}
+                    placeholder="3000000"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Recommended: {getGasRecommendation().limit.toLocaleString()} for token deployment
+                  </p>
+                </div>
+                
+                {showGasConfig && (
+                  <div className="pt-2">
+                    <Separator className="mb-4" />
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Estimated Cost:</span>
+                        <span className="font-medium">
+                          {((parseFloat(gasPrice) * gasLimit) / 1e9).toFixed(6)} {blockchain.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        * Actual cost may vary based on network conditions and transaction execution
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

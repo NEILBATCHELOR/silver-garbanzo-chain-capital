@@ -45,7 +45,6 @@ import TokenEditPage from "@/components/tokens/pages/TokenEditPage";
 import TokenDeployPageEnhanced from "@/components/tokens/pages/TokenDeployPageEnhanced";
 import TokenEventsPage from "@/components/tokens/pages/TokenEventsPage";
 import TokenAnalyticsPage from "@/components/tokens/pages/TokenAnalyticsPage";
-import TokenMintPage from "@/components/tokens/pages/TokenMintPage";
 import TokenOperationsPage from "@/components/tokens/pages/TokenOperationsPage";
 import CreateTokenPage from "@/components/tokens/pages/CreateTokenPage";
 import TokenSelectionPage from "@/components/tokens/pages/TokenSelectionPage";
@@ -226,6 +225,27 @@ const TokenRedirect = () => {
         ) : (
           <span>Redirecting...</span>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Token Detail Redirect - redirects to operations by default
+const TokenDetailRedirect = () => {
+  const { projectId, tokenId } = useParams();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (projectId && tokenId) {
+      navigate(`/projects/${projectId}/tokens/${tokenId}/operations`, { replace: true });
+    }
+  }, [projectId, tokenId, navigate]);
+  
+  return (
+    <div className="w-full h-full flex items-center justify-center p-6">
+      <div className="text-center">
+        <RefreshCw className="h-6 w-6 animate-spin mb-4" />
+        <span>Redirecting to token operations...</span>
       </div>
     </div>
   );
@@ -571,13 +591,6 @@ function App() {
               {/* Project Routes */}
               <Route path="projects/:projectId" element={<ProjectDetailsPage />} />
               <Route path="projects/:projectId/documents" element={<Navigate to="../?tab=issuer-documents" replace />} />
-              
-              {/* Project-specific Token Routes with TokenRouteLayout */}
-              <Route path="projects/:projectId/tokens" element={<TokenDashboardPage />}/>
-              <Route path="create" element={<CreateTokenPage />} />
-              <Route path=":tokenId/deploy" element={<TokenDeployPageEnhanced />} />
-              <Route path=":tokenId/operations" element={<TokenOperationsPage />} />
-              <Route path=":tokenId/mint" element={<TokenMintPage />} /> {/* Legacy route - redirects to operations */}
 
               {/* Wallet Routes */}
               <Route path="wallet/new" element={<NewWalletPage />} />
@@ -615,21 +628,25 @@ function App() {
               <Route path="tokens/:tokenId/edit" element={<TokenEditPage />} />
               <Route path="tokens/:tokenId/deploy" element={<TokenDeployPageEnhanced />} />
               <Route path="tokens/:tokenId/operations" element={<TokenOperationsPage />} />
-              <Route path="tokens/:tokenId/mint" element={<TokenMintPage />} /> {/* Legacy route */}
 
               {/* Project-specific Token Routes */}
               <Route path="projects/:projectId/tokens" element={<TokenDashboardPage />}/>
               <Route path="projects/:projectId/tokens/compare" element={<TokenDashboardComparison />}/>
               <Route path="projects/:projectId/tokens/create" element={<CreateTokenPage />} />
               <Route path="projects/:projectId/tokens/test" element={<TokenTestingPage />} />
+              
+              {/* Token Selection Routes */}
               <Route path="projects/:projectId/tokens/select/details" element={<TokenSelectionPage actionType="details" />} />
               <Route path="projects/:projectId/tokens/select/deploy" element={<TokenSelectionPage actionType="deploy" />} />
               <Route path="projects/:projectId/tokens/select/mint" element={<TokenSelectionPage actionType="mint" />} />
+              <Route path="projects/:projectId/tokens/select/operations" element={<TokenOperationsPage />} />
+              
+              {/* Token-specific Routes */}
+              <Route path="projects/:projectId/tokens/:tokenId" element={<TokenDetailRedirect />} />
               <Route path="projects/:projectId/tokens/:tokenId/deploy" element={<TokenDeployPageEnhanced />} />
               <Route path="projects/:projectId/tokens/:tokenId/events" element={<TokenEventsPage />} />
               <Route path="projects/:projectId/tokens/:tokenId/analytics" element={<TokenAnalyticsPage />} />
               <Route path="projects/:projectId/tokens/:tokenId/operations" element={<TokenOperationsPage />} />
-              <Route path="projects/:projectId/tokens/:tokenId/mint" element={<TokenMintPage />} /> {/* Legacy route */}
 
               {/* NAV Routes */}
               <Route path="nav" element={<NavDashboardPage />} />

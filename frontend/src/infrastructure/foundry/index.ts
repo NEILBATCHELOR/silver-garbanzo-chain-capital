@@ -7,3 +7,9 @@ export type {
   FoundryConfig,
   FoundryTransactionResult 
 } from './FoundryOperationExecutor';
+
+export { FoundryPolicyAdapter } from './FoundryPolicyAdapter';
+export type {
+  OnChainPolicy,
+  PolicySyncResult
+} from './FoundryPolicyAdapter';

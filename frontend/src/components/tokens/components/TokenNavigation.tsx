@@ -56,21 +56,42 @@ function TokenNavigation({ projectId, tokenId }: TokenNavigationProps) {
     }
   ];
 
-  // Token-specific navigation items (always shown and clickable)
-  const tokenSpecificItems: NavItem[] = [
-    {
+  // Token-specific navigation items
+  const tokenSpecificItems: NavItem[] = [];
+  
+  // Deploy link - always show, route to selection if no token
+  if (tokenId && tokenId !== "undefined") {
+    tokenSpecificItems.push({
       icon: <Send className="h-4 w-4" />,
       label: "Deploy",
-      href: tokenId && tokenId !== "undefined" ? `/projects/${projectId}/tokens/${tokenId}/deploy` : `/projects/${projectId}/tokens/select/deploy`,
+      href: `/projects/${projectId}/tokens/${tokenId}/deploy`,
       showAlways: true
-    },
-    {
-      icon: <Coins className="h-4 w-4" />,
-      label: "Mint",
-      href: tokenId && tokenId !== "undefined" ? `/projects/${projectId}/tokens/${tokenId}/mint` : `/projects/${projectId}/tokens/select/mint`,
+    });
+  } else {
+    tokenSpecificItems.push({
+      icon: <Send className="h-4 w-4" />,
+      label: "Deploy",
+      href: `/projects/${projectId}/tokens/select/deploy`,
       showAlways: true
-    }
-  ];
+    });
+  }
+
+  // Operations link - always show, route to selection if no token
+  if (tokenId && tokenId !== "undefined") {
+    tokenSpecificItems.push({
+      icon: <Activity className="h-4 w-4" />,
+      label: "Operations",
+      href: `/projects/${projectId}/tokens/${tokenId}/operations`,
+      showAlways: true
+    });
+  } else {
+    tokenSpecificItems.push({
+      icon: <Activity className="h-4 w-4" />,
+      label: "Operations",
+      href: `/projects/${projectId}/tokens/select/operations`,
+      showAlways: true
+    });
+  }
 
   // Combine the navigation items
   const allNavItems = [...navItems, ...tokenSpecificItems];
@@ -86,15 +107,29 @@ function TokenNavigation({ projectId, tokenId }: TokenNavigationProps) {
               (pathname === `/projects/${projectId}/tokens` || 
                pathname === `/projects/${projectId}/tokens/`);
                
-            // For testing item, check if we're on the test path
+            // For upload/testing item, check if we're on the test path
             const isTestingActive =
-              item.label === "Testing" &&
+              item.label === "Upload" &&
               pathname === `/projects/${projectId}/tokens/test`;
+            
+            // For deploy, check if we're on deploy or deploy selection path
+            const isDeployActive =
+              item.label === "Deploy" &&
+              (pathname === item.href ||
+               pathname.includes(`/projects/${projectId}/tokens/`) && pathname.includes('/deploy'));
+               
+            // For operations, check if we're on operations or operations selection path
+            const isOperationsActive =
+              item.label === "Operations" &&
+              (pathname === item.href ||
+               pathname.includes(`/projects/${projectId}/tokens/`) && pathname.includes('/operations'));
                
             // For other items, check if the pathname equals the href
             const isActive = 
               isDashboardActive || 
               isTestingActive ||
+              isDeployActive ||
+              isOperationsActive ||
               pathname === item.href;
               
             return (
@@ -121,4 +156,4 @@ function TokenNavigation({ projectId, tokenId }: TokenNavigationProps) {
   );
 }
 
-export default TokenNavigation; 
+export default TokenNavigation;
