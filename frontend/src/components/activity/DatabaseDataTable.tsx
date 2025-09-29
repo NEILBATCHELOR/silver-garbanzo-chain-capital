@@ -172,7 +172,7 @@ const DATABASE_TABLES = {
     'system_process_performance', 'deployment_rate_limits', 'consensus_settings',
     'geographic_jurisdictions', 'nav_oracle_configs', 'fund_nav_data',
     'latest_nav_by_fund', 'project_credentials', 'project_type_stats',
-    'secure_keys', 'settlement_metrics', 'settlement_summary',
+    'project_wallets', 'settlement_metrics', 'settlement_summary',
     'stage_requirements', 'whitelist_entries', 'whitelist_settings',
     'whitelist_signatories', 'user_permissions_view'
   ],

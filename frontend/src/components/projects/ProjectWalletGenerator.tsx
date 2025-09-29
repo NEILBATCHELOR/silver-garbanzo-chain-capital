@@ -21,6 +21,14 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { ProjectWalletResult, enhancedProjectWalletService } from '@/services/project/project-wallet-service';
+import { 
+  getAllChains, 
+  getChainConfig, 
+  getChainEnvironments, 
+  getChainEnvironment,
+  type ChainConfig,
+  type NetworkEnvironment 
+} from '@/config/chains';
 
 // Module-level lock to prevent concurrent wallet generation for the same project
 const inProgressProjectGenerations = new Set<string>();
@@ -35,25 +43,6 @@ interface ProjectWalletGeneratorProps {
   onWalletGenerated?: (wallet: ProjectWalletResult) => void;
 }
 
-interface NetworkConfig {
-  name: string;
-  label: string;
-  icon: string;
-  color: string;
-}
-
-const NETWORK_CONFIGS: NetworkConfig[] = [
-  { name: 'ethereum', label: 'Ethereum', icon: '⟠', color: 'bg-blue-500' },
-  { name: 'polygon', label: 'Polygon', icon: '', color: 'bg-purple-500' },
-  { name: 'solana', label: 'Solana', icon: '', color: 'bg-green-500' },
-  { name: 'bitcoin', label: 'Bitcoin', icon: '₿', color: 'bg-orange-500' },
-  { name: 'avalanche', label: 'Avalanche', icon: '', color: 'bg-red-500' },
-  { name: 'optimism', label: 'Optimism', icon: '', color: 'bg-red-400' },
-  { name: 'arbitrum', label: 'Arbitrum', icon: '', color: 'bg-blue-600' },
-  { name: 'base', label: 'Base', icon: '', color: 'bg-blue-400' },
-  { name: 'injective', label: 'Injective', icon: 'INJ', color: 'bg-gray-700' },
-];
-
 export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   projectId,
   projectName,
@@ -64,6 +53,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   const { user } = useAuth();
   const { hasPermission } = usePermissionsContext();
   const [selectedNetwork, setSelectedNetwork] = useState<string>('ethereum');
+  const [selectedEnvironment, setSelectedEnvironment] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedWallets, setGeneratedWallets] = useState<ProjectWalletResult[]>([]);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
@@ -75,9 +65,28 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   const [hasRequiredPermissions, setHasRequiredPermissions] = useState<boolean | null>(null);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
   
-    const generationInProgressRef = useRef(false);
+  const generationInProgressRef = useRef(false);
   const lastGenerationIdRef = useRef<string>('');
   const generationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get all available chains
+  const allChains = getAllChains();
+  
+  // Get available environments for the selected network
+  const availableEnvironments = selectedNetwork 
+    ? getChainEnvironments(selectedNetwork)
+    : [];
+  
+  // Set default environment when network changes
+  useEffect(() => {
+    if (availableEnvironments.length > 0) {
+      // Default to first testnet if available, otherwise first environment
+      const defaultEnv = availableEnvironments.find(env => env.isTestnet) || availableEnvironments[0];
+      setSelectedEnvironment(defaultEnv.name);
+    } else {
+      setSelectedEnvironment('');
+    }
+  }, [selectedNetwork, availableEnvironments.length]);
 
   // Check permissions on component mount
   useEffect(() => {
@@ -120,10 +129,10 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   }, [projectId]);
 
   const generateSingleWallet = useCallback(async (requestId: string) => {
-    if (!selectedNetwork) {
+    if (!selectedNetwork || !selectedEnvironment) {
       toast({
         title: "Error",
-        description: "Please select a network first",
+        description: "Please select a network and environment first",
         variant: "destructive"
       });
       generationInProgressRef.current = false;
@@ -154,13 +163,22 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     setGeneratedWallets([]);
 
     try {
-      console.log(`[WalletGenerator] Generating single wallet for ${selectedNetwork}, request: ${requestId}`);
+      console.log(`[WalletGenerator] Generating single wallet for ${selectedNetwork}/${selectedEnvironment}, request: ${requestId}`);
+      
+      // Get the specific environment configuration
+      const environment = getChainEnvironment(selectedNetwork, selectedEnvironment);
+      if (!environment) {
+        throw new Error(`Invalid environment: ${selectedNetwork}/${selectedEnvironment}`);
+      }
       
       const result = await enhancedProjectWalletService.generateWalletForProject({
         projectId,
         projectName,
         projectType,
         network: selectedNetwork,
+        networkEnvironment: environment.isTestnet ? 'testnet' : 'mainnet',
+        chainId: environment.chainId,
+        net: environment.net,
         includePrivateKey,
         includeMnemonic,
         userId: user.id // Pass the user ID for permission checking
@@ -176,7 +194,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
         
         toast({
           title: "Success",
-          description: `${selectedNetwork.toUpperCase()} wallet generated successfully`,
+          description: `${environment.displayName} wallet generated successfully`,
         });
       } else {
         toast({
@@ -195,7 +213,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedNetwork, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user, hasRequiredPermissions]);
+  }, [selectedNetwork, selectedEnvironment, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user, hasRequiredPermissions]);
 
   const generateMultiNetworkWallets = useCallback(async (requestId: string) => {
     if (selectedNetworks.length === 0) {
@@ -234,27 +252,36 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     try {
       console.log(`[WalletGenerator] Generating wallets for networks: ${selectedNetworks.join(', ')}, request: ${requestId}`);
       
+      // For multi-network mode, use first testnet for each selected network
+      const networksWithEnvironments = selectedNetworks.map(network => {
+        const environments = getChainEnvironments(network);
+        const defaultEnv = environments.find(env => env.isTestnet) || environments[0];
+        return {
+          network,
+          environment: defaultEnv
+        };
+      });
+      
       const results = await enhancedProjectWalletService.generateMultiNetworkWallets(
         {
           projectId,
           projectName,
           projectType,
+          networkEnvironment: 'testnet', // Default to testnet for multi-network
           includePrivateKey,
           includeMnemonic,
-          userId: user.id // Pass the user ID for permission checking
+          userId: user.id
         },
-        selectedNetworks
+        networksWithEnvironments
       );
 
       const successCount = results.filter(r => r.success).length;
       const failCount = results.length - successCount;
 
       if (successCount > 0) {
-        // Get all successful wallets
         const successfulWallets = results.filter(r => r.success);
         setGeneratedWallets(successfulWallets);
         
-        // Call onWalletGenerated only ONCE with the first successful wallet as a signal
         if (onWalletGenerated) {
           onWalletGenerated(successfulWallets[0]);
         }
@@ -358,9 +385,8 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     }
   }, [toast]);
 
-  const getNetworkConfig = (network: string): NetworkConfig => {
-    return NETWORK_CONFIGS.find(config => config.name === network) || 
-           { name: network, label: network.toUpperCase(), icon: '🔗', color: 'bg-gray-500' };
+  const getNetworkConfig = (network: string): ChainConfig | undefined => {
+    return getChainConfig(network);
   };
 
   return (
@@ -406,44 +432,98 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
 
           {/* Single Network Selection */}
           {!multiNetworkMode && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select Network:</label>
-              <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a blockchain network" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NETWORK_CONFIGS.map((config) => (
-                    <SelectItem key={config.name} value={config.name}>
-                      {config.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Network:</label>
+                <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a blockchain network" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allChains.map((chain) => (
+                      <SelectItem key={chain.name} value={chain.name}>
+                        <span className="flex items-center gap-2">
+                          <span>{chain.icon}</span>
+                          <span>{chain.label}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Environment:</label>
+                <Select 
+                  value={selectedEnvironment} 
+                  onValueChange={setSelectedEnvironment}
+                  disabled={availableEnvironments.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose network environment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEnvironments.map((env) => (
+                      <SelectItem key={env.name} value={env.name}>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="flex items-center gap-2">
+                            {env.isTestnet ? '🟡' : '🟢'} {env.displayName}
+                          </span>
+                          {env.chainId && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              Chain ID: {env.chainId}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedEnvironment && !getChainEnvironment(selectedNetwork, selectedEnvironment)?.isTestnet && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      ⚠️ Warning: Mainnet wallets control real assets. Use with caution.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </div>
           )}
 
           {/* Multi-Network Selection */}
           {multiNetworkMode && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select Networks:</label>
-              <div className="grid grid-cols-2 gap-2">
-                {NETWORK_CONFIGS.map((config) => (
-                  <div key={config.name} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={config.name}
-                      checked={selectedNetworks.includes(config.name)}
-                      onCheckedChange={(checked) => handleNetworkToggle(config.name, checked as boolean)}
-                    />
-                    <label htmlFor={config.name} className="text-sm flex items-center space-x-1">
-                      <span>{config.label}</span>
-                    </label>
-                  </div>
-                ))}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Default Environment (applies to all):</label>
+                <Alert className="mb-2">
+                  <AlertDescription>
+                    Each network will use its default testnet environment for safety.
+                  </AlertDescription>
+                </Alert>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Selected: {selectedNetworks.length} network{selectedNetworks.length !== 1 ? 's' : ''}
-              </p>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Networks:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {allChains.map((chain) => (
+                    <div key={chain.name} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={chain.name}
+                        checked={selectedNetworks.includes(chain.name)}
+                        onCheckedChange={(checked) => handleNetworkToggle(chain.name, checked as boolean)}
+                      />
+                      <label htmlFor={chain.name} className="text-sm flex items-center space-x-1">
+                        <span>{chain.icon}</span>
+                        <span>{chain.label}</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Selected: {selectedNetworks.length} network{selectedNetworks.length !== 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
           )}
 
@@ -502,16 +582,26 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
-                  {getNetworkConfig(wallet.network).label} Wallet Generated Successfully
+                  {getNetworkConfig(wallet.network)?.label || wallet.network} Wallet Generated Successfully
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Network Badge */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-wrap">
                   <Badge variant="outline" className="flex items-center space-x-1">
                     <Network className="h-3 w-3" />
-                    <span>{getNetworkConfig(wallet.network).label}</span>
+                    <span>{getNetworkConfig(wallet.network)?.label || wallet.network}</span>
                   </Badge>
+                  {wallet.chainId && (
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <span>Chain ID: {wallet.chainId}</span>
+                    </Badge>
+                  )}
+                  {wallet.net && (
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <span>Environment: {wallet.net}</span>
+                    </Badge>
+                  )}
                   {wallet.vaultStorageId && (
                     <Badge variant="outline" className="flex items-center space-x-1">
                       <Shield className="h-3 w-3" />

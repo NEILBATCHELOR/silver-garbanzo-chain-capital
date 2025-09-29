@@ -37,6 +37,7 @@ import {
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
 import { BalanceFormatter, balanceService } from "@/services/wallet/balances";
 import type { WalletBalance } from "@/services/wallet/balances";
+import { getChainEnvironment, getExplorerUrl } from "@/config/chains";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +72,6 @@ interface WalletWithBalance extends ProjectWalletData {
   balanceError?: string;
 }
 
-type NetworkFilterType = 'all' | 'mainnet' | 'testnet';
 type SortOption = 'network_asc' | 'network_desc' | 'balance_desc' | 'balance_asc';
 
 export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId, onRefresh }) => {
@@ -84,7 +84,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const [showPrivateKey, setShowPrivateKey] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
   const [fetchingBalances, setFetchingBalances] = useState(false);
-  const [networkFilter, setNetworkFilter] = useState<NetworkFilterType>('all');
   const [sortBy, setSortBy] = useState<SortOption>('network_asc');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -141,13 +140,97 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     console.log(`🔄 Fetching balances for ${wallets.length} wallet addresses (project-specific networks)${forceRefresh ? ' (force refresh)' : ''}`);
 
     try {
-      // NEW: Prepare wallets with their specific chain types instead of trying to match addresses
-      const walletsToFetch = wallets.map(w => ({
-        address: w.wallet_address.toLowerCase(),
-        walletType: w.wallet_type
-      }));
+      // Prepare wallets with their specific chain types and network identifiers
+      const walletsToFetch = wallets.map(w => {
+        // Start with the wallet type as base
+        let networkKey = w.wallet_type.toLowerCase();
+        
+        // Use chain_id to determine the specific network
+        // This maps chain IDs to the correct balance service keys
+        const chainIdToNetwork: Record<string, string> = {
+          // Ethereum networks
+          '1': 'ethereum',
+          '11155111': 'sepolia',
+          '17000': 'holesky',
+          
+          // Polygon networks
+          '137': 'polygon',
+          '80002': 'amoy',
+          
+          // Arbitrum networks
+          '42161': 'arbitrum',
+          '421614': 'arbitrum-sepolia',
+          
+          // Avalanche networks
+          '43114': 'avalanche',
+          '43113': 'avalanche-testnet', // Fuji
+          
+          // Optimism networks
+          '10': 'optimism',
+          '11155420': 'optimism-sepolia',
+          
+          // Base networks
+          '8453': 'base',
+          '84532': 'base-sepolia',
+          
+          // BSC networks
+          '56': 'bsc',
+          '97': 'bsc-testnet',
+          
+          // zkSync networks
+          '324': 'zksync',
+          '300': 'zksync-sepolia',
+          
+          // Injective networks
+          '888': 'injective',
+          '1776': 'injective-testnet', // injective-888 testnet
+          
+          // Add more chain IDs as needed
+        };
+        
+        // Use chain_id if available
+        if (w.chain_id) {
+          const chainIdStr = String(w.chain_id);
+          if (chainIdToNetwork[chainIdStr]) {
+            networkKey = chainIdToNetwork[chainIdStr];
+            console.log(`🔗 Mapped chain ID ${chainIdStr} to network: ${networkKey}`);
+          } else {
+            console.log(`⚠️ Unknown chain ID ${chainIdStr}, using wallet_type: ${networkKey}`);
+          }
+        }
+        // If we have a net field, use it to get more specific network info
+        else if (w.net) {
+          // Map net values to balance service keys
+          const netToServiceKey: Record<string, string> = {
+            'sepolia': 'sepolia',
+            'holesky': 'holesky',
+            'amoy': 'amoy',
+            'optimism-sepolia': 'optimism-sepolia',
+            'arbitrum-sepolia': 'arbitrum-sepolia',
+            'base-sepolia': 'base-sepolia',
+            'fuji': 'avalanche-testnet',
+            'zksync-sepolia': 'zksync-sepolia',
+            'injective-888': 'injective-testnet',
+            'testnet': `${networkKey}-testnet`,
+            'devnet': `${networkKey}-devnet`,
+            'signet': `${networkKey}-signet`,
+            'mainnet': networkKey, // Keep as-is for mainnet
+          };
+          
+          if (netToServiceKey[w.net]) {
+            networkKey = netToServiceKey[w.net];
+            console.log(`🌐 Mapped net ${w.net} to network: ${networkKey}`);
+          }
+        }
+        
+        return {
+          address: w.wallet_address.toLowerCase(),
+          walletType: networkKey
+        };
+      });
       
       console.log(`📋 Fetching balances for ${walletsToFetch.length} wallet(s) with specific chain types`);
+      console.log('🔍 Wallet mappings:', walletsToFetch);
       
       // Fetch all balances using the new method that respects wallet-specific chains
       const allBalances = await balanceService.fetchBalancesForWallets(walletsToFetch);
@@ -168,12 +251,8 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
         
         if (addressBalances && addressBalances.length > 0) {
           // Find the most relevant balance for this wallet:
-          // 1. First try exact network match
-          // 2. If no match, use the first available balance (likely a testnet)
-          const exactMatch = addressBalances.find(
-            b => b.network.toLowerCase() === wallet.wallet_type.toLowerCase()
-          );
-          const balance = exactMatch || addressBalances[0];
+          // Try to match by network name or use the first available balance
+          const balance = addressBalances[0];
           
           return {
             ...wallet,
@@ -183,12 +262,12 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           };
         }
         
-        // No balance found - return wallet as-is
+        // No balance found - return wallet with zero balance
         return {
           ...wallet,
           isLoadingBalance: false,
           balance: undefined,
-          balanceError: 'No balance found'
+          balanceError: 'No balance data available'
         };
       }));
 
@@ -242,18 +321,12 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   // Sort and filter wallets
   const sortedAndFilteredWallets = useMemo(() => {
     let filtered = wallets.filter(wallet => {
-      // Search filter
+      // Search filter only
       const matchesSearch = debouncedSearch === '' ||
         wallet.wallet_address.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         wallet.wallet_type.toLowerCase().includes(debouncedSearch.toLowerCase());
 
-      // Network filter
-      if (networkFilter === 'all') return matchesSearch;
-      
-      const isTestnet = wallet.balance?.isTestnet || balanceService.isTestnet(wallet.wallet_type);
-      const matchesNetwork = networkFilter === 'testnet' ? isTestnet : !isTestnet;
-
-      return matchesSearch && matchesNetwork;
+      return matchesSearch;
     });
 
     // Sort wallets
@@ -273,7 +346,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     });
 
     return filtered;
-  }, [wallets, debouncedSearch, networkFilter, sortBy]);
+  }, [wallets, debouncedSearch, sortBy]);
 
   // Sort options
   const sortOptions = [
@@ -434,14 +507,6 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     );
   };
 
-  // Count active filters
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (searchQuery) count++;
-    if (networkFilter !== 'all') count++;
-    return count;
-  }, [searchQuery, networkFilter]);
-
   return (
     <Card>
       <CardHeader>
@@ -521,51 +586,19 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
               </Select>
             </div>
 
-            {/* Network Filter */}
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    Network
-                    {activeFiltersCount > 0 && (
-                      <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-                        {activeFiltersCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56">
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Network Type</h4>
-                    <Select value={networkFilter} onValueChange={(value) => setNetworkFilter(value as NetworkFilterType)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Networks</SelectItem>
-                        <SelectItem value="mainnet">Mainnet Only</SelectItem>
-                        <SelectItem value="testnet">Testnet Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {activeFiltersCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setNetworkFilter('all');
-                  }}
-                  className="text-muted-foreground"
-                >
-                  Clear All
-                </Button>
-              )}
-            </div>
+            {/* Clear Filters Button */}
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                }}
+                className="text-muted-foreground"
+              >
+                Clear Search
+              </Button>
+            )}
 
             {/* Force Refresh Button */}
             <Button 
@@ -637,9 +670,14 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                           <Badge variant="outline" className="ml-1 text-xs">Test</Badge>
                         )}
                       </Badge>
-                      {wallet.balance && wallet.balance.network.toLowerCase() !== wallet.wallet_type.toLowerCase() && (
+                      {wallet.net && (
                         <div className="text-xs text-muted-foreground mt-1">
-                          Chain: {wallet.wallet_type}
+                          Environment: {wallet.net}
+                        </div>
+                      )}
+                      {wallet.chain_id && (
+                        <div className="text-xs text-muted-foreground">
+                          Chain ID: {wallet.chain_id}
                         </div>
                       )}
                     </TableCell>

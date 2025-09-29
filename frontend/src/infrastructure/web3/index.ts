@@ -101,6 +101,8 @@ export const WEB3_UTILS = {
   getChainDisplayName: (chain: SupportedChainType): string => {
     const names: Record<SupportedChainType, string> = {
       ethereum: 'Ethereum',
+      sepolia: 'Sepolia Testnet',
+      holesky: 'Holesky Testnet',
       polygon: 'Polygon',
       arbitrum: 'Arbitrum',
       optimism: 'Optimism',

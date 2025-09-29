@@ -446,7 +446,7 @@ export class TokenizationManager {
   public getEVMChains(): string[] {
     const supportedChains = BlockchainFactory.getSupportedChains();
     return supportedChains.filter(chain => 
-      ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche'].includes(chain)
+      ['ethereum', 'sepolia', 'holesky', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche', 'bsc'].includes(chain)
     );
   }
   
@@ -456,7 +456,7 @@ export class TokenizationManager {
   public getNonEVMChains(): string[] {
     const supportedChains = BlockchainFactory.getSupportedChains();
     return supportedChains.filter(chain => 
-      !['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche'].includes(chain)
+      !['ethereum', 'sepolia', 'holesky', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche', 'bsc'].includes(chain)
     );
   }
   

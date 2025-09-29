@@ -88,12 +88,23 @@ const BlockchainSelector: React.FC<BlockchainSelectorProps> = ({
     const names: Record<string, string> = {
       ethereum: 'Ethereum',
       'ethereum-goerli': 'Ethereum Goerli',
+      sepolia: 'Sepolia Testnet',
+      'ethereum-sepolia': 'Sepolia Testnet',
+      holesky: 'Holesky Testnet',
+      'ethereum-holesky': 'Holesky Testnet',
       polygon: 'Polygon',
       'polygon-mumbai': 'Polygon Mumbai',
+      'polygon-amoy': 'Polygon Amoy',
       avalanche: 'Avalanche',
       'avalanche-fuji': 'Avalanche Fuji',
       bsc: 'BNB Chain',
       'bsc-testnet': 'BNB Chain Testnet',
+      arbitrum: 'Arbitrum One',
+      'arbitrum-sepolia': 'Arbitrum Sepolia',
+      optimism: 'Optimism',
+      'optimism-sepolia': 'Optimism Sepolia',
+      base: 'Base',
+      'base-sepolia': 'Base Sepolia',
       solana: 'Solana',
       'solana-devnet': 'Solana Devnet',
       bitcoin: 'Bitcoin',
@@ -149,6 +160,7 @@ const BlockchainSelector: React.FC<BlockchainSelectorProps> = ({
                 key={option.id}
                 value={option.id}
                 onSelect={(currentValue) => {
+                  console.log('[BlockchainSelector] Selected:', currentValue);
                   onChange(currentValue as SupportedChain);
                   setOpen(false);
                 }}

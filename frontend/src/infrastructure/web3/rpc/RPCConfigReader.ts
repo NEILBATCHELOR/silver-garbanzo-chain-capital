@@ -25,7 +25,12 @@ const RPC_ENV_MAPPING: Record<SupportedChain, EnvironmentRPCMapping> = {
   ethereum: {
     mainnet: import.meta.env.VITE_MAINNET_RPC_URL,
     testnet: import.meta.env.VITE_SEPOLIA_RPC_URL
-    // Note: Holesky is handled separately in MultiChainBalanceService due to multiple testnet limitation
+  },
+  sepolia: {
+    testnet: import.meta.env.VITE_SEPOLIA_RPC_URL
+  },
+  holesky: {
+    testnet: import.meta.env.VITE_HOLESKY_RPC_URL
   },
   polygon: {
     mainnet: import.meta.env.VITE_POLYGON_RPC_URL,

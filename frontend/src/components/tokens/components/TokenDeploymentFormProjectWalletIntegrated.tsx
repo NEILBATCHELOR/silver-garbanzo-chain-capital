@@ -52,6 +52,8 @@ import { useToast } from '@/components/ui/use-toast';
 import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
 import { FeePriority } from '@/services/blockchain/FeeEstimator';
 import { supabase } from '@/infrastructure/database/client'; // ✅ ADD: Import Supabase client
+import { DeploymentDashboard } from './DeploymentDashboard';
+import type { ProjectWallet } from '../services/deploymentEnhancementService';
 
 // Utility function for conditional class names
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -131,6 +133,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [showPrivateKey, setShowPrivateKey] = useState<boolean>(false);
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
   const [copiedPrivateKey, setCopiedPrivateKey] = useState<boolean>(false);
+  const [selectedWallet, setSelectedWallet] = useState<ProjectWallet | undefined>();
   
   // ✅ ADD: Auth state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -405,10 +408,12 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   };
   
   const handleBlockchainChange = (value: string) => {
+    console.log('[TokenDeploymentForm] Blockchain changed to:', value);
     setBlockchain(value);
     setValidationErrors({});
     // Reset wallet state when changing blockchain
     setWalletResult(null);
+    setSelectedWallet(undefined); // Reset selected wallet to force reload
     if (walletIntegrationMode === 'manual') {
       setWalletAddress('');
       setWalletPrivateKey('');
@@ -501,7 +506,22 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       const errorMessage = (err as Error).message;
       console.error(`Error deploying token:`, err);
       console.error(`Blockchain: ${blockchain}, Environment: ${environment}`);
-      setError(errorMessage);
+      
+      // Enhanced error message for insufficient funds
+      if (errorMessage.toLowerCase().includes('insufficient funds')) {
+        const networkName = environment === 'testnet' ? `${blockchain} testnet` : `${blockchain} mainnet`;
+        const helpfulMessage = `${errorMessage}
+
+💡 To resolve this issue:
+1. Fund your project wallet with ${blockchain === 'ethereum' ? 'ETH' : blockchain.toUpperCase()} on ${networkName}
+2. For testnet, you can get free test tokens from a faucet
+3. Check your wallet balance before deploying
+
+Need help? Visit our documentation or contact support.`;
+        setError(helpfulMessage);
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsDeploying(false);
     }
@@ -603,6 +623,17 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
             </div>
           </CardContent>
         </Card>
+        
+        {/* Deployment Dashboard - Wallet Selection, Balance, Gas Estimation, Faucets */}
+        <DeploymentDashboard
+          key={`${blockchain}-${environment}`}
+          projectId={projectId}
+          blockchain={blockchain}
+          environment={environment}
+          tokenType={tokenConfig.standard || 'ERC20'}
+          onWalletSelected={setSelectedWallet}
+          selectedWallet={selectedWallet}
+        />
         
         {/* Wallet Integration Section */}
         <Card>

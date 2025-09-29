@@ -208,8 +208,31 @@ export const enhancedTokenDeploymentService = {
     userId: string
   ): Promise<DeploymentResult> {
     try {
-      // Map legacy token configuration to Foundry configuration
-      const foundryConfig = mapTokenToFoundryConfig(token, tokenStandard, userId);
+      // Ensure we have a projectId
+      if (!token.project_id) {
+        throw new Error('Token must be associated with a project for Foundry deployment');
+      }
+      
+      // Get the project wallet address to use as initialOwner
+      const { data: walletData, error: walletError } = await supabase
+        .from('project_wallets')
+        .select('wallet_address')
+        .eq('project_id', token.project_id)
+        .eq('wallet_type', blockchain)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (walletError) {
+        throw new Error(`Failed to fetch project wallet: ${walletError.message}`);
+      }
+      
+      if (!walletData || !walletData.wallet_address) {
+        throw new Error(`No wallet address found for project ${token.project_id} on ${blockchain}`);
+      }
+      
+      // Map legacy token configuration to Foundry configuration using wallet address
+      const foundryConfig = mapTokenToFoundryConfig(token, tokenStandard, walletData.wallet_address);
       const foundryType = tokenStandardToFoundryType(tokenStandard);
       
       // Validate Foundry configuration
@@ -226,9 +249,12 @@ export const enhancedTokenDeploymentService = {
         environment
       };
       
-      // Deploy using Foundry service
-      // Note: keyId is optional and will auto-fetch from secure_keys table
-      return await foundryDeploymentService.deployToken(deploymentParams, userId);
+      // Deploy using Foundry service with project ID to fetch wallet
+      return await foundryDeploymentService.deployToken(
+        deploymentParams, 
+        userId,
+        token.project_id  // Pass projectId to get wallet from project_wallets
+      );
     } catch (error) {
       console.error('Foundry deployment failed:', error);
       

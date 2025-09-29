@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YkC9R9k8tSHKrUThqnwMmszcOjTUMbWKnQLtS4pDLV3eCvEFKLbRaMmlgAalHwx
+\restrict L2SgOHaNmBD4XVWEKisjF3Pj5JBHq9fjVfPpBahjDbRuaoCQrMglf2dJznB6kPp
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 17.6 (Postgres.app)
@@ -13174,7 +13174,9 @@ CREATE TABLE public.project_wallets (
     mnemonic text,
     key_vault_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    chain_id text,
+    net text
 );
 
 
@@ -14789,19 +14791,6 @@ CREATE TABLE public.rules (
     updated_at timestamp with time zone DEFAULT now(),
     is_template boolean DEFAULT false,
     CONSTRAINT rules_created_by_uuid_check CHECK (((created_by)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text))
-);
-
-
---
--- Name: secure_keys; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.secure_keys (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
-    key_id text NOT NULL,
-    encrypted_key text NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    last_used_at timestamp with time zone
 );
 
 
@@ -21809,22 +21798,6 @@ ALTER TABLE ONLY public.rule_evaluations
 
 ALTER TABLE ONLY public.rules
     ADD CONSTRAINT rules_pkey UNIQUE (rule_id);
-
-
---
--- Name: secure_keys secure_keys_key_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.secure_keys
-    ADD CONSTRAINT secure_keys_key_id_key UNIQUE (key_id);
-
-
---
--- Name: secure_keys secure_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.secure_keys
-    ADD CONSTRAINT secure_keys_pkey PRIMARY KEY (id);
 
 
 --
@@ -37964,16 +37937,6 @@ GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ru
 
 
 --
--- Name: TABLE secure_keys; Type: ACL; Schema: public; Owner: -
---
-
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.secure_keys TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.secure_keys TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.secure_keys TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.secure_keys TO prisma;
-
-
---
 -- Name: TABLE security_audit_logs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -39221,5 +39184,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,I
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YkC9R9k8tSHKrUThqnwMmszcOjTUMbWKnQLtS4pDLV3eCvEFKLbRaMmlgAalHwx
+\unrestrict L2SgOHaNmBD4XVWEKisjF3Pj5JBHq9fjVfPpBahjDbRuaoCQrMglf2dJznB6kPp
 

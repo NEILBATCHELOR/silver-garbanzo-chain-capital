@@ -7,7 +7,7 @@
 
 // Core blockchain types
 export type SupportedChain = 
-  | 'ethereum' | 'polygon' | 'arbitrum' | 'optimism' | 'base' | 'avalanche'
+  | 'ethereum' | 'sepolia' | 'holesky' | 'polygon' | 'arbitrum' | 'optimism' | 'base' | 'avalanche'
   | 'bitcoin' | 'solana' | 'near' | 'ripple' | 'stellar' | 'sui' | 'aptos' | 'injective';
 
 export type NetworkType = 'mainnet' | 'testnet' | 'devnet' | 'regtest';

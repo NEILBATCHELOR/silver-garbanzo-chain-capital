@@ -161,11 +161,11 @@ class KeyVaultClient implements IKeyVaultClient {
   async deleteKey(keyId: string): Promise<{ success: boolean }> {
     try {
       // In production, this would call the HSM API to delete the key
-      // For development, we'll delete from our local storage
+      // For development, we'll delete from project_wallets
       const { error } = await supabase
-        .from('secure_keys')
+        .from('project_wallets')
         .delete()
-        .eq('key_id', keyId);
+        .eq('key_vault_id', keyId);
         
       if (error) throw error;
       
@@ -207,6 +207,20 @@ class KeyVaultClient implements IKeyVaultClient {
     // For development, we'll use a simple encryption
     // WARNING: This is NOT secure for production use
     
+    // Check if the key is already in proper hex format
+    if (privateKey.startsWith('0x') && privateKey.length === 66) {
+      // Key is already a valid hex private key, store as-is for development
+      // In production, this would be encrypted by the HSM
+      return privateKey;
+    }
+    
+    // Check if it's a hex string without 0x prefix
+    if (/^[0-9a-fA-F]{64}$/.test(privateKey)) {
+      // Add 0x prefix and return
+      return '0x' + privateKey;
+    }
+    
+    // For other formats, base64 encode (legacy support)
     // In real production code, this would be a proper encryption using a KMS service
     return Buffer.from(privateKey).toString('base64');
   }
@@ -216,18 +230,38 @@ class KeyVaultClient implements IKeyVaultClient {
     // For development, we'll reverse our simple encryption
     // WARNING: This is NOT secure for production use
     
-    return Buffer.from(encryptedKey, 'base64').toString('ascii');
+    // Check if the key is already in hex format (plain private key)
+    if (encryptedKey.startsWith('0x') && encryptedKey.length === 66) {
+      // Key is already a plain hex private key, return as-is
+      return encryptedKey;
+    }
+    
+    // Check if it's a hex string without 0x prefix
+    if (/^[0-9a-fA-F]{64}$/.test(encryptedKey)) {
+      // Add 0x prefix
+      return '0x' + encryptedKey;
+    }
+    
+    // Otherwise, assume it's base64 encoded and decrypt
+    try {
+      return Buffer.from(encryptedKey, 'base64').toString('utf8');
+    } catch (error) {
+      console.error('Failed to decode as base64, returning as-is:', error);
+      // If base64 decoding fails, return the original value
+      return encryptedKey;
+    }
   }
   
   private async storeEncryptedKey(keyId: string, encryptedKey: string): Promise<void> {
     // In production, keys would never leave the HSM
-    // For development, we'll store in a secure table
+    // For development, we'll store in project_wallets
     
     const { error } = await supabase
-      .from('secure_keys')
+      .from('project_wallets')
       .insert({
-        key_id: keyId,
-        encrypted_key: encryptedKey,
+        key_vault_id: keyId,
+        private_key: encryptedKey,
+        wallet_type: 'vault',
         created_at: new Date().toISOString()
       });
       
@@ -236,16 +270,16 @@ class KeyVaultClient implements IKeyVaultClient {
   
   private async getEncryptedKey(keyId: string): Promise<string> {
     // In production, this method wouldn't exist
-    // For development, we retrieve from our secure storage
+    // For development, we retrieve from project_wallets
     
     const { data, error } = await supabase
-      .from('secure_keys')
-      .select('encrypted_key')
-      .eq('key_id', keyId)
+      .from('project_wallets')
+      .select('private_key')
+      .eq('key_vault_id', keyId)
       .single();
       
     if (error) throw error;
-    return data.encrypted_key;
+    return data.private_key;
   }
 }
 

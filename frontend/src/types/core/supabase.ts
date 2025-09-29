@@ -10270,10 +10270,12 @@ export type Database = {
       }
       project_wallets: {
         Row: {
+          chain_id: string | null
           created_at: string
           id: string
           key_vault_id: string | null
           mnemonic: string | null
+          net: string | null
           private_key: string | null
           project_id: string
           public_key: string
@@ -10282,10 +10284,12 @@ export type Database = {
           wallet_type: string
         }
         Insert: {
+          chain_id?: string | null
           created_at?: string
           id?: string
           key_vault_id?: string | null
           mnemonic?: string | null
+          net?: string | null
           private_key?: string | null
           project_id: string
           public_key: string
@@ -10294,10 +10298,12 @@ export type Database = {
           wallet_type: string
         }
         Update: {
+          chain_id?: string | null
           created_at?: string
           id?: string
           key_vault_id?: string | null
           mnemonic?: string | null
+          net?: string | null
           private_key?: string | null
           project_id?: string
           public_key?: string
@@ -13076,30 +13082,6 @@ export type Database = {
           rule_type?: string
           status?: string | null
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      secure_keys: {
-        Row: {
-          created_at: string | null
-          encrypted_key: string
-          id: string
-          key_id: string
-          last_used_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          encrypted_key: string
-          id?: string
-          key_id: string
-          last_used_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          encrypted_key?: string
-          id?: string
-          key_id?: string
-          last_used_at?: string | null
         }
         Relationships: []
       }

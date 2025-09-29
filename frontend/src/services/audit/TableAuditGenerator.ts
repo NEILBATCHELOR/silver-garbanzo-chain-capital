@@ -118,7 +118,7 @@ export class TableAuditGenerator {
     'ripple_payments',
     
     // Organizations/Projects
-    'organizations', 'project_credentials', 'credential_usage_logs', 'secure_keys',
+    'organizations', 'project_credentials', 'credential_usage_logs', 'project_wallets',
     
     // Cap table
     'cap_table_investors',

@@ -2,6 +2,7 @@ import { supabase } from "@/infrastructure/database/client";
 import { WalletGeneratorFactory } from "../wallet/generators/WalletGeneratorFactory";
 import { v4 as uuidv4 } from 'uuid';
 import { ethers } from 'ethers';
+import { getChainEnvironment } from '@/config/chains';
 
 export interface ProjectWalletResult {
   success: boolean;
@@ -12,6 +13,8 @@ export interface ProjectWalletResult {
   keyVaultId?: string;
   vaultStorageId?: string;
   network: string;
+  chainId?: string | null;
+  net?: string;
   error?: string;
 }
 
@@ -25,6 +28,8 @@ export interface ProjectWalletData {
   mnemonic?: string;
   key_vault_id?: string;
   vault_storage_id?: string;
+  chain_id?: string | null;
+  net?: string;
 }
 
 export interface WalletGenerationParams {
@@ -32,6 +37,9 @@ export interface WalletGenerationParams {
   projectName: string;
   projectType: string;
   network?: string;
+  networkEnvironment?: 'mainnet' | 'testnet' | 'devnet';
+  chainId?: string | null;
+  net?: string;
   includePrivateKey?: boolean;
   includeMnemonic?: boolean;
   userId?: string;
@@ -204,16 +212,35 @@ export const enhancedProjectWalletService = {
   async generateWalletForProject(params: WalletGenerationParams): Promise<ProjectWalletResult> {
     const { 
       projectId, 
-      network = 'ethereum', 
+      network = 'ethereum',
+      networkEnvironment = 'testnet',
+      chainId,
+      net,
       includePrivateKey = true, 
       includeMnemonic = true 
     } = params;
     
     // Generate a unique request ID
     const requestId = `req-${uuidv4()}`;
-    console.log(`[ProjectWalletService] Starting wallet generation for project: ${projectId}, network: ${network}, request ID: ${requestId}`);
+    console.log(`[ProjectWalletService] Starting wallet generation for project: ${projectId}, network: ${network}, environment: ${net}, request ID: ${requestId}`);
     
     try {
+      // Use provided chainId and net, or fall back to defaults
+      let finalChainId = chainId;
+      let finalNet = net;
+      
+      // If chainId or net not provided, try to get from chain config
+      if (!finalChainId || !finalNet) {
+        const envConfig = getChainEnvironment(network, networkEnvironment);
+        if (!envConfig) {
+          throw new Error(`Unsupported network environment: ${network} ${networkEnvironment}`);
+        }
+        finalChainId = finalChainId || envConfig.chainId;
+        finalNet = finalNet || envConfig.net;
+      }
+      
+      console.log(`[ProjectWalletService] Network identifiers - chain_id: ${finalChainId}, net: ${finalNet}`);
+      
       // Create a key vault ID (simulated for now)
       const keyVaultId = `kv-${uuidv4()}`;
       
@@ -248,6 +275,8 @@ export const enhancedProjectWalletService = {
         wallet_address: walletAddress,
         public_key: publicKey,
         key_vault_id: keyVaultId,
+        chain_id: finalChainId,
+        net: finalNet,
         // Only include sensitive data if requested
         ...(includePrivateKey && { private_key: privateKey }),
         ...(includeMnemonic && mnemonic && { mnemonic }),
@@ -267,7 +296,9 @@ export const enhancedProjectWalletService = {
         mnemonic: savedWallet.mnemonic,
         keyVaultId: savedWallet.key_vault_id,
         vaultStorageId: savedWallet.vault_storage_id,
-        network: savedWallet.wallet_type
+        network: savedWallet.wallet_type,
+        chainId: savedWallet.chain_id,
+        net: savedWallet.net,
       };
     } catch (error) {
       console.error('[ProjectWalletService] Error generating wallet for project:', error);
@@ -288,17 +319,21 @@ export const enhancedProjectWalletService = {
   /**
    * Generate multiple wallets for different networks
    * @param params Base wallet generation parameters
-   * @param networks List of networks to generate wallets for
+   * @param networksWithEnvironments List of networks with their environments
    * @returns Array of wallet generation results
    */
   async generateMultiNetworkWallets(
     params: WalletGenerationParams,
-    networks: string[]
+    networksWithEnvironments: Array<{ network: string; environment: any }>
   ): Promise<ProjectWalletResult[]> {
-    const { projectId, includePrivateKey = true, includeMnemonic = true } = params;
-    console.log(`[ProjectWalletService] Starting multi-wallet generation for project: ${projectId}, networks: ${networks.join(', ')}`);
+    const { 
+      projectId, 
+      includePrivateKey = true, 
+      includeMnemonic = true 
+    } = params;
+    console.log(`[ProjectWalletService] Starting multi-wallet generation for project: ${projectId}, networks: ${networksWithEnvironments.map(n => n.network).join(', ')}`);
 
-    const walletPromises = networks.map(async (network) => {
+    const walletPromises = networksWithEnvironments.map(async ({ network, environment }) => {
       const requestId = `req-${uuidv4()}`;
       try {
         const keyVaultId = `kv-${uuidv4()}`;
@@ -320,14 +355,18 @@ export const enhancedProjectWalletService = {
         const publicKey = wallet.publicKey || wallet.address;
         const privateKey = wallet.privateKey;
 
+        // Register this generation to prevent duplicates
         inProgressGenerations.set(requestId, { address: walletAddress, requestId });
-
+        
         const walletData: ProjectWalletData = {
           project_id: projectId,
           wallet_type: network,
           wallet_address: walletAddress,
           public_key: publicKey,
           key_vault_id: keyVaultId,
+          chain_id: environment.chainId,
+          net: environment.net,
+          // Only include sensitive data if requested
           ...(includePrivateKey && { private_key: privateKey }),
           ...(includeMnemonic && mnemonic && { mnemonic }),
         };
@@ -343,15 +382,17 @@ export const enhancedProjectWalletService = {
           keyVaultId: savedWallet.key_vault_id,
           vaultStorageId: savedWallet.vault_storage_id,
           network: savedWallet.wallet_type,
+          chainId: savedWallet.chain_id,
+          net: savedWallet.net,
         };
       } catch (error) {
-        console.error(`[ProjectWalletService] Error generating wallet for network ${network}:`, error);
+        console.error(`[ProjectWalletService] Error generating ${network} wallet:`, error);
         return {
           success: false,
           walletAddress: '',
           publicKey: '',
           network,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : 'Unknown error'
         };
       } finally {
         inProgressGenerations.delete(requestId);
@@ -359,7 +400,7 @@ export const enhancedProjectWalletService = {
     });
 
     const results = await Promise.all(walletPromises);
-    console.log(`[ProjectWalletService] Completed generating ${results.length} wallets`);
+    console.log(`[ProjectWalletService] Multi-wallet generation complete. Success: ${results.filter(r => r.success).length}/${results.length}`);
     return results;
   }
 };

@@ -66,6 +66,26 @@ const LEGACY_FALLBACK_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
       nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 }
     }
   ],
+  sepolia: [
+    {
+      chain: 'sepolia',
+      networkType: 'testnet',
+      rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com', // Free public RPC
+      explorerUrl: 'https://sepolia.etherscan.io',
+      chainId: '11155111',
+      nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 }
+    }
+  ],
+  holesky: [
+    {
+      chain: 'holesky',
+      networkType: 'testnet',
+      rpcUrl: 'https://ethereum-holesky-rpc.publicnode.com', // Free public RPC
+      explorerUrl: 'https://holesky.etherscan.io',
+      chainId: '17000',
+      nativeCurrency: { name: 'Holesky Ether', symbol: 'ETH', decimals: 18 }
+    }
+  ],
   polygon: [
     {
       chain: 'polygon',
@@ -308,6 +328,8 @@ export class BlockchainFactory {
     
     switch (chain) {
       case 'ethereum':
+      case 'sepolia':
+      case 'holesky':
         adapter = new EthereumAdapter(networkType);
         break;
         
@@ -468,6 +490,18 @@ export class BlockchainFactory {
         devnet: 'https://sepolia.etherscan.io',
         regtest: 'https://sepolia.etherscan.io'
       },
+      sepolia: {
+        mainnet: 'https://sepolia.etherscan.io',
+        testnet: 'https://sepolia.etherscan.io',
+        devnet: 'https://sepolia.etherscan.io',
+        regtest: 'https://sepolia.etherscan.io'
+      },
+      holesky: {
+        mainnet: 'https://holesky.etherscan.io',
+        testnet: 'https://holesky.etherscan.io',
+        devnet: 'https://holesky.etherscan.io',
+        regtest: 'https://holesky.etherscan.io'
+      },
       polygon: {
         mainnet: 'https://polygonscan.com',
         testnet: 'https://amoy.polygonscan.com',
@@ -557,6 +591,8 @@ export class BlockchainFactory {
   static getChainId(chain: SupportedChain, networkType: NetworkType): string {
     const chainIds: Record<SupportedChain, Record<NetworkType, string>> = {
       ethereum: { mainnet: '1', testnet: '11155111', devnet: '11155111', regtest: '11155111' },
+      sepolia: { mainnet: '11155111', testnet: '11155111', devnet: '11155111', regtest: '11155111' },
+      holesky: { mainnet: '17000', testnet: '17000', devnet: '17000', regtest: '17000' },
       polygon: { mainnet: '137', testnet: '80002', devnet: '80002', regtest: '80002' },
       arbitrum: { mainnet: '42161', testnet: '421614', devnet: '421614', regtest: '421614' },
       optimism: { mainnet: '10', testnet: '11155420', devnet: '11155420', regtest: '11155420' },
@@ -581,6 +617,8 @@ export class BlockchainFactory {
   private static getNativeCurrency(chain: SupportedChain): { name: string; symbol: string; decimals: number } {
     const currencies: Record<SupportedChain, { name: string; symbol: string; decimals: number }> = {
       ethereum: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      sepolia: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+      holesky: { name: 'Holesky Ether', symbol: 'ETH', decimals: 18 },
       polygon: { name: 'Polygon', symbol: 'MATIC', decimals: 18 },
       arbitrum: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       optimism: { name: 'Ether', symbol: 'ETH', decimals: 18 },

@@ -116,13 +116,13 @@ export class FoundryDeploymentService {
   }
 
   /**
-   * Get the latest key ID from the secure_keys table
+   * Get the latest key ID from the project_wallets table
    */
   private async getLatestKeyId(): Promise<string> {
     try {
       const { data, error } = await supabase
-        .from('secure_keys')
-        .select('key_id')
+        .from('project_wallets')
+        .select('key_vault_id')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -131,7 +131,7 @@ export class FoundryDeploymentService {
         throw new Error('No keys found in vault');
       }
       
-      return data.key_id;
+      return data.key_vault_id;
     } catch (error) {
       console.error('Failed to get latest key ID:', error);
       throw new Error('Failed to retrieve key from vault');
@@ -250,26 +250,139 @@ export class FoundryDeploymentService {
   }
 
   /**
+   * Get private key from project_wallets table
+   */
+  private async getProjectWalletPrivateKey(
+    projectId: string,
+    blockchain: string
+  ): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('project_wallets')
+        .select('private_key, key_vault_id')
+        .eq('project_id', projectId)
+        .eq('wallet_type', blockchain)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) {
+        throw new Error(`Failed to fetch project wallet: ${error.message}`);
+      }
+      
+      if (!data) {
+        throw new Error(`No wallet found for project ${projectId} on ${blockchain}`);
+      }
+      
+      // If wallet has key_vault_id, fetch from vault
+      if (data.key_vault_id) {
+        await this.initializeKeyVault();
+        const keyData = await keyVaultClient.getKey(data.key_vault_id);
+        return typeof keyData === 'string' ? keyData : keyData.privateKey;
+      }
+      
+      // Otherwise use private_key directly from project_wallets
+      if (data.private_key) {
+        return data.private_key;
+      }
+      
+      throw new Error('No private key found in project wallet');
+    } catch (error) {
+      console.error('Failed to get project wallet private key:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if wallet has sufficient balance for deployment
+   */
+  private async checkWalletBalance(
+    wallet: ethers.Wallet,
+    estimatedGas: bigint,
+    blockchain: string,
+    environment: string
+  ): Promise<void> {
+    const balance = await wallet.provider.getBalance(wallet.address);
+    const feeData = await wallet.provider.getFeeData();
+    const gasPrice = feeData.gasPrice || ethers.parseUnits('20', 'gwei'); // Fallback to 20 gwei
+    
+    const estimatedCost = estimatedGas * gasPrice;
+    const estimatedCostInEth = ethers.formatEther(estimatedCost);
+    const balanceInEth = ethers.formatEther(balance);
+    
+    console.log(`Wallet Balance Check:
+      - Address: ${wallet.address}
+      - Balance: ${balanceInEth} ETH
+      - Estimated Gas: ${estimatedGas.toString()} units
+      - Gas Price: ${ethers.formatUnits(gasPrice, 'gwei')} gwei
+      - Estimated Cost: ${estimatedCostInEth} ETH`);
+    
+    if (balance < estimatedCost) {
+      const network = environment === 'testnet' ? 'testnet' : 'mainnet';
+      throw new Error(
+        `Insufficient funds for deployment. ` +
+        `Wallet ${wallet.address} has ${balanceInEth} ETH but needs approximately ${estimatedCostInEth} ETH for gas. ` +
+        `Please fund your wallet on ${blockchain} ${network} before deploying.`
+      );
+    }
+  }
+
+  /**
+   * Estimate gas for contract deployment dynamically
+   */
+  private async estimateContractDeploymentGas(
+    wallet: ethers.Wallet,
+    params: FoundryDeploymentParams
+  ): Promise<bigint> {
+    try {
+      // Base gas estimates for different token types (conservative)
+      const baseEstimates: Record<string, number> = {
+        'ERC20': 1500000,
+        'EnhancedERC20': 2000000,
+        'ERC721': 2500000,
+        'EnhancedERC721': 3000000,
+        'ERC1155': 2800000,
+        'EnhancedERC1155': 3500000,
+        'ERC3525': 3200000,
+        'EnhancedERC3525': 4000000,
+        'ERC4626': 2600000,
+        'EnhancedERC4626': 3300000,
+        'ERC1400': 3500000,
+        'BaseERC1400': 3200000,
+        'EnhancedERC1400': 4200000
+      };
+
+      const baseGas = baseEstimates[params.tokenType] || 3000000;
+      
+      // Add 20% buffer for safety
+      const gasWithBuffer = Math.floor(baseGas * 1.2);
+      
+      console.log(`Gas Estimation for ${params.tokenType}:
+        - Base Estimate: ${baseGas} units
+        - With 20% Buffer: ${gasWithBuffer} units`);
+      
+      return BigInt(gasWithBuffer);
+    } catch (error) {
+      console.error('Error estimating deployment gas:', error);
+      // Fallback to 4M gas if estimation fails
+      return BigInt(4000000);
+    }
+  }
+
+  /**
    * Deploy a token using Foundry contracts
    */
   async deployToken(
     params: FoundryDeploymentParams,
     userId: string,
-    keyId?: string // Made optional - will auto-fetch if not provided
+    projectId: string
   ): Promise<DeploymentResult> {
     try {
-      // Initialize key vault connection
-      await this.initializeKeyVault();
-      
-      // Get the key ID - either from parameter or fetch latest
-      const vaultKeyId = keyId || await this.getLatestKeyId();
-      
-      // Get wallet key from key vault
-      const keyData = await keyVaultClient.getKey(vaultKeyId);
-      const privateKey = typeof keyData === 'string' ? keyData : keyData.privateKey;
+      // Get private key from project_wallets table
+      const privateKey = await this.getProjectWalletPrivateKey(projectId, params.blockchain);
       
       if (!privateKey) {
-        throw new Error(`Private key not found for keyId: ${vaultKeyId}`);
+        throw new Error(`No private key found for project wallet`);
       }
 
       // Get provider for the target blockchain
@@ -284,6 +397,10 @@ export class FoundryDeploymentService {
 
       // Create wallet from private key
       const wallet = new ethers.Wallet(privateKey, provider);
+
+      // Dynamic gas estimation based on token type
+      const estimatedGas = await this.estimateContractDeploymentGas(wallet, params);
+      await this.checkWalletBalance(wallet, estimatedGas, params.blockchain, params.environment);
 
       // Deploy using factory if available, otherwise deploy directly
       const factoryAddress = FACTORY_ADDRESSES[params.blockchain]?.[params.environment];
