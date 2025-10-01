@@ -11,7 +11,7 @@
 import { ethers } from 'ethers';
 import { providerManager, NetworkEnvironment } from '@/infrastructure/web3/ProviderManager';
 import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
-import { supa } from '@/infrastructure/data/client';
+import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
 import type { ProjectCredential } from '@/types/credentials';
 import { 
@@ -28,14 +28,14 @@ import { DeploymentStatus, DeploymentResult } from '@/types/deployment/TokenDepl
 
 // Import compiled Foundry artifacts (JSON files contain both ABI and bytecode)
 // These are the STATIC master contract artifacts compiled by Foundry
-import ERC20MasterArtifact from '../../../../../../foundry-contracts/out/ERC20Master.sol/ERC20Master.json';
-import ERC721MasterArtifact from '../../../../../../foundry-contracts/out/ERC721Master.sol/ERC721Master.json';
-import ERC1155MasterArtifact from '../../../../../../foundry-contracts/out/ERC1155Master.sol/ERC1155Master.json';
-import ERC3525MasterArtifact from '../../../../../../foundry-contracts/out/ERC3525Master.sol/ERC3525Master.json';
-import ERC4626MasterArtifact from '../../../../../../foundry-contracts/out/ERC4626Master.sol/ERC4626Master.json';
-import ERC1400MasterArtifact from '../../../../../../foundry-contracts/out/ERC1400Master.sol/ERC1400Master.json';
-import ERC20RebasingMasterArtifact from '../../../../../../foundry-contracts/out/ERC20RebasingMaster.sol/ERC20RebasingMaster.json';
-import TokenFactoryArtifact from '../../../../../../foundry-contracts/out/TokenFactory.sol/TokenFactory.json';
+import ERC20MasterArtifact from '../../../../foundry-contracts/out/ERC20Master.sol/ERC20Master.json';
+import ERC721MasterArtifact from '../../../../foundry-contracts/out/ERC721Master.sol/ERC721Master.json';
+import ERC1155MasterArtifact from '../../../../foundry-contracts/out/ERC1155Master.sol/ERC1155Master.json';
+import ERC3525MasterArtifact from '../../../../foundry-contracts/out/ERC3525Master.sol/ERC3525Master.json';
+import ERC4626MasterArtifact from '../../../../foundry-contracts/out/ERC4626Master.sol/ERC4626Master.json';
+import ERC1400MasterArtifact from '../../../../foundry-contracts/out/ERC1400Master.sol/ERC1400Master.json';
+import ERC20RebasingMasterArtifact from '../../../../foundry-contracts/out/ERC20RebasingMaster.sol/ERC20RebasingMaster.json';
+import TokenFactoryArtifact from '../../../../foundry-contracts/out/TokenFactory.sol/TokenFactory.json';
 
 /**
  * Extract ABI from Foundry artifact
@@ -116,7 +116,7 @@ export class FoundryDeploymentService {
    */
   private async getLatestKeyId(): Promise<string> {
     try {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('project_wallets')
         .select('key_vault_id')
         .order('created_at', { ascending: false })
@@ -154,7 +154,7 @@ export class FoundryDeploymentService {
     blockchain: string
   ): Promise<string> {
     try {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('project_wallets')
         .select('private_key, key_vault_id')
         .eq('project_id', projectId)
@@ -225,6 +225,13 @@ export class FoundryDeploymentService {
   }
 
   /**
+   * Normalize token type by removing "Master" suffix
+   */
+  private normalizeTokenType(tokenType: string): string {
+    return tokenType.replace(/Master$/, '');
+  }
+
+  /**
    * Estimate gas for contract deployment
    */
   private async estimateContractDeploymentGas(
@@ -233,24 +240,26 @@ export class FoundryDeploymentService {
   ): Promise<bigint> {
     try {
       // Conservative gas estimates for different token types
+      const normalizedType = this.normalizeTokenType(params.tokenType);
+      
       const gasEstimates: Record<string, number> = {
         'ERC20': 1500000,
-        'ERC20Master': 1500000,
         'ERC721': 2500000,
-        'ERC721Master': 2500000,
         'ERC1155': 2800000,
-        'ERC1155Master': 2800000,
         'ERC3525': 3200000,
-        'ERC3525Master': 3200000,
         'ERC4626': 2600000,
-        'ERC4626Master': 2600000,
         'ERC1400': 3500000,
-        'ERC1400Master': 3500000,
         'ERC20Rebasing': 2000000,
-        'ERC20RebasingMaster': 2000000,
+        'EnhancedERC20': 1800000,
+        'EnhancedERC721': 2800000,
+        'EnhancedERC1155': 3000000,
+        'EnhancedERC3525': 3500000,
+        'EnhancedERC4626': 2900000,
+        'BaseERC1400': 3500000,
+        'EnhancedERC1400': 3800000,
       };
 
-      const baseGas = gasEstimates[params.tokenType] || 3000000;
+      const baseGas = gasEstimates[normalizedType] || 3000000;
       
       // Add 20% buffer for safety
       const gasWithBuffer = Math.floor(baseGas * 1.2);
@@ -324,7 +333,7 @@ export class FoundryDeploymentService {
         entity_type: 'token',
         entity_id: deploymentResult.address,
         details: {
-          tokenType: params.tokenType,
+          tokenType: deploymentResult.tokenType,
           blockchain: params.blockchain,
           environment: params.environment,
           name: deploymentResult.name,
@@ -384,22 +393,23 @@ export class FoundryDeploymentService {
     // Map token type to factory method and encode config
     const tokenTypeMap: Record<string, string> = {
       'ERC20': 'deployERC20Token',
-      'ERC20Master': 'deployERC20Token',
       'ERC721': 'deployERC721Token',
-      'ERC721Master': 'deployERC721Token',
       'ERC1155': 'deployERC1155Token',
-      'ERC1155Master': 'deployERC1155Token',
       'ERC3525': 'deployERC3525Token',
-      'ERC3525Master': 'deployERC3525Token',
       'ERC4626': 'deployERC4626Token',
-      'ERC4626Master': 'deployERC4626Token',
       'ERC1400': 'deployERC1400Token',
-      'ERC1400Master': 'deployERC1400Token',
       'ERC20Rebasing': 'deployERC20RebasingToken',
-      'ERC20RebasingMaster': 'deployERC20RebasingToken',
+      'EnhancedERC20': 'deployERC20Token',
+      'EnhancedERC721': 'deployERC721Token',
+      'EnhancedERC1155': 'deployERC1155Token',
+      'EnhancedERC3525': 'deployERC3525Token',
+      'EnhancedERC4626': 'deployERC4626Token',
+      'BaseERC1400': 'deployERC1400Token',
+      'EnhancedERC1400': 'deployERC1400Token',
     };
 
-    const methodName = tokenTypeMap[params.tokenType];
+    const normalizedType = this.normalizeTokenType(params.tokenType);
+    const methodName = tokenTypeMap[normalizedType];
     if (!methodName) {
       throw new Error(`Unsupported token type: ${params.tokenType}`);
     }
@@ -451,28 +461,31 @@ export class FoundryDeploymentService {
     let artifact: any;
     let constructorArgs: any[];
 
-    // Get artifact based on token type
-    switch (params.tokenType) {
+    // Normalize token type for artifact selection
+    const normalizedType = this.normalizeTokenType(params.tokenType);
+
+    // Get artifact based on normalized token type
+    switch (normalizedType) {
       case 'ERC20':
-      case 'ERC20Master':
+      case 'EnhancedERC20':
         artifact = ERC20MasterArtifact;
         constructorArgs = [this.encodeERC20Config(params.config as FoundryERC20Config)];
         break;
         
       case 'ERC721':
-      case 'ERC721Master':
+      case 'EnhancedERC721':
         artifact = ERC721MasterArtifact;
         constructorArgs = [this.encodeERC721Config(params.config as FoundryERC721Config)];
         break;
         
       case 'ERC1155':
-      case 'ERC1155Master':
+      case 'EnhancedERC1155':
         artifact = ERC1155MasterArtifact;
         constructorArgs = [this.encodeERC1155Config(params.config as FoundryERC1155Config)];
         break;
         
       case 'ERC3525':
-      case 'ERC3525Master':
+      case 'EnhancedERC3525':
         artifact = ERC3525MasterArtifact;
         const erc3525Config = this.encodeERC3525Config(params.config as FoundryERC3525Config);
         constructorArgs = [
@@ -485,19 +498,19 @@ export class FoundryDeploymentService {
         break;
         
       case 'ERC4626':
-      case 'ERC4626Master':
+      case 'EnhancedERC4626':
         artifact = ERC4626MasterArtifact;
         constructorArgs = [this.encodeERC4626Config(params.config as FoundryERC4626Config)];
         break;
         
       case 'ERC1400':
-      case 'ERC1400Master':
+      case 'BaseERC1400':
+      case 'EnhancedERC1400':
         artifact = ERC1400MasterArtifact;
         constructorArgs = [this.encodeERC1400Config(params.config as any)];
         break;
         
       case 'ERC20Rebasing':
-      case 'ERC20RebasingMaster':
         artifact = ERC20RebasingMasterArtifact;
         constructorArgs = [this.encodeERC20RebasingConfig(params.config as any)];
         break;
@@ -539,27 +552,29 @@ export class FoundryDeploymentService {
    * Encode config based on token type (router method)
    */
   private encodeConfig(params: FoundryDeploymentParams): any {
-    switch (params.tokenType) {
+    const normalizedType = this.normalizeTokenType(params.tokenType);
+    
+    switch (normalizedType) {
       case 'ERC20':
-      case 'ERC20Master':
+      case 'EnhancedERC20':
         return this.encodeERC20Config(params.config as FoundryERC20Config);
       case 'ERC721':
-      case 'ERC721Master':
+      case 'EnhancedERC721':
         return this.encodeERC721Config(params.config as FoundryERC721Config);
       case 'ERC1155':
-      case 'ERC1155Master':
+      case 'EnhancedERC1155':
         return this.encodeERC1155Config(params.config as FoundryERC1155Config);
       case 'ERC3525':
-      case 'ERC3525Master':
+      case 'EnhancedERC3525':
         return this.encodeERC3525Config(params.config as FoundryERC3525Config);
       case 'ERC4626':
-      case 'ERC4626Master':
+      case 'EnhancedERC4626':
         return this.encodeERC4626Config(params.config as FoundryERC4626Config);
       case 'ERC1400':
-      case 'ERC1400Master':
+      case 'BaseERC1400':
+      case 'EnhancedERC1400':
         return this.encodeERC1400Config(params.config as any);
       case 'ERC20Rebasing':
-      case 'ERC20RebasingMaster':
         return this.encodeERC20RebasingConfig(params.config as any);
       default:
         throw new Error(`Unsupported token type: ${params.tokenType}`);
@@ -591,7 +606,7 @@ export class FoundryDeploymentService {
     return {
       name: config.name,
       symbol: config.symbol,
-      URI: config.URI,
+      baseURI: config.baseURI,
       maxSupply: config.maxSupply,
       mintPrice: ethers.parseEther(config.mintPrice),
       transfersPaused: config.transfersPaused,
@@ -609,7 +624,7 @@ export class FoundryDeploymentService {
     return {
       name: config.name,
       symbol: config.symbol,
-      URI: config.URI,
+      baseURI: config.baseURI,
       transfersPaused: config.transfersPaused,
       mintingEnabled: config.mintingEnabled,
       burningEnabled: config.burningEnabled,
@@ -720,10 +735,11 @@ export class FoundryDeploymentService {
     blockHash: string
   ): Promise<DeployedContract> {
     const config = params.config;
+    const normalizedType = this.normalizeTokenType(params.tokenType) as DeployedContract['tokenType'];
     
     return {
       address,
-      tokenType: params.tokenType,
+      tokenType: normalizedType,
       name: config.name,
       symbol: config.symbol,
       decimals: 'decimals' in config ? config.decimals : undefined,
@@ -734,7 +750,7 @@ export class FoundryDeploymentService {
       deploymentBlock: blockNumber,
       deploymentTimestamp: Date.now(),
       verified: false,
-      abi: this.getABIForTokenType(params.tokenType)
+      abi: this.getABIForTokenType(normalizedType)
     };
   }
 
@@ -742,27 +758,29 @@ export class FoundryDeploymentService {
    * Get ABI for token type from Foundry artifacts
    */
   private getABIForTokenType(tokenType: string): any[] {
-    switch (tokenType) {
+    const normalizedType = this.normalizeTokenType(tokenType);
+    
+    switch (normalizedType) {
       case 'ERC20':
-      case 'ERC20Master':
+      case 'EnhancedERC20':
         return getABI(ERC20MasterArtifact);
       case 'ERC721':
-      case 'ERC721Master':
+      case 'EnhancedERC721':
         return getABI(ERC721MasterArtifact);
       case 'ERC1155':
-      case 'ERC1155Master':
+      case 'EnhancedERC1155':
         return getABI(ERC1155MasterArtifact);
       case 'ERC3525':
-      case 'ERC3525Master':
+      case 'EnhancedERC3525':
         return getABI(ERC3525MasterArtifact);
       case 'ERC4626':
-      case 'ERC4626Master':
+      case 'EnhancedERC4626':
         return getABI(ERC4626MasterArtifact);
       case 'ERC1400':
-      case 'ERC1400Master':
+      case 'BaseERC1400':
+      case 'EnhancedERC1400':
         return getABI(ERC1400MasterArtifact);
       case 'ERC20Rebasing':
-      case 'ERC20RebasingMaster':
         return getABI(ERC20RebasingMasterArtifact);
       default:
         return [];
