@@ -512,6 +512,8 @@ export class MultiStandardOptimizationService {
     
     // Use existing foundry service for direct deployment
     const deploymentParams = {
+      tokenId: crypto.randomUUID(), // Generate unique token ID
+      projectId: keyId, // Use keyId as projectId for database tracking
       tokenType: standard as 'ERC20' | 'ERC721' | 'ERC1155' | 'ERC1400' | 'ERC3525' | 'ERC4626',
       config: foundryConfig,
       blockchain,

@@ -46,7 +46,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "tsx": "^4.20.6"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -84,6 +85,8 @@
   },
   "packageManager": "pnpm@10.17.0",
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "dotenv": "^17.2.3",
     "recharts": "^2.15.2"
   }
 }

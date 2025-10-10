@@ -47,7 +47,7 @@ export class ProjectAnalyticsService extends BaseService {
               select: {
                 investor_id: true,
                 tax_residency: true,
-                investor_type: true
+                type: true
               }
             }
           },
@@ -242,8 +242,6 @@ export class ProjectAnalyticsService extends BaseService {
               project_type: projectData.projectType || null,
               token_symbol: projectData.tokenSymbol || null,
               target_raise: projectData.targetRaise || null,
-              authorized_shares: projectData.authorizedShares || null,
-              share_price: projectData.sharePrice || null,
               company_valuation: projectData.companyValuation || null,
               legal_entity: projectData.legalEntity || null,
               jurisdiction: projectData.jurisdiction || null,

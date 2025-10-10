@@ -137,6 +137,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   
   // ✅ ADD: Auth state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true); // ✅ FIX #1: Add auth loading state
   
   // Gas configuration state
   const [gasConfigMode, setGasConfigMode] = useState<'estimator' | 'manual'>('estimator');
@@ -150,10 +151,11 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>(parentMaxPriorityFeePerGas || '');
   const [isEIP1559Network, setIsEIP1559Network] = useState<boolean>(false);
   
-  // ✅ ADD: Fetch current user on component mount
+  // ✅ FIX #1: Fetch current user on component mount with loading state
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
+        setAuthLoading(true);
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) {
           console.error('Error fetching current user:', error);
@@ -168,6 +170,8 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       } catch (err) {
         console.error('Error in fetchCurrentUser:', err);
         setError('Authentication error occurred.');
+      } finally {
+        setAuthLoading(false);
       }
     };
     
@@ -425,6 +429,36 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
     setValidationErrors({});
   };
   
+  // ✅ FIX #2: Wallet existence validation
+  const validateWalletExists = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('project_wallets')
+        .select('wallet_address, wallet_type')
+        .eq('project_id', projectId)
+        .eq('wallet_type', blockchain)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking wallet existence:', error);
+        setError(`Failed to verify wallet: ${error.message}`);
+        return false;
+      }
+
+      if (!data) {
+        setError(`No wallet found for ${blockchain} network. Please create a wallet for this blockchain first.`);
+        return false;
+      }
+
+      console.log(`✅ FIX #2: Verified wallet exists for ${blockchain}: ${data.wallet_address}`);
+      return true;
+    } catch (err) {
+      console.error('Error in validateWalletExists:', err);
+      setError('Failed to validate wallet existence.');
+      return false;
+    }
+  };
+  
   const validateInputs = (): boolean => {
     const errors: Record<string, string> = {};
     
@@ -455,6 +489,12 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       return;
     }
     
+    // ✅ FIX #2: Validate wallet exists for selected blockchain
+    const walletExists = await validateWalletExists();
+    if (!walletExists) {
+      return;
+    }
+    
     setShowConfirmation(false);
     
     try {
@@ -465,20 +505,45 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       console.log(`Using wallet: ${walletAddress}`);
       console.log(`Token ID: ${tokenId}, User ID: ${currentUserId}`); // ✅ ADD: Debug log
       
+      // ✅ FIX #3: Update token record with form values BEFORE deployment
+      // ✅ FIX #4: Include deployed_by to ensure user tracking
+      const { error: updateError } = await supabase
+        .from('tokens')
+        .update({
+          blockchain: blockchain,
+          deployment_environment: environment,
+          deployed_by: currentUserId // ✅ FIX #4: Capture deploying user
+        })
+        .eq('id', tokenId);
+      
+      if (updateError) {
+        console.error('Error updating token blockchain:', updateError);
+        throw new Error(`Failed to update token configuration: ${updateError.message}`);
+      }
+      
+      console.log(`✅ FIX #3 & #4: Updated token ${tokenId} with blockchain: ${blockchain}, environment: ${environment}, deployed_by: ${currentUserId}`);
+      
       if (useOptimization) {
         // ✅ Use unified deployment service with optimization
-        // Note: Wallet information is handled internally by the deployment service
-        // through the tokenProjectWalletIntegrationService that was called earlier
+        // ✅ FIX #5: Pass gas configuration from form
         const result = await unifiedTokenDeploymentService.deployToken(
-          tokenId, // ✅ FIXED: Use real token ID from props
-          currentUserId, // ✅ FIXED: Use real user ID from auth
+          tokenId,
+          currentUserId,
           projectId,
           {
             useOptimization: true,
             forceStrategy: deploymentStrategy,
-            enableAnalytics: true
+            enableAnalytics: true,
+            gasConfig: {
+              gasPrice: gasPrice,
+              gasLimit: gasLimit,
+              maxFeePerGas: maxFeePerGas || undefined,
+              maxPriorityFeePerGas: maxPriorityFeePerGas || undefined
+            }
           }
         );
+        
+        console.log(`✅ FIX #5: Passed gas configuration - Price: ${gasPrice} Gwei, Limit: ${gasLimit}, MaxFee: ${maxFeePerGas || 'auto'}, PriorityFee: ${maxPriorityFeePerGas || 'auto'}`);
         
         if (result.status === 'SUCCESS') {
           console.log(`Optimized deployment successful:`, result);
@@ -488,11 +553,15 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         }
       } else {
         // ✅ Use enhanced deployment service without optimization
+        // Note: enhancedTokenDeploymentService doesn't support gas config yet
+        // This is acceptable as it uses default gas estimation
         const result = await enhancedTokenDeploymentService.deployToken(
-          tokenId, // ✅ FIXED: Use real token ID from props
-          currentUserId, // ✅ FIXED: Use real user ID from auth
+          tokenId,
+          currentUserId,
           projectId
         );
+        
+        console.log(`Standard deployment using default gas estimation (gas config not supported in legacy service)`);
         
         if (result.status === 'SUCCESS') {
           console.log(`Standard deployment successful:`, result);
@@ -1071,11 +1140,16 @@ Need help? Visit our documentation or contact support.`;
         {/* Deploy Button */}
         <Button 
           onClick={handleDeploymentConfirmation} 
-          disabled={isDeploying || !blockchain || !walletAddress || isLoadingWallet}
+          disabled={isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId} // ✅ FIX #1: Disable during auth loading
           className="w-full"
           size="lg"
         >
-          {isDeploying ? (
+          {authLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Authenticating...
+            </>
+          ) : isDeploying ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {useOptimization ? 'Optimizing & Deploying...' : 'Deploying...'}

@@ -260,6 +260,8 @@ export class OptimizedDeploymentService {
   }> {
     // Use foundry service for base deployment
     const deploymentParams = {
+      tokenId: crypto.randomUUID(), // Generate unique token ID
+      projectId: keyId, // Use keyId as projectId for database tracking
       tokenType: 'ERC3525' as const,
       config: {
         name: baseConfig.name,
@@ -484,6 +486,8 @@ export class OptimizedDeploymentService {
         
         try {
           const deploymentParams = {
+            tokenId: crypto.randomUUID(), // Generate unique token ID
+            projectId: keyId, // Use keyId as projectId for database tracking
             tokenType: token.type,
             config: token.config,
             blockchain,

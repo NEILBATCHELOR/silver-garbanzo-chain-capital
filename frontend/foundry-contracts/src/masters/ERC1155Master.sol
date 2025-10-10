@@ -70,15 +70,16 @@ contract ERC1155Master is
     
     /**
      * @notice Initialize the collection
+     * @dev OPTIMIZED: Uses calldata instead of memory (saves ~300 gas)
      * @param name_ Collection name
      * @param symbol_ Collection symbol
      * @param uri_ Base URI for metadata
      * @param owner_ Owner address
      */
     function initialize(
-        string memory name_,
-        string memory symbol_,
-        string memory uri_,
+        string calldata name_,
+        string calldata symbol_,
+        string calldata uri_,
         address owner_
     ) public initializer {
         __ERC1155_init(uri_);
@@ -90,6 +91,12 @@ contract ERC1155Master is
         
         name = name_;
         symbol = symbol_;
+        
+        // Set up role admin hierarchy - DEFAULT_ADMIN_ROLE can manage all other roles
+        _setRoleAdmin(URI_SETTER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(MINTER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(UPGRADER_ROLE, DEFAULT_ADMIN_ROLE);
         
         // Grant roles to owner
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);

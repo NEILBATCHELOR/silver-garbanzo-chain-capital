@@ -224,6 +224,25 @@ contract ERC4626YieldStrategyModule is
         return _totalYield;
     }
     
+    function getStrategy(uint256 strategyId) external view returns (
+        address protocol,
+        uint256 allocation,
+        bool active,
+        uint256 lastHarvest,
+        uint256 totalYield,
+        uint256 deployedAssets
+    ) {
+        Strategy memory strategy = _strategies[strategyId];
+        return (
+            strategy.protocol,
+            strategy.allocation,
+            strategy.active,
+            strategy.lastHarvest,
+            strategy.totalYield,
+            strategy.deployedAssets
+        );
+    }
+    
     function getPendingYield(uint256 strategyId) external view returns (uint256) {
         Strategy memory strategy = _strategies[strategyId];
         

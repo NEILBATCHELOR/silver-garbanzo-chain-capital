@@ -10,12 +10,14 @@ import { enhancedTokenDeploymentService } from './tokenDeploymentService';
 import { erc721ConfigurationMapper } from './erc721ConfigurationMapper';
 import { logActivity } from '@/infrastructure/activityLogger';
 import { supabase } from '@/infrastructure/database/client';
+import { GasConfig } from './unifiedTokenDeploymentService'; // ✅ FIX #5: Import GasConfig type
 
 export interface UnifiedERC721DeploymentOptions {
   useOptimization?: boolean;
   forceStrategy?: 'auto' | 'basic' | 'enhanced' | 'chunked';
   enableAnalytics?: boolean;
   maxRetries?: number;
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration option
 }
 
 export interface ERC721DeploymentRecommendation {
@@ -51,7 +53,8 @@ export class UnifiedERC721DeploymentService {
       useOptimization = true,
       forceStrategy = 'auto',
       enableAnalytics = true,
-      maxRetries = 3
+      maxRetries = 3,
+      gasConfig // ✅ FIX #5: Extract gas configuration from options
     } = options;
 
     try {
@@ -65,12 +68,14 @@ export class UnifiedERC721DeploymentService {
       
       if (shouldUseOptimization && forceStrategy !== 'basic') {
         // Use enhanced deployment service with automatic strategy selection
+        // ✅ FIX #5: TODO - enhancedERC721DeploymentService needs gasConfig parameter
         deploymentResult = await enhancedERC721DeploymentService.deployERC721WithOptimization(
           tokenId,
           userId,
           keyId,
           blockchain,
           environment
+          // TODO: Pass gasConfig when enhancedERC721DeploymentService supports it
         );
         
         // Add optimization metadata
@@ -81,7 +86,7 @@ export class UnifiedERC721DeploymentService {
         
       } else {
         // Fallback to basic deployment via existing service
-        deploymentResult = await this.deployBasicERC721(tokenId, userId, projectId);
+        deploymentResult = await this.deployBasicERC721(tokenId, userId, projectId, gasConfig); // ✅ FIX #5
       }
 
       // Log deployment analytics if enabled
@@ -256,14 +261,17 @@ export class UnifiedERC721DeploymentService {
 
   /**
    * Fallback to basic ERC-721 deployment
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async deployBasicERC721(
     tokenId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<ERC721DeploymentResult> {
     
     // Use existing enhanced token deployment service
+    // ✅ FIX #5: TODO - enhancedTokenDeploymentService may need gasConfig parameter
     const result = await enhancedTokenDeploymentService.deployToken(tokenId, userId, projectId);
     
     // Convert to ERC721DeploymentResult format

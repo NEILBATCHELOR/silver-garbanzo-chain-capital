@@ -32,6 +32,683 @@ export type Database = {
         }
         Relationships: []
       }
+      abs_cash_flows: {
+        Row: {
+          abs_tranche_id: string | null
+          asset_backed_product_id: string
+          beginning_pool_balance: number
+          collection_period_end: string
+          collection_period_start: string
+          created_at: string | null
+          cumulative_losses: number | null
+          currency: string | null
+          default_rate: number | null
+          delinquencies: number | null
+          ending_pool_balance: number
+          ending_reserve_balance: number | null
+          equity_distribution: number | null
+          fees_collections: number | null
+          id: string
+          interest_collections: number
+          is_actual: boolean | null
+          losses: number | null
+          mezzanine_interest_paid: number | null
+          mezzanine_principal_paid: number | null
+          net_available_funds: number | null
+          notes: string | null
+          other_fees: number | null
+          payment_date: string
+          pool_factor: number | null
+          prepayment_rate: number | null
+          principal_collections: number
+          recoveries: number | null
+          reserve_account_deposit: number | null
+          reserve_account_withdrawal: number | null
+          scheduled_principal: number | null
+          senior_interest_paid: number | null
+          senior_principal_paid: number | null
+          servicing_fee: number | null
+          subordinated_interest_paid: number | null
+          subordinated_principal_paid: number | null
+          total_collections: number
+          trigger_breaches: Json | null
+          trustee_fee: number | null
+          unscheduled_principal: number | null
+          waterfall_distribution: Json | null
+        }
+        Insert: {
+          abs_tranche_id?: string | null
+          asset_backed_product_id: string
+          beginning_pool_balance: number
+          collection_period_end: string
+          collection_period_start: string
+          created_at?: string | null
+          cumulative_losses?: number | null
+          currency?: string | null
+          default_rate?: number | null
+          delinquencies?: number | null
+          ending_pool_balance: number
+          ending_reserve_balance?: number | null
+          equity_distribution?: number | null
+          fees_collections?: number | null
+          id?: string
+          interest_collections: number
+          is_actual?: boolean | null
+          losses?: number | null
+          mezzanine_interest_paid?: number | null
+          mezzanine_principal_paid?: number | null
+          net_available_funds?: number | null
+          notes?: string | null
+          other_fees?: number | null
+          payment_date: string
+          pool_factor?: number | null
+          prepayment_rate?: number | null
+          principal_collections: number
+          recoveries?: number | null
+          reserve_account_deposit?: number | null
+          reserve_account_withdrawal?: number | null
+          scheduled_principal?: number | null
+          senior_interest_paid?: number | null
+          senior_principal_paid?: number | null
+          servicing_fee?: number | null
+          subordinated_interest_paid?: number | null
+          subordinated_principal_paid?: number | null
+          total_collections: number
+          trigger_breaches?: Json | null
+          trustee_fee?: number | null
+          unscheduled_principal?: number | null
+          waterfall_distribution?: Json | null
+        }
+        Update: {
+          abs_tranche_id?: string | null
+          asset_backed_product_id?: string
+          beginning_pool_balance?: number
+          collection_period_end?: string
+          collection_period_start?: string
+          created_at?: string | null
+          cumulative_losses?: number | null
+          currency?: string | null
+          default_rate?: number | null
+          delinquencies?: number | null
+          ending_pool_balance?: number
+          ending_reserve_balance?: number | null
+          equity_distribution?: number | null
+          fees_collections?: number | null
+          id?: string
+          interest_collections?: number
+          is_actual?: boolean | null
+          losses?: number | null
+          mezzanine_interest_paid?: number | null
+          mezzanine_principal_paid?: number | null
+          net_available_funds?: number | null
+          notes?: string | null
+          other_fees?: number | null
+          payment_date?: string
+          pool_factor?: number | null
+          prepayment_rate?: number | null
+          principal_collections?: number
+          recoveries?: number | null
+          reserve_account_deposit?: number | null
+          reserve_account_withdrawal?: number | null
+          scheduled_principal?: number | null
+          senior_interest_paid?: number | null
+          senior_principal_paid?: number | null
+          servicing_fee?: number | null
+          subordinated_interest_paid?: number | null
+          subordinated_principal_paid?: number | null
+          total_collections?: number
+          trigger_breaches?: Json | null
+          trustee_fee?: number | null
+          unscheduled_principal?: number | null
+          waterfall_distribution?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abs_cash_flows_abs_tranche_id_fkey"
+            columns: ["abs_tranche_id"]
+            isOneToOne: false
+            referencedRelation: "abs_tranches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abs_cash_flows_asset_backed_product_id_fkey"
+            columns: ["asset_backed_product_id"]
+            isOneToOne: false
+            referencedRelation: "asset_backed_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      abs_collateral_pools: {
+        Row: {
+          abs_prepayment_speed: number | null
+          advance_rate: number | null
+          asset_backed_product_id: string
+          collateral_type: string
+          concentration_limits_compliant: boolean | null
+          created_at: string | null
+          cumulative_loss_rate: number | null
+          currency: string | null
+          current_performing_balance: number | null
+          default_rate: number | null
+          defaulted_balance: number | null
+          delinquency_rate: number | null
+          delinquent_120_plus_days_balance: number | null
+          delinquent_30_days_balance: number | null
+          delinquent_60_days_balance: number | null
+          delinquent_90_days_balance: number | null
+          excess_spread: number | null
+          geographic_concentration: Json | null
+          id: string
+          is_reserve_account_funded: boolean | null
+          loss_severity: number | null
+          notes: string | null
+          number_of_loans: number
+          pool_cut_off_date: string
+          pool_factor: number | null
+          prepayment_rate: number | null
+          recovery_rate: number | null
+          reporting_period_end: string
+          reserve_account_balance: number | null
+          reserve_account_target: number | null
+          servicer_name: string | null
+          servicer_rating: string | null
+          servicing_fee_rate: number | null
+          static_pool_performance: Json | null
+          top_10_obligors_percentage: number | null
+          total_pool_balance: number
+          trustee_name: string | null
+          weighted_average_coupon: number | null
+          weighted_average_dti: number | null
+          weighted_average_fico_score: number | null
+          weighted_average_ltv: number | null
+          weighted_average_maturity_months: number | null
+          weighted_average_seasoning_months: number | null
+        }
+        Insert: {
+          abs_prepayment_speed?: number | null
+          advance_rate?: number | null
+          asset_backed_product_id: string
+          collateral_type: string
+          concentration_limits_compliant?: boolean | null
+          created_at?: string | null
+          cumulative_loss_rate?: number | null
+          currency?: string | null
+          current_performing_balance?: number | null
+          default_rate?: number | null
+          defaulted_balance?: number | null
+          delinquency_rate?: number | null
+          delinquent_120_plus_days_balance?: number | null
+          delinquent_30_days_balance?: number | null
+          delinquent_60_days_balance?: number | null
+          delinquent_90_days_balance?: number | null
+          excess_spread?: number | null
+          geographic_concentration?: Json | null
+          id?: string
+          is_reserve_account_funded?: boolean | null
+          loss_severity?: number | null
+          notes?: string | null
+          number_of_loans: number
+          pool_cut_off_date: string
+          pool_factor?: number | null
+          prepayment_rate?: number | null
+          recovery_rate?: number | null
+          reporting_period_end: string
+          reserve_account_balance?: number | null
+          reserve_account_target?: number | null
+          servicer_name?: string | null
+          servicer_rating?: string | null
+          servicing_fee_rate?: number | null
+          static_pool_performance?: Json | null
+          top_10_obligors_percentage?: number | null
+          total_pool_balance: number
+          trustee_name?: string | null
+          weighted_average_coupon?: number | null
+          weighted_average_dti?: number | null
+          weighted_average_fico_score?: number | null
+          weighted_average_ltv?: number | null
+          weighted_average_maturity_months?: number | null
+          weighted_average_seasoning_months?: number | null
+        }
+        Update: {
+          abs_prepayment_speed?: number | null
+          advance_rate?: number | null
+          asset_backed_product_id?: string
+          collateral_type?: string
+          concentration_limits_compliant?: boolean | null
+          created_at?: string | null
+          cumulative_loss_rate?: number | null
+          currency?: string | null
+          current_performing_balance?: number | null
+          default_rate?: number | null
+          defaulted_balance?: number | null
+          delinquency_rate?: number | null
+          delinquent_120_plus_days_balance?: number | null
+          delinquent_30_days_balance?: number | null
+          delinquent_60_days_balance?: number | null
+          delinquent_90_days_balance?: number | null
+          excess_spread?: number | null
+          geographic_concentration?: Json | null
+          id?: string
+          is_reserve_account_funded?: boolean | null
+          loss_severity?: number | null
+          notes?: string | null
+          number_of_loans?: number
+          pool_cut_off_date?: string
+          pool_factor?: number | null
+          prepayment_rate?: number | null
+          recovery_rate?: number | null
+          reporting_period_end?: string
+          reserve_account_balance?: number | null
+          reserve_account_target?: number | null
+          servicer_name?: string | null
+          servicer_rating?: string | null
+          servicing_fee_rate?: number | null
+          static_pool_performance?: Json | null
+          top_10_obligors_percentage?: number | null
+          total_pool_balance?: number
+          trustee_name?: string | null
+          weighted_average_coupon?: number | null
+          weighted_average_dti?: number | null
+          weighted_average_fico_score?: number | null
+          weighted_average_ltv?: number | null
+          weighted_average_maturity_months?: number | null
+          weighted_average_seasoning_months?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abs_collateral_pools_asset_backed_product_id_fkey"
+            columns: ["asset_backed_product_id"]
+            isOneToOne: false
+            referencedRelation: "asset_backed_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      abs_loss_projections: {
+        Row: {
+          asset_backed_product_id: string
+          attachment_point: number | null
+          collateral_performance_assumptions: Json | null
+          confidence_level: number | null
+          created_at: string | null
+          currency: string | null
+          detachment_point: number | null
+          economic_assumptions: Json | null
+          expected_default_rate: number | null
+          expected_loss_severity: number | null
+          expected_losses_by_year: Json | null
+          expected_recovery_rate: number | null
+          expected_tranche_losses: Json | null
+          first_loss_tranche: string | null
+          home_price_index_assumption: number | null
+          id: string
+          interest_rate_assumption: number | null
+          loss_distribution: Json | null
+          loss_timing_assumptions: string | null
+          macroeconomic_scenario: string | null
+          model_assumptions: string | null
+          model_used: string | null
+          model_version: string | null
+          notes: string | null
+          peak_loss_amount: number | null
+          peak_loss_year: number | null
+          projected_cumulative_loss_rate: number
+          projected_cumulative_losses: number
+          projection_date: string
+          projection_horizon_months: number
+          scenario_description: string | null
+          scenario_name: string
+          stress_test_results: Json | null
+          tail_losses: number | null
+          time_to_peak_losses_months: number | null
+          tranche_coverage: Json | null
+          unemployment_rate_assumption: number | null
+        }
+        Insert: {
+          asset_backed_product_id: string
+          attachment_point?: number | null
+          collateral_performance_assumptions?: Json | null
+          confidence_level?: number | null
+          created_at?: string | null
+          currency?: string | null
+          detachment_point?: number | null
+          economic_assumptions?: Json | null
+          expected_default_rate?: number | null
+          expected_loss_severity?: number | null
+          expected_losses_by_year?: Json | null
+          expected_recovery_rate?: number | null
+          expected_tranche_losses?: Json | null
+          first_loss_tranche?: string | null
+          home_price_index_assumption?: number | null
+          id?: string
+          interest_rate_assumption?: number | null
+          loss_distribution?: Json | null
+          loss_timing_assumptions?: string | null
+          macroeconomic_scenario?: string | null
+          model_assumptions?: string | null
+          model_used?: string | null
+          model_version?: string | null
+          notes?: string | null
+          peak_loss_amount?: number | null
+          peak_loss_year?: number | null
+          projected_cumulative_loss_rate: number
+          projected_cumulative_losses: number
+          projection_date: string
+          projection_horizon_months: number
+          scenario_description?: string | null
+          scenario_name: string
+          stress_test_results?: Json | null
+          tail_losses?: number | null
+          time_to_peak_losses_months?: number | null
+          tranche_coverage?: Json | null
+          unemployment_rate_assumption?: number | null
+        }
+        Update: {
+          asset_backed_product_id?: string
+          attachment_point?: number | null
+          collateral_performance_assumptions?: Json | null
+          confidence_level?: number | null
+          created_at?: string | null
+          currency?: string | null
+          detachment_point?: number | null
+          economic_assumptions?: Json | null
+          expected_default_rate?: number | null
+          expected_loss_severity?: number | null
+          expected_losses_by_year?: Json | null
+          expected_recovery_rate?: number | null
+          expected_tranche_losses?: Json | null
+          first_loss_tranche?: string | null
+          home_price_index_assumption?: number | null
+          id?: string
+          interest_rate_assumption?: number | null
+          loss_distribution?: Json | null
+          loss_timing_assumptions?: string | null
+          macroeconomic_scenario?: string | null
+          model_assumptions?: string | null
+          model_used?: string | null
+          model_version?: string | null
+          notes?: string | null
+          peak_loss_amount?: number | null
+          peak_loss_year?: number | null
+          projected_cumulative_loss_rate?: number
+          projected_cumulative_losses?: number
+          projection_date?: string
+          projection_horizon_months?: number
+          scenario_description?: string | null
+          scenario_name?: string
+          stress_test_results?: Json | null
+          tail_losses?: number | null
+          time_to_peak_losses_months?: number | null
+          tranche_coverage?: Json | null
+          unemployment_rate_assumption?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abs_loss_projections_asset_backed_product_id_fkey"
+            columns: ["asset_backed_product_id"]
+            isOneToOne: false
+            referencedRelation: "asset_backed_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      abs_prepayment_speeds: {
+        Row: {
+          abs_prepayment_speed: number | null
+          asset_backed_product_id: string
+          burnout_factor: number | null
+          constant_prepayment_rate: number | null
+          created_at: string | null
+          currency: string | null
+          historical_average_12m: number | null
+          historical_average_3m: number | null
+          historical_average_life: number | null
+          id: string
+          interest_rate_environment: number | null
+          involuntary_prepayments: number | null
+          model_assumptions: string | null
+          model_used: string | null
+          notes: string | null
+          observation_date: string
+          prepayment_drivers: Json | null
+          prepayment_rate: number
+          prepayment_sensitivity: Json | null
+          prepayment_type: string
+          projected_prepayment_rate: number | null
+          psa_percentage: number | null
+          refinancing_incentive: number | null
+          seasonal_factors: Json | null
+          single_monthly_mortality: number | null
+          total_prepayments: number | null
+          voluntary_prepayments: number | null
+        }
+        Insert: {
+          abs_prepayment_speed?: number | null
+          asset_backed_product_id: string
+          burnout_factor?: number | null
+          constant_prepayment_rate?: number | null
+          created_at?: string | null
+          currency?: string | null
+          historical_average_12m?: number | null
+          historical_average_3m?: number | null
+          historical_average_life?: number | null
+          id?: string
+          interest_rate_environment?: number | null
+          involuntary_prepayments?: number | null
+          model_assumptions?: string | null
+          model_used?: string | null
+          notes?: string | null
+          observation_date: string
+          prepayment_drivers?: Json | null
+          prepayment_rate: number
+          prepayment_sensitivity?: Json | null
+          prepayment_type: string
+          projected_prepayment_rate?: number | null
+          psa_percentage?: number | null
+          refinancing_incentive?: number | null
+          seasonal_factors?: Json | null
+          single_monthly_mortality?: number | null
+          total_prepayments?: number | null
+          voluntary_prepayments?: number | null
+        }
+        Update: {
+          abs_prepayment_speed?: number | null
+          asset_backed_product_id?: string
+          burnout_factor?: number | null
+          constant_prepayment_rate?: number | null
+          created_at?: string | null
+          currency?: string | null
+          historical_average_12m?: number | null
+          historical_average_3m?: number | null
+          historical_average_life?: number | null
+          id?: string
+          interest_rate_environment?: number | null
+          involuntary_prepayments?: number | null
+          model_assumptions?: string | null
+          model_used?: string | null
+          notes?: string | null
+          observation_date?: string
+          prepayment_drivers?: Json | null
+          prepayment_rate?: number
+          prepayment_sensitivity?: Json | null
+          prepayment_type?: string
+          projected_prepayment_rate?: number | null
+          psa_percentage?: number | null
+          refinancing_incentive?: number | null
+          seasonal_factors?: Json | null
+          single_monthly_mortality?: number | null
+          total_prepayments?: number | null
+          voluntary_prepayments?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abs_prepayment_speeds_asset_backed_product_id_fkey"
+            columns: ["asset_backed_product_id"]
+            isOneToOne: false
+            referencedRelation: "asset_backed_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      abs_tranches: {
+        Row: {
+          asset_backed_product_id: string
+          call_date: string | null
+          call_price: number | null
+          call_provisions: Json | null
+          convexity: number | null
+          coupon_rate: number
+          coupon_type: string | null
+          created_at: string | null
+          credit_enhancement_percentage: number | null
+          credit_rating_fitch: string | null
+          credit_rating_moodys: string | null
+          credit_rating_sp: string | null
+          currency: string | null
+          current_price: number | null
+          current_principal: number
+          duration: number | null
+          enhancement_triggers: Json | null
+          expected_maturity_date: string | null
+          first_payment_date: string
+          id: string
+          is_callable: boolean | null
+          is_equity: boolean | null
+          is_investment_grade: boolean | null
+          is_mezzanine: boolean | null
+          is_senior: boolean | null
+          is_subordinated: boolean | null
+          legal_final_maturity: string
+          notes: string | null
+          original_principal: number
+          over_collateralization_percentage: number | null
+          payment_frequency: string | null
+          payment_priority: number | null
+          prepayment_lockout_end: string | null
+          price_as_of_date: string | null
+          principal_payment_method: string | null
+          rating_date: string | null
+          reference_rate: string | null
+          seniority_level: number
+          spread_bps: number | null
+          status: string | null
+          subordination_percentage: number | null
+          tranche_class: string
+          tranche_name: string
+          updated_at: string | null
+          weighted_average_life: number | null
+          yield_to_call: number | null
+          yield_to_maturity: number | null
+        }
+        Insert: {
+          asset_backed_product_id: string
+          call_date?: string | null
+          call_price?: number | null
+          call_provisions?: Json | null
+          convexity?: number | null
+          coupon_rate: number
+          coupon_type?: string | null
+          created_at?: string | null
+          credit_enhancement_percentage?: number | null
+          credit_rating_fitch?: string | null
+          credit_rating_moodys?: string | null
+          credit_rating_sp?: string | null
+          currency?: string | null
+          current_price?: number | null
+          current_principal: number
+          duration?: number | null
+          enhancement_triggers?: Json | null
+          expected_maturity_date?: string | null
+          first_payment_date: string
+          id?: string
+          is_callable?: boolean | null
+          is_equity?: boolean | null
+          is_investment_grade?: boolean | null
+          is_mezzanine?: boolean | null
+          is_senior?: boolean | null
+          is_subordinated?: boolean | null
+          legal_final_maturity: string
+          notes?: string | null
+          original_principal: number
+          over_collateralization_percentage?: number | null
+          payment_frequency?: string | null
+          payment_priority?: number | null
+          prepayment_lockout_end?: string | null
+          price_as_of_date?: string | null
+          principal_payment_method?: string | null
+          rating_date?: string | null
+          reference_rate?: string | null
+          seniority_level: number
+          spread_bps?: number | null
+          status?: string | null
+          subordination_percentage?: number | null
+          tranche_class: string
+          tranche_name: string
+          updated_at?: string | null
+          weighted_average_life?: number | null
+          yield_to_call?: number | null
+          yield_to_maturity?: number | null
+        }
+        Update: {
+          asset_backed_product_id?: string
+          call_date?: string | null
+          call_price?: number | null
+          call_provisions?: Json | null
+          convexity?: number | null
+          coupon_rate?: number
+          coupon_type?: string | null
+          created_at?: string | null
+          credit_enhancement_percentage?: number | null
+          credit_rating_fitch?: string | null
+          credit_rating_moodys?: string | null
+          credit_rating_sp?: string | null
+          currency?: string | null
+          current_price?: number | null
+          current_principal?: number
+          duration?: number | null
+          enhancement_triggers?: Json | null
+          expected_maturity_date?: string | null
+          first_payment_date?: string
+          id?: string
+          is_callable?: boolean | null
+          is_equity?: boolean | null
+          is_investment_grade?: boolean | null
+          is_mezzanine?: boolean | null
+          is_senior?: boolean | null
+          is_subordinated?: boolean | null
+          legal_final_maturity?: string
+          notes?: string | null
+          original_principal?: number
+          over_collateralization_percentage?: number | null
+          payment_frequency?: string | null
+          payment_priority?: number | null
+          prepayment_lockout_end?: string | null
+          price_as_of_date?: string | null
+          principal_payment_method?: string | null
+          rating_date?: string | null
+          reference_rate?: string | null
+          seniority_level?: number
+          spread_bps?: number | null
+          status?: string | null
+          subordination_percentage?: number | null
+          tranche_class?: string
+          tranche_name?: string
+          updated_at?: string | null
+          weighted_average_life?: number | null
+          yield_to_call?: number | null
+          yield_to_maturity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abs_tranches_asset_backed_product_id_fkey"
+            columns: ["asset_backed_product_id"]
+            isOneToOne: false
+            referencedRelation: "asset_backed_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alerts: {
         Row: {
           assignee: string | null
@@ -476,6 +1153,7 @@ export type Database = {
           created_by: string | null
           date: string
           id: string
+          identifier: string | null
           market_conditions: string | null
           nav: number
           notes: string | null
@@ -483,6 +1161,8 @@ export type Database = {
           previous_nav: number | null
           project_id: string
           source: string
+          token_id: string | null
+          token_parity_percentage: number | null
           total_assets: number
           total_liabilities: number
           updated_at: string | null
@@ -501,6 +1181,7 @@ export type Database = {
           created_by?: string | null
           date: string
           id?: string
+          identifier?: string | null
           market_conditions?: string | null
           nav: number
           notes?: string | null
@@ -508,6 +1189,8 @@ export type Database = {
           previous_nav?: number | null
           project_id: string
           source?: string
+          token_id?: string | null
+          token_parity_percentage?: number | null
           total_assets: number
           total_liabilities?: number
           updated_at?: string | null
@@ -526,6 +1209,7 @@ export type Database = {
           created_by?: string | null
           date?: string
           id?: string
+          identifier?: string | null
           market_conditions?: string | null
           nav?: number
           notes?: string | null
@@ -533,6 +1217,8 @@ export type Database = {
           previous_nav?: number | null
           project_id?: string
           source?: string
+          token_id?: string | null
+          token_parity_percentage?: number | null
           total_assets?: number
           total_liabilities?: number
           updated_at?: string | null
@@ -549,6 +1235,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      auction_comparables: {
+        Row: {
+          asset_type: string
+          auction_house: string
+          created_at: string
+          currency: string
+          date: string
+          description: string | null
+          estimate_high: number | null
+          estimate_low: number | null
+          hammer_price: number
+          id: string
+          lot_number: string | null
+          metadata: Json | null
+          premium: number
+          similarity: number
+          updated_at: string
+        }
+        Insert: {
+          asset_type: string
+          auction_house: string
+          created_at?: string
+          currency?: string
+          date: string
+          description?: string | null
+          estimate_high?: number | null
+          estimate_low?: number | null
+          hammer_price: number
+          id?: string
+          lot_number?: string | null
+          metadata?: Json | null
+          premium?: number
+          similarity: number
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          auction_house?: string
+          created_at?: string
+          currency?: string
+          date?: string
+          description?: string | null
+          estimate_high?: number | null
+          estimate_low?: number | null
+          hammer_price?: number
+          id?: string
+          lot_number?: string | null
+          metadata?: Json | null
+          premium?: number
+          similarity?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       audit_logs: {
         Row: {
@@ -828,9 +1568,352 @@ export type Database = {
         }
         Relationships: []
       }
+      bond_amortization_schedule: {
+        Row: {
+          beginning_balance: number
+          bond_product_id: string
+          created_at: string
+          ending_balance: number
+          id: string
+          payment_date: string
+          payment_status: string
+          principal_payment: number
+          updated_at: string
+        }
+        Insert: {
+          beginning_balance: number
+          bond_product_id: string
+          created_at?: string
+          ending_balance: number
+          id?: string
+          payment_date: string
+          payment_status?: string
+          principal_payment: number
+          updated_at?: string
+        }
+        Update: {
+          beginning_balance?: number
+          bond_product_id?: string
+          created_at?: string
+          ending_balance?: number
+          id?: string
+          payment_date?: string
+          payment_status?: string
+          principal_payment?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_amortization_schedule_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_call_put_schedules: {
+        Row: {
+          bond_product_id: string
+          call_price: number | null
+          created_at: string
+          id: string
+          is_make_whole: boolean
+          notice_days: number | null
+          option_date: string
+          option_style: string
+          option_type: string
+          put_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          bond_product_id: string
+          call_price?: number | null
+          created_at?: string
+          id?: string
+          is_make_whole?: boolean
+          notice_days?: number | null
+          option_date: string
+          option_style: string
+          option_type: string
+          put_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bond_product_id?: string
+          call_price?: number | null
+          created_at?: string
+          id?: string
+          is_make_whole?: boolean
+          notice_days?: number | null
+          option_date?: string
+          option_style?: string
+          option_type?: string
+          put_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_call_put_schedules_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_coupon_payments: {
+        Row: {
+          accrual_end_date: string
+          accrual_start_date: string
+          actual_payment_date: string | null
+          bond_product_id: string
+          coupon_amount: number
+          created_at: string
+          days_in_period: number
+          id: string
+          payment_date: string
+          payment_status: string
+          updated_at: string
+        }
+        Insert: {
+          accrual_end_date: string
+          accrual_start_date: string
+          actual_payment_date?: string | null
+          bond_product_id: string
+          coupon_amount: number
+          created_at?: string
+          days_in_period: number
+          id?: string
+          payment_date: string
+          payment_status?: string
+          updated_at?: string
+        }
+        Update: {
+          accrual_end_date?: string
+          accrual_start_date?: string
+          actual_payment_date?: string | null
+          bond_product_id?: string
+          coupon_amount?: number
+          created_at?: string
+          days_in_period?: number
+          id?: string
+          payment_date?: string
+          payment_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_coupon_payments_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_covenants: {
+        Row: {
+          bond_product_id: string
+          compliance_status: string | null
+          covenant_description: string
+          covenant_type: string
+          created_at: string
+          financial_ratio: string | null
+          id: string
+          last_test_date: string | null
+          test_frequency: string | null
+          threshold_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          bond_product_id: string
+          compliance_status?: string | null
+          covenant_description: string
+          covenant_type: string
+          created_at?: string
+          financial_ratio?: string | null
+          id?: string
+          last_test_date?: string | null
+          test_frequency?: string | null
+          threshold_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bond_product_id?: string
+          compliance_status?: string | null
+          covenant_description?: string
+          covenant_type?: string
+          created_at?: string
+          financial_ratio?: string | null
+          id?: string
+          last_test_date?: string | null
+          test_frequency?: string | null
+          threshold_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_covenants_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_credit_ratings: {
+        Row: {
+          bond_product_id: string
+          created_at: string
+          id: string
+          previous_rating: string | null
+          rating: string
+          rating_action: string | null
+          rating_agency: string
+          rating_date: string
+          rating_outlook: string | null
+        }
+        Insert: {
+          bond_product_id: string
+          created_at?: string
+          id?: string
+          previous_rating?: string | null
+          rating: string
+          rating_action?: string | null
+          rating_agency: string
+          rating_date: string
+          rating_outlook?: string | null
+        }
+        Update: {
+          bond_product_id?: string
+          created_at?: string
+          id?: string
+          previous_rating?: string | null
+          rating?: string
+          rating_action?: string | null
+          rating_agency?: string
+          rating_date?: string
+          rating_outlook?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_credit_ratings_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_events: {
+        Row: {
+          announcement_date: string | null
+          bond_product_id: string
+          created_at: string
+          event_date: string
+          event_description: string
+          event_type: string
+          financial_impact: number | null
+          id: string
+          requires_revaluation: boolean
+        }
+        Insert: {
+          announcement_date?: string | null
+          bond_product_id: string
+          created_at?: string
+          event_date: string
+          event_description: string
+          event_type: string
+          financial_impact?: number | null
+          id?: string
+          requires_revaluation?: boolean
+        }
+        Update: {
+          announcement_date?: string | null
+          bond_product_id?: string
+          created_at?: string
+          event_date?: string
+          event_description?: string
+          event_type?: string
+          financial_impact?: number | null
+          id?: string
+          requires_revaluation?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_events_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_market_prices: {
+        Row: {
+          ask_price: number | null
+          bid_price: number | null
+          bond_product_id: string
+          clean_price: number
+          created_at: string
+          data_source: string
+          dirty_price: number
+          id: string
+          is_official_close: boolean
+          mid_price: number | null
+          price_date: string
+          price_time: string | null
+          spread_to_benchmark: number | null
+          ytm: number | null
+        }
+        Insert: {
+          ask_price?: number | null
+          bid_price?: number | null
+          bond_product_id: string
+          clean_price: number
+          created_at?: string
+          data_source: string
+          dirty_price: number
+          id?: string
+          is_official_close?: boolean
+          mid_price?: number | null
+          price_date: string
+          price_time?: string | null
+          spread_to_benchmark?: number | null
+          ytm?: number | null
+        }
+        Update: {
+          ask_price?: number | null
+          bid_price?: number | null
+          bond_product_id?: string
+          clean_price?: number
+          created_at?: string
+          data_source?: string
+          dirty_price?: number
+          id?: string
+          is_official_close?: boolean
+          mid_price?: number | null
+          price_date?: string
+          price_time?: string | null
+          spread_to_benchmark?: number | null
+          ytm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_market_prices_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bond_products: {
         Row: {
+          accounting_treatment: string | null
           accrued_interest: number | null
+          asset_name: string | null
           bond_identifier: string | null
           bond_isin_cusip: string | null
           bond_type: string | null
@@ -839,28 +1922,41 @@ export type Database = {
           call_put_dates: string[] | null
           callable_features: boolean | null
           callable_flag: boolean | null
+          convertible: boolean | null
           coupon_frequency: string | null
           coupon_payment_history: Json | null
           coupon_rate: number | null
           created_at: string | null
           credit_rating: string | null
           currency: string | null
+          current_price: number | null
+          cusip: string | null
+          day_count_convention: string | null
           duration: number | null
           face_value: number | null
           id: string
+          isin: string | null
           issue_date: string | null
           issuer_name: string | null
+          issuer_type: string | null
           maturity_date: string | null
           project_id: string
+          purchase_date: string | null
+          purchase_price: number | null
+          puttable: boolean | null
           redemption_call_date: string | null
           security_collateral: string | null
+          sedol: string | null
+          seniority: string | null
           status: string | null
           target_raise: number | null
           updated_at: string | null
           yield_to_maturity: number | null
         }
         Insert: {
+          accounting_treatment?: string | null
           accrued_interest?: number | null
+          asset_name?: string | null
           bond_identifier?: string | null
           bond_isin_cusip?: string | null
           bond_type?: string | null
@@ -869,28 +1965,41 @@ export type Database = {
           call_put_dates?: string[] | null
           callable_features?: boolean | null
           callable_flag?: boolean | null
+          convertible?: boolean | null
           coupon_frequency?: string | null
           coupon_payment_history?: Json | null
           coupon_rate?: number | null
           created_at?: string | null
           credit_rating?: string | null
           currency?: string | null
+          current_price?: number | null
+          cusip?: string | null
+          day_count_convention?: string | null
           duration?: number | null
           face_value?: number | null
           id?: string
+          isin?: string | null
           issue_date?: string | null
           issuer_name?: string | null
+          issuer_type?: string | null
           maturity_date?: string | null
           project_id: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          puttable?: boolean | null
           redemption_call_date?: string | null
           security_collateral?: string | null
+          sedol?: string | null
+          seniority?: string | null
           status?: string | null
           target_raise?: number | null
           updated_at?: string | null
           yield_to_maturity?: number | null
         }
         Update: {
+          accounting_treatment?: string | null
           accrued_interest?: number | null
+          asset_name?: string | null
           bond_identifier?: string | null
           bond_isin_cusip?: string | null
           bond_type?: string | null
@@ -899,21 +2008,32 @@ export type Database = {
           call_put_dates?: string[] | null
           callable_features?: boolean | null
           callable_flag?: boolean | null
+          convertible?: boolean | null
           coupon_frequency?: string | null
           coupon_payment_history?: Json | null
           coupon_rate?: number | null
           created_at?: string | null
           credit_rating?: string | null
           currency?: string | null
+          current_price?: number | null
+          cusip?: string | null
+          day_count_convention?: string | null
           duration?: number | null
           face_value?: number | null
           id?: string
+          isin?: string | null
           issue_date?: string | null
           issuer_name?: string | null
+          issuer_type?: string | null
           maturity_date?: string | null
           project_id?: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          puttable?: boolean | null
           redemption_call_date?: string | null
           security_collateral?: string | null
+          sedol?: string | null
+          seniority?: string | null
           status?: string | null
           target_raise?: number | null
           updated_at?: string | null
@@ -925,6 +2045,50 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: true
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bond_sinking_fund: {
+        Row: {
+          actual_amount: number | null
+          bond_product_id: string
+          created_at: string
+          id: string
+          payment_date: string
+          payment_status: string
+          redemption_price: number
+          required_amount: number
+          updated_at: string
+        }
+        Insert: {
+          actual_amount?: number | null
+          bond_product_id: string
+          created_at?: string
+          id?: string
+          payment_date: string
+          payment_status?: string
+          redemption_price: number
+          required_amount: number
+          updated_at?: string
+        }
+        Update: {
+          actual_amount?: number | null
+          bond_product_id?: string
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_status?: string
+          redemption_price?: number
+          required_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bond_sinking_fund_bond_product_id_fkey"
+            columns: ["bond_product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
             referencedColumns: ["id"]
           },
         ]
@@ -1123,6 +2287,54 @@ export type Database = {
           },
         ]
       }
+      carbon_market_prices: {
+        Row: {
+          as_of_date: string
+          asset_id: string | null
+          compliance_market_price: number
+          created_at: string
+          currency: string
+          current_price: number
+          future_price: number | null
+          id: string
+          liquidity_score: number | null
+          market_type: string | null
+          source: string
+          updated_at: string
+          voluntary_market_price: number
+        }
+        Insert: {
+          as_of_date: string
+          asset_id?: string | null
+          compliance_market_price: number
+          created_at?: string
+          currency?: string
+          current_price: number
+          future_price?: number | null
+          id?: string
+          liquidity_score?: number | null
+          market_type?: string | null
+          source: string
+          updated_at?: string
+          voluntary_market_price: number
+        }
+        Update: {
+          as_of_date?: string
+          asset_id?: string | null
+          compliance_market_price?: number
+          created_at?: string
+          currency?: string
+          current_price?: number
+          future_price?: number | null
+          id?: string
+          liquidity_score?: number | null
+          market_type?: string | null
+          source?: string
+          updated_at?: string
+          voluntary_market_price?: number
+        }
+        Relationships: []
+      }
       carbon_offsets: {
         Row: {
           amount: number
@@ -1165,6 +2377,564 @@ export type Database = {
           updated_at?: string | null
           verification_date?: string | null
           verification_standard?: string | null
+        }
+        Relationships: []
+      }
+      cf_allocations: {
+        Row: {
+          allocation_drift: number | null
+          allocation_policy_document_url: string | null
+          asset_class: string
+          asset_subclass: string | null
+          benchmark_index: string | null
+          composite_fund_id: string
+          created_at: string | null
+          currency: string | null
+          current_allocation_percentage: number
+          current_market_value: number
+          drift_percentage: number | null
+          effective_date: string
+          id: string
+          is_within_tolerance: boolean | null
+          last_rebalance_date: string | null
+          maximum_allocation_percentage: number | null
+          minimum_allocation_percentage: number | null
+          next_review_date: string | null
+          notes: string | null
+          rebalancing_threshold_percentage: number | null
+          strategic_rationale: string | null
+          target_allocation_percentage: number
+          tracking_error: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          allocation_drift?: number | null
+          allocation_policy_document_url?: string | null
+          asset_class: string
+          asset_subclass?: string | null
+          benchmark_index?: string | null
+          composite_fund_id: string
+          created_at?: string | null
+          currency?: string | null
+          current_allocation_percentage: number
+          current_market_value: number
+          drift_percentage?: number | null
+          effective_date: string
+          id?: string
+          is_within_tolerance?: boolean | null
+          last_rebalance_date?: string | null
+          maximum_allocation_percentage?: number | null
+          minimum_allocation_percentage?: number | null
+          next_review_date?: string | null
+          notes?: string | null
+          rebalancing_threshold_percentage?: number | null
+          strategic_rationale?: string | null
+          target_allocation_percentage: number
+          tracking_error?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          allocation_drift?: number | null
+          allocation_policy_document_url?: string | null
+          asset_class?: string
+          asset_subclass?: string | null
+          benchmark_index?: string | null
+          composite_fund_id?: string
+          created_at?: string | null
+          currency?: string | null
+          current_allocation_percentage?: number
+          current_market_value?: number
+          drift_percentage?: number | null
+          effective_date?: string
+          id?: string
+          is_within_tolerance?: boolean | null
+          last_rebalance_date?: string | null
+          maximum_allocation_percentage?: number | null
+          minimum_allocation_percentage?: number | null
+          next_review_date?: string | null
+          notes?: string | null
+          rebalancing_threshold_percentage?: number | null
+          strategic_rationale?: string | null
+          target_allocation_percentage?: number
+          tracking_error?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cf_cash_flows: {
+        Row: {
+          allocation_method: string | null
+          amount: number
+          asset_class_affected: string | null
+          bank_account_last_4: string | null
+          cash_flow_date: string
+          cash_flow_type: string
+          composite_fund_id: string
+          created_at: string | null
+          currency: string | null
+          failure_reason: string | null
+          fee_percentage: number | null
+          fees_charged: number | null
+          fund_nav_after: number | null
+          fund_nav_before: number | null
+          id: string
+          impact_on_allocations: Json | null
+          investor_id: string | null
+          investor_name: string | null
+          net_cash_flow: number | null
+          notes: string | null
+          number_of_shares: number | null
+          payment_method: string | null
+          processing_time_days: number | null
+          redemption_impact_analysis: string | null
+          reinvestment_plan: string | null
+          related_transaction_id: string | null
+          share_price: number | null
+          status: string | null
+          tax_withholding: number | null
+          transaction_reference: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          allocation_method?: string | null
+          amount: number
+          asset_class_affected?: string | null
+          bank_account_last_4?: string | null
+          cash_flow_date: string
+          cash_flow_type: string
+          composite_fund_id: string
+          created_at?: string | null
+          currency?: string | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          fees_charged?: number | null
+          fund_nav_after?: number | null
+          fund_nav_before?: number | null
+          id?: string
+          impact_on_allocations?: Json | null
+          investor_id?: string | null
+          investor_name?: string | null
+          net_cash_flow?: number | null
+          notes?: string | null
+          number_of_shares?: number | null
+          payment_method?: string | null
+          processing_time_days?: number | null
+          redemption_impact_analysis?: string | null
+          reinvestment_plan?: string | null
+          related_transaction_id?: string | null
+          share_price?: number | null
+          status?: string | null
+          tax_withholding?: number | null
+          transaction_reference?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          allocation_method?: string | null
+          amount?: number
+          asset_class_affected?: string | null
+          bank_account_last_4?: string | null
+          cash_flow_date?: string
+          cash_flow_type?: string
+          composite_fund_id?: string
+          created_at?: string | null
+          currency?: string | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          fees_charged?: number | null
+          fund_nav_after?: number | null
+          fund_nav_before?: number | null
+          id?: string
+          impact_on_allocations?: Json | null
+          investor_id?: string | null
+          investor_name?: string | null
+          net_cash_flow?: number | null
+          notes?: string | null
+          number_of_shares?: number | null
+          payment_method?: string | null
+          processing_time_days?: number | null
+          redemption_impact_analysis?: string | null
+          reinvestment_plan?: string | null
+          related_transaction_id?: string | null
+          share_price?: number | null
+          status?: string | null
+          tax_withholding?: number | null
+          transaction_reference?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cf_holdings: {
+        Row: {
+          accrued_income: number | null
+          acquisition_date: string
+          asset_class: string
+          asset_subclass: string | null
+          average_cost: number | null
+          composite_fund_id: string
+          country_exposure: string | null
+          created_at: string | null
+          credit_rating: string | null
+          currency: string | null
+          current_market_value: number
+          current_price: number
+          cusip: string | null
+          days_to_liquidate_estimate: number | null
+          dividend_yield: number | null
+          esg_score: number | null
+          fx_rate_to_base: number | null
+          holding_type: string
+          id: string
+          is_restricted: boolean | null
+          isin: string | null
+          last_rebalance_date: string | null
+          liquidity_classification: string | null
+          maturity_date: string | null
+          notes: string | null
+          product_id: string | null
+          product_type: string | null
+          quantity: number
+          restriction_end_date: string | null
+          restriction_reason: string | null
+          sector_exposure: string | null
+          security_name: string
+          status: string | null
+          ticker_symbol: string | null
+          total_cost_basis: number | null
+          unrealized_gain_loss: number | null
+          unrealized_gain_loss_percentage: number | null
+          updated_at: string | null
+          weight_in_asset_class: number | null
+          weight_in_portfolio: number | null
+        }
+        Insert: {
+          accrued_income?: number | null
+          acquisition_date: string
+          asset_class: string
+          asset_subclass?: string | null
+          average_cost?: number | null
+          composite_fund_id: string
+          country_exposure?: string | null
+          created_at?: string | null
+          credit_rating?: string | null
+          currency?: string | null
+          current_market_value: number
+          current_price: number
+          cusip?: string | null
+          days_to_liquidate_estimate?: number | null
+          dividend_yield?: number | null
+          esg_score?: number | null
+          fx_rate_to_base?: number | null
+          holding_type: string
+          id?: string
+          is_restricted?: boolean | null
+          isin?: string | null
+          last_rebalance_date?: string | null
+          liquidity_classification?: string | null
+          maturity_date?: string | null
+          notes?: string | null
+          product_id?: string | null
+          product_type?: string | null
+          quantity: number
+          restriction_end_date?: string | null
+          restriction_reason?: string | null
+          sector_exposure?: string | null
+          security_name: string
+          status?: string | null
+          ticker_symbol?: string | null
+          total_cost_basis?: number | null
+          unrealized_gain_loss?: number | null
+          unrealized_gain_loss_percentage?: number | null
+          updated_at?: string | null
+          weight_in_asset_class?: number | null
+          weight_in_portfolio?: number | null
+        }
+        Update: {
+          accrued_income?: number | null
+          acquisition_date?: string
+          asset_class?: string
+          asset_subclass?: string | null
+          average_cost?: number | null
+          composite_fund_id?: string
+          country_exposure?: string | null
+          created_at?: string | null
+          credit_rating?: string | null
+          currency?: string | null
+          current_market_value?: number
+          current_price?: number
+          cusip?: string | null
+          days_to_liquidate_estimate?: number | null
+          dividend_yield?: number | null
+          esg_score?: number | null
+          fx_rate_to_base?: number | null
+          holding_type?: string
+          id?: string
+          is_restricted?: boolean | null
+          isin?: string | null
+          last_rebalance_date?: string | null
+          liquidity_classification?: string | null
+          maturity_date?: string | null
+          notes?: string | null
+          product_id?: string | null
+          product_type?: string | null
+          quantity?: number
+          restriction_end_date?: string | null
+          restriction_reason?: string | null
+          sector_exposure?: string | null
+          security_name?: string
+          status?: string | null
+          ticker_symbol?: string | null
+          total_cost_basis?: number | null
+          unrealized_gain_loss?: number | null
+          unrealized_gain_loss_percentage?: number | null
+          updated_at?: string | null
+          weight_in_asset_class?: number | null
+          weight_in_portfolio?: number | null
+        }
+        Relationships: []
+      }
+      cf_performance_attribution: {
+        Row: {
+          active_return: number | null
+          allocation_effect: number | null
+          alpha: number | null
+          asset_class: string | null
+          attribution_level: string
+          beginning_market_value: number
+          benchmark_index: string | null
+          benchmark_return: number | null
+          beta: number | null
+          calculation_methodology: string | null
+          capital_appreciation: number | null
+          composite_fund_id: string
+          contribution_percentage: number | null
+          contribution_to_return: number | null
+          country_attribution: Json | null
+          created_at: string | null
+          currency: string | null
+          ending_market_value: number
+          fx_impact: number | null
+          holding_id: string | null
+          id: string
+          income_return: number | null
+          information_ratio: number | null
+          interaction_effect: number | null
+          max_drawdown: number | null
+          net_cash_flow: number | null
+          notes: string | null
+          period_end_date: string
+          period_start_date: string
+          risk_attribution: Json | null
+          sector_attribution: Json | null
+          security_name: string | null
+          selection_effect: number | null
+          sharpe_ratio: number | null
+          sortino_ratio: number | null
+          top_contributors: Json | null
+          top_detractors: Json | null
+          total_return: number | null
+          total_return_percentage: number | null
+          tracking_error: number | null
+          volatility: number | null
+        }
+        Insert: {
+          active_return?: number | null
+          allocation_effect?: number | null
+          alpha?: number | null
+          asset_class?: string | null
+          attribution_level: string
+          beginning_market_value: number
+          benchmark_index?: string | null
+          benchmark_return?: number | null
+          beta?: number | null
+          calculation_methodology?: string | null
+          capital_appreciation?: number | null
+          composite_fund_id: string
+          contribution_percentage?: number | null
+          contribution_to_return?: number | null
+          country_attribution?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          ending_market_value: number
+          fx_impact?: number | null
+          holding_id?: string | null
+          id?: string
+          income_return?: number | null
+          information_ratio?: number | null
+          interaction_effect?: number | null
+          max_drawdown?: number | null
+          net_cash_flow?: number | null
+          notes?: string | null
+          period_end_date: string
+          period_start_date: string
+          risk_attribution?: Json | null
+          sector_attribution?: Json | null
+          security_name?: string | null
+          selection_effect?: number | null
+          sharpe_ratio?: number | null
+          sortino_ratio?: number | null
+          top_contributors?: Json | null
+          top_detractors?: Json | null
+          total_return?: number | null
+          total_return_percentage?: number | null
+          tracking_error?: number | null
+          volatility?: number | null
+        }
+        Update: {
+          active_return?: number | null
+          allocation_effect?: number | null
+          alpha?: number | null
+          asset_class?: string | null
+          attribution_level?: string
+          beginning_market_value?: number
+          benchmark_index?: string | null
+          benchmark_return?: number | null
+          beta?: number | null
+          calculation_methodology?: string | null
+          capital_appreciation?: number | null
+          composite_fund_id?: string
+          contribution_percentage?: number | null
+          contribution_to_return?: number | null
+          country_attribution?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          ending_market_value?: number
+          fx_impact?: number | null
+          holding_id?: string | null
+          id?: string
+          income_return?: number | null
+          information_ratio?: number | null
+          interaction_effect?: number | null
+          max_drawdown?: number | null
+          net_cash_flow?: number | null
+          notes?: string | null
+          period_end_date?: string
+          period_start_date?: string
+          risk_attribution?: Json | null
+          sector_attribution?: Json | null
+          security_name?: string | null
+          selection_effect?: number | null
+          sharpe_ratio?: number | null
+          sortino_ratio?: number | null
+          top_contributors?: Json | null
+          top_detractors?: Json | null
+          total_return?: number | null
+          total_return_percentage?: number | null
+          tracking_error?: number | null
+          volatility?: number | null
+        }
+        Relationships: []
+      }
+      cf_rebalancing_events: {
+        Row: {
+          allocations_after: Json
+          allocations_before: Json
+          approval_date: string | null
+          approval_status: string | null
+          approved_by: string | null
+          completion_date: string | null
+          composite_fund_id: string
+          created_at: string | null
+          currency: string | null
+          days_to_complete: number | null
+          execution_quality_score: number | null
+          id: string
+          lessons_learned: string | null
+          market_impact_estimate: number | null
+          net_cash_flow: number | null
+          notes: string | null
+          performance_impact: Json | null
+          portfolio_manager: string | null
+          post_rebalance_nav: number
+          pre_rebalance_nav: number
+          rebalancing_date: string
+          rebalancing_type: string
+          slippage: number | null
+          status: string | null
+          target_allocations: Json | null
+          tax_implications: number | null
+          total_buy_value: number | null
+          total_sell_value: number | null
+          total_trades: number | null
+          trades_executed: Json
+          transaction_cost_bps: number | null
+          transaction_costs: number | null
+          trigger_reason: string | null
+          updated_at: string | null
+          variance_from_plan: Json | null
+        }
+        Insert: {
+          allocations_after: Json
+          allocations_before: Json
+          approval_date?: string | null
+          approval_status?: string | null
+          approved_by?: string | null
+          completion_date?: string | null
+          composite_fund_id: string
+          created_at?: string | null
+          currency?: string | null
+          days_to_complete?: number | null
+          execution_quality_score?: number | null
+          id?: string
+          lessons_learned?: string | null
+          market_impact_estimate?: number | null
+          net_cash_flow?: number | null
+          notes?: string | null
+          performance_impact?: Json | null
+          portfolio_manager?: string | null
+          post_rebalance_nav: number
+          pre_rebalance_nav: number
+          rebalancing_date: string
+          rebalancing_type: string
+          slippage?: number | null
+          status?: string | null
+          target_allocations?: Json | null
+          tax_implications?: number | null
+          total_buy_value?: number | null
+          total_sell_value?: number | null
+          total_trades?: number | null
+          trades_executed: Json
+          transaction_cost_bps?: number | null
+          transaction_costs?: number | null
+          trigger_reason?: string | null
+          updated_at?: string | null
+          variance_from_plan?: Json | null
+        }
+        Update: {
+          allocations_after?: Json
+          allocations_before?: Json
+          approval_date?: string | null
+          approval_status?: string | null
+          approved_by?: string | null
+          completion_date?: string | null
+          composite_fund_id?: string
+          created_at?: string | null
+          currency?: string | null
+          days_to_complete?: number | null
+          execution_quality_score?: number | null
+          id?: string
+          lessons_learned?: string | null
+          market_impact_estimate?: number | null
+          net_cash_flow?: number | null
+          notes?: string | null
+          performance_impact?: Json | null
+          portfolio_manager?: string | null
+          post_rebalance_nav?: number
+          pre_rebalance_nav?: number
+          rebalancing_date?: string
+          rebalancing_type?: string
+          slippage?: number | null
+          status?: string | null
+          target_allocations?: Json | null
+          tax_implications?: number | null
+          total_buy_value?: number | null
+          total_sell_value?: number | null
+          total_trades?: number | null
+          trades_executed?: Json
+          transaction_cost_bps?: number | null
+          transaction_costs?: number | null
+          trigger_reason?: string | null
+          updated_at?: string | null
+          variance_from_plan?: Json | null
         }
         Relationships: []
       }
@@ -2181,6 +3951,659 @@ export type Database = {
         }
         Relationships: []
       }
+      collectibles_appraisals: {
+        Row: {
+          appraisal_date: string
+          appraisal_method: string | null
+          appraisal_report_url: string | null
+          appraisal_type: string
+          appraised_value: number
+          appraiser_credentials: string | null
+          appraiser_firm: string | null
+          appraiser_name: string
+          authenticity_method: string | null
+          authenticity_verified: boolean | null
+          certification_body: string | null
+          collectibles_product_id: string
+          comparable_sales: Json | null
+          condition_assessment: string | null
+          condition_grade: string | null
+          created_at: string | null
+          currency: string | null
+          estimated_time_to_sell_days: number | null
+          factors_affecting_value: string | null
+          id: string
+          insurance_recommended_value: number | null
+          is_certified_appraisal: boolean | null
+          liquidity_assessment: string | null
+          market_demand_assessment: string | null
+          market_trends_analysis: string | null
+          next_appraisal_recommended_date: string | null
+          notes: string | null
+          photo_documentation_urls: string[] | null
+          rarity_assessment: string | null
+          recent_auction_results: Json | null
+          replacement_cost: number | null
+          updated_at: string | null
+          value_range_high: number | null
+          value_range_low: number | null
+        }
+        Insert: {
+          appraisal_date: string
+          appraisal_method?: string | null
+          appraisal_report_url?: string | null
+          appraisal_type: string
+          appraised_value: number
+          appraiser_credentials?: string | null
+          appraiser_firm?: string | null
+          appraiser_name: string
+          authenticity_method?: string | null
+          authenticity_verified?: boolean | null
+          certification_body?: string | null
+          collectibles_product_id: string
+          comparable_sales?: Json | null
+          condition_assessment?: string | null
+          condition_grade?: string | null
+          created_at?: string | null
+          currency?: string | null
+          estimated_time_to_sell_days?: number | null
+          factors_affecting_value?: string | null
+          id?: string
+          insurance_recommended_value?: number | null
+          is_certified_appraisal?: boolean | null
+          liquidity_assessment?: string | null
+          market_demand_assessment?: string | null
+          market_trends_analysis?: string | null
+          next_appraisal_recommended_date?: string | null
+          notes?: string | null
+          photo_documentation_urls?: string[] | null
+          rarity_assessment?: string | null
+          recent_auction_results?: Json | null
+          replacement_cost?: number | null
+          updated_at?: string | null
+          value_range_high?: number | null
+          value_range_low?: number | null
+        }
+        Update: {
+          appraisal_date?: string
+          appraisal_method?: string | null
+          appraisal_report_url?: string | null
+          appraisal_type?: string
+          appraised_value?: number
+          appraiser_credentials?: string | null
+          appraiser_firm?: string | null
+          appraiser_name?: string
+          authenticity_method?: string | null
+          authenticity_verified?: boolean | null
+          certification_body?: string | null
+          collectibles_product_id?: string
+          comparable_sales?: Json | null
+          condition_assessment?: string | null
+          condition_grade?: string | null
+          created_at?: string | null
+          currency?: string | null
+          estimated_time_to_sell_days?: number | null
+          factors_affecting_value?: string | null
+          id?: string
+          insurance_recommended_value?: number | null
+          is_certified_appraisal?: boolean | null
+          liquidity_assessment?: string | null
+          market_demand_assessment?: string | null
+          market_trends_analysis?: string | null
+          next_appraisal_recommended_date?: string | null
+          notes?: string | null
+          photo_documentation_urls?: string[] | null
+          rarity_assessment?: string | null
+          recent_auction_results?: Json | null
+          replacement_cost?: number | null
+          updated_at?: string | null
+          value_range_high?: number | null
+          value_range_low?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectibles_appraisals_collectibles_product_id_fkey"
+            columns: ["collectibles_product_id"]
+            isOneToOne: false
+            referencedRelation: "collectibles_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectibles_authentication_records: {
+        Row: {
+          authentication_method: string | null
+          certificate_number: string | null
+          certification_authority: string | null
+          certification_date: string | null
+          confidence_score: number
+          created_at: string
+          fraud_risk_score: number
+          id: string
+          metadata: Json | null
+          notes: string | null
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          authentication_method?: string | null
+          certificate_number?: string | null
+          certification_authority?: string | null
+          certification_date?: string | null
+          confidence_score: number
+          created_at?: string
+          fraud_risk_score: number
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          authentication_method?: string | null
+          certificate_number?: string | null
+          certification_authority?: string | null
+          certification_date?: string | null
+          confidence_score?: number
+          created_at?: string
+          fraud_risk_score?: number
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collectibles_condition_reports: {
+        Row: {
+          collectibles_product_id: string
+          color_condition: string | null
+          comparison_to_previous_reports: string | null
+          completeness_assessment: string | null
+          condition_report_url: string | null
+          conservation_cost_estimate: number | null
+          conservation_needs: string | null
+          created_at: string | null
+          damage_assessment: string | null
+          deterioration_rate: string | null
+          display_recommendations: string | null
+          environmental_requirements: string | null
+          handling_instructions: string | null
+          id: string
+          impact_on_value: string | null
+          infrared_examination_results: string | null
+          inspection_type: string | null
+          inspector_credentials: string | null
+          inspector_name: string
+          insurance_considerations: string | null
+          is_suitable_for_display: boolean | null
+          is_suitable_for_loan: boolean | null
+          is_suitable_for_sale: boolean | null
+          mechanical_condition: string | null
+          next_inspection_recommended_date: string | null
+          notes: string | null
+          overall_condition_grade: string
+          photo_urls: string[] | null
+          photos_taken: number | null
+          physical_condition_score: number | null
+          previous_repairs: string | null
+          recommended_conservation_work: string | null
+          report_date: string
+          restoration_history: string | null
+          scientific_analysis_results: Json | null
+          storage_requirements: string | null
+          structural_integrity: string | null
+          surface_condition: string | null
+          updated_at: string | null
+          uv_light_examination_results: string | null
+          x_ray_examination_results: string | null
+        }
+        Insert: {
+          collectibles_product_id: string
+          color_condition?: string | null
+          comparison_to_previous_reports?: string | null
+          completeness_assessment?: string | null
+          condition_report_url?: string | null
+          conservation_cost_estimate?: number | null
+          conservation_needs?: string | null
+          created_at?: string | null
+          damage_assessment?: string | null
+          deterioration_rate?: string | null
+          display_recommendations?: string | null
+          environmental_requirements?: string | null
+          handling_instructions?: string | null
+          id?: string
+          impact_on_value?: string | null
+          infrared_examination_results?: string | null
+          inspection_type?: string | null
+          inspector_credentials?: string | null
+          inspector_name: string
+          insurance_considerations?: string | null
+          is_suitable_for_display?: boolean | null
+          is_suitable_for_loan?: boolean | null
+          is_suitable_for_sale?: boolean | null
+          mechanical_condition?: string | null
+          next_inspection_recommended_date?: string | null
+          notes?: string | null
+          overall_condition_grade: string
+          photo_urls?: string[] | null
+          photos_taken?: number | null
+          physical_condition_score?: number | null
+          previous_repairs?: string | null
+          recommended_conservation_work?: string | null
+          report_date: string
+          restoration_history?: string | null
+          scientific_analysis_results?: Json | null
+          storage_requirements?: string | null
+          structural_integrity?: string | null
+          surface_condition?: string | null
+          updated_at?: string | null
+          uv_light_examination_results?: string | null
+          x_ray_examination_results?: string | null
+        }
+        Update: {
+          collectibles_product_id?: string
+          color_condition?: string | null
+          comparison_to_previous_reports?: string | null
+          completeness_assessment?: string | null
+          condition_report_url?: string | null
+          conservation_cost_estimate?: number | null
+          conservation_needs?: string | null
+          created_at?: string | null
+          damage_assessment?: string | null
+          deterioration_rate?: string | null
+          display_recommendations?: string | null
+          environmental_requirements?: string | null
+          handling_instructions?: string | null
+          id?: string
+          impact_on_value?: string | null
+          infrared_examination_results?: string | null
+          inspection_type?: string | null
+          inspector_credentials?: string | null
+          inspector_name?: string
+          insurance_considerations?: string | null
+          is_suitable_for_display?: boolean | null
+          is_suitable_for_loan?: boolean | null
+          is_suitable_for_sale?: boolean | null
+          mechanical_condition?: string | null
+          next_inspection_recommended_date?: string | null
+          notes?: string | null
+          overall_condition_grade?: string
+          photo_urls?: string[] | null
+          photos_taken?: number | null
+          physical_condition_score?: number | null
+          previous_repairs?: string | null
+          recommended_conservation_work?: string | null
+          report_date?: string
+          restoration_history?: string | null
+          scientific_analysis_results?: Json | null
+          storage_requirements?: string | null
+          structural_integrity?: string | null
+          surface_condition?: string | null
+          updated_at?: string | null
+          uv_light_examination_results?: string | null
+          x_ray_examination_results?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectibles_condition_reports_collectibles_product_id_fkey"
+            columns: ["collectibles_product_id"]
+            isOneToOne: false
+            referencedRelation: "collectibles_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectibles_insurance_policies: {
+        Row: {
+          annual_premium: number
+          coverage_amount: number
+          created_at: string
+          deductible: number | null
+          end_date: string | null
+          id: string
+          metadata: Json | null
+          policy_number: string | null
+          policy_type: string | null
+          product_id: string
+          provider: string | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          annual_premium: number
+          coverage_amount: number
+          created_at?: string
+          deductible?: number | null
+          end_date?: string | null
+          id?: string
+          metadata?: Json | null
+          policy_number?: string | null
+          policy_type?: string | null
+          product_id: string
+          provider?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          annual_premium?: number
+          coverage_amount?: number
+          created_at?: string
+          deductible?: number | null
+          end_date?: string | null
+          id?: string
+          metadata?: Json | null
+          policy_number?: string | null
+          policy_type?: string | null
+          product_id?: string
+          provider?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collectibles_insurance_valuations: {
+        Row: {
+          agreed_value: number | null
+          annual_premium: number | null
+          appraisal_required_frequency: string | null
+          claims_history: Json | null
+          collectibles_product_id: string
+          coverage_territory: string | null
+          coverage_type: string | null
+          created_at: string | null
+          currency: string | null
+          deductible: number | null
+          display_restrictions: string | null
+          exhibition_coverage: boolean | null
+          id: string
+          inflation_guard_percentage: number | null
+          insurance_provider: string | null
+          insured_value: number
+          last_appraisal_date: string | null
+          next_appraisal_due_date: string | null
+          notes: string | null
+          pair_and_set_clause: string | null
+          policy_effective_date: string | null
+          policy_expiration_date: string | null
+          policy_number: string | null
+          premium_rate: number | null
+          replacement_value: number
+          restoration_coverage: boolean | null
+          risk_mitigation_measures: string | null
+          security_requirements: string | null
+          special_conditions: string | null
+          status: string | null
+          storage_requirements: string | null
+          transit_coverage: boolean | null
+          updated_at: string | null
+          valuation_basis: string | null
+          valuation_date: string
+          valuation_purpose: string
+        }
+        Insert: {
+          agreed_value?: number | null
+          annual_premium?: number | null
+          appraisal_required_frequency?: string | null
+          claims_history?: Json | null
+          collectibles_product_id: string
+          coverage_territory?: string | null
+          coverage_type?: string | null
+          created_at?: string | null
+          currency?: string | null
+          deductible?: number | null
+          display_restrictions?: string | null
+          exhibition_coverage?: boolean | null
+          id?: string
+          inflation_guard_percentage?: number | null
+          insurance_provider?: string | null
+          insured_value: number
+          last_appraisal_date?: string | null
+          next_appraisal_due_date?: string | null
+          notes?: string | null
+          pair_and_set_clause?: string | null
+          policy_effective_date?: string | null
+          policy_expiration_date?: string | null
+          policy_number?: string | null
+          premium_rate?: number | null
+          replacement_value: number
+          restoration_coverage?: boolean | null
+          risk_mitigation_measures?: string | null
+          security_requirements?: string | null
+          special_conditions?: string | null
+          status?: string | null
+          storage_requirements?: string | null
+          transit_coverage?: boolean | null
+          updated_at?: string | null
+          valuation_basis?: string | null
+          valuation_date: string
+          valuation_purpose: string
+        }
+        Update: {
+          agreed_value?: number | null
+          annual_premium?: number | null
+          appraisal_required_frequency?: string | null
+          claims_history?: Json | null
+          collectibles_product_id?: string
+          coverage_territory?: string | null
+          coverage_type?: string | null
+          created_at?: string | null
+          currency?: string | null
+          deductible?: number | null
+          display_restrictions?: string | null
+          exhibition_coverage?: boolean | null
+          id?: string
+          inflation_guard_percentage?: number | null
+          insurance_provider?: string | null
+          insured_value?: number
+          last_appraisal_date?: string | null
+          next_appraisal_due_date?: string | null
+          notes?: string | null
+          pair_and_set_clause?: string | null
+          policy_effective_date?: string | null
+          policy_expiration_date?: string | null
+          policy_number?: string | null
+          premium_rate?: number | null
+          replacement_value?: number
+          restoration_coverage?: boolean | null
+          risk_mitigation_measures?: string | null
+          security_requirements?: string | null
+          special_conditions?: string | null
+          status?: string | null
+          storage_requirements?: string | null
+          transit_coverage?: boolean | null
+          updated_at?: string | null
+          valuation_basis?: string | null
+          valuation_date?: string
+          valuation_purpose?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectibles_insurance_valuations_collectibles_product_id_fkey"
+            columns: ["collectibles_product_id"]
+            isOneToOne: false
+            referencedRelation: "collectibles_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectibles_market_comparables: {
+        Row: {
+          adjusted_comparable_value: number | null
+          adjustment_factors: Json | null
+          artist_creator: string | null
+          authenticity_status: string | null
+          buyers_premium_percentage: number | null
+          catalog_reference: string | null
+          catalog_url: string | null
+          collectibles_product_id: string
+          comparable_item_description: string
+          condition_compared: string | null
+          condition_grade: string | null
+          created_at: string | null
+          creation_date: string | null
+          currency: string | null
+          data_source: string | null
+          dimensions: string | null
+          estimate_high: number | null
+          estimate_low: number | null
+          exhibition_history_quality: string | null
+          hammer_price: number | null
+          id: string
+          image_url: string | null
+          lot_number: string | null
+          medium_type: string | null
+          notes: string | null
+          number_of_bidders: number | null
+          provenance_quality: string | null
+          publication_history_quality: string | null
+          rarity_compared: string | null
+          relevance_to_valuation: string | null
+          sale_date: string
+          sale_price: number
+          sale_type: string | null
+          sale_venue: string | null
+          similarity_score: number | null
+          total_price_with_premium: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          adjusted_comparable_value?: number | null
+          adjustment_factors?: Json | null
+          artist_creator?: string | null
+          authenticity_status?: string | null
+          buyers_premium_percentage?: number | null
+          catalog_reference?: string | null
+          catalog_url?: string | null
+          collectibles_product_id: string
+          comparable_item_description: string
+          condition_compared?: string | null
+          condition_grade?: string | null
+          created_at?: string | null
+          creation_date?: string | null
+          currency?: string | null
+          data_source?: string | null
+          dimensions?: string | null
+          estimate_high?: number | null
+          estimate_low?: number | null
+          exhibition_history_quality?: string | null
+          hammer_price?: number | null
+          id?: string
+          image_url?: string | null
+          lot_number?: string | null
+          medium_type?: string | null
+          notes?: string | null
+          number_of_bidders?: number | null
+          provenance_quality?: string | null
+          publication_history_quality?: string | null
+          rarity_compared?: string | null
+          relevance_to_valuation?: string | null
+          sale_date: string
+          sale_price: number
+          sale_type?: string | null
+          sale_venue?: string | null
+          similarity_score?: number | null
+          total_price_with_premium?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          adjusted_comparable_value?: number | null
+          adjustment_factors?: Json | null
+          artist_creator?: string | null
+          authenticity_status?: string | null
+          buyers_premium_percentage?: number | null
+          catalog_reference?: string | null
+          catalog_url?: string | null
+          collectibles_product_id?: string
+          comparable_item_description?: string
+          condition_compared?: string | null
+          condition_grade?: string | null
+          created_at?: string | null
+          creation_date?: string | null
+          currency?: string | null
+          data_source?: string | null
+          dimensions?: string | null
+          estimate_high?: number | null
+          estimate_low?: number | null
+          exhibition_history_quality?: string | null
+          hammer_price?: number | null
+          id?: string
+          image_url?: string | null
+          lot_number?: string | null
+          medium_type?: string | null
+          notes?: string | null
+          number_of_bidders?: number | null
+          provenance_quality?: string | null
+          publication_history_quality?: string | null
+          rarity_compared?: string | null
+          relevance_to_valuation?: string | null
+          sale_date?: string
+          sale_price?: number
+          sale_type?: string | null
+          sale_venue?: string | null
+          similarity_score?: number | null
+          total_price_with_premium?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectibles_market_comparables_collectibles_product_id_fkey"
+            columns: ["collectibles_product_id"]
+            isOneToOne: false
+            referencedRelation: "collectibles_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectibles_market_metrics: {
+        Row: {
+          asset_type: string
+          created_at: string
+          demand: number
+          estimated_value: number
+          id: string
+          investment_grade: number
+          last_updated: string
+          liquidity: number
+          seasonality: number
+          supply: number
+          trend: number
+          updated_at: string
+          volatility: number
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string
+          demand: number
+          estimated_value: number
+          id?: string
+          investment_grade: number
+          last_updated?: string
+          liquidity: number
+          seasonality: number
+          supply: number
+          trend: number
+          updated_at?: string
+          volatility: number
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          demand?: number
+          estimated_value?: number
+          id?: string
+          investment_grade?: number
+          last_updated?: string
+          liquidity?: number
+          seasonality?: number
+          supply?: number
+          trend?: number
+          updated_at?: string
+          volatility?: number
+        }
+        Relationships: []
+      }
       collectibles_products: {
         Row: {
           acquisition_date: string | null
@@ -2254,6 +4677,320 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      collectibles_provenance: {
+        Row: {
+          acquisition_currency: string | null
+          acquisition_date: string | null
+          acquisition_method: string | null
+          acquisition_price: number | null
+          acquisition_source: string | null
+          authenticity_concerns: string | null
+          buyer_name: string | null
+          collectibles_product_id: string
+          created_at: string | null
+          cultural_property_status: string | null
+          documentation_type: string | null
+          documentation_url: string | null
+          exhibition_history: Json | null
+          export_import_documentation: string | null
+          gap_explanation: string | null
+          id: string
+          is_gap_in_provenance: boolean | null
+          legal_disputes: string | null
+          notes: string | null
+          owner_name: string | null
+          owner_type: string | null
+          ownership_period_end: string | null
+          ownership_period_start: string | null
+          publication_history: Json | null
+          restoration_events: Json | null
+          sale_currency: string | null
+          sale_date: string | null
+          sale_method: string | null
+          sale_price: number | null
+          sequence_number: number
+          updated_at: string | null
+          verification_date: string | null
+          verification_status: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          acquisition_currency?: string | null
+          acquisition_date?: string | null
+          acquisition_method?: string | null
+          acquisition_price?: number | null
+          acquisition_source?: string | null
+          authenticity_concerns?: string | null
+          buyer_name?: string | null
+          collectibles_product_id: string
+          created_at?: string | null
+          cultural_property_status?: string | null
+          documentation_type?: string | null
+          documentation_url?: string | null
+          exhibition_history?: Json | null
+          export_import_documentation?: string | null
+          gap_explanation?: string | null
+          id?: string
+          is_gap_in_provenance?: boolean | null
+          legal_disputes?: string | null
+          notes?: string | null
+          owner_name?: string | null
+          owner_type?: string | null
+          ownership_period_end?: string | null
+          ownership_period_start?: string | null
+          publication_history?: Json | null
+          restoration_events?: Json | null
+          sale_currency?: string | null
+          sale_date?: string | null
+          sale_method?: string | null
+          sale_price?: number | null
+          sequence_number: number
+          updated_at?: string | null
+          verification_date?: string | null
+          verification_status?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          acquisition_currency?: string | null
+          acquisition_date?: string | null
+          acquisition_method?: string | null
+          acquisition_price?: number | null
+          acquisition_source?: string | null
+          authenticity_concerns?: string | null
+          buyer_name?: string | null
+          collectibles_product_id?: string
+          created_at?: string | null
+          cultural_property_status?: string | null
+          documentation_type?: string | null
+          documentation_url?: string | null
+          exhibition_history?: Json | null
+          export_import_documentation?: string | null
+          gap_explanation?: string | null
+          id?: string
+          is_gap_in_provenance?: boolean | null
+          legal_disputes?: string | null
+          notes?: string | null
+          owner_name?: string | null
+          owner_type?: string | null
+          ownership_period_end?: string | null
+          ownership_period_start?: string | null
+          publication_history?: Json | null
+          restoration_events?: Json | null
+          sale_currency?: string | null
+          sale_date?: string | null
+          sale_method?: string | null
+          sale_price?: number | null
+          sequence_number?: number
+          updated_at?: string | null
+          verification_date?: string | null
+          verification_status?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collectibles_provenance_collectibles_product_id_fkey"
+            columns: ["collectibles_product_id"]
+            isOneToOne: false
+            referencedRelation: "collectibles_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collectibles_provenance_records: {
+        Row: {
+          completeness_score: number
+          created_at: string
+          documentation_quality: number
+          earliest_record_date: string | null
+          gaps: string[] | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          ownership_history: Json | null
+          product_id: string
+          updated_at: string
+          verification_status: string | null
+        }
+        Insert: {
+          completeness_score: number
+          created_at?: string
+          documentation_quality: number
+          earliest_record_date?: string | null
+          gaps?: string[] | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          ownership_history?: Json | null
+          product_id: string
+          updated_at?: string
+          verification_status?: string | null
+        }
+        Update: {
+          completeness_score?: number
+          created_at?: string
+          documentation_quality?: number
+          earliest_record_date?: string | null
+          gaps?: string[] | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          ownership_history?: Json | null
+          product_id?: string
+          updated_at?: string
+          verification_status?: string | null
+        }
+        Relationships: []
+      }
+      collectibles_rarity_scores: {
+        Row: {
+          assessment_date: string
+          comparable_count: number | null
+          created_at: string
+          grade_level: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          product_id: string
+          production_quantity: number | null
+          rarity_score: number
+          scarcity_factor: number | null
+          surviving_quantity: number | null
+          unique_characteristics: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          assessment_date?: string
+          comparable_count?: number | null
+          created_at?: string
+          grade_level?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          product_id: string
+          production_quantity?: number | null
+          rarity_score: number
+          scarcity_factor?: number | null
+          surviving_quantity?: number | null
+          unique_characteristics?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          assessment_date?: string
+          comparable_count?: number | null
+          created_at?: string
+          grade_level?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          product_id?: string
+          production_quantity?: number | null
+          rarity_score?: number
+          scarcity_factor?: number | null
+          surviving_quantity?: number | null
+          unique_characteristics?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collectibles_risk_assessments: {
+        Row: {
+          assessment_date: string
+          assessor: string | null
+          authenticity_risk: number
+          created_at: string
+          damage_risk: number
+          id: string
+          legal_risk: number
+          liquidity_risk: number | null
+          market_risk: number | null
+          metadata: Json | null
+          notes: string | null
+          product_id: string
+          storage_risk: number
+          theft_risk: number
+          updated_at: string
+        }
+        Insert: {
+          assessment_date?: string
+          assessor?: string | null
+          authenticity_risk: number
+          created_at?: string
+          damage_risk: number
+          id?: string
+          legal_risk: number
+          liquidity_risk?: number | null
+          market_risk?: number | null
+          metadata?: Json | null
+          notes?: string | null
+          product_id: string
+          storage_risk: number
+          theft_risk: number
+          updated_at?: string
+        }
+        Update: {
+          assessment_date?: string
+          assessor?: string | null
+          authenticity_risk?: number
+          created_at?: string
+          damage_risk?: number
+          id?: string
+          legal_risk?: number
+          liquidity_risk?: number | null
+          market_risk?: number | null
+          metadata?: Json | null
+          notes?: string | null
+          product_id?: string
+          storage_risk?: number
+          theft_risk?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      collectibles_storage_facilities: {
+        Row: {
+          annual_cost: number
+          created_at: string
+          facility_name: string | null
+          id: string
+          insurance_included: boolean | null
+          location: string | null
+          metadata: Json | null
+          monthly_cost: number
+          product_id: string
+          security_level: string | null
+          storage_conditions: string | null
+          updated_at: string
+        }
+        Insert: {
+          annual_cost: number
+          created_at?: string
+          facility_name?: string | null
+          id?: string
+          insurance_included?: boolean | null
+          location?: string | null
+          metadata?: Json | null
+          monthly_cost: number
+          product_id: string
+          security_level?: string | null
+          storage_conditions?: string | null
+          updated_at?: string
+        }
+        Update: {
+          annual_cost?: number
+          created_at?: string
+          facility_name?: string | null
+          id?: string
+          insurance_included?: boolean | null
+          location?: string | null
+          metadata?: Json | null
+          monthly_cost?: number
+          product_id?: string
+          security_level?: string | null
+          storage_conditions?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       commodities_products: {
         Row: {
@@ -2334,6 +5071,306 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      commodity_handling_costs: {
+        Row: {
+          commodity_type: string
+          cost_per_unit: number
+          created_at: string
+          currency: string
+          effective_date: string
+          expiration_date: string | null
+          handling_type: string | null
+          id: string
+          location: string | null
+          metadata: Json | null
+          notes: string | null
+          unit_of_measure: string
+          updated_at: string
+        }
+        Insert: {
+          commodity_type: string
+          cost_per_unit: number
+          created_at?: string
+          currency?: string
+          effective_date?: string
+          expiration_date?: string | null
+          handling_type?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          unit_of_measure: string
+          updated_at?: string
+        }
+        Update: {
+          commodity_type?: string
+          cost_per_unit?: number
+          created_at?: string
+          currency?: string
+          effective_date?: string
+          expiration_date?: string | null
+          handling_type?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          unit_of_measure?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      commodity_implied_volatility: {
+        Row: {
+          calculation_date: string
+          calculation_method: string | null
+          confidence_interval: number | null
+          created_at: string
+          data_source: string | null
+          id: string
+          instrument_key: string
+          maturity_months: number | null
+          metadata: Json | null
+          updated_at: string
+          volatility: number
+        }
+        Insert: {
+          calculation_date?: string
+          calculation_method?: string | null
+          confidence_interval?: number | null
+          created_at?: string
+          data_source?: string | null
+          id?: string
+          instrument_key: string
+          maturity_months?: number | null
+          metadata?: Json | null
+          updated_at?: string
+          volatility: number
+        }
+        Update: {
+          calculation_date?: string
+          calculation_method?: string | null
+          confidence_interval?: number | null
+          created_at?: string
+          data_source?: string | null
+          id?: string
+          instrument_key?: string
+          maturity_months?: number | null
+          metadata?: Json | null
+          updated_at?: string
+          volatility?: number
+        }
+        Relationships: []
+      }
+      commodity_insurance_rates: {
+        Row: {
+          annual_rate: number
+          commodity_type: string
+          coverage_type: string | null
+          created_at: string
+          deductible_percentage: number | null
+          effective_date: string
+          expiration_date: string | null
+          geographic_scope: string | null
+          id: string
+          maximum_coverage: number | null
+          metadata: Json | null
+          minimum_coverage: number | null
+          provider: string | null
+          risk_factors: Json | null
+          updated_at: string
+        }
+        Insert: {
+          annual_rate: number
+          commodity_type: string
+          coverage_type?: string | null
+          created_at?: string
+          deductible_percentage?: number | null
+          effective_date?: string
+          expiration_date?: string | null
+          geographic_scope?: string | null
+          id?: string
+          maximum_coverage?: number | null
+          metadata?: Json | null
+          minimum_coverage?: number | null
+          provider?: string | null
+          risk_factors?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          annual_rate?: number
+          commodity_type?: string
+          coverage_type?: string | null
+          created_at?: string
+          deductible_percentage?: number | null
+          effective_date?: string
+          expiration_date?: string | null
+          geographic_scope?: string | null
+          id?: string
+          maximum_coverage?: number | null
+          metadata?: Json | null
+          minimum_coverage?: number | null
+          provider?: string | null
+          risk_factors?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      commodity_market_data: {
+        Row: {
+          close: number | null
+          created_at: string
+          exchange: string | null
+          high: number | null
+          id: string
+          instrument_key: string
+          low: number | null
+          market_date: string
+          metadata: Json | null
+          open_interest: number
+          settlement: number | null
+          updated_at: string
+          volume: number
+          vwap: number | null
+        }
+        Insert: {
+          close?: number | null
+          created_at?: string
+          exchange?: string | null
+          high?: number | null
+          id?: string
+          instrument_key: string
+          low?: number | null
+          market_date?: string
+          metadata?: Json | null
+          open_interest?: number
+          settlement?: number | null
+          updated_at?: string
+          volume?: number
+          vwap?: number | null
+        }
+        Update: {
+          close?: number | null
+          created_at?: string
+          exchange?: string | null
+          high?: number | null
+          id?: string
+          instrument_key?: string
+          low?: number | null
+          market_date?: string
+          metadata?: Json | null
+          open_interest?: number
+          settlement?: number | null
+          updated_at?: string
+          volume?: number
+          vwap?: number | null
+        }
+        Relationships: []
+      }
+      commodity_quality_multipliers: {
+        Row: {
+          applicable_standards: string[] | null
+          certifying_body: string | null
+          commodity_type: string
+          created_at: string
+          effective_date: string
+          expiration_date: string | null
+          grade: string
+          grade_specification: string | null
+          id: string
+          metadata: Json | null
+          multiplier: number
+          notes: string | null
+          typical_price_differential: number | null
+          updated_at: string
+        }
+        Insert: {
+          applicable_standards?: string[] | null
+          certifying_body?: string | null
+          commodity_type: string
+          created_at?: string
+          effective_date?: string
+          expiration_date?: string | null
+          grade: string
+          grade_specification?: string | null
+          id?: string
+          metadata?: Json | null
+          multiplier: number
+          notes?: string | null
+          typical_price_differential?: number | null
+          updated_at?: string
+        }
+        Update: {
+          applicable_standards?: string[] | null
+          certifying_body?: string | null
+          commodity_type?: string
+          created_at?: string
+          effective_date?: string
+          expiration_date?: string | null
+          grade?: string
+          grade_specification?: string | null
+          id?: string
+          metadata?: Json | null
+          multiplier?: number
+          notes?: string | null
+          typical_price_differential?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      commodity_storage_rates: {
+        Row: {
+          annual_rate: number
+          commodity_type: string
+          created_at: string
+          currency: string
+          daily_rate: number | null
+          effective_date: string
+          expiration_date: string | null
+          facility_type: string | null
+          id: string
+          metadata: Json | null
+          minimum_quantity: number | null
+          monthly_rate: number | null
+          storage_location: string | null
+          unit_of_measure: string | null
+          updated_at: string
+        }
+        Insert: {
+          annual_rate: number
+          commodity_type: string
+          created_at?: string
+          currency?: string
+          daily_rate?: number | null
+          effective_date?: string
+          expiration_date?: string | null
+          facility_type?: string | null
+          id?: string
+          metadata?: Json | null
+          minimum_quantity?: number | null
+          monthly_rate?: number | null
+          storage_location?: string | null
+          unit_of_measure?: string | null
+          updated_at?: string
+        }
+        Update: {
+          annual_rate?: number
+          commodity_type?: string
+          created_at?: string
+          currency?: string
+          daily_rate?: number | null
+          effective_date?: string
+          expiration_date?: string | null
+          facility_type?: string | null
+          id?: string
+          metadata?: Json | null
+          minimum_quantity?: number | null
+          monthly_rate?: number | null
+          storage_location?: string | null
+          unit_of_measure?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       compliance_alerts: {
         Row: {
@@ -2676,6 +5713,211 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_master_versions: {
+        Row: {
+          abi: Json
+          breaking_changes: boolean | null
+          bytecode: string
+          changes: string | null
+          contract_type: string
+          created_at: string | null
+          deployed_at: string | null
+          deprecated_at: string | null
+          id: string
+          migration_guide: string | null
+          migration_required: boolean | null
+          updated_at: string | null
+          version: string
+        }
+        Insert: {
+          abi: Json
+          breaking_changes?: boolean | null
+          bytecode: string
+          changes?: string | null
+          contract_type: string
+          created_at?: string | null
+          deployed_at?: string | null
+          deprecated_at?: string | null
+          id?: string
+          migration_guide?: string | null
+          migration_required?: boolean | null
+          updated_at?: string | null
+          version: string
+        }
+        Update: {
+          abi?: Json
+          breaking_changes?: boolean | null
+          bytecode?: string
+          changes?: string | null
+          contract_type?: string
+          created_at?: string | null
+          deployed_at?: string | null
+          deprecated_at?: string | null
+          id?: string
+          migration_guide?: string | null
+          migration_required?: boolean | null
+          updated_at?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
+      contract_masters: {
+        Row: {
+          abi: Json
+          abi_hash: string | null
+          abi_version: string
+          contract_address: string
+          contract_details: Json | null
+          contract_type: string
+          created_at: string | null
+          deployed_at: string | null
+          deployed_by: string | null
+          deployment_data: Json | null
+          deployment_tx_hash: string | null
+          deprecated_at: string | null
+          environment: string
+          id: string
+          initial_owner: string | null
+          is_active: boolean | null
+          network: string
+          updated_at: string | null
+          version: string
+        }
+        Insert: {
+          abi: Json
+          abi_hash?: string | null
+          abi_version?: string
+          contract_address: string
+          contract_details?: Json | null
+          contract_type: string
+          created_at?: string | null
+          deployed_at?: string | null
+          deployed_by?: string | null
+          deployment_data?: Json | null
+          deployment_tx_hash?: string | null
+          deprecated_at?: string | null
+          environment: string
+          id?: string
+          initial_owner?: string | null
+          is_active?: boolean | null
+          network: string
+          updated_at?: string | null
+          version?: string
+        }
+        Update: {
+          abi?: Json
+          abi_hash?: string | null
+          abi_version?: string
+          contract_address?: string
+          contract_details?: Json | null
+          contract_type?: string
+          created_at?: string | null
+          deployed_at?: string | null
+          deployed_by?: string | null
+          deployment_data?: Json | null
+          deployment_tx_hash?: string | null
+          deprecated_at?: string | null
+          environment?: string
+          id?: string
+          initial_owner?: string | null
+          is_active?: boolean | null
+          network?: string
+          updated_at?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_masters_deployed_by_fkey"
+            columns: ["deployed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      corporate_actions: {
+        Row: {
+          acquiring_company: string | null
+          action_type: string
+          announcement_date: string | null
+          cash_consideration: number | null
+          created_at: string | null
+          description: string | null
+          effective_date: string
+          equity_product_id: string
+          ex_date: string | null
+          exchange_ratio: number | null
+          id: string
+          impact_on_holdings: Json | null
+          new_ticker_symbol: string | null
+          ratio_from: number | null
+          ratio_to: number | null
+          record_date: string | null
+          regulatory_approvals_required: boolean | null
+          status: string | null
+          stock_consideration: number | null
+          target_company: string | null
+          ticker_symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          acquiring_company?: string | null
+          action_type: string
+          announcement_date?: string | null
+          cash_consideration?: number | null
+          created_at?: string | null
+          description?: string | null
+          effective_date: string
+          equity_product_id: string
+          ex_date?: string | null
+          exchange_ratio?: number | null
+          id?: string
+          impact_on_holdings?: Json | null
+          new_ticker_symbol?: string | null
+          ratio_from?: number | null
+          ratio_to?: number | null
+          record_date?: string | null
+          regulatory_approvals_required?: boolean | null
+          status?: string | null
+          stock_consideration?: number | null
+          target_company?: string | null
+          ticker_symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          acquiring_company?: string | null
+          action_type?: string
+          announcement_date?: string | null
+          cash_consideration?: number | null
+          created_at?: string | null
+          description?: string | null
+          effective_date?: string
+          equity_product_id?: string
+          ex_date?: string | null
+          exchange_ratio?: number | null
+          id?: string
+          impact_on_holdings?: Json | null
+          new_ticker_symbol?: string | null
+          ratio_from?: number | null
+          ratio_to?: number | null
+          record_date?: string | null
+          regulatory_approvals_required?: boolean | null
+          status?: string | null
+          stock_consideration?: number | null
+          target_company?: string | null
+          ticker_symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corporate_actions_equity_product_id_fkey"
+            columns: ["equity_product_id"]
+            isOneToOne: false
+            referencedRelation: "equity_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credential_usage_logs: {
         Row: {
           action_details: Json | null
@@ -2863,6 +6105,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "fk_token"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_token"
@@ -5671,6 +8920,713 @@ export type Database = {
           },
         ]
       }
+      dtf_blockchain_events: {
+        Row: {
+          aml_screening_result: string | null
+          block_number: number
+          block_timestamp: string
+          compliance_checked: boolean | null
+          compliance_status: string | null
+          contract_method_called: string | null
+          created_at: string | null
+          decoded_event_data: Json | null
+          digital_tokenized_fund_product_id: string
+          dtf_token_metadata_id: string
+          error_message: string | null
+          event_category: string | null
+          event_data: Json | null
+          event_name: string | null
+          event_timestamp: string
+          event_type: string
+          from_address: string | null
+          gas_cost: number | null
+          gas_price_gwei: number | null
+          gas_used: number | null
+          id: string
+          input_data: string | null
+          investigation_required: boolean | null
+          is_internal_transaction: boolean | null
+          is_suspicious: boolean | null
+          log_index: number | null
+          notes: string | null
+          related_events: Json | null
+          risk_score: number | null
+          sanctioned_address: boolean | null
+          status: string | null
+          to_address: string | null
+          token_id: string | null
+          transaction_hash: string
+          transaction_index: number | null
+          value: number | null
+        }
+        Insert: {
+          aml_screening_result?: string | null
+          block_number: number
+          block_timestamp: string
+          compliance_checked?: boolean | null
+          compliance_status?: string | null
+          contract_method_called?: string | null
+          created_at?: string | null
+          decoded_event_data?: Json | null
+          digital_tokenized_fund_product_id: string
+          dtf_token_metadata_id: string
+          error_message?: string | null
+          event_category?: string | null
+          event_data?: Json | null
+          event_name?: string | null
+          event_timestamp: string
+          event_type: string
+          from_address?: string | null
+          gas_cost?: number | null
+          gas_price_gwei?: number | null
+          gas_used?: number | null
+          id?: string
+          input_data?: string | null
+          investigation_required?: boolean | null
+          is_internal_transaction?: boolean | null
+          is_suspicious?: boolean | null
+          log_index?: number | null
+          notes?: string | null
+          related_events?: Json | null
+          risk_score?: number | null
+          sanctioned_address?: boolean | null
+          status?: string | null
+          to_address?: string | null
+          token_id?: string | null
+          transaction_hash: string
+          transaction_index?: number | null
+          value?: number | null
+        }
+        Update: {
+          aml_screening_result?: string | null
+          block_number?: number
+          block_timestamp?: string
+          compliance_checked?: boolean | null
+          compliance_status?: string | null
+          contract_method_called?: string | null
+          created_at?: string | null
+          decoded_event_data?: Json | null
+          digital_tokenized_fund_product_id?: string
+          dtf_token_metadata_id?: string
+          error_message?: string | null
+          event_category?: string | null
+          event_data?: Json | null
+          event_name?: string | null
+          event_timestamp?: string
+          event_type?: string
+          from_address?: string | null
+          gas_cost?: number | null
+          gas_price_gwei?: number | null
+          gas_used?: number | null
+          id?: string
+          input_data?: string | null
+          investigation_required?: boolean | null
+          is_internal_transaction?: boolean | null
+          is_suspicious?: boolean | null
+          log_index?: number | null
+          notes?: string | null
+          related_events?: Json | null
+          risk_score?: number | null
+          sanctioned_address?: boolean | null
+          status?: string | null
+          to_address?: string | null
+          token_id?: string | null
+          transaction_hash?: string
+          transaction_index?: number | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtf_blockchain_events_digital_tokenized_fund_product_id_fkey"
+            columns: ["digital_tokenized_fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_tokenized_fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtf_blockchain_events_dtf_token_metadata_id_fkey"
+            columns: ["dtf_token_metadata_id"]
+            isOneToOne: false
+            referencedRelation: "dtf_token_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtf_minting_history: {
+        Row: {
+          accredited_investor_verified: boolean | null
+          amount_minted: number
+          associated_assets: Json | null
+          block_number: number
+          created_at: string | null
+          currency: string | null
+          custody_arrangement: string | null
+          digital_tokenized_fund_product_id: string
+          dtf_token_metadata_id: string
+          gas_cost: number | null
+          gas_price_gwei: number | null
+          gas_used: number | null
+          id: string
+          issuer_address: string | null
+          kyc_aml_completed: boolean | null
+          lock_up_end_date: string | null
+          lock_up_period_months: number | null
+          mint_price: number | null
+          mint_timestamp: string
+          minting_reason: string | null
+          nav_at_mint: number | null
+          notes: string | null
+          payment_amount: number | null
+          payment_currency: string | null
+          payment_method: string | null
+          payment_tx_hash: string | null
+          recipient_address: string
+          regulatory_filing_reference: string | null
+          subscription_agreement_signed: boolean | null
+          total_value: number | null
+          transaction_hash: string
+          vesting_schedule: Json | null
+        }
+        Insert: {
+          accredited_investor_verified?: boolean | null
+          amount_minted: number
+          associated_assets?: Json | null
+          block_number: number
+          created_at?: string | null
+          currency?: string | null
+          custody_arrangement?: string | null
+          digital_tokenized_fund_product_id: string
+          dtf_token_metadata_id: string
+          gas_cost?: number | null
+          gas_price_gwei?: number | null
+          gas_used?: number | null
+          id?: string
+          issuer_address?: string | null
+          kyc_aml_completed?: boolean | null
+          lock_up_end_date?: string | null
+          lock_up_period_months?: number | null
+          mint_price?: number | null
+          mint_timestamp: string
+          minting_reason?: string | null
+          nav_at_mint?: number | null
+          notes?: string | null
+          payment_amount?: number | null
+          payment_currency?: string | null
+          payment_method?: string | null
+          payment_tx_hash?: string | null
+          recipient_address: string
+          regulatory_filing_reference?: string | null
+          subscription_agreement_signed?: boolean | null
+          total_value?: number | null
+          transaction_hash: string
+          vesting_schedule?: Json | null
+        }
+        Update: {
+          accredited_investor_verified?: boolean | null
+          amount_minted?: number
+          associated_assets?: Json | null
+          block_number?: number
+          created_at?: string | null
+          currency?: string | null
+          custody_arrangement?: string | null
+          digital_tokenized_fund_product_id?: string
+          dtf_token_metadata_id?: string
+          gas_cost?: number | null
+          gas_price_gwei?: number | null
+          gas_used?: number | null
+          id?: string
+          issuer_address?: string | null
+          kyc_aml_completed?: boolean | null
+          lock_up_end_date?: string | null
+          lock_up_period_months?: number | null
+          mint_price?: number | null
+          mint_timestamp?: string
+          minting_reason?: string | null
+          nav_at_mint?: number | null
+          notes?: string | null
+          payment_amount?: number | null
+          payment_currency?: string | null
+          payment_method?: string | null
+          payment_tx_hash?: string | null
+          recipient_address?: string
+          regulatory_filing_reference?: string | null
+          subscription_agreement_signed?: boolean | null
+          total_value?: number | null
+          transaction_hash?: string
+          vesting_schedule?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtf_minting_history_digital_tokenized_fund_product_id_fkey"
+            columns: ["digital_tokenized_fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_tokenized_fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtf_minting_history_dtf_token_metadata_id_fkey"
+            columns: ["dtf_token_metadata_id"]
+            isOneToOne: false
+            referencedRelation: "dtf_token_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtf_nav_snapshots: {
+        Row: {
+          administrator_name: string | null
+          asset_breakdown: Json | null
+          attestation_signature: string | null
+          auditor_name: string | null
+          auditor_verification: boolean | null
+          benchmark_index: string | null
+          benchmark_nav: number | null
+          calculation_inputs: Json | null
+          created_at: string | null
+          currency: string | null
+          daily_return: number | null
+          data_hash: string | null
+          digital_tokenized_fund_product_id: string
+          discount_premium_to_market: number | null
+          dtf_token_metadata_id: string
+          id: string
+          inception_to_date_return: number | null
+          is_final: boolean | null
+          methodology_reference: string | null
+          nav_per_token: number
+          net_assets: number
+          notes: string | null
+          number_of_transactions_24h: number | null
+          oracle_block_number: number | null
+          oracle_gas_cost: number | null
+          oracle_transaction_hash: string | null
+          previous_snapshot_id: string | null
+          price_change_from_previous: number | null
+          published_on_chain: boolean | null
+          revision_number: number | null
+          snapshot_timestamp: string
+          tokens_outstanding: number
+          total_assets: number
+          total_fund_nav: number
+          total_liabilities: number
+          tracking_difference: number | null
+          trading_volume_24h: number | null
+          valuation_date: string
+        }
+        Insert: {
+          administrator_name?: string | null
+          asset_breakdown?: Json | null
+          attestation_signature?: string | null
+          auditor_name?: string | null
+          auditor_verification?: boolean | null
+          benchmark_index?: string | null
+          benchmark_nav?: number | null
+          calculation_inputs?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          daily_return?: number | null
+          data_hash?: string | null
+          digital_tokenized_fund_product_id: string
+          discount_premium_to_market?: number | null
+          dtf_token_metadata_id: string
+          id?: string
+          inception_to_date_return?: number | null
+          is_final?: boolean | null
+          methodology_reference?: string | null
+          nav_per_token: number
+          net_assets: number
+          notes?: string | null
+          number_of_transactions_24h?: number | null
+          oracle_block_number?: number | null
+          oracle_gas_cost?: number | null
+          oracle_transaction_hash?: string | null
+          previous_snapshot_id?: string | null
+          price_change_from_previous?: number | null
+          published_on_chain?: boolean | null
+          revision_number?: number | null
+          snapshot_timestamp: string
+          tokens_outstanding: number
+          total_assets: number
+          total_fund_nav: number
+          total_liabilities: number
+          tracking_difference?: number | null
+          trading_volume_24h?: number | null
+          valuation_date: string
+        }
+        Update: {
+          administrator_name?: string | null
+          asset_breakdown?: Json | null
+          attestation_signature?: string | null
+          auditor_name?: string | null
+          auditor_verification?: boolean | null
+          benchmark_index?: string | null
+          benchmark_nav?: number | null
+          calculation_inputs?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          daily_return?: number | null
+          data_hash?: string | null
+          digital_tokenized_fund_product_id?: string
+          discount_premium_to_market?: number | null
+          dtf_token_metadata_id?: string
+          id?: string
+          inception_to_date_return?: number | null
+          is_final?: boolean | null
+          methodology_reference?: string | null
+          nav_per_token?: number
+          net_assets?: number
+          notes?: string | null
+          number_of_transactions_24h?: number | null
+          oracle_block_number?: number | null
+          oracle_gas_cost?: number | null
+          oracle_transaction_hash?: string | null
+          previous_snapshot_id?: string | null
+          price_change_from_previous?: number | null
+          published_on_chain?: boolean | null
+          revision_number?: number | null
+          snapshot_timestamp?: string
+          tokens_outstanding?: number
+          total_assets?: number
+          total_fund_nav?: number
+          total_liabilities?: number
+          tracking_difference?: number | null
+          trading_volume_24h?: number | null
+          valuation_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtf_nav_snapshots_digital_tokenized_fund_product_id_fkey"
+            columns: ["digital_tokenized_fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_tokenized_fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtf_nav_snapshots_dtf_token_metadata_id_fkey"
+            columns: ["dtf_token_metadata_id"]
+            isOneToOne: false
+            referencedRelation: "dtf_token_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtf_redemption_requests: {
+        Row: {
+          actual_settlement_date: string | null
+          amount_burned: number | null
+          amount_requested: number
+          assets_liquidated: Json | null
+          burn_block_number: number | null
+          burn_timestamp: string | null
+          burn_transaction_hash: string | null
+          created_at: string | null
+          currency: string | null
+          deferred_to_date: string | null
+          digital_tokenized_fund_product_id: string
+          dtf_token_metadata_id: string
+          earliest_settlement_date: string | null
+          failure_reason: string | null
+          fee_percentage: number | null
+          gate_reason: string | null
+          id: string
+          is_lock_up_compliant: boolean | null
+          is_minimum_met: boolean | null
+          is_within_gate_limits: boolean | null
+          liquidation_costs: number | null
+          liquidity_gate_check: boolean | null
+          lock_up_check: boolean | null
+          market_impact: number | null
+          minimum_redemption_check: boolean | null
+          net_redemption_value: number | null
+          notes: string | null
+          notice_period_days: number | null
+          pro_rata_redemption: boolean | null
+          processing_time_business_days: number | null
+          redemption_fee: number | null
+          redemption_method: string | null
+          redemption_nav: number | null
+          redemption_settlement_tx_hash: string | null
+          redemption_value: number | null
+          regulatory_reporting_required: boolean | null
+          request_id: string
+          request_timestamp: string
+          requester_address: string
+          settlement_address: string | null
+          settlement_currency: string | null
+          status: string | null
+          tax_reporting_generated: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_settlement_date?: string | null
+          amount_burned?: number | null
+          amount_requested: number
+          assets_liquidated?: Json | null
+          burn_block_number?: number | null
+          burn_timestamp?: string | null
+          burn_transaction_hash?: string | null
+          created_at?: string | null
+          currency?: string | null
+          deferred_to_date?: string | null
+          digital_tokenized_fund_product_id: string
+          dtf_token_metadata_id: string
+          earliest_settlement_date?: string | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          gate_reason?: string | null
+          id?: string
+          is_lock_up_compliant?: boolean | null
+          is_minimum_met?: boolean | null
+          is_within_gate_limits?: boolean | null
+          liquidation_costs?: number | null
+          liquidity_gate_check?: boolean | null
+          lock_up_check?: boolean | null
+          market_impact?: number | null
+          minimum_redemption_check?: boolean | null
+          net_redemption_value?: number | null
+          notes?: string | null
+          notice_period_days?: number | null
+          pro_rata_redemption?: boolean | null
+          processing_time_business_days?: number | null
+          redemption_fee?: number | null
+          redemption_method?: string | null
+          redemption_nav?: number | null
+          redemption_settlement_tx_hash?: string | null
+          redemption_value?: number | null
+          regulatory_reporting_required?: boolean | null
+          request_id: string
+          request_timestamp: string
+          requester_address: string
+          settlement_address?: string | null
+          settlement_currency?: string | null
+          status?: string | null
+          tax_reporting_generated?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_settlement_date?: string | null
+          amount_burned?: number | null
+          amount_requested?: number
+          assets_liquidated?: Json | null
+          burn_block_number?: number | null
+          burn_timestamp?: string | null
+          burn_transaction_hash?: string | null
+          created_at?: string | null
+          currency?: string | null
+          deferred_to_date?: string | null
+          digital_tokenized_fund_product_id?: string
+          dtf_token_metadata_id?: string
+          earliest_settlement_date?: string | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          gate_reason?: string | null
+          id?: string
+          is_lock_up_compliant?: boolean | null
+          is_minimum_met?: boolean | null
+          is_within_gate_limits?: boolean | null
+          liquidation_costs?: number | null
+          liquidity_gate_check?: boolean | null
+          lock_up_check?: boolean | null
+          market_impact?: number | null
+          minimum_redemption_check?: boolean | null
+          net_redemption_value?: number | null
+          notes?: string | null
+          notice_period_days?: number | null
+          pro_rata_redemption?: boolean | null
+          processing_time_business_days?: number | null
+          redemption_fee?: number | null
+          redemption_method?: string | null
+          redemption_nav?: number | null
+          redemption_settlement_tx_hash?: string | null
+          redemption_value?: number | null
+          regulatory_reporting_required?: boolean | null
+          request_id?: string
+          request_timestamp?: string
+          requester_address?: string
+          settlement_address?: string | null
+          settlement_currency?: string | null
+          status?: string | null
+          tax_reporting_generated?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtf_redemption_requests_digital_tokenized_fund_product_id_fkey"
+            columns: ["digital_tokenized_fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_tokenized_fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtf_redemption_requests_dtf_token_metadata_id_fkey"
+            columns: ["dtf_token_metadata_id"]
+            isOneToOne: false
+            referencedRelation: "dtf_token_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtf_token_metadata: {
+        Row: {
+          audit_reports: string[] | null
+          blockchain_network: string
+          chain_id: number | null
+          circulating_supply: number | null
+          compliance_modules: Json | null
+          contract_address: string
+          contract_deployment_date: string
+          contract_deployment_tx_hash: string | null
+          created_at: string | null
+          currency: string | null
+          decimals: number | null
+          deployer_address: string | null
+          digital_tokenized_fund_product_id: string
+          dividend_distribution_mechanism: string | null
+          etherscan_url: string | null
+          fully_diluted_valuation: number | null
+          governance_token: boolean | null
+          id: string
+          implementation_contract_address: string | null
+          is_burnable: boolean | null
+          is_mintable: boolean | null
+          is_pausable: boolean | null
+          is_upgradeable: boolean | null
+          issuer_info: Json | null
+          market_capitalization: number | null
+          max_supply: number | null
+          metadata_uri: string | null
+          notes: string | null
+          number_of_holders: number | null
+          oracle_price_feed: string | null
+          price_premium_discount: number | null
+          proxy_contract_address: string | null
+          redemption_mechanism: string | null
+          regulatory_framework: string | null
+          securities_classification: string | null
+          token_name: string
+          token_nav: number | null
+          token_price: number | null
+          token_standard: string
+          token_symbol: string
+          total_supply: number
+          transfer_restrictions: Json | null
+          unique_wallet_count: number | null
+          updated_at: string | null
+          utility_features: string | null
+          verified_on_etherscan: boolean | null
+          voting_rights: boolean | null
+          whitepaper_url: string | null
+        }
+        Insert: {
+          audit_reports?: string[] | null
+          blockchain_network: string
+          chain_id?: number | null
+          circulating_supply?: number | null
+          compliance_modules?: Json | null
+          contract_address: string
+          contract_deployment_date: string
+          contract_deployment_tx_hash?: string | null
+          created_at?: string | null
+          currency?: string | null
+          decimals?: number | null
+          deployer_address?: string | null
+          digital_tokenized_fund_product_id: string
+          dividend_distribution_mechanism?: string | null
+          etherscan_url?: string | null
+          fully_diluted_valuation?: number | null
+          governance_token?: boolean | null
+          id?: string
+          implementation_contract_address?: string | null
+          is_burnable?: boolean | null
+          is_mintable?: boolean | null
+          is_pausable?: boolean | null
+          is_upgradeable?: boolean | null
+          issuer_info?: Json | null
+          market_capitalization?: number | null
+          max_supply?: number | null
+          metadata_uri?: string | null
+          notes?: string | null
+          number_of_holders?: number | null
+          oracle_price_feed?: string | null
+          price_premium_discount?: number | null
+          proxy_contract_address?: string | null
+          redemption_mechanism?: string | null
+          regulatory_framework?: string | null
+          securities_classification?: string | null
+          token_name: string
+          token_nav?: number | null
+          token_price?: number | null
+          token_standard: string
+          token_symbol: string
+          total_supply: number
+          transfer_restrictions?: Json | null
+          unique_wallet_count?: number | null
+          updated_at?: string | null
+          utility_features?: string | null
+          verified_on_etherscan?: boolean | null
+          voting_rights?: boolean | null
+          whitepaper_url?: string | null
+        }
+        Update: {
+          audit_reports?: string[] | null
+          blockchain_network?: string
+          chain_id?: number | null
+          circulating_supply?: number | null
+          compliance_modules?: Json | null
+          contract_address?: string
+          contract_deployment_date?: string
+          contract_deployment_tx_hash?: string | null
+          created_at?: string | null
+          currency?: string | null
+          decimals?: number | null
+          deployer_address?: string | null
+          digital_tokenized_fund_product_id?: string
+          dividend_distribution_mechanism?: string | null
+          etherscan_url?: string | null
+          fully_diluted_valuation?: number | null
+          governance_token?: boolean | null
+          id?: string
+          implementation_contract_address?: string | null
+          is_burnable?: boolean | null
+          is_mintable?: boolean | null
+          is_pausable?: boolean | null
+          is_upgradeable?: boolean | null
+          issuer_info?: Json | null
+          market_capitalization?: number | null
+          max_supply?: number | null
+          metadata_uri?: string | null
+          notes?: string | null
+          number_of_holders?: number | null
+          oracle_price_feed?: string | null
+          price_premium_discount?: number | null
+          proxy_contract_address?: string | null
+          redemption_mechanism?: string | null
+          regulatory_framework?: string | null
+          securities_classification?: string | null
+          token_name?: string
+          token_nav?: number | null
+          token_price?: number | null
+          token_standard?: string
+          token_symbol?: string
+          total_supply?: number
+          transfer_restrictions?: Json | null
+          unique_wallet_count?: number | null
+          updated_at?: string | null
+          utility_features?: string | null
+          verified_on_etherscan?: boolean | null
+          voting_rights?: boolean | null
+          whitepaper_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtf_token_metadata_digital_tokenized_fund_product_id_fkey"
+            columns: ["digital_tokenized_fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_tokenized_fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       energy_assets: {
         Row: {
           asset_id: string
@@ -5744,6 +9700,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      energy_futures_contracts: {
+        Row: {
+          commodity: string
+          contract_date: string
+          contract_month: number
+          created_at: string | null
+          exchange: string | null
+          id: string
+          price: number
+          updated_at: string | null
+          volume: number | null
+        }
+        Insert: {
+          commodity: string
+          contract_date: string
+          contract_month: number
+          created_at?: string | null
+          exchange?: string | null
+          id?: string
+          price: number
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Update: {
+          commodity?: string
+          contract_date?: string
+          contract_month?: number
+          created_at?: string | null
+          exchange?: string | null
+          id?: string
+          price?: number
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Relationships: []
       }
       energy_products: {
         Row: {
@@ -5842,6 +9834,98 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: true
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      environmental_certifications: {
+        Row: {
+          annual_savings_estimate: number | null
+          audit_report_url: string | null
+          carbon_footprint_reduction: number | null
+          certification_cost: number | null
+          certification_criteria_met: Json | null
+          certification_level: string | null
+          certification_number: string | null
+          certification_type: string
+          certified_date: string
+          certifying_body: string
+          created_at: string | null
+          energy_efficiency_rating: string | null
+          expiration_date: string | null
+          id: string
+          indoor_environmental_quality_rating: string | null
+          market_value_premium: number | null
+          materials_resources_rating: string | null
+          notes: string | null
+          real_estate_product_id: string
+          recertification_date: string | null
+          score_or_rating: string | null
+          status: string | null
+          updated_at: string | null
+          verification_status: string | null
+          water_efficiency_rating: string | null
+        }
+        Insert: {
+          annual_savings_estimate?: number | null
+          audit_report_url?: string | null
+          carbon_footprint_reduction?: number | null
+          certification_cost?: number | null
+          certification_criteria_met?: Json | null
+          certification_level?: string | null
+          certification_number?: string | null
+          certification_type: string
+          certified_date: string
+          certifying_body: string
+          created_at?: string | null
+          energy_efficiency_rating?: string | null
+          expiration_date?: string | null
+          id?: string
+          indoor_environmental_quality_rating?: string | null
+          market_value_premium?: number | null
+          materials_resources_rating?: string | null
+          notes?: string | null
+          real_estate_product_id: string
+          recertification_date?: string | null
+          score_or_rating?: string | null
+          status?: string | null
+          updated_at?: string | null
+          verification_status?: string | null
+          water_efficiency_rating?: string | null
+        }
+        Update: {
+          annual_savings_estimate?: number | null
+          audit_report_url?: string | null
+          carbon_footprint_reduction?: number | null
+          certification_cost?: number | null
+          certification_criteria_met?: Json | null
+          certification_level?: string | null
+          certification_number?: string | null
+          certification_type?: string
+          certified_date?: string
+          certifying_body?: string
+          created_at?: string | null
+          energy_efficiency_rating?: string | null
+          expiration_date?: string | null
+          id?: string
+          indoor_environmental_quality_rating?: string | null
+          market_value_premium?: number | null
+          materials_resources_rating?: string | null
+          notes?: string | null
+          real_estate_product_id?: string
+          recertification_date?: string | null
+          score_or_rating?: string | null
+          status?: string | null
+          updated_at?: string | null
+          verification_status?: string | null
+          water_efficiency_rating?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "environmental_certifications_real_estate_product_id_fkey"
+            columns: ["real_estate_product_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_products"
             referencedColumns: ["id"]
           },
         ]
@@ -6383,6 +10467,57 @@ export type Database = {
           },
         ]
       }
+      futures_prices: {
+        Row: {
+          contract_month: string
+          created_at: string
+          currency: string
+          days_to_maturity: number
+          delivery_month: string
+          exchange: string | null
+          id: string
+          instrument_key: string
+          metadata: Json | null
+          open_interest: number | null
+          price: number
+          price_date: string
+          updated_at: string
+          volume: number | null
+        }
+        Insert: {
+          contract_month: string
+          created_at?: string
+          currency?: string
+          days_to_maturity: number
+          delivery_month: string
+          exchange?: string | null
+          id?: string
+          instrument_key: string
+          metadata?: Json | null
+          open_interest?: number | null
+          price: number
+          price_date?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Update: {
+          contract_month?: string
+          created_at?: string
+          currency?: string
+          days_to_maturity?: number
+          delivery_month?: string
+          exchange?: string | null
+          id?: string
+          instrument_key?: string
+          metadata?: Json | null
+          open_interest?: number | null
+          price?: number
+          price_date?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
       geographic_jurisdictions: {
         Row: {
           aml_risk_rating: string | null
@@ -6736,6 +10871,651 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: []
+      }
+      infra_capex_schedule: {
+        Row: {
+          actual_completion_date: string | null
+          actual_start_date: string | null
+          approval_date: string | null
+          approval_status: string | null
+          budgeted_amount: number
+          capex_category: string
+          capex_name: string
+          committed_amount: number | null
+          completion_percentage: number | null
+          contract_reference: string | null
+          contractor_name: string | null
+          created_at: string | null
+          currency: string
+          description: string | null
+          expected_benefit: string | null
+          expected_roi: number | null
+          funding_source: string | null
+          id: string
+          impact_on_capacity: number | null
+          impact_on_opex: number | null
+          impact_on_revenue: number | null
+          infrastructure_product_id: string
+          is_discretionary: boolean | null
+          is_regulatory_required: boolean | null
+          milestone_schedule: Json | null
+          notes: string | null
+          payback_period_years: number | null
+          planned_completion_date: string
+          planned_start_date: string
+          project_id: string
+          risk_factors: Json | null
+          spent_to_date: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_completion_date?: string | null
+          actual_start_date?: string | null
+          approval_date?: string | null
+          approval_status?: string | null
+          budgeted_amount: number
+          capex_category: string
+          capex_name: string
+          committed_amount?: number | null
+          completion_percentage?: number | null
+          contract_reference?: string | null
+          contractor_name?: string | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          expected_benefit?: string | null
+          expected_roi?: number | null
+          funding_source?: string | null
+          id?: string
+          impact_on_capacity?: number | null
+          impact_on_opex?: number | null
+          impact_on_revenue?: number | null
+          infrastructure_product_id: string
+          is_discretionary?: boolean | null
+          is_regulatory_required?: boolean | null
+          milestone_schedule?: Json | null
+          notes?: string | null
+          payback_period_years?: number | null
+          planned_completion_date: string
+          planned_start_date: string
+          project_id: string
+          risk_factors?: Json | null
+          spent_to_date?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_completion_date?: string | null
+          actual_start_date?: string | null
+          approval_date?: string | null
+          approval_status?: string | null
+          budgeted_amount?: number
+          capex_category?: string
+          capex_name?: string
+          committed_amount?: number | null
+          completion_percentage?: number | null
+          contract_reference?: string | null
+          contractor_name?: string | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          expected_benefit?: string | null
+          expected_roi?: number | null
+          funding_source?: string | null
+          id?: string
+          impact_on_capacity?: number | null
+          impact_on_opex?: number | null
+          impact_on_revenue?: number | null
+          infrastructure_product_id?: string
+          is_discretionary?: boolean | null
+          is_regulatory_required?: boolean | null
+          milestone_schedule?: Json | null
+          notes?: string | null
+          payback_period_years?: number | null
+          planned_completion_date?: string
+          planned_start_date?: string
+          project_id?: string
+          risk_factors?: Json | null
+          spent_to_date?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_capex_schedule_infrastructure_product_id_fkey"
+            columns: ["infrastructure_product_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infra_concessions: {
+        Row: {
+          change_in_law_provisions: string | null
+          concession_name: string
+          concession_term_years: number
+          concession_type: string | null
+          concessionaire: string
+          contract_reference: string | null
+          created_at: string | null
+          dispute_resolution_mechanism: string | null
+          effective_date: string
+          expiration_date: string
+          extension_options: Json | null
+          force_majeure_provisions: string | null
+          governing_law: string | null
+          grantor: string
+          handback_requirements: string | null
+          id: string
+          infrastructure_product_id: string
+          minimum_service_requirements: string | null
+          notes: string | null
+          penalty_regime: Json | null
+          performance_standards: Json | null
+          project_id: string
+          refinancing_restrictions: string | null
+          remaining_term_years: number | null
+          revenue_rights: Json | null
+          revenue_sharing_terms: Json | null
+          signing_date: string
+          status: string | null
+          tariff_review_frequency: string | null
+          tariff_setting_mechanism: string | null
+          termination_clauses: Json | null
+          termination_compensation_formula: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          change_in_law_provisions?: string | null
+          concession_name: string
+          concession_term_years: number
+          concession_type?: string | null
+          concessionaire: string
+          contract_reference?: string | null
+          created_at?: string | null
+          dispute_resolution_mechanism?: string | null
+          effective_date: string
+          expiration_date: string
+          extension_options?: Json | null
+          force_majeure_provisions?: string | null
+          governing_law?: string | null
+          grantor: string
+          handback_requirements?: string | null
+          id?: string
+          infrastructure_product_id: string
+          minimum_service_requirements?: string | null
+          notes?: string | null
+          penalty_regime?: Json | null
+          performance_standards?: Json | null
+          project_id: string
+          refinancing_restrictions?: string | null
+          remaining_term_years?: number | null
+          revenue_rights?: Json | null
+          revenue_sharing_terms?: Json | null
+          signing_date: string
+          status?: string | null
+          tariff_review_frequency?: string | null
+          tariff_setting_mechanism?: string | null
+          termination_clauses?: Json | null
+          termination_compensation_formula?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          change_in_law_provisions?: string | null
+          concession_name?: string
+          concession_term_years?: number
+          concession_type?: string | null
+          concessionaire?: string
+          contract_reference?: string | null
+          created_at?: string | null
+          dispute_resolution_mechanism?: string | null
+          effective_date?: string
+          expiration_date?: string
+          extension_options?: Json | null
+          force_majeure_provisions?: string | null
+          governing_law?: string | null
+          grantor?: string
+          handback_requirements?: string | null
+          id?: string
+          infrastructure_product_id?: string
+          minimum_service_requirements?: string | null
+          notes?: string | null
+          penalty_regime?: Json | null
+          performance_standards?: Json | null
+          project_id?: string
+          refinancing_restrictions?: string | null
+          remaining_term_years?: number | null
+          revenue_rights?: Json | null
+          revenue_sharing_terms?: Json | null
+          signing_date?: string
+          status?: string | null
+          tariff_review_frequency?: string | null
+          tariff_setting_mechanism?: string | null
+          termination_clauses?: Json | null
+          termination_compensation_formula?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_concessions_infrastructure_product_id_fkey"
+            columns: ["infrastructure_product_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infra_operating_expenses: {
+        Row: {
+          amount: number
+          approval_status: string | null
+          budget_category: string | null
+          budget_variance: number | null
+          contract_reference: string | null
+          created_at: string | null
+          currency: string
+          description: string | null
+          escalation_rate: number | null
+          expense_category: string
+          expense_date: string
+          expense_subcategory: string | null
+          frequency: string | null
+          id: string
+          infrastructure_product_id: string
+          is_fixed_cost: boolean | null
+          is_major_maintenance: boolean | null
+          is_variable_cost: boolean | null
+          lifecycle_stage: string | null
+          maintenance_cycle_years: number | null
+          notes: string | null
+          payment_status: string | null
+          project_id: string
+          updated_at: string | null
+          variable_cost_per_unit: number | null
+          vendor_name: string | null
+        }
+        Insert: {
+          amount: number
+          approval_status?: string | null
+          budget_category?: string | null
+          budget_variance?: number | null
+          contract_reference?: string | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          escalation_rate?: number | null
+          expense_category: string
+          expense_date: string
+          expense_subcategory?: string | null
+          frequency?: string | null
+          id?: string
+          infrastructure_product_id: string
+          is_fixed_cost?: boolean | null
+          is_major_maintenance?: boolean | null
+          is_variable_cost?: boolean | null
+          lifecycle_stage?: string | null
+          maintenance_cycle_years?: number | null
+          notes?: string | null
+          payment_status?: string | null
+          project_id: string
+          updated_at?: string | null
+          variable_cost_per_unit?: number | null
+          vendor_name?: string | null
+        }
+        Update: {
+          amount?: number
+          approval_status?: string | null
+          budget_category?: string | null
+          budget_variance?: number | null
+          contract_reference?: string | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          escalation_rate?: number | null
+          expense_category?: string
+          expense_date?: string
+          expense_subcategory?: string | null
+          frequency?: string | null
+          id?: string
+          infrastructure_product_id?: string
+          is_fixed_cost?: boolean | null
+          is_major_maintenance?: boolean | null
+          is_variable_cost?: boolean | null
+          lifecycle_stage?: string | null
+          maintenance_cycle_years?: number | null
+          notes?: string | null
+          payment_status?: string | null
+          project_id?: string
+          updated_at?: string | null
+          variable_cost_per_unit?: number | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_operating_expenses_infrastructure_product_id_fkey"
+            columns: ["infrastructure_product_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infra_regulatory_filings: {
+        Row: {
+          approval_date: string | null
+          approval_document_url: string | null
+          compliance_status: string | null
+          conditions_imposed: Json | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          due_date: string
+          filing_date: string
+          filing_frequency: string | null
+          filing_reference: string | null
+          filing_type: string
+          id: string
+          impact_on_operations: string | null
+          infrastructure_product_id: string
+          is_material_event: boolean | null
+          next_filing_due: string | null
+          notes: string | null
+          penalties_assessed: number | null
+          project_id: string
+          regulatory_body: string
+          remediation_cost_estimate: number | null
+          remediation_deadline: string | null
+          remediation_required: boolean | null
+          submission_document_url: string | null
+          updated_at: string | null
+          violations_cited: Json | null
+        }
+        Insert: {
+          approval_date?: string | null
+          approval_document_url?: string | null
+          compliance_status?: string | null
+          conditions_imposed?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          due_date: string
+          filing_date: string
+          filing_frequency?: string | null
+          filing_reference?: string | null
+          filing_type: string
+          id?: string
+          impact_on_operations?: string | null
+          infrastructure_product_id: string
+          is_material_event?: boolean | null
+          next_filing_due?: string | null
+          notes?: string | null
+          penalties_assessed?: number | null
+          project_id: string
+          regulatory_body: string
+          remediation_cost_estimate?: number | null
+          remediation_deadline?: string | null
+          remediation_required?: boolean | null
+          submission_document_url?: string | null
+          updated_at?: string | null
+          violations_cited?: Json | null
+        }
+        Update: {
+          approval_date?: string | null
+          approval_document_url?: string | null
+          compliance_status?: string | null
+          conditions_imposed?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          due_date?: string
+          filing_date?: string
+          filing_frequency?: string | null
+          filing_reference?: string | null
+          filing_type?: string
+          id?: string
+          impact_on_operations?: string | null
+          infrastructure_product_id?: string
+          is_material_event?: boolean | null
+          next_filing_due?: string | null
+          notes?: string | null
+          penalties_assessed?: number | null
+          project_id?: string
+          regulatory_body?: string
+          remediation_cost_estimate?: number | null
+          remediation_deadline?: string | null
+          remediation_required?: boolean | null
+          submission_document_url?: string | null
+          updated_at?: string | null
+          violations_cited?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_regulatory_filings_infrastructure_product_id_fkey"
+            columns: ["infrastructure_product_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infra_revenue_streams: {
+        Row: {
+          actual_usage: number | null
+          billing_frequency: string | null
+          contract_reference: string | null
+          created_at: string | null
+          credit_quality: string | null
+          currency: string
+          end_date: string | null
+          escalation_index: string | null
+          escalation_rate: number | null
+          historical_growth_rate: number | null
+          id: string
+          infrastructure_product_id: string
+          is_regulated: boolean | null
+          maximum_revenue_cap: number | null
+          minimum_revenue_guarantee: number | null
+          notes: string | null
+          payment_terms: string | null
+          project_id: string
+          regulatory_review_frequency: string | null
+          revenue_amount: number
+          revenue_sharing_percentage: number | null
+          revenue_source: string | null
+          seasonality_factors: Json | null
+          start_date: string
+          status: string | null
+          stream_name: string
+          stream_type: string
+          tariff_per_unit: number | null
+          updated_at: string | null
+          usage_units: string | null
+          volume_based: boolean | null
+        }
+        Insert: {
+          actual_usage?: number | null
+          billing_frequency?: string | null
+          contract_reference?: string | null
+          created_at?: string | null
+          credit_quality?: string | null
+          currency?: string
+          end_date?: string | null
+          escalation_index?: string | null
+          escalation_rate?: number | null
+          historical_growth_rate?: number | null
+          id?: string
+          infrastructure_product_id: string
+          is_regulated?: boolean | null
+          maximum_revenue_cap?: number | null
+          minimum_revenue_guarantee?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          project_id: string
+          regulatory_review_frequency?: string | null
+          revenue_amount: number
+          revenue_sharing_percentage?: number | null
+          revenue_source?: string | null
+          seasonality_factors?: Json | null
+          start_date: string
+          status?: string | null
+          stream_name: string
+          stream_type: string
+          tariff_per_unit?: number | null
+          updated_at?: string | null
+          usage_units?: string | null
+          volume_based?: boolean | null
+        }
+        Update: {
+          actual_usage?: number | null
+          billing_frequency?: string | null
+          contract_reference?: string | null
+          created_at?: string | null
+          credit_quality?: string | null
+          currency?: string
+          end_date?: string | null
+          escalation_index?: string | null
+          escalation_rate?: number | null
+          historical_growth_rate?: number | null
+          id?: string
+          infrastructure_product_id?: string
+          is_regulated?: boolean | null
+          maximum_revenue_cap?: number | null
+          minimum_revenue_guarantee?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          project_id?: string
+          regulatory_review_frequency?: string | null
+          revenue_amount?: number
+          revenue_sharing_percentage?: number | null
+          revenue_source?: string | null
+          seasonality_factors?: Json | null
+          start_date?: string
+          status?: string | null
+          stream_name?: string
+          stream_type?: string
+          tariff_per_unit?: number | null
+          updated_at?: string | null
+          usage_units?: string | null
+          volume_based?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_revenue_streams_infrastructure_product_id_fkey"
+            columns: ["infrastructure_product_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infra_usage_metrics: {
+        Row: {
+          actual_value: number
+          availability_rate: number | null
+          budgeted_value: number | null
+          capacity: number | null
+          created_at: string | null
+          data_quality_score: number | null
+          data_source: string | null
+          downtime_hours: number | null
+          downtime_reasons: Json | null
+          growth_rate_mom: number | null
+          growth_rate_yoy: number | null
+          id: string
+          infrastructure_product_id: string
+          is_estimated: boolean | null
+          metric_date: string
+          metric_type: string
+          metric_unit: string
+          notes: string | null
+          off_peak_value: number | null
+          peak_time: string | null
+          peak_value: number | null
+          planned_downtime_hours: number | null
+          project_id: string
+          seasonal_adjustment_factor: number | null
+          unplanned_downtime_hours: number | null
+          updated_at: string | null
+          utilization_rate: number | null
+          variance: number | null
+          variance_percentage: number | null
+          weather_impact: Json | null
+        }
+        Insert: {
+          actual_value: number
+          availability_rate?: number | null
+          budgeted_value?: number | null
+          capacity?: number | null
+          created_at?: string | null
+          data_quality_score?: number | null
+          data_source?: string | null
+          downtime_hours?: number | null
+          downtime_reasons?: Json | null
+          growth_rate_mom?: number | null
+          growth_rate_yoy?: number | null
+          id?: string
+          infrastructure_product_id: string
+          is_estimated?: boolean | null
+          metric_date: string
+          metric_type: string
+          metric_unit: string
+          notes?: string | null
+          off_peak_value?: number | null
+          peak_time?: string | null
+          peak_value?: number | null
+          planned_downtime_hours?: number | null
+          project_id: string
+          seasonal_adjustment_factor?: number | null
+          unplanned_downtime_hours?: number | null
+          updated_at?: string | null
+          utilization_rate?: number | null
+          variance?: number | null
+          variance_percentage?: number | null
+          weather_impact?: Json | null
+        }
+        Update: {
+          actual_value?: number
+          availability_rate?: number | null
+          budgeted_value?: number | null
+          capacity?: number | null
+          created_at?: string | null
+          data_quality_score?: number | null
+          data_source?: string | null
+          downtime_hours?: number | null
+          downtime_reasons?: Json | null
+          growth_rate_mom?: number | null
+          growth_rate_yoy?: number | null
+          id?: string
+          infrastructure_product_id?: string
+          is_estimated?: boolean | null
+          metric_date?: string
+          metric_type?: string
+          metric_unit?: string
+          notes?: string | null
+          off_peak_value?: number | null
+          peak_time?: string | null
+          peak_value?: number | null
+          planned_downtime_hours?: number | null
+          project_id?: string
+          seasonal_adjustment_factor?: number | null
+          unplanned_downtime_hours?: number | null
+          updated_at?: string | null
+          utilization_rate?: number | null
+          variance?: number | null
+          variance_percentage?: number | null
+          weather_impact?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infra_usage_metrics_infrastructure_product_id_fkey"
+            columns: ["infrastructure_product_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       infrastructure_products: {
         Row: {
@@ -7255,6 +12035,536 @@ export type Database = {
           },
         ]
       }
+      invoice_aging_buckets: {
+        Row: {
+          as_of_date: string
+          average_days_outstanding: number | null
+          bucket_max_days: number | null
+          bucket_min_days: number
+          bucket_name: string
+          concentration_risk: string | null
+          created_at: string | null
+          currency: string | null
+          expected_collection_amount: number | null
+          expected_collection_rate: number | null
+          expected_loss_amount: number | null
+          expected_loss_rate: number | null
+          historical_collection_rate: Json | null
+          id: string
+          largest_invoice_amount: number | null
+          notes: string | null
+          number_of_invoices: number
+          percentage_of_total: number | null
+          project_id: string
+          reserve_amount: number | null
+          reserve_percentage: number | null
+          total_amount: number
+        }
+        Insert: {
+          as_of_date: string
+          average_days_outstanding?: number | null
+          bucket_max_days?: number | null
+          bucket_min_days: number
+          bucket_name: string
+          concentration_risk?: string | null
+          created_at?: string | null
+          currency?: string | null
+          expected_collection_amount?: number | null
+          expected_collection_rate?: number | null
+          expected_loss_amount?: number | null
+          expected_loss_rate?: number | null
+          historical_collection_rate?: Json | null
+          id?: string
+          largest_invoice_amount?: number | null
+          notes?: string | null
+          number_of_invoices: number
+          percentage_of_total?: number | null
+          project_id: string
+          reserve_amount?: number | null
+          reserve_percentage?: number | null
+          total_amount: number
+        }
+        Update: {
+          as_of_date?: string
+          average_days_outstanding?: number | null
+          bucket_max_days?: number | null
+          bucket_min_days?: number
+          bucket_name?: string
+          concentration_risk?: string | null
+          created_at?: string | null
+          currency?: string | null
+          expected_collection_amount?: number | null
+          expected_collection_rate?: number | null
+          expected_loss_amount?: number | null
+          expected_loss_rate?: number | null
+          historical_collection_rate?: Json | null
+          id?: string
+          largest_invoice_amount?: number | null
+          notes?: string | null
+          number_of_invoices?: number
+          percentage_of_total?: number | null
+          project_id?: string
+          reserve_amount?: number | null
+          reserve_percentage?: number | null
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_aging_buckets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_collection_history: {
+        Row: {
+          amount_written_off: number | null
+          average_days_to_collect: number | null
+          best_possible_dso: number | null
+          collection_costs: number | null
+          collection_effectiveness_index: number | null
+          collection_rate: number | null
+          concentration_by_debtor: Json | null
+          concentration_by_industry: Json | null
+          created_at: string | null
+          currency: string | null
+          days_sales_outstanding: number | null
+          dilution_amount: number | null
+          dilution_rate: number | null
+          disputed_amount: number | null
+          disputed_invoices: number | null
+          id: string
+          invoices_1_30_days: number | null
+          invoices_31_60_days: number | null
+          invoices_61_90_days: number | null
+          invoices_90_plus_days: number | null
+          invoices_current: number | null
+          invoices_written_off: number | null
+          legal_costs: number | null
+          net_collections: number | null
+          notes: string | null
+          period_end_date: string
+          period_start_date: string
+          project_id: string
+          resolved_dispute_amount: number | null
+          resolved_disputes: number | null
+          roll_rate_analysis: Json | null
+          total_collected: number
+          total_invoices_amount: number
+          total_invoices_issued: number
+          write_off_rate: number | null
+        }
+        Insert: {
+          amount_written_off?: number | null
+          average_days_to_collect?: number | null
+          best_possible_dso?: number | null
+          collection_costs?: number | null
+          collection_effectiveness_index?: number | null
+          collection_rate?: number | null
+          concentration_by_debtor?: Json | null
+          concentration_by_industry?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          days_sales_outstanding?: number | null
+          dilution_amount?: number | null
+          dilution_rate?: number | null
+          disputed_amount?: number | null
+          disputed_invoices?: number | null
+          id?: string
+          invoices_1_30_days?: number | null
+          invoices_31_60_days?: number | null
+          invoices_61_90_days?: number | null
+          invoices_90_plus_days?: number | null
+          invoices_current?: number | null
+          invoices_written_off?: number | null
+          legal_costs?: number | null
+          net_collections?: number | null
+          notes?: string | null
+          period_end_date: string
+          period_start_date: string
+          project_id: string
+          resolved_dispute_amount?: number | null
+          resolved_disputes?: number | null
+          roll_rate_analysis?: Json | null
+          total_collected: number
+          total_invoices_amount: number
+          total_invoices_issued: number
+          write_off_rate?: number | null
+        }
+        Update: {
+          amount_written_off?: number | null
+          average_days_to_collect?: number | null
+          best_possible_dso?: number | null
+          collection_costs?: number | null
+          collection_effectiveness_index?: number | null
+          collection_rate?: number | null
+          concentration_by_debtor?: Json | null
+          concentration_by_industry?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          days_sales_outstanding?: number | null
+          dilution_amount?: number | null
+          dilution_rate?: number | null
+          disputed_amount?: number | null
+          disputed_invoices?: number | null
+          id?: string
+          invoices_1_30_days?: number | null
+          invoices_31_60_days?: number | null
+          invoices_61_90_days?: number | null
+          invoices_90_plus_days?: number | null
+          invoices_current?: number | null
+          invoices_written_off?: number | null
+          legal_costs?: number | null
+          net_collections?: number | null
+          notes?: string | null
+          period_end_date?: string
+          period_start_date?: string
+          project_id?: string
+          resolved_dispute_amount?: number | null
+          resolved_disputes?: number | null
+          roll_rate_analysis?: Json | null
+          total_collected?: number
+          total_invoices_amount?: number
+          total_invoices_issued?: number
+          write_off_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_collection_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_debtor_ratings: {
+        Row: {
+          annual_revenue: number | null
+          approval_date: string | null
+          average_days_to_pay: number | null
+          concentration_percentage: number | null
+          created_at: string | null
+          credit_limit: number | null
+          current_exposure: number | null
+          days_beyond_terms_average: number | null
+          debtor_id: string | null
+          debtor_name: string
+          disputed_amount: number | null
+          disputed_invoices_count: number | null
+          expected_recovery_rate: number | null
+          external_rating: string | null
+          financial_strength: string | null
+          id: string
+          industry: string | null
+          internal_rating: string
+          is_approved_debtor: boolean | null
+          is_within_limit: boolean | null
+          leverage_ratio: number | null
+          liquidity_ratio: number | null
+          next_review_date: string | null
+          notes: string | null
+          number_of_employees: number | null
+          payment_behavior_score: number | null
+          payment_default_probability: number | null
+          payment_history_months: number | null
+          profitability: string | null
+          rating_agency: string | null
+          rating_date: string
+          review_frequency: string | null
+          updated_at: string | null
+          watch_list_reason: string | null
+          watch_list_status: boolean | null
+          years_in_business: number | null
+        }
+        Insert: {
+          annual_revenue?: number | null
+          approval_date?: string | null
+          average_days_to_pay?: number | null
+          concentration_percentage?: number | null
+          created_at?: string | null
+          credit_limit?: number | null
+          current_exposure?: number | null
+          days_beyond_terms_average?: number | null
+          debtor_id?: string | null
+          debtor_name: string
+          disputed_amount?: number | null
+          disputed_invoices_count?: number | null
+          expected_recovery_rate?: number | null
+          external_rating?: string | null
+          financial_strength?: string | null
+          id?: string
+          industry?: string | null
+          internal_rating: string
+          is_approved_debtor?: boolean | null
+          is_within_limit?: boolean | null
+          leverage_ratio?: number | null
+          liquidity_ratio?: number | null
+          next_review_date?: string | null
+          notes?: string | null
+          number_of_employees?: number | null
+          payment_behavior_score?: number | null
+          payment_default_probability?: number | null
+          payment_history_months?: number | null
+          profitability?: string | null
+          rating_agency?: string | null
+          rating_date: string
+          review_frequency?: string | null
+          updated_at?: string | null
+          watch_list_reason?: string | null
+          watch_list_status?: boolean | null
+          years_in_business?: number | null
+        }
+        Update: {
+          annual_revenue?: number | null
+          approval_date?: string | null
+          average_days_to_pay?: number | null
+          concentration_percentage?: number | null
+          created_at?: string | null
+          credit_limit?: number | null
+          current_exposure?: number | null
+          days_beyond_terms_average?: number | null
+          debtor_id?: string | null
+          debtor_name?: string
+          disputed_amount?: number | null
+          disputed_invoices_count?: number | null
+          expected_recovery_rate?: number | null
+          external_rating?: string | null
+          financial_strength?: string | null
+          id?: string
+          industry?: string | null
+          internal_rating?: string
+          is_approved_debtor?: boolean | null
+          is_within_limit?: boolean | null
+          leverage_ratio?: number | null
+          liquidity_ratio?: number | null
+          next_review_date?: string | null
+          notes?: string | null
+          number_of_employees?: number | null
+          payment_behavior_score?: number | null
+          payment_default_probability?: number | null
+          payment_history_months?: number | null
+          profitability?: string | null
+          rating_agency?: string | null
+          rating_date?: string
+          review_frequency?: string | null
+          updated_at?: string | null
+          watch_list_reason?: string | null
+          watch_list_status?: boolean | null
+          years_in_business?: number | null
+        }
+        Relationships: []
+      }
+      invoice_payments: {
+        Row: {
+          applied_to_fees: number | null
+          applied_to_interest: number | null
+          applied_to_principal: number | null
+          created_at: string | null
+          currency: string | null
+          days_late: number | null
+          discount_taken: number | null
+          id: string
+          invoice_receivable_id: string
+          is_early_payment: boolean | null
+          late_fee_charged: number | null
+          notes: string | null
+          payment_amount: number
+          payment_date: string
+          payment_method: string | null
+          payment_type: string | null
+          reconciliation_status: string | null
+          remaining_balance: number | null
+          transaction_reference: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          applied_to_fees?: number | null
+          applied_to_interest?: number | null
+          applied_to_principal?: number | null
+          created_at?: string | null
+          currency?: string | null
+          days_late?: number | null
+          discount_taken?: number | null
+          id?: string
+          invoice_receivable_id: string
+          is_early_payment?: boolean | null
+          late_fee_charged?: number | null
+          notes?: string | null
+          payment_amount: number
+          payment_date: string
+          payment_method?: string | null
+          payment_type?: string | null
+          reconciliation_status?: string | null
+          remaining_balance?: number | null
+          transaction_reference?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          applied_to_fees?: number | null
+          applied_to_interest?: number | null
+          applied_to_principal?: number | null
+          created_at?: string | null
+          currency?: string | null
+          days_late?: number | null
+          discount_taken?: number | null
+          id?: string
+          invoice_receivable_id?: string
+          is_early_payment?: boolean | null
+          late_fee_charged?: number | null
+          notes?: string | null
+          payment_amount?: number
+          payment_date?: string
+          payment_method?: string | null
+          payment_type?: string | null
+          reconciliation_status?: string | null
+          remaining_balance?: number | null
+          transaction_reference?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_invoice_receivable_id_fkey"
+            columns: ["invoice_receivable_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_receivables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_receivables: {
+        Row: {
+          advance_amount: number | null
+          advance_rate: number | null
+          aging_bucket: string | null
+          concentration_risk: string | null
+          created_at: string | null
+          credit_insurance_covered: boolean | null
+          creditor_id: string | null
+          creditor_name: string
+          currency: string | null
+          days_outstanding: number | null
+          debtor_id: string | null
+          debtor_name: string
+          debtor_relationship_years: number | null
+          dilution_risk: number | null
+          discount_amount: number | null
+          discount_rate: number | null
+          dispute_risk: string | null
+          due_date: string
+          fee_percentage: number | null
+          fees_charged: number | null
+          goods_delivered: boolean | null
+          id: string
+          insurance_coverage_amount: number | null
+          insurance_policy_number: string | null
+          invoice_amount: number
+          invoice_category: string | null
+          invoice_date: string
+          invoice_number: string
+          invoice_type: string | null
+          is_recourse: boolean | null
+          net_advance: number | null
+          notes: string | null
+          payment_history_score: number | null
+          payment_terms: string | null
+          project_id: string
+          services_completed: boolean | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          advance_amount?: number | null
+          advance_rate?: number | null
+          aging_bucket?: string | null
+          concentration_risk?: string | null
+          created_at?: string | null
+          credit_insurance_covered?: boolean | null
+          creditor_id?: string | null
+          creditor_name: string
+          currency?: string | null
+          days_outstanding?: number | null
+          debtor_id?: string | null
+          debtor_name: string
+          debtor_relationship_years?: number | null
+          dilution_risk?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          dispute_risk?: string | null
+          due_date: string
+          fee_percentage?: number | null
+          fees_charged?: number | null
+          goods_delivered?: boolean | null
+          id?: string
+          insurance_coverage_amount?: number | null
+          insurance_policy_number?: string | null
+          invoice_amount: number
+          invoice_category?: string | null
+          invoice_date: string
+          invoice_number: string
+          invoice_type?: string | null
+          is_recourse?: boolean | null
+          net_advance?: number | null
+          notes?: string | null
+          payment_history_score?: number | null
+          payment_terms?: string | null
+          project_id: string
+          services_completed?: boolean | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          advance_amount?: number | null
+          advance_rate?: number | null
+          aging_bucket?: string | null
+          concentration_risk?: string | null
+          created_at?: string | null
+          credit_insurance_covered?: boolean | null
+          creditor_id?: string | null
+          creditor_name?: string
+          currency?: string | null
+          days_outstanding?: number | null
+          debtor_id?: string | null
+          debtor_name?: string
+          debtor_relationship_years?: number | null
+          dilution_risk?: number | null
+          discount_amount?: number | null
+          discount_rate?: number | null
+          dispute_risk?: string | null
+          due_date?: string
+          fee_percentage?: number | null
+          fees_charged?: number | null
+          goods_delivered?: boolean | null
+          id?: string
+          insurance_coverage_amount?: number | null
+          insurance_policy_number?: string | null
+          invoice_amount?: number
+          invoice_category?: string | null
+          invoice_date?: string
+          invoice_number?: string
+          invoice_type?: string | null
+          is_recourse?: boolean | null
+          net_advance?: number | null
+          notes?: string | null
+          payment_history_score?: number | null
+          payment_terms?: string | null
+          project_id?: string
+          services_completed?: boolean | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_receivables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number | null
@@ -7475,6 +12785,113 @@ export type Database = {
           },
         ]
       }
+      lease_agreements: {
+        Row: {
+          annual_rent: number
+          created_at: string | null
+          currency: string
+          escalation_frequency: string | null
+          escalation_rate: number | null
+          floor_number: string | null
+          guarantor_info: Json | null
+          id: string
+          is_anchor_tenant: boolean | null
+          late_payment_penalty: number | null
+          lease_end_date: string
+          lease_start_date: string
+          lease_term_months: number | null
+          lease_type: string | null
+          leased_square_feet: number | null
+          monthly_rent: number
+          real_estate_product_id: string
+          renewal_options: Json | null
+          rent_free_periods: Json | null
+          rent_payment_schedule: Json | null
+          rent_per_sqft: number | null
+          security_deposit: number | null
+          status: string | null
+          tenant_credit_rating: string | null
+          tenant_improvements: number | null
+          tenant_name: string
+          tenant_type: string | null
+          termination_clauses: Json | null
+          unit_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          annual_rent: number
+          created_at?: string | null
+          currency?: string
+          escalation_frequency?: string | null
+          escalation_rate?: number | null
+          floor_number?: string | null
+          guarantor_info?: Json | null
+          id?: string
+          is_anchor_tenant?: boolean | null
+          late_payment_penalty?: number | null
+          lease_end_date: string
+          lease_start_date: string
+          lease_term_months?: number | null
+          lease_type?: string | null
+          leased_square_feet?: number | null
+          monthly_rent: number
+          real_estate_product_id: string
+          renewal_options?: Json | null
+          rent_free_periods?: Json | null
+          rent_payment_schedule?: Json | null
+          rent_per_sqft?: number | null
+          security_deposit?: number | null
+          status?: string | null
+          tenant_credit_rating?: string | null
+          tenant_improvements?: number | null
+          tenant_name: string
+          tenant_type?: string | null
+          termination_clauses?: Json | null
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          annual_rent?: number
+          created_at?: string | null
+          currency?: string
+          escalation_frequency?: string | null
+          escalation_rate?: number | null
+          floor_number?: string | null
+          guarantor_info?: Json | null
+          id?: string
+          is_anchor_tenant?: boolean | null
+          late_payment_penalty?: number | null
+          lease_end_date?: string
+          lease_start_date?: string
+          lease_term_months?: number | null
+          lease_type?: string | null
+          leased_square_feet?: number | null
+          monthly_rent?: number
+          real_estate_product_id?: string
+          renewal_options?: Json | null
+          rent_free_periods?: Json | null
+          rent_payment_schedule?: Json | null
+          rent_per_sqft?: number | null
+          security_deposit?: number | null
+          status?: string | null
+          tenant_credit_rating?: string | null
+          tenant_improvements?: number | null
+          tenant_name?: string
+          tenant_type?: string | null
+          termination_clauses?: Json | null
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_agreements_real_estate_product_id_fkey"
+            columns: ["real_estate_product_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_data_snapshots: {
         Row: {
           api_call_count: number | null
@@ -7511,6 +12928,153 @@ export type Database = {
           snapshot_date?: string | null
           snapshot_id?: string
           treasury_rates?: Json | null
+        }
+        Relationships: []
+      }
+      market_indices: {
+        Row: {
+          asset_class: string | null
+          base_date: string | null
+          base_value: number | null
+          calculation_method: string | null
+          constituent_count: number | null
+          constituents: Json | null
+          created_at: string | null
+          currency: string
+          description: string | null
+          geographic_focus: string | null
+          id: string
+          index_name: string
+          index_provider: string | null
+          index_symbol: string
+          is_active: boolean | null
+          market_cap_segment: string | null
+          methodology: string | null
+          rebalancing_frequency: string | null
+          sector_focus: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_class?: string | null
+          base_date?: string | null
+          base_value?: number | null
+          calculation_method?: string | null
+          constituent_count?: number | null
+          constituents?: Json | null
+          created_at?: string | null
+          currency: string
+          description?: string | null
+          geographic_focus?: string | null
+          id?: string
+          index_name: string
+          index_provider?: string | null
+          index_symbol: string
+          is_active?: boolean | null
+          market_cap_segment?: string | null
+          methodology?: string | null
+          rebalancing_frequency?: string | null
+          sector_focus?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_class?: string | null
+          base_date?: string | null
+          base_value?: number | null
+          calculation_method?: string | null
+          constituent_count?: number | null
+          constituents?: Json | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          geographic_focus?: string | null
+          id?: string
+          index_name?: string
+          index_provider?: string | null
+          index_symbol?: string
+          is_active?: boolean | null
+          market_cap_segment?: string | null
+          methodology?: string | null
+          rebalancing_frequency?: string | null
+          sector_focus?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      market_rent_data: {
+        Row: {
+          absorption_rate: number | null
+          as_of_date: string
+          building_class: string | null
+          city: string
+          comparable_properties: Json | null
+          country: string
+          created_at: string | null
+          currency: string
+          data_quality_score: number | null
+          id: string
+          is_verified: boolean | null
+          location: string
+          market_rent_per_sqft: number
+          market_rent_per_unit: number | null
+          market_trends: string | null
+          postal_code: string | null
+          property_subtype: string | null
+          property_type: string
+          source: string | null
+          square_footage_range: Json | null
+          state_province: string | null
+          updated_at: string | null
+          vacancy_rate: number | null
+        }
+        Insert: {
+          absorption_rate?: number | null
+          as_of_date: string
+          building_class?: string | null
+          city: string
+          comparable_properties?: Json | null
+          country: string
+          created_at?: string | null
+          currency?: string
+          data_quality_score?: number | null
+          id?: string
+          is_verified?: boolean | null
+          location: string
+          market_rent_per_sqft: number
+          market_rent_per_unit?: number | null
+          market_trends?: string | null
+          postal_code?: string | null
+          property_subtype?: string | null
+          property_type: string
+          source?: string | null
+          square_footage_range?: Json | null
+          state_province?: string | null
+          updated_at?: string | null
+          vacancy_rate?: number | null
+        }
+        Update: {
+          absorption_rate?: number | null
+          as_of_date?: string
+          building_class?: string | null
+          city?: string
+          comparable_properties?: Json | null
+          country?: string
+          created_at?: string | null
+          currency?: string
+          data_quality_score?: number | null
+          id?: string
+          is_verified?: boolean | null
+          location?: string
+          market_rent_per_sqft?: number
+          market_rent_per_unit?: number | null
+          market_trends?: string | null
+          postal_code?: string | null
+          property_subtype?: string | null
+          property_type?: string
+          source?: string | null
+          square_footage_range?: Json | null
+          state_province?: string | null
+          updated_at?: string | null
+          vacancy_rate?: number | null
         }
         Relationships: []
       }
@@ -7564,6 +13128,549 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      mmf_credit_ratings: {
+        Row: {
+          concentration_limits: Json | null
+          created_at: string | null
+          credit_watch_status: string | null
+          current_exposure: number | null
+          downgrade_watch: boolean | null
+          exposure_percentage: number | null
+          id: string
+          internal_credit_assessment: string | null
+          is_eligible_mmf_holding: boolean | null
+          is_second_tier: boolean | null
+          is_tier_1: boolean | null
+          is_within_concentration_limits: boolean | null
+          issuer_id: string | null
+          issuer_name: string
+          long_term_rating: string | null
+          notes: string | null
+          previous_rating: string | null
+          probability_of_default: number | null
+          rating_action: string | null
+          rating_agency: string
+          rating_date: string
+          rating_outlook: string | null
+          rating_report_url: string | null
+          short_term_rating: string
+          updated_at: string | null
+        }
+        Insert: {
+          concentration_limits?: Json | null
+          created_at?: string | null
+          credit_watch_status?: string | null
+          current_exposure?: number | null
+          downgrade_watch?: boolean | null
+          exposure_percentage?: number | null
+          id?: string
+          internal_credit_assessment?: string | null
+          is_eligible_mmf_holding?: boolean | null
+          is_second_tier?: boolean | null
+          is_tier_1?: boolean | null
+          is_within_concentration_limits?: boolean | null
+          issuer_id?: string | null
+          issuer_name: string
+          long_term_rating?: string | null
+          notes?: string | null
+          previous_rating?: string | null
+          probability_of_default?: number | null
+          rating_action?: string | null
+          rating_agency: string
+          rating_date: string
+          rating_outlook?: string | null
+          rating_report_url?: string | null
+          short_term_rating: string
+          updated_at?: string | null
+        }
+        Update: {
+          concentration_limits?: Json | null
+          created_at?: string | null
+          credit_watch_status?: string | null
+          current_exposure?: number | null
+          downgrade_watch?: boolean | null
+          exposure_percentage?: number | null
+          id?: string
+          internal_credit_assessment?: string | null
+          is_eligible_mmf_holding?: boolean | null
+          is_second_tier?: boolean | null
+          is_tier_1?: boolean | null
+          is_within_concentration_limits?: boolean | null
+          issuer_id?: string | null
+          issuer_name?: string
+          long_term_rating?: string | null
+          notes?: string | null
+          previous_rating?: string | null
+          probability_of_default?: number | null
+          rating_action?: string | null
+          rating_agency?: string
+          rating_date?: string
+          rating_outlook?: string | null
+          rating_report_url?: string | null
+          short_term_rating?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      mmf_holdings: {
+        Row: {
+          accrued_interest: number | null
+          acquisition_date: string
+          amortization_adjustment: number | null
+          amortized_cost: number
+          collateral_description: string | null
+          concentration_percentage: number | null
+          counterparty: string | null
+          coupon_rate: number | null
+          created_at: string | null
+          credit_rating: string
+          currency: string | null
+          current_price: number
+          cusip: string | null
+          days_to_maturity: number | null
+          effective_maturity_date: string
+          final_maturity_date: string
+          fund_product_id: string
+          holding_type: string
+          id: string
+          is_affiliated_issuer: boolean | null
+          is_daily_liquid: boolean | null
+          is_government_security: boolean | null
+          is_weekly_liquid: boolean | null
+          isin: string | null
+          issuer_id: string | null
+          issuer_name: string
+          liquidity_classification: string | null
+          market_value: number
+          notes: string | null
+          par_value: number
+          purchase_price: number | null
+          quantity: number | null
+          rating_agency: string | null
+          security_description: string
+          settlement_date: string | null
+          shadow_nav_impact: number | null
+          status: string | null
+          stress_test_value: number | null
+          updated_at: string | null
+          weighted_average_life_days: number | null
+          weighted_average_maturity_days: number | null
+          yield_to_maturity: number | null
+        }
+        Insert: {
+          accrued_interest?: number | null
+          acquisition_date: string
+          amortization_adjustment?: number | null
+          amortized_cost: number
+          collateral_description?: string | null
+          concentration_percentage?: number | null
+          counterparty?: string | null
+          coupon_rate?: number | null
+          created_at?: string | null
+          credit_rating: string
+          currency?: string | null
+          current_price: number
+          cusip?: string | null
+          days_to_maturity?: number | null
+          effective_maturity_date: string
+          final_maturity_date: string
+          fund_product_id: string
+          holding_type: string
+          id?: string
+          is_affiliated_issuer?: boolean | null
+          is_daily_liquid?: boolean | null
+          is_government_security?: boolean | null
+          is_weekly_liquid?: boolean | null
+          isin?: string | null
+          issuer_id?: string | null
+          issuer_name: string
+          liquidity_classification?: string | null
+          market_value: number
+          notes?: string | null
+          par_value: number
+          purchase_price?: number | null
+          quantity?: number | null
+          rating_agency?: string | null
+          security_description: string
+          settlement_date?: string | null
+          shadow_nav_impact?: number | null
+          status?: string | null
+          stress_test_value?: number | null
+          updated_at?: string | null
+          weighted_average_life_days?: number | null
+          weighted_average_maturity_days?: number | null
+          yield_to_maturity?: number | null
+        }
+        Update: {
+          accrued_interest?: number | null
+          acquisition_date?: string
+          amortization_adjustment?: number | null
+          amortized_cost?: number
+          collateral_description?: string | null
+          concentration_percentage?: number | null
+          counterparty?: string | null
+          coupon_rate?: number | null
+          created_at?: string | null
+          credit_rating?: string
+          currency?: string | null
+          current_price?: number
+          cusip?: string | null
+          days_to_maturity?: number | null
+          effective_maturity_date?: string
+          final_maturity_date?: string
+          fund_product_id?: string
+          holding_type?: string
+          id?: string
+          is_affiliated_issuer?: boolean | null
+          is_daily_liquid?: boolean | null
+          is_government_security?: boolean | null
+          is_weekly_liquid?: boolean | null
+          isin?: string | null
+          issuer_id?: string | null
+          issuer_name?: string
+          liquidity_classification?: string | null
+          market_value?: number
+          notes?: string | null
+          par_value?: number
+          purchase_price?: number | null
+          quantity?: number | null
+          rating_agency?: string | null
+          security_description?: string
+          settlement_date?: string | null
+          shadow_nav_impact?: number | null
+          status?: string | null
+          stress_test_value?: number | null
+          updated_at?: string | null
+          weighted_average_life_days?: number | null
+          weighted_average_maturity_days?: number | null
+          yield_to_maturity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mmf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mmf_liquidity_buckets: {
+        Row: {
+          as_of_date: string
+          bucket_type: string
+          can_meet_redemptions: boolean | null
+          contingency_liquidity_sources: Json | null
+          created_at: string | null
+          currency: string | null
+          cushion: number | null
+          fund_product_id: string
+          holdings_detail: Json | null
+          id: string
+          is_compliant: boolean | null
+          liquidation_cost_estimate: number | null
+          liquidity_coverage_ratio: number | null
+          notes: string | null
+          number_of_holdings: number | null
+          percentage_of_nav: number
+          projected_redemption_rate: number | null
+          regulatory_minimum: number | null
+          stress_scenario: string | null
+          stressed_liquidity_percentage: number | null
+          time_to_liquidate_days: number | null
+          total_value: number
+        }
+        Insert: {
+          as_of_date: string
+          bucket_type: string
+          can_meet_redemptions?: boolean | null
+          contingency_liquidity_sources?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          cushion?: number | null
+          fund_product_id: string
+          holdings_detail?: Json | null
+          id?: string
+          is_compliant?: boolean | null
+          liquidation_cost_estimate?: number | null
+          liquidity_coverage_ratio?: number | null
+          notes?: string | null
+          number_of_holdings?: number | null
+          percentage_of_nav: number
+          projected_redemption_rate?: number | null
+          regulatory_minimum?: number | null
+          stress_scenario?: string | null
+          stressed_liquidity_percentage?: number | null
+          time_to_liquidate_days?: number | null
+          total_value: number
+        }
+        Update: {
+          as_of_date?: string
+          bucket_type?: string
+          can_meet_redemptions?: boolean | null
+          contingency_liquidity_sources?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          cushion?: number | null
+          fund_product_id?: string
+          holdings_detail?: Json | null
+          id?: string
+          is_compliant?: boolean | null
+          liquidation_cost_estimate?: number | null
+          liquidity_coverage_ratio?: number | null
+          notes?: string | null
+          number_of_holdings?: number | null
+          percentage_of_nav?: number
+          projected_redemption_rate?: number | null
+          regulatory_minimum?: number | null
+          stress_scenario?: string | null
+          stressed_liquidity_percentage?: number | null
+          time_to_liquidate_days?: number | null
+          total_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mmf_nav_history: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          daily_liquid_assets_percentage: number
+          daily_yield: number | null
+          deviation_bps: number | null
+          deviation_from_stable: number | null
+          effective_yield: number | null
+          expense_ratio: number | null
+          fund_product_id: string
+          gate_status: string | null
+          id: string
+          is_breaking_the_buck: boolean | null
+          is_liquidity_compliant: boolean | null
+          is_wal_compliant: boolean | null
+          is_wam_compliant: boolean | null
+          market_based_nav: number
+          net_flows: number | null
+          notes: string | null
+          portfolio_manager_notes: string | null
+          redemption_fee_imposed: boolean | null
+          regulatory_filing_reference: string | null
+          seven_day_yield: number | null
+          shares_outstanding: number
+          stable_nav: number | null
+          stress_test_result: string | null
+          thirty_day_yield: number | null
+          total_net_assets: number
+          total_redemptions: number | null
+          total_subscriptions: number | null
+          valuation_date: string
+          weekly_liquid_assets_percentage: number
+          weighted_average_life_days: number
+          weighted_average_maturity_days: number
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          daily_liquid_assets_percentage: number
+          daily_yield?: number | null
+          deviation_bps?: number | null
+          deviation_from_stable?: number | null
+          effective_yield?: number | null
+          expense_ratio?: number | null
+          fund_product_id: string
+          gate_status?: string | null
+          id?: string
+          is_breaking_the_buck?: boolean | null
+          is_liquidity_compliant?: boolean | null
+          is_wal_compliant?: boolean | null
+          is_wam_compliant?: boolean | null
+          market_based_nav: number
+          net_flows?: number | null
+          notes?: string | null
+          portfolio_manager_notes?: string | null
+          redemption_fee_imposed?: boolean | null
+          regulatory_filing_reference?: string | null
+          seven_day_yield?: number | null
+          shares_outstanding: number
+          stable_nav?: number | null
+          stress_test_result?: string | null
+          thirty_day_yield?: number | null
+          total_net_assets: number
+          total_redemptions?: number | null
+          total_subscriptions?: number | null
+          valuation_date: string
+          weekly_liquid_assets_percentage: number
+          weighted_average_life_days: number
+          weighted_average_maturity_days: number
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          daily_liquid_assets_percentage?: number
+          daily_yield?: number | null
+          deviation_bps?: number | null
+          deviation_from_stable?: number | null
+          effective_yield?: number | null
+          expense_ratio?: number | null
+          fund_product_id?: string
+          gate_status?: string | null
+          id?: string
+          is_breaking_the_buck?: boolean | null
+          is_liquidity_compliant?: boolean | null
+          is_wal_compliant?: boolean | null
+          is_wam_compliant?: boolean | null
+          market_based_nav?: number
+          net_flows?: number | null
+          notes?: string | null
+          portfolio_manager_notes?: string | null
+          redemption_fee_imposed?: boolean | null
+          regulatory_filing_reference?: string | null
+          seven_day_yield?: number | null
+          shares_outstanding?: number
+          stable_nav?: number | null
+          stress_test_result?: string | null
+          thirty_day_yield?: number | null
+          total_net_assets?: number
+          total_redemptions?: number | null
+          total_subscriptions?: number | null
+          valuation_date?: string
+          weekly_liquid_assets_percentage?: number
+          weighted_average_life_days?: number
+          weighted_average_maturity_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mmf_transactions: {
+        Row: {
+          accrued_interest: number | null
+          broker_dealer: string | null
+          compliance_notes: string | null
+          counterparty: string | null
+          created_at: string | null
+          currency: string | null
+          cusip: string | null
+          fees: number | null
+          fund_product_id: string
+          gross_amount: number
+          holding_id: string | null
+          id: string
+          impact_on_liquidity: Json | null
+          impact_on_wal: number | null
+          impact_on_wam: number | null
+          is_regulatory_compliant: boolean | null
+          is_stress_test_compliant: boolean | null
+          net_amount: number
+          notes: string | null
+          price: number | null
+          quantity: number | null
+          realized_gain_loss: number | null
+          security_description: string | null
+          settlement_date: string | null
+          status: string | null
+          trade_confirmation_number: string | null
+          transaction_date: string
+          transaction_purpose: string | null
+          transaction_type: string
+          updated_at: string | null
+          yield: number | null
+        }
+        Insert: {
+          accrued_interest?: number | null
+          broker_dealer?: string | null
+          compliance_notes?: string | null
+          counterparty?: string | null
+          created_at?: string | null
+          currency?: string | null
+          cusip?: string | null
+          fees?: number | null
+          fund_product_id: string
+          gross_amount: number
+          holding_id?: string | null
+          id?: string
+          impact_on_liquidity?: Json | null
+          impact_on_wal?: number | null
+          impact_on_wam?: number | null
+          is_regulatory_compliant?: boolean | null
+          is_stress_test_compliant?: boolean | null
+          net_amount: number
+          notes?: string | null
+          price?: number | null
+          quantity?: number | null
+          realized_gain_loss?: number | null
+          security_description?: string | null
+          settlement_date?: string | null
+          status?: string | null
+          trade_confirmation_number?: string | null
+          transaction_date: string
+          transaction_purpose?: string | null
+          transaction_type: string
+          updated_at?: string | null
+          yield?: number | null
+        }
+        Update: {
+          accrued_interest?: number | null
+          broker_dealer?: string | null
+          compliance_notes?: string | null
+          counterparty?: string | null
+          created_at?: string | null
+          currency?: string | null
+          cusip?: string | null
+          fees?: number | null
+          fund_product_id?: string
+          gross_amount?: number
+          holding_id?: string | null
+          id?: string
+          impact_on_liquidity?: Json | null
+          impact_on_wal?: number | null
+          impact_on_wam?: number | null
+          is_regulatory_compliant?: boolean | null
+          is_stress_test_compliant?: boolean | null
+          net_amount?: number
+          notes?: string | null
+          price?: number | null
+          quantity?: number | null
+          realized_gain_loss?: number | null
+          security_description?: string | null
+          settlement_date?: string | null
+          status?: string | null
+          trade_confirmation_number?: string | null
+          transaction_date?: string
+          transaction_purpose?: string | null
+          transaction_type?: string
+          updated_at?: string | null
+          yield?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mmf_transactions_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_holding_id_fkey"
+            columns: ["holding_id"]
+            isOneToOne: false
+            referencedRelation: "mmf_holdings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       monitoring_metrics: {
         Row: {
@@ -8632,6 +14739,39 @@ export type Database = {
           },
         ]
       }
+      nav_asset_type_adjustments: {
+        Row: {
+          as_of_date: string
+          asset_type: string
+          created_at: string
+          description: string | null
+          id: string
+          mark_to_market_multiplier: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          asset_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          mark_to_market_multiplier: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          asset_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          mark_to_market_multiplier?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       nav_calculation_history: {
         Row: {
           asset_id: string
@@ -8742,6 +14882,219 @@ export type Database = {
           },
         ]
       }
+      nav_calculator_parameters: {
+        Row: {
+          asset_subtype: string | null
+          calculator_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          parameter_key: string
+          parameter_value: string
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_subtype?: string | null
+          calculator_type: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          parameter_key: string
+          parameter_value: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_subtype?: string | null
+          calculator_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          parameter_key?: string
+          parameter_value?: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      nav_credit_quality_multipliers: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          credit_quality: string
+          description: string | null
+          id: string
+          multiplier: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          credit_quality: string
+          description?: string | null
+          id?: string
+          multiplier: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          credit_quality?: string
+          description?: string | null
+          id?: string
+          multiplier?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_credit_spreads: {
+        Row: {
+          as_of_date: string
+          asset_class: string
+          created_at: string
+          credit_rating: string
+          description: string | null
+          id: string
+          source: string
+          spread_bps: number
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          asset_class: string
+          created_at?: string
+          credit_rating: string
+          description?: string | null
+          id?: string
+          source?: string
+          spread_bps: number
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          asset_class?: string
+          created_at?: string
+          credit_rating?: string
+          description?: string | null
+          id?: string
+          source?: string
+          spread_bps?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_default_rates: {
+        Row: {
+          annual_rate: number | null
+          as_of_date: string
+          asset_type: string
+          created_at: string
+          credit_rating: string
+          description: string | null
+          id: string
+          monthly_rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          annual_rate?: number | null
+          as_of_date?: string
+          asset_type: string
+          created_at?: string
+          credit_rating: string
+          description?: string | null
+          id?: string
+          monthly_rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          annual_rate?: number | null
+          as_of_date?: string
+          asset_type?: string
+          created_at?: string
+          credit_rating?: string
+          description?: string | null
+          id?: string
+          monthly_rate?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_delinquency_adjustments: {
+        Row: {
+          adjustment_rate: number
+          as_of_date: string
+          created_at: string
+          days_past_due: number
+          description: string | null
+          id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          adjustment_rate: number
+          as_of_date?: string
+          created_at?: string
+          days_past_due: number
+          description?: string | null
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          adjustment_rate?: number
+          as_of_date?: string
+          created_at?: string
+          days_past_due?: number
+          description?: string | null
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_economic_capital: {
+        Row: {
+          as_of_date: string
+          capital_rate: number
+          confidence_level: number
+          created_at: string
+          credit_rating: string
+          description: string | null
+          id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          capital_rate: number
+          confidence_level?: number
+          created_at?: string
+          credit_rating: string
+          description?: string | null
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          capital_rate?: number
+          confidence_level?: number
+          created_at?: string
+          credit_rating?: string
+          description?: string | null
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       nav_fx_rates: {
         Row: {
           as_of: string
@@ -8763,6 +15116,75 @@ export type Database = {
           quote_ccy?: string
           rate?: number
           source?: string
+        }
+        Relationships: []
+      }
+      nav_liquidity_discounts: {
+        Row: {
+          as_of_date: string
+          asset_class: string
+          created_at: string
+          credit_rating: string
+          description: string | null
+          discount_rate: number
+          id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          asset_class: string
+          created_at?: string
+          credit_rating: string
+          description?: string | null
+          discount_rate: number
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          asset_class?: string
+          created_at?: string
+          credit_rating?: string
+          description?: string | null
+          discount_rate?: number
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_loss_given_default: {
+        Row: {
+          as_of_date: string
+          asset_type: string
+          created_at: string
+          description: string | null
+          id: string
+          lgd_rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          asset_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          lgd_rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          asset_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          lgd_rate?: number
+          source?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -8832,6 +15254,39 @@ export type Database = {
         }
         Relationships: []
       }
+      nav_prepayment_rates: {
+        Row: {
+          as_of_date: string
+          asset_type: string
+          created_at: string
+          description: string | null
+          id: string
+          monthly_rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          asset_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          asset_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_rate?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       nav_price_cache: {
         Row: {
           as_of: string
@@ -8853,6 +15308,75 @@ export type Database = {
           instrument_key?: string
           price?: number
           source?: string
+        }
+        Relationships: []
+      }
+      nav_probability_of_default: {
+        Row: {
+          annual_pd: number
+          as_of_date: string
+          created_at: string
+          credit_rating: string
+          description: string | null
+          id: string
+          source: string
+          time_horizon_years: number
+          updated_at: string
+        }
+        Insert: {
+          annual_pd: number
+          as_of_date?: string
+          created_at?: string
+          credit_rating: string
+          description?: string | null
+          id?: string
+          source?: string
+          time_horizon_years?: number
+          updated_at?: string
+        }
+        Update: {
+          annual_pd?: number
+          as_of_date?: string
+          created_at?: string
+          credit_rating?: string
+          description?: string | null
+          id?: string
+          source?: string
+          time_horizon_years?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_recovery_rates: {
+        Row: {
+          as_of_date: string
+          asset_type: string
+          created_at: string
+          description: string | null
+          id: string
+          recovery_rate: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          asset_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          recovery_rate: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          asset_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          recovery_rate?: number
+          source?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -8886,6 +15410,39 @@ export type Database = {
           redemption_rate?: number
           shares_redeemed?: number
           value_redeemed?: number
+        }
+        Relationships: []
+      }
+      nav_unexpected_loss: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          credit_rating: string
+          description: string | null
+          id: string
+          source: string
+          ul_rate: number
+          updated_at: string
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          credit_rating: string
+          description?: string | null
+          id?: string
+          source?: string
+          ul_rate: number
+          updated_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          credit_rating?: string
+          description?: string | null
+          id?: string
+          source?: string
+          ul_rate?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -9567,6 +16124,1057 @@ export type Database = {
           time_restrictions?: Json | null
           updated_at?: string | null
           whitelisted_addresses?: Json | null
+        }
+        Relationships: []
+      }
+      pd_collateral: {
+        Row: {
+          advance_rate: number | null
+          collateral_description: string
+          collateral_location: string | null
+          collateral_type: string
+          created_at: string | null
+          currency: string
+          current_value: number
+          depreciation_rate: number | null
+          estimated_recovery_value: number | null
+          id: string
+          inspection_report_url: string | null
+          insurance_coverage: number | null
+          insurance_provider: string | null
+          last_inspection_date: string | null
+          lien_position: string | null
+          liquidation_timeframe_days: number | null
+          loan_id: string
+          loan_to_value_ratio: number | null
+          notes: string | null
+          original_value: number
+          perfection_status: string | null
+          private_debt_product_id: string
+          status: string | null
+          ucc_filing_number: string | null
+          updated_at: string | null
+          valuation_date: string
+          valuation_method: string | null
+        }
+        Insert: {
+          advance_rate?: number | null
+          collateral_description: string
+          collateral_location?: string | null
+          collateral_type: string
+          created_at?: string | null
+          currency?: string
+          current_value: number
+          depreciation_rate?: number | null
+          estimated_recovery_value?: number | null
+          id?: string
+          inspection_report_url?: string | null
+          insurance_coverage?: number | null
+          insurance_provider?: string | null
+          last_inspection_date?: string | null
+          lien_position?: string | null
+          liquidation_timeframe_days?: number | null
+          loan_id: string
+          loan_to_value_ratio?: number | null
+          notes?: string | null
+          original_value: number
+          perfection_status?: string | null
+          private_debt_product_id: string
+          status?: string | null
+          ucc_filing_number?: string | null
+          updated_at?: string | null
+          valuation_date: string
+          valuation_method?: string | null
+        }
+        Update: {
+          advance_rate?: number | null
+          collateral_description?: string
+          collateral_location?: string | null
+          collateral_type?: string
+          created_at?: string | null
+          currency?: string
+          current_value?: number
+          depreciation_rate?: number | null
+          estimated_recovery_value?: number | null
+          id?: string
+          inspection_report_url?: string | null
+          insurance_coverage?: number | null
+          insurance_provider?: string | null
+          last_inspection_date?: string | null
+          lien_position?: string | null
+          liquidation_timeframe_days?: number | null
+          loan_id?: string
+          loan_to_value_ratio?: number | null
+          notes?: string | null
+          original_value?: number
+          perfection_status?: string | null
+          private_debt_product_id?: string
+          status?: string | null
+          ucc_filing_number?: string | null
+          updated_at?: string | null
+          valuation_date?: string
+          valuation_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_collateral_private_debt_product_id_fkey"
+            columns: ["private_debt_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_debt_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pd_covenants: {
+        Row: {
+          actual_value: number | null
+          breach_severity: string | null
+          consequences_of_breach: string | null
+          covenant_category: string | null
+          covenant_description: string
+          covenant_type: string
+          created_at: string | null
+          cure_actions: Json | null
+          cure_deadline: string | null
+          grace_period_days: number | null
+          historical_compliance: Json | null
+          id: string
+          is_compliant: boolean
+          loan_id: string
+          measurement_frequency: string | null
+          next_test_date: string | null
+          notes: string | null
+          notification_required: boolean | null
+          notification_sent: boolean | null
+          private_debt_product_id: string
+          status: string | null
+          test_date: string
+          threshold_operator: string | null
+          threshold_value: number | null
+          updated_at: string | null
+          waiver_expiration_date: string | null
+          waiver_obtained: boolean | null
+        }
+        Insert: {
+          actual_value?: number | null
+          breach_severity?: string | null
+          consequences_of_breach?: string | null
+          covenant_category?: string | null
+          covenant_description: string
+          covenant_type: string
+          created_at?: string | null
+          cure_actions?: Json | null
+          cure_deadline?: string | null
+          grace_period_days?: number | null
+          historical_compliance?: Json | null
+          id?: string
+          is_compliant: boolean
+          loan_id: string
+          measurement_frequency?: string | null
+          next_test_date?: string | null
+          notes?: string | null
+          notification_required?: boolean | null
+          notification_sent?: boolean | null
+          private_debt_product_id: string
+          status?: string | null
+          test_date: string
+          threshold_operator?: string | null
+          threshold_value?: number | null
+          updated_at?: string | null
+          waiver_expiration_date?: string | null
+          waiver_obtained?: boolean | null
+        }
+        Update: {
+          actual_value?: number | null
+          breach_severity?: string | null
+          consequences_of_breach?: string | null
+          covenant_category?: string | null
+          covenant_description?: string
+          covenant_type?: string
+          created_at?: string | null
+          cure_actions?: Json | null
+          cure_deadline?: string | null
+          grace_period_days?: number | null
+          historical_compliance?: Json | null
+          id?: string
+          is_compliant?: boolean
+          loan_id?: string
+          measurement_frequency?: string | null
+          next_test_date?: string | null
+          notes?: string | null
+          notification_required?: boolean | null
+          notification_sent?: boolean | null
+          private_debt_product_id?: string
+          status?: string | null
+          test_date?: string
+          threshold_operator?: string | null
+          threshold_value?: number | null
+          updated_at?: string | null
+          waiver_expiration_date?: string | null
+          waiver_obtained?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_covenants_private_debt_product_id_fkey"
+            columns: ["private_debt_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_debt_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pd_credit_ratings: {
+        Row: {
+          borrower_id: string | null
+          created_at: string | null
+          id: string
+          is_investment_grade: boolean | null
+          key_rating_factors: Json | null
+          loan_id: string
+          notes: string | null
+          previous_rating: string | null
+          private_debt_product_id: string
+          probability_of_default: number | null
+          rating: string
+          rating_action: string | null
+          rating_agency: string
+          rating_date: string
+          rating_methodology: string | null
+          rating_outlook: string | null
+          rating_report_url: string | null
+          rating_type: string | null
+          recovery_rate_estimate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          borrower_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_investment_grade?: boolean | null
+          key_rating_factors?: Json | null
+          loan_id: string
+          notes?: string | null
+          previous_rating?: string | null
+          private_debt_product_id: string
+          probability_of_default?: number | null
+          rating: string
+          rating_action?: string | null
+          rating_agency: string
+          rating_date: string
+          rating_methodology?: string | null
+          rating_outlook?: string | null
+          rating_report_url?: string | null
+          rating_type?: string | null
+          recovery_rate_estimate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          borrower_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_investment_grade?: boolean | null
+          key_rating_factors?: Json | null
+          loan_id?: string
+          notes?: string | null
+          previous_rating?: string | null
+          private_debt_product_id?: string
+          probability_of_default?: number | null
+          rating?: string
+          rating_action?: string | null
+          rating_agency?: string
+          rating_date?: string
+          rating_methodology?: string | null
+          rating_outlook?: string | null
+          rating_report_url?: string | null
+          rating_type?: string | null
+          recovery_rate_estimate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_credit_ratings_private_debt_product_id_fkey"
+            columns: ["private_debt_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_debt_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pd_default_events: {
+        Row: {
+          amount_in_default: number | null
+          covenant_breached_id: string | null
+          created_at: string | null
+          cure_actions_taken: Json | null
+          cure_date: string | null
+          cure_deadline: string | null
+          cure_period_days: number | null
+          currency: string
+          days_past_due: number | null
+          default_description: string
+          detection_date: string
+          event_date: string
+          event_type: string
+          expected_loss: number | null
+          forbearance_agreement: Json | null
+          id: string
+          is_cured: boolean | null
+          is_event_of_default: boolean | null
+          lender_actions: Json | null
+          loan_id: string
+          loss_mitigation_strategy: string | null
+          notes: string | null
+          notification_date: string | null
+          private_debt_product_id: string
+          recovery_actions: Json | null
+          recovery_amount: number | null
+          restructuring_terms: Json | null
+          severity: string
+          status: string | null
+          updated_at: string | null
+          write_off_amount: number | null
+        }
+        Insert: {
+          amount_in_default?: number | null
+          covenant_breached_id?: string | null
+          created_at?: string | null
+          cure_actions_taken?: Json | null
+          cure_date?: string | null
+          cure_deadline?: string | null
+          cure_period_days?: number | null
+          currency?: string
+          days_past_due?: number | null
+          default_description: string
+          detection_date: string
+          event_date: string
+          event_type: string
+          expected_loss?: number | null
+          forbearance_agreement?: Json | null
+          id?: string
+          is_cured?: boolean | null
+          is_event_of_default?: boolean | null
+          lender_actions?: Json | null
+          loan_id: string
+          loss_mitigation_strategy?: string | null
+          notes?: string | null
+          notification_date?: string | null
+          private_debt_product_id: string
+          recovery_actions?: Json | null
+          recovery_amount?: number | null
+          restructuring_terms?: Json | null
+          severity: string
+          status?: string | null
+          updated_at?: string | null
+          write_off_amount?: number | null
+        }
+        Update: {
+          amount_in_default?: number | null
+          covenant_breached_id?: string | null
+          created_at?: string | null
+          cure_actions_taken?: Json | null
+          cure_date?: string | null
+          cure_deadline?: string | null
+          cure_period_days?: number | null
+          currency?: string
+          days_past_due?: number | null
+          default_description?: string
+          detection_date?: string
+          event_date?: string
+          event_type?: string
+          expected_loss?: number | null
+          forbearance_agreement?: Json | null
+          id?: string
+          is_cured?: boolean | null
+          is_event_of_default?: boolean | null
+          lender_actions?: Json | null
+          loan_id?: string
+          loss_mitigation_strategy?: string | null
+          notes?: string | null
+          notification_date?: string | null
+          private_debt_product_id?: string
+          recovery_actions?: Json | null
+          recovery_amount?: number | null
+          restructuring_terms?: Json | null
+          severity?: string
+          status?: string | null
+          updated_at?: string | null
+          write_off_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_default_events_covenant_breached_id_fkey"
+            columns: ["covenant_breached_id"]
+            isOneToOne: false
+            referencedRelation: "pd_covenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pd_default_events_private_debt_product_id_fkey"
+            columns: ["private_debt_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_debt_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pd_loan_schedules: {
+        Row: {
+          accrual_basis: string | null
+          beginning_balance: number
+          created_at: string | null
+          currency: string
+          days_in_period: number | null
+          ending_balance: number
+          fees: number | null
+          id: string
+          interest_amount: number
+          interest_rate: number
+          is_estimated: boolean | null
+          loan_id: string
+          notes: string | null
+          payment_date: string
+          payment_number: number
+          payment_type: string | null
+          principal_amount: number
+          private_debt_product_id: string
+          total_payment: number
+          updated_at: string | null
+        }
+        Insert: {
+          accrual_basis?: string | null
+          beginning_balance: number
+          created_at?: string | null
+          currency?: string
+          days_in_period?: number | null
+          ending_balance: number
+          fees?: number | null
+          id?: string
+          interest_amount: number
+          interest_rate: number
+          is_estimated?: boolean | null
+          loan_id: string
+          notes?: string | null
+          payment_date: string
+          payment_number: number
+          payment_type?: string | null
+          principal_amount: number
+          private_debt_product_id: string
+          total_payment: number
+          updated_at?: string | null
+        }
+        Update: {
+          accrual_basis?: string | null
+          beginning_balance?: number
+          created_at?: string | null
+          currency?: string
+          days_in_period?: number | null
+          ending_balance?: number
+          fees?: number | null
+          id?: string
+          interest_amount?: number
+          interest_rate?: number
+          is_estimated?: boolean | null
+          loan_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_number?: number
+          payment_type?: string | null
+          principal_amount?: number
+          private_debt_product_id?: string
+          total_payment?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_loan_schedules_private_debt_product_id_fkey"
+            columns: ["private_debt_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_debt_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pd_payment_history: {
+        Row: {
+          created_at: string | null
+          currency: string
+          days_late: number | null
+          due_date: string
+          fees_paid: number | null
+          id: string
+          interest_paid: number
+          is_partial_payment: boolean | null
+          is_prepayment: boolean | null
+          loan_id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          penalties_paid: number | null
+          prepayment_penalty: number | null
+          principal_paid: number
+          private_debt_product_id: string
+          remaining_balance: number | null
+          scheduled_payment_id: string | null
+          status: string | null
+          total_paid: number
+          transaction_reference: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          days_late?: number | null
+          due_date: string
+          fees_paid?: number | null
+          id?: string
+          interest_paid: number
+          is_partial_payment?: boolean | null
+          is_prepayment?: boolean | null
+          loan_id: string
+          notes?: string | null
+          payment_date: string
+          payment_method?: string | null
+          penalties_paid?: number | null
+          prepayment_penalty?: number | null
+          principal_paid: number
+          private_debt_product_id: string
+          remaining_balance?: number | null
+          scheduled_payment_id?: string | null
+          status?: string | null
+          total_paid: number
+          transaction_reference?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          days_late?: number | null
+          due_date?: string
+          fees_paid?: number | null
+          id?: string
+          interest_paid?: number
+          is_partial_payment?: boolean | null
+          is_prepayment?: boolean | null
+          loan_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          penalties_paid?: number | null
+          prepayment_penalty?: number | null
+          principal_paid?: number
+          private_debt_product_id?: string
+          remaining_balance?: number | null
+          scheduled_payment_id?: string | null
+          status?: string | null
+          total_paid?: number
+          transaction_reference?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_payment_history_private_debt_product_id_fkey"
+            columns: ["private_debt_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_debt_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pd_payment_history_scheduled_payment_id_fkey"
+            columns: ["scheduled_payment_id"]
+            isOneToOne: false
+            referencedRelation: "pd_loan_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_capital_calls: {
+        Row: {
+          call_amount: number
+          call_date: string
+          call_number: number
+          call_percentage: number | null
+          created_at: string | null
+          cumulative_called_percentage: number | null
+          currency: string
+          defaulted_investors: Json | null
+          due_date: string
+          fund_id: string
+          id: string
+          investor_allocations: Json | null
+          is_emergency_call: boolean | null
+          notes: string | null
+          notice_period_days: number | null
+          payment_instructions: string | null
+          private_equity_product_id: string
+          purpose: string | null
+          status: string | null
+          target_investments: Json | null
+          total_outstanding: number | null
+          total_received: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          call_amount: number
+          call_date: string
+          call_number: number
+          call_percentage?: number | null
+          created_at?: string | null
+          cumulative_called_percentage?: number | null
+          currency?: string
+          defaulted_investors?: Json | null
+          due_date: string
+          fund_id: string
+          id?: string
+          investor_allocations?: Json | null
+          is_emergency_call?: boolean | null
+          notes?: string | null
+          notice_period_days?: number | null
+          payment_instructions?: string | null
+          private_equity_product_id: string
+          purpose?: string | null
+          status?: string | null
+          target_investments?: Json | null
+          total_outstanding?: number | null
+          total_received?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          call_amount?: number
+          call_date?: string
+          call_number?: number
+          call_percentage?: number | null
+          created_at?: string | null
+          cumulative_called_percentage?: number | null
+          currency?: string
+          defaulted_investors?: Json | null
+          due_date?: string
+          fund_id?: string
+          id?: string
+          investor_allocations?: Json | null
+          is_emergency_call?: boolean | null
+          notes?: string | null
+          notice_period_days?: number | null
+          payment_instructions?: string | null
+          private_equity_product_id?: string
+          purpose?: string | null
+          status?: string | null
+          target_investments?: Json | null
+          total_outstanding?: number | null
+          total_received?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_capital_calls_private_equity_product_id_fkey"
+            columns: ["private_equity_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_equity_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_distributions: {
+        Row: {
+          created_at: string | null
+          currency: string
+          currency_hedging: Json | null
+          distribution_amount: number
+          distribution_date: string
+          distribution_number: number
+          distribution_type: string
+          fund_id: string
+          id: string
+          investor_allocations: Json | null
+          net_distribution: number | null
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          private_equity_product_id: string
+          source_event: string | null
+          source_investment: string | null
+          status: string | null
+          tax_treatment: Json | null
+          updated_at: string | null
+          withholding_taxes: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          currency_hedging?: Json | null
+          distribution_amount: number
+          distribution_date: string
+          distribution_number: number
+          distribution_type: string
+          fund_id: string
+          id?: string
+          investor_allocations?: Json | null
+          net_distribution?: number | null
+          notes?: string | null
+          payment_date: string
+          payment_method?: string | null
+          private_equity_product_id: string
+          source_event?: string | null
+          source_investment?: string | null
+          status?: string | null
+          tax_treatment?: Json | null
+          updated_at?: string | null
+          withholding_taxes?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          currency_hedging?: Json | null
+          distribution_amount?: number
+          distribution_date?: string
+          distribution_number?: number
+          distribution_type?: string
+          fund_id?: string
+          id?: string
+          investor_allocations?: Json | null
+          net_distribution?: number | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          private_equity_product_id?: string
+          source_event?: string | null
+          source_investment?: string | null
+          status?: string | null
+          tax_treatment?: Json | null
+          updated_at?: string | null
+          withholding_taxes?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_distributions_private_equity_product_id_fkey"
+            columns: ["private_equity_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_equity_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_performance_metrics: {
+        Row: {
+          as_of_date: string
+          calculation_date: string
+          calculation_methodology: string | null
+          carried_interest_accrued: number | null
+          created_at: string | null
+          currency: string
+          dpi: number | null
+          fund_age_years: number | null
+          fund_id: string
+          id: string
+          irr: number | null
+          j_curve_position: string | null
+          moic: number | null
+          notes: string | null
+          peer_comparison: Json | null
+          pme: number | null
+          pme_benchmark: string | null
+          private_equity_product_id: string
+          quartile_ranking: number | null
+          realized_investments: number | null
+          residual_value: number
+          rvpi: number | null
+          since_inception_irr: number | null
+          total_called_capital: number
+          total_committed_capital: number
+          total_distributed: number
+          total_fees_paid: number | null
+          tvpi: number | null
+          unrealized_investments: number | null
+          updated_at: string | null
+          vintage_year: number | null
+          written_off_investments: number | null
+        }
+        Insert: {
+          as_of_date: string
+          calculation_date?: string
+          calculation_methodology?: string | null
+          carried_interest_accrued?: number | null
+          created_at?: string | null
+          currency?: string
+          dpi?: number | null
+          fund_age_years?: number | null
+          fund_id: string
+          id?: string
+          irr?: number | null
+          j_curve_position?: string | null
+          moic?: number | null
+          notes?: string | null
+          peer_comparison?: Json | null
+          pme?: number | null
+          pme_benchmark?: string | null
+          private_equity_product_id: string
+          quartile_ranking?: number | null
+          realized_investments?: number | null
+          residual_value: number
+          rvpi?: number | null
+          since_inception_irr?: number | null
+          total_called_capital: number
+          total_committed_capital: number
+          total_distributed: number
+          total_fees_paid?: number | null
+          tvpi?: number | null
+          unrealized_investments?: number | null
+          updated_at?: string | null
+          vintage_year?: number | null
+          written_off_investments?: number | null
+        }
+        Update: {
+          as_of_date?: string
+          calculation_date?: string
+          calculation_methodology?: string | null
+          carried_interest_accrued?: number | null
+          created_at?: string | null
+          currency?: string
+          dpi?: number | null
+          fund_age_years?: number | null
+          fund_id?: string
+          id?: string
+          irr?: number | null
+          j_curve_position?: string | null
+          moic?: number | null
+          notes?: string | null
+          peer_comparison?: Json | null
+          pme?: number | null
+          pme_benchmark?: string | null
+          private_equity_product_id?: string
+          quartile_ranking?: number | null
+          realized_investments?: number | null
+          residual_value?: number
+          rvpi?: number | null
+          since_inception_irr?: number | null
+          total_called_capital?: number
+          total_committed_capital?: number
+          total_distributed?: number
+          total_fees_paid?: number | null
+          tvpi?: number | null
+          unrealized_investments?: number | null
+          updated_at?: string | null
+          vintage_year?: number | null
+          written_off_investments?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_performance_metrics_private_equity_product_id_fkey"
+            columns: ["private_equity_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_equity_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_portfolio_companies: {
+        Row: {
+          additional_investments: Json | null
+          board_seats: number | null
+          company_name: string
+          company_registration_number: string | null
+          created_at: string | null
+          currency: string
+          current_valuation: number | null
+          exit_date: string | null
+          exit_proceeds: number | null
+          exit_strategy: string | null
+          fund_id: string
+          id: string
+          industry_sector: string | null
+          initial_cost_basis: number
+          initial_investment_date: string
+          investment_stage: string | null
+          investment_thesis: string | null
+          irr: number | null
+          jurisdiction: string | null
+          key_metrics: Json | null
+          management_team: Json | null
+          moic: number | null
+          notes: string | null
+          ownership_percentage: number | null
+          partial_exits: Json | null
+          private_equity_product_id: string
+          realized_gain_loss: number | null
+          security_type: string | null
+          shares_owned: number | null
+          status: string | null
+          target_hold_period_years: number | null
+          target_return_multiple: number | null
+          total_capital_invested: number | null
+          total_shares_outstanding: number | null
+          unrealized_gain_loss: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_investments?: Json | null
+          board_seats?: number | null
+          company_name: string
+          company_registration_number?: string | null
+          created_at?: string | null
+          currency?: string
+          current_valuation?: number | null
+          exit_date?: string | null
+          exit_proceeds?: number | null
+          exit_strategy?: string | null
+          fund_id: string
+          id?: string
+          industry_sector?: string | null
+          initial_cost_basis: number
+          initial_investment_date: string
+          investment_stage?: string | null
+          investment_thesis?: string | null
+          irr?: number | null
+          jurisdiction?: string | null
+          key_metrics?: Json | null
+          management_team?: Json | null
+          moic?: number | null
+          notes?: string | null
+          ownership_percentage?: number | null
+          partial_exits?: Json | null
+          private_equity_product_id: string
+          realized_gain_loss?: number | null
+          security_type?: string | null
+          shares_owned?: number | null
+          status?: string | null
+          target_hold_period_years?: number | null
+          target_return_multiple?: number | null
+          total_capital_invested?: number | null
+          total_shares_outstanding?: number | null
+          unrealized_gain_loss?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_investments?: Json | null
+          board_seats?: number | null
+          company_name?: string
+          company_registration_number?: string | null
+          created_at?: string | null
+          currency?: string
+          current_valuation?: number | null
+          exit_date?: string | null
+          exit_proceeds?: number | null
+          exit_strategy?: string | null
+          fund_id?: string
+          id?: string
+          industry_sector?: string | null
+          initial_cost_basis?: number
+          initial_investment_date?: string
+          investment_stage?: string | null
+          investment_thesis?: string | null
+          irr?: number | null
+          jurisdiction?: string | null
+          key_metrics?: Json | null
+          management_team?: Json | null
+          moic?: number | null
+          notes?: string | null
+          ownership_percentage?: number | null
+          partial_exits?: Json | null
+          private_equity_product_id?: string
+          realized_gain_loss?: number | null
+          security_type?: string | null
+          shares_owned?: number | null
+          status?: string | null
+          target_hold_period_years?: number | null
+          target_return_multiple?: number | null
+          total_capital_invested?: number | null
+          total_shares_outstanding?: number | null
+          unrealized_gain_loss?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pe_portfolio_companies_private_equity_product_id_fkey"
+            columns: ["private_equity_product_id"]
+            isOneToOne: false
+            referencedRelation: "private_equity_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pe_valuations: {
+        Row: {
+          adjustments: Json | null
+          audit_status: string | null
+          comparable_companies: Json | null
+          confidence_level: string | null
+          created_at: string | null
+          currency: string
+          discount_rate: number | null
+          ebitda: number | null
+          entity_id: string
+          entity_type: string
+          fair_value_estimate: number | null
+          fair_value_range: Json | null
+          id: string
+          multiple_type: string | null
+          notes: string | null
+          precedent_transactions: Json | null
+          revenue: number | null
+          terminal_growth_rate: number | null
+          updated_at: string | null
+          valuation_amount: number
+          valuation_date: string
+          valuation_firm: string | null
+          valuation_method: string
+          valuation_multiple: number | null
+          valuation_report_url: string | null
+          valuer_name: string | null
+        }
+        Insert: {
+          adjustments?: Json | null
+          audit_status?: string | null
+          comparable_companies?: Json | null
+          confidence_level?: string | null
+          created_at?: string | null
+          currency?: string
+          discount_rate?: number | null
+          ebitda?: number | null
+          entity_id: string
+          entity_type: string
+          fair_value_estimate?: number | null
+          fair_value_range?: Json | null
+          id?: string
+          multiple_type?: string | null
+          notes?: string | null
+          precedent_transactions?: Json | null
+          revenue?: number | null
+          terminal_growth_rate?: number | null
+          updated_at?: string | null
+          valuation_amount: number
+          valuation_date: string
+          valuation_firm?: string | null
+          valuation_method: string
+          valuation_multiple?: number | null
+          valuation_report_url?: string | null
+          valuer_name?: string | null
+        }
+        Update: {
+          adjustments?: Json | null
+          audit_status?: string | null
+          comparable_companies?: Json | null
+          confidence_level?: string | null
+          created_at?: string | null
+          currency?: string
+          discount_rate?: number | null
+          ebitda?: number | null
+          entity_id?: string
+          entity_type?: string
+          fair_value_estimate?: number | null
+          fair_value_range?: Json | null
+          id?: string
+          multiple_type?: string | null
+          notes?: string | null
+          precedent_transactions?: Json | null
+          revenue?: number | null
+          terminal_growth_rate?: number | null
+          updated_at?: string | null
+          valuation_amount?: number
+          valuation_date?: string
+          valuation_firm?: string | null
+          valuation_method?: string
+          valuation_multiple?: number | null
+          valuation_report_url?: string | null
+          valuer_name?: string | null
         }
         Relationships: []
       }
@@ -10701,6 +18309,369 @@ export type Database = {
         }
         Relationships: []
       }
+      property_expenses: {
+        Row: {
+          allocated_to_units: Json | null
+          allocation_method: string | null
+          amortization_period_months: number | null
+          amount: number
+          approval_status: string | null
+          budget_category: string | null
+          budget_variance: number | null
+          created_at: string | null
+          currency: string
+          description: string | null
+          expense_category: string
+          expense_date: string
+          expense_type: string
+          frequency: string | null
+          id: string
+          invoice_number: string | null
+          is_capital_expenditure: boolean | null
+          is_recurring: boolean | null
+          notes: string | null
+          payment_date: string | null
+          payment_status: string | null
+          real_estate_product_id: string
+          updated_at: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          allocated_to_units?: Json | null
+          allocation_method?: string | null
+          amortization_period_months?: number | null
+          amount: number
+          approval_status?: string | null
+          budget_category?: string | null
+          budget_variance?: number | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          expense_category: string
+          expense_date: string
+          expense_type: string
+          frequency?: string | null
+          id?: string
+          invoice_number?: string | null
+          is_capital_expenditure?: boolean | null
+          is_recurring?: boolean | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_status?: string | null
+          real_estate_product_id: string
+          updated_at?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          allocated_to_units?: Json | null
+          allocation_method?: string | null
+          amortization_period_months?: number | null
+          amount?: number
+          approval_status?: string | null
+          budget_category?: string | null
+          budget_variance?: number | null
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          expense_category?: string
+          expense_date?: string
+          expense_type?: string
+          frequency?: string | null
+          id?: string
+          invoice_number?: string | null
+          is_capital_expenditure?: boolean | null
+          is_recurring?: boolean | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_status?: string | null
+          real_estate_product_id?: string
+          updated_at?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_expenses_real_estate_product_id_fkey"
+            columns: ["real_estate_product_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_insurance: {
+        Row: {
+          additional_insureds: Json | null
+          cancellation_terms: string | null
+          claims_history: Json | null
+          coverage_amount: number
+          covered_perils: Json | null
+          created_at: string | null
+          currency: string
+          deductible: number | null
+          effective_date: string
+          exclusions: Json | null
+          id: string
+          inspection_date: string | null
+          inspection_report_url: string | null
+          insurance_provider: string
+          insurance_type: string
+          is_adequate_coverage: boolean | null
+          loss_payee: string | null
+          notes: string | null
+          policy_end_date: string
+          policy_number: string
+          policy_start_date: string
+          premium_amount: number
+          premium_frequency: string
+          property_type: string
+          real_estate_product_id: string
+          renewal_options: Json | null
+          risk_assessment: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_insureds?: Json | null
+          cancellation_terms?: string | null
+          claims_history?: Json | null
+          coverage_amount: number
+          covered_perils?: Json | null
+          created_at?: string | null
+          currency?: string
+          deductible?: number | null
+          effective_date: string
+          exclusions?: Json | null
+          id?: string
+          inspection_date?: string | null
+          inspection_report_url?: string | null
+          insurance_provider: string
+          insurance_type: string
+          is_adequate_coverage?: boolean | null
+          loss_payee?: string | null
+          notes?: string | null
+          policy_end_date: string
+          policy_number: string
+          policy_start_date: string
+          premium_amount: number
+          premium_frequency: string
+          property_type: string
+          real_estate_product_id: string
+          renewal_options?: Json | null
+          risk_assessment?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_insureds?: Json | null
+          cancellation_terms?: string | null
+          claims_history?: Json | null
+          coverage_amount?: number
+          covered_perils?: Json | null
+          created_at?: string | null
+          currency?: string
+          deductible?: number | null
+          effective_date?: string
+          exclusions?: Json | null
+          id?: string
+          inspection_date?: string | null
+          inspection_report_url?: string | null
+          insurance_provider?: string
+          insurance_type?: string
+          is_adequate_coverage?: boolean | null
+          loss_payee?: string | null
+          notes?: string | null
+          policy_end_date?: string
+          policy_number?: string
+          policy_start_date?: string
+          premium_amount?: number
+          premium_frequency?: string
+          property_type?: string
+          real_estate_product_id?: string
+          renewal_options?: Json | null
+          risk_assessment?: Json | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_insurance_real_estate_product_id_fkey"
+            columns: ["real_estate_product_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_tax_rates: {
+        Row: {
+          assessment_ratio: number | null
+          calculation_method: string | null
+          city: string | null
+          country: string
+          created_at: string | null
+          due_dates: Json | null
+          effective_date: string
+          exemptions: Json | null
+          expiration_date: string | null
+          id: string
+          is_current: boolean | null
+          jurisdiction: string
+          late_payment_penalty: number | null
+          millage_rate: number | null
+          notes: string | null
+          payment_schedule: string | null
+          property_type: string
+          source: string | null
+          special_assessments: Json | null
+          state_province: string
+          tax_rate: number
+          tax_year: number
+          updated_at: string | null
+        }
+        Insert: {
+          assessment_ratio?: number | null
+          calculation_method?: string | null
+          city?: string | null
+          country: string
+          created_at?: string | null
+          due_dates?: Json | null
+          effective_date: string
+          exemptions?: Json | null
+          expiration_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          jurisdiction: string
+          late_payment_penalty?: number | null
+          millage_rate?: number | null
+          notes?: string | null
+          payment_schedule?: string | null
+          property_type: string
+          source?: string | null
+          special_assessments?: Json | null
+          state_province: string
+          tax_rate: number
+          tax_year: number
+          updated_at?: string | null
+        }
+        Update: {
+          assessment_ratio?: number | null
+          calculation_method?: string | null
+          city?: string | null
+          country?: string
+          created_at?: string | null
+          due_dates?: Json | null
+          effective_date?: string
+          exemptions?: Json | null
+          expiration_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          jurisdiction?: string
+          late_payment_penalty?: number | null
+          millage_rate?: number | null
+          notes?: string | null
+          payment_schedule?: string | null
+          property_type?: string
+          source?: string | null
+          special_assessments?: Json | null
+          state_province?: string
+          tax_rate?: number
+          tax_year?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      property_valuations: {
+        Row: {
+          adjustments_made: Json | null
+          appraiser_firm: string | null
+          appraiser_license: string | null
+          appraiser_name: string | null
+          cap_rate: number | null
+          comparable_sales: Json | null
+          confidence_level: string | null
+          created_at: string | null
+          currency: string
+          discount_rate: number | null
+          gross_rental_income: number | null
+          highest_best_use: string | null
+          id: string
+          is_certified: boolean | null
+          market_conditions: string | null
+          noi: number | null
+          notes: string | null
+          operating_expenses: number | null
+          purpose: string | null
+          real_estate_product_id: string
+          updated_at: string | null
+          valuation_amount: number
+          valuation_date: string
+          valuation_method: string
+          valuation_report_url: string | null
+        }
+        Insert: {
+          adjustments_made?: Json | null
+          appraiser_firm?: string | null
+          appraiser_license?: string | null
+          appraiser_name?: string | null
+          cap_rate?: number | null
+          comparable_sales?: Json | null
+          confidence_level?: string | null
+          created_at?: string | null
+          currency?: string
+          discount_rate?: number | null
+          gross_rental_income?: number | null
+          highest_best_use?: string | null
+          id?: string
+          is_certified?: boolean | null
+          market_conditions?: string | null
+          noi?: number | null
+          notes?: string | null
+          operating_expenses?: number | null
+          purpose?: string | null
+          real_estate_product_id: string
+          updated_at?: string | null
+          valuation_amount: number
+          valuation_date: string
+          valuation_method: string
+          valuation_report_url?: string | null
+        }
+        Update: {
+          adjustments_made?: Json | null
+          appraiser_firm?: string | null
+          appraiser_license?: string | null
+          appraiser_name?: string | null
+          cap_rate?: number | null
+          comparable_sales?: Json | null
+          confidence_level?: string | null
+          created_at?: string | null
+          currency?: string
+          discount_rate?: number | null
+          gross_rental_income?: number | null
+          highest_best_use?: string | null
+          id?: string
+          is_certified?: boolean | null
+          market_conditions?: string | null
+          noi?: number | null
+          notes?: string | null
+          operating_expenses?: number | null
+          purpose?: string | null
+          real_estate_product_id?: string
+          updated_at?: string | null
+          valuation_amount?: number
+          valuation_date?: string
+          valuation_method?: string
+          valuation_report_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_valuations_real_estate_product_id_fkey"
+            columns: ["real_estate_product_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_signatures: {
         Row: {
           id: string
@@ -10759,6 +18730,637 @@ export type Database = {
           provider_id?: never
         }
         Relationships: []
+      }
+      quant_backtests: {
+        Row: {
+          alpha: number | null
+          annualized_return: number | null
+          annualized_volatility: number | null
+          assumptions: string | null
+          average_loss: number | null
+          average_trade_return: number | null
+          average_win: number | null
+          backtest_date: string
+          backtest_name: string
+          benchmark_index: string | null
+          benchmark_return: number | null
+          beta: number | null
+          calmar_ratio: number | null
+          created_at: string | null
+          currency: string | null
+          daily_returns: Json | null
+          data_quality_issues: string | null
+          drawdown_curve: Json | null
+          end_date: string
+          equity_curve: Json | null
+          excess_return: number | null
+          factor_loadings: Json | null
+          final_value: number
+          id: string
+          information_ratio: number | null
+          initial_capital: number
+          largest_loss: number | null
+          largest_win: number | null
+          limitations: string | null
+          max_drawdown: number | null
+          max_drawdown_duration_days: number | null
+          monthly_returns: Json | null
+          notes: string | null
+          number_of_trades: number | null
+          out_of_sample_performance: Json | null
+          profit_factor: number | null
+          quantitative_investment_strategies_product_id: string
+          robustness_checks: Json | null
+          sharpe_ratio: number | null
+          slippage_costs: number | null
+          sortino_ratio: number | null
+          start_date: string
+          strategy_version: string | null
+          stress_test_results: Json | null
+          total_return: number | null
+          tracking_error: number | null
+          transaction_costs: number | null
+          turnover_rate: number | null
+          universe_definition: string | null
+          win_rate: number | null
+        }
+        Insert: {
+          alpha?: number | null
+          annualized_return?: number | null
+          annualized_volatility?: number | null
+          assumptions?: string | null
+          average_loss?: number | null
+          average_trade_return?: number | null
+          average_win?: number | null
+          backtest_date: string
+          backtest_name: string
+          benchmark_index?: string | null
+          benchmark_return?: number | null
+          beta?: number | null
+          calmar_ratio?: number | null
+          created_at?: string | null
+          currency?: string | null
+          daily_returns?: Json | null
+          data_quality_issues?: string | null
+          drawdown_curve?: Json | null
+          end_date: string
+          equity_curve?: Json | null
+          excess_return?: number | null
+          factor_loadings?: Json | null
+          final_value: number
+          id?: string
+          information_ratio?: number | null
+          initial_capital: number
+          largest_loss?: number | null
+          largest_win?: number | null
+          limitations?: string | null
+          max_drawdown?: number | null
+          max_drawdown_duration_days?: number | null
+          monthly_returns?: Json | null
+          notes?: string | null
+          number_of_trades?: number | null
+          out_of_sample_performance?: Json | null
+          profit_factor?: number | null
+          quantitative_investment_strategies_product_id: string
+          robustness_checks?: Json | null
+          sharpe_ratio?: number | null
+          slippage_costs?: number | null
+          sortino_ratio?: number | null
+          start_date: string
+          strategy_version?: string | null
+          stress_test_results?: Json | null
+          total_return?: number | null
+          tracking_error?: number | null
+          transaction_costs?: number | null
+          turnover_rate?: number | null
+          universe_definition?: string | null
+          win_rate?: number | null
+        }
+        Update: {
+          alpha?: number | null
+          annualized_return?: number | null
+          annualized_volatility?: number | null
+          assumptions?: string | null
+          average_loss?: number | null
+          average_trade_return?: number | null
+          average_win?: number | null
+          backtest_date?: string
+          backtest_name?: string
+          benchmark_index?: string | null
+          benchmark_return?: number | null
+          beta?: number | null
+          calmar_ratio?: number | null
+          created_at?: string | null
+          currency?: string | null
+          daily_returns?: Json | null
+          data_quality_issues?: string | null
+          drawdown_curve?: Json | null
+          end_date?: string
+          equity_curve?: Json | null
+          excess_return?: number | null
+          factor_loadings?: Json | null
+          final_value?: number
+          id?: string
+          information_ratio?: number | null
+          initial_capital?: number
+          largest_loss?: number | null
+          largest_win?: number | null
+          limitations?: string | null
+          max_drawdown?: number | null
+          max_drawdown_duration_days?: number | null
+          monthly_returns?: Json | null
+          notes?: string | null
+          number_of_trades?: number | null
+          out_of_sample_performance?: Json | null
+          profit_factor?: number | null
+          quantitative_investment_strategies_product_id?: string
+          robustness_checks?: Json | null
+          sharpe_ratio?: number | null
+          slippage_costs?: number | null
+          sortino_ratio?: number | null
+          start_date?: string
+          strategy_version?: string | null
+          stress_test_results?: Json | null
+          total_return?: number | null
+          tracking_error?: number | null
+          transaction_costs?: number | null
+          turnover_rate?: number | null
+          universe_definition?: string | null
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quant_backtests_quantitative_investment_strategies_product_fkey"
+            columns: ["quantitative_investment_strategies_product_id"]
+            isOneToOne: false
+            referencedRelation: "quantitative_investment_strategies_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quant_factors: {
+        Row: {
+          academic_references: string | null
+          calculation_methodology: string
+          capacity_estimate: number | null
+          correlation_to_other_factors: Json | null
+          created_at: string | null
+          current_exposure: number | null
+          data_frequency: string | null
+          exposure_range: Json | null
+          factor_category: string | null
+          factor_definition: string
+          factor_name: string
+          factor_timing_rules: string | null
+          historical_return: number | null
+          historical_volatility: number | null
+          id: string
+          inception_date: string | null
+          information_ratio: number | null
+          is_active: boolean | null
+          notes: string | null
+          quantitative_investment_strategies_product_id: string
+          rebalancing_frequency: string | null
+          risk_controls: Json | null
+          sharpe_ratio: number | null
+          target_exposure: number | null
+          transaction_costs_bps: number | null
+          turnover_rate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          academic_references?: string | null
+          calculation_methodology: string
+          capacity_estimate?: number | null
+          correlation_to_other_factors?: Json | null
+          created_at?: string | null
+          current_exposure?: number | null
+          data_frequency?: string | null
+          exposure_range?: Json | null
+          factor_category?: string | null
+          factor_definition: string
+          factor_name: string
+          factor_timing_rules?: string | null
+          historical_return?: number | null
+          historical_volatility?: number | null
+          id?: string
+          inception_date?: string | null
+          information_ratio?: number | null
+          is_active?: boolean | null
+          notes?: string | null
+          quantitative_investment_strategies_product_id: string
+          rebalancing_frequency?: string | null
+          risk_controls?: Json | null
+          sharpe_ratio?: number | null
+          target_exposure?: number | null
+          transaction_costs_bps?: number | null
+          turnover_rate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          academic_references?: string | null
+          calculation_methodology?: string
+          capacity_estimate?: number | null
+          correlation_to_other_factors?: Json | null
+          created_at?: string | null
+          current_exposure?: number | null
+          data_frequency?: string | null
+          exposure_range?: Json | null
+          factor_category?: string | null
+          factor_definition?: string
+          factor_name?: string
+          factor_timing_rules?: string | null
+          historical_return?: number | null
+          historical_volatility?: number | null
+          id?: string
+          inception_date?: string | null
+          information_ratio?: number | null
+          is_active?: boolean | null
+          notes?: string | null
+          quantitative_investment_strategies_product_id?: string
+          rebalancing_frequency?: string | null
+          risk_controls?: Json | null
+          sharpe_ratio?: number | null
+          target_exposure?: number | null
+          transaction_costs_bps?: number | null
+          turnover_rate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quant_factors_quantitative_investment_strategies_product_i_fkey"
+            columns: ["quantitative_investment_strategies_product_id"]
+            isOneToOne: false
+            referencedRelation: "quantitative_investment_strategies_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quant_performance_attribution: {
+        Row: {
+          allocation_effect: number | null
+          alpha: number | null
+          benchmark_return: number | null
+          beta_adjusted_return: number | null
+          carry_factor_return: number | null
+          created_at: string | null
+          currency: string | null
+          excess_return: number | null
+          expected_shortfall: number | null
+          factor_returns: Json
+          geographic_attribution: Json | null
+          gross_leverage: number | null
+          id: string
+          interaction_effect: number | null
+          management_fees: number | null
+          momentum_factor_return: number | null
+          net_leverage: number | null
+          net_return: number | null
+          notes: string | null
+          other_factor_returns: Json | null
+          period_end_date: string
+          period_start_date: string
+          quality_factor_return: number | null
+          quantitative_investment_strategies_product_id: string
+          sector_attribution: Json | null
+          security_selection_effect: number | null
+          size_factor_return: number | null
+          timing_effect: number | null
+          top_contributors: Json | null
+          top_detractors: Json | null
+          total_return: number
+          transaction_costs: number | null
+          turnover: number | null
+          value_factor_return: number | null
+          var_95: number | null
+          volatility_factor_return: number | null
+        }
+        Insert: {
+          allocation_effect?: number | null
+          alpha?: number | null
+          benchmark_return?: number | null
+          beta_adjusted_return?: number | null
+          carry_factor_return?: number | null
+          created_at?: string | null
+          currency?: string | null
+          excess_return?: number | null
+          expected_shortfall?: number | null
+          factor_returns: Json
+          geographic_attribution?: Json | null
+          gross_leverage?: number | null
+          id?: string
+          interaction_effect?: number | null
+          management_fees?: number | null
+          momentum_factor_return?: number | null
+          net_leverage?: number | null
+          net_return?: number | null
+          notes?: string | null
+          other_factor_returns?: Json | null
+          period_end_date: string
+          period_start_date: string
+          quality_factor_return?: number | null
+          quantitative_investment_strategies_product_id: string
+          sector_attribution?: Json | null
+          security_selection_effect?: number | null
+          size_factor_return?: number | null
+          timing_effect?: number | null
+          top_contributors?: Json | null
+          top_detractors?: Json | null
+          total_return: number
+          transaction_costs?: number | null
+          turnover?: number | null
+          value_factor_return?: number | null
+          var_95?: number | null
+          volatility_factor_return?: number | null
+        }
+        Update: {
+          allocation_effect?: number | null
+          alpha?: number | null
+          benchmark_return?: number | null
+          beta_adjusted_return?: number | null
+          carry_factor_return?: number | null
+          created_at?: string | null
+          currency?: string | null
+          excess_return?: number | null
+          expected_shortfall?: number | null
+          factor_returns?: Json
+          geographic_attribution?: Json | null
+          gross_leverage?: number | null
+          id?: string
+          interaction_effect?: number | null
+          management_fees?: number | null
+          momentum_factor_return?: number | null
+          net_leverage?: number | null
+          net_return?: number | null
+          notes?: string | null
+          other_factor_returns?: Json | null
+          period_end_date?: string
+          period_start_date?: string
+          quality_factor_return?: number | null
+          quantitative_investment_strategies_product_id?: string
+          sector_attribution?: Json | null
+          security_selection_effect?: number | null
+          size_factor_return?: number | null
+          timing_effect?: number | null
+          top_contributors?: Json | null
+          top_detractors?: Json | null
+          total_return?: number
+          transaction_costs?: number | null
+          turnover?: number | null
+          value_factor_return?: number | null
+          var_95?: number | null
+          volatility_factor_return?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quant_performance_attribution_quantitative_investment_stra_fkey"
+            columns: ["quantitative_investment_strategies_product_id"]
+            isOneToOne: false
+            referencedRelation: "quantitative_investment_strategies_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quant_risk_metrics: {
+        Row: {
+          beta_to_market: number | null
+          calculation_date: string
+          concentration_risk: Json | null
+          correlation_breakdown: boolean | null
+          correlation_to_market: number | null
+          created_at: string | null
+          currency: string | null
+          currency_exposures: Json | null
+          days_in_drawdown: number | null
+          estimated_liquidation_time_days: number | null
+          expected_shortfall_95: number | null
+          factor_exposures: Json | null
+          geographic_exposures: Json | null
+          gross_leverage: number | null
+          id: string
+          liquidity_score: number | null
+          long_exposure: number | null
+          max_drawdown_current: number | null
+          net_exposure: number | null
+          net_leverage: number | null
+          notes: string | null
+          portfolio_value: number
+          position_limits_breached: Json | null
+          quantitative_investment_strategies_product_id: string
+          regime_detection: string | null
+          risk_budget_utilization: Json | null
+          sector_exposures: Json | null
+          short_exposure: number | null
+          stress_test_scenarios: Json | null
+          tail_risk_indicators: Json | null
+          tracking_error: number | null
+          var_95_1day: number | null
+          var_99_1day: number | null
+          volatility_20day: number | null
+          volatility_60day: number | null
+        }
+        Insert: {
+          beta_to_market?: number | null
+          calculation_date: string
+          concentration_risk?: Json | null
+          correlation_breakdown?: boolean | null
+          correlation_to_market?: number | null
+          created_at?: string | null
+          currency?: string | null
+          currency_exposures?: Json | null
+          days_in_drawdown?: number | null
+          estimated_liquidation_time_days?: number | null
+          expected_shortfall_95?: number | null
+          factor_exposures?: Json | null
+          geographic_exposures?: Json | null
+          gross_leverage?: number | null
+          id?: string
+          liquidity_score?: number | null
+          long_exposure?: number | null
+          max_drawdown_current?: number | null
+          net_exposure?: number | null
+          net_leverage?: number | null
+          notes?: string | null
+          portfolio_value: number
+          position_limits_breached?: Json | null
+          quantitative_investment_strategies_product_id: string
+          regime_detection?: string | null
+          risk_budget_utilization?: Json | null
+          sector_exposures?: Json | null
+          short_exposure?: number | null
+          stress_test_scenarios?: Json | null
+          tail_risk_indicators?: Json | null
+          tracking_error?: number | null
+          var_95_1day?: number | null
+          var_99_1day?: number | null
+          volatility_20day?: number | null
+          volatility_60day?: number | null
+        }
+        Update: {
+          beta_to_market?: number | null
+          calculation_date?: string
+          concentration_risk?: Json | null
+          correlation_breakdown?: boolean | null
+          correlation_to_market?: number | null
+          created_at?: string | null
+          currency?: string | null
+          currency_exposures?: Json | null
+          days_in_drawdown?: number | null
+          estimated_liquidation_time_days?: number | null
+          expected_shortfall_95?: number | null
+          factor_exposures?: Json | null
+          geographic_exposures?: Json | null
+          gross_leverage?: number | null
+          id?: string
+          liquidity_score?: number | null
+          long_exposure?: number | null
+          max_drawdown_current?: number | null
+          net_exposure?: number | null
+          net_leverage?: number | null
+          notes?: string | null
+          portfolio_value?: number
+          position_limits_breached?: Json | null
+          quantitative_investment_strategies_product_id?: string
+          regime_detection?: string | null
+          risk_budget_utilization?: Json | null
+          sector_exposures?: Json | null
+          short_exposure?: number | null
+          stress_test_scenarios?: Json | null
+          tail_risk_indicators?: Json | null
+          tracking_error?: number | null
+          var_95_1day?: number | null
+          var_99_1day?: number | null
+          volatility_20day?: number | null
+          volatility_60day?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quant_risk_metrics_quantitative_investment_strategies_prod_fkey"
+            columns: ["quantitative_investment_strategies_product_id"]
+            isOneToOne: false
+            referencedRelation: "quantitative_investment_strategies_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quant_signals: {
+        Row: {
+          asset_class: string | null
+          confidence_level: number | null
+          created_at: string | null
+          current_position_size: number | null
+          current_weight: number | null
+          execution_deadline: string | null
+          execution_price: number | null
+          execution_priority: string | null
+          execution_size: number | null
+          execution_timestamp: string | null
+          factor_contribution: Json | null
+          id: string
+          model_inputs: Json | null
+          model_outputs: Json | null
+          notes: string | null
+          quantitative_investment_strategies_product_id: string
+          recommended_action: string | null
+          recommended_position_size: number | null
+          recommended_weight: number | null
+          risk_metrics: Json | null
+          security_name: string | null
+          security_ticker: string | null
+          signal_performance: number | null
+          signal_status: string | null
+          signal_strength: number | null
+          signal_timestamp: string
+          signal_type: string
+          slippage: number | null
+          stop_loss_price: number | null
+          take_profit_price: number | null
+          target_price: number | null
+          time_horizon: string | null
+          updated_at: string | null
+          was_executed: boolean | null
+        }
+        Insert: {
+          asset_class?: string | null
+          confidence_level?: number | null
+          created_at?: string | null
+          current_position_size?: number | null
+          current_weight?: number | null
+          execution_deadline?: string | null
+          execution_price?: number | null
+          execution_priority?: string | null
+          execution_size?: number | null
+          execution_timestamp?: string | null
+          factor_contribution?: Json | null
+          id?: string
+          model_inputs?: Json | null
+          model_outputs?: Json | null
+          notes?: string | null
+          quantitative_investment_strategies_product_id: string
+          recommended_action?: string | null
+          recommended_position_size?: number | null
+          recommended_weight?: number | null
+          risk_metrics?: Json | null
+          security_name?: string | null
+          security_ticker?: string | null
+          signal_performance?: number | null
+          signal_status?: string | null
+          signal_strength?: number | null
+          signal_timestamp: string
+          signal_type: string
+          slippage?: number | null
+          stop_loss_price?: number | null
+          take_profit_price?: number | null
+          target_price?: number | null
+          time_horizon?: string | null
+          updated_at?: string | null
+          was_executed?: boolean | null
+        }
+        Update: {
+          asset_class?: string | null
+          confidence_level?: number | null
+          created_at?: string | null
+          current_position_size?: number | null
+          current_weight?: number | null
+          execution_deadline?: string | null
+          execution_price?: number | null
+          execution_priority?: string | null
+          execution_size?: number | null
+          execution_timestamp?: string | null
+          factor_contribution?: Json | null
+          id?: string
+          model_inputs?: Json | null
+          model_outputs?: Json | null
+          notes?: string | null
+          quantitative_investment_strategies_product_id?: string
+          recommended_action?: string | null
+          recommended_position_size?: number | null
+          recommended_weight?: number | null
+          risk_metrics?: Json | null
+          security_name?: string | null
+          security_ticker?: string | null
+          signal_performance?: number | null
+          signal_status?: string | null
+          signal_strength?: number | null
+          signal_timestamp?: string
+          signal_type?: string
+          slippage?: number | null
+          stop_loss_price?: number | null
+          take_profit_price?: number | null
+          target_price?: number | null
+          time_horizon?: string | null
+          updated_at?: string | null
+          was_executed?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quant_signals_quantitative_investment_strategies_product_i_fkey"
+            columns: ["quantitative_investment_strategies_product_id"]
+            isOneToOne: false
+            referencedRelation: "quantitative_investment_strategies_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quantitative_investment_strategies_products: {
         Row: {
@@ -11129,7 +19731,7 @@ export type Database = {
           development_stage: string | null
           disposition_date: string | null
           ending_date: string | null
-          environmental_certifications: string[] | null
+          environmental_certs: string[] | null
           geographic_location: string | null
           gross_amount: number | null
           id: string
@@ -11163,7 +19765,7 @@ export type Database = {
           development_stage?: string | null
           disposition_date?: string | null
           ending_date?: string | null
-          environmental_certifications?: string[] | null
+          environmental_certs?: string[] | null
           geographic_location?: string | null
           gross_amount?: number | null
           id?: string
@@ -11197,7 +19799,7 @@ export type Database = {
           development_stage?: string | null
           disposition_date?: string | null
           ending_date?: string | null
-          environmental_certifications?: string[] | null
+          environmental_certs?: string[] | null
           geographic_location?: string | null
           gross_amount?: number | null
           id?: string
@@ -13085,6 +21687,541 @@ export type Database = {
         }
         Relationships: []
       }
+      sc_algorithm_parameters: {
+        Row: {
+          algorithm_version: string | null
+          approval_date: string | null
+          bonding_curve_parameters: Json | null
+          change_reason: string | null
+          circuit_breaker_rules: Json | null
+          contraction_coefficient: number | null
+          coupon_issuance_rules: Json | null
+          created_at: string | null
+          debt_ceiling: number | null
+          effective_timestamp: string
+          expansion_coefficient: number | null
+          expiration_timestamp: string | null
+          governance_parameters: Json | null
+          id: string
+          is_active: boolean | null
+          liquidation_penalty: number | null
+          liquidation_ratio: number | null
+          max_rebase_percentage: number | null
+          minimum_collateral_ratio: number | null
+          notes: string | null
+          oracle_deviation_threshold_bps: number | null
+          oracle_source: string | null
+          oracle_update_frequency_seconds: number | null
+          parameter_set_name: string | null
+          proposed_by: string | null
+          rebase_frequency: string | null
+          rebase_lag: number | null
+          rebase_threshold_bps: number | null
+          smoothing_factor: number | null
+          stability_fee_rate: number | null
+          stablecoin_product_id: string
+          target_peg: number
+          updated_at: string | null
+        }
+        Insert: {
+          algorithm_version?: string | null
+          approval_date?: string | null
+          bonding_curve_parameters?: Json | null
+          change_reason?: string | null
+          circuit_breaker_rules?: Json | null
+          contraction_coefficient?: number | null
+          coupon_issuance_rules?: Json | null
+          created_at?: string | null
+          debt_ceiling?: number | null
+          effective_timestamp: string
+          expansion_coefficient?: number | null
+          expiration_timestamp?: string | null
+          governance_parameters?: Json | null
+          id?: string
+          is_active?: boolean | null
+          liquidation_penalty?: number | null
+          liquidation_ratio?: number | null
+          max_rebase_percentage?: number | null
+          minimum_collateral_ratio?: number | null
+          notes?: string | null
+          oracle_deviation_threshold_bps?: number | null
+          oracle_source?: string | null
+          oracle_update_frequency_seconds?: number | null
+          parameter_set_name?: string | null
+          proposed_by?: string | null
+          rebase_frequency?: string | null
+          rebase_lag?: number | null
+          rebase_threshold_bps?: number | null
+          smoothing_factor?: number | null
+          stability_fee_rate?: number | null
+          stablecoin_product_id: string
+          target_peg: number
+          updated_at?: string | null
+        }
+        Update: {
+          algorithm_version?: string | null
+          approval_date?: string | null
+          bonding_curve_parameters?: Json | null
+          change_reason?: string | null
+          circuit_breaker_rules?: Json | null
+          contraction_coefficient?: number | null
+          coupon_issuance_rules?: Json | null
+          created_at?: string | null
+          debt_ceiling?: number | null
+          effective_timestamp?: string
+          expansion_coefficient?: number | null
+          expiration_timestamp?: string | null
+          governance_parameters?: Json | null
+          id?: string
+          is_active?: boolean | null
+          liquidation_penalty?: number | null
+          liquidation_ratio?: number | null
+          max_rebase_percentage?: number | null
+          minimum_collateral_ratio?: number | null
+          notes?: string | null
+          oracle_deviation_threshold_bps?: number | null
+          oracle_source?: string | null
+          oracle_update_frequency_seconds?: number | null
+          parameter_set_name?: string | null
+          proposed_by?: string | null
+          rebase_frequency?: string | null
+          rebase_lag?: number | null
+          rebase_threshold_bps?: number | null
+          smoothing_factor?: number | null
+          stability_fee_rate?: number | null
+          stablecoin_product_id?: string
+          target_peg?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sc_algorithm_parameters_stablecoin_product_id_fkey"
+            columns: ["stablecoin_product_id"]
+            isOneToOne: false
+            referencedRelation: "stablecoin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sc_minting_events: {
+        Row: {
+          block_number: number | null
+          collateral_deposited: Json
+          collateral_value: number
+          collateralization_ratio_after: number | null
+          created_at: string | null
+          currency: string | null
+          destination_address: string | null
+          exchange_rate: number | null
+          failure_reason: string | null
+          fee_percentage: number | null
+          gas_price_gwei: number | null
+          gas_used: number | null
+          id: string
+          is_large_mint: boolean | null
+          kyc_aml_status: string | null
+          mint_id: string
+          mint_timestamp: string
+          minted_amount: number
+          minter_address: string
+          minting_fee: number | null
+          notes: string | null
+          related_redemption_id: string | null
+          risk_score: number | null
+          source_address: string | null
+          stablecoin_product_id: string
+          status: string | null
+          total_gas_cost: number | null
+          transaction_hash: string
+          triggered_rebalancing: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_number?: number | null
+          collateral_deposited: Json
+          collateral_value: number
+          collateralization_ratio_after?: number | null
+          created_at?: string | null
+          currency?: string | null
+          destination_address?: string | null
+          exchange_rate?: number | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          gas_price_gwei?: number | null
+          gas_used?: number | null
+          id?: string
+          is_large_mint?: boolean | null
+          kyc_aml_status?: string | null
+          mint_id: string
+          mint_timestamp: string
+          minted_amount: number
+          minter_address: string
+          minting_fee?: number | null
+          notes?: string | null
+          related_redemption_id?: string | null
+          risk_score?: number | null
+          source_address?: string | null
+          stablecoin_product_id: string
+          status?: string | null
+          total_gas_cost?: number | null
+          transaction_hash: string
+          triggered_rebalancing?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_number?: number | null
+          collateral_deposited?: Json
+          collateral_value?: number
+          collateralization_ratio_after?: number | null
+          created_at?: string | null
+          currency?: string | null
+          destination_address?: string | null
+          exchange_rate?: number | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          gas_price_gwei?: number | null
+          gas_used?: number | null
+          id?: string
+          is_large_mint?: boolean | null
+          kyc_aml_status?: string | null
+          mint_id?: string
+          mint_timestamp?: string
+          minted_amount?: number
+          minter_address?: string
+          minting_fee?: number | null
+          notes?: string | null
+          related_redemption_id?: string | null
+          risk_score?: number | null
+          source_address?: string | null
+          stablecoin_product_id?: string
+          status?: string | null
+          total_gas_cost?: number | null
+          transaction_hash?: string
+          triggered_rebalancing?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sc_minting_events_stablecoin_product_id_fkey"
+            columns: ["stablecoin_product_id"]
+            isOneToOne: false
+            referencedRelation: "stablecoin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sc_peg_history: {
+        Row: {
+          acceptable_range_bps: number | null
+          actual_price: number
+          ask_price: number | null
+          bid_price: number | null
+          created_at: string | null
+          currency: string | null
+          data_provider: string | null
+          depeg_severity: string | null
+          deviation: number | null
+          deviation_bps: number | null
+          deviation_percentage: number | null
+          exchange: string | null
+          id: string
+          is_within_acceptable_range: boolean | null
+          liquidity_depth: number | null
+          market_cap: number | null
+          market_conditions: string | null
+          notes: string | null
+          price_source: string | null
+          spread_bps: number | null
+          stablecoin_product_id: string
+          target_peg: number
+          timestamp: string
+          trading_volume_24h: number | null
+        }
+        Insert: {
+          acceptable_range_bps?: number | null
+          actual_price: number
+          ask_price?: number | null
+          bid_price?: number | null
+          created_at?: string | null
+          currency?: string | null
+          data_provider?: string | null
+          depeg_severity?: string | null
+          deviation?: number | null
+          deviation_bps?: number | null
+          deviation_percentage?: number | null
+          exchange?: string | null
+          id?: string
+          is_within_acceptable_range?: boolean | null
+          liquidity_depth?: number | null
+          market_cap?: number | null
+          market_conditions?: string | null
+          notes?: string | null
+          price_source?: string | null
+          spread_bps?: number | null
+          stablecoin_product_id: string
+          target_peg: number
+          timestamp: string
+          trading_volume_24h?: number | null
+        }
+        Update: {
+          acceptable_range_bps?: number | null
+          actual_price?: number
+          ask_price?: number | null
+          bid_price?: number | null
+          created_at?: string | null
+          currency?: string | null
+          data_provider?: string | null
+          depeg_severity?: string | null
+          deviation?: number | null
+          deviation_bps?: number | null
+          deviation_percentage?: number | null
+          exchange?: string | null
+          id?: string
+          is_within_acceptable_range?: boolean | null
+          liquidity_depth?: number | null
+          market_cap?: number | null
+          market_conditions?: string | null
+          notes?: string | null
+          price_source?: string | null
+          spread_bps?: number | null
+          stablecoin_product_id?: string
+          target_peg?: number
+          timestamp?: string
+          trading_volume_24h?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sc_peg_history_stablecoin_product_id_fkey"
+            columns: ["stablecoin_product_id"]
+            isOneToOne: false
+            referencedRelation: "stablecoin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sc_redemptions: {
+        Row: {
+          collateral_released: Json | null
+          completion_timestamp: string | null
+          created_at: string | null
+          destination_address: string | null
+          exchange_rate: number | null
+          failure_reason: string | null
+          fee_percentage: number | null
+          id: string
+          is_large_redemption: boolean | null
+          kyc_aml_status: string | null
+          market_impact_estimate: number | null
+          notes: string | null
+          processing_time_hours: number | null
+          redeemed_amount: number | null
+          redemption_currency: string | null
+          redemption_fee: number | null
+          redemption_id: string
+          redemption_method: string | null
+          related_mint_id: string | null
+          request_timestamp: string
+          requested_amount: number
+          requester_address: string
+          risk_score: number | null
+          stablecoin_product_id: string
+          status: string | null
+          transaction_hash: string | null
+          triggered_reserve_action: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          collateral_released?: Json | null
+          completion_timestamp?: string | null
+          created_at?: string | null
+          destination_address?: string | null
+          exchange_rate?: number | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          id?: string
+          is_large_redemption?: boolean | null
+          kyc_aml_status?: string | null
+          market_impact_estimate?: number | null
+          notes?: string | null
+          processing_time_hours?: number | null
+          redeemed_amount?: number | null
+          redemption_currency?: string | null
+          redemption_fee?: number | null
+          redemption_id: string
+          redemption_method?: string | null
+          related_mint_id?: string | null
+          request_timestamp: string
+          requested_amount: number
+          requester_address: string
+          risk_score?: number | null
+          stablecoin_product_id: string
+          status?: string | null
+          transaction_hash?: string | null
+          triggered_reserve_action?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          collateral_released?: Json | null
+          completion_timestamp?: string | null
+          created_at?: string | null
+          destination_address?: string | null
+          exchange_rate?: number | null
+          failure_reason?: string | null
+          fee_percentage?: number | null
+          id?: string
+          is_large_redemption?: boolean | null
+          kyc_aml_status?: string | null
+          market_impact_estimate?: number | null
+          notes?: string | null
+          processing_time_hours?: number | null
+          redeemed_amount?: number | null
+          redemption_currency?: string | null
+          redemption_fee?: number | null
+          redemption_id?: string
+          redemption_method?: string | null
+          related_mint_id?: string | null
+          request_timestamp?: string
+          requested_amount?: number
+          requester_address?: string
+          risk_score?: number | null
+          stablecoin_product_id?: string
+          status?: string | null
+          transaction_hash?: string | null
+          triggered_reserve_action?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sc_redemptions_stablecoin_product_id_fkey"
+            columns: ["stablecoin_product_id"]
+            isOneToOne: false
+            referencedRelation: "stablecoin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sc_reserve_audits: {
+        Row: {
+          audit_date: string
+          audit_period_end: string
+          audit_period_start: string
+          audit_report_url: string | null
+          audit_type: string
+          auditor_name: string
+          auditor_type: string | null
+          cash_and_equivalents: number | null
+          collateralization_ratio: number
+          commercial_paper: number | null
+          corporate_bonds: number | null
+          created_at: string | null
+          credit_quality_breakdown: Json | null
+          crypto_assets: number | null
+          currency: string | null
+          custodian_breakdown: Json | null
+          disclosure_date: string | null
+          discrepancies: Json | null
+          geographic_breakdown: Json | null
+          id: string
+          is_publicly_disclosed: boolean | null
+          key_findings: string | null
+          liquidity_analysis: Json | null
+          maturity_breakdown: Json | null
+          notes: string | null
+          opinion: string | null
+          other_assets: number | null
+          regulatory_filing_reference: string | null
+          reserve_breakdown: Json
+          short_term_deposits: number | null
+          stablecoin_product_id: string
+          total_reserve_value: number
+          total_tokens_outstanding: number
+          treasury_securities: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          audit_date: string
+          audit_period_end: string
+          audit_period_start: string
+          audit_report_url?: string | null
+          audit_type: string
+          auditor_name: string
+          auditor_type?: string | null
+          cash_and_equivalents?: number | null
+          collateralization_ratio: number
+          commercial_paper?: number | null
+          corporate_bonds?: number | null
+          created_at?: string | null
+          credit_quality_breakdown?: Json | null
+          crypto_assets?: number | null
+          currency?: string | null
+          custodian_breakdown?: Json | null
+          disclosure_date?: string | null
+          discrepancies?: Json | null
+          geographic_breakdown?: Json | null
+          id?: string
+          is_publicly_disclosed?: boolean | null
+          key_findings?: string | null
+          liquidity_analysis?: Json | null
+          maturity_breakdown?: Json | null
+          notes?: string | null
+          opinion?: string | null
+          other_assets?: number | null
+          regulatory_filing_reference?: string | null
+          reserve_breakdown: Json
+          short_term_deposits?: number | null
+          stablecoin_product_id: string
+          total_reserve_value: number
+          total_tokens_outstanding: number
+          treasury_securities?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          audit_date?: string
+          audit_period_end?: string
+          audit_period_start?: string
+          audit_report_url?: string | null
+          audit_type?: string
+          auditor_name?: string
+          auditor_type?: string | null
+          cash_and_equivalents?: number | null
+          collateralization_ratio?: number
+          commercial_paper?: number | null
+          corporate_bonds?: number | null
+          created_at?: string | null
+          credit_quality_breakdown?: Json | null
+          crypto_assets?: number | null
+          currency?: string | null
+          custodian_breakdown?: Json | null
+          disclosure_date?: string | null
+          discrepancies?: Json | null
+          geographic_breakdown?: Json | null
+          id?: string
+          is_publicly_disclosed?: boolean | null
+          key_findings?: string | null
+          liquidity_analysis?: Json | null
+          maturity_breakdown?: Json | null
+          notes?: string | null
+          opinion?: string | null
+          other_assets?: number | null
+          regulatory_filing_reference?: string | null
+          reserve_breakdown?: Json
+          short_term_deposits?: number | null
+          stablecoin_product_id?: string
+          total_reserve_value?: number
+          total_tokens_outstanding?: number
+          treasury_securities?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sc_reserve_audits_stablecoin_product_id_fkey"
+            columns: ["stablecoin_product_id"]
+            isOneToOne: false
+            referencedRelation: "stablecoin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       security_audit_logs: {
         Row: {
           created_at: string | null
@@ -13768,6 +22905,606 @@ export type Database = {
           },
         ]
       }
+      sp_barrier_events: {
+        Row: {
+          barrier_level: number
+          barrier_type: string
+          breach_detected: boolean
+          breach_magnitude: number | null
+          created_at: string | null
+          event_consequences: string | null
+          event_timestamp: string
+          id: string
+          investor_communication_sent: boolean | null
+          is_verified: boolean | null
+          notes: string | null
+          notification_required: boolean | null
+          notification_sent: boolean | null
+          observation_method: string | null
+          observed_level: number
+          payoff_impact: number | null
+          regulatory_reporting_required: boolean | null
+          structured_product_id: string
+          triggered_autocall: boolean | null
+          triggered_capital_loss: boolean | null
+          triggered_coupon_cancellation: boolean | null
+          underlying_asset: string | null
+          updated_at: string | null
+          verification_source: string | null
+        }
+        Insert: {
+          barrier_level: number
+          barrier_type: string
+          breach_detected: boolean
+          breach_magnitude?: number | null
+          created_at?: string | null
+          event_consequences?: string | null
+          event_timestamp: string
+          id?: string
+          investor_communication_sent?: boolean | null
+          is_verified?: boolean | null
+          notes?: string | null
+          notification_required?: boolean | null
+          notification_sent?: boolean | null
+          observation_method?: string | null
+          observed_level: number
+          payoff_impact?: number | null
+          regulatory_reporting_required?: boolean | null
+          structured_product_id: string
+          triggered_autocall?: boolean | null
+          triggered_capital_loss?: boolean | null
+          triggered_coupon_cancellation?: boolean | null
+          underlying_asset?: string | null
+          updated_at?: string | null
+          verification_source?: string | null
+        }
+        Update: {
+          barrier_level?: number
+          barrier_type?: string
+          breach_detected?: boolean
+          breach_magnitude?: number | null
+          created_at?: string | null
+          event_consequences?: string | null
+          event_timestamp?: string
+          id?: string
+          investor_communication_sent?: boolean | null
+          is_verified?: boolean | null
+          notes?: string | null
+          notification_required?: boolean | null
+          notification_sent?: boolean | null
+          observation_method?: string | null
+          observed_level?: number
+          payoff_impact?: number | null
+          regulatory_reporting_required?: boolean | null
+          structured_product_id?: string
+          triggered_autocall?: boolean | null
+          triggered_capital_loss?: boolean | null
+          triggered_coupon_cancellation?: boolean | null
+          underlying_asset?: string | null
+          updated_at?: string | null
+          verification_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_barrier_events_structured_product_id_fkey"
+            columns: ["structured_product_id"]
+            isOneToOne: false
+            referencedRelation: "structured_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_components: {
+        Row: {
+          component_name: string
+          component_type: string
+          correlation_to_other_components: Json | null
+          created_at: string | null
+          currency: string | null
+          current_price: number | null
+          delta: number | null
+          gamma: number | null
+          id: string
+          implied_volatility: number | null
+          initial_price: number | null
+          is_path_dependent: boolean | null
+          last_rebalance_date: string | null
+          next_rebalance_date: string | null
+          notes: string | null
+          notional_amount: number
+          option_expiry: string | null
+          option_style: string | null
+          path_dependency_type: string | null
+          performance_contribution: number | null
+          position_type: string
+          quantity: number | null
+          status: string | null
+          strike_price: number | null
+          structured_product_id: string
+          theta: number | null
+          underlying_cusip: string | null
+          underlying_isin: string | null
+          underlying_ticker: string | null
+          updated_at: string | null
+          vega: number | null
+          weight_percentage: number | null
+        }
+        Insert: {
+          component_name: string
+          component_type: string
+          correlation_to_other_components?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          current_price?: number | null
+          delta?: number | null
+          gamma?: number | null
+          id?: string
+          implied_volatility?: number | null
+          initial_price?: number | null
+          is_path_dependent?: boolean | null
+          last_rebalance_date?: string | null
+          next_rebalance_date?: string | null
+          notes?: string | null
+          notional_amount: number
+          option_expiry?: string | null
+          option_style?: string | null
+          path_dependency_type?: string | null
+          performance_contribution?: number | null
+          position_type: string
+          quantity?: number | null
+          status?: string | null
+          strike_price?: number | null
+          structured_product_id: string
+          theta?: number | null
+          underlying_cusip?: string | null
+          underlying_isin?: string | null
+          underlying_ticker?: string | null
+          updated_at?: string | null
+          vega?: number | null
+          weight_percentage?: number | null
+        }
+        Update: {
+          component_name?: string
+          component_type?: string
+          correlation_to_other_components?: Json | null
+          created_at?: string | null
+          currency?: string | null
+          current_price?: number | null
+          delta?: number | null
+          gamma?: number | null
+          id?: string
+          implied_volatility?: number | null
+          initial_price?: number | null
+          is_path_dependent?: boolean | null
+          last_rebalance_date?: string | null
+          next_rebalance_date?: string | null
+          notes?: string | null
+          notional_amount?: number
+          option_expiry?: string | null
+          option_style?: string | null
+          path_dependency_type?: string | null
+          performance_contribution?: number | null
+          position_type?: string
+          quantity?: number | null
+          status?: string | null
+          strike_price?: number | null
+          structured_product_id?: string
+          theta?: number | null
+          underlying_cusip?: string | null
+          underlying_isin?: string | null
+          underlying_ticker?: string | null
+          updated_at?: string | null
+          vega?: number | null
+          weight_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_components_structured_product_id_fkey"
+            columns: ["structured_product_id"]
+            isOneToOne: false
+            referencedRelation: "structured_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_coupon_schedules: {
+        Row: {
+          accumulated_unpaid_coupons: number | null
+          actual_payment_amount: number | null
+          actual_payment_date: string | null
+          barrier_level: number | null
+          barrier_met: boolean | null
+          barrier_observation_value: number | null
+          condition_description: string | null
+          coupon_amount: number
+          coupon_number: number
+          coupon_rate: number
+          created_at: string | null
+          currency: string | null
+          id: string
+          is_conditional: boolean | null
+          memory_coupon: boolean | null
+          net_payment: number | null
+          notes: string | null
+          notional_amount: number
+          observation_date: string
+          payment_date: string
+          payment_reference: string | null
+          payment_status: string | null
+          structured_product_id: string
+          updated_at: string | null
+          withholding_tax: number | null
+        }
+        Insert: {
+          accumulated_unpaid_coupons?: number | null
+          actual_payment_amount?: number | null
+          actual_payment_date?: string | null
+          barrier_level?: number | null
+          barrier_met?: boolean | null
+          barrier_observation_value?: number | null
+          condition_description?: string | null
+          coupon_amount: number
+          coupon_number: number
+          coupon_rate: number
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_conditional?: boolean | null
+          memory_coupon?: boolean | null
+          net_payment?: number | null
+          notes?: string | null
+          notional_amount: number
+          observation_date: string
+          payment_date: string
+          payment_reference?: string | null
+          payment_status?: string | null
+          structured_product_id: string
+          updated_at?: string | null
+          withholding_tax?: number | null
+        }
+        Update: {
+          accumulated_unpaid_coupons?: number | null
+          actual_payment_amount?: number | null
+          actual_payment_date?: string | null
+          barrier_level?: number | null
+          barrier_met?: boolean | null
+          barrier_observation_value?: number | null
+          condition_description?: string | null
+          coupon_amount?: number
+          coupon_number?: number
+          coupon_rate?: number
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_conditional?: boolean | null
+          memory_coupon?: boolean | null
+          net_payment?: number | null
+          notes?: string | null
+          notional_amount?: number
+          observation_date?: string
+          payment_date?: string
+          payment_reference?: string | null
+          payment_status?: string | null
+          structured_product_id?: string
+          updated_at?: string | null
+          withholding_tax?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_coupon_schedules_structured_product_id_fkey"
+            columns: ["structured_product_id"]
+            isOneToOne: false
+            referencedRelation: "structured_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_payoff_structures: {
+        Row: {
+          autocall_levels: Json | null
+          averaging_method: string | null
+          cap_rate: number | null
+          coupon_barrier_level: number | null
+          coupon_frequency: string | null
+          coupon_rate: number | null
+          created_at: string | null
+          downside_protection_level: number | null
+          floor_rate: number | null
+          id: string
+          is_principal_protected: boolean | null
+          issuer_credit_spread: number | null
+          knock_in_barrier: number | null
+          knock_out_barrier: number | null
+          memory_feature: boolean | null
+          notes: string | null
+          observation_dates: string[] | null
+          observation_frequency: string | null
+          participation_rate: number | null
+          payoff_formula: string
+          payoff_scenarios: Json | null
+          protection_percentage: number | null
+          settlement_method: string | null
+          structure_name: string
+          structure_type: string
+          structured_product_id: string
+          updated_at: string | null
+          worst_of_basket: Json | null
+        }
+        Insert: {
+          autocall_levels?: Json | null
+          averaging_method?: string | null
+          cap_rate?: number | null
+          coupon_barrier_level?: number | null
+          coupon_frequency?: string | null
+          coupon_rate?: number | null
+          created_at?: string | null
+          downside_protection_level?: number | null
+          floor_rate?: number | null
+          id?: string
+          is_principal_protected?: boolean | null
+          issuer_credit_spread?: number | null
+          knock_in_barrier?: number | null
+          knock_out_barrier?: number | null
+          memory_feature?: boolean | null
+          notes?: string | null
+          observation_dates?: string[] | null
+          observation_frequency?: string | null
+          participation_rate?: number | null
+          payoff_formula: string
+          payoff_scenarios?: Json | null
+          protection_percentage?: number | null
+          settlement_method?: string | null
+          structure_name: string
+          structure_type: string
+          structured_product_id: string
+          updated_at?: string | null
+          worst_of_basket?: Json | null
+        }
+        Update: {
+          autocall_levels?: Json | null
+          averaging_method?: string | null
+          cap_rate?: number | null
+          coupon_barrier_level?: number | null
+          coupon_frequency?: string | null
+          coupon_rate?: number | null
+          created_at?: string | null
+          downside_protection_level?: number | null
+          floor_rate?: number | null
+          id?: string
+          is_principal_protected?: boolean | null
+          issuer_credit_spread?: number | null
+          knock_in_barrier?: number | null
+          knock_out_barrier?: number | null
+          memory_feature?: boolean | null
+          notes?: string | null
+          observation_dates?: string[] | null
+          observation_frequency?: string | null
+          participation_rate?: number | null
+          payoff_formula?: string
+          payoff_scenarios?: Json | null
+          protection_percentage?: number | null
+          settlement_method?: string | null
+          structure_name?: string
+          structure_type?: string
+          structured_product_id?: string
+          updated_at?: string | null
+          worst_of_basket?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_payoff_structures_structured_product_id_fkey"
+            columns: ["structured_product_id"]
+            isOneToOne: false
+            referencedRelation: "structured_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_performance_tracking: {
+        Row: {
+          accrued_coupon: number | null
+          autocall_probability: number | null
+          barrier_proximity: Json | null
+          clean_price: number | null
+          component_performance: Json | null
+          convexity: number | null
+          created_at: string | null
+          credit_valuation_adjustment: number | null
+          currency: string | null
+          data_source: string | null
+          days_to_maturity: number | null
+          delta: number | null
+          dirty_price: number | null
+          duration: number | null
+          expected_payoff: number | null
+          funding_valuation_adjustment: number | null
+          gamma: number | null
+          id: string
+          is_estimated: boolean | null
+          market_value: number
+          model_assumptions: Json | null
+          notes: string | null
+          par_value: number
+          percentage_of_par: number | null
+          pricing_model: string | null
+          structured_product_id: string
+          theta: number | null
+          valuation_date: string
+          value_at_risk: number | null
+          vega: number | null
+          yield_to_maturity: number | null
+        }
+        Insert: {
+          accrued_coupon?: number | null
+          autocall_probability?: number | null
+          barrier_proximity?: Json | null
+          clean_price?: number | null
+          component_performance?: Json | null
+          convexity?: number | null
+          created_at?: string | null
+          credit_valuation_adjustment?: number | null
+          currency?: string | null
+          data_source?: string | null
+          days_to_maturity?: number | null
+          delta?: number | null
+          dirty_price?: number | null
+          duration?: number | null
+          expected_payoff?: number | null
+          funding_valuation_adjustment?: number | null
+          gamma?: number | null
+          id?: string
+          is_estimated?: boolean | null
+          market_value: number
+          model_assumptions?: Json | null
+          notes?: string | null
+          par_value: number
+          percentage_of_par?: number | null
+          pricing_model?: string | null
+          structured_product_id: string
+          theta?: number | null
+          valuation_date: string
+          value_at_risk?: number | null
+          vega?: number | null
+          yield_to_maturity?: number | null
+        }
+        Update: {
+          accrued_coupon?: number | null
+          autocall_probability?: number | null
+          barrier_proximity?: Json | null
+          clean_price?: number | null
+          component_performance?: Json | null
+          convexity?: number | null
+          created_at?: string | null
+          credit_valuation_adjustment?: number | null
+          currency?: string | null
+          data_source?: string | null
+          days_to_maturity?: number | null
+          delta?: number | null
+          dirty_price?: number | null
+          duration?: number | null
+          expected_payoff?: number | null
+          funding_valuation_adjustment?: number | null
+          gamma?: number | null
+          id?: string
+          is_estimated?: boolean | null
+          market_value?: number
+          model_assumptions?: Json | null
+          notes?: string | null
+          par_value?: number
+          percentage_of_par?: number | null
+          pricing_model?: string | null
+          structured_product_id?: string
+          theta?: number | null
+          valuation_date?: string
+          value_at_risk?: number | null
+          vega?: number | null
+          yield_to_maturity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_performance_tracking_structured_product_id_fkey"
+            columns: ["structured_product_id"]
+            isOneToOne: false
+            referencedRelation: "structured_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_redemption_features: {
+        Row: {
+          call_notice_days: number | null
+          call_protection_end_date: string | null
+          call_schedule: Json | null
+          created_at: string | null
+          effective_date: string
+          expiration_date: string | null
+          feature_type: string
+          id: string
+          is_callable: boolean | null
+          is_puttable: boolean | null
+          make_whole_formula: string | null
+          make_whole_provision: boolean | null
+          minimum_redemption_amount: number | null
+          notes: string | null
+          partial_redemption_allowed: boolean | null
+          redemption_fee: number | null
+          redemption_price: number
+          redemption_price_type: string | null
+          redemption_settlement_days: number | null
+          redemption_status: string | null
+          structured_product_id: string
+          trigger_condition: string | null
+          trigger_date: string | null
+          trigger_level: number | null
+          updated_at: string | null
+          was_triggered: boolean | null
+        }
+        Insert: {
+          call_notice_days?: number | null
+          call_protection_end_date?: string | null
+          call_schedule?: Json | null
+          created_at?: string | null
+          effective_date: string
+          expiration_date?: string | null
+          feature_type: string
+          id?: string
+          is_callable?: boolean | null
+          is_puttable?: boolean | null
+          make_whole_formula?: string | null
+          make_whole_provision?: boolean | null
+          minimum_redemption_amount?: number | null
+          notes?: string | null
+          partial_redemption_allowed?: boolean | null
+          redemption_fee?: number | null
+          redemption_price: number
+          redemption_price_type?: string | null
+          redemption_settlement_days?: number | null
+          redemption_status?: string | null
+          structured_product_id: string
+          trigger_condition?: string | null
+          trigger_date?: string | null
+          trigger_level?: number | null
+          updated_at?: string | null
+          was_triggered?: boolean | null
+        }
+        Update: {
+          call_notice_days?: number | null
+          call_protection_end_date?: string | null
+          call_schedule?: Json | null
+          created_at?: string | null
+          effective_date?: string
+          expiration_date?: string | null
+          feature_type?: string
+          id?: string
+          is_callable?: boolean | null
+          is_puttable?: boolean | null
+          make_whole_formula?: string | null
+          make_whole_provision?: boolean | null
+          minimum_redemption_amount?: number | null
+          notes?: string | null
+          partial_redemption_allowed?: boolean | null
+          redemption_fee?: number | null
+          redemption_price?: number
+          redemption_price_type?: string | null
+          redemption_settlement_days?: number | null
+          redemption_status?: string | null
+          structured_product_id?: string
+          trigger_condition?: string | null
+          trigger_date?: string | null
+          trigger_level?: number | null
+          updated_at?: string | null
+          was_triggered?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_redemption_features_structured_product_id_fkey"
+            columns: ["structured_product_id"]
+            isOneToOne: false
+            referencedRelation: "structured_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stablecoin_collateral: {
         Row: {
           auditor: string | null
@@ -14076,6 +23813,131 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stock_dividends: {
+        Row: {
+          created_at: string | null
+          currency: string
+          declaration_date: string | null
+          dividend_amount: number
+          dividend_type: string | null
+          equity_product_id: string
+          ex_dividend_date: string
+          frequency: string | null
+          id: string
+          payment_date: string | null
+          record_date: string | null
+          reinvestment_option: boolean | null
+          status: string | null
+          tax_implications: Json | null
+          ticker_symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          declaration_date?: string | null
+          dividend_amount: number
+          dividend_type?: string | null
+          equity_product_id: string
+          ex_dividend_date: string
+          frequency?: string | null
+          id?: string
+          payment_date?: string | null
+          record_date?: string | null
+          reinvestment_option?: boolean | null
+          status?: string | null
+          tax_implications?: Json | null
+          ticker_symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          declaration_date?: string | null
+          dividend_amount?: number
+          dividend_type?: string | null
+          equity_product_id?: string
+          ex_dividend_date?: string
+          frequency?: string | null
+          id?: string
+          payment_date?: string | null
+          record_date?: string | null
+          reinvestment_option?: boolean | null
+          status?: string | null
+          tax_implications?: Json | null
+          ticker_symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_dividends_equity_product_id_fkey"
+            columns: ["equity_product_id"]
+            isOneToOne: false
+            referencedRelation: "equity_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_exchanges: {
+        Row: {
+          circuit_breaker_rules: Json | null
+          country: string
+          created_at: string | null
+          currency: string
+          exchange_code: string
+          exchange_name: string
+          id: string
+          is_active: boolean | null
+          market_identifier_code: string | null
+          region: string | null
+          regulatory_body: string | null
+          tick_size_rules: Json | null
+          timezone: string
+          trading_calendar: Json | null
+          trading_hours: Json | null
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          circuit_breaker_rules?: Json | null
+          country: string
+          created_at?: string | null
+          currency: string
+          exchange_code: string
+          exchange_name: string
+          id?: string
+          is_active?: boolean | null
+          market_identifier_code?: string | null
+          region?: string | null
+          regulatory_body?: string | null
+          tick_size_rules?: Json | null
+          timezone: string
+          trading_calendar?: Json | null
+          trading_hours?: Json | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          circuit_breaker_rules?: Json | null
+          country?: string
+          created_at?: string | null
+          currency?: string
+          exchange_code?: string
+          exchange_name?: string
+          id?: string
+          is_active?: boolean | null
+          market_identifier_code?: string | null
+          region?: string | null
+          regulatory_body?: string | null
+          tick_size_rules?: Json | null
+          timezone?: string
+          trading_calendar?: Json | null
+          trading_hours?: Json | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
       }
       stripe_conversion_transactions: {
         Row: {
@@ -14650,6 +24512,13 @@ export type Database = {
             foreignKeyName: "token_allocations_token_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_allocations_token_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -14760,6 +24629,13 @@ export type Database = {
             foreignKeyName: "token_climate_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_climate_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -14821,6 +24697,7 @@ export type Database = {
           environment: string
           error: string | null
           id: string
+          initial_owner: string | null
           project_id: string
           status: string
           timestamp: string
@@ -14833,6 +24710,7 @@ export type Database = {
           environment: string
           error?: string | null
           id?: string
+          initial_owner?: string | null
           project_id: string
           status: string
           timestamp?: string
@@ -14845,6 +24723,7 @@ export type Database = {
           environment?: string
           error?: string | null
           id?: string
+          initial_owner?: string | null
           project_id?: string
           status?: string
           timestamp?: string
@@ -14865,6 +24744,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "fk_token_id"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_token_id"
@@ -14924,6 +24810,144 @@ export type Database = {
           },
         ]
       }
+      token_deployment_verifications: {
+        Row: {
+          actual_implementation_address: string | null
+          bytecode_verified: boolean | null
+          created_at: string | null
+          errors: Json | null
+          expected_master_address: string | null
+          functionality_verified: boolean | null
+          id: string
+          implementation_verified: boolean | null
+          initial_owner: string | null
+          initialization_verified: boolean | null
+          token_id: string
+          updated_at: string | null
+          verification_checks: Json
+          verification_status: string | null
+          verified_at: string | null
+          verified_by: string | null
+          warnings: Json | null
+        }
+        Insert: {
+          actual_implementation_address?: string | null
+          bytecode_verified?: boolean | null
+          created_at?: string | null
+          errors?: Json | null
+          expected_master_address?: string | null
+          functionality_verified?: boolean | null
+          id?: string
+          implementation_verified?: boolean | null
+          initial_owner?: string | null
+          initialization_verified?: boolean | null
+          token_id: string
+          updated_at?: string | null
+          verification_checks?: Json
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          warnings?: Json | null
+        }
+        Update: {
+          actual_implementation_address?: string | null
+          bytecode_verified?: boolean | null
+          created_at?: string | null
+          errors?: Json | null
+          expected_master_address?: string | null
+          functionality_verified?: boolean | null
+          id?: string
+          implementation_verified?: boolean | null
+          initial_owner?: string | null
+          initialization_verified?: boolean | null
+          token_id?: string
+          updated_at?: string | null
+          verification_checks?: Json
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          warnings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_deployment_verifications_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_deployments: {
         Row: {
           contract_address: string
@@ -14931,7 +24955,13 @@ export type Database = {
           deployed_by: string
           deployment_data: Json | null
           deployment_strategy: string | null
+          details: Json
+          factory_address: string | null
+          gas_price: string | null
+          gas_used: number | null
           id: string
+          initial_owner: string | null
+          master_address: string | null
           network: string
           status: string
           token_id: string
@@ -14943,7 +24973,13 @@ export type Database = {
           deployed_by: string
           deployment_data?: Json | null
           deployment_strategy?: string | null
+          details: Json
+          factory_address?: string | null
+          gas_price?: string | null
+          gas_used?: number | null
           id?: string
+          initial_owner?: string | null
+          master_address?: string | null
           network: string
           status?: string
           token_id: string
@@ -14955,7 +24991,13 @@ export type Database = {
           deployed_by?: string
           deployment_data?: Json | null
           deployment_strategy?: string | null
+          details?: Json
+          factory_address?: string | null
+          gas_price?: string | null
+          gas_used?: number | null
           id?: string
+          initial_owner?: string | null
+          master_address?: string | null
           network?: string
           status?: string
           token_id?: string
@@ -14968,6 +25010,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_deployments_token_id_fkey"
@@ -15100,6 +25149,13 @@ export type Database = {
             foreignKeyName: "token_erc1155_balances_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_balances_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -15209,6 +25265,13 @@ export type Database = {
             foreignKeyName: "token_erc1155_crafting_recipes_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_crafting_recipes_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -15304,6 +25367,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_discount_tiers_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc1155_discount_tiers_token_id_fkey"
@@ -15589,6 +25659,13 @@ export type Database = {
             foreignKeyName: "token_erc1155_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -15704,6 +25781,13 @@ export type Database = {
             foreignKeyName: "token_erc1155_type_configs_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_type_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -15807,6 +25891,13 @@ export type Database = {
             foreignKeyName: "token_erc1155_types_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_types_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -15898,6 +25989,13 @@ export type Database = {
             foreignKeyName: "token_erc1155_uri_mappings_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1155_uri_mappings_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -15984,6 +26082,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_controllers_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc1400_controllers_token_id_fkey"
@@ -16113,6 +26218,13 @@ export type Database = {
             foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -16228,6 +26340,13 @@ export type Database = {
             foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -16320,6 +26439,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_documents_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc1400_documents_token_id_fkey"
@@ -16558,6 +26684,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_partitions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc1400_partitions_token_id_fkey"
@@ -16993,6 +27126,13 @@ export type Database = {
             foreignKeyName: "token_erc1400_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -17103,6 +27243,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
@@ -17370,6 +27517,13 @@ export type Database = {
             foreignKeyName: "token_erc20_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc20_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -17470,6 +27624,13 @@ export type Database = {
             foreignKeyName: "token_erc3525_allocations_linked_token_id_fkey"
             columns: ["linked_token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_allocations_linked_token_id_fkey"
+            columns: ["linked_token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -17528,6 +27689,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_allocations_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc3525_allocations_token_id_fkey"
@@ -17634,6 +27802,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_payment_schedules_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc3525_payment_schedules_token_id_fkey"
@@ -18033,6 +28208,13 @@ export type Database = {
             foreignKeyName: "token_erc3525_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -18154,6 +28336,13 @@ export type Database = {
             foreignKeyName: "token_erc3525_slot_configs_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_slot_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -18252,6 +28441,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_slots_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc3525_slots_token_id_fkey"
@@ -18366,6 +28562,13 @@ export type Database = {
             foreignKeyName: "token_erc3525_value_adjustments_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc3525_value_adjustments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -18461,6 +28664,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc4626_asset_allocations_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc4626_asset_allocations_token_id_fkey"
@@ -18573,6 +28783,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc4626_fee_tiers_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc4626_fee_tiers_token_id_fkey"
@@ -18694,6 +28911,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc4626_performance_metrics_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc4626_performance_metrics_token_id_fkey"
@@ -19102,6 +29326,13 @@ export type Database = {
             foreignKeyName: "token_erc4626_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc4626_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -19200,6 +29431,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc4626_strategy_params_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc4626_strategy_params_token_id_fkey"
@@ -19326,6 +29564,13 @@ export type Database = {
             foreignKeyName: "token_erc4626_vault_strategies_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc4626_vault_strategies_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -19412,6 +29657,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc721_attributes_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc721_attributes_token_id_fkey"
@@ -19527,6 +29779,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc721_mint_phases_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc721_mint_phases_token_id_fkey"
@@ -19857,6 +30116,13 @@ export type Database = {
             foreignKeyName: "token_erc721_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_erc721_properties_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -19952,6 +30218,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_erc721_trait_definitions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_erc721_trait_definitions_token_id_fkey"
@@ -20054,6 +30327,13 @@ export type Database = {
             foreignKeyName: "fk_token"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_token"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -20101,6 +30381,142 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_token"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      token_extensions: {
+        Row: {
+          attached_at: string | null
+          attached_by: string | null
+          attached_tx_hash: string | null
+          configuration: Json
+          created_at: string | null
+          detached_at: string | null
+          detached_by: string | null
+          detached_tx_hash: string | null
+          extension_address: string
+          extension_type: string
+          id: string
+          is_active: boolean | null
+          token_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attached_at?: string | null
+          attached_by?: string | null
+          attached_tx_hash?: string | null
+          configuration?: Json
+          created_at?: string | null
+          detached_at?: string | null
+          detached_by?: string | null
+          detached_tx_hash?: string | null
+          extension_address: string
+          extension_type: string
+          id?: string
+          is_active?: boolean | null
+          token_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attached_at?: string | null
+          attached_by?: string | null
+          attached_tx_hash?: string | null
+          configuration?: Json
+          created_at?: string | null
+          detached_at?: string | null
+          detached_by?: string | null
+          detached_tx_hash?: string | null
+          extension_address?: string
+          extension_type?: string
+          id?: string
+          is_active?: boolean | null
+          token_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_extensions_attached_by_fkey"
+            columns: ["attached_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_extensions_detached_by_fkey"
+            columns: ["detached_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_extensions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "tokens"
@@ -20193,6 +30609,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_geographic_restrictions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_geographic_restrictions_token_id_fkey"
@@ -20340,6 +30763,13 @@ export type Database = {
             foreignKeyName: "token_operations_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_operations_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -20444,6 +30874,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_sanctions_rules_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_sanctions_rules_token_id_fkey"
@@ -20605,6 +31042,13 @@ export type Database = {
             foreignKeyName: "token_versions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_versions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -20726,6 +31170,13 @@ export type Database = {
             foreignKeyName: "fk_token_whitelists_token_id"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_token_whitelists_token_id"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -20784,6 +31235,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "climate_token_summary"
             referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_whitelists_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "token_whitelists_token_id_fkey"
@@ -20863,6 +31321,11 @@ export type Database = {
           deployment_transaction: string | null
           description: string | null
           id: string
+          initial_owner: string | null
+          initialization_data: Json | null
+          is_minimal_proxy: boolean | null
+          master_address: string | null
+          master_version: string | null
           metadata: Json | null
           name: string
           project_id: string
@@ -20892,6 +31355,11 @@ export type Database = {
           deployment_transaction?: string | null
           description?: string | null
           id?: string
+          initial_owner?: string | null
+          initialization_data?: Json | null
+          is_minimal_proxy?: boolean | null
+          master_address?: string | null
+          master_version?: string | null
           metadata?: Json | null
           name: string
           project_id: string
@@ -20921,6 +31389,11 @@ export type Database = {
           deployment_transaction?: string | null
           description?: string | null
           id?: string
+          initial_owner?: string | null
+          initialization_data?: Json | null
+          is_minimal_proxy?: boolean | null
+          master_address?: string | null
+          master_version?: string | null
           metadata?: Json | null
           name?: string
           project_id?: string
@@ -21715,6 +32188,60 @@ export type Database = {
           violation_ids?: string[] | null
         }
         Relationships: []
+      }
+      wallet_access_logs: {
+        Row: {
+          accessed_by: string | null
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          success: boolean
+          user_agent: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          accessed_by?: string | null
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          success?: boolean
+          user_agent?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          accessed_by?: string | null
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          success?: boolean
+          user_agent?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_access_logs_accessed_by_fkey"
+            columns: ["accessed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_access_logs_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "project_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallet_details: {
         Row: {
@@ -22784,6 +33311,21 @@ export type Database = {
         }
         Relationships: []
       }
+      problematic_token_deployments: {
+        Row: {
+          blockchain: string | null
+          contract_address: string | null
+          deployment_error: string | null
+          deployment_status: string | null
+          deployment_table_status: string | null
+          id: string | null
+          initialization_error: string | null
+          name: string | null
+          recommended_action: string | null
+          symbol: string | null
+        }
+        Relationships: []
+      }
       project_type_stats: {
         Row: {
           active_count: number | null
@@ -23046,6 +33588,34 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suspicious_wallet_activity: {
+        Row: {
+          accessed_by: string | null
+          failed_attempts: number | null
+          first_failure: string | null
+          ip_addresses: string[] | null
+          last_failure: string | null
+          user_email: string | null
+          wallet_address: string | null
+          wallet_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_access_logs_accessed_by_fkey"
+            columns: ["accessed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_access_logs_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "project_wallets"
             referencedColumns: ["id"]
           },
         ]
@@ -23504,6 +34074,13 @@ export type Database = {
             foreignKeyName: "token_geographic_restrictions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_geographic_restrictions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
             referencedRelation: "token_erc1155_view"
             referencedColumns: ["token_id"]
           },
@@ -23680,6 +34257,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rules"
             referencedColumns: ["rule_id"]
+          },
+        ]
+      }
+      wallet_access_summary: {
+        Row: {
+          access_count: number | null
+          failed_count: number | null
+          last_access: string | null
+          network: string | null
+          project_name: string | null
+          recent_activity: Json | null
+          wallet_address: string | null
+          wallet_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_access_logs_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "project_wallets"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -23944,6 +34542,14 @@ export type Database = {
         Args: { p_receivable_id: string }
         Returns: Json
       }
+      get_factory_address: {
+        Args: { p_environment: string; p_network: string }
+        Returns: string
+      }
+      get_master_address: {
+        Args: { p_environment: string; p_network: string; p_standard: string }
+        Returns: string
+      }
       get_moonpay_webhook_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -24030,6 +34636,15 @@ export type Database = {
         Returns: {
           row_count: number
           table_name: string
+        }[]
+      }
+      get_token_extensions: {
+        Args: { p_token_id: string }
+        Returns: {
+          attached_at: string
+          configuration: Json
+          extension_address: string
+          extension_type: string
         }[]
       }
       get_token_whitelist_addresses: {
@@ -24161,6 +34776,19 @@ export type Database = {
           p_record_id: string
           p_table_name: string
           p_user_id?: string
+        }
+        Returns: string
+      }
+      log_wallet_access: {
+        Args: {
+          p_accessed_by: string
+          p_action: string
+          p_error_message?: string
+          p_ip_address?: string
+          p_metadata?: Json
+          p_success?: boolean
+          p_user_agent?: string
+          p_wallet_id: string
         }
         Returns: string
       }
@@ -24451,12 +35079,18 @@ export type Database = {
         | "Closed"
       profile_type: "service provider" | "issuer" | "investor" | "super admin"
       project_duration:
-        | "1_month"
-        | "3_months"
-        | "6_months"
-        | "9_months"
-        | "12_months"
-        | "over_12_months"
+        | "1m"
+        | "3m"
+        | "6m"
+        | "9m"
+        | "12m"
+        | "1y"
+        | "2y"
+        | "3y"
+        | "5y"
+        | "10y"
+        | "20y"
+        | "30y"
       stablecoin_collateral_type:
         | "Fiat"
         | "Crypto"
@@ -24737,12 +35371,18 @@ export const Constants = {
       ],
       profile_type: ["service provider", "issuer", "investor", "super admin"],
       project_duration: [
-        "1_month",
-        "3_months",
-        "6_months",
-        "9_months",
-        "12_months",
-        "over_12_months",
+        "1m",
+        "3m",
+        "6m",
+        "9m",
+        "12m",
+        "1y",
+        "2y",
+        "3y",
+        "5y",
+        "10y",
+        "20y",
+        "30y",
       ],
       stablecoin_collateral_type: [
         "Fiat",

@@ -563,8 +563,16 @@ export default async function navRoutes(fastify: FastifyInstance) {
         targetCurrency: 'USD'
       }
 
-      const result = await navService.calculateBasicNav(calculationInput)
+      // TODO: Rebuild NAV calculation service
+      // const result = await navService.calculateBasicNav(calculationInput)
+      return reply.status(501).send({
+        error: {
+          message: 'NAV calculation service is being rebuilt',
+          statusCode: 501
+        }
+      })
 
+      /* COMMENTED OUT - Needs rebuild
       if (!result.success) {
         return reply.status(result.statusCode || 500).send({
           error: {
@@ -579,6 +587,7 @@ export default async function navRoutes(fastify: FastifyInstance) {
         data: result.data,
         timestamp: new Date().toISOString()
       })
+      */
 
     } catch (error) {
       fastify.log.error({ error, query: request.query }, 'Failed to get current NAV')
@@ -619,8 +628,16 @@ export default async function navRoutes(fastify: FastifyInstance) {
         targetCurrency: targetCurrency || 'USD'
       }
 
-      const result = await navService.calculateBasicNav(calculationInput)
+      // TODO: Rebuild NAV calculation service
+      // const result = await navService.calculateBasicNav(calculationInput)
+      return reply.status(501).send({
+        error: {
+          message: 'NAV calculation service is being rebuilt',
+          statusCode: 501
+        }
+      })
 
+      /* COMMENTED OUT - Needs rebuild
       if (!result.success) {
         return reply.status(result.statusCode || 500).send({
           error: {
@@ -636,6 +653,7 @@ export default async function navRoutes(fastify: FastifyInstance) {
         message: 'NAV calculation completed successfully',
         timestamp: new Date().toISOString()
       })
+      */
 
     } catch (error) {
       fastify.log.error({ error, body: request.body }, 'Failed to create NAV run')
@@ -759,8 +777,16 @@ export default async function navRoutes(fastify: FastifyInstance) {
         targetCurrency: currency
       }
 
-      const result = await navService.calculateBasicNav(calculationInput)
+      // TODO: Rebuild NAV calculation service
+      // const result = await navService.calculateBasicNav(calculationInput)
+      return reply.status(501).send({
+        error: {
+          message: 'NAV calculation service is being rebuilt',
+          statusCode: 501
+        }
+      })
 
+      /* COMMENTED OUT - Needs rebuild - unreachable code removed
       if (!result.success) {
         return reply.status(result.statusCode || 500).send({
           error: {
@@ -792,6 +818,7 @@ export default async function navRoutes(fastify: FastifyInstance) {
         data: projectWeightedData,
         timestamp: new Date().toISOString()
       })
+      */
 
     } catch (error) {
       fastify.log.error({ error, projectId: request.params.projectId, query: request.query }, 'Failed to get project weighted NAV')

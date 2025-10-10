@@ -7,6 +7,9 @@ optimizer_runs = 200
 via_ir = true
 solc = "0.8.28"
 
+# Filesystem permissions for deployment scripts
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
 # ============ RPC Endpoints (from .env) ============
 [rpc_endpoints]
 # Ethereum Networks

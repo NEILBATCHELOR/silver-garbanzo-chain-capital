@@ -281,17 +281,18 @@ export class ERC4626ConfigurationMapper {
 
   /**
    * Map token form data to enhanced ERC-4626 configuration
+   * ✅ FIX #4: Removed 'default_address' default parameter - deployerAddress should always be provided
    */
   mapTokenFormToEnhancedConfig(
     tokenForm: any,
-    deployerAddress: string = 'default_address'
+    deployerAddress?: string
   ): ERC4626ConfigurationResult {
     try {
       const warnings: string[] = [];
       const errors: string[] = [];
 
       // Extract form data
-      const formData = this.extractFormData(tokenForm);
+      const formData = this.extractFormData(tokenForm, deployerAddress);
 
       // Validate required fields
       const validation = this.validateConfiguration(formData);
@@ -305,7 +306,8 @@ export class ERC4626ConfigurationMapper {
       }
 
       // Build enhanced configuration
-      const config = this.buildEnhancedConfig(formData, deployerAddress, warnings);
+      // ✅ FIX #4: Provide default empty string if deployerAddress is undefined
+      const config = this.buildEnhancedConfig(formData, deployerAddress || '', warnings);
 
       // Analyze complexity
       const complexity = this.analyzeComplexity(formData);
@@ -340,7 +342,7 @@ export class ERC4626ConfigurationMapper {
   /**
    * Extract form data from various input formats
    */
-  private extractFormData(tokenForm: any): ERC4626FormData {
+  private extractFormData(tokenForm: any, deployerAddress?: string): ERC4626FormData {
     return {
       // Basic properties
       name: tokenForm.name || '',
@@ -351,12 +353,13 @@ export class ERC4626ConfigurationMapper {
       assetDecimals: tokenForm.assetDecimals || 18,
 
       // Fee structure
+      // ✅ FIX #4: Removed 'default_address' fallback - use deployerAddress or empty string
       feeStructure: {
         managementFee: tokenForm.feeStructure?.managementFee || tokenForm.erc4626Properties?.feeStructure?.managementFee || '2',
         performanceFee: tokenForm.feeStructure?.performanceFee || tokenForm.erc4626Properties?.feeStructure?.performanceFee || '20',
         withdrawalFee: tokenForm.feeStructure?.withdrawalFee || tokenForm.erc4626Properties?.feeStructure?.withdrawalFee || '0',
         depositFee: tokenForm.feeStructure?.depositFee || tokenForm.erc4626Properties?.feeStructure?.depositFee || '0',
-        feeRecipient: tokenForm.feeStructure?.feeRecipient || tokenForm.deployed_by || 'default_address'
+        feeRecipient: tokenForm.feeStructure?.feeRecipient || tokenForm.deployed_by || deployerAddress || ''
       },
 
       // Deposit limits

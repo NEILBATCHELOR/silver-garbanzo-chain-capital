@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import { supabase } from '@/infrastructure/database/client';
 import { IKeyVaultClient, KeyResult, KeyPairResult } from './keyVaultInterface';
 import { ProjectCredential } from '@/types/credentials';
+import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
 
 // Environment variables would be used in production
 const KEY_VAULT_SERVICE_URL = process.env.NEXT_PUBLIC_KEY_VAULT_SERVICE_URL || 'https://api.keyvault.example.com';
@@ -203,29 +204,53 @@ class KeyVaultClient implements IKeyVaultClient {
   // They are included here for development/testing only
   
   private async encryptPrivateKey(privateKey: string): Promise<string> {
-    // In production, encryption would be handled by the HSM
-    // For development, we'll use a simple encryption
-    // WARNING: This is NOT secure for production use
-    
-    // Check if the key is already in proper hex format
-    if (privateKey.startsWith('0x') && privateKey.length === 66) {
-      // Key is already a valid hex private key, store as-is for development
-      // In production, this would be encrypted by the HSM
-      return privateKey;
+    // Use WalletEncryptionClient for consistent encryption with the rest of the system
+    try {
+      console.log('Encrypting key using WalletEncryptionClient');
+      const encrypted = await WalletEncryptionClient.encrypt(privateKey);
+      console.log('Successfully encrypted key using WalletEncryptionClient');
+      return encrypted;
+    } catch (error) {
+      console.error('Failed to encrypt using WalletEncryptionClient, falling back to simple encryption:', error);
+      
+      // Fallback to simple encryption if WalletEncryptionClient fails
+      // In production, encryption would be handled by the HSM
+      // For development, we'll use a simple encryption
+      // WARNING: This is NOT secure for production use
+      
+      // Check if the key is already in proper hex format
+      if (privateKey.startsWith('0x') && privateKey.length === 66) {
+        // Key is already a valid hex private key, store as-is for development
+        // In production, this would be encrypted by the HSM
+        return privateKey;
+      }
+      
+      // Check if it's a hex string without 0x prefix
+      if (/^[0-9a-fA-F]{64}$/.test(privateKey)) {
+        // Add 0x prefix and return
+        return '0x' + privateKey;
+      }
+      
+      // For other formats, base64 encode (legacy support)
+      // In real production code, this would be a proper encryption using a KMS service
+      return Buffer.from(privateKey).toString('base64');
     }
-    
-    // Check if it's a hex string without 0x prefix
-    if (/^[0-9a-fA-F]{64}$/.test(privateKey)) {
-      // Add 0x prefix and return
-      return '0x' + privateKey;
-    }
-    
-    // For other formats, base64 encode (legacy support)
-    // In real production code, this would be a proper encryption using a KMS service
-    return Buffer.from(privateKey).toString('base64');
   }
   
   private async decryptPrivateKey(encryptedKey: string): Promise<string> {
+    // First, check if this is WalletEncryptionClient encrypted data
+    if (WalletEncryptionClient.isEncrypted(encryptedKey)) {
+      console.log('Decrypting key using WalletEncryptionClient');
+      try {
+        const decrypted = await WalletEncryptionClient.decrypt(encryptedKey);
+        console.log('Successfully decrypted key using WalletEncryptionClient');
+        return decrypted;
+      } catch (error) {
+        console.error('Failed to decrypt using WalletEncryptionClient:', error);
+        throw new Error(`Failed to decrypt key: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    
     // In production, decryption would never happen as signing occurs in the HSM
     // For development, we'll reverse our simple encryption
     // WARNING: This is NOT secure for production use

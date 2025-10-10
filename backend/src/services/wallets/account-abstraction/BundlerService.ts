@@ -356,12 +356,12 @@ export class BundlerService extends BaseService {
           entryPointAddress: row.entry_point_address,
           chainId: row.chain_id,
           rpcUrl: row.rpc_url,
-          maxBundleSize: row.max_bundle_size,
-          maxBundleWaitTime: row.max_bundle_wait_time,
-          minPriorityFee: BigInt(row.min_priority_fee),
-          isActive: row.is_active,
+          maxBundleSize: row.max_bundle_size ?? 10,
+          maxBundleWaitTime: row.max_bundle_wait_time ?? 5000,
+          minPriorityFee: BigInt(row.min_priority_fee ?? 0),
+          isActive: row.is_active ?? true,
           supportedEntryPoints: (row.supported_entry_points as string[]) || [],
-          gasPriceMultiplier: parseFloat(row.gas_price_multiplier.toString())
+          gasPriceMultiplier: parseFloat((row.gas_price_multiplier ?? 1).toString())
         }
 
         this.bundlerConfigs.set(config.bundlerAddress, config)

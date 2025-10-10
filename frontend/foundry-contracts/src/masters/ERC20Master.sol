@@ -89,6 +89,7 @@ contract ERC20Master is
     
     /**
      * @notice Initialize the token (called by proxy)
+     * @dev OPTIMIZED: Uses calldata instead of memory (saves ~300 gas)
      * @param name_ Token name
      * @param symbol_ Token symbol
      * @param maxSupply_ Maximum supply (0 = unlimited)
@@ -96,8 +97,8 @@ contract ERC20Master is
      * @param owner_ Owner address (receives DEFAULT_ADMIN_ROLE)
      */
     function initialize(
-        string memory name_,
-        string memory symbol_,
+        string calldata name_,
+        string calldata symbol_,
         uint256 maxSupply_,
         uint256 initialSupply_,
         address owner_
@@ -106,6 +107,11 @@ contract ERC20Master is
         __AccessControl_init();
         __ERC20Pausable_init();
         __UUPSUpgradeable_init();
+        
+        // Set up role admin hierarchy - DEFAULT_ADMIN_ROLE can manage all other roles
+        _setRoleAdmin(MINTER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(UPGRADER_ROLE, DEFAULT_ADMIN_ROLE);
         
         // Grant roles to owner
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);

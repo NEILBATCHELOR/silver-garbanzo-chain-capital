@@ -243,6 +243,8 @@ export const enhancedTokenDeploymentService = {
       
       // Create deployment parameters
       const deploymentParams = {
+        tokenId: token.id, // Use the existing token ID
+        projectId: token.project_id || '', // Use the token's project ID
         tokenType: foundryType as any,
         config: foundryConfig,
         blockchain,

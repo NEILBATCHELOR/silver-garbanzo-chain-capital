@@ -2,15 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict L2SgOHaNmBD4XVWEKisjF3Pj5JBHq9fjVfPpBahjDbRuaoCQrMglf2dJznB6kPp
-
 -- Dumped from database version 15.8
--- Dumped by pg_dump version 17.6 (Postgres.app)
+-- Dumped by pg_dump version 15.13 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
-SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -310,12 +307,18 @@ CREATE TYPE public.profile_type AS ENUM (
 --
 
 CREATE TYPE public.project_duration AS ENUM (
-    '1_month',
-    '3_months',
-    '6_months',
-    '9_months',
-    '12_months',
-    'over_12_months'
+    '1m',
+    '3m',
+    '6m',
+    '9m',
+    '12m',
+    '1y',
+    '2y',
+    '3y',
+    '5y',
+    '10y',
+    '20y',
+    '30y'
 );
 
 
@@ -3174,6 +3177,66 @@ COMMENT ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) IS
 
 
 --
+-- Name: get_factory_address(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_factory_address(p_network text, p_environment text) RETURNS text
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+  RETURN (
+    SELECT contract_address
+    FROM contract_masters
+    WHERE network = p_network
+      AND environment = p_environment
+      AND contract_type = 'factory'
+      AND is_active = TRUE
+    ORDER BY deployed_at DESC
+    LIMIT 1
+  );
+END;
+$$;
+
+
+--
+-- Name: get_master_address(text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) RETURNS text
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+  v_contract_type TEXT;
+BEGIN
+  v_contract_type := CASE p_standard
+    WHEN 'ERC-20' THEN 'erc20_master'
+    WHEN 'ERC-721' THEN 'erc721_master'
+    WHEN 'ERC-1155' THEN 'erc1155_master'
+    WHEN 'ERC-3525' THEN 'erc3525_master'
+    WHEN 'ERC-4626' THEN 'erc4626_master'
+    WHEN 'ERC-1400' THEN 'erc1400_master'
+    ELSE NULL
+  END;
+  
+  IF v_contract_type IS NULL THEN
+    RAISE EXCEPTION 'Unknown token standard: %', p_standard;
+  END IF;
+  
+  RETURN (
+    SELECT contract_address
+    FROM contract_masters
+    WHERE network = p_network
+      AND environment = p_environment
+      AND contract_type = v_contract_type
+      AND is_active = TRUE
+    ORDER BY deployed_at DESC
+    LIMIT 1
+  );
+END;
+$$;
+
+
+--
 -- Name: get_moonpay_webhook_stats(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3666,6 +3729,28 @@ BEGIN
     END LOOP;
     
     RETURN;
+END;
+$$;
+
+
+--
+-- Name: get_token_extensions(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_token_extensions(p_token_id uuid) RETURNS TABLE(extension_type text, extension_address text, configuration jsonb, attached_at timestamp with time zone)
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    te.extension_type,
+    te.extension_address,
+    te.configuration,
+    te.attached_at
+  FROM token_extensions te
+  WHERE te.token_id = p_token_id
+    AND te.is_active = TRUE
+  ORDER BY te.attached_at;
 END;
 $$;
 
@@ -4783,6 +4868,48 @@ $$;
 --
 
 COMMENT ON FUNCTION public.log_user_action() IS 'This function handles audit logging for various tables, with special handling for token_templates';
+
+
+--
+-- Name: log_wallet_access(uuid, uuid, text, boolean, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean DEFAULT true, p_error_message text DEFAULT NULL::text, p_ip_address text DEFAULT NULL::text, p_user_agent text DEFAULT NULL::text, p_metadata jsonb DEFAULT NULL::jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_log_id UUID;
+BEGIN
+  INSERT INTO wallet_access_logs (
+    wallet_id,
+    accessed_by,
+    action,
+    success,
+    error_message,
+    ip_address,
+    user_agent,
+    metadata
+  ) VALUES (
+    p_wallet_id,
+    p_accessed_by,
+    p_action,
+    p_success,
+    p_error_message,
+    p_ip_address,
+    p_user_agent,
+    p_metadata
+  ) RETURNING id INTO v_log_id;
+  
+  RETURN v_log_id;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb) IS 'Helper function to log wallet access with all relevant details';
 
 
 --
@@ -6011,6 +6138,20 @@ $$;
 
 
 --
+-- Name: update_carbon_market_prices_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_carbon_market_prices_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_climate_cash_flow_projections(jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6689,8 +6830,8 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 
@@ -7238,6 +7379,276 @@ CREATE TABLE public._migrations (
     name text NOT NULL,
     executed_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: abs_cash_flows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.abs_cash_flows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_backed_product_id uuid NOT NULL,
+    abs_tranche_id uuid,
+    payment_date timestamp with time zone NOT NULL,
+    is_actual boolean DEFAULT false,
+    collection_period_start timestamp with time zone NOT NULL,
+    collection_period_end timestamp with time zone NOT NULL,
+    beginning_pool_balance numeric(20,2) NOT NULL,
+    principal_collections numeric(20,2) NOT NULL,
+    scheduled_principal numeric(20,2),
+    unscheduled_principal numeric(20,2),
+    interest_collections numeric(20,2) NOT NULL,
+    fees_collections numeric(20,2),
+    recoveries numeric(20,2),
+    total_collections numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    servicing_fee numeric(20,2),
+    trustee_fee numeric(20,2),
+    other_fees numeric(20,2),
+    net_available_funds numeric(20,2),
+    senior_interest_paid numeric(20,2),
+    senior_principal_paid numeric(20,2),
+    mezzanine_interest_paid numeric(20,2),
+    mezzanine_principal_paid numeric(20,2),
+    subordinated_interest_paid numeric(20,2),
+    subordinated_principal_paid numeric(20,2),
+    equity_distribution numeric(20,2),
+    reserve_account_deposit numeric(20,2),
+    reserve_account_withdrawal numeric(20,2),
+    ending_reserve_balance numeric(20,2),
+    ending_pool_balance numeric(20,2) NOT NULL,
+    pool_factor numeric(5,4),
+    losses numeric(20,2),
+    cumulative_losses numeric(20,2),
+    delinquencies numeric(20,2),
+    prepayment_rate numeric(5,2),
+    default_rate numeric(5,2),
+    waterfall_distribution jsonb,
+    trigger_breaches jsonb,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE abs_cash_flows; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.abs_cash_flows IS 'Actual and projected cash flow waterfalls';
+
+
+--
+-- Name: abs_collateral_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.abs_collateral_pools (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_backed_product_id uuid NOT NULL,
+    pool_cut_off_date timestamp with time zone NOT NULL,
+    reporting_period_end timestamp with time zone NOT NULL,
+    total_pool_balance numeric(20,2) NOT NULL,
+    number_of_loans integer NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    collateral_type character varying(50) NOT NULL,
+    weighted_average_coupon numeric(5,4),
+    weighted_average_maturity_months integer,
+    weighted_average_fico_score integer,
+    weighted_average_ltv numeric(5,2),
+    weighted_average_dti numeric(5,2),
+    weighted_average_seasoning_months integer,
+    geographic_concentration jsonb,
+    top_10_obligors_percentage numeric(5,2),
+    concentration_limits_compliant boolean DEFAULT true,
+    current_performing_balance numeric(20,2),
+    delinquent_30_days_balance numeric(20,2),
+    delinquent_60_days_balance numeric(20,2),
+    delinquent_90_days_balance numeric(20,2),
+    delinquent_120_plus_days_balance numeric(20,2),
+    defaulted_balance numeric(20,2),
+    delinquency_rate numeric(5,2),
+    default_rate numeric(5,2),
+    cumulative_loss_rate numeric(5,2),
+    recovery_rate numeric(5,2),
+    loss_severity numeric(5,2),
+    prepayment_rate numeric(5,2),
+    abs_prepayment_speed integer,
+    pool_factor numeric(5,4),
+    advance_rate numeric(5,2),
+    excess_spread numeric(5,4),
+    reserve_account_balance numeric(20,2),
+    reserve_account_target numeric(20,2),
+    is_reserve_account_funded boolean,
+    servicer_name character varying(255),
+    servicer_rating character varying(10),
+    servicing_fee_rate numeric(5,4),
+    trustee_name character varying(255),
+    static_pool_performance jsonb,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE abs_collateral_pools; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.abs_collateral_pools IS 'Underlying collateral pool composition';
+
+
+--
+-- Name: abs_loss_projections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.abs_loss_projections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_backed_product_id uuid NOT NULL,
+    projection_date timestamp with time zone NOT NULL,
+    scenario_name character varying(100) NOT NULL,
+    scenario_description text,
+    projection_horizon_months integer NOT NULL,
+    projected_cumulative_loss_rate numeric(5,2) NOT NULL,
+    projected_cumulative_losses numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    expected_default_rate numeric(5,2),
+    expected_recovery_rate numeric(5,2),
+    expected_loss_severity numeric(5,2),
+    expected_losses_by_year jsonb,
+    peak_loss_year integer,
+    peak_loss_amount numeric(20,2),
+    time_to_peak_losses_months integer,
+    tail_losses numeric(20,2),
+    economic_assumptions jsonb,
+    unemployment_rate_assumption numeric(5,2),
+    home_price_index_assumption numeric(5,2),
+    interest_rate_assumption numeric(5,4),
+    macroeconomic_scenario character varying(50),
+    collateral_performance_assumptions jsonb,
+    loss_timing_assumptions text,
+    confidence_level numeric(5,2),
+    loss_distribution jsonb,
+    tranche_coverage jsonb,
+    first_loss_tranche character varying(10),
+    attachment_point numeric(5,2),
+    detachment_point numeric(5,2),
+    expected_tranche_losses jsonb,
+    stress_test_results jsonb,
+    model_used character varying(100),
+    model_version character varying(20),
+    model_assumptions text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE abs_loss_projections; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.abs_loss_projections IS 'Expected loss scenarios and stress tests';
+
+
+--
+-- Name: abs_prepayment_speeds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.abs_prepayment_speeds (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_backed_product_id uuid NOT NULL,
+    observation_date timestamp with time zone NOT NULL,
+    prepayment_type character varying(50) NOT NULL,
+    prepayment_rate numeric(5,2) NOT NULL,
+    single_monthly_mortality numeric(5,4),
+    constant_prepayment_rate numeric(5,2),
+    abs_prepayment_speed integer,
+    psa_percentage integer,
+    voluntary_prepayments numeric(20,2),
+    involuntary_prepayments numeric(20,2),
+    total_prepayments numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    prepayment_drivers jsonb,
+    interest_rate_environment numeric(5,4),
+    refinancing_incentive numeric(5,4),
+    burnout_factor numeric(5,4),
+    seasonal_factors jsonb,
+    projected_prepayment_rate numeric(5,2),
+    prepayment_sensitivity jsonb,
+    model_used character varying(100),
+    model_assumptions text,
+    historical_average_3m numeric(5,2),
+    historical_average_12m numeric(5,2),
+    historical_average_life numeric(5,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE abs_prepayment_speeds; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.abs_prepayment_speeds IS 'Historical and projected prepayment rates';
+
+
+--
+-- Name: abs_tranches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.abs_tranches (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_backed_product_id uuid NOT NULL,
+    tranche_name character varying(100) NOT NULL,
+    tranche_class character varying(10) NOT NULL,
+    seniority_level integer NOT NULL,
+    is_senior boolean DEFAULT false,
+    is_mezzanine boolean DEFAULT false,
+    is_subordinated boolean DEFAULT false,
+    is_equity boolean DEFAULT false,
+    original_principal numeric(20,2) NOT NULL,
+    current_principal numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    coupon_rate numeric(5,4) NOT NULL,
+    coupon_type character varying(50),
+    reference_rate character varying(50),
+    spread_bps integer,
+    payment_frequency character varying(20),
+    first_payment_date timestamp with time zone NOT NULL,
+    legal_final_maturity timestamp with time zone NOT NULL,
+    expected_maturity_date timestamp with time zone,
+    weighted_average_life numeric(5,2),
+    credit_enhancement_percentage numeric(5,2),
+    subordination_percentage numeric(5,2),
+    over_collateralization_percentage numeric(5,2),
+    credit_rating_moodys character varying(10),
+    credit_rating_sp character varying(10),
+    credit_rating_fitch character varying(10),
+    rating_date timestamp with time zone,
+    is_investment_grade boolean,
+    enhancement_triggers jsonb,
+    payment_priority integer,
+    principal_payment_method character varying(50),
+    call_provisions jsonb,
+    is_callable boolean DEFAULT false,
+    call_date timestamp with time zone,
+    call_price numeric(5,2),
+    prepayment_lockout_end timestamp with time zone,
+    yield_to_maturity numeric(5,4),
+    yield_to_call numeric(5,4),
+    duration numeric(5,2),
+    convexity numeric(10,4),
+    price_as_of_date timestamp with time zone,
+    current_price numeric(20,8),
+    status character varying(20) DEFAULT 'performing'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE abs_tranches; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.abs_tranches IS 'ABS tranche structure and payment terms';
 
 
 --
@@ -7812,11 +8223,42 @@ CASE
     WHEN (total_assets > total_liabilities) THEN ((total_assets - total_liabilities) / outstanding_shares)
     ELSE NULL::numeric
 END) STORED,
+    identifier text,
+    token_id uuid,
+    token_parity_percentage numeric,
     CONSTRAINT asset_nav_data_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'oracle'::text, 'calculated'::text, 'administrator'::text]))),
     CONSTRAINT non_negative_liabilities CHECK ((total_liabilities >= (0)::numeric)),
     CONSTRAINT positive_assets CHECK ((total_assets > (0)::numeric)),
     CONSTRAINT positive_nav CHECK ((nav > (0)::numeric)),
     CONSTRAINT positive_shares CHECK ((outstanding_shares > (0)::numeric))
+);
+
+
+--
+-- Name: auction_comparables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.auction_comparables (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    date timestamp with time zone NOT NULL,
+    auction_house text NOT NULL,
+    lot_number text,
+    hammer_price numeric NOT NULL,
+    estimate_low numeric,
+    estimate_high numeric,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    premium numeric DEFAULT 0 NOT NULL,
+    similarity numeric NOT NULL,
+    description text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT auction_comparables_estimate_high_check CHECK ((estimate_high >= (0)::numeric)),
+    CONSTRAINT auction_comparables_estimate_low_check CHECK ((estimate_low >= (0)::numeric)),
+    CONSTRAINT auction_comparables_hammer_price_check CHECK ((hammer_price >= (0)::numeric)),
+    CONSTRAINT auction_comparables_premium_check CHECK ((premium >= (0)::numeric)),
+    CONSTRAINT auction_comparables_similarity_check CHECK (((similarity >= (0)::numeric) AND (similarity <= (100)::numeric)))
 );
 
 
@@ -7938,6 +8380,182 @@ CREATE TABLE public.blacklisted_addresses (
 
 
 --
+-- Name: bond_amortization_schedule; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_amortization_schedule (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    payment_date date NOT NULL,
+    principal_payment numeric(20,2) NOT NULL,
+    beginning_balance numeric(20,2) NOT NULL,
+    ending_balance numeric(20,2) NOT NULL,
+    payment_status character varying(20) DEFAULT 'scheduled'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_amortization_schedule_beginning_balance_check CHECK ((beginning_balance > (0)::numeric)),
+    CONSTRAINT bond_amortization_schedule_ending_balance_check CHECK ((ending_balance >= (0)::numeric)),
+    CONSTRAINT bond_amortization_schedule_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['scheduled'::character varying, 'paid'::character varying, 'prepaid'::character varying, 'missed'::character varying])::text[]))),
+    CONSTRAINT bond_amortization_schedule_principal_payment_check CHECK ((principal_payment > (0)::numeric)),
+    CONSTRAINT bond_amortization_valid_balance CHECK ((ending_balance = (beginning_balance - principal_payment)))
+);
+
+
+--
+-- Name: bond_call_put_schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_call_put_schedules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    option_type character varying(10) NOT NULL,
+    option_date date NOT NULL,
+    call_price numeric(10,4),
+    put_price numeric(10,4),
+    notice_days integer,
+    option_style character varying(20) NOT NULL,
+    is_make_whole boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_call_put_call_price_required CHECK (((((option_type)::text = 'call'::text) AND (call_price IS NOT NULL)) OR ((option_type)::text <> 'call'::text))),
+    CONSTRAINT bond_call_put_put_price_required CHECK (((((option_type)::text = 'put'::text) AND (put_price IS NOT NULL)) OR ((option_type)::text <> 'put'::text))),
+    CONSTRAINT bond_call_put_schedules_call_price_check CHECK ((call_price > (0)::numeric)),
+    CONSTRAINT bond_call_put_schedules_notice_days_check CHECK ((notice_days >= 0)),
+    CONSTRAINT bond_call_put_schedules_option_style_check CHECK (((option_style)::text = ANY ((ARRAY['american'::character varying, 'european'::character varying, 'bermudan'::character varying, 'make_whole'::character varying])::text[]))),
+    CONSTRAINT bond_call_put_schedules_option_type_check CHECK (((option_type)::text = ANY ((ARRAY['call'::character varying, 'put'::character varying])::text[]))),
+    CONSTRAINT bond_call_put_schedules_put_price_check CHECK ((put_price > (0)::numeric))
+);
+
+
+--
+-- Name: bond_coupon_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_coupon_payments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    payment_date date NOT NULL,
+    coupon_amount numeric(20,2) NOT NULL,
+    payment_status character varying(20) DEFAULT 'scheduled'::character varying NOT NULL,
+    actual_payment_date date,
+    accrual_start_date date NOT NULL,
+    accrual_end_date date NOT NULL,
+    days_in_period integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_coupon_paid_requires_actual_date CHECK (((((payment_status)::text = 'paid'::text) AND (actual_payment_date IS NOT NULL)) OR ((payment_status)::text <> 'paid'::text))),
+    CONSTRAINT bond_coupon_payments_coupon_amount_check CHECK ((coupon_amount > (0)::numeric)),
+    CONSTRAINT bond_coupon_payments_days_in_period_check CHECK (((days_in_period > 0) AND (days_in_period <= 366))),
+    CONSTRAINT bond_coupon_payments_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['scheduled'::character varying, 'paid'::character varying, 'missed'::character varying, 'deferred'::character varying])::text[]))),
+    CONSTRAINT bond_coupon_valid_accrual_period CHECK ((accrual_start_date < accrual_end_date)),
+    CONSTRAINT bond_coupon_valid_payment_date CHECK ((payment_date = accrual_end_date))
+);
+
+
+--
+-- Name: TABLE bond_coupon_payments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.bond_coupon_payments IS 'Scheduled and historical coupon payments for cash flow projection';
+
+
+--
+-- Name: bond_covenants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_covenants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    covenant_type character varying(50) NOT NULL,
+    covenant_description text NOT NULL,
+    financial_ratio character varying(50),
+    threshold_value numeric(20,4),
+    test_frequency character varying(20),
+    last_test_date date,
+    compliance_status character varying(20),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_covenants_compliance_status_check CHECK (((compliance_status)::text = ANY ((ARRAY['compliant'::character varying, 'breach'::character varying, 'waived'::character varying, 'cured'::character varying])::text[]))),
+    CONSTRAINT bond_covenants_covenant_type_check CHECK (((covenant_type)::text = ANY ((ARRAY['financial_ratio'::character varying, 'negative_pledge'::character varying, 'cross_default'::character varying, 'change_of_control'::character varying, 'restricted_payments'::character varying])::text[]))),
+    CONSTRAINT bond_covenants_test_frequency_check CHECK (((test_frequency)::text = ANY ((ARRAY['quarterly'::character varying, 'annually'::character varying, 'event_driven'::character varying])::text[])))
+);
+
+
+--
+-- Name: bond_credit_ratings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_credit_ratings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    rating_agency character varying(20) NOT NULL,
+    rating character varying(10) NOT NULL,
+    rating_outlook character varying(20),
+    rating_date date NOT NULL,
+    previous_rating character varying(10),
+    rating_action character varying(20),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_credit_ratings_rating_action_check CHECK (((rating_action)::text = ANY ((ARRAY['upgrade'::character varying, 'downgrade'::character varying, 'affirmed'::character varying, 'withdrawn'::character varying])::text[]))),
+    CONSTRAINT bond_credit_ratings_rating_agency_check CHECK (((rating_agency)::text = ANY ((ARRAY['SP'::character varying, 'Moodys'::character varying, 'Fitch'::character varying, 'DBRS'::character varying])::text[]))),
+    CONSTRAINT bond_credit_ratings_rating_outlook_check CHECK (((rating_outlook)::text = ANY ((ARRAY['positive'::character varying, 'stable'::character varying, 'negative'::character varying, 'developing'::character varying])::text[])))
+);
+
+
+--
+-- Name: bond_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    event_type character varying(50) NOT NULL,
+    event_date date NOT NULL,
+    announcement_date date,
+    event_description text NOT NULL,
+    financial_impact numeric(20,2),
+    requires_revaluation boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_events_announcement_before_event CHECK (((announcement_date IS NULL) OR (announcement_date <= event_date))),
+    CONSTRAINT bond_events_event_type_check CHECK (((event_type)::text = ANY ((ARRAY['tender_offer'::character varying, 'exchange_offer'::character varying, 'defeasance'::character varying, 'covenant_modification'::character varying, 'rating_change'::character varying, 'default'::character varying, 'restructuring'::character varying, 'merger'::character varying, 'spinoff'::character varying])::text[])))
+);
+
+
+--
+-- Name: bond_market_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_market_prices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    price_date date NOT NULL,
+    price_time time without time zone,
+    clean_price numeric(10,4) NOT NULL,
+    dirty_price numeric(10,4) NOT NULL,
+    bid_price numeric(10,4),
+    ask_price numeric(10,4),
+    mid_price numeric(10,4),
+    ytm numeric(8,4),
+    spread_to_benchmark numeric(8,4),
+    data_source character varying(50) NOT NULL,
+    is_official_close boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_market_prices_bid_price_check CHECK ((bid_price > (0)::numeric)),
+    CONSTRAINT bond_market_prices_check CHECK ((dirty_price >= clean_price)),
+    CONSTRAINT bond_market_prices_check1 CHECK ((ask_price >= bid_price)),
+    CONSTRAINT bond_market_prices_clean_price_check CHECK ((clean_price > (0)::numeric)),
+    CONSTRAINT bond_market_prices_data_source_check CHECK (((data_source)::text = ANY ((ARRAY['bloomberg'::character varying, 'reuters'::character varying, 'ice'::character varying, 'tradeweb'::character varying, 'markit'::character varying, 'internal_pricing'::character varying, 'vendor'::character varying])::text[]))),
+    CONSTRAINT bond_market_prices_ytm_check CHECK ((ytm > (0)::numeric))
+);
+
+
+--
+-- Name: TABLE bond_market_prices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.bond_market_prices IS 'Historical and current market prices for mark-to-market valuation';
+
+
+--
 -- Name: bond_products; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7969,7 +8587,41 @@ CREATE TABLE public.bond_products (
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    bond_identifier character varying
+    bond_identifier character varying,
+    isin character varying(12),
+    cusip character varying(9),
+    sedol character varying(7),
+    asset_name character varying(255),
+    issuer_type character varying(50),
+    seniority character varying(50),
+    day_count_convention character varying(20) DEFAULT 'actual_actual'::character varying,
+    purchase_price numeric(20,2),
+    purchase_date date,
+    current_price numeric(20,2),
+    accounting_treatment character varying(30) DEFAULT 'held_to_maturity'::character varying,
+    puttable boolean DEFAULT false,
+    convertible boolean DEFAULT false
+);
+
+
+--
+-- Name: bond_sinking_fund; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bond_sinking_fund (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    bond_product_id uuid NOT NULL,
+    payment_date date NOT NULL,
+    required_amount numeric(20,2) NOT NULL,
+    actual_amount numeric(20,2),
+    redemption_price numeric(10,4) NOT NULL,
+    payment_status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bond_sinking_fund_check CHECK ((actual_amount >= required_amount)),
+    CONSTRAINT bond_sinking_fund_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['pending'::character varying, 'completed'::character varying, 'deferred'::character varying, 'waived'::character varying])::text[]))),
+    CONSTRAINT bond_sinking_fund_redemption_price_check CHECK ((redemption_price > (0)::numeric)),
+    CONSTRAINT bond_sinking_fund_required_amount_check CHECK ((required_amount > (0)::numeric))
 );
 
 
@@ -8078,6 +8730,40 @@ CREATE TABLE public.cap_tables (
 
 
 --
+-- Name: carbon_market_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.carbon_market_prices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_id uuid,
+    current_price numeric NOT NULL,
+    voluntary_market_price numeric NOT NULL,
+    compliance_market_price numeric NOT NULL,
+    future_price numeric,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    as_of_date timestamp with time zone NOT NULL,
+    source character varying(100) NOT NULL,
+    liquidity_score numeric,
+    market_type character varying(50),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT carbon_market_prices_compliance_market_price_check CHECK ((compliance_market_price >= (0)::numeric)),
+    CONSTRAINT carbon_market_prices_current_price_check CHECK ((current_price >= (0)::numeric)),
+    CONSTRAINT carbon_market_prices_future_price_check CHECK ((future_price >= (0)::numeric)),
+    CONSTRAINT carbon_market_prices_liquidity_score_check CHECK (((liquidity_score >= (0)::numeric) AND (liquidity_score <= (1)::numeric))),
+    CONSTRAINT carbon_market_prices_market_type_check CHECK (((market_type)::text = ANY ((ARRAY['voluntary'::character varying, 'compliance'::character varying, 'hybrid'::character varying])::text[]))),
+    CONSTRAINT carbon_market_prices_voluntary_market_price_check CHECK ((voluntary_market_price >= (0)::numeric))
+);
+
+
+--
+-- Name: TABLE carbon_market_prices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.carbon_market_prices IS 'Carbon credit market pricing data including voluntary, compliance, current, and future prices with liquidity scores';
+
+
+--
 -- Name: carbon_offsets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8095,6 +8781,252 @@ CREATE TABLE public.carbon_offsets (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: cf_allocations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cf_allocations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    composite_fund_id uuid NOT NULL,
+    asset_class character varying(50) NOT NULL,
+    asset_subclass character varying(50),
+    target_allocation_percentage numeric(5,2) NOT NULL,
+    minimum_allocation_percentage numeric(5,2),
+    maximum_allocation_percentage numeric(5,2),
+    current_allocation_percentage numeric(5,2) NOT NULL,
+    current_market_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    allocation_drift numeric(5,2),
+    drift_percentage numeric(5,2),
+    is_within_tolerance boolean DEFAULT true,
+    rebalancing_threshold_percentage numeric(5,2),
+    strategic_rationale text,
+    benchmark_index character varying(50),
+    tracking_error numeric(5,2),
+    effective_date timestamp with time zone NOT NULL,
+    last_rebalance_date timestamp with time zone,
+    next_review_date timestamp with time zone,
+    allocation_policy_document_url text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE cf_allocations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cf_allocations IS 'Target and actual asset class allocations for composite funds';
+
+
+--
+-- Name: cf_cash_flows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cf_cash_flows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    composite_fund_id uuid NOT NULL,
+    cash_flow_date timestamp with time zone NOT NULL,
+    cash_flow_type character varying(50) NOT NULL,
+    amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    investor_id uuid,
+    investor_name character varying(255),
+    number_of_shares numeric(20,6),
+    share_price numeric(20,8),
+    asset_class_affected character varying(50),
+    allocation_method character varying(50),
+    related_transaction_id character varying(100),
+    payment_method character varying(50),
+    transaction_reference character varying(100),
+    bank_account_last_4 character varying(4),
+    processing_time_days integer,
+    fees_charged numeric(20,2),
+    fee_percentage numeric(5,2),
+    tax_withholding numeric(20,2),
+    net_cash_flow numeric(20,2),
+    fund_nav_before numeric(20,2),
+    fund_nav_after numeric(20,2),
+    impact_on_allocations jsonb,
+    reinvestment_plan text,
+    redemption_impact_analysis text,
+    status character varying(20) DEFAULT 'completed'::character varying,
+    failure_reason text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE cf_cash_flows; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cf_cash_flows IS 'Subscriptions, redemptions, and cash movements';
+
+
+--
+-- Name: cf_holdings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cf_holdings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    composite_fund_id uuid NOT NULL,
+    asset_class character varying(50) NOT NULL,
+    asset_subclass character varying(50),
+    holding_type character varying(50) NOT NULL,
+    product_id uuid,
+    product_type character varying(50),
+    ticker_symbol character varying(50),
+    isin character varying(50),
+    cusip character varying(50),
+    security_name character varying(255) NOT NULL,
+    quantity numeric(20,6) NOT NULL,
+    average_cost numeric(20,8),
+    total_cost_basis numeric(20,2),
+    current_price numeric(20,8) NOT NULL,
+    current_market_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    fx_rate_to_base numeric(20,8),
+    unrealized_gain_loss numeric(20,2),
+    unrealized_gain_loss_percentage numeric(5,2),
+    weight_in_portfolio numeric(5,2),
+    weight_in_asset_class numeric(5,2),
+    acquisition_date timestamp with time zone NOT NULL,
+    last_rebalance_date timestamp with time zone,
+    accrued_income numeric(20,2),
+    dividend_yield numeric(5,2),
+    maturity_date timestamp with time zone,
+    credit_rating character varying(10),
+    country_exposure character varying(3),
+    sector_exposure character varying(50),
+    esg_score integer,
+    liquidity_classification character varying(20),
+    days_to_liquidate_estimate integer,
+    is_restricted boolean DEFAULT false,
+    restriction_reason text,
+    restriction_end_date timestamp with time zone,
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE cf_holdings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cf_holdings IS 'Individual holdings within composite funds';
+
+
+--
+-- Name: cf_performance_attribution; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cf_performance_attribution (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    composite_fund_id uuid NOT NULL,
+    period_start_date timestamp with time zone NOT NULL,
+    period_end_date timestamp with time zone NOT NULL,
+    attribution_level character varying(50) NOT NULL,
+    asset_class character varying(50),
+    holding_id uuid,
+    security_name character varying(255),
+    beginning_market_value numeric(20,2) NOT NULL,
+    ending_market_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    net_cash_flow numeric(20,2),
+    total_return numeric(20,2),
+    total_return_percentage numeric(5,2),
+    capital_appreciation numeric(20,2),
+    income_return numeric(20,2),
+    fx_impact numeric(20,2),
+    allocation_effect numeric(20,2),
+    selection_effect numeric(20,2),
+    interaction_effect numeric(20,2),
+    benchmark_return numeric(5,2),
+    benchmark_index character varying(50),
+    active_return numeric(5,2),
+    tracking_error numeric(5,2),
+    information_ratio numeric(5,2),
+    sharpe_ratio numeric(5,2),
+    sortino_ratio numeric(5,2),
+    max_drawdown numeric(5,2),
+    volatility numeric(5,2),
+    beta numeric(5,4),
+    alpha numeric(5,2),
+    contribution_to_return numeric(20,2),
+    contribution_percentage numeric(5,2),
+    top_contributors jsonb,
+    top_detractors jsonb,
+    sector_attribution jsonb,
+    country_attribution jsonb,
+    risk_attribution jsonb,
+    calculation_methodology character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE cf_performance_attribution; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cf_performance_attribution IS 'Performance attribution analysis by asset class';
+
+
+--
+-- Name: cf_rebalancing_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cf_rebalancing_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    composite_fund_id uuid NOT NULL,
+    rebalancing_date timestamp with time zone NOT NULL,
+    rebalancing_type character varying(50) NOT NULL,
+    trigger_reason text,
+    pre_rebalance_nav numeric(20,2) NOT NULL,
+    post_rebalance_nav numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    allocations_before jsonb NOT NULL,
+    allocations_after jsonb NOT NULL,
+    target_allocations jsonb,
+    trades_executed jsonb NOT NULL,
+    total_trades integer,
+    total_buy_value numeric(20,2),
+    total_sell_value numeric(20,2),
+    net_cash_flow numeric(20,2),
+    transaction_costs numeric(20,2),
+    transaction_cost_bps integer,
+    market_impact_estimate numeric(20,2),
+    tax_implications numeric(20,2),
+    execution_quality_score integer,
+    slippage numeric(20,2),
+    days_to_complete integer,
+    completion_date timestamp with time zone,
+    portfolio_manager character varying(255),
+    approval_status character varying(20) DEFAULT 'approved'::character varying,
+    approved_by character varying(255),
+    approval_date timestamp with time zone,
+    performance_impact jsonb,
+    variance_from_plan jsonb,
+    lessons_learned text,
+    status character varying(20) DEFAULT 'completed'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE cf_rebalancing_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cf_rebalancing_events IS 'Portfolio rebalancing history and trades';
 
 
 --
@@ -8588,7 +9520,12 @@ CREATE TABLE public.tokens (
     deployment_error text,
     deployed_by uuid,
     deployment_environment character varying(50),
-    description text
+    description text,
+    master_address text,
+    master_version text,
+    is_minimal_proxy boolean DEFAULT true,
+    initialization_data jsonb,
+    initial_owner text
 );
 
 
@@ -8597,6 +9534,13 @@ CREATE TABLE public.tokens (
 --
 
 COMMENT ON COLUMN public.tokens.config_mode IS 'Indicates if token uses minimal or maximal configuration (values: min, max)';
+
+
+--
+-- Name: COLUMN tokens.deployment_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.tokens.deployment_status IS 'Status of contract deployment and initialization. Values: pending, deployed, FAILED_INITIALIZATION, failed';
 
 
 --
@@ -8687,6 +9631,286 @@ COMMENT ON TABLE public.climate_user_data_sources IS 'User-uploaded data sources
 
 
 --
+-- Name: collectibles_appraisals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_appraisals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    collectibles_product_id uuid NOT NULL,
+    appraisal_date timestamp with time zone NOT NULL,
+    appraiser_name character varying(255) NOT NULL,
+    appraiser_credentials text,
+    appraiser_firm character varying(255),
+    appraisal_type character varying(50) NOT NULL,
+    appraised_value numeric(20,2) NOT NULL,
+    value_range_low numeric(20,2),
+    value_range_high numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    appraisal_method character varying(100),
+    condition_assessment text,
+    condition_grade character varying(20),
+    authenticity_verified boolean DEFAULT false,
+    authenticity_method text,
+    rarity_assessment text,
+    market_demand_assessment text,
+    comparable_sales jsonb,
+    recent_auction_results jsonb,
+    market_trends_analysis text,
+    factors_affecting_value text,
+    liquidity_assessment text,
+    estimated_time_to_sell_days integer,
+    insurance_recommended_value numeric(20,2),
+    replacement_cost numeric(20,2),
+    appraisal_report_url text,
+    photo_documentation_urls text[],
+    is_certified_appraisal boolean DEFAULT false,
+    certification_body character varying(100),
+    next_appraisal_recommended_date timestamp with time zone,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE collectibles_appraisals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.collectibles_appraisals IS 'Professional appraisal history for collectibles';
+
+
+--
+-- Name: collectibles_authentication_records; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_authentication_records (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    product_id uuid NOT NULL,
+    confidence_score numeric NOT NULL,
+    certification_authority text,
+    certification_date date,
+    fraud_risk_score numeric NOT NULL,
+    authentication_method text,
+    certificate_number text,
+    notes text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_authentication_records_confidence_score_check CHECK (((confidence_score >= (0)::numeric) AND (confidence_score <= (100)::numeric))),
+    CONSTRAINT collectibles_authentication_records_fraud_risk_score_check CHECK (((fraud_risk_score >= (0)::numeric) AND (fraud_risk_score <= (100)::numeric)))
+);
+
+
+--
+-- Name: collectibles_condition_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_condition_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    collectibles_product_id uuid NOT NULL,
+    report_date timestamp with time zone NOT NULL,
+    inspector_name character varying(255) NOT NULL,
+    inspector_credentials text,
+    inspection_type character varying(50),
+    overall_condition_grade character varying(20) NOT NULL,
+    physical_condition_score integer,
+    structural_integrity text,
+    surface_condition text,
+    color_condition text,
+    mechanical_condition text,
+    completeness_assessment text,
+    damage_assessment text,
+    previous_repairs text,
+    restoration_history text,
+    conservation_needs text,
+    recommended_conservation_work text,
+    conservation_cost_estimate numeric(20,2),
+    storage_requirements text,
+    environmental_requirements text,
+    handling_instructions text,
+    display_recommendations text,
+    insurance_considerations text,
+    impact_on_value text,
+    comparison_to_previous_reports text,
+    deterioration_rate character varying(20),
+    photos_taken integer,
+    photo_urls text[],
+    uv_light_examination_results text,
+    x_ray_examination_results text,
+    infrared_examination_results text,
+    scientific_analysis_results jsonb,
+    condition_report_url text,
+    is_suitable_for_sale boolean DEFAULT true,
+    is_suitable_for_display boolean DEFAULT true,
+    is_suitable_for_loan boolean DEFAULT true,
+    next_inspection_recommended_date timestamp with time zone,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE collectibles_condition_reports; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.collectibles_condition_reports IS 'Detailed condition assessments';
+
+
+--
+-- Name: collectibles_insurance_policies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_insurance_policies (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    product_id uuid NOT NULL,
+    policy_number text,
+    provider text,
+    annual_premium numeric NOT NULL,
+    coverage_amount numeric NOT NULL,
+    deductible numeric,
+    policy_type text,
+    start_date date,
+    end_date date,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_insurance_policies_annual_premium_check CHECK ((annual_premium >= (0)::numeric)),
+    CONSTRAINT collectibles_insurance_policies_coverage_amount_check CHECK ((coverage_amount >= (0)::numeric))
+);
+
+
+--
+-- Name: collectibles_insurance_valuations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_insurance_valuations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    collectibles_product_id uuid NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    valuation_purpose character varying(50) NOT NULL,
+    insurance_provider character varying(255),
+    policy_number character varying(100),
+    insured_value numeric(20,2) NOT NULL,
+    replacement_value numeric(20,2) NOT NULL,
+    agreed_value numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    valuation_basis character varying(50),
+    annual_premium numeric(20,2),
+    premium_rate numeric(5,4),
+    deductible numeric(20,2),
+    coverage_type character varying(50),
+    coverage_territory character varying(100),
+    storage_requirements text,
+    security_requirements text,
+    display_restrictions text,
+    transit_coverage boolean DEFAULT false,
+    exhibition_coverage boolean DEFAULT false,
+    restoration_coverage boolean DEFAULT false,
+    pair_and_set_clause text,
+    inflation_guard_percentage numeric(5,2),
+    appraisal_required_frequency character varying(20),
+    last_appraisal_date timestamp with time zone,
+    next_appraisal_due_date timestamp with time zone,
+    claims_history jsonb,
+    risk_mitigation_measures text,
+    special_conditions text,
+    policy_effective_date timestamp with time zone,
+    policy_expiration_date timestamp with time zone,
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE collectibles_insurance_valuations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.collectibles_insurance_valuations IS 'Insurance-specific valuations';
+
+
+--
+-- Name: collectibles_market_comparables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_market_comparables (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    collectibles_product_id uuid NOT NULL,
+    comparable_item_description text NOT NULL,
+    artist_creator character varying(255),
+    creation_date character varying(100),
+    medium_type character varying(100),
+    dimensions character varying(100),
+    condition_grade character varying(20),
+    sale_date timestamp with time zone NOT NULL,
+    sale_price numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    sale_venue character varying(100),
+    sale_type character varying(50),
+    lot_number character varying(50),
+    estimate_low numeric(20,2),
+    estimate_high numeric(20,2),
+    hammer_price numeric(20,2),
+    buyers_premium_percentage numeric(5,2),
+    total_price_with_premium numeric(20,2),
+    number_of_bidders integer,
+    provenance_quality character varying(20),
+    exhibition_history_quality character varying(20),
+    publication_history_quality character varying(20),
+    authenticity_status character varying(20),
+    rarity_compared character varying(50),
+    condition_compared character varying(50),
+    similarity_score integer,
+    relevance_to_valuation character varying(20),
+    adjustment_factors jsonb,
+    adjusted_comparable_value numeric(20,2),
+    data_source character varying(100),
+    catalog_reference character varying(100),
+    catalog_url text,
+    image_url text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE collectibles_market_comparables; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.collectibles_market_comparables IS 'Comparable sales for valuation';
+
+
+--
+-- Name: collectibles_market_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_market_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    estimated_value numeric NOT NULL,
+    trend numeric NOT NULL,
+    liquidity numeric NOT NULL,
+    volatility numeric NOT NULL,
+    seasonality numeric NOT NULL,
+    demand numeric NOT NULL,
+    supply numeric NOT NULL,
+    investment_grade numeric NOT NULL,
+    last_updated timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_market_metrics_demand_check CHECK (((demand >= (0)::numeric) AND (demand <= (100)::numeric))),
+    CONSTRAINT collectibles_market_metrics_estimated_value_check CHECK ((estimated_value >= (0)::numeric)),
+    CONSTRAINT collectibles_market_metrics_investment_grade_check CHECK (((investment_grade >= (0)::numeric) AND (investment_grade <= (100)::numeric))),
+    CONSTRAINT collectibles_market_metrics_liquidity_check CHECK (((liquidity >= (0)::numeric) AND (liquidity <= (100)::numeric))),
+    CONSTRAINT collectibles_market_metrics_supply_check CHECK (((supply >= (0)::numeric) AND (supply <= (100)::numeric))),
+    CONSTRAINT collectibles_market_metrics_volatility_check CHECK (((volatility >= (0)::numeric) AND (volatility <= (1)::numeric)))
+);
+
+
+--
 -- Name: collectibles_products; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8710,6 +9934,151 @@ CREATE TABLE public.collectibles_products (
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: collectibles_provenance; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_provenance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    collectibles_product_id uuid NOT NULL,
+    sequence_number integer NOT NULL,
+    ownership_period_start timestamp with time zone,
+    ownership_period_end timestamp with time zone,
+    owner_name character varying(255),
+    owner_type character varying(50),
+    acquisition_method character varying(100),
+    acquisition_date timestamp with time zone,
+    acquisition_price numeric(20,2),
+    acquisition_currency character varying(3),
+    acquisition_source character varying(255),
+    sale_method character varying(100),
+    sale_date timestamp with time zone,
+    sale_price numeric(20,2),
+    sale_currency character varying(3),
+    buyer_name character varying(255),
+    exhibition_history jsonb,
+    publication_history jsonb,
+    restoration_events jsonb,
+    documentation_type character varying(50),
+    documentation_url text,
+    is_gap_in_provenance boolean DEFAULT false,
+    gap_explanation text,
+    authenticity_concerns text,
+    legal_disputes text,
+    export_import_documentation text,
+    cultural_property_status character varying(50),
+    verification_status character varying(20) DEFAULT 'verified'::character varying,
+    verified_by character varying(255),
+    verification_date timestamp with time zone,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE collectibles_provenance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.collectibles_provenance IS 'Ownership and authenticity history';
+
+
+--
+-- Name: collectibles_provenance_records; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_provenance_records (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    product_id uuid NOT NULL,
+    completeness_score numeric NOT NULL,
+    documentation_quality numeric NOT NULL,
+    ownership_history jsonb DEFAULT '[]'::jsonb,
+    gaps text[],
+    earliest_record_date date,
+    verification_status text,
+    notes text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_provenance_records_completeness_score_check CHECK (((completeness_score >= (0)::numeric) AND (completeness_score <= (100)::numeric))),
+    CONSTRAINT collectibles_provenance_records_documentation_quality_check CHECK (((documentation_quality >= (0)::numeric) AND (documentation_quality <= (100)::numeric)))
+);
+
+
+--
+-- Name: collectibles_rarity_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_rarity_scores (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    product_id uuid NOT NULL,
+    rarity_score numeric NOT NULL,
+    production_quantity integer,
+    surviving_quantity integer,
+    grade_level text,
+    unique_characteristics text[],
+    comparable_count integer,
+    scarcity_factor numeric,
+    assessment_date date DEFAULT CURRENT_DATE NOT NULL,
+    notes text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_rarity_scores_rarity_score_check CHECK (((rarity_score >= (0)::numeric) AND (rarity_score <= (100)::numeric))),
+    CONSTRAINT collectibles_rarity_scores_scarcity_factor_check CHECK (((scarcity_factor >= (0)::numeric) AND (scarcity_factor <= (1)::numeric)))
+);
+
+
+--
+-- Name: collectibles_risk_assessments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_risk_assessments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    product_id uuid NOT NULL,
+    authenticity_risk numeric NOT NULL,
+    damage_risk numeric NOT NULL,
+    theft_risk numeric NOT NULL,
+    storage_risk numeric NOT NULL,
+    legal_risk numeric NOT NULL,
+    market_risk numeric,
+    liquidity_risk numeric,
+    assessment_date date DEFAULT CURRENT_DATE NOT NULL,
+    assessor text,
+    notes text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_risk_assessments_authenticity_risk_check CHECK (((authenticity_risk >= (0)::numeric) AND (authenticity_risk <= (100)::numeric))),
+    CONSTRAINT collectibles_risk_assessments_damage_risk_check CHECK (((damage_risk >= (0)::numeric) AND (damage_risk <= (100)::numeric))),
+    CONSTRAINT collectibles_risk_assessments_legal_risk_check CHECK (((legal_risk >= (0)::numeric) AND (legal_risk <= (100)::numeric))),
+    CONSTRAINT collectibles_risk_assessments_storage_risk_check CHECK (((storage_risk >= (0)::numeric) AND (storage_risk <= (100)::numeric))),
+    CONSTRAINT collectibles_risk_assessments_theft_risk_check CHECK (((theft_risk >= (0)::numeric) AND (theft_risk <= (100)::numeric)))
+);
+
+
+--
+-- Name: collectibles_storage_facilities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collectibles_storage_facilities (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    product_id uuid NOT NULL,
+    facility_name text,
+    location text,
+    monthly_cost numeric NOT NULL,
+    annual_cost numeric NOT NULL,
+    storage_conditions text,
+    security_level text,
+    insurance_included boolean DEFAULT false,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT collectibles_storage_facilities_annual_cost_check CHECK ((annual_cost >= (0)::numeric)),
+    CONSTRAINT collectibles_storage_facilities_monthly_cost_check CHECK ((monthly_cost >= (0)::numeric))
 );
 
 
@@ -8739,6 +10108,141 @@ CREATE TABLE public.commodities_products (
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: commodity_handling_costs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_handling_costs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity_type text NOT NULL,
+    unit_of_measure text NOT NULL,
+    cost_per_unit numeric NOT NULL,
+    handling_type text,
+    location text,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    effective_date date DEFAULT CURRENT_DATE NOT NULL,
+    expiration_date date,
+    notes text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT commodity_handling_costs_cost_per_unit_check CHECK ((cost_per_unit >= (0)::numeric))
+);
+
+
+--
+-- Name: commodity_implied_volatility; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_implied_volatility (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    instrument_key text NOT NULL,
+    volatility numeric NOT NULL,
+    maturity_months integer,
+    calculation_method text,
+    confidence_interval numeric,
+    calculation_date date DEFAULT CURRENT_DATE NOT NULL,
+    data_source text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT commodity_implied_volatility_volatility_check CHECK (((volatility >= (0)::numeric) AND (volatility <= (10)::numeric)))
+);
+
+
+--
+-- Name: commodity_insurance_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_insurance_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity_type text NOT NULL,
+    annual_rate numeric NOT NULL,
+    coverage_type text,
+    minimum_coverage numeric,
+    maximum_coverage numeric,
+    deductible_percentage numeric,
+    geographic_scope text,
+    risk_factors jsonb DEFAULT '{}'::jsonb,
+    effective_date date DEFAULT CURRENT_DATE NOT NULL,
+    expiration_date date,
+    provider text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT commodity_insurance_rates_annual_rate_check CHECK ((annual_rate >= (0)::numeric))
+);
+
+
+--
+-- Name: commodity_market_data; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_market_data (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    instrument_key text NOT NULL,
+    open_interest integer DEFAULT 0 NOT NULL,
+    volume integer DEFAULT 0 NOT NULL,
+    vwap numeric,
+    high numeric,
+    low numeric,
+    close numeric,
+    settlement numeric,
+    market_date date DEFAULT CURRENT_DATE NOT NULL,
+    exchange text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: commodity_quality_multipliers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_quality_multipliers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity_type text NOT NULL,
+    grade text NOT NULL,
+    multiplier numeric NOT NULL,
+    grade_specification text,
+    applicable_standards text[],
+    typical_price_differential numeric,
+    effective_date date DEFAULT CURRENT_DATE NOT NULL,
+    expiration_date date,
+    certifying_body text,
+    notes text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT commodity_quality_multipliers_multiplier_check CHECK ((multiplier > (0)::numeric))
+);
+
+
+--
+-- Name: commodity_storage_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_storage_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity_type text NOT NULL,
+    storage_location text,
+    annual_rate numeric NOT NULL,
+    monthly_rate numeric,
+    daily_rate numeric,
+    unit_of_measure text,
+    facility_type text,
+    minimum_quantity numeric,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    effective_date date DEFAULT CURRENT_DATE NOT NULL,
+    expiration_date date,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT commodity_storage_rates_annual_rate_check CHECK ((annual_rate >= (0)::numeric))
 );
 
 
@@ -8892,6 +10396,122 @@ CREATE TABLE public.consensus_settings (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+
+--
+-- Name: contract_master_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contract_master_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    contract_type text NOT NULL,
+    version text NOT NULL,
+    abi json NOT NULL,
+    bytecode text NOT NULL,
+    changes text,
+    breaking_changes boolean DEFAULT false,
+    migration_required boolean DEFAULT false,
+    migration_guide text,
+    deployed_at timestamp with time zone DEFAULT now(),
+    deprecated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: contract_masters; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contract_masters (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    network text NOT NULL,
+    environment text NOT NULL,
+    contract_type text NOT NULL,
+    contract_address text NOT NULL,
+    version text DEFAULT '1.0.0'::text NOT NULL,
+    abi_version text DEFAULT '1.0.0'::text NOT NULL,
+    abi json NOT NULL,
+    abi_hash text,
+    deployed_at timestamp with time zone DEFAULT now(),
+    deployed_by uuid,
+    deployment_tx_hash text,
+    is_active boolean DEFAULT true,
+    deprecated_at timestamp with time zone,
+    deployment_data jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    contract_details jsonb,
+    initial_owner text,
+    CONSTRAINT contract_masters_contract_type_check CHECK ((contract_type = ANY (ARRAY['factory'::text, 'erc20_master'::text, 'erc721_master'::text, 'erc1155_master'::text, 'erc3525_master'::text, 'erc4626_master'::text, 'erc1400_master'::text, 'erc20_rebasing_master'::text, 'compliance_module'::text, 'vesting_module'::text, 'royalty_module'::text, 'fee_module'::text]))),
+    CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text]))),
+    CONSTRAINT contract_masters_network_check CHECK ((network = ANY (ARRAY['ethereum'::text, 'polygon'::text, 'arbitrum'::text, 'optimism'::text, 'base'::text, 'avalanche'::text, 'bsc'::text])))
+);
+
+
+--
+-- Name: TABLE contract_masters; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.contract_masters IS 'Master contract templates deployed on various networks. These are infrastructure contracts that can create/manage tokens.';
+
+
+--
+-- Name: COLUMN contract_masters.contract_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters.contract_type IS 'Type of master contract or module (factory, erc20_master, compliance_module, etc.)';
+
+
+--
+-- Name: COLUMN contract_masters.abi_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters.abi_hash IS 'SHA-256 hash of ABI for verification and change detection';
+
+
+--
+-- Name: COLUMN contract_masters.is_active; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters.is_active IS 'Whether this is the currently active version (for upgrades)';
+
+
+--
+-- Name: corporate_actions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.corporate_actions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    equity_product_id uuid NOT NULL,
+    ticker_symbol character varying(20) NOT NULL,
+    action_type character varying(50) NOT NULL,
+    effective_date timestamp with time zone NOT NULL,
+    announcement_date timestamp with time zone,
+    ex_date timestamp with time zone,
+    record_date timestamp with time zone,
+    ratio_from integer,
+    ratio_to integer,
+    exchange_ratio numeric(20,6),
+    acquiring_company character varying(255),
+    target_company character varying(255),
+    new_ticker_symbol character varying(20),
+    cash_consideration numeric(20,2),
+    stock_consideration numeric(20,6),
+    description text,
+    impact_on_holdings jsonb,
+    status character varying(20) DEFAULT 'announced'::character varying,
+    regulatory_approvals_required boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE corporate_actions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.corporate_actions IS 'Records corporate actions like splits, mergers, and spin-offs';
 
 
 --
@@ -10286,6 +11906,279 @@ CREATE TABLE public.documents (
 
 
 --
+-- Name: dtf_blockchain_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dtf_blockchain_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    digital_tokenized_fund_product_id uuid NOT NULL,
+    dtf_token_metadata_id uuid NOT NULL,
+    event_timestamp timestamp with time zone NOT NULL,
+    transaction_hash character varying(255) NOT NULL,
+    block_number integer NOT NULL,
+    block_timestamp timestamp with time zone NOT NULL,
+    event_type character varying(50) NOT NULL,
+    event_name character varying(100),
+    from_address character varying(255),
+    to_address character varying(255),
+    value numeric(30,8),
+    token_id character varying(100),
+    event_data jsonb,
+    log_index integer,
+    transaction_index integer,
+    gas_used integer,
+    gas_price_gwei numeric(10,2),
+    gas_cost numeric(20,8),
+    status character varying(20) DEFAULT 'confirmed'::character varying,
+    is_internal_transaction boolean DEFAULT false,
+    contract_method_called character varying(100),
+    input_data text,
+    error_message text,
+    decoded_event_data jsonb,
+    related_events jsonb,
+    compliance_checked boolean DEFAULT false,
+    compliance_status character varying(20),
+    risk_score integer,
+    aml_screening_result character varying(20),
+    sanctioned_address boolean DEFAULT false,
+    event_category character varying(50),
+    is_suspicious boolean DEFAULT false,
+    investigation_required boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE dtf_blockchain_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dtf_blockchain_events IS 'All blockchain events related to tokens';
+
+
+--
+-- Name: dtf_minting_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dtf_minting_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    digital_tokenized_fund_product_id uuid NOT NULL,
+    dtf_token_metadata_id uuid NOT NULL,
+    mint_timestamp timestamp with time zone NOT NULL,
+    transaction_hash character varying(255) NOT NULL,
+    block_number integer NOT NULL,
+    recipient_address character varying(255) NOT NULL,
+    amount_minted numeric(30,8) NOT NULL,
+    mint_price numeric(20,8),
+    total_value numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    payment_method character varying(50),
+    payment_currency character varying(10),
+    payment_amount numeric(20,2),
+    payment_tx_hash character varying(255),
+    subscription_agreement_signed boolean DEFAULT true,
+    kyc_aml_completed boolean DEFAULT true,
+    accredited_investor_verified boolean DEFAULT true,
+    minting_reason character varying(100),
+    associated_assets jsonb,
+    nav_at_mint numeric(20,8),
+    gas_used integer,
+    gas_price_gwei numeric(10,2),
+    gas_cost numeric(20,8),
+    issuer_address character varying(255),
+    custody_arrangement text,
+    lock_up_period_months integer,
+    lock_up_end_date timestamp with time zone,
+    vesting_schedule jsonb,
+    regulatory_filing_reference character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE dtf_minting_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dtf_minting_history IS 'Token minting/issuance events';
+
+
+--
+-- Name: dtf_nav_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dtf_nav_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    digital_tokenized_fund_product_id uuid NOT NULL,
+    dtf_token_metadata_id uuid NOT NULL,
+    snapshot_timestamp timestamp with time zone NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    total_fund_nav numeric(20,2) NOT NULL,
+    nav_per_token numeric(20,8) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    tokens_outstanding numeric(30,8) NOT NULL,
+    total_assets numeric(20,2) NOT NULL,
+    total_liabilities numeric(20,2) NOT NULL,
+    net_assets numeric(20,2) NOT NULL,
+    asset_breakdown jsonb,
+    published_on_chain boolean DEFAULT false,
+    oracle_transaction_hash character varying(255),
+    oracle_block_number integer,
+    oracle_gas_cost numeric(20,8),
+    data_hash character varying(255),
+    attestation_signature character varying(500),
+    administrator_name character varying(255),
+    auditor_verification boolean DEFAULT false,
+    auditor_name character varying(255),
+    price_change_from_previous numeric(5,2),
+    daily_return numeric(5,4),
+    inception_to_date_return numeric(5,2),
+    benchmark_nav numeric(20,8),
+    benchmark_index character varying(50),
+    tracking_difference numeric(5,4),
+    discount_premium_to_market numeric(5,2),
+    trading_volume_24h numeric(20,2),
+    number_of_transactions_24h integer,
+    methodology_reference text,
+    calculation_inputs jsonb,
+    is_final boolean DEFAULT true,
+    revision_number integer DEFAULT 1,
+    previous_snapshot_id uuid,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE dtf_nav_snapshots; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dtf_nav_snapshots IS 'On-chain NAV publication history';
+
+
+--
+-- Name: dtf_redemption_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dtf_redemption_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    digital_tokenized_fund_product_id uuid NOT NULL,
+    dtf_token_metadata_id uuid NOT NULL,
+    request_id character varying(100) NOT NULL,
+    request_timestamp timestamp with time zone NOT NULL,
+    requester_address character varying(255) NOT NULL,
+    amount_requested numeric(30,8) NOT NULL,
+    redemption_nav numeric(20,8),
+    redemption_value numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    redemption_fee numeric(20,2),
+    fee_percentage numeric(5,2),
+    net_redemption_value numeric(20,2),
+    redemption_method character varying(50),
+    settlement_currency character varying(10),
+    settlement_address character varying(255),
+    notice_period_days integer,
+    earliest_settlement_date timestamp with time zone,
+    actual_settlement_date timestamp with time zone,
+    lock_up_check boolean,
+    is_lock_up_compliant boolean DEFAULT true,
+    minimum_redemption_check boolean,
+    is_minimum_met boolean DEFAULT true,
+    liquidity_gate_check boolean,
+    is_within_gate_limits boolean DEFAULT true,
+    pro_rata_redemption boolean DEFAULT false,
+    processing_time_business_days integer,
+    burn_transaction_hash character varying(255),
+    burn_block_number integer,
+    burn_timestamp timestamp with time zone,
+    amount_burned numeric(30,8),
+    assets_liquidated jsonb,
+    liquidation_costs numeric(20,2),
+    market_impact numeric(20,2),
+    redemption_settlement_tx_hash character varying(255),
+    status character varying(20) DEFAULT 'pending'::character varying,
+    failure_reason text,
+    gate_reason text,
+    deferred_to_date timestamp with time zone,
+    regulatory_reporting_required boolean DEFAULT true,
+    tax_reporting_generated boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE dtf_redemption_requests; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dtf_redemption_requests IS 'Token redemption and burn requests';
+
+
+--
+-- Name: dtf_token_metadata; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.dtf_token_metadata (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    digital_tokenized_fund_product_id uuid NOT NULL,
+    token_name character varying(100) NOT NULL,
+    token_symbol character varying(20) NOT NULL,
+    token_standard character varying(20) NOT NULL,
+    blockchain_network character varying(50) NOT NULL,
+    chain_id integer,
+    contract_address character varying(255) NOT NULL,
+    contract_deployment_date timestamp with time zone NOT NULL,
+    contract_deployment_tx_hash character varying(255),
+    deployer_address character varying(255),
+    total_supply numeric(30,8) NOT NULL,
+    max_supply numeric(30,8),
+    circulating_supply numeric(30,8),
+    decimals integer DEFAULT 18,
+    is_mintable boolean DEFAULT false,
+    is_burnable boolean DEFAULT false,
+    is_pausable boolean DEFAULT false,
+    is_upgradeable boolean DEFAULT false,
+    proxy_contract_address character varying(255),
+    implementation_contract_address character varying(255),
+    token_price numeric(20,8),
+    token_nav numeric(20,8),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    price_premium_discount numeric(5,2),
+    market_capitalization numeric(20,2),
+    fully_diluted_valuation numeric(20,2),
+    number_of_holders integer,
+    unique_wallet_count integer,
+    transfer_restrictions jsonb,
+    compliance_modules jsonb,
+    dividend_distribution_mechanism text,
+    voting_rights boolean DEFAULT false,
+    governance_token boolean DEFAULT false,
+    utility_features text,
+    redemption_mechanism text,
+    oracle_price_feed character varying(255),
+    audit_reports text[],
+    verified_on_etherscan boolean DEFAULT false,
+    etherscan_url text,
+    metadata_uri text,
+    whitepaper_url text,
+    regulatory_framework text,
+    securities_classification character varying(50),
+    issuer_info jsonb,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE dtf_token_metadata; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.dtf_token_metadata IS 'Blockchain token metadata and smart contract info';
+
+
+--
 -- Name: energy_assets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10327,6 +12220,61 @@ COMMENT ON COLUMN public.energy_assets.capacity_factor_actual IS 'Actual capacit
 
 
 --
+-- Name: energy_futures_contracts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.energy_futures_contracts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity text NOT NULL,
+    contract_month integer NOT NULL,
+    price numeric NOT NULL,
+    contract_date date NOT NULL,
+    exchange text,
+    volume numeric,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT energy_futures_contracts_commodity_check CHECK ((commodity = ANY (ARRAY['oil'::text, 'natural_gas'::text, 'electricity'::text, 'coal'::text, 'carbon'::text]))),
+    CONSTRAINT energy_futures_contracts_contract_month_check CHECK (((contract_month >= 1) AND (contract_month <= 60))),
+    CONSTRAINT energy_futures_contracts_price_check CHECK ((price > (0)::numeric))
+);
+
+
+--
+-- Name: TABLE energy_futures_contracts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.energy_futures_contracts IS 'Stores futures contract prices for energy commodities used in NAV calculations';
+
+
+--
+-- Name: COLUMN energy_futures_contracts.commodity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.energy_futures_contracts.commodity IS 'Type of energy commodity (oil, natural_gas, electricity, coal, carbon)';
+
+
+--
+-- Name: COLUMN energy_futures_contracts.contract_month; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.energy_futures_contracts.contract_month IS 'Number of months ahead for this contract (1-60)';
+
+
+--
+-- Name: COLUMN energy_futures_contracts.price; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.energy_futures_contracts.price IS 'Price per unit in USD';
+
+
+--
+-- Name: COLUMN energy_futures_contracts.contract_date; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.energy_futures_contracts.contract_date IS 'Date when the contract pricing was recorded';
+
+
+--
 -- Name: energy_products; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10360,6 +12308,46 @@ CREATE TABLE public.energy_products (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: environmental_certifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.environmental_certifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    real_estate_product_id uuid NOT NULL,
+    certification_type character varying(50) NOT NULL,
+    certification_level character varying(50),
+    certification_number character varying(100),
+    certifying_body character varying(255) NOT NULL,
+    certified_date timestamp with time zone NOT NULL,
+    expiration_date timestamp with time zone,
+    recertification_date timestamp with time zone,
+    score_or_rating character varying(50),
+    energy_efficiency_rating character varying(10),
+    water_efficiency_rating character varying(10),
+    indoor_environmental_quality_rating character varying(10),
+    materials_resources_rating character varying(10),
+    certification_cost numeric(20,2),
+    annual_savings_estimate numeric(20,2),
+    carbon_footprint_reduction numeric(10,2),
+    certification_criteria_met jsonb,
+    audit_report_url text,
+    verification_status character varying(20) DEFAULT 'verified'::character varying,
+    market_value_premium numeric(5,2),
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE environmental_certifications; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.environmental_certifications IS 'Green building certifications (LEED, Energy Star, etc.)';
 
 
 --
@@ -10673,6 +12661,30 @@ CREATE TABLE public.fund_products (
 
 
 --
+-- Name: futures_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.futures_prices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    instrument_key text NOT NULL,
+    contract_month text NOT NULL,
+    delivery_month text NOT NULL,
+    price numeric NOT NULL,
+    days_to_maturity integer NOT NULL,
+    open_interest integer,
+    volume integer,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    exchange text,
+    price_date date DEFAULT CURRENT_DATE NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT futures_prices_days_to_maturity_check CHECK ((days_to_maturity >= 0)),
+    CONSTRAINT futures_prices_price_check CHECK ((price > (0)::numeric))
+);
+
+
+--
 -- Name: geographic_jurisdictions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10903,6 +12915,277 @@ CREATE TABLE public.individual_documents (
 --
 
 COMMENT ON TABLE public.individual_documents IS 'Individual KYC/AML and personal documents for investors and users';
+
+
+--
+-- Name: infra_capex_schedule; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.infra_capex_schedule (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    infrastructure_product_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    capex_name character varying(255) NOT NULL,
+    capex_category character varying(100) NOT NULL,
+    description text,
+    planned_start_date timestamp with time zone NOT NULL,
+    planned_completion_date timestamp with time zone NOT NULL,
+    actual_start_date timestamp with time zone,
+    actual_completion_date timestamp with time zone,
+    budgeted_amount numeric(20,2) NOT NULL,
+    committed_amount numeric(20,2),
+    spent_to_date numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    funding_source character varying(100),
+    is_discretionary boolean DEFAULT true,
+    is_regulatory_required boolean DEFAULT false,
+    expected_benefit text,
+    expected_roi numeric(5,2),
+    payback_period_years numeric(5,2),
+    impact_on_capacity numeric(10,2),
+    impact_on_revenue numeric(20,2),
+    impact_on_opex numeric(20,2),
+    approval_status character varying(20) DEFAULT 'pending'::character varying,
+    approval_date timestamp with time zone,
+    contractor_name character varying(255),
+    contract_reference character varying(100),
+    milestone_schedule jsonb,
+    risk_factors jsonb,
+    status character varying(20) DEFAULT 'planned'::character varying,
+    completion_percentage numeric(5,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE infra_capex_schedule; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.infra_capex_schedule IS 'Capital expenditure schedule and tracking';
+
+
+--
+-- Name: infra_concessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.infra_concessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    infrastructure_product_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    concession_name character varying(255) NOT NULL,
+    grantor character varying(255) NOT NULL,
+    concessionaire character varying(255) NOT NULL,
+    concession_type character varying(50),
+    contract_reference character varying(100),
+    signing_date timestamp with time zone NOT NULL,
+    effective_date timestamp with time zone NOT NULL,
+    expiration_date timestamp with time zone NOT NULL,
+    concession_term_years integer NOT NULL,
+    remaining_term_years integer,
+    extension_options jsonb,
+    handback_requirements text,
+    performance_standards jsonb,
+    revenue_rights jsonb,
+    revenue_sharing_terms jsonb,
+    tariff_setting_mechanism text,
+    tariff_review_frequency character varying(20),
+    minimum_service_requirements text,
+    penalty_regime jsonb,
+    termination_clauses jsonb,
+    termination_compensation_formula text,
+    refinancing_restrictions text,
+    change_in_law_provisions text,
+    force_majeure_provisions text,
+    dispute_resolution_mechanism character varying(100),
+    governing_law character varying(100),
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE infra_concessions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.infra_concessions IS 'Concession agreement details for infrastructure';
+
+
+--
+-- Name: infra_operating_expenses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.infra_operating_expenses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    infrastructure_product_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    expense_date timestamp with time zone NOT NULL,
+    expense_category character varying(100) NOT NULL,
+    expense_subcategory character varying(100),
+    description text,
+    amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    is_fixed_cost boolean DEFAULT false,
+    is_variable_cost boolean DEFAULT false,
+    variable_cost_per_unit numeric(20,6),
+    frequency character varying(20),
+    escalation_rate numeric(5,4),
+    vendor_name character varying(255),
+    contract_reference character varying(100),
+    budget_category character varying(100),
+    budget_variance numeric(20,2),
+    lifecycle_stage character varying(50),
+    is_major_maintenance boolean DEFAULT false,
+    maintenance_cycle_years integer,
+    payment_status character varying(20) DEFAULT 'pending'::character varying,
+    approval_status character varying(20) DEFAULT 'approved'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE infra_operating_expenses; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.infra_operating_expenses IS 'Operating expenses for infrastructure projects';
+
+
+--
+-- Name: infra_regulatory_filings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.infra_regulatory_filings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    infrastructure_product_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    filing_type character varying(100) NOT NULL,
+    regulatory_body character varying(255) NOT NULL,
+    filing_date timestamp with time zone NOT NULL,
+    due_date timestamp with time zone NOT NULL,
+    filing_frequency character varying(20),
+    next_filing_due timestamp with time zone,
+    filing_reference character varying(100),
+    description text,
+    compliance_status character varying(20) DEFAULT 'pending'::character varying,
+    submission_document_url text,
+    approval_document_url text,
+    approval_date timestamp with time zone,
+    conditions_imposed jsonb,
+    violations_cited jsonb,
+    remediation_required boolean DEFAULT false,
+    remediation_deadline timestamp with time zone,
+    remediation_cost_estimate numeric(20,2),
+    penalties_assessed numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    is_material_event boolean DEFAULT false,
+    impact_on_operations text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE infra_regulatory_filings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.infra_regulatory_filings IS 'Regulatory compliance filings and status';
+
+
+--
+-- Name: infra_revenue_streams; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.infra_revenue_streams (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    infrastructure_product_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    stream_name character varying(255) NOT NULL,
+    stream_type character varying(50) NOT NULL,
+    revenue_source character varying(100),
+    contract_reference character varying(100),
+    start_date timestamp with time zone NOT NULL,
+    end_date timestamp with time zone,
+    billing_frequency character varying(20),
+    revenue_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    escalation_rate numeric(5,4),
+    escalation_index character varying(50),
+    volume_based boolean DEFAULT false,
+    usage_units character varying(50),
+    actual_usage numeric(20,2),
+    tariff_per_unit numeric(20,6),
+    minimum_revenue_guarantee numeric(20,2),
+    maximum_revenue_cap numeric(20,2),
+    revenue_sharing_percentage numeric(5,2),
+    payment_terms character varying(100),
+    credit_quality character varying(20),
+    is_regulated boolean DEFAULT false,
+    regulatory_review_frequency character varying(20),
+    historical_growth_rate numeric(5,2),
+    seasonality_factors jsonb,
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE infra_revenue_streams; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.infra_revenue_streams IS 'Revenue streams for infrastructure projects';
+
+
+--
+-- Name: infra_usage_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.infra_usage_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    infrastructure_product_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    metric_date timestamp with time zone NOT NULL,
+    metric_type character varying(50) NOT NULL,
+    metric_unit character varying(50) NOT NULL,
+    actual_value numeric(20,2) NOT NULL,
+    budgeted_value numeric(20,2),
+    variance numeric(20,2),
+    variance_percentage numeric(5,2),
+    peak_value numeric(20,2),
+    peak_time timestamp with time zone,
+    off_peak_value numeric(20,2),
+    capacity numeric(20,2),
+    utilization_rate numeric(5,2),
+    availability_rate numeric(5,2),
+    downtime_hours numeric(10,2),
+    planned_downtime_hours numeric(10,2),
+    unplanned_downtime_hours numeric(10,2),
+    downtime_reasons jsonb,
+    weather_impact jsonb,
+    seasonal_adjustment_factor numeric(5,4),
+    growth_rate_mom numeric(5,2),
+    growth_rate_yoy numeric(5,2),
+    data_source character varying(100),
+    data_quality_score integer,
+    is_estimated boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE infra_usage_metrics; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.infra_usage_metrics IS 'Traffic, utilization, and performance metrics';
 
 
 --
@@ -11152,6 +13435,144 @@ CREATE TABLE public.invoice (
 
 
 --
+-- Name: invoice_aging_buckets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invoice_aging_buckets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    as_of_date timestamp with time zone NOT NULL,
+    bucket_name character varying(50) NOT NULL,
+    bucket_min_days integer NOT NULL,
+    bucket_max_days integer,
+    number_of_invoices integer NOT NULL,
+    total_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    percentage_of_total numeric(5,2),
+    reserve_percentage numeric(5,2),
+    reserve_amount numeric(20,2),
+    expected_collection_rate numeric(5,2),
+    expected_collection_amount numeric(20,2),
+    expected_loss_rate numeric(5,2),
+    expected_loss_amount numeric(20,2),
+    average_days_outstanding numeric(5,1),
+    largest_invoice_amount numeric(20,2),
+    concentration_risk character varying(20),
+    historical_collection_rate jsonb,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE invoice_aging_buckets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.invoice_aging_buckets IS 'Aging analysis of receivables';
+
+
+--
+-- Name: invoice_collection_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invoice_collection_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    period_start_date timestamp with time zone NOT NULL,
+    period_end_date timestamp with time zone NOT NULL,
+    total_invoices_issued integer NOT NULL,
+    total_invoices_amount numeric(20,2) NOT NULL,
+    total_collected numeric(20,2) NOT NULL,
+    collection_rate numeric(5,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    average_days_to_collect numeric(5,1),
+    invoices_current integer,
+    invoices_1_30_days integer,
+    invoices_31_60_days integer,
+    invoices_61_90_days integer,
+    invoices_90_plus_days integer,
+    invoices_written_off integer,
+    amount_written_off numeric(20,2),
+    write_off_rate numeric(5,2),
+    disputed_invoices integer,
+    disputed_amount numeric(20,2),
+    resolved_disputes integer,
+    resolved_dispute_amount numeric(20,2),
+    collection_costs numeric(20,2),
+    legal_costs numeric(20,2),
+    net_collections numeric(20,2),
+    dilution_amount numeric(20,2),
+    dilution_rate numeric(5,2),
+    concentration_by_debtor jsonb,
+    concentration_by_industry jsonb,
+    roll_rate_analysis jsonb,
+    collection_effectiveness_index numeric(5,2),
+    days_sales_outstanding numeric(5,1),
+    best_possible_dso numeric(5,1),
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE invoice_collection_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.invoice_collection_history IS 'Collection effectiveness tracking';
+
+
+--
+-- Name: invoice_debtor_ratings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invoice_debtor_ratings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    debtor_name character varying(255) NOT NULL,
+    debtor_id uuid,
+    rating_date timestamp with time zone NOT NULL,
+    internal_rating character varying(10) NOT NULL,
+    external_rating character varying(10),
+    rating_agency character varying(50),
+    payment_behavior_score integer,
+    days_beyond_terms_average numeric(5,1),
+    payment_default_probability numeric(5,4),
+    expected_recovery_rate numeric(5,2),
+    credit_limit numeric(20,2),
+    current_exposure numeric(20,2),
+    concentration_percentage numeric(5,2),
+    is_within_limit boolean DEFAULT true,
+    financial_strength character varying(20),
+    industry character varying(100),
+    years_in_business integer,
+    number_of_employees integer,
+    annual_revenue numeric(20,2),
+    profitability character varying(20),
+    liquidity_ratio numeric(5,2),
+    leverage_ratio numeric(5,2),
+    payment_history_months integer,
+    average_days_to_pay numeric(5,1),
+    disputed_invoices_count integer,
+    disputed_amount numeric(20,2),
+    is_approved_debtor boolean DEFAULT true,
+    approval_date timestamp with time zone,
+    review_frequency character varying(20),
+    next_review_date timestamp with time zone,
+    watch_list_status boolean DEFAULT false,
+    watch_list_reason text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE invoice_debtor_ratings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.invoice_debtor_ratings IS 'Credit ratings for invoice debtors';
+
+
+--
 -- Name: invoice_invoice_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -11163,6 +13584,94 @@ ALTER TABLE public.invoice ALTER COLUMN invoice_id ADD GENERATED ALWAYS AS IDENT
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: invoice_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invoice_payments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    invoice_receivable_id uuid NOT NULL,
+    payment_date timestamp with time zone NOT NULL,
+    payment_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    payment_method character varying(50),
+    transaction_reference character varying(100),
+    days_late integer DEFAULT 0,
+    late_fee_charged numeric(20,2),
+    discount_taken numeric(20,2),
+    payment_type character varying(50),
+    is_early_payment boolean DEFAULT false,
+    remaining_balance numeric(20,2),
+    reconciliation_status character varying(20) DEFAULT 'matched'::character varying,
+    applied_to_principal numeric(20,2),
+    applied_to_fees numeric(20,2),
+    applied_to_interest numeric(20,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE invoice_payments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.invoice_payments IS 'Payment tracking for invoices';
+
+
+--
+-- Name: invoice_receivables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invoice_receivables (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    invoice_number character varying(100) NOT NULL,
+    debtor_name character varying(255) NOT NULL,
+    debtor_id uuid,
+    creditor_name character varying(255) NOT NULL,
+    creditor_id uuid,
+    invoice_date timestamp with time zone NOT NULL,
+    due_date timestamp with time zone NOT NULL,
+    invoice_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    advance_rate numeric(5,2),
+    advance_amount numeric(20,2),
+    discount_rate numeric(5,4),
+    discount_amount numeric(20,2),
+    fee_percentage numeric(5,2),
+    fees_charged numeric(20,2),
+    net_advance numeric(20,2),
+    invoice_type character varying(50),
+    invoice_category character varying(50),
+    payment_terms character varying(50),
+    is_recourse boolean DEFAULT true,
+    dilution_risk numeric(5,2),
+    credit_insurance_covered boolean DEFAULT false,
+    insurance_policy_number character varying(100),
+    insurance_coverage_amount numeric(20,2),
+    goods_delivered boolean DEFAULT true,
+    services_completed boolean DEFAULT true,
+    dispute_risk character varying(20),
+    concentration_risk character varying(20),
+    debtor_relationship_years integer,
+    payment_history_score integer,
+    days_outstanding integer,
+    aging_bucket character varying(20),
+    status character varying(20) DEFAULT 'outstanding'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE invoice_receivables; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.invoice_receivables IS 'Invoice receivables for financing';
 
 
 --
@@ -11313,6 +13822,51 @@ CREATE VIEW public.latest_nav_by_fund AS
 
 
 --
+-- Name: lease_agreements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lease_agreements (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    real_estate_product_id uuid NOT NULL,
+    tenant_name character varying(255) NOT NULL,
+    tenant_type character varying(50),
+    unit_number character varying(50),
+    floor_number character varying(20),
+    leased_square_feet numeric(10,2),
+    lease_start_date timestamp with time zone NOT NULL,
+    lease_end_date timestamp with time zone NOT NULL,
+    lease_term_months integer,
+    monthly_rent numeric(20,2) NOT NULL,
+    annual_rent numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    rent_per_sqft numeric(10,2),
+    security_deposit numeric(20,2),
+    escalation_rate numeric(5,4),
+    escalation_frequency character varying(20),
+    rent_free_periods jsonb,
+    tenant_improvements numeric(20,2),
+    lease_type character varying(50),
+    renewal_options jsonb,
+    termination_clauses jsonb,
+    rent_payment_schedule jsonb,
+    late_payment_penalty numeric(20,2),
+    tenant_credit_rating character varying(10),
+    guarantor_info jsonb,
+    status character varying(20) DEFAULT 'active'::character varying,
+    is_anchor_tenant boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE lease_agreements; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.lease_agreements IS 'Tenant lease agreements and rental income tracking';
+
+
+--
 -- Name: market_data_snapshots; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11335,6 +13889,79 @@ CREATE TABLE public.market_data_snapshots (
 --
 
 COMMENT ON TABLE public.market_data_snapshots IS 'Historical market data snapshots for tracking and analysis';
+
+
+--
+-- Name: market_indices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.market_indices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    index_symbol character varying(20) NOT NULL,
+    index_name character varying(255) NOT NULL,
+    index_provider character varying(100),
+    description text,
+    asset_class character varying(50),
+    geographic_focus character varying(50),
+    sector_focus character varying(50),
+    market_cap_segment character varying(50),
+    methodology text,
+    base_date timestamp with time zone,
+    base_value numeric(20,4),
+    currency character varying(3) NOT NULL,
+    rebalancing_frequency character varying(50),
+    constituent_count integer,
+    constituents jsonb,
+    calculation_method character varying(50),
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE market_indices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.market_indices IS 'Market indices for beta calculations and benchmarking';
+
+
+--
+-- Name: market_rent_data; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.market_rent_data (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    property_type character varying(50) NOT NULL,
+    property_subtype character varying(50),
+    location character varying(255) NOT NULL,
+    city character varying(100) NOT NULL,
+    state_province character varying(100),
+    country character varying(3) NOT NULL,
+    postal_code character varying(20),
+    market_rent_per_sqft numeric(10,2) NOT NULL,
+    market_rent_per_unit numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    square_footage_range jsonb,
+    building_class character varying(10),
+    as_of_date timestamp with time zone NOT NULL,
+    source character varying(255),
+    vacancy_rate numeric(5,2),
+    absorption_rate numeric(10,2),
+    market_trends text,
+    comparable_properties jsonb,
+    data_quality_score integer,
+    is_verified boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE market_rent_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.market_rent_data IS 'Market rental rate comparables for valuation';
 
 
 --
@@ -11369,6 +13996,234 @@ CREATE TABLE public.ml_baseline_statistics (
 --
 
 COMMENT ON TABLE public.ml_baseline_statistics IS 'Machine learning baseline statistics for anomaly detection';
+
+
+--
+-- Name: mmf_credit_ratings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_credit_ratings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    issuer_name character varying(255) NOT NULL,
+    issuer_id character varying(100),
+    rating_date timestamp with time zone NOT NULL,
+    short_term_rating character varying(10) NOT NULL,
+    long_term_rating character varying(10),
+    rating_agency character varying(50) NOT NULL,
+    rating_outlook character varying(20),
+    previous_rating character varying(10),
+    rating_action character varying(50),
+    is_tier_1 boolean DEFAULT true,
+    is_second_tier boolean DEFAULT false,
+    is_eligible_mmf_holding boolean DEFAULT true,
+    downgrade_watch boolean DEFAULT false,
+    credit_watch_status character varying(50),
+    probability_of_default numeric(5,4),
+    rating_report_url text,
+    internal_credit_assessment text,
+    concentration_limits jsonb,
+    current_exposure numeric(20,2),
+    exposure_percentage numeric(5,2),
+    is_within_concentration_limits boolean DEFAULT true,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE mmf_credit_ratings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mmf_credit_ratings IS 'Credit quality monitoring for MMF issuers';
+
+
+--
+-- Name: mmf_holdings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_holdings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    holding_type character varying(50) NOT NULL,
+    issuer_name character varying(255) NOT NULL,
+    issuer_id character varying(100),
+    security_description text NOT NULL,
+    cusip character varying(9),
+    isin character varying(12),
+    par_value numeric(20,2) NOT NULL,
+    purchase_price numeric(20,8),
+    current_price numeric(20,8) NOT NULL,
+    amortized_cost numeric(20,2) NOT NULL,
+    market_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    quantity numeric(20,2),
+    yield_to_maturity numeric(5,4),
+    coupon_rate numeric(5,4),
+    effective_maturity_date timestamp with time zone NOT NULL,
+    final_maturity_date timestamp with time zone NOT NULL,
+    weighted_average_maturity_days integer,
+    weighted_average_life_days integer,
+    days_to_maturity integer,
+    credit_rating character varying(10) NOT NULL,
+    rating_agency character varying(50),
+    is_government_security boolean DEFAULT false,
+    is_daily_liquid boolean DEFAULT false,
+    is_weekly_liquid boolean DEFAULT false,
+    liquidity_classification character varying(20),
+    acquisition_date timestamp with time zone NOT NULL,
+    settlement_date timestamp with time zone,
+    accrued_interest numeric(20,6),
+    amortization_adjustment numeric(20,6),
+    shadow_nav_impact numeric(20,8),
+    stress_test_value numeric(20,2),
+    counterparty character varying(255),
+    collateral_description text,
+    is_affiliated_issuer boolean DEFAULT false,
+    concentration_percentage numeric(5,2),
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE mmf_holdings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mmf_holdings IS 'Money market fund holdings and securities';
+
+
+--
+-- Name: mmf_liquidity_buckets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_liquidity_buckets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    as_of_date timestamp with time zone NOT NULL,
+    bucket_type character varying(50) NOT NULL,
+    total_value numeric(20,2) NOT NULL,
+    percentage_of_nav numeric(5,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    number_of_holdings integer,
+    holdings_detail jsonb,
+    regulatory_minimum numeric(5,2),
+    is_compliant boolean DEFAULT true,
+    cushion numeric(5,2),
+    stress_scenario character varying(50),
+    stressed_liquidity_percentage numeric(5,2),
+    can_meet_redemptions boolean DEFAULT true,
+    projected_redemption_rate numeric(5,2),
+    liquidity_coverage_ratio numeric(5,2),
+    time_to_liquidate_days integer,
+    liquidation_cost_estimate numeric(20,2),
+    contingency_liquidity_sources jsonb,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE mmf_liquidity_buckets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mmf_liquidity_buckets IS 'Liquidity classification and stress testing';
+
+
+--
+-- Name: mmf_nav_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_nav_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    stable_nav numeric(20,8) DEFAULT 1.00,
+    market_based_nav numeric(20,8) NOT NULL,
+    deviation_from_stable numeric(10,8),
+    deviation_bps integer,
+    total_net_assets numeric(20,2) NOT NULL,
+    shares_outstanding numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    daily_yield numeric(5,4),
+    seven_day_yield numeric(5,4),
+    thirty_day_yield numeric(5,4),
+    effective_yield numeric(5,4),
+    expense_ratio numeric(5,4),
+    weighted_average_maturity_days integer NOT NULL,
+    weighted_average_life_days integer NOT NULL,
+    daily_liquid_assets_percentage numeric(5,2) NOT NULL,
+    weekly_liquid_assets_percentage numeric(5,2) NOT NULL,
+    is_wam_compliant boolean DEFAULT true,
+    is_wal_compliant boolean DEFAULT true,
+    is_liquidity_compliant boolean DEFAULT true,
+    is_breaking_the_buck boolean DEFAULT false,
+    stress_test_result character varying(20),
+    gate_status character varying(20) DEFAULT 'open'::character varying,
+    redemption_fee_imposed boolean DEFAULT false,
+    total_subscriptions numeric(20,2),
+    total_redemptions numeric(20,2),
+    net_flows numeric(20,2),
+    portfolio_manager_notes text,
+    regulatory_filing_reference character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE mmf_nav_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mmf_nav_history IS 'Daily NAV tracking and compliance monitoring';
+
+
+--
+-- Name: mmf_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    transaction_date timestamp with time zone NOT NULL,
+    settlement_date timestamp with time zone,
+    transaction_type character varying(50) NOT NULL,
+    holding_id uuid,
+    security_description text,
+    cusip character varying(9),
+    quantity numeric(20,2),
+    price numeric(20,8),
+    gross_amount numeric(20,2) NOT NULL,
+    net_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    accrued_interest numeric(20,6),
+    fees numeric(20,2),
+    realized_gain_loss numeric(20,2),
+    yield numeric(5,4),
+    counterparty character varying(255),
+    broker_dealer character varying(255),
+    trade_confirmation_number character varying(100),
+    impact_on_wam integer,
+    impact_on_wal integer,
+    impact_on_liquidity jsonb,
+    transaction_purpose text,
+    is_stress_test_compliant boolean DEFAULT true,
+    is_regulatory_compliant boolean DEFAULT true,
+    compliance_notes text,
+    status character varying(20) DEFAULT 'settled'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE mmf_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mmf_transactions IS 'Daily transaction activity for money market funds';
 
 
 --
@@ -11911,6 +14766,37 @@ COMMENT ON TABLE public.nav_approvals IS 'Manages approval workflow for NAV calc
 
 
 --
+-- Name: nav_asset_type_adjustments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_asset_type_adjustments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    mark_to_market_multiplier numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_asset_type_adjustments_mark_to_market_multiplier_check CHECK ((mark_to_market_multiplier >= (0)::numeric))
+);
+
+
+--
+-- Name: TABLE nav_asset_type_adjustments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_asset_type_adjustments IS 'Mark-to-market adjustments by asset type for asset-backed securities';
+
+
+--
+-- Name: COLUMN nav_asset_type_adjustments.mark_to_market_multiplier; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_asset_type_adjustments.mark_to_market_multiplier IS 'Multiplier for mark-to-market valuation (typically 0.8-1.0)';
+
+
+--
 -- Name: nav_calculation_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11979,6 +14865,114 @@ CREATE TABLE public.nav_calculation_runs (
 --
 
 COMMENT ON TABLE public.nav_calculation_runs IS 'Tracks NAV calculation processes including inputs, outputs, and execution status for all asset types';
+
+
+--
+-- Name: nav_calculator_parameters; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_calculator_parameters (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    calculator_type text NOT NULL,
+    parameter_key text NOT NULL,
+    parameter_value text NOT NULL,
+    asset_subtype text,
+    description text,
+    unit text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE nav_calculator_parameters; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_calculator_parameters IS 'Calculator-specific configuration parameters for NAV calculations. Separate from general platform settings.';
+
+
+--
+-- Name: COLUMN nav_calculator_parameters.calculator_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_calculator_parameters.calculator_type IS 'Type of calculator: energy, equity, receivables, commodities, etc.';
+
+
+--
+-- Name: COLUMN nav_calculator_parameters.parameter_key; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_calculator_parameters.parameter_key IS 'Key for the parameter without subtype prefix';
+
+
+--
+-- Name: COLUMN nav_calculator_parameters.asset_subtype; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_calculator_parameters.asset_subtype IS 'Subtype within calculator (solar, wind, oil, etc.) - NULL for general parameters';
+
+
+--
+-- Name: nav_credit_quality_multipliers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_credit_quality_multipliers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credit_quality text NOT NULL,
+    multiplier numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_credit_quality_multipliers_multiplier_check CHECK ((multiplier > (0)::numeric))
+);
+
+
+--
+-- Name: TABLE nav_credit_quality_multipliers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_credit_quality_multipliers IS 'Credit quality multipliers for adjusting delinquency rates';
+
+
+--
+-- Name: COLUMN nav_credit_quality_multipliers.multiplier; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_credit_quality_multipliers.multiplier IS 'Multiplier to apply based on credit quality (e.g., 0.8 for high quality, 1.2 for low)';
+
+
+--
+-- Name: nav_credit_spreads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_credit_spreads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credit_rating text NOT NULL,
+    asset_class text NOT NULL,
+    spread_bps numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_credit_spreads_spread_bps_check CHECK ((spread_bps >= (0)::numeric))
+);
+
+
+--
+-- Name: TABLE nav_credit_spreads; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_credit_spreads IS 'Credit spreads by rating and asset class';
+
+
+--
+-- Name: COLUMN nav_credit_spreads.spread_bps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_credit_spreads.spread_bps IS 'Credit spread in basis points over risk-free rate';
 
 
 --
@@ -12069,6 +15063,105 @@ COMMENT ON VIEW public.nav_data_with_status IS 'Comprehensive view of NAV data i
 
 
 --
+-- Name: nav_default_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_default_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    credit_rating text NOT NULL,
+    monthly_rate numeric NOT NULL,
+    annual_rate numeric,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_default_rates_annual_rate_check CHECK (((annual_rate >= (0)::numeric) AND (annual_rate <= (1)::numeric))),
+    CONSTRAINT nav_default_rates_monthly_rate_check CHECK (((monthly_rate >= (0)::numeric) AND (monthly_rate <= (1)::numeric)))
+);
+
+
+--
+-- Name: TABLE nav_default_rates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_default_rates IS 'Default rates by asset type and credit rating';
+
+
+--
+-- Name: COLUMN nav_default_rates.monthly_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_default_rates.monthly_rate IS 'Monthly default rate as decimal';
+
+
+--
+-- Name: nav_delinquency_adjustments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_delinquency_adjustments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    days_past_due integer NOT NULL,
+    adjustment_rate numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_delinquency_adjustments_adjustment_rate_check CHECK (((adjustment_rate >= (0)::numeric) AND (adjustment_rate <= (1)::numeric))),
+    CONSTRAINT nav_delinquency_adjustments_days_past_due_check CHECK ((days_past_due >= 0))
+);
+
+
+--
+-- Name: TABLE nav_delinquency_adjustments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_delinquency_adjustments IS 'Adjustment rates based on delinquency status (days past due)';
+
+
+--
+-- Name: COLUMN nav_delinquency_adjustments.adjustment_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_delinquency_adjustments.adjustment_rate IS 'Adjustment factor to apply to value (0=full writedown, 1=no adjustment)';
+
+
+--
+-- Name: nav_economic_capital; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_economic_capital (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credit_rating text NOT NULL,
+    capital_rate numeric NOT NULL,
+    confidence_level numeric DEFAULT 0.999 NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_economic_capital_capital_rate_check CHECK (((capital_rate >= (0)::numeric) AND (capital_rate <= (1)::numeric))),
+    CONSTRAINT nav_economic_capital_confidence_level_check CHECK (((confidence_level > (0)::numeric) AND (confidence_level < (1)::numeric)))
+);
+
+
+--
+-- Name: TABLE nav_economic_capital; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_economic_capital IS 'Economic capital requirements by credit rating';
+
+
+--
+-- Name: COLUMN nav_economic_capital.capital_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_economic_capital.capital_rate IS 'Required capital as % of exposure';
+
+
+--
 -- Name: nav_fx_rates; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12100,6 +15193,69 @@ CREATE VIEW public.nav_fx_rates_latest AS
     nav_fx_rates.source
    FROM public.nav_fx_rates
   ORDER BY nav_fx_rates.base_ccy, nav_fx_rates.quote_ccy, nav_fx_rates.as_of DESC;
+
+
+--
+-- Name: nav_liquidity_discounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_liquidity_discounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credit_rating text NOT NULL,
+    asset_class text NOT NULL,
+    discount_rate numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_liquidity_discounts_discount_rate_check CHECK (((discount_rate >= (0)::numeric) AND (discount_rate <= (1)::numeric)))
+);
+
+
+--
+-- Name: TABLE nav_liquidity_discounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_liquidity_discounts IS 'Liquidity discounts by credit rating and asset class';
+
+
+--
+-- Name: COLUMN nav_liquidity_discounts.discount_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_liquidity_discounts.discount_rate IS 'Liquidity discount rate as decimal (e.g., 0.05 = 5% discount)';
+
+
+--
+-- Name: nav_loss_given_default; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_loss_given_default (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    lgd_rate numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_loss_given_default_lgd_rate_check CHECK (((lgd_rate >= (0)::numeric) AND (lgd_rate <= (1)::numeric)))
+);
+
+
+--
+-- Name: TABLE nav_loss_given_default; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_loss_given_default IS 'Loss given default rates by asset type';
+
+
+--
+-- Name: COLUMN nav_loss_given_default.lgd_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_loss_given_default.lgd_rate IS 'Loss given default as decimal (1 - recovery rate)';
 
 
 --
@@ -12141,6 +15297,37 @@ COMMENT ON TABLE public.nav_oracle_configs IS 'Oracle configurations for automat
 
 
 --
+-- Name: nav_prepayment_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_prepayment_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    monthly_rate numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_prepayment_rates_monthly_rate_check CHECK (((monthly_rate >= (0)::numeric) AND (monthly_rate <= (1)::numeric)))
+);
+
+
+--
+-- Name: TABLE nav_prepayment_rates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_prepayment_rates IS 'Monthly prepayment rates by asset type';
+
+
+--
+-- Name: COLUMN nav_prepayment_rates.monthly_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_prepayment_rates.monthly_rate IS 'Monthly prepayment rate as decimal (e.g., 0.01 = 1% per month)';
+
+
+--
 -- Name: nav_price_cache; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12158,6 +15345,70 @@ CREATE TABLE public.nav_price_cache (
 --
 
 COMMENT ON TABLE public.nav_price_cache IS 'Caches market prices for instruments to optimize NAV calculation performance';
+
+
+--
+-- Name: nav_probability_of_default; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_probability_of_default (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credit_rating text NOT NULL,
+    annual_pd numeric NOT NULL,
+    time_horizon_years integer DEFAULT 1 NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_probability_of_default_annual_pd_check CHECK (((annual_pd >= (0)::numeric) AND (annual_pd <= (1)::numeric))),
+    CONSTRAINT nav_probability_of_default_time_horizon_years_check CHECK ((time_horizon_years > 0))
+);
+
+
+--
+-- Name: TABLE nav_probability_of_default; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_probability_of_default IS 'Probability of default by credit rating';
+
+
+--
+-- Name: COLUMN nav_probability_of_default.annual_pd; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_probability_of_default.annual_pd IS 'Annual probability of default as decimal';
+
+
+--
+-- Name: nav_recovery_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_recovery_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_type text NOT NULL,
+    recovery_rate numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_recovery_rates_recovery_rate_check CHECK (((recovery_rate >= (0)::numeric) AND (recovery_rate <= (1)::numeric)))
+);
+
+
+--
+-- Name: TABLE nav_recovery_rates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_recovery_rates IS 'Recovery rates by asset type for defaulted assets';
+
+
+--
+-- Name: COLUMN nav_recovery_rates.recovery_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_recovery_rates.recovery_rate IS 'Expected recovery rate as decimal (e.g., 0.40 = 40% recovery)';
 
 
 --
@@ -12181,6 +15432,37 @@ CREATE TABLE public.nav_redemptions (
 --
 
 COMMENT ON TABLE public.nav_redemptions IS 'Tracks daily redemption rates and activity for assets and products';
+
+
+--
+-- Name: nav_unexpected_loss; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_unexpected_loss (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credit_rating text NOT NULL,
+    ul_rate numeric NOT NULL,
+    description text,
+    as_of_date timestamp with time zone DEFAULT now() NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_unexpected_loss_ul_rate_check CHECK ((ul_rate >= (0)::numeric))
+);
+
+
+--
+-- Name: TABLE nav_unexpected_loss; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_unexpected_loss IS 'Unexpected loss rates by credit rating for risk capital calculations';
+
+
+--
+-- Name: COLUMN nav_unexpected_loss.ul_rate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.nav_unexpected_loss.ul_rate IS 'Unexpected loss as decimal';
 
 
 --
@@ -12589,6 +15871,457 @@ COMMENT ON TABLE public.paymaster_policies IS 'Advanced paymaster policy configu
 
 
 --
+-- Name: pd_collateral; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pd_collateral (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_debt_product_id uuid NOT NULL,
+    loan_id uuid NOT NULL,
+    collateral_type character varying(50) NOT NULL,
+    collateral_description text NOT NULL,
+    collateral_location character varying(255),
+    original_value numeric(20,2) NOT NULL,
+    current_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    valuation_method character varying(50),
+    loan_to_value_ratio numeric(5,2),
+    advance_rate numeric(5,2),
+    lien_position character varying(20),
+    perfection_status character varying(50),
+    ucc_filing_number character varying(100),
+    insurance_coverage numeric(20,2),
+    insurance_provider character varying(255),
+    last_inspection_date timestamp with time zone,
+    inspection_report_url text,
+    depreciation_rate numeric(5,2),
+    liquidation_timeframe_days integer,
+    estimated_recovery_value numeric(20,2),
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pd_collateral; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pd_collateral IS 'Collateral securing private debt loans';
+
+
+--
+-- Name: pd_covenants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pd_covenants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_debt_product_id uuid NOT NULL,
+    loan_id uuid NOT NULL,
+    covenant_type character varying(50) NOT NULL,
+    covenant_category character varying(50),
+    covenant_description text NOT NULL,
+    measurement_frequency character varying(20),
+    test_date timestamp with time zone NOT NULL,
+    next_test_date timestamp with time zone,
+    threshold_value numeric(20,6),
+    actual_value numeric(20,6),
+    threshold_operator character varying(10),
+    is_compliant boolean NOT NULL,
+    breach_severity character varying(20),
+    grace_period_days integer,
+    waiver_obtained boolean DEFAULT false,
+    waiver_expiration_date timestamp with time zone,
+    cure_actions jsonb,
+    cure_deadline timestamp with time zone,
+    consequences_of_breach text,
+    notification_required boolean DEFAULT true,
+    notification_sent boolean DEFAULT false,
+    historical_compliance jsonb,
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pd_covenants; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pd_covenants IS 'Loan covenant tracking and compliance';
+
+
+--
+-- Name: pd_credit_ratings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pd_credit_ratings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_debt_product_id uuid NOT NULL,
+    loan_id uuid NOT NULL,
+    borrower_id uuid,
+    rating_agency character varying(50) NOT NULL,
+    rating_type character varying(50),
+    rating character varying(10) NOT NULL,
+    rating_outlook character varying(20),
+    rating_date timestamp with time zone NOT NULL,
+    previous_rating character varying(10),
+    rating_action character varying(50),
+    rating_methodology text,
+    key_rating_factors jsonb,
+    probability_of_default numeric(5,4),
+    recovery_rate_estimate numeric(5,2),
+    is_investment_grade boolean,
+    rating_report_url text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pd_credit_ratings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pd_credit_ratings IS 'Credit ratings for private debt borrowers';
+
+
+--
+-- Name: pd_default_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pd_default_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_debt_product_id uuid NOT NULL,
+    loan_id uuid NOT NULL,
+    event_type character varying(50) NOT NULL,
+    event_date timestamp with time zone NOT NULL,
+    detection_date timestamp with time zone NOT NULL,
+    notification_date timestamp with time zone,
+    days_past_due integer,
+    amount_in_default numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    default_description text NOT NULL,
+    covenant_breached_id uuid,
+    severity character varying(20) NOT NULL,
+    is_event_of_default boolean DEFAULT false,
+    cure_period_days integer,
+    cure_deadline timestamp with time zone,
+    is_cured boolean DEFAULT false,
+    cure_date timestamp with time zone,
+    cure_actions_taken jsonb,
+    lender_actions jsonb,
+    forbearance_agreement jsonb,
+    restructuring_terms jsonb,
+    loss_mitigation_strategy text,
+    expected_loss numeric(20,2),
+    recovery_actions jsonb,
+    recovery_amount numeric(20,2),
+    write_off_amount numeric(20,2),
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pd_default_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pd_default_events IS 'Default and delinquency events for private debt';
+
+
+--
+-- Name: pd_loan_schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pd_loan_schedules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_debt_product_id uuid NOT NULL,
+    loan_id uuid NOT NULL,
+    payment_number integer NOT NULL,
+    payment_date timestamp with time zone NOT NULL,
+    principal_amount numeric(20,2) NOT NULL,
+    interest_amount numeric(20,2) NOT NULL,
+    total_payment numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    beginning_balance numeric(20,2) NOT NULL,
+    ending_balance numeric(20,2) NOT NULL,
+    payment_type character varying(50) DEFAULT 'regular'::character varying,
+    interest_rate numeric(5,4) NOT NULL,
+    days_in_period integer,
+    accrual_basis character varying(20),
+    fees numeric(20,2) DEFAULT 0,
+    is_estimated boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pd_loan_schedules; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pd_loan_schedules IS 'Payment schedules for private debt loans';
+
+
+--
+-- Name: pd_payment_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pd_payment_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_debt_product_id uuid NOT NULL,
+    loan_id uuid NOT NULL,
+    scheduled_payment_id uuid,
+    payment_date timestamp with time zone NOT NULL,
+    due_date timestamp with time zone NOT NULL,
+    principal_paid numeric(20,2) NOT NULL,
+    interest_paid numeric(20,2) NOT NULL,
+    fees_paid numeric(20,2) DEFAULT 0,
+    penalties_paid numeric(20,2) DEFAULT 0,
+    total_paid numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    payment_method character varying(50),
+    transaction_reference character varying(100),
+    days_late integer DEFAULT 0,
+    is_partial_payment boolean DEFAULT false,
+    is_prepayment boolean DEFAULT false,
+    prepayment_penalty numeric(20,2),
+    remaining_balance numeric(20,2),
+    status character varying(20) DEFAULT 'received'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pd_payment_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pd_payment_history IS 'Actual payment history for private debt';
+
+
+--
+-- Name: pe_capital_calls; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pe_capital_calls (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_equity_product_id uuid NOT NULL,
+    fund_id uuid NOT NULL,
+    call_number integer NOT NULL,
+    call_date timestamp with time zone NOT NULL,
+    due_date timestamp with time zone NOT NULL,
+    call_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    purpose text,
+    target_investments jsonb,
+    call_percentage numeric(5,2),
+    cumulative_called_percentage numeric(5,2),
+    notice_period_days integer,
+    payment_instructions text,
+    investor_allocations jsonb,
+    defaulted_investors jsonb,
+    total_received numeric(20,2),
+    total_outstanding numeric(20,2),
+    status character varying(20) DEFAULT 'issued'::character varying,
+    is_emergency_call boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pe_capital_calls; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pe_capital_calls IS 'Capital calls to fund investors in private equity funds';
+
+
+--
+-- Name: pe_distributions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pe_distributions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_equity_product_id uuid NOT NULL,
+    fund_id uuid NOT NULL,
+    distribution_number integer NOT NULL,
+    distribution_date timestamp with time zone NOT NULL,
+    payment_date timestamp with time zone NOT NULL,
+    distribution_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    distribution_type character varying(50) NOT NULL,
+    source_investment character varying(255),
+    source_event character varying(100),
+    investor_allocations jsonb,
+    tax_treatment jsonb,
+    withholding_taxes jsonb,
+    net_distribution numeric(20,2),
+    payment_method character varying(50),
+    currency_hedging jsonb,
+    status character varying(20) DEFAULT 'declared'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pe_distributions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pe_distributions IS 'Distributions to investors from private equity funds';
+
+
+--
+-- Name: pe_performance_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pe_performance_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_equity_product_id uuid NOT NULL,
+    fund_id uuid NOT NULL,
+    as_of_date timestamp with time zone NOT NULL,
+    calculation_date timestamp with time zone DEFAULT now() NOT NULL,
+    total_committed_capital numeric(20,2) NOT NULL,
+    total_called_capital numeric(20,2) NOT NULL,
+    total_distributed numeric(20,2) NOT NULL,
+    residual_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    irr numeric(5,2),
+    moic numeric(5,2),
+    tvpi numeric(5,2),
+    dpi numeric(5,2),
+    rvpi numeric(5,2),
+    pme numeric(5,2),
+    pme_benchmark character varying(50),
+    since_inception_irr numeric(5,2),
+    vintage_year integer,
+    fund_age_years numeric(5,2),
+    quartile_ranking integer,
+    peer_comparison jsonb,
+    j_curve_position character varying(50),
+    realized_investments integer,
+    unrealized_investments integer,
+    written_off_investments integer,
+    total_fees_paid numeric(20,2),
+    carried_interest_accrued numeric(20,2),
+    calculation_methodology text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pe_performance_metrics; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pe_performance_metrics IS 'Fund-level performance metrics (IRR, MOIC, DPI, etc.)';
+
+
+--
+-- Name: pe_portfolio_companies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pe_portfolio_companies (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    private_equity_product_id uuid NOT NULL,
+    fund_id uuid NOT NULL,
+    company_name character varying(255) NOT NULL,
+    company_registration_number character varying(100),
+    jurisdiction character varying(100),
+    industry_sector character varying(100),
+    initial_investment_date timestamp with time zone NOT NULL,
+    initial_cost_basis numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    ownership_percentage numeric(5,2),
+    shares_owned numeric(20,2),
+    total_shares_outstanding numeric(20,2),
+    security_type character varying(50),
+    board_seats integer,
+    investment_thesis text,
+    exit_strategy character varying(100),
+    target_hold_period_years integer,
+    target_return_multiple numeric(5,2),
+    current_valuation numeric(20,2),
+    unrealized_gain_loss numeric(20,2),
+    total_capital_invested numeric(20,2),
+    additional_investments jsonb,
+    partial_exits jsonb,
+    management_team jsonb,
+    key_metrics jsonb,
+    investment_stage character varying(50),
+    status character varying(20) DEFAULT 'active'::character varying,
+    exit_date timestamp with time zone,
+    exit_proceeds numeric(20,2),
+    realized_gain_loss numeric(20,2),
+    moic numeric(5,2),
+    irr numeric(5,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pe_portfolio_companies; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pe_portfolio_companies IS 'Portfolio company holdings in private equity funds';
+
+
+--
+-- Name: pe_valuations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pe_valuations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    entity_id uuid NOT NULL,
+    entity_type character varying(50) NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    valuation_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    valuation_method character varying(50) NOT NULL,
+    valuation_firm character varying(255),
+    valuer_name character varying(255),
+    ebitda numeric(20,2),
+    revenue numeric(20,2),
+    valuation_multiple numeric(10,2),
+    multiple_type character varying(50),
+    discount_rate numeric(5,4),
+    terminal_growth_rate numeric(5,4),
+    comparable_companies jsonb,
+    precedent_transactions jsonb,
+    adjustments jsonb,
+    fair_value_estimate numeric(20,2),
+    fair_value_range jsonb,
+    confidence_level character varying(20),
+    valuation_report_url text,
+    audit_status character varying(20) DEFAULT 'pending'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE pe_valuations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pe_valuations IS 'Valuations of private equity funds and portfolio companies';
+
+
+--
 -- Name: permissions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -12821,6 +16554,61 @@ CREATE TABLE public.private_equity_products (
     sector_focus character varying,
     geographic_focus character varying
 );
+
+
+--
+-- Name: token_deployments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.token_deployments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid NOT NULL,
+    network text NOT NULL,
+    contract_address text NOT NULL,
+    transaction_hash text NOT NULL,
+    deployed_at timestamp with time zone DEFAULT now(),
+    deployed_by text NOT NULL,
+    status text DEFAULT 'PENDING'::text NOT NULL,
+    deployment_data jsonb,
+    deployment_strategy text,
+    factory_address text,
+    master_address text,
+    gas_used bigint,
+    gas_price text,
+    details jsonb NOT NULL,
+    initial_owner text
+);
+
+
+--
+-- Name: TABLE token_deployments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.token_deployments IS 'Bridge table linking token configurations to deployed contracts. Tracks deployment status and initialization state.';
+
+
+--
+-- Name: problematic_token_deployments; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.problematic_token_deployments AS
+ SELECT t.id,
+    t.name,
+    t.symbol,
+    t.address AS contract_address,
+    t.blockchain,
+    t.deployment_status,
+    t.deployment_error,
+    td.status AS deployment_table_status,
+    (td.deployment_data ->> 'initialization_error'::text) AS initialization_error,
+        CASE
+            WHEN ((t.deployment_status)::text = 'FAILED_INITIALIZATION'::text) THEN 'Needs initialize() call'::text
+            WHEN (td.status = 'FAILED_INITIALIZATION'::text) THEN 'Needs initialize() call'::text
+            ELSE 'Unknown issue'::text
+        END AS recommended_action
+   FROM (public.tokens t
+     LEFT JOIN public.token_deployments td ON ((td.token_id = t.id)))
+  WHERE (((t.deployment_status)::text = ANY ((ARRAY['FAILED_INITIALIZATION'::character varying, 'failed'::character varying])::text[])) OR (td.status = 'FAILED_INITIALIZATION'::text));
 
 
 --
@@ -13281,6 +17069,167 @@ CREATE TABLE public.projects_backup (
 
 
 --
+-- Name: property_expenses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.property_expenses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    real_estate_product_id uuid NOT NULL,
+    expense_date timestamp with time zone NOT NULL,
+    expense_type character varying(50) NOT NULL,
+    expense_category character varying(100) NOT NULL,
+    description text,
+    amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    frequency character varying(20),
+    is_recurring boolean DEFAULT false,
+    vendor_name character varying(255),
+    invoice_number character varying(100),
+    payment_date timestamp with time zone,
+    payment_status character varying(20) DEFAULT 'pending'::character varying,
+    allocation_method character varying(50),
+    allocated_to_units jsonb,
+    is_capital_expenditure boolean DEFAULT false,
+    amortization_period_months integer,
+    budget_category character varying(100),
+    budget_variance numeric(20,2),
+    approval_status character varying(20) DEFAULT 'approved'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE property_expenses; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.property_expenses IS 'Property operating and capital expenses';
+
+
+--
+-- Name: property_insurance; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.property_insurance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    real_estate_product_id uuid NOT NULL,
+    property_type character varying(50) NOT NULL,
+    insurance_type character varying(50) NOT NULL,
+    policy_number character varying(100) NOT NULL,
+    insurance_provider character varying(255) NOT NULL,
+    coverage_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    premium_amount numeric(20,2) NOT NULL,
+    premium_frequency character varying(20) NOT NULL,
+    deductible numeric(20,2),
+    policy_start_date timestamp with time zone NOT NULL,
+    policy_end_date timestamp with time zone NOT NULL,
+    effective_date timestamp with time zone NOT NULL,
+    covered_perils jsonb,
+    exclusions jsonb,
+    additional_insureds jsonb,
+    loss_payee character varying(255),
+    claims_history jsonb,
+    risk_assessment jsonb,
+    inspection_date timestamp with time zone,
+    inspection_report_url text,
+    renewal_options jsonb,
+    cancellation_terms text,
+    status character varying(20) DEFAULT 'active'::character varying,
+    is_adequate_coverage boolean DEFAULT true,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE property_insurance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.property_insurance IS 'Property insurance policies and coverage';
+
+
+--
+-- Name: property_tax_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.property_tax_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    jurisdiction character varying(255) NOT NULL,
+    city character varying(100),
+    state_province character varying(100) NOT NULL,
+    country character varying(3) NOT NULL,
+    property_type character varying(50) NOT NULL,
+    tax_rate numeric(5,4) NOT NULL,
+    assessment_ratio numeric(5,4),
+    effective_date timestamp with time zone NOT NULL,
+    expiration_date timestamp with time zone,
+    tax_year integer NOT NULL,
+    millage_rate numeric(10,4),
+    exemptions jsonb,
+    special_assessments jsonb,
+    calculation_method text,
+    payment_schedule character varying(50),
+    due_dates jsonb,
+    late_payment_penalty numeric(5,2),
+    source character varying(255),
+    is_current boolean DEFAULT true,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE property_tax_rates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.property_tax_rates IS 'Property tax rates by jurisdiction';
+
+
+--
+-- Name: property_valuations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.property_valuations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    real_estate_product_id uuid NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    valuation_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    valuation_method character varying(50) NOT NULL,
+    appraiser_name character varying(255),
+    appraiser_license character varying(100),
+    appraiser_firm character varying(255),
+    cap_rate numeric(5,4),
+    discount_rate numeric(5,4),
+    noi numeric(20,2),
+    gross_rental_income numeric(20,2),
+    operating_expenses numeric(20,2),
+    comparable_sales jsonb,
+    adjustments_made jsonb,
+    market_conditions text,
+    highest_best_use text,
+    valuation_report_url text,
+    confidence_level character varying(20),
+    purpose character varying(100),
+    is_certified boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE property_valuations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.property_valuations IS 'Property appraisal and valuation history';
+
+
+--
 -- Name: proposal_signatures; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13320,6 +17269,263 @@ ALTER TABLE public.provider ALTER COLUMN provider_id ADD GENERATED ALWAYS AS IDE
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: quant_backtests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.quant_backtests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    quantitative_investment_strategies_product_id uuid NOT NULL,
+    backtest_name character varying(255) NOT NULL,
+    backtest_date timestamp with time zone NOT NULL,
+    start_date timestamp with time zone NOT NULL,
+    end_date timestamp with time zone NOT NULL,
+    strategy_version character varying(50),
+    universe_definition text,
+    initial_capital numeric(20,2) NOT NULL,
+    final_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    total_return numeric(5,2),
+    annualized_return numeric(5,2),
+    annualized_volatility numeric(5,2),
+    sharpe_ratio numeric(5,2),
+    sortino_ratio numeric(5,2),
+    max_drawdown numeric(5,2),
+    max_drawdown_duration_days integer,
+    calmar_ratio numeric(5,2),
+    win_rate numeric(5,2),
+    profit_factor numeric(5,2),
+    number_of_trades integer,
+    average_trade_return numeric(5,2),
+    average_win numeric(5,2),
+    average_loss numeric(5,2),
+    largest_win numeric(5,2),
+    largest_loss numeric(5,2),
+    turnover_rate numeric(5,2),
+    transaction_costs numeric(20,2),
+    slippage_costs numeric(20,2),
+    benchmark_return numeric(5,2),
+    benchmark_index character varying(50),
+    excess_return numeric(5,2),
+    alpha numeric(5,2),
+    beta numeric(5,4),
+    tracking_error numeric(5,2),
+    information_ratio numeric(5,2),
+    factor_loadings jsonb,
+    monthly_returns jsonb,
+    daily_returns jsonb,
+    equity_curve jsonb,
+    drawdown_curve jsonb,
+    out_of_sample_performance jsonb,
+    stress_test_results jsonb,
+    robustness_checks jsonb,
+    data_quality_issues text,
+    assumptions text,
+    limitations text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE quant_backtests; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.quant_backtests IS 'Historical backtest results and performance';
+
+
+--
+-- Name: quant_factors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.quant_factors (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    quantitative_investment_strategies_product_id uuid NOT NULL,
+    factor_name character varying(100) NOT NULL,
+    factor_category character varying(50),
+    factor_definition text NOT NULL,
+    calculation_methodology text NOT NULL,
+    data_frequency character varying(20),
+    rebalancing_frequency character varying(20),
+    target_exposure numeric(5,2),
+    current_exposure numeric(5,2),
+    exposure_range jsonb,
+    historical_return numeric(5,2),
+    historical_volatility numeric(5,2),
+    sharpe_ratio numeric(5,2),
+    information_ratio numeric(5,2),
+    turnover_rate numeric(5,2),
+    transaction_costs_bps integer,
+    capacity_estimate numeric(20,2),
+    correlation_to_other_factors jsonb,
+    factor_timing_rules text,
+    risk_controls jsonb,
+    academic_references text,
+    is_active boolean DEFAULT true,
+    inception_date timestamp with time zone,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE quant_factors; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.quant_factors IS 'Quantitative factor definitions and exposures';
+
+
+--
+-- Name: quant_performance_attribution; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.quant_performance_attribution (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    quantitative_investment_strategies_product_id uuid NOT NULL,
+    period_start_date timestamp with time zone NOT NULL,
+    period_end_date timestamp with time zone NOT NULL,
+    total_return numeric(5,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    factor_returns jsonb NOT NULL,
+    alpha numeric(5,2),
+    beta_adjusted_return numeric(5,2),
+    benchmark_return numeric(5,2),
+    excess_return numeric(5,2),
+    transaction_costs numeric(5,2),
+    management_fees numeric(5,2),
+    net_return numeric(5,2),
+    value_factor_return numeric(5,2),
+    momentum_factor_return numeric(5,2),
+    quality_factor_return numeric(5,2),
+    size_factor_return numeric(5,2),
+    volatility_factor_return numeric(5,2),
+    carry_factor_return numeric(5,2),
+    other_factor_returns jsonb,
+    sector_attribution jsonb,
+    geographic_attribution jsonb,
+    security_selection_effect numeric(5,2),
+    allocation_effect numeric(5,2),
+    interaction_effect numeric(5,2),
+    timing_effect numeric(5,2),
+    top_contributors jsonb,
+    top_detractors jsonb,
+    turnover numeric(5,2),
+    gross_leverage numeric(5,2),
+    net_leverage numeric(5,2),
+    var_95 numeric(5,2),
+    expected_shortfall numeric(5,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE quant_performance_attribution; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.quant_performance_attribution IS 'Performance attribution to factors';
+
+
+--
+-- Name: quant_risk_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.quant_risk_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    quantitative_investment_strategies_product_id uuid NOT NULL,
+    calculation_date timestamp with time zone NOT NULL,
+    portfolio_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    gross_leverage numeric(5,2),
+    net_leverage numeric(5,2),
+    long_exposure numeric(5,2),
+    short_exposure numeric(5,2),
+    net_exposure numeric(5,2),
+    var_95_1day numeric(20,2),
+    var_99_1day numeric(20,2),
+    expected_shortfall_95 numeric(20,2),
+    volatility_20day numeric(5,2),
+    volatility_60day numeric(5,2),
+    beta_to_market numeric(5,4),
+    correlation_to_market numeric(5,4),
+    tracking_error numeric(5,2),
+    max_drawdown_current numeric(5,2),
+    days_in_drawdown integer,
+    concentration_risk jsonb,
+    factor_exposures jsonb,
+    sector_exposures jsonb,
+    geographic_exposures jsonb,
+    currency_exposures jsonb,
+    liquidity_score integer,
+    estimated_liquidation_time_days integer,
+    stress_test_scenarios jsonb,
+    position_limits_breached jsonb,
+    risk_budget_utilization jsonb,
+    correlation_breakdown boolean DEFAULT false,
+    regime_detection character varying(50),
+    tail_risk_indicators jsonb,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE quant_risk_metrics; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.quant_risk_metrics IS 'Daily risk monitoring and metrics';
+
+
+--
+-- Name: quant_signals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.quant_signals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    quantitative_investment_strategies_product_id uuid NOT NULL,
+    signal_timestamp timestamp with time zone NOT NULL,
+    signal_type character varying(50) NOT NULL,
+    asset_class character varying(50),
+    security_ticker character varying(50),
+    security_name character varying(255),
+    signal_strength numeric(5,2),
+    confidence_level numeric(5,2),
+    recommended_action character varying(50),
+    recommended_position_size numeric(20,2),
+    recommended_weight numeric(5,2),
+    current_position_size numeric(20,2),
+    current_weight numeric(5,2),
+    target_price numeric(20,8),
+    stop_loss_price numeric(20,8),
+    take_profit_price numeric(20,8),
+    time_horizon character varying(20),
+    factor_contribution jsonb,
+    model_inputs jsonb,
+    model_outputs jsonb,
+    risk_metrics jsonb,
+    execution_priority character varying(20),
+    execution_deadline timestamp with time zone,
+    was_executed boolean DEFAULT false,
+    execution_timestamp timestamp with time zone,
+    execution_price numeric(20,8),
+    execution_size numeric(20,2),
+    slippage numeric(20,8),
+    signal_performance numeric(5,2),
+    signal_status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE quant_signals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.quant_signals IS 'Trading signals and recommendations';
 
 
 --
@@ -13528,7 +17734,7 @@ CREATE TABLE public.real_estate_products (
     disposition_date timestamp with time zone,
     geographic_location text,
     development_stage character varying(100),
-    environmental_certifications text[],
+    environmental_certs text[],
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
@@ -14795,6 +19001,231 @@ CREATE TABLE public.rules (
 
 
 --
+-- Name: sc_algorithm_parameters; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sc_algorithm_parameters (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stablecoin_product_id uuid NOT NULL,
+    effective_timestamp timestamp with time zone NOT NULL,
+    expiration_timestamp timestamp with time zone,
+    parameter_set_name character varying(100),
+    algorithm_version character varying(20),
+    target_peg numeric(20,8) NOT NULL,
+    rebase_frequency character varying(20),
+    rebase_lag integer,
+    rebase_threshold_bps integer,
+    max_rebase_percentage numeric(5,2),
+    expansion_coefficient numeric(5,4),
+    contraction_coefficient numeric(5,4),
+    smoothing_factor numeric(5,4),
+    oracle_source character varying(100),
+    oracle_update_frequency_seconds integer,
+    oracle_deviation_threshold_bps integer,
+    stability_fee_rate numeric(5,4),
+    liquidation_ratio numeric(5,2),
+    liquidation_penalty numeric(5,2),
+    minimum_collateral_ratio numeric(5,2),
+    debt_ceiling numeric(20,2),
+    governance_parameters jsonb,
+    circuit_breaker_rules jsonb,
+    coupon_issuance_rules jsonb,
+    bonding_curve_parameters jsonb,
+    is_active boolean DEFAULT true,
+    change_reason text,
+    proposed_by character varying(255),
+    approval_date timestamp with time zone,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sc_algorithm_parameters; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sc_algorithm_parameters IS 'Algorithmic stablecoin parameters and rebase rules';
+
+
+--
+-- Name: sc_minting_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sc_minting_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stablecoin_product_id uuid NOT NULL,
+    mint_id character varying(100) NOT NULL,
+    minter_address character varying(255) NOT NULL,
+    mint_timestamp timestamp with time zone NOT NULL,
+    minted_amount numeric(30,8) NOT NULL,
+    collateral_deposited jsonb NOT NULL,
+    collateral_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    minting_fee numeric(20,8),
+    fee_percentage numeric(5,4),
+    exchange_rate numeric(20,8),
+    source_address character varying(255),
+    destination_address character varying(255),
+    transaction_hash character varying(255) NOT NULL,
+    block_number integer,
+    gas_used integer,
+    gas_price_gwei numeric(10,2),
+    total_gas_cost numeric(20,8),
+    status character varying(20) DEFAULT 'confirmed'::character varying,
+    failure_reason text,
+    kyc_aml_status character varying(20),
+    risk_score integer,
+    is_large_mint boolean DEFAULT false,
+    collateralization_ratio_after numeric(5,2),
+    triggered_rebalancing boolean DEFAULT false,
+    related_redemption_id character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sc_minting_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sc_minting_events IS 'New stablecoin minting events and collateral deposits';
+
+
+--
+-- Name: sc_peg_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sc_peg_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stablecoin_product_id uuid NOT NULL,
+    "timestamp" timestamp with time zone NOT NULL,
+    target_peg numeric(20,8) NOT NULL,
+    actual_price numeric(20,8) NOT NULL,
+    deviation numeric(10,6),
+    deviation_percentage numeric(5,4),
+    deviation_bps integer,
+    exchange character varying(50),
+    trading_volume_24h numeric(20,2),
+    market_cap numeric(20,2),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    price_source character varying(100),
+    data_provider character varying(100),
+    bid_price numeric(20,8),
+    ask_price numeric(20,8),
+    spread_bps integer,
+    liquidity_depth numeric(20,2),
+    is_within_acceptable_range boolean,
+    acceptable_range_bps integer DEFAULT 100,
+    depeg_severity character varying(20),
+    market_conditions text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sc_peg_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sc_peg_history IS 'Historical price peg tracking for stablecoins';
+
+
+--
+-- Name: sc_redemptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sc_redemptions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stablecoin_product_id uuid NOT NULL,
+    redemption_id character varying(100) NOT NULL,
+    requester_address character varying(255) NOT NULL,
+    request_timestamp timestamp with time zone NOT NULL,
+    requested_amount numeric(30,8) NOT NULL,
+    redemption_currency character varying(3) DEFAULT 'USD'::character varying,
+    redemption_method character varying(50),
+    processing_time_hours integer,
+    completion_timestamp timestamp with time zone,
+    redeemed_amount numeric(30,8),
+    redemption_fee numeric(20,8),
+    fee_percentage numeric(5,4),
+    exchange_rate numeric(20,8),
+    destination_address character varying(255),
+    transaction_hash character varying(255),
+    status character varying(20) DEFAULT 'pending'::character varying,
+    failure_reason text,
+    kyc_aml_status character varying(20),
+    risk_score integer,
+    is_large_redemption boolean DEFAULT false,
+    triggered_reserve_action boolean DEFAULT false,
+    collateral_released jsonb,
+    market_impact_estimate numeric(5,4),
+    related_mint_id character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sc_redemptions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sc_redemptions IS 'Stablecoin redemption transactions and requests';
+
+
+--
+-- Name: sc_reserve_audits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sc_reserve_audits (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stablecoin_product_id uuid NOT NULL,
+    audit_date timestamp with time zone NOT NULL,
+    audit_period_start timestamp with time zone NOT NULL,
+    audit_period_end timestamp with time zone NOT NULL,
+    auditor_name character varying(255) NOT NULL,
+    auditor_type character varying(50),
+    audit_type character varying(50) NOT NULL,
+    total_tokens_outstanding numeric(30,8) NOT NULL,
+    total_reserve_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    collateralization_ratio numeric(5,2) NOT NULL,
+    reserve_breakdown jsonb NOT NULL,
+    cash_and_equivalents numeric(20,2),
+    short_term_deposits numeric(20,2),
+    treasury_securities numeric(20,2),
+    commercial_paper numeric(20,2),
+    corporate_bonds numeric(20,2),
+    crypto_assets numeric(20,2),
+    other_assets numeric(20,2),
+    custodian_breakdown jsonb,
+    geographic_breakdown jsonb,
+    credit_quality_breakdown jsonb,
+    maturity_breakdown jsonb,
+    liquidity_analysis jsonb,
+    discrepancies jsonb,
+    opinion character varying(50),
+    key_findings text,
+    audit_report_url text,
+    is_publicly_disclosed boolean DEFAULT true,
+    disclosure_date timestamp with time zone,
+    regulatory_filing_reference character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sc_reserve_audits; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sc_reserve_audits IS 'Reserve attestation and audit reports';
+
+
+--
 -- Name: security_audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15196,6 +19627,262 @@ CREATE TABLE public.smart_contract_wallets (
 
 
 --
+-- Name: sp_barrier_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sp_barrier_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    structured_product_id uuid NOT NULL,
+    event_timestamp timestamp with time zone NOT NULL,
+    barrier_type character varying(50) NOT NULL,
+    barrier_level numeric(20,8) NOT NULL,
+    observed_level numeric(20,8) NOT NULL,
+    underlying_asset character varying(100),
+    breach_detected boolean NOT NULL,
+    breach_magnitude numeric(20,8),
+    observation_method character varying(50),
+    event_consequences text,
+    triggered_autocall boolean DEFAULT false,
+    triggered_coupon_cancellation boolean DEFAULT false,
+    triggered_capital_loss boolean DEFAULT false,
+    payoff_impact numeric(20,8),
+    notification_required boolean DEFAULT true,
+    notification_sent boolean DEFAULT false,
+    investor_communication_sent boolean DEFAULT false,
+    regulatory_reporting_required boolean DEFAULT false,
+    is_verified boolean DEFAULT false,
+    verification_source character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sp_barrier_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sp_barrier_events IS 'Barrier breach events and monitoring';
+
+
+--
+-- Name: sp_components; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sp_components (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    structured_product_id uuid NOT NULL,
+    component_name character varying(255) NOT NULL,
+    component_type character varying(50) NOT NULL,
+    underlying_ticker character varying(50),
+    underlying_isin character varying(50),
+    underlying_cusip character varying(50),
+    position_type character varying(20) NOT NULL,
+    notional_amount numeric(20,2) NOT NULL,
+    quantity numeric(20,6),
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    initial_price numeric(20,8),
+    current_price numeric(20,8),
+    weight_percentage numeric(5,2),
+    strike_price numeric(20,8),
+    option_expiry timestamp with time zone,
+    option_style character varying(20),
+    delta numeric(5,4),
+    gamma numeric(5,4),
+    vega numeric(5,4),
+    theta numeric(10,6),
+    implied_volatility numeric(5,2),
+    correlation_to_other_components jsonb,
+    performance_contribution numeric(20,8),
+    last_rebalance_date timestamp with time zone,
+    next_rebalance_date timestamp with time zone,
+    is_path_dependent boolean DEFAULT false,
+    path_dependency_type character varying(50),
+    status character varying(20) DEFAULT 'active'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sp_components; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sp_components IS 'Component assets within structured products';
+
+
+--
+-- Name: sp_coupon_schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sp_coupon_schedules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    structured_product_id uuid NOT NULL,
+    coupon_number integer NOT NULL,
+    observation_date timestamp with time zone NOT NULL,
+    payment_date timestamp with time zone NOT NULL,
+    coupon_rate numeric(5,4) NOT NULL,
+    notional_amount numeric(20,2) NOT NULL,
+    coupon_amount numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    barrier_level numeric(5,2),
+    barrier_met boolean,
+    barrier_observation_value numeric(20,8),
+    is_conditional boolean DEFAULT false,
+    condition_description text,
+    memory_coupon boolean DEFAULT false,
+    accumulated_unpaid_coupons numeric(20,2),
+    payment_status character varying(20) DEFAULT 'scheduled'::character varying,
+    actual_payment_date timestamp with time zone,
+    actual_payment_amount numeric(20,2),
+    withholding_tax numeric(20,2),
+    net_payment numeric(20,2),
+    payment_reference character varying(100),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sp_coupon_schedules; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sp_coupon_schedules IS 'Coupon payment schedules and history';
+
+
+--
+-- Name: sp_payoff_structures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sp_payoff_structures (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    structured_product_id uuid NOT NULL,
+    structure_name character varying(255) NOT NULL,
+    structure_type character varying(50) NOT NULL,
+    payoff_formula text NOT NULL,
+    participation_rate numeric(5,2),
+    cap_rate numeric(5,2),
+    floor_rate numeric(5,2),
+    coupon_rate numeric(5,2),
+    coupon_frequency character varying(20),
+    coupon_barrier_level numeric(5,2),
+    downside_protection_level numeric(5,2),
+    knock_in_barrier numeric(5,2),
+    knock_out_barrier numeric(5,2),
+    observation_dates timestamp with time zone[],
+    observation_frequency character varying(20),
+    memory_feature boolean DEFAULT false,
+    autocall_levels jsonb,
+    worst_of_basket jsonb,
+    averaging_method character varying(50),
+    settlement_method character varying(20),
+    payoff_scenarios jsonb,
+    is_principal_protected boolean DEFAULT false,
+    protection_percentage numeric(5,2),
+    issuer_credit_spread numeric(5,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sp_payoff_structures; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sp_payoff_structures IS 'Payoff calculation rules and terms';
+
+
+--
+-- Name: sp_performance_tracking; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sp_performance_tracking (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    structured_product_id uuid NOT NULL,
+    valuation_date timestamp with time zone NOT NULL,
+    market_value numeric(20,2) NOT NULL,
+    par_value numeric(20,2) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying,
+    percentage_of_par numeric(5,2),
+    accrued_coupon numeric(20,2),
+    clean_price numeric(20,8),
+    dirty_price numeric(20,8),
+    yield_to_maturity numeric(5,4),
+    duration numeric(10,4),
+    convexity numeric(10,4),
+    delta numeric(5,4),
+    gamma numeric(5,4),
+    vega numeric(5,4),
+    theta numeric(10,6),
+    component_performance jsonb,
+    barrier_proximity jsonb,
+    autocall_probability numeric(5,2),
+    expected_payoff numeric(20,2),
+    value_at_risk numeric(20,2),
+    credit_valuation_adjustment numeric(20,2),
+    funding_valuation_adjustment numeric(20,2),
+    days_to_maturity integer,
+    pricing_model character varying(50),
+    model_assumptions jsonb,
+    data_source character varying(100),
+    is_estimated boolean DEFAULT false,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sp_performance_tracking; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sp_performance_tracking IS 'Historical performance and mark-to-market valuation';
+
+
+--
+-- Name: sp_redemption_features; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sp_redemption_features (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    structured_product_id uuid NOT NULL,
+    feature_type character varying(50) NOT NULL,
+    effective_date timestamp with time zone NOT NULL,
+    expiration_date timestamp with time zone,
+    call_notice_days integer,
+    redemption_price numeric(20,8) NOT NULL,
+    redemption_price_type character varying(50),
+    trigger_condition text,
+    trigger_level numeric(5,2),
+    is_callable boolean DEFAULT false,
+    is_puttable boolean DEFAULT false,
+    call_schedule jsonb,
+    call_protection_end_date timestamp with time zone,
+    make_whole_provision boolean DEFAULT false,
+    make_whole_formula text,
+    redemption_fee numeric(5,2),
+    partial_redemption_allowed boolean DEFAULT false,
+    minimum_redemption_amount numeric(20,2),
+    redemption_settlement_days integer,
+    was_triggered boolean DEFAULT false,
+    trigger_date timestamp with time zone,
+    redemption_status character varying(20) DEFAULT 'inactive'::character varying,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE sp_redemption_features; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sp_redemption_features IS 'Early redemption and call features';
+
+
+--
 -- Name: stablecoin_collateral; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15240,6 +19927,69 @@ CREATE TABLE public.stage_requirements (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+
+--
+-- Name: stock_dividends; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stock_dividends (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    equity_product_id uuid NOT NULL,
+    ticker_symbol character varying(20) NOT NULL,
+    ex_dividend_date timestamp with time zone NOT NULL,
+    payment_date timestamp with time zone,
+    record_date timestamp with time zone,
+    declaration_date timestamp with time zone,
+    dividend_amount numeric(20,6) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    dividend_type character varying(50),
+    frequency character varying(20),
+    status character varying(20) DEFAULT 'declared'::character varying,
+    tax_implications jsonb,
+    reinvestment_option boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE stock_dividends; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.stock_dividends IS 'Tracks dividend declarations and payments for equity products';
+
+
+--
+-- Name: stock_exchanges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stock_exchanges (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    exchange_code character varying(10) NOT NULL,
+    exchange_name character varying(255) NOT NULL,
+    country character varying(3) NOT NULL,
+    region character varying(50),
+    timezone character varying(50) NOT NULL,
+    trading_hours jsonb,
+    currency character varying(3) NOT NULL,
+    market_identifier_code character varying(4),
+    website_url text,
+    regulatory_body character varying(255),
+    trading_calendar jsonb,
+    circuit_breaker_rules jsonb,
+    tick_size_rules jsonb,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE stock_exchanges; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.stock_exchanges IS 'Reference data for stock exchanges worldwide';
 
 
 --
@@ -15408,6 +20158,59 @@ CREATE TABLE public.suspicious_activity_reports (
 --
 
 COMMENT ON TABLE public.suspicious_activity_reports IS 'Suspicious Activity Reports (SARs) for regulatory filing';
+
+
+--
+-- Name: wallet_access_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.wallet_access_logs (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    wallet_id uuid,
+    accessed_by uuid,
+    action text NOT NULL,
+    success boolean DEFAULT true NOT NULL,
+    error_message text,
+    ip_address text,
+    user_agent text,
+    metadata jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE wallet_access_logs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.wallet_access_logs IS 'Audit log for all wallet access operations';
+
+
+--
+-- Name: suspicious_wallet_activity; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.suspicious_wallet_activity AS
+ SELECT wal.wallet_id,
+    pw.wallet_address,
+    wal.accessed_by,
+    u.email AS user_email,
+    count(*) AS failed_attempts,
+    min(wal.created_at) AS first_failure,
+    max(wal.created_at) AS last_failure,
+    array_agg(DISTINCT wal.ip_address) AS ip_addresses
+   FROM ((public.wallet_access_logs wal
+     JOIN public.project_wallets pw ON ((wal.wallet_id = pw.id)))
+     LEFT JOIN public.users u ON ((wal.accessed_by = u.id)))
+  WHERE ((wal.success = false) AND (wal.created_at >= (now() - '01:00:00'::interval)))
+  GROUP BY wal.wallet_id, pw.wallet_address, wal.accessed_by, u.email
+ HAVING (count(*) >= 3);
+
+
+--
+-- Name: VIEW suspicious_wallet_activity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.suspicious_wallet_activity IS 'Detects potential security threats based on failed access attempts';
 
 
 --
@@ -15593,7 +20396,8 @@ CREATE TABLE public.token_deployment_history (
     "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
     error text,
     blockchain text NOT NULL,
-    environment text NOT NULL
+    environment text NOT NULL,
+    initial_owner text
 );
 
 
@@ -15605,20 +20409,28 @@ COMMENT ON TABLE public.token_deployment_history IS 'Records the history of toke
 
 
 --
--- Name: token_deployments; Type: TABLE; Schema: public; Owner: -
+-- Name: token_deployment_verifications; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.token_deployments (
+CREATE TABLE public.token_deployment_verifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     token_id uuid NOT NULL,
-    network text NOT NULL,
-    contract_address text NOT NULL,
-    transaction_hash text NOT NULL,
-    deployed_at timestamp with time zone DEFAULT now(),
-    deployed_by text NOT NULL,
-    status text DEFAULT 'PENDING'::text NOT NULL,
-    deployment_data jsonb,
-    deployment_strategy text
+    implementation_verified boolean DEFAULT false,
+    initialization_verified boolean DEFAULT false,
+    functionality_verified boolean DEFAULT false,
+    bytecode_verified boolean DEFAULT false,
+    verification_checks jsonb DEFAULT '{}'::jsonb NOT NULL,
+    expected_master_address text,
+    actual_implementation_address text,
+    verified_at timestamp with time zone DEFAULT now(),
+    verified_by uuid,
+    verification_status text DEFAULT 'pending'::text,
+    errors jsonb DEFAULT '[]'::jsonb,
+    warnings jsonb DEFAULT '[]'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    initial_owner text,
+    CONSTRAINT token_deployment_verifications_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'passed'::text, 'failed'::text, 'partial'::text])))
 );
 
 
@@ -17629,6 +22441,29 @@ CREATE TABLE public.token_events (
 
 
 --
+-- Name: token_extensions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.token_extensions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid NOT NULL,
+    extension_type text NOT NULL,
+    extension_address text NOT NULL,
+    configuration jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_active boolean DEFAULT true,
+    attached_at timestamp with time zone DEFAULT now(),
+    attached_by uuid,
+    attached_tx_hash text,
+    detached_at timestamp with time zone,
+    detached_by uuid,
+    detached_tx_hash text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT token_extensions_extension_type_check CHECK ((extension_type = ANY (ARRAY['compliance'::text, 'vesting'::text, 'royalty'::text, 'fee'::text])))
+);
+
+
+--
 -- Name: token_geographic_restrictions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -18362,6 +23197,32 @@ COMMENT ON TABLE public.violation_patterns IS 'Detected patterns in compliance v
 
 
 --
+-- Name: wallet_access_summary; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.wallet_access_summary AS
+ SELECT wal.wallet_id,
+    pw.wallet_address,
+    pw.wallet_type AS network,
+    p.name AS project_name,
+    count(*) AS access_count,
+    count(*) FILTER (WHERE (wal.success = false)) AS failed_count,
+    max(wal.created_at) AS last_access,
+    json_agg(json_build_object('action', wal.action, 'success', wal.success, 'timestamp', wal.created_at, 'user_id', wal.accessed_by) ORDER BY wal.created_at DESC) FILTER (WHERE (wal.created_at >= (now() - '24:00:00'::interval))) AS recent_activity
+   FROM ((public.wallet_access_logs wal
+     JOIN public.project_wallets pw ON ((wal.wallet_id = pw.id)))
+     JOIN public.projects p ON ((pw.project_id = p.id)))
+  GROUP BY wal.wallet_id, pw.wallet_address, pw.wallet_type, p.name;
+
+
+--
+-- Name: VIEW wallet_access_summary; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.wallet_access_summary IS 'Summary of wallet access patterns for monitoring';
+
+
+--
 -- Name: wallet_details; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -18846,6 +23707,46 @@ ALTER TABLE ONLY public._migrations
 
 
 --
+-- Name: abs_cash_flows abs_cash_flows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_cash_flows
+    ADD CONSTRAINT abs_cash_flows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: abs_collateral_pools abs_collateral_pools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_collateral_pools
+    ADD CONSTRAINT abs_collateral_pools_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: abs_loss_projections abs_loss_projections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_loss_projections
+    ADD CONSTRAINT abs_loss_projections_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: abs_prepayment_speeds abs_prepayment_speeds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_prepayment_speeds
+    ADD CONSTRAINT abs_prepayment_speeds_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: abs_tranches abs_tranches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_tranches
+    ADD CONSTRAINT abs_tranches_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: alerts alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18933,6 +23834,14 @@ ALTER TABLE ONLY public.asset_nav_data
 
 
 --
+-- Name: auction_comparables auction_comparables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auction_comparables
+    ADD CONSTRAINT auction_comparables_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18989,6 +23898,78 @@ ALTER TABLE ONLY public.blacklisted_addresses
 
 
 --
+-- Name: bond_amortization_schedule bond_amortization_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_amortization_schedule
+    ADD CONSTRAINT bond_amortization_schedule_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_call_put_schedules bond_call_put_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_call_put_schedules
+    ADD CONSTRAINT bond_call_put_schedules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_coupon_payments bond_coupon_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_coupon_payments
+    ADD CONSTRAINT bond_coupon_payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_covenants bond_covenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_covenants
+    ADD CONSTRAINT bond_covenants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_credit_ratings bond_credit_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_credit_ratings
+    ADD CONSTRAINT bond_credit_ratings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_credit_ratings bond_credit_ratings_unique_agency_date; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_credit_ratings
+    ADD CONSTRAINT bond_credit_ratings_unique_agency_date UNIQUE (bond_product_id, rating_agency, rating_date);
+
+
+--
+-- Name: bond_events bond_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_events
+    ADD CONSTRAINT bond_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_market_prices bond_market_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_market_prices
+    ADD CONSTRAINT bond_market_prices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bond_market_prices bond_market_prices_unique_timestamp; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_market_prices
+    ADD CONSTRAINT bond_market_prices_unique_timestamp UNIQUE (bond_product_id, price_date, price_time, data_source);
+
+
+--
 -- Name: bond_products bond_products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -19009,6 +23990,14 @@ ALTER TABLE ONLY public.bond_products
 --
 
 COMMENT ON CONSTRAINT bond_products_project_id_key ON public.bond_products IS 'Ensures only one product per project in this table';
+
+
+--
+-- Name: bond_sinking_fund bond_sinking_fund_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_sinking_fund
+    ADD CONSTRAINT bond_sinking_fund_pkey PRIMARY KEY (id);
 
 
 --
@@ -19052,11 +24041,67 @@ ALTER TABLE ONLY public.cap_tables
 
 
 --
+-- Name: carbon_market_prices carbon_market_prices_asset_id_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carbon_market_prices
+    ADD CONSTRAINT carbon_market_prices_asset_id_as_of_date_key UNIQUE NULLS NOT DISTINCT (asset_id, as_of_date);
+
+
+--
+-- Name: carbon_market_prices carbon_market_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.carbon_market_prices
+    ADD CONSTRAINT carbon_market_prices_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: carbon_offsets carbon_offsets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.carbon_offsets
     ADD CONSTRAINT carbon_offsets_pkey PRIMARY KEY (offset_id);
+
+
+--
+-- Name: cf_allocations cf_allocations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cf_allocations
+    ADD CONSTRAINT cf_allocations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cf_cash_flows cf_cash_flows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cf_cash_flows
+    ADD CONSTRAINT cf_cash_flows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cf_holdings cf_holdings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cf_holdings
+    ADD CONSTRAINT cf_holdings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cf_performance_attribution cf_performance_attribution_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cf_performance_attribution
+    ADD CONSTRAINT cf_performance_attribution_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cf_rebalancing_events cf_rebalancing_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cf_rebalancing_events
+    ADD CONSTRAINT cf_rebalancing_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -19228,6 +24273,70 @@ ALTER TABLE ONLY public.climate_user_data_sources
 
 
 --
+-- Name: collectibles_appraisals collectibles_appraisals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_appraisals
+    ADD CONSTRAINT collectibles_appraisals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_authentication_records collectibles_authentication_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_authentication_records
+    ADD CONSTRAINT collectibles_authentication_records_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_condition_reports collectibles_condition_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_condition_reports
+    ADD CONSTRAINT collectibles_condition_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_insurance_policies collectibles_insurance_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_insurance_policies
+    ADD CONSTRAINT collectibles_insurance_policies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_insurance_valuations collectibles_insurance_valuations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_insurance_valuations
+    ADD CONSTRAINT collectibles_insurance_valuations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_market_comparables collectibles_market_comparables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_market_comparables
+    ADD CONSTRAINT collectibles_market_comparables_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_market_metrics collectibles_market_metrics_asset_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_market_metrics
+    ADD CONSTRAINT collectibles_market_metrics_asset_type_key UNIQUE (asset_type);
+
+
+--
+-- Name: collectibles_market_metrics collectibles_market_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_market_metrics
+    ADD CONSTRAINT collectibles_market_metrics_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: collectibles_products collectibles_products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -19251,6 +24360,46 @@ COMMENT ON CONSTRAINT collectibles_products_project_id_key ON public.collectible
 
 
 --
+-- Name: collectibles_provenance collectibles_provenance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_provenance
+    ADD CONSTRAINT collectibles_provenance_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_provenance_records collectibles_provenance_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_provenance_records
+    ADD CONSTRAINT collectibles_provenance_records_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_rarity_scores collectibles_rarity_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_rarity_scores
+    ADD CONSTRAINT collectibles_rarity_scores_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_risk_assessments collectibles_risk_assessments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_risk_assessments
+    ADD CONSTRAINT collectibles_risk_assessments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: collectibles_storage_facilities collectibles_storage_facilities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_storage_facilities
+    ADD CONSTRAINT collectibles_storage_facilities_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: commodities_products commodities_products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -19271,6 +24420,54 @@ ALTER TABLE ONLY public.commodities_products
 --
 
 COMMENT ON CONSTRAINT commodities_products_project_id_key ON public.commodities_products IS 'Ensures only one product per project in this table';
+
+
+--
+-- Name: commodity_handling_costs commodity_handling_costs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_handling_costs
+    ADD CONSTRAINT commodity_handling_costs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_implied_volatility commodity_implied_volatility_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_implied_volatility
+    ADD CONSTRAINT commodity_implied_volatility_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_insurance_rates commodity_insurance_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_insurance_rates
+    ADD CONSTRAINT commodity_insurance_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_market_data commodity_market_data_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_market_data
+    ADD CONSTRAINT commodity_market_data_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_quality_multipliers commodity_quality_multipliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_quality_multipliers
+    ADD CONSTRAINT commodity_quality_multipliers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_storage_rates commodity_storage_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_storage_rates
+    ADD CONSTRAINT commodity_storage_rates_pkey PRIMARY KEY (id);
 
 
 --
@@ -19375,6 +24572,46 @@ ALTER TABLE ONLY public.consensus_settings
 
 ALTER TABLE ONLY public.consensus_settings
     ADD CONSTRAINT consensus_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contract_master_versions contract_master_versions_contract_type_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_master_versions
+    ADD CONSTRAINT contract_master_versions_contract_type_version_key UNIQUE (contract_type, version);
+
+
+--
+-- Name: contract_master_versions contract_master_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_master_versions
+    ADD CONSTRAINT contract_master_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contract_masters contract_masters_network_environment_contract_type_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_masters
+    ADD CONSTRAINT contract_masters_network_environment_contract_type_version_key UNIQUE (network, environment, contract_type, version);
+
+
+--
+-- Name: contract_masters contract_masters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_masters
+    ADD CONSTRAINT contract_masters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: corporate_actions corporate_actions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.corporate_actions
+    ADD CONSTRAINT corporate_actions_pkey PRIMARY KEY (id);
 
 
 --
@@ -20241,11 +25478,91 @@ ALTER TABLE ONLY public.documents
 
 
 --
+-- Name: dtf_blockchain_events dtf_blockchain_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_blockchain_events
+    ADD CONSTRAINT dtf_blockchain_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dtf_minting_history dtf_minting_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_minting_history
+    ADD CONSTRAINT dtf_minting_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dtf_minting_history dtf_minting_history_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_minting_history
+    ADD CONSTRAINT dtf_minting_history_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
+-- Name: dtf_nav_snapshots dtf_nav_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_nav_snapshots
+    ADD CONSTRAINT dtf_nav_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dtf_redemption_requests dtf_redemption_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_redemption_requests
+    ADD CONSTRAINT dtf_redemption_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: dtf_redemption_requests dtf_redemption_requests_request_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_redemption_requests
+    ADD CONSTRAINT dtf_redemption_requests_request_id_key UNIQUE (request_id);
+
+
+--
+-- Name: dtf_token_metadata dtf_token_metadata_contract_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_token_metadata
+    ADD CONSTRAINT dtf_token_metadata_contract_address_key UNIQUE (contract_address);
+
+
+--
+-- Name: dtf_token_metadata dtf_token_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_token_metadata
+    ADD CONSTRAINT dtf_token_metadata_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: energy_assets energy_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.energy_assets
     ADD CONSTRAINT energy_assets_pkey PRIMARY KEY (asset_id);
+
+
+--
+-- Name: energy_futures_contracts energy_futures_contracts_commodity_contract_month_contract__key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.energy_futures_contracts
+    ADD CONSTRAINT energy_futures_contracts_commodity_contract_month_contract__key UNIQUE (commodity, contract_month, contract_date);
+
+
+--
+-- Name: energy_futures_contracts energy_futures_contracts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.energy_futures_contracts
+    ADD CONSTRAINT energy_futures_contracts_pkey PRIMARY KEY (id);
 
 
 --
@@ -20269,6 +25586,14 @@ ALTER TABLE ONLY public.energy_products
 --
 
 COMMENT ON CONSTRAINT energy_products_project_id_key ON public.energy_products IS 'Ensures only one product per project in this table';
+
+
+--
+-- Name: environmental_certifications environmental_certifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.environmental_certifications
+    ADD CONSTRAINT environmental_certifications_pkey PRIMARY KEY (id);
 
 
 --
@@ -20390,6 +25715,14 @@ COMMENT ON CONSTRAINT fund_products_project_id_key ON public.fund_products IS 'E
 
 
 --
+-- Name: futures_prices futures_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.futures_prices
+    ADD CONSTRAINT futures_prices_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: geographic_jurisdictions geographic_jurisdictions_country_code_3_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20478,6 +25811,62 @@ ALTER TABLE ONLY public.individual_documents
 
 
 --
+-- Name: infra_capex_schedule infra_capex_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_capex_schedule
+    ADD CONSTRAINT infra_capex_schedule_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: infra_concessions infra_concessions_contract_reference_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_concessions
+    ADD CONSTRAINT infra_concessions_contract_reference_key UNIQUE (contract_reference);
+
+
+--
+-- Name: infra_concessions infra_concessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_concessions
+    ADD CONSTRAINT infra_concessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: infra_operating_expenses infra_operating_expenses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_operating_expenses
+    ADD CONSTRAINT infra_operating_expenses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: infra_regulatory_filings infra_regulatory_filings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_regulatory_filings
+    ADD CONSTRAINT infra_regulatory_filings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: infra_revenue_streams infra_revenue_streams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_revenue_streams
+    ADD CONSTRAINT infra_revenue_streams_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: infra_usage_metrics infra_usage_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_usage_metrics
+    ADD CONSTRAINT infra_usage_metrics_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: infrastructure_products infrastructure_products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20557,6 +25946,30 @@ ALTER TABLE ONLY public.investors
 
 
 --
+-- Name: invoice_aging_buckets invoice_aging_buckets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_aging_buckets
+    ADD CONSTRAINT invoice_aging_buckets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: invoice_collection_history invoice_collection_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_collection_history
+    ADD CONSTRAINT invoice_collection_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: invoice_debtor_ratings invoice_debtor_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_debtor_ratings
+    ADD CONSTRAINT invoice_debtor_ratings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: invoice invoice_invoice_number_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20565,11 +25978,35 @@ ALTER TABLE ONLY public.invoice
 
 
 --
+-- Name: invoice_payments invoice_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_payments
+    ADD CONSTRAINT invoice_payments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: invoice invoice_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoice
     ADD CONSTRAINT invoice_pkey PRIMARY KEY (invoice_id);
+
+
+--
+-- Name: invoice_receivables invoice_receivables_invoice_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_receivables
+    ADD CONSTRAINT invoice_receivables_invoice_number_key UNIQUE (invoice_number);
+
+
+--
+-- Name: invoice_receivables invoice_receivables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_receivables
+    ADD CONSTRAINT invoice_receivables_pkey PRIMARY KEY (id);
 
 
 --
@@ -20621,11 +26058,43 @@ ALTER TABLE ONLY public.kyc_screening_logs
 
 
 --
+-- Name: lease_agreements lease_agreements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lease_agreements
+    ADD CONSTRAINT lease_agreements_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: market_data_snapshots market_data_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.market_data_snapshots
     ADD CONSTRAINT market_data_snapshots_pkey PRIMARY KEY (snapshot_id);
+
+
+--
+-- Name: market_indices market_indices_index_symbol_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_indices
+    ADD CONSTRAINT market_indices_index_symbol_key UNIQUE (index_symbol);
+
+
+--
+-- Name: market_indices market_indices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_indices
+    ADD CONSTRAINT market_indices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: market_rent_data market_rent_data_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_rent_data
+    ADD CONSTRAINT market_rent_data_pkey PRIMARY KEY (id);
 
 
 --
@@ -20650,6 +26119,46 @@ ALTER TABLE ONLY public.ml_baseline_statistics
 
 ALTER TABLE ONLY public.ml_baseline_statistics
     ADD CONSTRAINT ml_baseline_statistics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mmf_credit_ratings mmf_credit_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_credit_ratings
+    ADD CONSTRAINT mmf_credit_ratings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mmf_holdings mmf_holdings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_holdings
+    ADD CONSTRAINT mmf_holdings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mmf_liquidity_buckets mmf_liquidity_buckets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_liquidity_buckets
+    ADD CONSTRAINT mmf_liquidity_buckets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mmf_nav_history mmf_nav_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_nav_history
+    ADD CONSTRAINT mmf_nav_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mmf_transactions mmf_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_transactions
+    ADD CONSTRAINT mmf_transactions_pkey PRIMARY KEY (id);
 
 
 --
@@ -20901,6 +26410,22 @@ ALTER TABLE ONLY public.nav_approvals
 
 
 --
+-- Name: nav_asset_type_adjustments nav_asset_type_adjustments_asset_type_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_asset_type_adjustments
+    ADD CONSTRAINT nav_asset_type_adjustments_asset_type_as_of_date_key UNIQUE (asset_type, as_of_date);
+
+
+--
+-- Name: nav_asset_type_adjustments nav_asset_type_adjustments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_asset_type_adjustments
+    ADD CONSTRAINT nav_asset_type_adjustments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: nav_calculation_history nav_calculation_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -20917,11 +26442,139 @@ ALTER TABLE ONLY public.nav_calculation_runs
 
 
 --
+-- Name: nav_calculator_parameters nav_calculator_parameters_calculator_type_parameter_key_ass_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculator_parameters
+    ADD CONSTRAINT nav_calculator_parameters_calculator_type_parameter_key_ass_key UNIQUE (calculator_type, parameter_key, asset_subtype);
+
+
+--
+-- Name: nav_calculator_parameters nav_calculator_parameters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculator_parameters
+    ADD CONSTRAINT nav_calculator_parameters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_credit_quality_multipliers nav_credit_quality_multipliers_credit_quality_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_credit_quality_multipliers
+    ADD CONSTRAINT nav_credit_quality_multipliers_credit_quality_as_of_date_key UNIQUE (credit_quality, as_of_date);
+
+
+--
+-- Name: nav_credit_quality_multipliers nav_credit_quality_multipliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_credit_quality_multipliers
+    ADD CONSTRAINT nav_credit_quality_multipliers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_credit_spreads nav_credit_spreads_credit_rating_asset_class_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_credit_spreads
+    ADD CONSTRAINT nav_credit_spreads_credit_rating_asset_class_as_of_date_key UNIQUE (credit_rating, asset_class, as_of_date);
+
+
+--
+-- Name: nav_credit_spreads nav_credit_spreads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_credit_spreads
+    ADD CONSTRAINT nav_credit_spreads_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_default_rates nav_default_rates_asset_type_credit_rating_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_default_rates
+    ADD CONSTRAINT nav_default_rates_asset_type_credit_rating_as_of_date_key UNIQUE (asset_type, credit_rating, as_of_date);
+
+
+--
+-- Name: nav_default_rates nav_default_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_default_rates
+    ADD CONSTRAINT nav_default_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_delinquency_adjustments nav_delinquency_adjustments_days_past_due_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_delinquency_adjustments
+    ADD CONSTRAINT nav_delinquency_adjustments_days_past_due_as_of_date_key UNIQUE (days_past_due, as_of_date);
+
+
+--
+-- Name: nav_delinquency_adjustments nav_delinquency_adjustments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_delinquency_adjustments
+    ADD CONSTRAINT nav_delinquency_adjustments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_economic_capital nav_economic_capital_credit_rating_confidence_level_as_of_d_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_economic_capital
+    ADD CONSTRAINT nav_economic_capital_credit_rating_confidence_level_as_of_d_key UNIQUE (credit_rating, confidence_level, as_of_date);
+
+
+--
+-- Name: nav_economic_capital nav_economic_capital_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_economic_capital
+    ADD CONSTRAINT nav_economic_capital_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: nav_fx_rates nav_fx_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.nav_fx_rates
     ADD CONSTRAINT nav_fx_rates_pkey PRIMARY KEY (base_ccy, quote_ccy, as_of);
+
+
+--
+-- Name: nav_liquidity_discounts nav_liquidity_discounts_credit_rating_asset_class_as_of_dat_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_liquidity_discounts
+    ADD CONSTRAINT nav_liquidity_discounts_credit_rating_asset_class_as_of_dat_key UNIQUE (credit_rating, asset_class, as_of_date);
+
+
+--
+-- Name: nav_liquidity_discounts nav_liquidity_discounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_liquidity_discounts
+    ADD CONSTRAINT nav_liquidity_discounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_loss_given_default nav_loss_given_default_asset_type_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_loss_given_default
+    ADD CONSTRAINT nav_loss_given_default_asset_type_as_of_date_key UNIQUE (asset_type, as_of_date);
+
+
+--
+-- Name: nav_loss_given_default nav_loss_given_default_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_loss_given_default
+    ADD CONSTRAINT nav_loss_given_default_pkey PRIMARY KEY (id);
 
 
 --
@@ -20933,11 +26586,59 @@ ALTER TABLE ONLY public.nav_oracle_configs
 
 
 --
+-- Name: nav_prepayment_rates nav_prepayment_rates_asset_type_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_prepayment_rates
+    ADD CONSTRAINT nav_prepayment_rates_asset_type_as_of_date_key UNIQUE (asset_type, as_of_date);
+
+
+--
+-- Name: nav_prepayment_rates nav_prepayment_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_prepayment_rates
+    ADD CONSTRAINT nav_prepayment_rates_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: nav_price_cache nav_price_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.nav_price_cache
     ADD CONSTRAINT nav_price_cache_pkey PRIMARY KEY (instrument_key, source, as_of);
+
+
+--
+-- Name: nav_probability_of_default nav_probability_of_default_credit_rating_time_horizon_years_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_probability_of_default
+    ADD CONSTRAINT nav_probability_of_default_credit_rating_time_horizon_years_key UNIQUE (credit_rating, time_horizon_years, as_of_date);
+
+
+--
+-- Name: nav_probability_of_default nav_probability_of_default_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_probability_of_default
+    ADD CONSTRAINT nav_probability_of_default_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_recovery_rates nav_recovery_rates_asset_type_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_recovery_rates
+    ADD CONSTRAINT nav_recovery_rates_asset_type_as_of_date_key UNIQUE (asset_type, as_of_date);
+
+
+--
+-- Name: nav_recovery_rates nav_recovery_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_recovery_rates
+    ADD CONSTRAINT nav_recovery_rates_pkey PRIMARY KEY (id);
 
 
 --
@@ -20954,6 +26655,22 @@ ALTER TABLE ONLY public.nav_redemptions
 
 ALTER TABLE ONLY public.nav_redemptions
     ADD CONSTRAINT nav_redemptions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_unexpected_loss nav_unexpected_loss_credit_rating_as_of_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_unexpected_loss
+    ADD CONSTRAINT nav_unexpected_loss_credit_rating_as_of_date_key UNIQUE (credit_rating, as_of_date);
+
+
+--
+-- Name: nav_unexpected_loss nav_unexpected_loss_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_unexpected_loss
+    ADD CONSTRAINT nav_unexpected_loss_pkey PRIMARY KEY (id);
 
 
 --
@@ -21181,6 +26898,94 @@ ALTER TABLE ONLY public.paymaster_policies
 
 
 --
+-- Name: pd_collateral pd_collateral_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_collateral
+    ADD CONSTRAINT pd_collateral_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pd_covenants pd_covenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_covenants
+    ADD CONSTRAINT pd_covenants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pd_credit_ratings pd_credit_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_credit_ratings
+    ADD CONSTRAINT pd_credit_ratings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pd_default_events pd_default_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_default_events
+    ADD CONSTRAINT pd_default_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pd_loan_schedules pd_loan_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_loan_schedules
+    ADD CONSTRAINT pd_loan_schedules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pd_payment_history pd_payment_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_payment_history
+    ADD CONSTRAINT pd_payment_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pe_capital_calls pe_capital_calls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_capital_calls
+    ADD CONSTRAINT pe_capital_calls_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pe_distributions pe_distributions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_distributions
+    ADD CONSTRAINT pe_distributions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pe_performance_metrics pe_performance_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_performance_metrics
+    ADD CONSTRAINT pe_performance_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pe_portfolio_companies pe_portfolio_companies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_portfolio_companies
+    ADD CONSTRAINT pe_portfolio_companies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pe_valuations pe_valuations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_valuations
+    ADD CONSTRAINT pe_valuations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: permissions permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21331,6 +27136,38 @@ ALTER TABLE ONLY public.projects
 
 
 --
+-- Name: property_expenses property_expenses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_expenses
+    ADD CONSTRAINT property_expenses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: property_insurance property_insurance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_insurance
+    ADD CONSTRAINT property_insurance_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: property_tax_rates property_tax_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_tax_rates
+    ADD CONSTRAINT property_tax_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: property_valuations property_valuations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_valuations
+    ADD CONSTRAINT property_valuations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: proposal_signatures proposal_signatures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21352,6 +27189,46 @@ ALTER TABLE ONLY public.proposal_signatures
 
 ALTER TABLE ONLY public.provider
     ADD CONSTRAINT provider_pkey PRIMARY KEY (provider_id);
+
+
+--
+-- Name: quant_backtests quant_backtests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_backtests
+    ADD CONSTRAINT quant_backtests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: quant_factors quant_factors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_factors
+    ADD CONSTRAINT quant_factors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: quant_performance_attribution quant_performance_attribution_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_performance_attribution
+    ADD CONSTRAINT quant_performance_attribution_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: quant_risk_metrics quant_risk_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_risk_metrics
+    ADD CONSTRAINT quant_risk_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: quant_signals quant_signals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_signals
+    ADD CONSTRAINT quant_signals_pkey PRIMARY KEY (id);
 
 
 --
@@ -21801,6 +27678,62 @@ ALTER TABLE ONLY public.rules
 
 
 --
+-- Name: sc_algorithm_parameters sc_algorithm_parameters_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_algorithm_parameters
+    ADD CONSTRAINT sc_algorithm_parameters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sc_minting_events sc_minting_events_mint_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_minting_events
+    ADD CONSTRAINT sc_minting_events_mint_id_key UNIQUE (mint_id);
+
+
+--
+-- Name: sc_minting_events sc_minting_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_minting_events
+    ADD CONSTRAINT sc_minting_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sc_peg_history sc_peg_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_peg_history
+    ADD CONSTRAINT sc_peg_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sc_redemptions sc_redemptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_redemptions
+    ADD CONSTRAINT sc_redemptions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sc_redemptions sc_redemptions_redemption_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_redemptions
+    ADD CONSTRAINT sc_redemptions_redemption_id_key UNIQUE (redemption_id);
+
+
+--
+-- Name: sc_reserve_audits sc_reserve_audits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_reserve_audits
+    ADD CONSTRAINT sc_reserve_audits_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: security_audit_logs security_audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21929,6 +27862,54 @@ ALTER TABLE ONLY public.smart_contract_wallets
 
 
 --
+-- Name: sp_barrier_events sp_barrier_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_barrier_events
+    ADD CONSTRAINT sp_barrier_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sp_components sp_components_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_components
+    ADD CONSTRAINT sp_components_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sp_coupon_schedules sp_coupon_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_coupon_schedules
+    ADD CONSTRAINT sp_coupon_schedules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sp_payoff_structures sp_payoff_structures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_payoff_structures
+    ADD CONSTRAINT sp_payoff_structures_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sp_performance_tracking sp_performance_tracking_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_performance_tracking
+    ADD CONSTRAINT sp_performance_tracking_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sp_redemption_features sp_redemption_features_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_redemption_features
+    ADD CONSTRAINT sp_redemption_features_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: stablecoin_collateral stablecoin_collateral_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -21965,6 +27946,30 @@ COMMENT ON CONSTRAINT stablecoin_products_project_id_key ON public.stablecoin_pr
 
 ALTER TABLE ONLY public.stage_requirements
     ADD CONSTRAINT stage_requirements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: stock_dividends stock_dividends_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stock_dividends
+    ADD CONSTRAINT stock_dividends_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: stock_exchanges stock_exchanges_exchange_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stock_exchanges
+    ADD CONSTRAINT stock_exchanges_exchange_code_key UNIQUE (exchange_code);
+
+
+--
+-- Name: stock_exchanges stock_exchanges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stock_exchanges
+    ADD CONSTRAINT stock_exchanges_pkey PRIMARY KEY (id);
 
 
 --
@@ -22100,6 +28105,14 @@ ALTER TABLE ONLY public.token_climate_properties
 
 ALTER TABLE ONLY public.token_deployment_history
     ADD CONSTRAINT token_deployment_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token_deployment_verifications token_deployment_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_deployment_verifications
+    ADD CONSTRAINT token_deployment_verifications_pkey PRIMARY KEY (id);
 
 
 --
@@ -22452,6 +28465,22 @@ ALTER TABLE ONLY public.token_erc721_trait_definitions
 
 ALTER TABLE ONLY public.token_events
     ADD CONSTRAINT token_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token_extensions token_extensions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_extensions
+    ADD CONSTRAINT token_extensions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token_extensions token_extensions_token_id_extension_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_extensions
+    ADD CONSTRAINT token_extensions_token_id_extension_type_key UNIQUE (token_id, extension_type);
 
 
 --
@@ -22863,6 +28892,14 @@ ALTER TABLE ONLY public.violation_patterns
 
 
 --
+-- Name: wallet_access_logs wallet_access_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallet_access_logs
+    ADD CONSTRAINT wallet_access_logs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: wallet_details wallet_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -23047,6 +29084,125 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: idx_abs_cash_flows_abs_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_cash_flows_abs_product ON public.abs_cash_flows USING btree (asset_backed_product_id);
+
+
+--
+-- Name: idx_abs_cash_flows_actual; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_cash_flows_actual ON public.abs_cash_flows USING btree (is_actual);
+
+
+--
+-- Name: idx_abs_cash_flows_payment_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_cash_flows_payment_date ON public.abs_cash_flows USING btree (payment_date);
+
+
+--
+-- Name: idx_abs_cash_flows_tranche; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_cash_flows_tranche ON public.abs_cash_flows USING btree (abs_tranche_id);
+
+
+--
+-- Name: idx_abs_collateral_pools_abs_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_collateral_pools_abs_product ON public.abs_collateral_pools USING btree (asset_backed_product_id);
+
+
+--
+-- Name: idx_abs_collateral_pools_period_end; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_collateral_pools_period_end ON public.abs_collateral_pools USING btree (reporting_period_end);
+
+
+--
+-- Name: idx_abs_collateral_pools_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_collateral_pools_type ON public.abs_collateral_pools USING btree (collateral_type);
+
+
+--
+-- Name: idx_abs_loss_projections_abs_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_loss_projections_abs_product ON public.abs_loss_projections USING btree (asset_backed_product_id);
+
+
+--
+-- Name: idx_abs_loss_projections_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_loss_projections_date ON public.abs_loss_projections USING btree (projection_date);
+
+
+--
+-- Name: idx_abs_loss_projections_scenario; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_loss_projections_scenario ON public.abs_loss_projections USING btree (scenario_name);
+
+
+--
+-- Name: idx_abs_prepayment_speeds_abs_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_prepayment_speeds_abs_product ON public.abs_prepayment_speeds USING btree (asset_backed_product_id);
+
+
+--
+-- Name: idx_abs_prepayment_speeds_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_prepayment_speeds_date ON public.abs_prepayment_speeds USING btree (observation_date);
+
+
+--
+-- Name: idx_abs_prepayment_speeds_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_prepayment_speeds_type ON public.abs_prepayment_speeds USING btree (prepayment_type);
+
+
+--
+-- Name: idx_abs_tranches_abs_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_tranches_abs_product ON public.abs_tranches USING btree (asset_backed_product_id);
+
+
+--
+-- Name: idx_abs_tranches_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_tranches_class ON public.abs_tranches USING btree (tranche_class);
+
+
+--
+-- Name: idx_abs_tranches_seniority; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_tranches_seniority ON public.abs_tranches USING btree (seniority_level);
+
+
+--
+-- Name: idx_abs_tranches_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_abs_tranches_status ON public.abs_tranches USING btree (status);
+
+
+--
 -- Name: idx_alerts_service; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -23226,6 +29382,20 @@ CREATE INDEX idx_asset_nav_data_source_status ON public.asset_nav_data USING btr
 --
 
 CREATE INDEX idx_asset_nav_data_validated ON public.asset_nav_data USING btree (validated, date DESC);
+
+
+--
+-- Name: idx_auction_comparables_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_auction_comparables_asset_type ON public.auction_comparables USING btree (asset_type);
+
+
+--
+-- Name: idx_auction_comparables_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_auction_comparables_date ON public.auction_comparables USING btree (date DESC);
 
 
 --
@@ -23474,10 +29644,171 @@ CREATE INDEX idx_blacklisted_addresses_address ON public.blacklisted_addresses U
 
 
 --
+-- Name: idx_bond_amortization_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_amortization_bond_id ON public.bond_amortization_schedule USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_amortization_payment_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_amortization_payment_date ON public.bond_amortization_schedule USING btree (payment_date);
+
+
+--
+-- Name: idx_bond_call_put_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_call_put_bond_id ON public.bond_call_put_schedules USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_call_put_option_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_call_put_option_date ON public.bond_call_put_schedules USING btree (option_date);
+
+
+--
+-- Name: idx_bond_coupon_payments_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_coupon_payments_bond_id ON public.bond_coupon_payments USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_coupon_payments_future; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_coupon_payments_future ON public.bond_coupon_payments USING btree (bond_product_id, payment_date) WHERE ((payment_status)::text = 'scheduled'::text);
+
+
+--
+-- Name: idx_bond_coupon_payments_payment_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_coupon_payments_payment_date ON public.bond_coupon_payments USING btree (payment_date);
+
+
+--
+-- Name: idx_bond_coupon_payments_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_coupon_payments_status ON public.bond_coupon_payments USING btree (payment_status);
+
+
+--
+-- Name: idx_bond_covenants_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_covenants_bond_id ON public.bond_covenants USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_covenants_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_covenants_type ON public.bond_covenants USING btree (covenant_type);
+
+
+--
+-- Name: idx_bond_credit_ratings_bond_agency_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_credit_ratings_bond_agency_date ON public.bond_credit_ratings USING btree (bond_product_id, rating_agency, rating_date DESC);
+
+
+--
+-- Name: idx_bond_credit_ratings_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_credit_ratings_bond_id ON public.bond_credit_ratings USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_events_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_events_bond_id ON public.bond_events USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_events_event_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_events_event_date ON public.bond_events USING btree (event_date DESC);
+
+
+--
+-- Name: idx_bond_events_event_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_events_event_type ON public.bond_events USING btree (event_type);
+
+
+--
+-- Name: idx_bond_market_prices_bond_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_market_prices_bond_date ON public.bond_market_prices USING btree (bond_product_id, price_date DESC);
+
+
+--
+-- Name: idx_bond_market_prices_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_market_prices_bond_id ON public.bond_market_prices USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_market_prices_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_market_prices_date ON public.bond_market_prices USING btree (price_date DESC);
+
+
+--
+-- Name: idx_bond_market_prices_official_close; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_market_prices_official_close ON public.bond_market_prices USING btree (bond_product_id, price_date DESC) WHERE (is_official_close = true);
+
+
+--
+-- Name: idx_bond_products_accounting_treatment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_products_accounting_treatment ON public.bond_products USING btree (accounting_treatment);
+
+
+--
 -- Name: idx_bond_products_bond_isin_cusip; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_bond_products_bond_isin_cusip ON public.bond_products USING btree (bond_isin_cusip);
+
+
+--
+-- Name: idx_bond_products_credit_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_products_credit_rating ON public.bond_products USING btree (credit_rating);
+
+
+--
+-- Name: idx_bond_products_cusip; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_products_cusip ON public.bond_products USING btree (cusip) WHERE (cusip IS NOT NULL);
+
+
+--
+-- Name: idx_bond_products_isin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_products_isin ON public.bond_products USING btree (isin) WHERE (isin IS NOT NULL);
 
 
 --
@@ -23499,6 +29830,27 @@ CREATE INDEX idx_bond_products_project_id ON public.bond_products USING btree (p
 --
 
 CREATE UNIQUE INDEX idx_bond_products_project_id_unique ON public.bond_products USING btree (project_id);
+
+
+--
+-- Name: idx_bond_products_sedol; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_products_sedol ON public.bond_products USING btree (sedol) WHERE (sedol IS NOT NULL);
+
+
+--
+-- Name: idx_bond_sinking_fund_bond_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_sinking_fund_bond_id ON public.bond_sinking_fund USING btree (bond_product_id);
+
+
+--
+-- Name: idx_bond_sinking_fund_payment_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bond_sinking_fund_payment_date ON public.bond_sinking_fund USING btree (payment_date);
 
 
 --
@@ -23555,6 +29907,153 @@ CREATE INDEX idx_bundler_operations_status ON public.bundler_operations USING bt
 --
 
 CREATE INDEX idx_cache_expires ON public.validation_cache USING btree (expires_at);
+
+
+--
+-- Name: idx_carbon_market_prices_asset_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_carbon_market_prices_asset_date ON public.carbon_market_prices USING btree (asset_id, as_of_date DESC);
+
+
+--
+-- Name: idx_carbon_market_prices_latest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_carbon_market_prices_latest ON public.carbon_market_prices USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_cf_allocations_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_allocations_asset_class ON public.cf_allocations USING btree (asset_class);
+
+
+--
+-- Name: idx_cf_allocations_effective_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_allocations_effective_date ON public.cf_allocations USING btree (effective_date);
+
+
+--
+-- Name: idx_cf_allocations_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_allocations_fund ON public.cf_allocations USING btree (composite_fund_id);
+
+
+--
+-- Name: idx_cf_cash_flows_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_cash_flows_date ON public.cf_cash_flows USING btree (cash_flow_date);
+
+
+--
+-- Name: idx_cf_cash_flows_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_cash_flows_fund ON public.cf_cash_flows USING btree (composite_fund_id);
+
+
+--
+-- Name: idx_cf_cash_flows_investor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_cash_flows_investor ON public.cf_cash_flows USING btree (investor_id);
+
+
+--
+-- Name: idx_cf_cash_flows_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_cash_flows_type ON public.cf_cash_flows USING btree (cash_flow_type);
+
+
+--
+-- Name: idx_cf_holdings_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_holdings_asset_class ON public.cf_holdings USING btree (asset_class);
+
+
+--
+-- Name: idx_cf_holdings_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_holdings_fund ON public.cf_holdings USING btree (composite_fund_id);
+
+
+--
+-- Name: idx_cf_holdings_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_holdings_product_id ON public.cf_holdings USING btree (product_id);
+
+
+--
+-- Name: idx_cf_holdings_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_holdings_status ON public.cf_holdings USING btree (status);
+
+
+--
+-- Name: idx_cf_holdings_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_holdings_ticker ON public.cf_holdings USING btree (ticker_symbol);
+
+
+--
+-- Name: idx_cf_performance_attribution_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_performance_attribution_asset_class ON public.cf_performance_attribution USING btree (asset_class);
+
+
+--
+-- Name: idx_cf_performance_attribution_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_performance_attribution_fund ON public.cf_performance_attribution USING btree (composite_fund_id);
+
+
+--
+-- Name: idx_cf_performance_attribution_level; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_performance_attribution_level ON public.cf_performance_attribution USING btree (attribution_level);
+
+
+--
+-- Name: idx_cf_performance_attribution_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_performance_attribution_period ON public.cf_performance_attribution USING btree (period_start_date, period_end_date);
+
+
+--
+-- Name: idx_cf_rebalancing_events_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_rebalancing_events_date ON public.cf_rebalancing_events USING btree (rebalancing_date);
+
+
+--
+-- Name: idx_cf_rebalancing_events_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_rebalancing_events_fund ON public.cf_rebalancing_events USING btree (composite_fund_id);
+
+
+--
+-- Name: idx_cf_rebalancing_events_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cf_rebalancing_events_type ON public.cf_rebalancing_events USING btree (rebalancing_type);
 
 
 --
@@ -23789,6 +30288,125 @@ CREATE INDEX idx_climate_user_data_sources_user_id ON public.climate_user_data_s
 
 
 --
+-- Name: idx_collectibles_appraisals_appraiser; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_appraisals_appraiser ON public.collectibles_appraisals USING btree (appraiser_name);
+
+
+--
+-- Name: idx_collectibles_appraisals_collectible; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_appraisals_collectible ON public.collectibles_appraisals USING btree (collectibles_product_id);
+
+
+--
+-- Name: idx_collectibles_appraisals_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_appraisals_date ON public.collectibles_appraisals USING btree (appraisal_date);
+
+
+--
+-- Name: idx_collectibles_appraisals_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_appraisals_type ON public.collectibles_appraisals USING btree (appraisal_type);
+
+
+--
+-- Name: idx_collectibles_authentication_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_authentication_product_id ON public.collectibles_authentication_records USING btree (product_id);
+
+
+--
+-- Name: idx_collectibles_condition_reports_collectible; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_condition_reports_collectible ON public.collectibles_condition_reports USING btree (collectibles_product_id);
+
+
+--
+-- Name: idx_collectibles_condition_reports_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_condition_reports_date ON public.collectibles_condition_reports USING btree (report_date);
+
+
+--
+-- Name: idx_collectibles_condition_reports_grade; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_condition_reports_grade ON public.collectibles_condition_reports USING btree (overall_condition_grade);
+
+
+--
+-- Name: idx_collectibles_insurance_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_insurance_product_id ON public.collectibles_insurance_policies USING btree (product_id);
+
+
+--
+-- Name: idx_collectibles_insurance_valuations_collectible; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_insurance_valuations_collectible ON public.collectibles_insurance_valuations USING btree (collectibles_product_id);
+
+
+--
+-- Name: idx_collectibles_insurance_valuations_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_insurance_valuations_date ON public.collectibles_insurance_valuations USING btree (valuation_date);
+
+
+--
+-- Name: idx_collectibles_insurance_valuations_policy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_insurance_valuations_policy ON public.collectibles_insurance_valuations USING btree (policy_number);
+
+
+--
+-- Name: idx_collectibles_insurance_valuations_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_insurance_valuations_status ON public.collectibles_insurance_valuations USING btree (status);
+
+
+--
+-- Name: idx_collectibles_market_comparables_collectible; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_market_comparables_collectible ON public.collectibles_market_comparables USING btree (collectibles_product_id);
+
+
+--
+-- Name: idx_collectibles_market_comparables_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_market_comparables_date ON public.collectibles_market_comparables USING btree (sale_date);
+
+
+--
+-- Name: idx_collectibles_market_comparables_similarity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_market_comparables_similarity ON public.collectibles_market_comparables USING btree (similarity_score);
+
+
+--
+-- Name: idx_collectibles_market_comparables_venue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_market_comparables_venue ON public.collectibles_market_comparables USING btree (sale_venue);
+
+
+--
 -- Name: idx_collectibles_products_asset_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -23810,6 +30428,55 @@ CREATE UNIQUE INDEX idx_collectibles_products_project_id_unique ON public.collec
 
 
 --
+-- Name: idx_collectibles_provenance_collectible; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_provenance_collectible ON public.collectibles_provenance USING btree (collectibles_product_id);
+
+
+--
+-- Name: idx_collectibles_provenance_dates; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_provenance_dates ON public.collectibles_provenance USING btree (ownership_period_start, ownership_period_end);
+
+
+--
+-- Name: idx_collectibles_provenance_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_provenance_product_id ON public.collectibles_provenance_records USING btree (product_id);
+
+
+--
+-- Name: idx_collectibles_provenance_sequence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_provenance_sequence ON public.collectibles_provenance USING btree (sequence_number);
+
+
+--
+-- Name: idx_collectibles_rarity_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_rarity_product_id ON public.collectibles_rarity_scores USING btree (product_id);
+
+
+--
+-- Name: idx_collectibles_risk_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_risk_product_id ON public.collectibles_risk_assessments USING btree (product_id);
+
+
+--
+-- Name: idx_collectibles_storage_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collectibles_storage_product_id ON public.collectibles_storage_facilities USING btree (product_id);
+
+
+--
 -- Name: idx_commodities_products_commodity_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -23828,6 +30495,90 @@ CREATE INDEX idx_commodities_products_project_id ON public.commodities_products 
 --
 
 CREATE UNIQUE INDEX idx_commodities_products_project_id_unique ON public.commodities_products USING btree (project_id);
+
+
+--
+-- Name: idx_commodity_handling_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_handling_commodity ON public.commodity_handling_costs USING btree (commodity_type);
+
+
+--
+-- Name: idx_commodity_handling_unit; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_handling_unit ON public.commodity_handling_costs USING btree (unit_of_measure);
+
+
+--
+-- Name: idx_commodity_insurance_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_insurance_commodity ON public.commodity_insurance_rates USING btree (commodity_type);
+
+
+--
+-- Name: idx_commodity_market_data_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_market_data_date ON public.commodity_market_data USING btree (market_date DESC);
+
+
+--
+-- Name: idx_commodity_market_data_instrument; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_market_data_instrument ON public.commodity_market_data USING btree (instrument_key);
+
+
+--
+-- Name: idx_commodity_quality_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_quality_commodity ON public.commodity_quality_multipliers USING btree (commodity_type);
+
+
+--
+-- Name: idx_commodity_quality_commodity_grade; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_commodity_quality_commodity_grade ON public.commodity_quality_multipliers USING btree (commodity_type, grade) WHERE (expiration_date IS NULL);
+
+
+--
+-- Name: idx_commodity_quality_grade; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_quality_grade ON public.commodity_quality_multipliers USING btree (grade);
+
+
+--
+-- Name: idx_commodity_storage_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_storage_commodity ON public.commodity_storage_rates USING btree (commodity_type);
+
+
+--
+-- Name: idx_commodity_storage_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_storage_location ON public.commodity_storage_rates USING btree (storage_location);
+
+
+--
+-- Name: idx_commodity_volatility_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_volatility_date ON public.commodity_implied_volatility USING btree (calculation_date DESC);
+
+
+--
+-- Name: idx_commodity_volatility_instrument; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_volatility_instrument ON public.commodity_implied_volatility USING btree (instrument_key);
 
 
 --
@@ -23884,6 +30635,69 @@ CREATE INDEX idx_compliance_violations_unresolved ON public.compliance_violation
 --
 
 CREATE INDEX idx_config_wallet_id ON public.multi_sig_configurations USING btree (wallet_id);
+
+
+--
+-- Name: idx_contract_masters_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_address ON public.contract_masters USING btree (contract_address);
+
+
+--
+-- Name: idx_contract_masters_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_lookup ON public.contract_masters USING btree (network, environment, contract_type, is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_contract_masters_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_type ON public.contract_masters USING btree (contract_type, is_active);
+
+
+--
+-- Name: idx_contract_versions_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_versions_active ON public.contract_master_versions USING btree (contract_type, deprecated_at) WHERE (deprecated_at IS NULL);
+
+
+--
+-- Name: idx_contract_versions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_versions_type ON public.contract_master_versions USING btree (contract_type);
+
+
+--
+-- Name: idx_corporate_actions_effective_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_corporate_actions_effective_date ON public.corporate_actions USING btree (effective_date);
+
+
+--
+-- Name: idx_corporate_actions_equity_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_corporate_actions_equity_product ON public.corporate_actions USING btree (equity_product_id);
+
+
+--
+-- Name: idx_corporate_actions_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_corporate_actions_ticker ON public.corporate_actions USING btree (ticker_symbol);
+
+
+--
+-- Name: idx_corporate_actions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_corporate_actions_type ON public.corporate_actions USING btree (action_type);
 
 
 --
@@ -24699,6 +31513,181 @@ CREATE INDEX idx_documents_workflow_stage ON public.documents USING btree (workf
 
 
 --
+-- Name: idx_dtf_blockchain_events_dtf_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_dtf_product ON public.dtf_blockchain_events USING btree (digital_tokenized_fund_product_id);
+
+
+--
+-- Name: idx_dtf_blockchain_events_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_from ON public.dtf_blockchain_events USING btree (from_address);
+
+
+--
+-- Name: idx_dtf_blockchain_events_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_timestamp ON public.dtf_blockchain_events USING btree (event_timestamp);
+
+
+--
+-- Name: idx_dtf_blockchain_events_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_to ON public.dtf_blockchain_events USING btree (to_address);
+
+
+--
+-- Name: idx_dtf_blockchain_events_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_token ON public.dtf_blockchain_events USING btree (dtf_token_metadata_id);
+
+
+--
+-- Name: idx_dtf_blockchain_events_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_tx_hash ON public.dtf_blockchain_events USING btree (transaction_hash);
+
+
+--
+-- Name: idx_dtf_blockchain_events_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_blockchain_events_type ON public.dtf_blockchain_events USING btree (event_type);
+
+
+--
+-- Name: idx_dtf_minting_history_dtf_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_minting_history_dtf_product ON public.dtf_minting_history USING btree (digital_tokenized_fund_product_id);
+
+
+--
+-- Name: idx_dtf_minting_history_recipient; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_minting_history_recipient ON public.dtf_minting_history USING btree (recipient_address);
+
+
+--
+-- Name: idx_dtf_minting_history_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_minting_history_timestamp ON public.dtf_minting_history USING btree (mint_timestamp);
+
+
+--
+-- Name: idx_dtf_minting_history_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_minting_history_token ON public.dtf_minting_history USING btree (dtf_token_metadata_id);
+
+
+--
+-- Name: idx_dtf_minting_history_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_minting_history_tx_hash ON public.dtf_minting_history USING btree (transaction_hash);
+
+
+--
+-- Name: idx_dtf_nav_snapshots_dtf_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_nav_snapshots_dtf_product ON public.dtf_nav_snapshots USING btree (digital_tokenized_fund_product_id);
+
+
+--
+-- Name: idx_dtf_nav_snapshots_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_nav_snapshots_timestamp ON public.dtf_nav_snapshots USING btree (snapshot_timestamp);
+
+
+--
+-- Name: idx_dtf_nav_snapshots_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_nav_snapshots_token ON public.dtf_nav_snapshots USING btree (dtf_token_metadata_id);
+
+
+--
+-- Name: idx_dtf_nav_snapshots_valuation_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_nav_snapshots_valuation_date ON public.dtf_nav_snapshots USING btree (valuation_date);
+
+
+--
+-- Name: idx_dtf_redemption_requests_dtf_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_redemption_requests_dtf_product ON public.dtf_redemption_requests USING btree (digital_tokenized_fund_product_id);
+
+
+--
+-- Name: idx_dtf_redemption_requests_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_redemption_requests_id ON public.dtf_redemption_requests USING btree (request_id);
+
+
+--
+-- Name: idx_dtf_redemption_requests_requester; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_redemption_requests_requester ON public.dtf_redemption_requests USING btree (requester_address);
+
+
+--
+-- Name: idx_dtf_redemption_requests_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_redemption_requests_status ON public.dtf_redemption_requests USING btree (status);
+
+
+--
+-- Name: idx_dtf_redemption_requests_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_redemption_requests_timestamp ON public.dtf_redemption_requests USING btree (request_timestamp);
+
+
+--
+-- Name: idx_dtf_redemption_requests_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_redemption_requests_token ON public.dtf_redemption_requests USING btree (dtf_token_metadata_id);
+
+
+--
+-- Name: idx_dtf_token_metadata_contract; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_token_metadata_contract ON public.dtf_token_metadata USING btree (contract_address);
+
+
+--
+-- Name: idx_dtf_token_metadata_dtf_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_token_metadata_dtf_product ON public.dtf_token_metadata USING btree (digital_tokenized_fund_product_id);
+
+
+--
+-- Name: idx_dtf_token_metadata_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dtf_token_metadata_network ON public.dtf_token_metadata USING btree (blockchain_network);
+
+
+--
 -- Name: idx_energy_assets_capacity_factor; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -24727,6 +31716,20 @@ CREATE INDEX idx_energy_assets_lcoe_calculated ON public.energy_assets USING btr
 
 
 --
+-- Name: idx_energy_futures_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_energy_futures_commodity ON public.energy_futures_contracts USING btree (commodity);
+
+
+--
+-- Name: idx_energy_futures_contract_month; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_energy_futures_contract_month ON public.energy_futures_contracts USING btree (contract_month);
+
+
+--
 -- Name: idx_energy_products_project_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -24745,6 +31748,34 @@ CREATE UNIQUE INDEX idx_energy_products_project_id_unique ON public.energy_produ
 --
 
 CREATE INDEX idx_energy_products_project_identifier ON public.energy_products USING btree (project_identifier);
+
+
+--
+-- Name: idx_env_certifications_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_env_certifications_date ON public.environmental_certifications USING btree (certified_date);
+
+
+--
+-- Name: idx_env_certifications_level; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_env_certifications_level ON public.environmental_certifications USING btree (certification_level);
+
+
+--
+-- Name: idx_env_certifications_re_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_env_certifications_re_product ON public.environmental_certifications USING btree (real_estate_product_id);
+
+
+--
+-- Name: idx_env_certifications_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_env_certifications_type ON public.environmental_certifications USING btree (certification_type);
 
 
 --
@@ -25203,6 +32234,27 @@ CREATE UNIQUE INDEX idx_fund_products_project_id_unique ON public.fund_products 
 
 
 --
+-- Name: idx_futures_prices_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_futures_prices_date ON public.futures_prices USING btree (price_date DESC);
+
+
+--
+-- Name: idx_futures_prices_instrument; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_futures_prices_instrument ON public.futures_prices USING btree (instrument_key);
+
+
+--
+-- Name: idx_futures_prices_maturity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_futures_prices_maturity ON public.futures_prices USING btree (days_to_maturity);
+
+
+--
 -- Name: idx_geographic_restrictions_effective; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25326,6 +32378,174 @@ CREATE INDEX idx_individual_documents_status ON public.individual_documents USIN
 --
 
 CREATE INDEX idx_individual_documents_type ON public.individual_documents USING btree (document_type);
+
+
+--
+-- Name: idx_infra_capex_schedule_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_capex_schedule_category ON public.infra_capex_schedule USING btree (capex_category);
+
+
+--
+-- Name: idx_infra_capex_schedule_infra_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_capex_schedule_infra_product ON public.infra_capex_schedule USING btree (infrastructure_product_id);
+
+
+--
+-- Name: idx_infra_capex_schedule_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_capex_schedule_project ON public.infra_capex_schedule USING btree (project_id);
+
+
+--
+-- Name: idx_infra_capex_schedule_start_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_capex_schedule_start_date ON public.infra_capex_schedule USING btree (planned_start_date);
+
+
+--
+-- Name: idx_infra_capex_schedule_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_capex_schedule_status ON public.infra_capex_schedule USING btree (status);
+
+
+--
+-- Name: idx_infra_concessions_expiration; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_concessions_expiration ON public.infra_concessions USING btree (expiration_date);
+
+
+--
+-- Name: idx_infra_concessions_infra_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_concessions_infra_product ON public.infra_concessions USING btree (infrastructure_product_id);
+
+
+--
+-- Name: idx_infra_concessions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_concessions_project ON public.infra_concessions USING btree (project_id);
+
+
+--
+-- Name: idx_infra_operating_expenses_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_operating_expenses_category ON public.infra_operating_expenses USING btree (expense_category);
+
+
+--
+-- Name: idx_infra_operating_expenses_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_operating_expenses_date ON public.infra_operating_expenses USING btree (expense_date);
+
+
+--
+-- Name: idx_infra_operating_expenses_infra_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_operating_expenses_infra_product ON public.infra_operating_expenses USING btree (infrastructure_product_id);
+
+
+--
+-- Name: idx_infra_operating_expenses_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_operating_expenses_project ON public.infra_operating_expenses USING btree (project_id);
+
+
+--
+-- Name: idx_infra_regulatory_filings_due_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_regulatory_filings_due_date ON public.infra_regulatory_filings USING btree (due_date);
+
+
+--
+-- Name: idx_infra_regulatory_filings_infra_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_regulatory_filings_infra_product ON public.infra_regulatory_filings USING btree (infrastructure_product_id);
+
+
+--
+-- Name: idx_infra_regulatory_filings_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_regulatory_filings_project ON public.infra_regulatory_filings USING btree (project_id);
+
+
+--
+-- Name: idx_infra_regulatory_filings_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_regulatory_filings_status ON public.infra_regulatory_filings USING btree (compliance_status);
+
+
+--
+-- Name: idx_infra_regulatory_filings_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_regulatory_filings_type ON public.infra_regulatory_filings USING btree (filing_type);
+
+
+--
+-- Name: idx_infra_revenue_streams_infra_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_revenue_streams_infra_product ON public.infra_revenue_streams USING btree (infrastructure_product_id);
+
+
+--
+-- Name: idx_infra_revenue_streams_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_revenue_streams_project ON public.infra_revenue_streams USING btree (project_id);
+
+
+--
+-- Name: idx_infra_revenue_streams_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_revenue_streams_type ON public.infra_revenue_streams USING btree (stream_type);
+
+
+--
+-- Name: idx_infra_usage_metrics_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_usage_metrics_date ON public.infra_usage_metrics USING btree (metric_date);
+
+
+--
+-- Name: idx_infra_usage_metrics_infra_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_usage_metrics_infra_product ON public.infra_usage_metrics USING btree (infrastructure_product_id);
+
+
+--
+-- Name: idx_infra_usage_metrics_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_usage_metrics_project ON public.infra_usage_metrics USING btree (project_id);
+
+
+--
+-- Name: idx_infra_usage_metrics_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_infra_usage_metrics_type ON public.infra_usage_metrics USING btree (metric_type);
 
 
 --
@@ -25462,10 +32682,80 @@ CREATE INDEX idx_investors_user_id ON public.investors USING btree (user_id);
 
 
 --
+-- Name: idx_invoice_aging_buckets_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_aging_buckets_date ON public.invoice_aging_buckets USING btree (as_of_date);
+
+
+--
+-- Name: idx_invoice_aging_buckets_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_aging_buckets_name ON public.invoice_aging_buckets USING btree (bucket_name);
+
+
+--
+-- Name: idx_invoice_aging_buckets_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_aging_buckets_project ON public.invoice_aging_buckets USING btree (project_id);
+
+
+--
+-- Name: idx_invoice_collection_history_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_collection_history_period ON public.invoice_collection_history USING btree (period_start_date, period_end_date);
+
+
+--
+-- Name: idx_invoice_collection_history_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_collection_history_project ON public.invoice_collection_history USING btree (project_id);
+
+
+--
+-- Name: idx_invoice_debtor_ratings_approved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_debtor_ratings_approved ON public.invoice_debtor_ratings USING btree (is_approved_debtor);
+
+
+--
+-- Name: idx_invoice_debtor_ratings_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_debtor_ratings_date ON public.invoice_debtor_ratings USING btree (rating_date);
+
+
+--
+-- Name: idx_invoice_debtor_ratings_debtor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_debtor_ratings_debtor ON public.invoice_debtor_ratings USING btree (debtor_name);
+
+
+--
 -- Name: idx_invoice_payer_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_invoice_payer_id ON public.invoice USING btree (payer_id);
+
+
+--
+-- Name: idx_invoice_payments_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_payments_date ON public.invoice_payments USING btree (payment_date);
+
+
+--
+-- Name: idx_invoice_payments_invoice; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_payments_invoice ON public.invoice_payments USING btree (invoice_receivable_id);
 
 
 --
@@ -25480,6 +32770,41 @@ CREATE INDEX idx_invoice_pool_id ON public.invoice USING btree (pool_id);
 --
 
 CREATE INDEX idx_invoice_provider_id ON public.invoice USING btree (provider_id);
+
+
+--
+-- Name: idx_invoice_receivables_debtor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_receivables_debtor ON public.invoice_receivables USING btree (debtor_name);
+
+
+--
+-- Name: idx_invoice_receivables_due_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_receivables_due_date ON public.invoice_receivables USING btree (due_date);
+
+
+--
+-- Name: idx_invoice_receivables_number; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_receivables_number ON public.invoice_receivables USING btree (invoice_number);
+
+
+--
+-- Name: idx_invoice_receivables_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_receivables_project ON public.invoice_receivables USING btree (project_id);
+
+
+--
+-- Name: idx_invoice_receivables_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoice_receivables_status ON public.invoice_receivables USING btree (status);
 
 
 --
@@ -25581,6 +32906,41 @@ CREATE INDEX idx_jurisdictions_sanctions ON public.geographic_jurisdictions USIN
 
 
 --
+-- Name: idx_lease_agreements_end_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_lease_agreements_end_date ON public.lease_agreements USING btree (lease_end_date);
+
+
+--
+-- Name: idx_lease_agreements_re_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_lease_agreements_re_product ON public.lease_agreements USING btree (real_estate_product_id);
+
+
+--
+-- Name: idx_lease_agreements_start_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_lease_agreements_start_date ON public.lease_agreements USING btree (lease_start_date);
+
+
+--
+-- Name: idx_lease_agreements_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_lease_agreements_status ON public.lease_agreements USING btree (status);
+
+
+--
+-- Name: idx_lease_agreements_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_lease_agreements_tenant ON public.lease_agreements USING btree (tenant_name);
+
+
+--
 -- Name: idx_lifecycle_events_product_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -25595,10 +32955,178 @@ CREATE INDEX idx_market_data_snapshots_date ON public.market_data_snapshots USIN
 
 
 --
+-- Name: idx_market_indices_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_indices_asset_class ON public.market_indices USING btree (asset_class);
+
+
+--
+-- Name: idx_market_indices_symbol; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_indices_symbol ON public.market_indices USING btree (index_symbol);
+
+
+--
+-- Name: idx_market_rent_data_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_rent_data_date ON public.market_rent_data USING btree (as_of_date);
+
+
+--
+-- Name: idx_market_rent_data_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_rent_data_location ON public.market_rent_data USING btree (city, state_province, country);
+
+
+--
+-- Name: idx_market_rent_data_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_rent_data_type ON public.market_rent_data USING btree (property_type);
+
+
+--
 -- Name: idx_metrics_date; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_metrics_date ON public.compliance_metrics USING btree (metric_date);
+
+
+--
+-- Name: idx_mmf_credit_ratings_agency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_credit_ratings_agency ON public.mmf_credit_ratings USING btree (rating_agency);
+
+
+--
+-- Name: idx_mmf_credit_ratings_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_credit_ratings_date ON public.mmf_credit_ratings USING btree (rating_date);
+
+
+--
+-- Name: idx_mmf_credit_ratings_eligible; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_credit_ratings_eligible ON public.mmf_credit_ratings USING btree (is_eligible_mmf_holding);
+
+
+--
+-- Name: idx_mmf_credit_ratings_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_credit_ratings_issuer ON public.mmf_credit_ratings USING btree (issuer_name);
+
+
+--
+-- Name: idx_mmf_holdings_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_holdings_fund ON public.mmf_holdings USING btree (fund_product_id);
+
+
+--
+-- Name: idx_mmf_holdings_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_holdings_issuer ON public.mmf_holdings USING btree (issuer_name);
+
+
+--
+-- Name: idx_mmf_holdings_maturity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_holdings_maturity ON public.mmf_holdings USING btree (effective_maturity_date);
+
+
+--
+-- Name: idx_mmf_holdings_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_holdings_rating ON public.mmf_holdings USING btree (credit_rating);
+
+
+--
+-- Name: idx_mmf_holdings_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_holdings_type ON public.mmf_holdings USING btree (holding_type);
+
+
+--
+-- Name: idx_mmf_liquidity_buckets_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_liquidity_buckets_date ON public.mmf_liquidity_buckets USING btree (as_of_date);
+
+
+--
+-- Name: idx_mmf_liquidity_buckets_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_liquidity_buckets_fund ON public.mmf_liquidity_buckets USING btree (fund_product_id);
+
+
+--
+-- Name: idx_mmf_liquidity_buckets_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_liquidity_buckets_type ON public.mmf_liquidity_buckets USING btree (bucket_type);
+
+
+--
+-- Name: idx_mmf_nav_history_breaking_buck; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_nav_history_breaking_buck ON public.mmf_nav_history USING btree (is_breaking_the_buck);
+
+
+--
+-- Name: idx_mmf_nav_history_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_nav_history_date ON public.mmf_nav_history USING btree (valuation_date);
+
+
+--
+-- Name: idx_mmf_nav_history_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_nav_history_fund ON public.mmf_nav_history USING btree (fund_product_id);
+
+
+--
+-- Name: idx_mmf_transactions_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_date ON public.mmf_transactions USING btree (transaction_date);
+
+
+--
+-- Name: idx_mmf_transactions_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_fund ON public.mmf_transactions USING btree (fund_product_id);
+
+
+--
+-- Name: idx_mmf_transactions_holding; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_holding ON public.mmf_transactions USING btree (holding_id);
+
+
+--
+-- Name: idx_mmf_transactions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_type ON public.mmf_transactions USING btree (transaction_type);
 
 
 --
@@ -26008,6 +33536,34 @@ CREATE INDEX idx_nav_approvals_status ON public.nav_approvals USING btree (statu
 
 
 --
+-- Name: idx_nav_asset_type_adj_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_asset_type_adj_as_of ON public.nav_asset_type_adjustments USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_asset_type_adj_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_asset_type_adj_asset_type ON public.nav_asset_type_adjustments USING btree (asset_type);
+
+
+--
+-- Name: idx_nav_calc_params_subtype; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_calc_params_subtype ON public.nav_calculator_parameters USING btree (calculator_type, asset_subtype);
+
+
+--
+-- Name: idx_nav_calc_params_type_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_calc_params_type_key ON public.nav_calculator_parameters USING btree (calculator_type, parameter_key);
+
+
+--
 -- Name: idx_nav_calc_runs_asset_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -26033,6 +33589,90 @@ CREATE INDEX idx_nav_calc_runs_project_date ON public.nav_calculation_runs USING
 --
 
 CREATE INDEX idx_nav_calc_runs_status ON public.nav_calculation_runs USING btree (status);
+
+
+--
+-- Name: idx_nav_credit_qual_mult_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_credit_qual_mult_as_of ON public.nav_credit_quality_multipliers USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_credit_qual_mult_quality; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_credit_qual_mult_quality ON public.nav_credit_quality_multipliers USING btree (credit_quality);
+
+
+--
+-- Name: idx_nav_credit_spreads_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_credit_spreads_as_of ON public.nav_credit_spreads USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_credit_spreads_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_credit_spreads_class ON public.nav_credit_spreads USING btree (asset_class);
+
+
+--
+-- Name: idx_nav_credit_spreads_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_credit_spreads_rating ON public.nav_credit_spreads USING btree (credit_rating);
+
+
+--
+-- Name: idx_nav_default_rates_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_default_rates_as_of ON public.nav_default_rates USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_default_rates_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_default_rates_asset_type ON public.nav_default_rates USING btree (asset_type);
+
+
+--
+-- Name: idx_nav_default_rates_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_default_rates_rating ON public.nav_default_rates USING btree (credit_rating);
+
+
+--
+-- Name: idx_nav_delinq_adj_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_delinq_adj_as_of ON public.nav_delinquency_adjustments USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_delinq_adj_days; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_delinq_adj_days ON public.nav_delinquency_adjustments USING btree (days_past_due);
+
+
+--
+-- Name: idx_nav_ec_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_ec_as_of ON public.nav_economic_capital USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_ec_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_ec_rating ON public.nav_economic_capital USING btree (credit_rating);
 
 
 --
@@ -26071,6 +33711,41 @@ CREATE INDEX idx_nav_history_run ON public.nav_calculation_history USING btree (
 
 
 --
+-- Name: idx_nav_lgd_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_lgd_as_of ON public.nav_loss_given_default USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_lgd_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_lgd_asset_type ON public.nav_loss_given_default USING btree (asset_type);
+
+
+--
+-- Name: idx_nav_liq_disc_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_liq_disc_as_of ON public.nav_liquidity_discounts USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_liq_disc_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_liq_disc_class ON public.nav_liquidity_discounts USING btree (asset_class);
+
+
+--
+-- Name: idx_nav_liq_disc_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_liq_disc_rating ON public.nav_liquidity_discounts USING btree (credit_rating);
+
+
+--
 -- Name: idx_nav_oracle_configs_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -26082,6 +33757,34 @@ CREATE INDEX idx_nav_oracle_configs_active ON public.nav_oracle_configs USING bt
 --
 
 CREATE INDEX idx_nav_oracle_configs_fund_id ON public.nav_oracle_configs USING btree (fund_id);
+
+
+--
+-- Name: idx_nav_pd_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_pd_as_of ON public.nav_probability_of_default USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_pd_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_pd_rating ON public.nav_probability_of_default USING btree (credit_rating);
+
+
+--
+-- Name: idx_nav_prepay_rates_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_prepay_rates_as_of ON public.nav_prepayment_rates USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_prepay_rates_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_prepay_rates_asset_type ON public.nav_prepayment_rates USING btree (asset_type);
 
 
 --
@@ -26099,6 +33802,20 @@ CREATE INDEX idx_nav_price_cache_instrument ON public.nav_price_cache USING btre
 
 
 --
+-- Name: idx_nav_recovery_rates_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_recovery_rates_as_of ON public.nav_recovery_rates USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_recovery_rates_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_recovery_rates_asset_type ON public.nav_recovery_rates USING btree (asset_type);
+
+
+--
 -- Name: idx_nav_redemptions_asset_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -26110,6 +33827,20 @@ CREATE INDEX idx_nav_redemptions_asset_date ON public.nav_redemptions USING btre
 --
 
 CREATE INDEX idx_nav_redemptions_product_type ON public.nav_redemptions USING btree (product_type);
+
+
+--
+-- Name: idx_nav_ul_as_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_ul_as_of ON public.nav_unexpected_loss USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_nav_ul_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_ul_rating ON public.nav_unexpected_loss USING btree (credit_rating);
 
 
 --
@@ -26320,6 +34051,314 @@ CREATE INDEX idx_paymaster_policies_chain_active ON public.paymaster_policies US
 --
 
 CREATE INDEX idx_paymaster_policies_chain_id ON public.paymaster_policies USING btree (chain_id);
+
+
+--
+-- Name: idx_pd_collateral_loan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_collateral_loan ON public.pd_collateral USING btree (loan_id);
+
+
+--
+-- Name: idx_pd_collateral_pd_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_collateral_pd_product ON public.pd_collateral USING btree (private_debt_product_id);
+
+
+--
+-- Name: idx_pd_collateral_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_collateral_status ON public.pd_collateral USING btree (status);
+
+
+--
+-- Name: idx_pd_collateral_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_collateral_type ON public.pd_collateral USING btree (collateral_type);
+
+
+--
+-- Name: idx_pd_covenants_compliance; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_covenants_compliance ON public.pd_covenants USING btree (is_compliant);
+
+
+--
+-- Name: idx_pd_covenants_loan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_covenants_loan ON public.pd_covenants USING btree (loan_id);
+
+
+--
+-- Name: idx_pd_covenants_pd_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_covenants_pd_product ON public.pd_covenants USING btree (private_debt_product_id);
+
+
+--
+-- Name: idx_pd_covenants_test_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_covenants_test_date ON public.pd_covenants USING btree (test_date);
+
+
+--
+-- Name: idx_pd_covenants_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_covenants_type ON public.pd_covenants USING btree (covenant_type);
+
+
+--
+-- Name: idx_pd_credit_ratings_agency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_credit_ratings_agency ON public.pd_credit_ratings USING btree (rating_agency);
+
+
+--
+-- Name: idx_pd_credit_ratings_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_credit_ratings_date ON public.pd_credit_ratings USING btree (rating_date);
+
+
+--
+-- Name: idx_pd_credit_ratings_loan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_credit_ratings_loan ON public.pd_credit_ratings USING btree (loan_id);
+
+
+--
+-- Name: idx_pd_credit_ratings_pd_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_credit_ratings_pd_product ON public.pd_credit_ratings USING btree (private_debt_product_id);
+
+
+--
+-- Name: idx_pd_default_events_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_default_events_date ON public.pd_default_events USING btree (event_date);
+
+
+--
+-- Name: idx_pd_default_events_loan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_default_events_loan ON public.pd_default_events USING btree (loan_id);
+
+
+--
+-- Name: idx_pd_default_events_pd_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_default_events_pd_product ON public.pd_default_events USING btree (private_debt_product_id);
+
+
+--
+-- Name: idx_pd_default_events_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_default_events_status ON public.pd_default_events USING btree (status);
+
+
+--
+-- Name: idx_pd_default_events_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_default_events_type ON public.pd_default_events USING btree (event_type);
+
+
+--
+-- Name: idx_pd_loan_schedules_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_loan_schedules_date ON public.pd_loan_schedules USING btree (payment_date);
+
+
+--
+-- Name: idx_pd_loan_schedules_loan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_loan_schedules_loan ON public.pd_loan_schedules USING btree (loan_id);
+
+
+--
+-- Name: idx_pd_loan_schedules_pd_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_loan_schedules_pd_product ON public.pd_loan_schedules USING btree (private_debt_product_id);
+
+
+--
+-- Name: idx_pd_payment_history_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_payment_history_date ON public.pd_payment_history USING btree (payment_date);
+
+
+--
+-- Name: idx_pd_payment_history_due_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_payment_history_due_date ON public.pd_payment_history USING btree (due_date);
+
+
+--
+-- Name: idx_pd_payment_history_loan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_payment_history_loan ON public.pd_payment_history USING btree (loan_id);
+
+
+--
+-- Name: idx_pd_payment_history_pd_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pd_payment_history_pd_product ON public.pd_payment_history USING btree (private_debt_product_id);
+
+
+--
+-- Name: idx_pe_capital_calls_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_capital_calls_date ON public.pe_capital_calls USING btree (call_date);
+
+
+--
+-- Name: idx_pe_capital_calls_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_capital_calls_fund ON public.pe_capital_calls USING btree (fund_id);
+
+
+--
+-- Name: idx_pe_capital_calls_pe_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_capital_calls_pe_product ON public.pe_capital_calls USING btree (private_equity_product_id);
+
+
+--
+-- Name: idx_pe_capital_calls_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_capital_calls_status ON public.pe_capital_calls USING btree (status);
+
+
+--
+-- Name: idx_pe_distributions_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_distributions_date ON public.pe_distributions USING btree (distribution_date);
+
+
+--
+-- Name: idx_pe_distributions_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_distributions_fund ON public.pe_distributions USING btree (fund_id);
+
+
+--
+-- Name: idx_pe_distributions_pe_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_distributions_pe_product ON public.pe_distributions USING btree (private_equity_product_id);
+
+
+--
+-- Name: idx_pe_distributions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_distributions_type ON public.pe_distributions USING btree (distribution_type);
+
+
+--
+-- Name: idx_pe_performance_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_performance_date ON public.pe_performance_metrics USING btree (as_of_date);
+
+
+--
+-- Name: idx_pe_performance_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_performance_fund ON public.pe_performance_metrics USING btree (fund_id);
+
+
+--
+-- Name: idx_pe_performance_pe_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_performance_pe_product ON public.pe_performance_metrics USING btree (private_equity_product_id);
+
+
+--
+-- Name: idx_pe_portfolio_companies_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_portfolio_companies_fund ON public.pe_portfolio_companies USING btree (fund_id);
+
+
+--
+-- Name: idx_pe_portfolio_companies_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_portfolio_companies_name ON public.pe_portfolio_companies USING btree (company_name);
+
+
+--
+-- Name: idx_pe_portfolio_companies_pe_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_portfolio_companies_pe_product ON public.pe_portfolio_companies USING btree (private_equity_product_id);
+
+
+--
+-- Name: idx_pe_portfolio_companies_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_portfolio_companies_status ON public.pe_portfolio_companies USING btree (status);
+
+
+--
+-- Name: idx_pe_valuations_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_valuations_date ON public.pe_valuations USING btree (valuation_date);
+
+
+--
+-- Name: idx_pe_valuations_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_valuations_entity ON public.pe_valuations USING btree (entity_id);
+
+
+--
+-- Name: idx_pe_valuations_method; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_valuations_method ON public.pe_valuations USING btree (valuation_method);
+
+
+--
+-- Name: idx_pe_valuations_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pe_valuations_type ON public.pe_valuations USING btree (entity_type);
 
 
 --
@@ -26554,6 +34593,118 @@ CREATE INDEX idx_projects_status ON public.projects USING btree (status);
 
 
 --
+-- Name: idx_property_expenses_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_expenses_category ON public.property_expenses USING btree (expense_category);
+
+
+--
+-- Name: idx_property_expenses_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_expenses_date ON public.property_expenses USING btree (expense_date);
+
+
+--
+-- Name: idx_property_expenses_re_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_expenses_re_product ON public.property_expenses USING btree (real_estate_product_id);
+
+
+--
+-- Name: idx_property_expenses_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_expenses_type ON public.property_expenses USING btree (expense_type);
+
+
+--
+-- Name: idx_property_insurance_end_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_insurance_end_date ON public.property_insurance USING btree (policy_end_date);
+
+
+--
+-- Name: idx_property_insurance_policy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_insurance_policy ON public.property_insurance USING btree (policy_number);
+
+
+--
+-- Name: idx_property_insurance_re_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_insurance_re_product ON public.property_insurance USING btree (real_estate_product_id);
+
+
+--
+-- Name: idx_property_insurance_start_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_insurance_start_date ON public.property_insurance USING btree (policy_start_date);
+
+
+--
+-- Name: idx_property_insurance_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_insurance_type ON public.property_insurance USING btree (insurance_type);
+
+
+--
+-- Name: idx_property_tax_rates_jurisdiction; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_tax_rates_jurisdiction ON public.property_tax_rates USING btree (jurisdiction);
+
+
+--
+-- Name: idx_property_tax_rates_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_tax_rates_location ON public.property_tax_rates USING btree (state_province, country);
+
+
+--
+-- Name: idx_property_tax_rates_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_tax_rates_type ON public.property_tax_rates USING btree (property_type);
+
+
+--
+-- Name: idx_property_tax_rates_year; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_tax_rates_year ON public.property_tax_rates USING btree (tax_year);
+
+
+--
+-- Name: idx_property_valuations_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_valuations_date ON public.property_valuations USING btree (valuation_date);
+
+
+--
+-- Name: idx_property_valuations_method; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_valuations_method ON public.property_valuations USING btree (valuation_method);
+
+
+--
+-- Name: idx_property_valuations_re_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_property_valuations_re_product ON public.property_valuations USING btree (real_estate_product_id);
+
+
+--
 -- Name: idx_proposals_created_by; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -26579,6 +34730,111 @@ CREATE INDEX idx_proposals_status ON public.multi_sig_proposals USING btree (sta
 --
 
 CREATE INDEX idx_proposals_wallet_id ON public.multi_sig_proposals USING btree (wallet_id);
+
+
+--
+-- Name: idx_quant_backtests_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_backtests_date ON public.quant_backtests USING btree (backtest_date);
+
+
+--
+-- Name: idx_quant_backtests_quant_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_backtests_quant_product ON public.quant_backtests USING btree (quantitative_investment_strategies_product_id);
+
+
+--
+-- Name: idx_quant_backtests_start_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_backtests_start_date ON public.quant_backtests USING btree (start_date);
+
+
+--
+-- Name: idx_quant_factors_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_factors_category ON public.quant_factors USING btree (factor_category);
+
+
+--
+-- Name: idx_quant_factors_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_factors_name ON public.quant_factors USING btree (factor_name);
+
+
+--
+-- Name: idx_quant_factors_quant_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_factors_quant_product ON public.quant_factors USING btree (quantitative_investment_strategies_product_id);
+
+
+--
+-- Name: idx_quant_performance_attribution_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_performance_attribution_period ON public.quant_performance_attribution USING btree (period_start_date, period_end_date);
+
+
+--
+-- Name: idx_quant_performance_attribution_quant_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_performance_attribution_quant_product ON public.quant_performance_attribution USING btree (quantitative_investment_strategies_product_id);
+
+
+--
+-- Name: idx_quant_risk_metrics_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_risk_metrics_date ON public.quant_risk_metrics USING btree (calculation_date);
+
+
+--
+-- Name: idx_quant_risk_metrics_quant_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_risk_metrics_quant_product ON public.quant_risk_metrics USING btree (quantitative_investment_strategies_product_id);
+
+
+--
+-- Name: idx_quant_signals_quant_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_signals_quant_product ON public.quant_signals USING btree (quantitative_investment_strategies_product_id);
+
+
+--
+-- Name: idx_quant_signals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_signals_status ON public.quant_signals USING btree (signal_status);
+
+
+--
+-- Name: idx_quant_signals_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_signals_ticker ON public.quant_signals USING btree (security_ticker);
+
+
+--
+-- Name: idx_quant_signals_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_signals_timestamp ON public.quant_signals USING btree (signal_timestamp);
+
+
+--
+-- Name: idx_quant_signals_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_quant_signals_type ON public.quant_signals USING btree (signal_type);
 
 
 --
@@ -27478,6 +35734,139 @@ CREATE INDEX idx_rules_rule_id ON public.rules USING btree (rule_id);
 
 
 --
+-- Name: idx_sc_algorithm_parameters_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_algorithm_parameters_active ON public.sc_algorithm_parameters USING btree (is_active);
+
+
+--
+-- Name: idx_sc_algorithm_parameters_effective; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_algorithm_parameters_effective ON public.sc_algorithm_parameters USING btree (effective_timestamp);
+
+
+--
+-- Name: idx_sc_algorithm_parameters_stablecoin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_algorithm_parameters_stablecoin ON public.sc_algorithm_parameters USING btree (stablecoin_product_id);
+
+
+--
+-- Name: idx_sc_minting_events_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_minting_events_id ON public.sc_minting_events USING btree (mint_id);
+
+
+--
+-- Name: idx_sc_minting_events_minter; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_minting_events_minter ON public.sc_minting_events USING btree (minter_address);
+
+
+--
+-- Name: idx_sc_minting_events_stablecoin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_minting_events_stablecoin ON public.sc_minting_events USING btree (stablecoin_product_id);
+
+
+--
+-- Name: idx_sc_minting_events_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_minting_events_timestamp ON public.sc_minting_events USING btree (mint_timestamp);
+
+
+--
+-- Name: idx_sc_minting_events_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_minting_events_tx_hash ON public.sc_minting_events USING btree (transaction_hash);
+
+
+--
+-- Name: idx_sc_peg_history_deviation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_peg_history_deviation ON public.sc_peg_history USING btree (deviation_percentage);
+
+
+--
+-- Name: idx_sc_peg_history_stablecoin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_peg_history_stablecoin ON public.sc_peg_history USING btree (stablecoin_product_id);
+
+
+--
+-- Name: idx_sc_peg_history_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_peg_history_timestamp ON public.sc_peg_history USING btree ("timestamp");
+
+
+--
+-- Name: idx_sc_redemptions_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_redemptions_id ON public.sc_redemptions USING btree (redemption_id);
+
+
+--
+-- Name: idx_sc_redemptions_requester; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_redemptions_requester ON public.sc_redemptions USING btree (requester_address);
+
+
+--
+-- Name: idx_sc_redemptions_stablecoin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_redemptions_stablecoin ON public.sc_redemptions USING btree (stablecoin_product_id);
+
+
+--
+-- Name: idx_sc_redemptions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_redemptions_status ON public.sc_redemptions USING btree (status);
+
+
+--
+-- Name: idx_sc_redemptions_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_redemptions_timestamp ON public.sc_redemptions USING btree (request_timestamp);
+
+
+--
+-- Name: idx_sc_reserve_audits_auditor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_reserve_audits_auditor ON public.sc_reserve_audits USING btree (auditor_name);
+
+
+--
+-- Name: idx_sc_reserve_audits_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_reserve_audits_date ON public.sc_reserve_audits USING btree (audit_date);
+
+
+--
+-- Name: idx_sc_reserve_audits_stablecoin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sc_reserve_audits_stablecoin ON public.sc_reserve_audits USING btree (stablecoin_product_id);
+
+
+--
 -- Name: idx_security_audit_logs_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -27744,6 +36133,139 @@ CREATE INDEX idx_smart_contract_wallets_wallet_id ON public.smart_contract_walle
 
 
 --
+-- Name: idx_sp_barrier_events_breach; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_barrier_events_breach ON public.sp_barrier_events USING btree (breach_detected);
+
+
+--
+-- Name: idx_sp_barrier_events_sp_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_barrier_events_sp_product ON public.sp_barrier_events USING btree (structured_product_id);
+
+
+--
+-- Name: idx_sp_barrier_events_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_barrier_events_timestamp ON public.sp_barrier_events USING btree (event_timestamp);
+
+
+--
+-- Name: idx_sp_barrier_events_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_barrier_events_type ON public.sp_barrier_events USING btree (barrier_type);
+
+
+--
+-- Name: idx_sp_components_sp_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_components_sp_product ON public.sp_components USING btree (structured_product_id);
+
+
+--
+-- Name: idx_sp_components_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_components_ticker ON public.sp_components USING btree (underlying_ticker);
+
+
+--
+-- Name: idx_sp_components_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_components_type ON public.sp_components USING btree (component_type);
+
+
+--
+-- Name: idx_sp_coupon_schedules_observation_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_coupon_schedules_observation_date ON public.sp_coupon_schedules USING btree (observation_date);
+
+
+--
+-- Name: idx_sp_coupon_schedules_payment_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_coupon_schedules_payment_date ON public.sp_coupon_schedules USING btree (payment_date);
+
+
+--
+-- Name: idx_sp_coupon_schedules_sp_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_coupon_schedules_sp_product ON public.sp_coupon_schedules USING btree (structured_product_id);
+
+
+--
+-- Name: idx_sp_coupon_schedules_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_coupon_schedules_status ON public.sp_coupon_schedules USING btree (payment_status);
+
+
+--
+-- Name: idx_sp_payoff_structures_sp_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_payoff_structures_sp_product ON public.sp_payoff_structures USING btree (structured_product_id);
+
+
+--
+-- Name: idx_sp_payoff_structures_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_payoff_structures_type ON public.sp_payoff_structures USING btree (structure_type);
+
+
+--
+-- Name: idx_sp_performance_tracking_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_performance_tracking_date ON public.sp_performance_tracking USING btree (valuation_date);
+
+
+--
+-- Name: idx_sp_performance_tracking_sp_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_performance_tracking_sp_product ON public.sp_performance_tracking USING btree (structured_product_id);
+
+
+--
+-- Name: idx_sp_redemption_features_effective_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_redemption_features_effective_date ON public.sp_redemption_features USING btree (effective_date);
+
+
+--
+-- Name: idx_sp_redemption_features_sp_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_redemption_features_sp_product ON public.sp_redemption_features USING btree (structured_product_id);
+
+
+--
+-- Name: idx_sp_redemption_features_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_redemption_features_status ON public.sp_redemption_features USING btree (redemption_status);
+
+
+--
+-- Name: idx_sp_redemption_features_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sp_redemption_features_type ON public.sp_redemption_features USING btree (feature_type);
+
+
+--
 -- Name: idx_stablecoin_collateral_coin; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -27776,6 +36298,48 @@ CREATE INDEX idx_stablecoin_products_asset_symbol ON public.stablecoin_products 
 --
 
 CREATE UNIQUE INDEX idx_stablecoin_products_project_id_unique ON public.stablecoin_products USING btree (project_id);
+
+
+--
+-- Name: idx_stock_dividends_equity_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stock_dividends_equity_product ON public.stock_dividends USING btree (equity_product_id);
+
+
+--
+-- Name: idx_stock_dividends_ex_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stock_dividends_ex_date ON public.stock_dividends USING btree (ex_dividend_date);
+
+
+--
+-- Name: idx_stock_dividends_payment_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stock_dividends_payment_date ON public.stock_dividends USING btree (payment_date);
+
+
+--
+-- Name: idx_stock_dividends_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stock_dividends_ticker ON public.stock_dividends USING btree (ticker_symbol);
+
+
+--
+-- Name: idx_stock_exchanges_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stock_exchanges_code ON public.stock_exchanges USING btree (exchange_code);
+
+
+--
+-- Name: idx_stock_exchanges_country; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stock_exchanges_country ON public.stock_exchanges USING btree (country);
 
 
 --
@@ -28080,10 +36644,45 @@ CREATE INDEX idx_token_events_token_id ON public.token_events USING btree (token
 
 
 --
+-- Name: idx_token_extensions_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_extensions_active ON public.token_extensions USING btree (token_id, extension_type, is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_token_extensions_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_extensions_token ON public.token_extensions USING btree (token_id);
+
+
+--
+-- Name: idx_token_extensions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_extensions_type ON public.token_extensions USING btree (extension_type);
+
+
+--
 -- Name: idx_token_operations_token_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_token_operations_token_id ON public.token_operations USING btree (token_id);
+
+
+--
+-- Name: idx_token_verifications_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_verifications_status ON public.token_deployment_verifications USING btree (verification_status);
+
+
+--
+-- Name: idx_token_verifications_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_verifications_token ON public.token_deployment_verifications USING btree (token_id);
 
 
 --
@@ -28385,6 +36984,41 @@ CREATE INDEX idx_violation_patterns_detected ON public.violation_patterns USING 
 --
 
 CREATE INDEX idx_violation_patterns_operator ON public.violation_patterns USING btree (operator, pattern_type);
+
+
+--
+-- Name: idx_wallet_access_logs_accessed_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_access_logs_accessed_by ON public.wallet_access_logs USING btree (accessed_by);
+
+
+--
+-- Name: idx_wallet_access_logs_action; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_access_logs_action ON public.wallet_access_logs USING btree (action);
+
+
+--
+-- Name: idx_wallet_access_logs_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_access_logs_created_at ON public.wallet_access_logs USING btree (created_at DESC);
+
+
+--
+-- Name: idx_wallet_access_logs_success; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_access_logs_success ON public.wallet_access_logs USING btree (success);
+
+
+--
+-- Name: idx_wallet_access_logs_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_access_logs_wallet_id ON public.wallet_access_logs USING btree (wallet_id);
 
 
 --
@@ -29550,6 +38184,13 @@ CREATE TRIGGER trigger_update_cache_access BEFORE UPDATE ON public.climate_marke
 
 
 --
+-- Name: carbon_market_prices trigger_update_carbon_market_prices_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_carbon_market_prices_updated_at BEFORE UPDATE ON public.carbon_market_prices FOR EACH ROW EXECUTE FUNCTION public.update_carbon_market_prices_updated_at();
+
+
+--
 -- Name: climate_risk_calculations trigger_update_climate_risk_calculations_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -29655,10 +38296,45 @@ CREATE TRIGGER update_authorized_signatories_updated_at BEFORE UPDATE ON public.
 
 
 --
+-- Name: bond_amortization_schedule update_bond_amortization_schedule_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_bond_amortization_schedule_updated_at BEFORE UPDATE ON public.bond_amortization_schedule FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: bond_call_put_schedules update_bond_call_put_schedules_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_bond_call_put_schedules_updated_at BEFORE UPDATE ON public.bond_call_put_schedules FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: bond_coupon_payments update_bond_coupon_payments_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_bond_coupon_payments_updated_at BEFORE UPDATE ON public.bond_coupon_payments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: bond_covenants update_bond_covenants_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_bond_covenants_updated_at BEFORE UPDATE ON public.bond_covenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: bond_products update_bond_products_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_bond_products_updated_at BEFORE UPDATE ON public.bond_products FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: bond_sinking_fund update_bond_sinking_fund_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_bond_sinking_fund_updated_at BEFORE UPDATE ON public.bond_sinking_fund FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -30131,6 +38807,54 @@ CREATE TRIGGER whitelist_entries_updated_at BEFORE UPDATE ON public.whitelist_en
 
 
 --
+-- Name: abs_cash_flows abs_cash_flows_abs_tranche_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_cash_flows
+    ADD CONSTRAINT abs_cash_flows_abs_tranche_id_fkey FOREIGN KEY (abs_tranche_id) REFERENCES public.abs_tranches(id);
+
+
+--
+-- Name: abs_cash_flows abs_cash_flows_asset_backed_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_cash_flows
+    ADD CONSTRAINT abs_cash_flows_asset_backed_product_id_fkey FOREIGN KEY (asset_backed_product_id) REFERENCES public.asset_backed_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: abs_collateral_pools abs_collateral_pools_asset_backed_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_collateral_pools
+    ADD CONSTRAINT abs_collateral_pools_asset_backed_product_id_fkey FOREIGN KEY (asset_backed_product_id) REFERENCES public.asset_backed_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: abs_loss_projections abs_loss_projections_asset_backed_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_loss_projections
+    ADD CONSTRAINT abs_loss_projections_asset_backed_product_id_fkey FOREIGN KEY (asset_backed_product_id) REFERENCES public.asset_backed_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: abs_prepayment_speeds abs_prepayment_speeds_asset_backed_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_prepayment_speeds
+    ADD CONSTRAINT abs_prepayment_speeds_asset_backed_product_id_fkey FOREIGN KEY (asset_backed_product_id) REFERENCES public.asset_backed_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: abs_tranches abs_tranches_asset_backed_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.abs_tranches
+    ADD CONSTRAINT abs_tranches_asset_backed_product_id_fkey FOREIGN KEY (asset_backed_product_id) REFERENCES public.asset_backed_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: approval_config_approvers approval_config_approvers_approval_config_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -30240,6 +38964,70 @@ ALTER TABLE ONLY public.audit_logs
 
 ALTER TABLE ONLY public.batch_operations
     ADD CONSTRAINT batch_operations_user_operation_id_fkey FOREIGN KEY (user_operation_id) REFERENCES public.user_operations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_amortization_schedule bond_amortization_schedule_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_amortization_schedule
+    ADD CONSTRAINT bond_amortization_schedule_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_call_put_schedules bond_call_put_schedules_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_call_put_schedules
+    ADD CONSTRAINT bond_call_put_schedules_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_coupon_payments bond_coupon_payments_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_coupon_payments
+    ADD CONSTRAINT bond_coupon_payments_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_covenants bond_covenants_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_covenants
+    ADD CONSTRAINT bond_covenants_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_credit_ratings bond_credit_ratings_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_credit_ratings
+    ADD CONSTRAINT bond_credit_ratings_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_events bond_events_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_events
+    ADD CONSTRAINT bond_events_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_market_prices bond_market_prices_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_market_prices
+    ADD CONSTRAINT bond_market_prices_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bond_sinking_fund bond_sinking_fund_bond_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bond_sinking_fund
+    ADD CONSTRAINT bond_sinking_fund_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
 
 
 --
@@ -30467,6 +39255,46 @@ ALTER TABLE ONLY public.climate_user_data_sources
 
 
 --
+-- Name: collectibles_appraisals collectibles_appraisals_collectibles_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_appraisals
+    ADD CONSTRAINT collectibles_appraisals_collectibles_product_id_fkey FOREIGN KEY (collectibles_product_id) REFERENCES public.collectibles_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: collectibles_condition_reports collectibles_condition_reports_collectibles_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_condition_reports
+    ADD CONSTRAINT collectibles_condition_reports_collectibles_product_id_fkey FOREIGN KEY (collectibles_product_id) REFERENCES public.collectibles_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: collectibles_insurance_valuations collectibles_insurance_valuations_collectibles_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_insurance_valuations
+    ADD CONSTRAINT collectibles_insurance_valuations_collectibles_product_id_fkey FOREIGN KEY (collectibles_product_id) REFERENCES public.collectibles_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: collectibles_market_comparables collectibles_market_comparables_collectibles_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_market_comparables
+    ADD CONSTRAINT collectibles_market_comparables_collectibles_product_id_fkey FOREIGN KEY (collectibles_product_id) REFERENCES public.collectibles_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: collectibles_provenance collectibles_provenance_collectibles_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectibles_provenance
+    ADD CONSTRAINT collectibles_provenance_collectibles_product_id_fkey FOREIGN KEY (collectibles_product_id) REFERENCES public.collectibles_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: compliance_audit_logs compliance_audit_logs_operation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -30520,6 +39348,22 @@ ALTER TABLE ONLY public.compliance_violations
 
 ALTER TABLE ONLY public.compliance_violations
     ADD CONSTRAINT compliance_violations_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id);
+
+
+--
+-- Name: contract_masters contract_masters_deployed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_masters
+    ADD CONSTRAINT contract_masters_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES public.users(id);
+
+
+--
+-- Name: corporate_actions corporate_actions_equity_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.corporate_actions
+    ADD CONSTRAINT corporate_actions_equity_product_id_fkey FOREIGN KEY (equity_product_id) REFERENCES public.equity_products(id) ON DELETE CASCADE;
 
 
 --
@@ -30827,11 +39671,91 @@ ALTER TABLE ONLY public.documents
 
 
 --
+-- Name: dtf_blockchain_events dtf_blockchain_events_digital_tokenized_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_blockchain_events
+    ADD CONSTRAINT dtf_blockchain_events_digital_tokenized_fund_product_id_fkey FOREIGN KEY (digital_tokenized_fund_product_id) REFERENCES public.digital_tokenized_fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dtf_blockchain_events dtf_blockchain_events_dtf_token_metadata_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_blockchain_events
+    ADD CONSTRAINT dtf_blockchain_events_dtf_token_metadata_id_fkey FOREIGN KEY (dtf_token_metadata_id) REFERENCES public.dtf_token_metadata(id);
+
+
+--
+-- Name: dtf_minting_history dtf_minting_history_digital_tokenized_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_minting_history
+    ADD CONSTRAINT dtf_minting_history_digital_tokenized_fund_product_id_fkey FOREIGN KEY (digital_tokenized_fund_product_id) REFERENCES public.digital_tokenized_fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dtf_minting_history dtf_minting_history_dtf_token_metadata_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_minting_history
+    ADD CONSTRAINT dtf_minting_history_dtf_token_metadata_id_fkey FOREIGN KEY (dtf_token_metadata_id) REFERENCES public.dtf_token_metadata(id);
+
+
+--
+-- Name: dtf_nav_snapshots dtf_nav_snapshots_digital_tokenized_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_nav_snapshots
+    ADD CONSTRAINT dtf_nav_snapshots_digital_tokenized_fund_product_id_fkey FOREIGN KEY (digital_tokenized_fund_product_id) REFERENCES public.digital_tokenized_fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dtf_nav_snapshots dtf_nav_snapshots_dtf_token_metadata_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_nav_snapshots
+    ADD CONSTRAINT dtf_nav_snapshots_dtf_token_metadata_id_fkey FOREIGN KEY (dtf_token_metadata_id) REFERENCES public.dtf_token_metadata(id);
+
+
+--
+-- Name: dtf_redemption_requests dtf_redemption_requests_digital_tokenized_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_redemption_requests
+    ADD CONSTRAINT dtf_redemption_requests_digital_tokenized_fund_product_id_fkey FOREIGN KEY (digital_tokenized_fund_product_id) REFERENCES public.digital_tokenized_fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: dtf_redemption_requests dtf_redemption_requests_dtf_token_metadata_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_redemption_requests
+    ADD CONSTRAINT dtf_redemption_requests_dtf_token_metadata_id_fkey FOREIGN KEY (dtf_token_metadata_id) REFERENCES public.dtf_token_metadata(id);
+
+
+--
+-- Name: dtf_token_metadata dtf_token_metadata_digital_tokenized_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.dtf_token_metadata
+    ADD CONSTRAINT dtf_token_metadata_digital_tokenized_fund_product_id_fkey FOREIGN KEY (digital_tokenized_fund_product_id) REFERENCES public.digital_tokenized_fund_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: energy_assets energy_assets_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.energy_assets
     ADD CONSTRAINT energy_assets_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id);
+
+
+--
+-- Name: environmental_certifications environmental_certifications_real_estate_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.environmental_certifications
+    ADD CONSTRAINT environmental_certifications_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
 
 
 --
@@ -31267,6 +40191,54 @@ ALTER TABLE ONLY public.individual_documents
 
 
 --
+-- Name: infra_capex_schedule infra_capex_schedule_infrastructure_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_capex_schedule
+    ADD CONSTRAINT infra_capex_schedule_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: infra_concessions infra_concessions_infrastructure_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_concessions
+    ADD CONSTRAINT infra_concessions_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: infra_operating_expenses infra_operating_expenses_infrastructure_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_operating_expenses
+    ADD CONSTRAINT infra_operating_expenses_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: infra_regulatory_filings infra_regulatory_filings_infrastructure_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_regulatory_filings
+    ADD CONSTRAINT infra_regulatory_filings_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: infra_revenue_streams infra_revenue_streams_infrastructure_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_revenue_streams
+    ADD CONSTRAINT infra_revenue_streams_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: infra_usage_metrics infra_usage_metrics_infrastructure_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.infra_usage_metrics
+    ADD CONSTRAINT infra_usage_metrics_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: investor_approvals investor_approvals_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -31331,11 +40303,35 @@ ALTER TABLE ONLY public.investors
 
 
 --
+-- Name: invoice_aging_buckets invoice_aging_buckets_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_aging_buckets
+    ADD CONSTRAINT invoice_aging_buckets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_collection_history invoice_collection_history_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_collection_history
+    ADD CONSTRAINT invoice_collection_history_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: invoice invoice_payer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.invoice
     ADD CONSTRAINT invoice_payer_id_fkey FOREIGN KEY (payer_id) REFERENCES public.payer(payer_id);
+
+
+--
+-- Name: invoice_payments invoice_payments_invoice_receivable_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_payments
+    ADD CONSTRAINT invoice_payments_invoice_receivable_id_fkey FOREIGN KEY (invoice_receivable_id) REFERENCES public.invoice_receivables(id) ON DELETE CASCADE;
 
 
 --
@@ -31352,6 +40348,14 @@ ALTER TABLE ONLY public.invoice
 
 ALTER TABLE ONLY public.invoice
     ADD CONSTRAINT invoice_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.provider(provider_id);
+
+
+--
+-- Name: invoice_receivables invoice_receivables_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoice_receivables
+    ADD CONSTRAINT invoice_receivables_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -31416,6 +40420,54 @@ ALTER TABLE ONLY public.issuer_documents
 
 ALTER TABLE ONLY public.kyc_screening_logs
     ADD CONSTRAINT kyc_screening_logs_investor_id_fkey FOREIGN KEY (investor_id) REFERENCES public.investors(investor_id) ON DELETE CASCADE;
+
+
+--
+-- Name: lease_agreements lease_agreements_real_estate_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lease_agreements
+    ADD CONSTRAINT lease_agreements_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_holdings mmf_holdings_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_holdings
+    ADD CONSTRAINT mmf_holdings_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_liquidity_buckets mmf_liquidity_buckets_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_liquidity_buckets
+    ADD CONSTRAINT mmf_liquidity_buckets_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_nav_history mmf_nav_history_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_nav_history
+    ADD CONSTRAINT mmf_nav_history_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_transactions mmf_transactions_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_transactions
+    ADD CONSTRAINT mmf_transactions_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_transactions mmf_transactions_holding_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_transactions
+    ADD CONSTRAINT mmf_transactions_holding_id_fkey FOREIGN KEY (holding_id) REFERENCES public.mmf_holdings(id);
 
 
 --
@@ -31611,6 +40663,102 @@ ALTER TABLE ONLY public.paymaster_operations
 
 
 --
+-- Name: pd_collateral pd_collateral_private_debt_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_collateral
+    ADD CONSTRAINT pd_collateral_private_debt_product_id_fkey FOREIGN KEY (private_debt_product_id) REFERENCES public.private_debt_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pd_covenants pd_covenants_private_debt_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_covenants
+    ADD CONSTRAINT pd_covenants_private_debt_product_id_fkey FOREIGN KEY (private_debt_product_id) REFERENCES public.private_debt_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pd_credit_ratings pd_credit_ratings_private_debt_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_credit_ratings
+    ADD CONSTRAINT pd_credit_ratings_private_debt_product_id_fkey FOREIGN KEY (private_debt_product_id) REFERENCES public.private_debt_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pd_default_events pd_default_events_covenant_breached_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_default_events
+    ADD CONSTRAINT pd_default_events_covenant_breached_id_fkey FOREIGN KEY (covenant_breached_id) REFERENCES public.pd_covenants(id);
+
+
+--
+-- Name: pd_default_events pd_default_events_private_debt_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_default_events
+    ADD CONSTRAINT pd_default_events_private_debt_product_id_fkey FOREIGN KEY (private_debt_product_id) REFERENCES public.private_debt_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pd_loan_schedules pd_loan_schedules_private_debt_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_loan_schedules
+    ADD CONSTRAINT pd_loan_schedules_private_debt_product_id_fkey FOREIGN KEY (private_debt_product_id) REFERENCES public.private_debt_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pd_payment_history pd_payment_history_private_debt_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_payment_history
+    ADD CONSTRAINT pd_payment_history_private_debt_product_id_fkey FOREIGN KEY (private_debt_product_id) REFERENCES public.private_debt_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pd_payment_history pd_payment_history_scheduled_payment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pd_payment_history
+    ADD CONSTRAINT pd_payment_history_scheduled_payment_id_fkey FOREIGN KEY (scheduled_payment_id) REFERENCES public.pd_loan_schedules(id);
+
+
+--
+-- Name: pe_capital_calls pe_capital_calls_private_equity_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_capital_calls
+    ADD CONSTRAINT pe_capital_calls_private_equity_product_id_fkey FOREIGN KEY (private_equity_product_id) REFERENCES public.private_equity_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pe_distributions pe_distributions_private_equity_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_distributions
+    ADD CONSTRAINT pe_distributions_private_equity_product_id_fkey FOREIGN KEY (private_equity_product_id) REFERENCES public.private_equity_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pe_performance_metrics pe_performance_metrics_private_equity_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_performance_metrics
+    ADD CONSTRAINT pe_performance_metrics_private_equity_product_id_fkey FOREIGN KEY (private_equity_product_id) REFERENCES public.private_equity_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pe_portfolio_companies pe_portfolio_companies_private_equity_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pe_portfolio_companies
+    ADD CONSTRAINT pe_portfolio_companies_private_equity_product_id_fkey FOREIGN KEY (private_equity_product_id) REFERENCES public.private_equity_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: policy_operation_mappings policy_operation_mappings_policy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -31738,11 +40886,75 @@ ALTER TABLE ONLY public.project_wallets
 
 
 --
+-- Name: property_expenses property_expenses_real_estate_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_expenses
+    ADD CONSTRAINT property_expenses_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: property_insurance property_insurance_real_estate_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_insurance
+    ADD CONSTRAINT property_insurance_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: property_valuations property_valuations_real_estate_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_valuations
+    ADD CONSTRAINT property_valuations_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: proposal_signatures proposal_signatures_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.proposal_signatures
     ADD CONSTRAINT proposal_signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: quant_backtests quant_backtests_quantitative_investment_strategies_product_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_backtests
+    ADD CONSTRAINT quant_backtests_quantitative_investment_strategies_product_fkey FOREIGN KEY (quantitative_investment_strategies_product_id) REFERENCES public.quantitative_investment_strategies_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: quant_factors quant_factors_quantitative_investment_strategies_product_i_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_factors
+    ADD CONSTRAINT quant_factors_quantitative_investment_strategies_product_i_fkey FOREIGN KEY (quantitative_investment_strategies_product_id) REFERENCES public.quantitative_investment_strategies_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: quant_performance_attribution quant_performance_attribution_quantitative_investment_stra_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_performance_attribution
+    ADD CONSTRAINT quant_performance_attribution_quantitative_investment_stra_fkey FOREIGN KEY (quantitative_investment_strategies_product_id) REFERENCES public.quantitative_investment_strategies_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: quant_risk_metrics quant_risk_metrics_quantitative_investment_strategies_prod_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_risk_metrics
+    ADD CONSTRAINT quant_risk_metrics_quantitative_investment_strategies_prod_fkey FOREIGN KEY (quantitative_investment_strategies_product_id) REFERENCES public.quantitative_investment_strategies_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: quant_signals quant_signals_quantitative_investment_strategies_product_i_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.quant_signals
+    ADD CONSTRAINT quant_signals_quantitative_investment_strategies_product_i_fkey FOREIGN KEY (quantitative_investment_strategies_product_id) REFERENCES public.quantitative_investment_strategies_products(id) ON DELETE CASCADE;
 
 
 --
@@ -31946,6 +41158,46 @@ ALTER TABLE ONLY public.rule_evaluations
 
 
 --
+-- Name: sc_algorithm_parameters sc_algorithm_parameters_stablecoin_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_algorithm_parameters
+    ADD CONSTRAINT sc_algorithm_parameters_stablecoin_product_id_fkey FOREIGN KEY (stablecoin_product_id) REFERENCES public.stablecoin_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sc_minting_events sc_minting_events_stablecoin_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_minting_events
+    ADD CONSTRAINT sc_minting_events_stablecoin_product_id_fkey FOREIGN KEY (stablecoin_product_id) REFERENCES public.stablecoin_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sc_peg_history sc_peg_history_stablecoin_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_peg_history
+    ADD CONSTRAINT sc_peg_history_stablecoin_product_id_fkey FOREIGN KEY (stablecoin_product_id) REFERENCES public.stablecoin_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sc_redemptions sc_redemptions_stablecoin_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_redemptions
+    ADD CONSTRAINT sc_redemptions_stablecoin_product_id_fkey FOREIGN KEY (stablecoin_product_id) REFERENCES public.stablecoin_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sc_reserve_audits sc_reserve_audits_stablecoin_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sc_reserve_audits
+    ADD CONSTRAINT sc_reserve_audits_stablecoin_product_id_fkey FOREIGN KEY (stablecoin_product_id) REFERENCES public.stablecoin_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: security_events security_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32098,11 +41350,67 @@ ALTER TABLE ONLY public.smart_contract_wallets
 
 
 --
+-- Name: sp_barrier_events sp_barrier_events_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_barrier_events
+    ADD CONSTRAINT sp_barrier_events_structured_product_id_fkey FOREIGN KEY (structured_product_id) REFERENCES public.structured_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sp_components sp_components_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_components
+    ADD CONSTRAINT sp_components_structured_product_id_fkey FOREIGN KEY (structured_product_id) REFERENCES public.structured_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sp_coupon_schedules sp_coupon_schedules_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_coupon_schedules
+    ADD CONSTRAINT sp_coupon_schedules_structured_product_id_fkey FOREIGN KEY (structured_product_id) REFERENCES public.structured_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sp_payoff_structures sp_payoff_structures_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_payoff_structures
+    ADD CONSTRAINT sp_payoff_structures_structured_product_id_fkey FOREIGN KEY (structured_product_id) REFERENCES public.structured_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sp_performance_tracking sp_performance_tracking_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_performance_tracking
+    ADD CONSTRAINT sp_performance_tracking_structured_product_id_fkey FOREIGN KEY (structured_product_id) REFERENCES public.structured_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sp_redemption_features sp_redemption_features_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sp_redemption_features
+    ADD CONSTRAINT sp_redemption_features_structured_product_id_fkey FOREIGN KEY (structured_product_id) REFERENCES public.structured_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: stage_requirements stage_requirements_stage_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.stage_requirements
     ADD CONSTRAINT stage_requirements_stage_id_fkey FOREIGN KEY (stage_id) REFERENCES public.workflow_stages(id) ON DELETE CASCADE;
+
+
+--
+-- Name: stock_dividends stock_dividends_equity_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stock_dividends
+    ADD CONSTRAINT stock_dividends_equity_product_id_fkey FOREIGN KEY (equity_product_id) REFERENCES public.equity_products(id) ON DELETE CASCADE;
 
 
 --
@@ -32191,6 +41499,22 @@ ALTER TABLE ONLY public.token_climate_properties
 
 ALTER TABLE ONLY public.token_climate_properties
     ADD CONSTRAINT token_climate_properties_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
+
+
+--
+-- Name: token_deployment_verifications token_deployment_verifications_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_deployment_verifications
+    ADD CONSTRAINT token_deployment_verifications_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: token_deployment_verifications token_deployment_verifications_verified_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_deployment_verifications
+    ADD CONSTRAINT token_deployment_verifications_verified_by_fkey FOREIGN KEY (verified_by) REFERENCES public.users(id);
 
 
 --
@@ -32482,6 +41806,30 @@ ALTER TABLE ONLY public.token_erc721_trait_definitions
 
 
 --
+-- Name: token_extensions token_extensions_attached_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_extensions
+    ADD CONSTRAINT token_extensions_attached_by_fkey FOREIGN KEY (attached_by) REFERENCES public.users(id);
+
+
+--
+-- Name: token_extensions token_extensions_detached_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_extensions
+    ADD CONSTRAINT token_extensions_detached_by_fkey FOREIGN KEY (detached_by) REFERENCES public.users(id);
+
+
+--
+-- Name: token_extensions token_extensions_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_extensions
+    ADD CONSTRAINT token_extensions_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
 -- Name: token_geographic_restrictions token_geographic_restrictions_country_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32690,6 +42038,22 @@ ALTER TABLE ONLY public.validation_alerts
 
 
 --
+-- Name: wallet_access_logs wallet_access_logs_accessed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallet_access_logs
+    ADD CONSTRAINT wallet_access_logs_accessed_by_fkey FOREIGN KEY (accessed_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: wallet_access_logs wallet_access_logs_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallet_access_logs
+    ADD CONSTRAINT wallet_access_logs_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.project_wallets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: wallet_details wallet_details_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32820,6 +42184,46 @@ CREATE POLICY "Authenticated users can update risk calculations" ON public.clima
 --
 
 CREATE POLICY "Authenticated users can view risk calculations" ON public.climate_risk_calculations FOR SELECT USING ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: project_wallets Authorized users can insert wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authorized users can insert wallets" ON public.project_wallets FOR INSERT WITH CHECK ((((auth.jwt() ->> 'role'::text) = 'service_role'::text) OR (EXISTS ( SELECT 1
+   FROM (public.user_organization_roles uor
+     JOIN public.role_permissions rp ON ((rp.role_id = uor.role_id)))
+  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['wallet.create'::text, 'wallets.create'::text])))))));
+
+
+--
+-- Name: project_wallets Authorized users can update wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authorized users can update wallets" ON public.project_wallets FOR UPDATE USING ((((auth.jwt() ->> 'role'::text) = 'service_role'::text) OR (project_id IN ( SELECT p.id
+   FROM public.projects p
+  WHERE (p.organization_id IN ( SELECT uor.organization_id
+           FROM (public.user_organization_roles uor
+             JOIN public.role_permissions rp ON ((rp.role_id = uor.role_id)))
+          WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['wallet.edit'::text, 'wallets.edit'::text])))))))));
+
+
+--
+-- Name: project_wallets Organization members can delete wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Organization members can delete wallets" ON public.project_wallets FOR DELETE USING ((project_id IN ( SELECT p.id
+   FROM public.projects p
+  WHERE (p.organization_id IN ( SELECT uor.organization_id
+           FROM public.user_organization_roles uor
+          WHERE (uor.user_id = auth.uid()))))));
+
+
+--
+-- Name: wallet_access_logs Service role can insert access logs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Service role can insert access logs" ON public.wallet_access_logs FOR INSERT WITH CHECK (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 
 
 --
@@ -33002,6 +42406,29 @@ CREATE POLICY "Users can view their organization's sidebar sections" ON public.s
 
 
 --
+-- Name: wallet_access_logs Users can view their own wallet access logs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their own wallet access logs" ON public.wallet_access_logs FOR SELECT USING (((accessed_by = auth.uid()) OR (wallet_id IN ( SELECT pw.id
+   FROM (public.project_wallets pw
+     JOIN public.projects p ON ((pw.project_id = p.id)))
+  WHERE (p.organization_id IN ( SELECT uor.organization_id
+           FROM public.user_organization_roles uor
+          WHERE (uor.user_id = auth.uid())))))));
+
+
+--
+-- Name: project_wallets Users can view their project wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their project wallets" ON public.project_wallets FOR SELECT USING ((project_id IN ( SELECT p.id
+   FROM public.projects p
+  WHERE (p.organization_id IN ( SELECT uor.organization_id
+           FROM public.user_organization_roles uor
+          WHERE (uor.user_id = auth.uid()))))));
+
+
+--
 -- Name: multi_sig_proposals Users can view their wallet proposals; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -33142,6 +42569,12 @@ ALTER TABLE public.organization_details ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.project_organization_assignments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_wallets; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.project_wallets ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: proposal_signatures; Type: ROW SECURITY; Schema: public; Owner: -
@@ -33438,6 +42871,12 @@ ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.violation_patterns ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: wallet_access_logs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.wallet_access_logs ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -34077,6 +43516,26 @@ GRANT ALL ON FUNCTION public.get_enhanced_risk_assessment(p_receivable_id uuid) 
 
 
 --
+-- Name: FUNCTION get_factory_address(p_network text, p_environment text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_factory_address(p_network text, p_environment text) TO anon;
+GRANT ALL ON FUNCTION public.get_factory_address(p_network text, p_environment text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_factory_address(p_network text, p_environment text) TO service_role;
+GRANT ALL ON FUNCTION public.get_factory_address(p_network text, p_environment text) TO prisma;
+
+
+--
+-- Name: FUNCTION get_master_address(p_network text, p_environment text, p_standard text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO anon;
+GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO service_role;
+GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO prisma;
+
+
+--
 -- Name: FUNCTION get_moonpay_webhook_stats(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -34194,6 +43653,16 @@ GRANT ALL ON FUNCTION public.get_table_row_counts() TO anon;
 GRANT ALL ON FUNCTION public.get_table_row_counts() TO authenticated;
 GRANT ALL ON FUNCTION public.get_table_row_counts() TO service_role;
 GRANT ALL ON FUNCTION public.get_table_row_counts() TO prisma;
+
+
+--
+-- Name: FUNCTION get_token_extensions(p_token_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_token_extensions(p_token_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_token_extensions(p_token_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_token_extensions(p_token_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_token_extensions(p_token_id uuid) TO prisma;
 
 
 --
@@ -34484,6 +43953,16 @@ GRANT ALL ON FUNCTION public.log_user_action() TO anon;
 GRANT ALL ON FUNCTION public.log_user_action() TO authenticated;
 GRANT ALL ON FUNCTION public.log_user_action() TO service_role;
 GRANT ALL ON FUNCTION public.log_user_action() TO prisma;
+
+
+--
+-- Name: FUNCTION log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb) TO anon;
+GRANT ALL ON FUNCTION public.log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb) TO service_role;
+GRANT ALL ON FUNCTION public.log_wallet_access(p_wallet_id uuid, p_accessed_by uuid, p_action text, p_success boolean, p_error_message text, p_ip_address text, p_user_agent text, p_metadata jsonb) TO prisma;
 
 
 --
@@ -34824,6 +44303,16 @@ GRANT ALL ON FUNCTION public.update_cache_access() TO anon;
 GRANT ALL ON FUNCTION public.update_cache_access() TO authenticated;
 GRANT ALL ON FUNCTION public.update_cache_access() TO service_role;
 GRANT ALL ON FUNCTION public.update_cache_access() TO prisma;
+
+
+--
+-- Name: FUNCTION update_carbon_market_prices_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_carbon_market_prices_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_carbon_market_prices_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_carbon_market_prices_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_carbon_market_prices_updated_at() TO prisma;
 
 
 --
@@ -35330,1430 +44819,2010 @@ GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) 
 -- Name: TABLE _migrations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public._migrations TO prisma;
+GRANT ALL ON TABLE public._migrations TO anon;
+GRANT ALL ON TABLE public._migrations TO authenticated;
+GRANT ALL ON TABLE public._migrations TO service_role;
+GRANT ALL ON TABLE public._migrations TO prisma;
+
+
+--
+-- Name: TABLE abs_cash_flows; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.abs_cash_flows TO anon;
+GRANT ALL ON TABLE public.abs_cash_flows TO authenticated;
+GRANT ALL ON TABLE public.abs_cash_flows TO service_role;
+GRANT ALL ON TABLE public.abs_cash_flows TO prisma;
+
+
+--
+-- Name: TABLE abs_collateral_pools; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.abs_collateral_pools TO anon;
+GRANT ALL ON TABLE public.abs_collateral_pools TO authenticated;
+GRANT ALL ON TABLE public.abs_collateral_pools TO service_role;
+GRANT ALL ON TABLE public.abs_collateral_pools TO prisma;
+
+
+--
+-- Name: TABLE abs_loss_projections; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.abs_loss_projections TO anon;
+GRANT ALL ON TABLE public.abs_loss_projections TO authenticated;
+GRANT ALL ON TABLE public.abs_loss_projections TO service_role;
+GRANT ALL ON TABLE public.abs_loss_projections TO prisma;
+
+
+--
+-- Name: TABLE abs_prepayment_speeds; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.abs_prepayment_speeds TO anon;
+GRANT ALL ON TABLE public.abs_prepayment_speeds TO authenticated;
+GRANT ALL ON TABLE public.abs_prepayment_speeds TO service_role;
+GRANT ALL ON TABLE public.abs_prepayment_speeds TO prisma;
+
+
+--
+-- Name: TABLE abs_tranches; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.abs_tranches TO anon;
+GRANT ALL ON TABLE public.abs_tranches TO authenticated;
+GRANT ALL ON TABLE public.abs_tranches TO service_role;
+GRANT ALL ON TABLE public.abs_tranches TO prisma;
 
 
 --
 -- Name: TABLE distributions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distributions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distributions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distributions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distributions TO prisma;
+GRANT ALL ON TABLE public.distributions TO anon;
+GRANT ALL ON TABLE public.distributions TO authenticated;
+GRANT ALL ON TABLE public.distributions TO service_role;
+GRANT ALL ON TABLE public.distributions TO prisma;
 
 
 --
 -- Name: TABLE redemption_rules; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules TO prisma;
+GRANT ALL ON TABLE public.redemption_rules TO anon;
+GRANT ALL ON TABLE public.redemption_rules TO authenticated;
+GRANT ALL ON TABLE public.redemption_rules TO service_role;
+GRANT ALL ON TABLE public.redemption_rules TO prisma;
 
 
 --
 -- Name: TABLE redemption_eligibility; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_eligibility TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_eligibility TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_eligibility TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_eligibility TO prisma;
+GRANT ALL ON TABLE public.redemption_eligibility TO anon;
+GRANT ALL ON TABLE public.redemption_eligibility TO authenticated;
+GRANT ALL ON TABLE public.redemption_eligibility TO service_role;
+GRANT ALL ON TABLE public.redemption_eligibility TO prisma;
 
 
 --
 -- Name: TABLE active_redemption_opportunities; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.active_redemption_opportunities TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.active_redemption_opportunities TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.active_redemption_opportunities TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.active_redemption_opportunities TO prisma;
+GRANT ALL ON TABLE public.active_redemption_opportunities TO anon;
+GRANT ALL ON TABLE public.active_redemption_opportunities TO authenticated;
+GRANT ALL ON TABLE public.active_redemption_opportunities TO service_role;
+GRANT ALL ON TABLE public.active_redemption_opportunities TO prisma;
 
 
 --
 -- Name: TABLE audit_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_logs TO prisma;
+GRANT ALL ON TABLE public.audit_logs TO anon;
+GRANT ALL ON TABLE public.audit_logs TO authenticated;
+GRANT ALL ON TABLE public.audit_logs TO service_role;
+GRANT ALL ON TABLE public.audit_logs TO prisma;
 
 
 --
 -- Name: TABLE activity_analytics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.activity_analytics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.activity_analytics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.activity_analytics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.activity_analytics TO prisma;
+GRANT ALL ON TABLE public.activity_analytics TO anon;
+GRANT ALL ON TABLE public.activity_analytics TO authenticated;
+GRANT ALL ON TABLE public.activity_analytics TO service_role;
+GRANT ALL ON TABLE public.activity_analytics TO prisma;
 
 
 --
 -- Name: TABLE alerts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.alerts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.alerts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.alerts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.alerts TO prisma;
+GRANT ALL ON TABLE public.alerts TO anon;
+GRANT ALL ON TABLE public.alerts TO authenticated;
+GRANT ALL ON TABLE public.alerts TO service_role;
+GRANT ALL ON TABLE public.alerts TO prisma;
 
 
 --
 -- Name: TABLE approval_config_approvers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_approvers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_approvers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_approvers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_approvers TO prisma;
+GRANT ALL ON TABLE public.approval_config_approvers TO anon;
+GRANT ALL ON TABLE public.approval_config_approvers TO authenticated;
+GRANT ALL ON TABLE public.approval_config_approvers TO service_role;
+GRANT ALL ON TABLE public.approval_config_approvers TO prisma;
 
 
 --
 -- Name: TABLE approval_config_history; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_history TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_history TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_history TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_config_history TO prisma;
+GRANT ALL ON TABLE public.approval_config_history TO anon;
+GRANT ALL ON TABLE public.approval_config_history TO authenticated;
+GRANT ALL ON TABLE public.approval_config_history TO service_role;
+GRANT ALL ON TABLE public.approval_config_history TO prisma;
 
 
 --
 -- Name: TABLE approval_configs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs TO prisma;
+GRANT ALL ON TABLE public.approval_configs TO anon;
+GRANT ALL ON TABLE public.approval_configs TO authenticated;
+GRANT ALL ON TABLE public.approval_configs TO service_role;
+GRANT ALL ON TABLE public.approval_configs TO prisma;
 
 
 --
 -- Name: TABLE roles; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.roles TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.roles TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.roles TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.roles TO prisma;
+GRANT ALL ON TABLE public.roles TO anon;
+GRANT ALL ON TABLE public.roles TO authenticated;
+GRANT ALL ON TABLE public.roles TO service_role;
+GRANT ALL ON TABLE public.roles TO prisma;
 
 
 --
 -- Name: TABLE users; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.users TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.users TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.users TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.users TO prisma;
+GRANT ALL ON TABLE public.users TO anon;
+GRANT ALL ON TABLE public.users TO authenticated;
+GRANT ALL ON TABLE public.users TO service_role;
+GRANT ALL ON TABLE public.users TO prisma;
 
 
 --
 -- Name: TABLE approval_configs_with_approvers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs_with_approvers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs_with_approvers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs_with_approvers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_configs_with_approvers TO prisma;
+GRANT ALL ON TABLE public.approval_configs_with_approvers TO anon;
+GRANT ALL ON TABLE public.approval_configs_with_approvers TO authenticated;
+GRANT ALL ON TABLE public.approval_configs_with_approvers TO service_role;
+GRANT ALL ON TABLE public.approval_configs_with_approvers TO prisma;
 
 
 --
 -- Name: TABLE approval_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_requests TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_requests TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_requests TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.approval_requests TO prisma;
+GRANT ALL ON TABLE public.approval_requests TO anon;
+GRANT ALL ON TABLE public.approval_requests TO authenticated;
+GRANT ALL ON TABLE public.approval_requests TO service_role;
+GRANT ALL ON TABLE public.approval_requests TO prisma;
 
 
 --
 -- Name: TABLE asset_backed_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_backed_products TO prisma;
+GRANT ALL ON TABLE public.asset_backed_products TO anon;
+GRANT ALL ON TABLE public.asset_backed_products TO authenticated;
+GRANT ALL ON TABLE public.asset_backed_products TO service_role;
+GRANT ALL ON TABLE public.asset_backed_products TO prisma;
 
 
 --
 -- Name: TABLE asset_holdings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_holdings TO prisma;
+GRANT ALL ON TABLE public.asset_holdings TO anon;
+GRANT ALL ON TABLE public.asset_holdings TO authenticated;
+GRANT ALL ON TABLE public.asset_holdings TO service_role;
+GRANT ALL ON TABLE public.asset_holdings TO prisma;
 
 
 --
 -- Name: TABLE asset_nav_data; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.asset_nav_data TO prisma;
+GRANT ALL ON TABLE public.asset_nav_data TO anon;
+GRANT ALL ON TABLE public.asset_nav_data TO authenticated;
+GRANT ALL ON TABLE public.asset_nav_data TO service_role;
+GRANT ALL ON TABLE public.asset_nav_data TO prisma;
+
+
+--
+-- Name: TABLE auction_comparables; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.auction_comparables TO anon;
+GRANT ALL ON TABLE public.auction_comparables TO authenticated;
+GRANT ALL ON TABLE public.auction_comparables TO service_role;
+GRANT ALL ON TABLE public.auction_comparables TO prisma;
 
 
 --
 -- Name: TABLE audit_coverage; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_coverage TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_coverage TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_coverage TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.audit_coverage TO prisma;
+GRANT ALL ON TABLE public.audit_coverage TO anon;
+GRANT ALL ON TABLE public.audit_coverage TO authenticated;
+GRANT ALL ON TABLE public.audit_coverage TO service_role;
+GRANT ALL ON TABLE public.audit_coverage TO prisma;
 
 
 --
 -- Name: TABLE auth_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.auth_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.auth_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.auth_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.auth_events TO prisma;
+GRANT ALL ON TABLE public.auth_events TO anon;
+GRANT ALL ON TABLE public.auth_events TO authenticated;
+GRANT ALL ON TABLE public.auth_events TO service_role;
+GRANT ALL ON TABLE public.auth_events TO prisma;
 
 
 --
 -- Name: TABLE authorized_activities; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_activities TO prisma;
+GRANT ALL ON TABLE public.authorized_activities TO anon;
+GRANT ALL ON TABLE public.authorized_activities TO authenticated;
+GRANT ALL ON TABLE public.authorized_activities TO service_role;
+GRANT ALL ON TABLE public.authorized_activities TO prisma;
 
 
 --
 -- Name: TABLE authorized_signatories; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.authorized_signatories TO prisma;
+GRANT ALL ON TABLE public.authorized_signatories TO anon;
+GRANT ALL ON TABLE public.authorized_signatories TO authenticated;
+GRANT ALL ON TABLE public.authorized_signatories TO service_role;
+GRANT ALL ON TABLE public.authorized_signatories TO prisma;
 
 
 --
 -- Name: TABLE batch_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.batch_operations TO prisma;
+GRANT ALL ON TABLE public.batch_operations TO anon;
+GRANT ALL ON TABLE public.batch_operations TO authenticated;
+GRANT ALL ON TABLE public.batch_operations TO service_role;
+GRANT ALL ON TABLE public.batch_operations TO prisma;
 
 
 --
 -- Name: TABLE blacklisted_addresses; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.blacklisted_addresses TO prisma;
+GRANT ALL ON TABLE public.blacklisted_addresses TO anon;
+GRANT ALL ON TABLE public.blacklisted_addresses TO authenticated;
+GRANT ALL ON TABLE public.blacklisted_addresses TO service_role;
+GRANT ALL ON TABLE public.blacklisted_addresses TO prisma;
+
+
+--
+-- Name: TABLE bond_amortization_schedule; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_amortization_schedule TO anon;
+GRANT ALL ON TABLE public.bond_amortization_schedule TO authenticated;
+GRANT ALL ON TABLE public.bond_amortization_schedule TO service_role;
+GRANT ALL ON TABLE public.bond_amortization_schedule TO prisma;
+
+
+--
+-- Name: TABLE bond_call_put_schedules; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_call_put_schedules TO anon;
+GRANT ALL ON TABLE public.bond_call_put_schedules TO authenticated;
+GRANT ALL ON TABLE public.bond_call_put_schedules TO service_role;
+GRANT ALL ON TABLE public.bond_call_put_schedules TO prisma;
+
+
+--
+-- Name: TABLE bond_coupon_payments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_coupon_payments TO anon;
+GRANT ALL ON TABLE public.bond_coupon_payments TO authenticated;
+GRANT ALL ON TABLE public.bond_coupon_payments TO service_role;
+GRANT ALL ON TABLE public.bond_coupon_payments TO prisma;
+
+
+--
+-- Name: TABLE bond_covenants; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_covenants TO anon;
+GRANT ALL ON TABLE public.bond_covenants TO authenticated;
+GRANT ALL ON TABLE public.bond_covenants TO service_role;
+GRANT ALL ON TABLE public.bond_covenants TO prisma;
+
+
+--
+-- Name: TABLE bond_credit_ratings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_credit_ratings TO anon;
+GRANT ALL ON TABLE public.bond_credit_ratings TO authenticated;
+GRANT ALL ON TABLE public.bond_credit_ratings TO service_role;
+GRANT ALL ON TABLE public.bond_credit_ratings TO prisma;
+
+
+--
+-- Name: TABLE bond_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_events TO anon;
+GRANT ALL ON TABLE public.bond_events TO authenticated;
+GRANT ALL ON TABLE public.bond_events TO service_role;
+GRANT ALL ON TABLE public.bond_events TO prisma;
+
+
+--
+-- Name: TABLE bond_market_prices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_market_prices TO anon;
+GRANT ALL ON TABLE public.bond_market_prices TO authenticated;
+GRANT ALL ON TABLE public.bond_market_prices TO service_role;
+GRANT ALL ON TABLE public.bond_market_prices TO prisma;
 
 
 --
 -- Name: TABLE bond_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bond_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bond_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bond_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bond_products TO prisma;
+GRANT ALL ON TABLE public.bond_products TO anon;
+GRANT ALL ON TABLE public.bond_products TO authenticated;
+GRANT ALL ON TABLE public.bond_products TO service_role;
+GRANT ALL ON TABLE public.bond_products TO prisma;
+
+
+--
+-- Name: TABLE bond_sinking_fund; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.bond_sinking_fund TO anon;
+GRANT ALL ON TABLE public.bond_sinking_fund TO authenticated;
+GRANT ALL ON TABLE public.bond_sinking_fund TO service_role;
+GRANT ALL ON TABLE public.bond_sinking_fund TO prisma;
 
 
 --
 -- Name: TABLE bulk_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bulk_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bulk_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bulk_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bulk_operations TO prisma;
+GRANT ALL ON TABLE public.bulk_operations TO anon;
+GRANT ALL ON TABLE public.bulk_operations TO authenticated;
+GRANT ALL ON TABLE public.bulk_operations TO service_role;
+GRANT ALL ON TABLE public.bulk_operations TO prisma;
 
 
 --
 -- Name: TABLE bundler_configurations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_configurations TO prisma;
+GRANT ALL ON TABLE public.bundler_configurations TO anon;
+GRANT ALL ON TABLE public.bundler_configurations TO authenticated;
+GRANT ALL ON TABLE public.bundler_configurations TO service_role;
+GRANT ALL ON TABLE public.bundler_configurations TO prisma;
 
 
 --
 -- Name: TABLE bundler_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.bundler_operations TO prisma;
+GRANT ALL ON TABLE public.bundler_operations TO anon;
+GRANT ALL ON TABLE public.bundler_operations TO authenticated;
+GRANT ALL ON TABLE public.bundler_operations TO service_role;
+GRANT ALL ON TABLE public.bundler_operations TO prisma;
 
 
 --
 -- Name: TABLE cap_tables; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cap_tables TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cap_tables TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cap_tables TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.cap_tables TO prisma;
+GRANT ALL ON TABLE public.cap_tables TO anon;
+GRANT ALL ON TABLE public.cap_tables TO authenticated;
+GRANT ALL ON TABLE public.cap_tables TO service_role;
+GRANT ALL ON TABLE public.cap_tables TO prisma;
+
+
+--
+-- Name: TABLE carbon_market_prices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.carbon_market_prices TO anon;
+GRANT ALL ON TABLE public.carbon_market_prices TO authenticated;
+GRANT ALL ON TABLE public.carbon_market_prices TO service_role;
+GRANT ALL ON TABLE public.carbon_market_prices TO prisma;
 
 
 --
 -- Name: TABLE carbon_offsets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.carbon_offsets TO prisma;
+GRANT ALL ON TABLE public.carbon_offsets TO anon;
+GRANT ALL ON TABLE public.carbon_offsets TO authenticated;
+GRANT ALL ON TABLE public.carbon_offsets TO service_role;
+GRANT ALL ON TABLE public.carbon_offsets TO prisma;
+
+
+--
+-- Name: TABLE cf_allocations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.cf_allocations TO anon;
+GRANT ALL ON TABLE public.cf_allocations TO authenticated;
+GRANT ALL ON TABLE public.cf_allocations TO service_role;
+GRANT ALL ON TABLE public.cf_allocations TO prisma;
+
+
+--
+-- Name: TABLE cf_cash_flows; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.cf_cash_flows TO anon;
+GRANT ALL ON TABLE public.cf_cash_flows TO authenticated;
+GRANT ALL ON TABLE public.cf_cash_flows TO service_role;
+GRANT ALL ON TABLE public.cf_cash_flows TO prisma;
+
+
+--
+-- Name: TABLE cf_holdings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.cf_holdings TO anon;
+GRANT ALL ON TABLE public.cf_holdings TO authenticated;
+GRANT ALL ON TABLE public.cf_holdings TO service_role;
+GRANT ALL ON TABLE public.cf_holdings TO prisma;
+
+
+--
+-- Name: TABLE cf_performance_attribution; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.cf_performance_attribution TO anon;
+GRANT ALL ON TABLE public.cf_performance_attribution TO authenticated;
+GRANT ALL ON TABLE public.cf_performance_attribution TO service_role;
+GRANT ALL ON TABLE public.cf_performance_attribution TO prisma;
+
+
+--
+-- Name: TABLE cf_rebalancing_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.cf_rebalancing_events TO anon;
+GRANT ALL ON TABLE public.cf_rebalancing_events TO authenticated;
+GRANT ALL ON TABLE public.cf_rebalancing_events TO service_role;
+GRANT ALL ON TABLE public.cf_rebalancing_events TO prisma;
 
 
 --
 -- Name: TABLE climate_market_data_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_market_data_cache TO prisma;
+GRANT ALL ON TABLE public.climate_market_data_cache TO anon;
+GRANT ALL ON TABLE public.climate_market_data_cache TO authenticated;
+GRANT ALL ON TABLE public.climate_market_data_cache TO service_role;
+GRANT ALL ON TABLE public.climate_market_data_cache TO prisma;
 
 
 --
 -- Name: TABLE climate_cache_performance; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cache_performance TO prisma;
+GRANT ALL ON TABLE public.climate_cache_performance TO anon;
+GRANT ALL ON TABLE public.climate_cache_performance TO authenticated;
+GRANT ALL ON TABLE public.climate_cache_performance TO service_role;
+GRANT ALL ON TABLE public.climate_cache_performance TO prisma;
 
 
 --
 -- Name: TABLE climate_cash_flow_projections; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_projections TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_projections TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_projections TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_projections TO prisma;
+GRANT ALL ON TABLE public.climate_cash_flow_projections TO anon;
+GRANT ALL ON TABLE public.climate_cash_flow_projections TO authenticated;
+GRANT ALL ON TABLE public.climate_cash_flow_projections TO service_role;
+GRANT ALL ON TABLE public.climate_cash_flow_projections TO prisma;
 
 
 --
 -- Name: TABLE climate_cash_flow_forecast; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_forecast TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_forecast TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_forecast TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_cash_flow_forecast TO prisma;
+GRANT ALL ON TABLE public.climate_cash_flow_forecast TO anon;
+GRANT ALL ON TABLE public.climate_cash_flow_forecast TO authenticated;
+GRANT ALL ON TABLE public.climate_cash_flow_forecast TO service_role;
+GRANT ALL ON TABLE public.climate_cash_flow_forecast TO prisma;
 
 
 --
 -- Name: TABLE climate_incentives; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_incentives TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_incentives TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_incentives TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_incentives TO prisma;
+GRANT ALL ON TABLE public.climate_incentives TO anon;
+GRANT ALL ON TABLE public.climate_incentives TO authenticated;
+GRANT ALL ON TABLE public.climate_incentives TO service_role;
+GRANT ALL ON TABLE public.climate_incentives TO prisma;
 
 
 --
 -- Name: TABLE climate_investor_pools; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pools TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pools TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pools TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pools TO prisma;
+GRANT ALL ON TABLE public.climate_investor_pools TO anon;
+GRANT ALL ON TABLE public.climate_investor_pools TO authenticated;
+GRANT ALL ON TABLE public.climate_investor_pools TO service_role;
+GRANT ALL ON TABLE public.climate_investor_pools TO prisma;
 
 
 --
 -- Name: TABLE climate_pool_receivables; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_receivables TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_receivables TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_receivables TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_receivables TO prisma;
+GRANT ALL ON TABLE public.climate_pool_receivables TO anon;
+GRANT ALL ON TABLE public.climate_pool_receivables TO authenticated;
+GRANT ALL ON TABLE public.climate_pool_receivables TO service_role;
+GRANT ALL ON TABLE public.climate_pool_receivables TO prisma;
 
 
 --
 -- Name: TABLE climate_receivables; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_receivables TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_receivables TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_receivables TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_receivables TO prisma;
+GRANT ALL ON TABLE public.climate_receivables TO anon;
+GRANT ALL ON TABLE public.climate_receivables TO authenticated;
+GRANT ALL ON TABLE public.climate_receivables TO service_role;
+GRANT ALL ON TABLE public.climate_receivables TO prisma;
 
 
 --
 -- Name: TABLE climate_tokenization_pools; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_tokenization_pools TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_tokenization_pools TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_tokenization_pools TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_tokenization_pools TO prisma;
+GRANT ALL ON TABLE public.climate_tokenization_pools TO anon;
+GRANT ALL ON TABLE public.climate_tokenization_pools TO authenticated;
+GRANT ALL ON TABLE public.climate_tokenization_pools TO service_role;
+GRANT ALL ON TABLE public.climate_tokenization_pools TO prisma;
 
 
 --
 -- Name: TABLE climate_investor_pool_summary; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pool_summary TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pool_summary TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pool_summary TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_investor_pool_summary TO prisma;
+GRANT ALL ON TABLE public.climate_investor_pool_summary TO anon;
+GRANT ALL ON TABLE public.climate_investor_pool_summary TO authenticated;
+GRANT ALL ON TABLE public.climate_investor_pool_summary TO service_role;
+GRANT ALL ON TABLE public.climate_investor_pool_summary TO prisma;
 
 
 --
 -- Name: TABLE climate_nav_calculations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_nav_calculations TO prisma;
+GRANT ALL ON TABLE public.climate_nav_calculations TO anon;
+GRANT ALL ON TABLE public.climate_nav_calculations TO authenticated;
+GRANT ALL ON TABLE public.climate_nav_calculations TO service_role;
+GRANT ALL ON TABLE public.climate_nav_calculations TO prisma;
 
 
 --
 -- Name: TABLE climate_payers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_payers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_payers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_payers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_payers TO prisma;
+GRANT ALL ON TABLE public.climate_payers TO anon;
+GRANT ALL ON TABLE public.climate_payers TO authenticated;
+GRANT ALL ON TABLE public.climate_payers TO service_role;
+GRANT ALL ON TABLE public.climate_payers TO prisma;
 
 
 --
 -- Name: TABLE climate_policies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policies TO prisma;
+GRANT ALL ON TABLE public.climate_policies TO anon;
+GRANT ALL ON TABLE public.climate_policies TO authenticated;
+GRANT ALL ON TABLE public.climate_policies TO service_role;
+GRANT ALL ON TABLE public.climate_policies TO prisma;
 
 
 --
 -- Name: TABLE climate_policy_impacts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policy_impacts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policy_impacts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policy_impacts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_policy_impacts TO prisma;
+GRANT ALL ON TABLE public.climate_policy_impacts TO anon;
+GRANT ALL ON TABLE public.climate_policy_impacts TO authenticated;
+GRANT ALL ON TABLE public.climate_policy_impacts TO service_role;
+GRANT ALL ON TABLE public.climate_policy_impacts TO prisma;
 
 
 --
 -- Name: TABLE climate_pool_energy_assets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_energy_assets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_energy_assets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_energy_assets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_energy_assets TO prisma;
+GRANT ALL ON TABLE public.climate_pool_energy_assets TO anon;
+GRANT ALL ON TABLE public.climate_pool_energy_assets TO authenticated;
+GRANT ALL ON TABLE public.climate_pool_energy_assets TO service_role;
+GRANT ALL ON TABLE public.climate_pool_energy_assets TO prisma;
 
 
 --
 -- Name: TABLE climate_pool_incentives; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_incentives TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_incentives TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_incentives TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_incentives TO prisma;
+GRANT ALL ON TABLE public.climate_pool_incentives TO anon;
+GRANT ALL ON TABLE public.climate_pool_incentives TO authenticated;
+GRANT ALL ON TABLE public.climate_pool_incentives TO service_role;
+GRANT ALL ON TABLE public.climate_pool_incentives TO prisma;
 
 
 --
 -- Name: TABLE climate_pool_recs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_recs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_recs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_recs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_pool_recs TO prisma;
+GRANT ALL ON TABLE public.climate_pool_recs TO anon;
+GRANT ALL ON TABLE public.climate_pool_recs TO authenticated;
+GRANT ALL ON TABLE public.climate_pool_recs TO service_role;
+GRANT ALL ON TABLE public.climate_pool_recs TO prisma;
 
 
 --
 -- Name: TABLE climate_reports; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_reports TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_reports TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_reports TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_reports TO prisma;
+GRANT ALL ON TABLE public.climate_reports TO anon;
+GRANT ALL ON TABLE public.climate_reports TO authenticated;
+GRANT ALL ON TABLE public.climate_reports TO service_role;
+GRANT ALL ON TABLE public.climate_reports TO prisma;
 
 
 --
 -- Name: TABLE climate_risk_calculations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_calculations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_calculations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_calculations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_calculations TO prisma;
+GRANT ALL ON TABLE public.climate_risk_calculations TO anon;
+GRANT ALL ON TABLE public.climate_risk_calculations TO authenticated;
+GRANT ALL ON TABLE public.climate_risk_calculations TO service_role;
+GRANT ALL ON TABLE public.climate_risk_calculations TO prisma;
 
 
 --
 -- Name: TABLE climate_risk_factors; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_factors TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_factors TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_factors TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_risk_factors TO prisma;
+GRANT ALL ON TABLE public.climate_risk_factors TO anon;
+GRANT ALL ON TABLE public.climate_risk_factors TO authenticated;
+GRANT ALL ON TABLE public.climate_risk_factors TO service_role;
+GRANT ALL ON TABLE public.climate_risk_factors TO prisma;
 
 
 --
 -- Name: TABLE token_climate_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_climate_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_climate_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_climate_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_climate_properties TO prisma;
+GRANT ALL ON TABLE public.token_climate_properties TO anon;
+GRANT ALL ON TABLE public.token_climate_properties TO authenticated;
+GRANT ALL ON TABLE public.token_climate_properties TO service_role;
+GRANT ALL ON TABLE public.token_climate_properties TO prisma;
 
 
 --
 -- Name: TABLE tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.tokens TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.tokens TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.tokens TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.tokens TO prisma;
+GRANT ALL ON TABLE public.tokens TO anon;
+GRANT ALL ON TABLE public.tokens TO authenticated;
+GRANT ALL ON TABLE public.tokens TO service_role;
+GRANT ALL ON TABLE public.tokens TO prisma;
 
 
 --
 -- Name: TABLE climate_token_summary; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_token_summary TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_token_summary TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_token_summary TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_token_summary TO prisma;
+GRANT ALL ON TABLE public.climate_token_summary TO anon;
+GRANT ALL ON TABLE public.climate_token_summary TO authenticated;
+GRANT ALL ON TABLE public.climate_token_summary TO service_role;
+GRANT ALL ON TABLE public.climate_token_summary TO prisma;
 
 
 --
 -- Name: TABLE climate_user_data_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_cache TO prisma;
+GRANT ALL ON TABLE public.climate_user_data_cache TO anon;
+GRANT ALL ON TABLE public.climate_user_data_cache TO authenticated;
+GRANT ALL ON TABLE public.climate_user_data_cache TO service_role;
+GRANT ALL ON TABLE public.climate_user_data_cache TO prisma;
 
 
 --
 -- Name: TABLE climate_user_data_sources; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.climate_user_data_sources TO prisma;
+GRANT ALL ON TABLE public.climate_user_data_sources TO anon;
+GRANT ALL ON TABLE public.climate_user_data_sources TO authenticated;
+GRANT ALL ON TABLE public.climate_user_data_sources TO service_role;
+GRANT ALL ON TABLE public.climate_user_data_sources TO prisma;
+
+
+--
+-- Name: TABLE collectibles_appraisals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_appraisals TO anon;
+GRANT ALL ON TABLE public.collectibles_appraisals TO authenticated;
+GRANT ALL ON TABLE public.collectibles_appraisals TO service_role;
+GRANT ALL ON TABLE public.collectibles_appraisals TO prisma;
+
+
+--
+-- Name: TABLE collectibles_authentication_records; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_authentication_records TO anon;
+GRANT ALL ON TABLE public.collectibles_authentication_records TO authenticated;
+GRANT ALL ON TABLE public.collectibles_authentication_records TO service_role;
+GRANT ALL ON TABLE public.collectibles_authentication_records TO prisma;
+
+
+--
+-- Name: TABLE collectibles_condition_reports; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_condition_reports TO anon;
+GRANT ALL ON TABLE public.collectibles_condition_reports TO authenticated;
+GRANT ALL ON TABLE public.collectibles_condition_reports TO service_role;
+GRANT ALL ON TABLE public.collectibles_condition_reports TO prisma;
+
+
+--
+-- Name: TABLE collectibles_insurance_policies; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_insurance_policies TO anon;
+GRANT ALL ON TABLE public.collectibles_insurance_policies TO authenticated;
+GRANT ALL ON TABLE public.collectibles_insurance_policies TO service_role;
+GRANT ALL ON TABLE public.collectibles_insurance_policies TO prisma;
+
+
+--
+-- Name: TABLE collectibles_insurance_valuations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_insurance_valuations TO anon;
+GRANT ALL ON TABLE public.collectibles_insurance_valuations TO authenticated;
+GRANT ALL ON TABLE public.collectibles_insurance_valuations TO service_role;
+GRANT ALL ON TABLE public.collectibles_insurance_valuations TO prisma;
+
+
+--
+-- Name: TABLE collectibles_market_comparables; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_market_comparables TO anon;
+GRANT ALL ON TABLE public.collectibles_market_comparables TO authenticated;
+GRANT ALL ON TABLE public.collectibles_market_comparables TO service_role;
+GRANT ALL ON TABLE public.collectibles_market_comparables TO prisma;
+
+
+--
+-- Name: TABLE collectibles_market_metrics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_market_metrics TO anon;
+GRANT ALL ON TABLE public.collectibles_market_metrics TO authenticated;
+GRANT ALL ON TABLE public.collectibles_market_metrics TO service_role;
+GRANT ALL ON TABLE public.collectibles_market_metrics TO prisma;
 
 
 --
 -- Name: TABLE collectibles_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.collectibles_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.collectibles_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.collectibles_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.collectibles_products TO prisma;
+GRANT ALL ON TABLE public.collectibles_products TO anon;
+GRANT ALL ON TABLE public.collectibles_products TO authenticated;
+GRANT ALL ON TABLE public.collectibles_products TO service_role;
+GRANT ALL ON TABLE public.collectibles_products TO prisma;
+
+
+--
+-- Name: TABLE collectibles_provenance; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_provenance TO anon;
+GRANT ALL ON TABLE public.collectibles_provenance TO authenticated;
+GRANT ALL ON TABLE public.collectibles_provenance TO service_role;
+GRANT ALL ON TABLE public.collectibles_provenance TO prisma;
+
+
+--
+-- Name: TABLE collectibles_provenance_records; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_provenance_records TO anon;
+GRANT ALL ON TABLE public.collectibles_provenance_records TO authenticated;
+GRANT ALL ON TABLE public.collectibles_provenance_records TO service_role;
+GRANT ALL ON TABLE public.collectibles_provenance_records TO prisma;
+
+
+--
+-- Name: TABLE collectibles_rarity_scores; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_rarity_scores TO anon;
+GRANT ALL ON TABLE public.collectibles_rarity_scores TO authenticated;
+GRANT ALL ON TABLE public.collectibles_rarity_scores TO service_role;
+GRANT ALL ON TABLE public.collectibles_rarity_scores TO prisma;
+
+
+--
+-- Name: TABLE collectibles_risk_assessments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_risk_assessments TO anon;
+GRANT ALL ON TABLE public.collectibles_risk_assessments TO authenticated;
+GRANT ALL ON TABLE public.collectibles_risk_assessments TO service_role;
+GRANT ALL ON TABLE public.collectibles_risk_assessments TO prisma;
+
+
+--
+-- Name: TABLE collectibles_storage_facilities; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.collectibles_storage_facilities TO anon;
+GRANT ALL ON TABLE public.collectibles_storage_facilities TO authenticated;
+GRANT ALL ON TABLE public.collectibles_storage_facilities TO service_role;
+GRANT ALL ON TABLE public.collectibles_storage_facilities TO prisma;
 
 
 --
 -- Name: TABLE commodities_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.commodities_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.commodities_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.commodities_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.commodities_products TO prisma;
+GRANT ALL ON TABLE public.commodities_products TO anon;
+GRANT ALL ON TABLE public.commodities_products TO authenticated;
+GRANT ALL ON TABLE public.commodities_products TO service_role;
+GRANT ALL ON TABLE public.commodities_products TO prisma;
+
+
+--
+-- Name: TABLE commodity_handling_costs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_handling_costs TO anon;
+GRANT ALL ON TABLE public.commodity_handling_costs TO authenticated;
+GRANT ALL ON TABLE public.commodity_handling_costs TO service_role;
+GRANT ALL ON TABLE public.commodity_handling_costs TO prisma;
+
+
+--
+-- Name: TABLE commodity_implied_volatility; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_implied_volatility TO anon;
+GRANT ALL ON TABLE public.commodity_implied_volatility TO authenticated;
+GRANT ALL ON TABLE public.commodity_implied_volatility TO service_role;
+GRANT ALL ON TABLE public.commodity_implied_volatility TO prisma;
+
+
+--
+-- Name: TABLE commodity_insurance_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_insurance_rates TO anon;
+GRANT ALL ON TABLE public.commodity_insurance_rates TO authenticated;
+GRANT ALL ON TABLE public.commodity_insurance_rates TO service_role;
+GRANT ALL ON TABLE public.commodity_insurance_rates TO prisma;
+
+
+--
+-- Name: TABLE commodity_market_data; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_market_data TO anon;
+GRANT ALL ON TABLE public.commodity_market_data TO authenticated;
+GRANT ALL ON TABLE public.commodity_market_data TO service_role;
+GRANT ALL ON TABLE public.commodity_market_data TO prisma;
+
+
+--
+-- Name: TABLE commodity_quality_multipliers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_quality_multipliers TO anon;
+GRANT ALL ON TABLE public.commodity_quality_multipliers TO authenticated;
+GRANT ALL ON TABLE public.commodity_quality_multipliers TO service_role;
+GRANT ALL ON TABLE public.commodity_quality_multipliers TO prisma;
+
+
+--
+-- Name: TABLE commodity_storage_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_storage_rates TO anon;
+GRANT ALL ON TABLE public.commodity_storage_rates TO authenticated;
+GRANT ALL ON TABLE public.commodity_storage_rates TO service_role;
+GRANT ALL ON TABLE public.commodity_storage_rates TO prisma;
 
 
 --
 -- Name: TABLE compliance_alerts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_alerts TO prisma;
+GRANT ALL ON TABLE public.compliance_alerts TO anon;
+GRANT ALL ON TABLE public.compliance_alerts TO authenticated;
+GRANT ALL ON TABLE public.compliance_alerts TO service_role;
+GRANT ALL ON TABLE public.compliance_alerts TO prisma;
 
 
 --
 -- Name: TABLE compliance_audit_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_audit_logs TO prisma;
+GRANT ALL ON TABLE public.compliance_audit_logs TO anon;
+GRANT ALL ON TABLE public.compliance_audit_logs TO authenticated;
+GRANT ALL ON TABLE public.compliance_audit_logs TO service_role;
+GRANT ALL ON TABLE public.compliance_audit_logs TO prisma;
 
 
 --
 -- Name: TABLE compliance_checks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_checks TO prisma;
+GRANT ALL ON TABLE public.compliance_checks TO anon;
+GRANT ALL ON TABLE public.compliance_checks TO authenticated;
+GRANT ALL ON TABLE public.compliance_checks TO service_role;
+GRANT ALL ON TABLE public.compliance_checks TO prisma;
 
 
 --
 -- Name: TABLE compliance_metrics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_metrics TO prisma;
+GRANT ALL ON TABLE public.compliance_metrics TO anon;
+GRANT ALL ON TABLE public.compliance_metrics TO authenticated;
+GRANT ALL ON TABLE public.compliance_metrics TO service_role;
+GRANT ALL ON TABLE public.compliance_metrics TO prisma;
 
 
 --
 -- Name: TABLE compliance_reports; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_reports TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_reports TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_reports TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_reports TO prisma;
+GRANT ALL ON TABLE public.compliance_reports TO anon;
+GRANT ALL ON TABLE public.compliance_reports TO authenticated;
+GRANT ALL ON TABLE public.compliance_reports TO service_role;
+GRANT ALL ON TABLE public.compliance_reports TO prisma;
 
 
 --
 -- Name: TABLE compliance_settings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_settings TO prisma;
+GRANT ALL ON TABLE public.compliance_settings TO anon;
+GRANT ALL ON TABLE public.compliance_settings TO authenticated;
+GRANT ALL ON TABLE public.compliance_settings TO service_role;
+GRANT ALL ON TABLE public.compliance_settings TO prisma;
 
 
 --
 -- Name: TABLE compliance_violations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.compliance_violations TO prisma;
+GRANT ALL ON TABLE public.compliance_violations TO anon;
+GRANT ALL ON TABLE public.compliance_violations TO authenticated;
+GRANT ALL ON TABLE public.compliance_violations TO service_role;
+GRANT ALL ON TABLE public.compliance_violations TO prisma;
 
 
 --
 -- Name: TABLE consensus_settings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.consensus_settings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.consensus_settings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.consensus_settings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.consensus_settings TO prisma;
+GRANT ALL ON TABLE public.consensus_settings TO anon;
+GRANT ALL ON TABLE public.consensus_settings TO authenticated;
+GRANT ALL ON TABLE public.consensus_settings TO service_role;
+GRANT ALL ON TABLE public.consensus_settings TO prisma;
+
+
+--
+-- Name: TABLE contract_master_versions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.contract_master_versions TO anon;
+GRANT ALL ON TABLE public.contract_master_versions TO authenticated;
+GRANT ALL ON TABLE public.contract_master_versions TO service_role;
+GRANT ALL ON TABLE public.contract_master_versions TO prisma;
+
+
+--
+-- Name: TABLE contract_masters; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.contract_masters TO anon;
+GRANT ALL ON TABLE public.contract_masters TO authenticated;
+GRANT ALL ON TABLE public.contract_masters TO service_role;
+GRANT ALL ON TABLE public.contract_masters TO prisma;
+
+
+--
+-- Name: TABLE corporate_actions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.corporate_actions TO anon;
+GRANT ALL ON TABLE public.corporate_actions TO authenticated;
+GRANT ALL ON TABLE public.corporate_actions TO service_role;
+GRANT ALL ON TABLE public.corporate_actions TO prisma;
 
 
 --
 -- Name: TABLE credential_usage_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.credential_usage_logs TO prisma;
+GRANT ALL ON TABLE public.credential_usage_logs TO anon;
+GRANT ALL ON TABLE public.credential_usage_logs TO authenticated;
+GRANT ALL ON TABLE public.credential_usage_logs TO service_role;
+GRANT ALL ON TABLE public.credential_usage_logs TO prisma;
 
 
 --
 -- Name: TABLE critical_alerts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.critical_alerts TO prisma;
+GRANT ALL ON TABLE public.critical_alerts TO anon;
+GRANT ALL ON TABLE public.critical_alerts TO authenticated;
+GRANT ALL ON TABLE public.critical_alerts TO service_role;
+GRANT ALL ON TABLE public.critical_alerts TO prisma;
 
 
 --
 -- Name: TABLE dashboard_updates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dashboard_updates TO prisma;
+GRANT ALL ON TABLE public.dashboard_updates TO anon;
+GRANT ALL ON TABLE public.dashboard_updates TO authenticated;
+GRANT ALL ON TABLE public.dashboard_updates TO service_role;
+GRANT ALL ON TABLE public.dashboard_updates TO prisma;
 
 
 --
 -- Name: TABLE data_source_mappings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.data_source_mappings TO prisma;
+GRANT ALL ON TABLE public.data_source_mappings TO anon;
+GRANT ALL ON TABLE public.data_source_mappings TO authenticated;
+GRANT ALL ON TABLE public.data_source_mappings TO service_role;
+GRANT ALL ON TABLE public.data_source_mappings TO prisma;
 
 
 --
 -- Name: TABLE database_audit_coverage; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.database_audit_coverage TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.database_audit_coverage TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.database_audit_coverage TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.database_audit_coverage TO prisma;
+GRANT ALL ON TABLE public.database_audit_coverage TO anon;
+GRANT ALL ON TABLE public.database_audit_coverage TO authenticated;
+GRANT ALL ON TABLE public.database_audit_coverage TO service_role;
+GRANT ALL ON TABLE public.database_audit_coverage TO prisma;
 
 
 --
 -- Name: TABLE deployment_rate_limits; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.deployment_rate_limits TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.deployment_rate_limits TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.deployment_rate_limits TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.deployment_rate_limits TO prisma;
+GRANT ALL ON TABLE public.deployment_rate_limits TO anon;
+GRANT ALL ON TABLE public.deployment_rate_limits TO authenticated;
+GRANT ALL ON TABLE public.deployment_rate_limits TO service_role;
+GRANT ALL ON TABLE public.deployment_rate_limits TO prisma;
 
 
 --
 -- Name: TABLE dfns_activity_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_activity_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_activity_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_activity_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_activity_logs TO prisma;
+GRANT ALL ON TABLE public.dfns_activity_logs TO anon;
+GRANT ALL ON TABLE public.dfns_activity_logs TO authenticated;
+GRANT ALL ON TABLE public.dfns_activity_logs TO service_role;
+GRANT ALL ON TABLE public.dfns_activity_logs TO prisma;
 
 
 --
 -- Name: TABLE dfns_api_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_api_requests TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_api_requests TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_api_requests TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_api_requests TO prisma;
+GRANT ALL ON TABLE public.dfns_api_requests TO anon;
+GRANT ALL ON TABLE public.dfns_api_requests TO authenticated;
+GRANT ALL ON TABLE public.dfns_api_requests TO service_role;
+GRANT ALL ON TABLE public.dfns_api_requests TO prisma;
 
 
 --
 -- Name: TABLE dfns_applications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_applications TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_applications TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_applications TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_applications TO prisma;
+GRANT ALL ON TABLE public.dfns_applications TO anon;
+GRANT ALL ON TABLE public.dfns_applications TO authenticated;
+GRANT ALL ON TABLE public.dfns_applications TO service_role;
+GRANT ALL ON TABLE public.dfns_applications TO prisma;
 
 
 --
 -- Name: TABLE dfns_authentication_challenges; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_authentication_challenges TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_authentication_challenges TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_authentication_challenges TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_authentication_challenges TO prisma;
+GRANT ALL ON TABLE public.dfns_authentication_challenges TO anon;
+GRANT ALL ON TABLE public.dfns_authentication_challenges TO authenticated;
+GRANT ALL ON TABLE public.dfns_authentication_challenges TO service_role;
+GRANT ALL ON TABLE public.dfns_authentication_challenges TO prisma;
 
 
 --
 -- Name: TABLE dfns_broadcast_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_broadcast_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_broadcast_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_broadcast_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_broadcast_transactions TO prisma;
+GRANT ALL ON TABLE public.dfns_broadcast_transactions TO anon;
+GRANT ALL ON TABLE public.dfns_broadcast_transactions TO authenticated;
+GRANT ALL ON TABLE public.dfns_broadcast_transactions TO service_role;
+GRANT ALL ON TABLE public.dfns_broadcast_transactions TO prisma;
 
 
 --
 -- Name: TABLE dfns_credential_challenges; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credential_challenges TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credential_challenges TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credential_challenges TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credential_challenges TO prisma;
+GRANT ALL ON TABLE public.dfns_credential_challenges TO anon;
+GRANT ALL ON TABLE public.dfns_credential_challenges TO authenticated;
+GRANT ALL ON TABLE public.dfns_credential_challenges TO service_role;
+GRANT ALL ON TABLE public.dfns_credential_challenges TO prisma;
 
 
 --
 -- Name: TABLE dfns_credentials; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credentials TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credentials TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credentials TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_credentials TO prisma;
+GRANT ALL ON TABLE public.dfns_credentials TO anon;
+GRANT ALL ON TABLE public.dfns_credentials TO authenticated;
+GRANT ALL ON TABLE public.dfns_credentials TO service_role;
+GRANT ALL ON TABLE public.dfns_credentials TO prisma;
 
 
 --
 -- Name: TABLE dfns_exchange_accounts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_accounts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_accounts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_accounts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_accounts TO prisma;
+GRANT ALL ON TABLE public.dfns_exchange_accounts TO anon;
+GRANT ALL ON TABLE public.dfns_exchange_accounts TO authenticated;
+GRANT ALL ON TABLE public.dfns_exchange_accounts TO service_role;
+GRANT ALL ON TABLE public.dfns_exchange_accounts TO prisma;
 
 
 --
 -- Name: TABLE dfns_exchange_balances; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_balances TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_balances TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_balances TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_balances TO prisma;
+GRANT ALL ON TABLE public.dfns_exchange_balances TO anon;
+GRANT ALL ON TABLE public.dfns_exchange_balances TO authenticated;
+GRANT ALL ON TABLE public.dfns_exchange_balances TO service_role;
+GRANT ALL ON TABLE public.dfns_exchange_balances TO prisma;
 
 
 --
 -- Name: TABLE dfns_exchange_integrations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_integrations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_integrations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_integrations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_exchange_integrations TO prisma;
+GRANT ALL ON TABLE public.dfns_exchange_integrations TO anon;
+GRANT ALL ON TABLE public.dfns_exchange_integrations TO authenticated;
+GRANT ALL ON TABLE public.dfns_exchange_integrations TO service_role;
+GRANT ALL ON TABLE public.dfns_exchange_integrations TO prisma;
 
 
 --
 -- Name: TABLE dfns_fee_sponsors; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fee_sponsors TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fee_sponsors TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fee_sponsors TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fee_sponsors TO prisma;
+GRANT ALL ON TABLE public.dfns_fee_sponsors TO anon;
+GRANT ALL ON TABLE public.dfns_fee_sponsors TO authenticated;
+GRANT ALL ON TABLE public.dfns_fee_sponsors TO service_role;
+GRANT ALL ON TABLE public.dfns_fee_sponsors TO prisma;
 
 
 --
 -- Name: TABLE dfns_fiat_activity_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_activity_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_activity_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_activity_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_activity_logs TO prisma;
+GRANT ALL ON TABLE public.dfns_fiat_activity_logs TO anon;
+GRANT ALL ON TABLE public.dfns_fiat_activity_logs TO authenticated;
+GRANT ALL ON TABLE public.dfns_fiat_activity_logs TO service_role;
+GRANT ALL ON TABLE public.dfns_fiat_activity_logs TO prisma;
 
 
 --
 -- Name: TABLE dfns_fiat_provider_configs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_provider_configs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_provider_configs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_provider_configs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_provider_configs TO prisma;
+GRANT ALL ON TABLE public.dfns_fiat_provider_configs TO anon;
+GRANT ALL ON TABLE public.dfns_fiat_provider_configs TO authenticated;
+GRANT ALL ON TABLE public.dfns_fiat_provider_configs TO service_role;
+GRANT ALL ON TABLE public.dfns_fiat_provider_configs TO prisma;
 
 
 --
 -- Name: TABLE dfns_fiat_quotes; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_quotes TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_quotes TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_quotes TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_quotes TO prisma;
+GRANT ALL ON TABLE public.dfns_fiat_quotes TO anon;
+GRANT ALL ON TABLE public.dfns_fiat_quotes TO authenticated;
+GRANT ALL ON TABLE public.dfns_fiat_quotes TO service_role;
+GRANT ALL ON TABLE public.dfns_fiat_quotes TO prisma;
 
 
 --
 -- Name: TABLE dfns_fiat_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_fiat_transactions TO prisma;
+GRANT ALL ON TABLE public.dfns_fiat_transactions TO anon;
+GRANT ALL ON TABLE public.dfns_fiat_transactions TO authenticated;
+GRANT ALL ON TABLE public.dfns_fiat_transactions TO service_role;
+GRANT ALL ON TABLE public.dfns_fiat_transactions TO prisma;
 
 
 --
 -- Name: TABLE dfns_permission_assignments; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permission_assignments TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permission_assignments TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permission_assignments TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permission_assignments TO prisma;
+GRANT ALL ON TABLE public.dfns_permission_assignments TO anon;
+GRANT ALL ON TABLE public.dfns_permission_assignments TO authenticated;
+GRANT ALL ON TABLE public.dfns_permission_assignments TO service_role;
+GRANT ALL ON TABLE public.dfns_permission_assignments TO prisma;
 
 
 --
 -- Name: TABLE dfns_permissions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permissions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permissions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permissions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_permissions TO prisma;
+GRANT ALL ON TABLE public.dfns_permissions TO anon;
+GRANT ALL ON TABLE public.dfns_permissions TO authenticated;
+GRANT ALL ON TABLE public.dfns_permissions TO service_role;
+GRANT ALL ON TABLE public.dfns_permissions TO prisma;
 
 
 --
 -- Name: TABLE dfns_personal_access_tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_personal_access_tokens TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_personal_access_tokens TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_personal_access_tokens TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_personal_access_tokens TO prisma;
+GRANT ALL ON TABLE public.dfns_personal_access_tokens TO anon;
+GRANT ALL ON TABLE public.dfns_personal_access_tokens TO authenticated;
+GRANT ALL ON TABLE public.dfns_personal_access_tokens TO service_role;
+GRANT ALL ON TABLE public.dfns_personal_access_tokens TO prisma;
 
 
 --
 -- Name: TABLE dfns_policies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policies TO prisma;
+GRANT ALL ON TABLE public.dfns_policies TO anon;
+GRANT ALL ON TABLE public.dfns_policies TO authenticated;
+GRANT ALL ON TABLE public.dfns_policies TO service_role;
+GRANT ALL ON TABLE public.dfns_policies TO prisma;
 
 
 --
 -- Name: TABLE dfns_policy_approval_decisions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_decisions TO prisma;
+GRANT ALL ON TABLE public.dfns_policy_approval_decisions TO anon;
+GRANT ALL ON TABLE public.dfns_policy_approval_decisions TO authenticated;
+GRANT ALL ON TABLE public.dfns_policy_approval_decisions TO service_role;
+GRANT ALL ON TABLE public.dfns_policy_approval_decisions TO prisma;
 
 
 --
 -- Name: TABLE dfns_policy_approval_groups; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approval_groups TO prisma;
+GRANT ALL ON TABLE public.dfns_policy_approval_groups TO anon;
+GRANT ALL ON TABLE public.dfns_policy_approval_groups TO authenticated;
+GRANT ALL ON TABLE public.dfns_policy_approval_groups TO service_role;
+GRANT ALL ON TABLE public.dfns_policy_approval_groups TO prisma;
 
 
 --
 -- Name: TABLE dfns_policy_approvals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_approvals TO prisma;
+GRANT ALL ON TABLE public.dfns_policy_approvals TO anon;
+GRANT ALL ON TABLE public.dfns_policy_approvals TO authenticated;
+GRANT ALL ON TABLE public.dfns_policy_approvals TO service_role;
+GRANT ALL ON TABLE public.dfns_policy_approvals TO prisma;
 
 
 --
 -- Name: TABLE dfns_policy_change_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_change_requests TO prisma;
+GRANT ALL ON TABLE public.dfns_policy_change_requests TO anon;
+GRANT ALL ON TABLE public.dfns_policy_change_requests TO authenticated;
+GRANT ALL ON TABLE public.dfns_policy_change_requests TO service_role;
+GRANT ALL ON TABLE public.dfns_policy_change_requests TO prisma;
 
 
 --
 -- Name: TABLE dfns_policy_evaluations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_policy_evaluations TO prisma;
+GRANT ALL ON TABLE public.dfns_policy_evaluations TO anon;
+GRANT ALL ON TABLE public.dfns_policy_evaluations TO authenticated;
+GRANT ALL ON TABLE public.dfns_policy_evaluations TO service_role;
+GRANT ALL ON TABLE public.dfns_policy_evaluations TO prisma;
 
 
 --
 -- Name: TABLE dfns_service_accounts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_service_accounts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_service_accounts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_service_accounts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_service_accounts TO prisma;
+GRANT ALL ON TABLE public.dfns_service_accounts TO anon;
+GRANT ALL ON TABLE public.dfns_service_accounts TO authenticated;
+GRANT ALL ON TABLE public.dfns_service_accounts TO service_role;
+GRANT ALL ON TABLE public.dfns_service_accounts TO prisma;
 
 
 --
 -- Name: TABLE dfns_signatures; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signatures TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signatures TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signatures TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signatures TO prisma;
+GRANT ALL ON TABLE public.dfns_signatures TO anon;
+GRANT ALL ON TABLE public.dfns_signatures TO authenticated;
+GRANT ALL ON TABLE public.dfns_signatures TO service_role;
+GRANT ALL ON TABLE public.dfns_signatures TO prisma;
 
 
 --
 -- Name: TABLE dfns_signing_keys; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signing_keys TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signing_keys TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signing_keys TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_signing_keys TO prisma;
+GRANT ALL ON TABLE public.dfns_signing_keys TO anon;
+GRANT ALL ON TABLE public.dfns_signing_keys TO authenticated;
+GRANT ALL ON TABLE public.dfns_signing_keys TO service_role;
+GRANT ALL ON TABLE public.dfns_signing_keys TO prisma;
 
 
 --
 -- Name: TABLE dfns_sponsored_fees; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sponsored_fees TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sponsored_fees TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sponsored_fees TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sponsored_fees TO prisma;
+GRANT ALL ON TABLE public.dfns_sponsored_fees TO anon;
+GRANT ALL ON TABLE public.dfns_sponsored_fees TO authenticated;
+GRANT ALL ON TABLE public.dfns_sponsored_fees TO service_role;
+GRANT ALL ON TABLE public.dfns_sponsored_fees TO prisma;
 
 
 --
 -- Name: TABLE dfns_staking_integrations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_staking_integrations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_staking_integrations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_staking_integrations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_staking_integrations TO prisma;
+GRANT ALL ON TABLE public.dfns_staking_integrations TO anon;
+GRANT ALL ON TABLE public.dfns_staking_integrations TO authenticated;
+GRANT ALL ON TABLE public.dfns_staking_integrations TO service_role;
+GRANT ALL ON TABLE public.dfns_staking_integrations TO prisma;
 
 
 --
 -- Name: TABLE dfns_sync_status; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sync_status TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sync_status TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sync_status TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_sync_status TO prisma;
+GRANT ALL ON TABLE public.dfns_sync_status TO anon;
+GRANT ALL ON TABLE public.dfns_sync_status TO authenticated;
+GRANT ALL ON TABLE public.dfns_sync_status TO service_role;
+GRANT ALL ON TABLE public.dfns_sync_status TO prisma;
 
 
 --
 -- Name: TABLE dfns_transaction_history; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transaction_history TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transaction_history TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transaction_history TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transaction_history TO prisma;
+GRANT ALL ON TABLE public.dfns_transaction_history TO anon;
+GRANT ALL ON TABLE public.dfns_transaction_history TO authenticated;
+GRANT ALL ON TABLE public.dfns_transaction_history TO service_role;
+GRANT ALL ON TABLE public.dfns_transaction_history TO prisma;
 
 
 --
 -- Name: TABLE dfns_transfers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transfers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transfers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transfers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_transfers TO prisma;
+GRANT ALL ON TABLE public.dfns_transfers TO anon;
+GRANT ALL ON TABLE public.dfns_transfers TO authenticated;
+GRANT ALL ON TABLE public.dfns_transfers TO service_role;
+GRANT ALL ON TABLE public.dfns_transfers TO prisma;
 
 
 --
 -- Name: TABLE dfns_user_action_challenges; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_action_challenges TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_action_challenges TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_action_challenges TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_action_challenges TO prisma;
+GRANT ALL ON TABLE public.dfns_user_action_challenges TO anon;
+GRANT ALL ON TABLE public.dfns_user_action_challenges TO authenticated;
+GRANT ALL ON TABLE public.dfns_user_action_challenges TO service_role;
+GRANT ALL ON TABLE public.dfns_user_action_challenges TO prisma;
 
 
 --
 -- Name: TABLE dfns_user_sessions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_sessions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_sessions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_sessions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_user_sessions TO prisma;
+GRANT ALL ON TABLE public.dfns_user_sessions TO anon;
+GRANT ALL ON TABLE public.dfns_user_sessions TO authenticated;
+GRANT ALL ON TABLE public.dfns_user_sessions TO service_role;
+GRANT ALL ON TABLE public.dfns_user_sessions TO prisma;
 
 
 --
 -- Name: TABLE dfns_users; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_users TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_users TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_users TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_users TO prisma;
+GRANT ALL ON TABLE public.dfns_users TO anon;
+GRANT ALL ON TABLE public.dfns_users TO authenticated;
+GRANT ALL ON TABLE public.dfns_users TO service_role;
+GRANT ALL ON TABLE public.dfns_users TO prisma;
 
 
 --
 -- Name: TABLE dfns_validators; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_validators TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_validators TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_validators TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_validators TO prisma;
+GRANT ALL ON TABLE public.dfns_validators TO anon;
+GRANT ALL ON TABLE public.dfns_validators TO authenticated;
+GRANT ALL ON TABLE public.dfns_validators TO service_role;
+GRANT ALL ON TABLE public.dfns_validators TO prisma;
 
 
 --
 -- Name: TABLE dfns_wallet_balances; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_balances TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_balances TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_balances TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_balances TO prisma;
+GRANT ALL ON TABLE public.dfns_wallet_balances TO anon;
+GRANT ALL ON TABLE public.dfns_wallet_balances TO authenticated;
+GRANT ALL ON TABLE public.dfns_wallet_balances TO service_role;
+GRANT ALL ON TABLE public.dfns_wallet_balances TO prisma;
 
 
 --
 -- Name: TABLE dfns_wallet_nfts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_nfts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_nfts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_nfts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallet_nfts TO prisma;
+GRANT ALL ON TABLE public.dfns_wallet_nfts TO anon;
+GRANT ALL ON TABLE public.dfns_wallet_nfts TO authenticated;
+GRANT ALL ON TABLE public.dfns_wallet_nfts TO service_role;
+GRANT ALL ON TABLE public.dfns_wallet_nfts TO prisma;
 
 
 --
 -- Name: TABLE dfns_wallets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_wallets TO prisma;
+GRANT ALL ON TABLE public.dfns_wallets TO anon;
+GRANT ALL ON TABLE public.dfns_wallets TO authenticated;
+GRANT ALL ON TABLE public.dfns_wallets TO service_role;
+GRANT ALL ON TABLE public.dfns_wallets TO prisma;
 
 
 --
 -- Name: TABLE dfns_webhook_deliveries; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhook_deliveries TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhook_deliveries TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhook_deliveries TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhook_deliveries TO prisma;
+GRANT ALL ON TABLE public.dfns_webhook_deliveries TO anon;
+GRANT ALL ON TABLE public.dfns_webhook_deliveries TO authenticated;
+GRANT ALL ON TABLE public.dfns_webhook_deliveries TO service_role;
+GRANT ALL ON TABLE public.dfns_webhook_deliveries TO prisma;
 
 
 --
 -- Name: TABLE dfns_webhooks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhooks TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhooks TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhooks TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.dfns_webhooks TO prisma;
+GRANT ALL ON TABLE public.dfns_webhooks TO anon;
+GRANT ALL ON TABLE public.dfns_webhooks TO authenticated;
+GRANT ALL ON TABLE public.dfns_webhooks TO service_role;
+GRANT ALL ON TABLE public.dfns_webhooks TO prisma;
 
 
 --
 -- Name: TABLE digital_tokenised_funds; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenised_funds TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenised_funds TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenised_funds TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenised_funds TO prisma;
+GRANT ALL ON TABLE public.digital_tokenised_funds TO anon;
+GRANT ALL ON TABLE public.digital_tokenised_funds TO authenticated;
+GRANT ALL ON TABLE public.digital_tokenised_funds TO service_role;
+GRANT ALL ON TABLE public.digital_tokenised_funds TO prisma;
 
 
 --
 -- Name: TABLE digital_tokenized_fund_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenized_fund_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenized_fund_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenized_fund_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.digital_tokenized_fund_products TO prisma;
+GRANT ALL ON TABLE public.digital_tokenized_fund_products TO anon;
+GRANT ALL ON TABLE public.digital_tokenized_fund_products TO authenticated;
+GRANT ALL ON TABLE public.digital_tokenized_fund_products TO service_role;
+GRANT ALL ON TABLE public.digital_tokenized_fund_products TO prisma;
 
 
 --
 -- Name: TABLE distribution_redemptions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distribution_redemptions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distribution_redemptions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distribution_redemptions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.distribution_redemptions TO prisma;
+GRANT ALL ON TABLE public.distribution_redemptions TO anon;
+GRANT ALL ON TABLE public.distribution_redemptions TO authenticated;
+GRANT ALL ON TABLE public.distribution_redemptions TO service_role;
+GRANT ALL ON TABLE public.distribution_redemptions TO prisma;
 
 
 --
 -- Name: TABLE document_approvals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_approvals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_approvals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_approvals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_approvals TO prisma;
+GRANT ALL ON TABLE public.document_approvals TO anon;
+GRANT ALL ON TABLE public.document_approvals TO authenticated;
+GRANT ALL ON TABLE public.document_approvals TO service_role;
+GRANT ALL ON TABLE public.document_approvals TO prisma;
 
 
 --
 -- Name: TABLE document_versions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_versions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_versions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_versions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_versions TO prisma;
+GRANT ALL ON TABLE public.document_versions TO anon;
+GRANT ALL ON TABLE public.document_versions TO authenticated;
+GRANT ALL ON TABLE public.document_versions TO service_role;
+GRANT ALL ON TABLE public.document_versions TO prisma;
 
 
 --
 -- Name: TABLE document_workflows; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_workflows TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_workflows TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_workflows TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.document_workflows TO prisma;
+GRANT ALL ON TABLE public.document_workflows TO anon;
+GRANT ALL ON TABLE public.document_workflows TO authenticated;
+GRANT ALL ON TABLE public.document_workflows TO service_role;
+GRANT ALL ON TABLE public.document_workflows TO prisma;
 
 
 --
 -- Name: TABLE documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.documents TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.documents TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.documents TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.documents TO prisma;
+GRANT ALL ON TABLE public.documents TO anon;
+GRANT ALL ON TABLE public.documents TO authenticated;
+GRANT ALL ON TABLE public.documents TO service_role;
+GRANT ALL ON TABLE public.documents TO prisma;
+
+
+--
+-- Name: TABLE dtf_blockchain_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.dtf_blockchain_events TO anon;
+GRANT ALL ON TABLE public.dtf_blockchain_events TO authenticated;
+GRANT ALL ON TABLE public.dtf_blockchain_events TO service_role;
+GRANT ALL ON TABLE public.dtf_blockchain_events TO prisma;
+
+
+--
+-- Name: TABLE dtf_minting_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.dtf_minting_history TO anon;
+GRANT ALL ON TABLE public.dtf_minting_history TO authenticated;
+GRANT ALL ON TABLE public.dtf_minting_history TO service_role;
+GRANT ALL ON TABLE public.dtf_minting_history TO prisma;
+
+
+--
+-- Name: TABLE dtf_nav_snapshots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.dtf_nav_snapshots TO anon;
+GRANT ALL ON TABLE public.dtf_nav_snapshots TO authenticated;
+GRANT ALL ON TABLE public.dtf_nav_snapshots TO service_role;
+GRANT ALL ON TABLE public.dtf_nav_snapshots TO prisma;
+
+
+--
+-- Name: TABLE dtf_redemption_requests; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.dtf_redemption_requests TO anon;
+GRANT ALL ON TABLE public.dtf_redemption_requests TO authenticated;
+GRANT ALL ON TABLE public.dtf_redemption_requests TO service_role;
+GRANT ALL ON TABLE public.dtf_redemption_requests TO prisma;
+
+
+--
+-- Name: TABLE dtf_token_metadata; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.dtf_token_metadata TO anon;
+GRANT ALL ON TABLE public.dtf_token_metadata TO authenticated;
+GRANT ALL ON TABLE public.dtf_token_metadata TO service_role;
+GRANT ALL ON TABLE public.dtf_token_metadata TO prisma;
 
 
 --
 -- Name: TABLE energy_assets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_assets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_assets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_assets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_assets TO prisma;
+GRANT ALL ON TABLE public.energy_assets TO anon;
+GRANT ALL ON TABLE public.energy_assets TO authenticated;
+GRANT ALL ON TABLE public.energy_assets TO service_role;
+GRANT ALL ON TABLE public.energy_assets TO prisma;
+
+
+--
+-- Name: TABLE energy_futures_contracts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.energy_futures_contracts TO anon;
+GRANT ALL ON TABLE public.energy_futures_contracts TO authenticated;
+GRANT ALL ON TABLE public.energy_futures_contracts TO service_role;
+GRANT ALL ON TABLE public.energy_futures_contracts TO prisma;
 
 
 --
 -- Name: TABLE energy_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.energy_products TO prisma;
+GRANT ALL ON TABLE public.energy_products TO anon;
+GRANT ALL ON TABLE public.energy_products TO authenticated;
+GRANT ALL ON TABLE public.energy_products TO service_role;
+GRANT ALL ON TABLE public.energy_products TO prisma;
+
+
+--
+-- Name: TABLE environmental_certifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.environmental_certifications TO anon;
+GRANT ALL ON TABLE public.environmental_certifications TO authenticated;
+GRANT ALL ON TABLE public.environmental_certifications TO service_role;
+GRANT ALL ON TABLE public.environmental_certifications TO prisma;
 
 
 --
 -- Name: TABLE equity_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.equity_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.equity_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.equity_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.equity_products TO prisma;
+GRANT ALL ON TABLE public.equity_products TO anon;
+GRANT ALL ON TABLE public.equity_products TO authenticated;
+GRANT ALL ON TABLE public.equity_products TO service_role;
+GRANT ALL ON TABLE public.equity_products TO prisma;
 
 
 --
 -- Name: TABLE external_api_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.external_api_cache TO prisma;
+GRANT ALL ON TABLE public.external_api_cache TO anon;
+GRANT ALL ON TABLE public.external_api_cache TO authenticated;
+GRANT ALL ON TABLE public.external_api_cache TO service_role;
+GRANT ALL ON TABLE public.external_api_cache TO prisma;
 
 
 --
 -- Name: TABLE facet_registry; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.facet_registry TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.facet_registry TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.facet_registry TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.facet_registry TO prisma;
+GRANT ALL ON TABLE public.facet_registry TO anon;
+GRANT ALL ON TABLE public.facet_registry TO authenticated;
+GRANT ALL ON TABLE public.facet_registry TO service_role;
+GRANT ALL ON TABLE public.facet_registry TO prisma;
 
 
 --
 -- Name: TABLE faucet_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.faucet_requests TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.faucet_requests TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.faucet_requests TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.faucet_requests TO prisma;
+GRANT ALL ON TABLE public.faucet_requests TO anon;
+GRANT ALL ON TABLE public.faucet_requests TO authenticated;
+GRANT ALL ON TABLE public.faucet_requests TO service_role;
+GRANT ALL ON TABLE public.faucet_requests TO prisma;
 
 
 --
 -- Name: TABLE fiat_quotes; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_quotes TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_quotes TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_quotes TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_quotes TO prisma;
+GRANT ALL ON TABLE public.fiat_quotes TO anon;
+GRANT ALL ON TABLE public.fiat_quotes TO authenticated;
+GRANT ALL ON TABLE public.fiat_quotes TO service_role;
+GRANT ALL ON TABLE public.fiat_quotes TO prisma;
 
 
 --
 -- Name: TABLE fiat_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fiat_transactions TO prisma;
+GRANT ALL ON TABLE public.fiat_transactions TO anon;
+GRANT ALL ON TABLE public.fiat_transactions TO authenticated;
+GRANT ALL ON TABLE public.fiat_transactions TO service_role;
+GRANT ALL ON TABLE public.fiat_transactions TO prisma;
 
 
 --
 -- Name: TABLE fund_nav_data; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_nav_data TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_nav_data TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_nav_data TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_nav_data TO prisma;
+GRANT ALL ON TABLE public.fund_nav_data TO anon;
+GRANT ALL ON TABLE public.fund_nav_data TO authenticated;
+GRANT ALL ON TABLE public.fund_nav_data TO service_role;
+GRANT ALL ON TABLE public.fund_nav_data TO prisma;
 
 
 --
 -- Name: TABLE fund_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.fund_products TO prisma;
+GRANT ALL ON TABLE public.fund_products TO anon;
+GRANT ALL ON TABLE public.fund_products TO authenticated;
+GRANT ALL ON TABLE public.fund_products TO service_role;
+GRANT ALL ON TABLE public.fund_products TO prisma;
+
+
+--
+-- Name: TABLE futures_prices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.futures_prices TO anon;
+GRANT ALL ON TABLE public.futures_prices TO authenticated;
+GRANT ALL ON TABLE public.futures_prices TO service_role;
+GRANT ALL ON TABLE public.futures_prices TO prisma;
 
 
 --
 -- Name: TABLE geographic_jurisdictions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.geographic_jurisdictions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.geographic_jurisdictions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.geographic_jurisdictions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.geographic_jurisdictions TO prisma;
+GRANT ALL ON TABLE public.geographic_jurisdictions TO anon;
+GRANT ALL ON TABLE public.geographic_jurisdictions TO authenticated;
+GRANT ALL ON TABLE public.geographic_jurisdictions TO service_role;
+GRANT ALL ON TABLE public.geographic_jurisdictions TO prisma;
 
 
 --
 -- Name: TABLE guardian_api_tests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_api_tests TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_api_tests TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_api_tests TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_api_tests TO prisma;
+GRANT ALL ON TABLE public.guardian_api_tests TO anon;
+GRANT ALL ON TABLE public.guardian_api_tests TO authenticated;
+GRANT ALL ON TABLE public.guardian_api_tests TO service_role;
+GRANT ALL ON TABLE public.guardian_api_tests TO prisma;
 
 
 --
 -- Name: TABLE guardian_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_operations TO prisma;
+GRANT ALL ON TABLE public.guardian_operations TO anon;
+GRANT ALL ON TABLE public.guardian_operations TO authenticated;
+GRANT ALL ON TABLE public.guardian_operations TO service_role;
+GRANT ALL ON TABLE public.guardian_operations TO prisma;
 
 
 --
 -- Name: TABLE guardian_wallets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_wallets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_wallets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_wallets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.guardian_wallets TO prisma;
+GRANT ALL ON TABLE public.guardian_wallets TO anon;
+GRANT ALL ON TABLE public.guardian_wallets TO authenticated;
+GRANT ALL ON TABLE public.guardian_wallets TO service_role;
+GRANT ALL ON TABLE public.guardian_wallets TO prisma;
 
 
 --
 -- Name: TABLE health_checks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.health_checks TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.health_checks TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.health_checks TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.health_checks TO prisma;
+GRANT ALL ON TABLE public.health_checks TO anon;
+GRANT ALL ON TABLE public.health_checks TO authenticated;
+GRANT ALL ON TABLE public.health_checks TO service_role;
+GRANT ALL ON TABLE public.health_checks TO prisma;
 
 
 --
 -- Name: TABLE individual_documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.individual_documents TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.individual_documents TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.individual_documents TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.individual_documents TO prisma;
+GRANT ALL ON TABLE public.individual_documents TO anon;
+GRANT ALL ON TABLE public.individual_documents TO authenticated;
+GRANT ALL ON TABLE public.individual_documents TO service_role;
+GRANT ALL ON TABLE public.individual_documents TO prisma;
+
+
+--
+-- Name: TABLE infra_capex_schedule; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.infra_capex_schedule TO anon;
+GRANT ALL ON TABLE public.infra_capex_schedule TO authenticated;
+GRANT ALL ON TABLE public.infra_capex_schedule TO service_role;
+GRANT ALL ON TABLE public.infra_capex_schedule TO prisma;
+
+
+--
+-- Name: TABLE infra_concessions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.infra_concessions TO anon;
+GRANT ALL ON TABLE public.infra_concessions TO authenticated;
+GRANT ALL ON TABLE public.infra_concessions TO service_role;
+GRANT ALL ON TABLE public.infra_concessions TO prisma;
+
+
+--
+-- Name: TABLE infra_operating_expenses; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.infra_operating_expenses TO anon;
+GRANT ALL ON TABLE public.infra_operating_expenses TO authenticated;
+GRANT ALL ON TABLE public.infra_operating_expenses TO service_role;
+GRANT ALL ON TABLE public.infra_operating_expenses TO prisma;
+
+
+--
+-- Name: TABLE infra_regulatory_filings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.infra_regulatory_filings TO anon;
+GRANT ALL ON TABLE public.infra_regulatory_filings TO authenticated;
+GRANT ALL ON TABLE public.infra_regulatory_filings TO service_role;
+GRANT ALL ON TABLE public.infra_regulatory_filings TO prisma;
+
+
+--
+-- Name: TABLE infra_revenue_streams; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.infra_revenue_streams TO anon;
+GRANT ALL ON TABLE public.infra_revenue_streams TO authenticated;
+GRANT ALL ON TABLE public.infra_revenue_streams TO service_role;
+GRANT ALL ON TABLE public.infra_revenue_streams TO prisma;
+
+
+--
+-- Name: TABLE infra_usage_metrics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.infra_usage_metrics TO anon;
+GRANT ALL ON TABLE public.infra_usage_metrics TO authenticated;
+GRANT ALL ON TABLE public.infra_usage_metrics TO service_role;
+GRANT ALL ON TABLE public.infra_usage_metrics TO prisma;
 
 
 --
 -- Name: TABLE infrastructure_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.infrastructure_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.infrastructure_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.infrastructure_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.infrastructure_products TO prisma;
+GRANT ALL ON TABLE public.infrastructure_products TO anon;
+GRANT ALL ON TABLE public.infrastructure_products TO authenticated;
+GRANT ALL ON TABLE public.infrastructure_products TO service_role;
+GRANT ALL ON TABLE public.infrastructure_products TO prisma;
 
 
 --
 -- Name: TABLE investor_approvals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_approvals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_approvals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_approvals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_approvals TO prisma;
+GRANT ALL ON TABLE public.investor_approvals TO anon;
+GRANT ALL ON TABLE public.investor_approvals TO authenticated;
+GRANT ALL ON TABLE public.investor_approvals TO service_role;
+GRANT ALL ON TABLE public.investor_approvals TO prisma;
 
 
 --
 -- Name: TABLE investor_documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_documents TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_documents TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_documents TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_documents TO prisma;
+GRANT ALL ON TABLE public.investor_documents TO anon;
+GRANT ALL ON TABLE public.investor_documents TO authenticated;
+GRANT ALL ON TABLE public.investor_documents TO service_role;
+GRANT ALL ON TABLE public.investor_documents TO prisma;
 
 
 --
 -- Name: TABLE investor_group_members; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_group_members TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_group_members TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_group_members TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_group_members TO prisma;
+GRANT ALL ON TABLE public.investor_group_members TO anon;
+GRANT ALL ON TABLE public.investor_group_members TO authenticated;
+GRANT ALL ON TABLE public.investor_group_members TO service_role;
+GRANT ALL ON TABLE public.investor_group_members TO prisma;
 
 
 --
 -- Name: TABLE investor_groups; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups TO prisma;
+GRANT ALL ON TABLE public.investor_groups TO anon;
+GRANT ALL ON TABLE public.investor_groups TO authenticated;
+GRANT ALL ON TABLE public.investor_groups TO service_role;
+GRANT ALL ON TABLE public.investor_groups TO prisma;
 
 
 --
 -- Name: TABLE investor_groups_investors; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups_investors TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups_investors TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups_investors TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investor_groups_investors TO prisma;
+GRANT ALL ON TABLE public.investor_groups_investors TO anon;
+GRANT ALL ON TABLE public.investor_groups_investors TO authenticated;
+GRANT ALL ON TABLE public.investor_groups_investors TO service_role;
+GRANT ALL ON TABLE public.investor_groups_investors TO prisma;
 
 
 --
 -- Name: TABLE investors; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investors TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investors TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investors TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.investors TO prisma;
+GRANT ALL ON TABLE public.investors TO anon;
+GRANT ALL ON TABLE public.investors TO authenticated;
+GRANT ALL ON TABLE public.investors TO service_role;
+GRANT ALL ON TABLE public.investors TO prisma;
 
 
 --
 -- Name: TABLE invoice; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoice TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoice TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoice TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoice TO prisma;
+GRANT ALL ON TABLE public.invoice TO anon;
+GRANT ALL ON TABLE public.invoice TO authenticated;
+GRANT ALL ON TABLE public.invoice TO service_role;
+GRANT ALL ON TABLE public.invoice TO prisma;
+
+
+--
+-- Name: TABLE invoice_aging_buckets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.invoice_aging_buckets TO anon;
+GRANT ALL ON TABLE public.invoice_aging_buckets TO authenticated;
+GRANT ALL ON TABLE public.invoice_aging_buckets TO service_role;
+GRANT ALL ON TABLE public.invoice_aging_buckets TO prisma;
+
+
+--
+-- Name: TABLE invoice_collection_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.invoice_collection_history TO anon;
+GRANT ALL ON TABLE public.invoice_collection_history TO authenticated;
+GRANT ALL ON TABLE public.invoice_collection_history TO service_role;
+GRANT ALL ON TABLE public.invoice_collection_history TO prisma;
+
+
+--
+-- Name: TABLE invoice_debtor_ratings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.invoice_debtor_ratings TO anon;
+GRANT ALL ON TABLE public.invoice_debtor_ratings TO authenticated;
+GRANT ALL ON TABLE public.invoice_debtor_ratings TO service_role;
+GRANT ALL ON TABLE public.invoice_debtor_ratings TO prisma;
 
 
 --
@@ -36767,293 +46836,403 @@ GRANT ALL ON SEQUENCE public.invoice_invoice_id_seq TO prisma;
 
 
 --
+-- Name: TABLE invoice_payments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.invoice_payments TO anon;
+GRANT ALL ON TABLE public.invoice_payments TO authenticated;
+GRANT ALL ON TABLE public.invoice_payments TO service_role;
+GRANT ALL ON TABLE public.invoice_payments TO prisma;
+
+
+--
+-- Name: TABLE invoice_receivables; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.invoice_receivables TO anon;
+GRANT ALL ON TABLE public.invoice_receivables TO authenticated;
+GRANT ALL ON TABLE public.invoice_receivables TO service_role;
+GRANT ALL ON TABLE public.invoice_receivables TO prisma;
+
+
+--
 -- Name: TABLE invoices; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoices TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoices TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoices TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.invoices TO prisma;
+GRANT ALL ON TABLE public.invoices TO anon;
+GRANT ALL ON TABLE public.invoices TO authenticated;
+GRANT ALL ON TABLE public.invoices TO service_role;
+GRANT ALL ON TABLE public.invoices TO prisma;
 
 
 --
 -- Name: TABLE issuer_access_roles; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_access_roles TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_access_roles TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_access_roles TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_access_roles TO prisma;
+GRANT ALL ON TABLE public.issuer_access_roles TO anon;
+GRANT ALL ON TABLE public.issuer_access_roles TO authenticated;
+GRANT ALL ON TABLE public.issuer_access_roles TO service_role;
+GRANT ALL ON TABLE public.issuer_access_roles TO prisma;
 
 
 --
 -- Name: TABLE issuer_detail_documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_detail_documents TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_detail_documents TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_detail_documents TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_detail_documents TO prisma;
+GRANT ALL ON TABLE public.issuer_detail_documents TO anon;
+GRANT ALL ON TABLE public.issuer_detail_documents TO authenticated;
+GRANT ALL ON TABLE public.issuer_detail_documents TO service_role;
+GRANT ALL ON TABLE public.issuer_detail_documents TO prisma;
 
 
 --
 -- Name: TABLE issuer_documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_documents TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_documents TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_documents TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.issuer_documents TO prisma;
+GRANT ALL ON TABLE public.issuer_documents TO anon;
+GRANT ALL ON TABLE public.issuer_documents TO authenticated;
+GRANT ALL ON TABLE public.issuer_documents TO service_role;
+GRANT ALL ON TABLE public.issuer_documents TO prisma;
 
 
 --
 -- Name: TABLE kyc_screening_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.kyc_screening_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.kyc_screening_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.kyc_screening_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.kyc_screening_logs TO prisma;
+GRANT ALL ON TABLE public.kyc_screening_logs TO anon;
+GRANT ALL ON TABLE public.kyc_screening_logs TO authenticated;
+GRANT ALL ON TABLE public.kyc_screening_logs TO service_role;
+GRANT ALL ON TABLE public.kyc_screening_logs TO prisma;
 
 
 --
 -- Name: TABLE latest_nav_by_fund; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.latest_nav_by_fund TO prisma;
+GRANT ALL ON TABLE public.latest_nav_by_fund TO anon;
+GRANT ALL ON TABLE public.latest_nav_by_fund TO authenticated;
+GRANT ALL ON TABLE public.latest_nav_by_fund TO service_role;
+GRANT ALL ON TABLE public.latest_nav_by_fund TO prisma;
+
+
+--
+-- Name: TABLE lease_agreements; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.lease_agreements TO anon;
+GRANT ALL ON TABLE public.lease_agreements TO authenticated;
+GRANT ALL ON TABLE public.lease_agreements TO service_role;
+GRANT ALL ON TABLE public.lease_agreements TO prisma;
 
 
 --
 -- Name: TABLE market_data_snapshots; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.market_data_snapshots TO prisma;
+GRANT ALL ON TABLE public.market_data_snapshots TO anon;
+GRANT ALL ON TABLE public.market_data_snapshots TO authenticated;
+GRANT ALL ON TABLE public.market_data_snapshots TO service_role;
+GRANT ALL ON TABLE public.market_data_snapshots TO prisma;
+
+
+--
+-- Name: TABLE market_indices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.market_indices TO anon;
+GRANT ALL ON TABLE public.market_indices TO authenticated;
+GRANT ALL ON TABLE public.market_indices TO service_role;
+GRANT ALL ON TABLE public.market_indices TO prisma;
+
+
+--
+-- Name: TABLE market_rent_data; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.market_rent_data TO anon;
+GRANT ALL ON TABLE public.market_rent_data TO authenticated;
+GRANT ALL ON TABLE public.market_rent_data TO service_role;
+GRANT ALL ON TABLE public.market_rent_data TO prisma;
 
 
 --
 -- Name: TABLE mfa_policies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mfa_policies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mfa_policies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mfa_policies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.mfa_policies TO prisma;
+GRANT ALL ON TABLE public.mfa_policies TO anon;
+GRANT ALL ON TABLE public.mfa_policies TO authenticated;
+GRANT ALL ON TABLE public.mfa_policies TO service_role;
+GRANT ALL ON TABLE public.mfa_policies TO prisma;
 
 
 --
 -- Name: TABLE ml_baseline_statistics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ml_baseline_statistics TO prisma;
+GRANT ALL ON TABLE public.ml_baseline_statistics TO anon;
+GRANT ALL ON TABLE public.ml_baseline_statistics TO authenticated;
+GRANT ALL ON TABLE public.ml_baseline_statistics TO service_role;
+GRANT ALL ON TABLE public.ml_baseline_statistics TO prisma;
+
+
+--
+-- Name: TABLE mmf_credit_ratings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_credit_ratings TO anon;
+GRANT ALL ON TABLE public.mmf_credit_ratings TO authenticated;
+GRANT ALL ON TABLE public.mmf_credit_ratings TO service_role;
+GRANT ALL ON TABLE public.mmf_credit_ratings TO prisma;
+
+
+--
+-- Name: TABLE mmf_holdings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_holdings TO anon;
+GRANT ALL ON TABLE public.mmf_holdings TO authenticated;
+GRANT ALL ON TABLE public.mmf_holdings TO service_role;
+GRANT ALL ON TABLE public.mmf_holdings TO prisma;
+
+
+--
+-- Name: TABLE mmf_liquidity_buckets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_liquidity_buckets TO anon;
+GRANT ALL ON TABLE public.mmf_liquidity_buckets TO authenticated;
+GRANT ALL ON TABLE public.mmf_liquidity_buckets TO service_role;
+GRANT ALL ON TABLE public.mmf_liquidity_buckets TO prisma;
+
+
+--
+-- Name: TABLE mmf_nav_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_nav_history TO anon;
+GRANT ALL ON TABLE public.mmf_nav_history TO authenticated;
+GRANT ALL ON TABLE public.mmf_nav_history TO service_role;
+GRANT ALL ON TABLE public.mmf_nav_history TO prisma;
+
+
+--
+-- Name: TABLE mmf_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_transactions TO anon;
+GRANT ALL ON TABLE public.mmf_transactions TO authenticated;
+GRANT ALL ON TABLE public.mmf_transactions TO service_role;
+GRANT ALL ON TABLE public.mmf_transactions TO prisma;
 
 
 --
 -- Name: TABLE monitoring_metrics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.monitoring_metrics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.monitoring_metrics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.monitoring_metrics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.monitoring_metrics TO prisma;
+GRANT ALL ON TABLE public.monitoring_metrics TO anon;
+GRANT ALL ON TABLE public.monitoring_metrics TO authenticated;
+GRANT ALL ON TABLE public.monitoring_metrics TO service_role;
+GRANT ALL ON TABLE public.monitoring_metrics TO prisma;
 
 
 --
 -- Name: TABLE moonpay_asset_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_asset_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_asset_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_asset_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_asset_cache TO prisma;
+GRANT ALL ON TABLE public.moonpay_asset_cache TO anon;
+GRANT ALL ON TABLE public.moonpay_asset_cache TO authenticated;
+GRANT ALL ON TABLE public.moonpay_asset_cache TO service_role;
+GRANT ALL ON TABLE public.moonpay_asset_cache TO prisma;
 
 
 --
 -- Name: TABLE moonpay_compliance_alerts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_compliance_alerts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_compliance_alerts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_compliance_alerts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_compliance_alerts TO prisma;
+GRANT ALL ON TABLE public.moonpay_compliance_alerts TO anon;
+GRANT ALL ON TABLE public.moonpay_compliance_alerts TO authenticated;
+GRANT ALL ON TABLE public.moonpay_compliance_alerts TO service_role;
+GRANT ALL ON TABLE public.moonpay_compliance_alerts TO prisma;
 
 
 --
 -- Name: TABLE moonpay_customers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_customers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_customers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_customers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_customers TO prisma;
+GRANT ALL ON TABLE public.moonpay_customers TO anon;
+GRANT ALL ON TABLE public.moonpay_customers TO authenticated;
+GRANT ALL ON TABLE public.moonpay_customers TO service_role;
+GRANT ALL ON TABLE public.moonpay_customers TO prisma;
 
 
 --
 -- Name: TABLE moonpay_passes; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_passes TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_passes TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_passes TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_passes TO prisma;
+GRANT ALL ON TABLE public.moonpay_passes TO anon;
+GRANT ALL ON TABLE public.moonpay_passes TO authenticated;
+GRANT ALL ON TABLE public.moonpay_passes TO service_role;
+GRANT ALL ON TABLE public.moonpay_passes TO prisma;
 
 
 --
 -- Name: TABLE moonpay_policies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policies TO prisma;
+GRANT ALL ON TABLE public.moonpay_policies TO anon;
+GRANT ALL ON TABLE public.moonpay_policies TO authenticated;
+GRANT ALL ON TABLE public.moonpay_policies TO service_role;
+GRANT ALL ON TABLE public.moonpay_policies TO prisma;
 
 
 --
 -- Name: TABLE moonpay_policy_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policy_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policy_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policy_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_policy_logs TO prisma;
+GRANT ALL ON TABLE public.moonpay_policy_logs TO anon;
+GRANT ALL ON TABLE public.moonpay_policy_logs TO authenticated;
+GRANT ALL ON TABLE public.moonpay_policy_logs TO service_role;
+GRANT ALL ON TABLE public.moonpay_policy_logs TO prisma;
 
 
 --
 -- Name: TABLE moonpay_projects; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_projects TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_projects TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_projects TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_projects TO prisma;
+GRANT ALL ON TABLE public.moonpay_projects TO anon;
+GRANT ALL ON TABLE public.moonpay_projects TO authenticated;
+GRANT ALL ON TABLE public.moonpay_projects TO service_role;
+GRANT ALL ON TABLE public.moonpay_projects TO prisma;
 
 
 --
 -- Name: TABLE moonpay_swap_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_swap_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_swap_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_swap_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_swap_transactions TO prisma;
+GRANT ALL ON TABLE public.moonpay_swap_transactions TO anon;
+GRANT ALL ON TABLE public.moonpay_swap_transactions TO authenticated;
+GRANT ALL ON TABLE public.moonpay_swap_transactions TO service_role;
+GRANT ALL ON TABLE public.moonpay_swap_transactions TO prisma;
 
 
 --
 -- Name: TABLE moonpay_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_transactions TO prisma;
+GRANT ALL ON TABLE public.moonpay_transactions TO anon;
+GRANT ALL ON TABLE public.moonpay_transactions TO authenticated;
+GRANT ALL ON TABLE public.moonpay_transactions TO service_role;
+GRANT ALL ON TABLE public.moonpay_transactions TO prisma;
 
 
 --
 -- Name: TABLE moonpay_webhook_config; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_config TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_config TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_config TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_config TO prisma;
+GRANT ALL ON TABLE public.moonpay_webhook_config TO anon;
+GRANT ALL ON TABLE public.moonpay_webhook_config TO authenticated;
+GRANT ALL ON TABLE public.moonpay_webhook_config TO service_role;
+GRANT ALL ON TABLE public.moonpay_webhook_config TO prisma;
 
 
 --
 -- Name: TABLE moonpay_webhook_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.moonpay_webhook_events TO prisma;
+GRANT ALL ON TABLE public.moonpay_webhook_events TO anon;
+GRANT ALL ON TABLE public.moonpay_webhook_events TO authenticated;
+GRANT ALL ON TABLE public.moonpay_webhook_events TO service_role;
+GRANT ALL ON TABLE public.moonpay_webhook_events TO prisma;
 
 
 --
 -- Name: TABLE multi_sig_audit_log; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_audit_log TO prisma;
+GRANT ALL ON TABLE public.multi_sig_audit_log TO anon;
+GRANT ALL ON TABLE public.multi_sig_audit_log TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_audit_log TO service_role;
+GRANT ALL ON TABLE public.multi_sig_audit_log TO prisma;
 
 
 --
 -- Name: TABLE multi_sig_configurations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_configurations TO prisma;
+GRANT ALL ON TABLE public.multi_sig_configurations TO anon;
+GRANT ALL ON TABLE public.multi_sig_configurations TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_configurations TO service_role;
+GRANT ALL ON TABLE public.multi_sig_configurations TO prisma;
 
 
 --
 -- Name: TABLE multi_sig_confirmations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_confirmations TO prisma;
+GRANT ALL ON TABLE public.multi_sig_confirmations TO anon;
+GRANT ALL ON TABLE public.multi_sig_confirmations TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_confirmations TO service_role;
+GRANT ALL ON TABLE public.multi_sig_confirmations TO prisma;
 
 
 --
 -- Name: TABLE multi_sig_proposals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_proposals TO prisma;
+GRANT ALL ON TABLE public.multi_sig_proposals TO anon;
+GRANT ALL ON TABLE public.multi_sig_proposals TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_proposals TO service_role;
+GRANT ALL ON TABLE public.multi_sig_proposals TO prisma;
 
 
 --
 -- Name: TABLE multi_sig_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_transactions TO prisma;
+GRANT ALL ON TABLE public.multi_sig_transactions TO anon;
+GRANT ALL ON TABLE public.multi_sig_transactions TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_transactions TO service_role;
+GRANT ALL ON TABLE public.multi_sig_transactions TO prisma;
 
 
 --
 -- Name: TABLE multi_sig_wallets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_wallets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_wallets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_wallets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.multi_sig_wallets TO prisma;
+GRANT ALL ON TABLE public.multi_sig_wallets TO anon;
+GRANT ALL ON TABLE public.multi_sig_wallets TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_wallets TO service_role;
+GRANT ALL ON TABLE public.multi_sig_wallets TO prisma;
 
 
 --
 -- Name: TABLE nav_approvals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_approvals TO prisma;
+GRANT ALL ON TABLE public.nav_approvals TO anon;
+GRANT ALL ON TABLE public.nav_approvals TO authenticated;
+GRANT ALL ON TABLE public.nav_approvals TO service_role;
+GRANT ALL ON TABLE public.nav_approvals TO prisma;
+
+
+--
+-- Name: TABLE nav_asset_type_adjustments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_asset_type_adjustments TO anon;
+GRANT ALL ON TABLE public.nav_asset_type_adjustments TO authenticated;
+GRANT ALL ON TABLE public.nav_asset_type_adjustments TO service_role;
+GRANT ALL ON TABLE public.nav_asset_type_adjustments TO prisma;
 
 
 --
 -- Name: TABLE nav_calculation_history; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_history TO prisma;
+GRANT ALL ON TABLE public.nav_calculation_history TO anon;
+GRANT ALL ON TABLE public.nav_calculation_history TO authenticated;
+GRANT ALL ON TABLE public.nav_calculation_history TO service_role;
+GRANT ALL ON TABLE public.nav_calculation_history TO prisma;
 
 
 --
@@ -37070,210 +47249,330 @@ GRANT ALL ON SEQUENCE public.nav_calculation_history_id_seq TO prisma;
 -- Name: TABLE nav_calculation_runs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_calculation_runs TO prisma;
+GRANT ALL ON TABLE public.nav_calculation_runs TO anon;
+GRANT ALL ON TABLE public.nav_calculation_runs TO authenticated;
+GRANT ALL ON TABLE public.nav_calculation_runs TO service_role;
+GRANT ALL ON TABLE public.nav_calculation_runs TO prisma;
+
+
+--
+-- Name: TABLE nav_calculator_parameters; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_calculator_parameters TO anon;
+GRANT ALL ON TABLE public.nav_calculator_parameters TO authenticated;
+GRANT ALL ON TABLE public.nav_calculator_parameters TO service_role;
+GRANT ALL ON TABLE public.nav_calculator_parameters TO prisma;
+
+
+--
+-- Name: TABLE nav_credit_quality_multipliers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_credit_quality_multipliers TO anon;
+GRANT ALL ON TABLE public.nav_credit_quality_multipliers TO authenticated;
+GRANT ALL ON TABLE public.nav_credit_quality_multipliers TO service_role;
+GRANT ALL ON TABLE public.nav_credit_quality_multipliers TO prisma;
+
+
+--
+-- Name: TABLE nav_credit_spreads; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_credit_spreads TO anon;
+GRANT ALL ON TABLE public.nav_credit_spreads TO authenticated;
+GRANT ALL ON TABLE public.nav_credit_spreads TO service_role;
+GRANT ALL ON TABLE public.nav_credit_spreads TO prisma;
 
 
 --
 -- Name: TABLE nav_validation_results; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_validation_results TO prisma;
+GRANT ALL ON TABLE public.nav_validation_results TO anon;
+GRANT ALL ON TABLE public.nav_validation_results TO authenticated;
+GRANT ALL ON TABLE public.nav_validation_results TO service_role;
+GRANT ALL ON TABLE public.nav_validation_results TO prisma;
 
 
 --
 -- Name: TABLE nav_data_with_status; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_data_with_status TO prisma;
+GRANT ALL ON TABLE public.nav_data_with_status TO anon;
+GRANT ALL ON TABLE public.nav_data_with_status TO authenticated;
+GRANT ALL ON TABLE public.nav_data_with_status TO service_role;
+GRANT ALL ON TABLE public.nav_data_with_status TO prisma;
+
+
+--
+-- Name: TABLE nav_default_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_default_rates TO anon;
+GRANT ALL ON TABLE public.nav_default_rates TO authenticated;
+GRANT ALL ON TABLE public.nav_default_rates TO service_role;
+GRANT ALL ON TABLE public.nav_default_rates TO prisma;
+
+
+--
+-- Name: TABLE nav_delinquency_adjustments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_delinquency_adjustments TO anon;
+GRANT ALL ON TABLE public.nav_delinquency_adjustments TO authenticated;
+GRANT ALL ON TABLE public.nav_delinquency_adjustments TO service_role;
+GRANT ALL ON TABLE public.nav_delinquency_adjustments TO prisma;
+
+
+--
+-- Name: TABLE nav_economic_capital; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_economic_capital TO anon;
+GRANT ALL ON TABLE public.nav_economic_capital TO authenticated;
+GRANT ALL ON TABLE public.nav_economic_capital TO service_role;
+GRANT ALL ON TABLE public.nav_economic_capital TO prisma;
 
 
 --
 -- Name: TABLE nav_fx_rates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates TO prisma;
+GRANT ALL ON TABLE public.nav_fx_rates TO anon;
+GRANT ALL ON TABLE public.nav_fx_rates TO authenticated;
+GRANT ALL ON TABLE public.nav_fx_rates TO service_role;
+GRANT ALL ON TABLE public.nav_fx_rates TO prisma;
 
 
 --
 -- Name: TABLE nav_fx_rates_latest; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_fx_rates_latest TO prisma;
+GRANT ALL ON TABLE public.nav_fx_rates_latest TO anon;
+GRANT ALL ON TABLE public.nav_fx_rates_latest TO authenticated;
+GRANT ALL ON TABLE public.nav_fx_rates_latest TO service_role;
+GRANT ALL ON TABLE public.nav_fx_rates_latest TO prisma;
+
+
+--
+-- Name: TABLE nav_liquidity_discounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_liquidity_discounts TO anon;
+GRANT ALL ON TABLE public.nav_liquidity_discounts TO authenticated;
+GRANT ALL ON TABLE public.nav_liquidity_discounts TO service_role;
+GRANT ALL ON TABLE public.nav_liquidity_discounts TO prisma;
+
+
+--
+-- Name: TABLE nav_loss_given_default; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_loss_given_default TO anon;
+GRANT ALL ON TABLE public.nav_loss_given_default TO authenticated;
+GRANT ALL ON TABLE public.nav_loss_given_default TO service_role;
+GRANT ALL ON TABLE public.nav_loss_given_default TO prisma;
 
 
 --
 -- Name: TABLE nav_oracle_configs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_oracle_configs TO prisma;
+GRANT ALL ON TABLE public.nav_oracle_configs TO anon;
+GRANT ALL ON TABLE public.nav_oracle_configs TO authenticated;
+GRANT ALL ON TABLE public.nav_oracle_configs TO service_role;
+GRANT ALL ON TABLE public.nav_oracle_configs TO prisma;
+
+
+--
+-- Name: TABLE nav_prepayment_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_prepayment_rates TO anon;
+GRANT ALL ON TABLE public.nav_prepayment_rates TO authenticated;
+GRANT ALL ON TABLE public.nav_prepayment_rates TO service_role;
+GRANT ALL ON TABLE public.nav_prepayment_rates TO prisma;
 
 
 --
 -- Name: TABLE nav_price_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_price_cache TO prisma;
+GRANT ALL ON TABLE public.nav_price_cache TO anon;
+GRANT ALL ON TABLE public.nav_price_cache TO authenticated;
+GRANT ALL ON TABLE public.nav_price_cache TO service_role;
+GRANT ALL ON TABLE public.nav_price_cache TO prisma;
+
+
+--
+-- Name: TABLE nav_probability_of_default; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_probability_of_default TO anon;
+GRANT ALL ON TABLE public.nav_probability_of_default TO authenticated;
+GRANT ALL ON TABLE public.nav_probability_of_default TO service_role;
+GRANT ALL ON TABLE public.nav_probability_of_default TO prisma;
+
+
+--
+-- Name: TABLE nav_recovery_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_recovery_rates TO anon;
+GRANT ALL ON TABLE public.nav_recovery_rates TO authenticated;
+GRANT ALL ON TABLE public.nav_recovery_rates TO service_role;
+GRANT ALL ON TABLE public.nav_recovery_rates TO prisma;
 
 
 --
 -- Name: TABLE nav_redemptions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.nav_redemptions TO prisma;
+GRANT ALL ON TABLE public.nav_redemptions TO anon;
+GRANT ALL ON TABLE public.nav_redemptions TO authenticated;
+GRANT ALL ON TABLE public.nav_redemptions TO service_role;
+GRANT ALL ON TABLE public.nav_redemptions TO prisma;
+
+
+--
+-- Name: TABLE nav_unexpected_loss; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_unexpected_loss TO anon;
+GRANT ALL ON TABLE public.nav_unexpected_loss TO authenticated;
+GRANT ALL ON TABLE public.nav_unexpected_loss TO service_role;
+GRANT ALL ON TABLE public.nav_unexpected_loss TO prisma;
 
 
 --
 -- Name: TABLE notification_settings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notification_settings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notification_settings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notification_settings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notification_settings TO prisma;
+GRANT ALL ON TABLE public.notification_settings TO anon;
+GRANT ALL ON TABLE public.notification_settings TO authenticated;
+GRANT ALL ON TABLE public.notification_settings TO service_role;
+GRANT ALL ON TABLE public.notification_settings TO prisma;
 
 
 --
 -- Name: TABLE notifications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notifications TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notifications TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notifications TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.notifications TO prisma;
+GRANT ALL ON TABLE public.notifications TO anon;
+GRANT ALL ON TABLE public.notifications TO authenticated;
+GRANT ALL ON TABLE public.notifications TO service_role;
+GRANT ALL ON TABLE public.notifications TO prisma;
 
 
 --
 -- Name: TABLE onboarding_restrictions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onboarding_restrictions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onboarding_restrictions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onboarding_restrictions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onboarding_restrictions TO prisma;
+GRANT ALL ON TABLE public.onboarding_restrictions TO anon;
+GRANT ALL ON TABLE public.onboarding_restrictions TO authenticated;
+GRANT ALL ON TABLE public.onboarding_restrictions TO service_role;
+GRANT ALL ON TABLE public.onboarding_restrictions TO prisma;
 
 
 --
 -- Name: TABLE onchain_claims; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_claims TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_claims TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_claims TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_claims TO prisma;
+GRANT ALL ON TABLE public.onchain_claims TO anon;
+GRANT ALL ON TABLE public.onchain_claims TO authenticated;
+GRANT ALL ON TABLE public.onchain_claims TO service_role;
+GRANT ALL ON TABLE public.onchain_claims TO prisma;
 
 
 --
 -- Name: TABLE onchain_identities; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_identities TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_identities TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_identities TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_identities TO prisma;
+GRANT ALL ON TABLE public.onchain_identities TO anon;
+GRANT ALL ON TABLE public.onchain_identities TO authenticated;
+GRANT ALL ON TABLE public.onchain_identities TO service_role;
+GRANT ALL ON TABLE public.onchain_identities TO prisma;
 
 
 --
 -- Name: TABLE onchain_issuers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_issuers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_issuers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_issuers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_issuers TO prisma;
+GRANT ALL ON TABLE public.onchain_issuers TO anon;
+GRANT ALL ON TABLE public.onchain_issuers TO authenticated;
+GRANT ALL ON TABLE public.onchain_issuers TO service_role;
+GRANT ALL ON TABLE public.onchain_issuers TO prisma;
 
 
 --
 -- Name: TABLE onchain_verification_history; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_verification_history TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_verification_history TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_verification_history TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.onchain_verification_history TO prisma;
+GRANT ALL ON TABLE public.onchain_verification_history TO anon;
+GRANT ALL ON TABLE public.onchain_verification_history TO authenticated;
+GRANT ALL ON TABLE public.onchain_verification_history TO service_role;
+GRANT ALL ON TABLE public.onchain_verification_history TO prisma;
 
 
 --
 -- Name: TABLE operation_metadata; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_metadata TO prisma;
+GRANT ALL ON TABLE public.operation_metadata TO anon;
+GRANT ALL ON TABLE public.operation_metadata TO authenticated;
+GRANT ALL ON TABLE public.operation_metadata TO service_role;
+GRANT ALL ON TABLE public.operation_metadata TO prisma;
 
 
 --
 -- Name: TABLE operation_validations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operation_validations TO prisma;
+GRANT ALL ON TABLE public.operation_validations TO anon;
+GRANT ALL ON TABLE public.operation_validations TO authenticated;
+GRANT ALL ON TABLE public.operation_validations TO service_role;
+GRANT ALL ON TABLE public.operation_validations TO prisma;
 
 
 --
 -- Name: TABLE operator_status; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.operator_status TO prisma;
+GRANT ALL ON TABLE public.operator_status TO anon;
+GRANT ALL ON TABLE public.operator_status TO authenticated;
+GRANT ALL ON TABLE public.operator_status TO service_role;
+GRANT ALL ON TABLE public.operator_status TO prisma;
 
 
 --
 -- Name: TABLE organization_details; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organization_details TO prisma;
+GRANT ALL ON TABLE public.organization_details TO anon;
+GRANT ALL ON TABLE public.organization_details TO authenticated;
+GRANT ALL ON TABLE public.organization_details TO service_role;
+GRANT ALL ON TABLE public.organization_details TO prisma;
 
 
 --
 -- Name: TABLE organizations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organizations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organizations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organizations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.organizations TO prisma;
+GRANT ALL ON TABLE public.organizations TO anon;
+GRANT ALL ON TABLE public.organizations TO authenticated;
+GRANT ALL ON TABLE public.organizations TO service_role;
+GRANT ALL ON TABLE public.organizations TO prisma;
 
 
 --
 -- Name: TABLE payer; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.payer TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.payer TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.payer TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.payer TO prisma;
+GRANT ALL ON TABLE public.payer TO anon;
+GRANT ALL ON TABLE public.payer TO authenticated;
+GRANT ALL ON TABLE public.payer TO service_role;
+GRANT ALL ON TABLE public.payer TO prisma;
 
 
 --
@@ -37290,100 +47589,210 @@ GRANT ALL ON SEQUENCE public.payer_payer_id_seq TO prisma;
 -- Name: TABLE paymaster_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_operations TO prisma;
+GRANT ALL ON TABLE public.paymaster_operations TO anon;
+GRANT ALL ON TABLE public.paymaster_operations TO authenticated;
+GRANT ALL ON TABLE public.paymaster_operations TO service_role;
+GRANT ALL ON TABLE public.paymaster_operations TO prisma;
 
 
 --
 -- Name: TABLE paymaster_policies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.paymaster_policies TO prisma;
+GRANT ALL ON TABLE public.paymaster_policies TO anon;
+GRANT ALL ON TABLE public.paymaster_policies TO authenticated;
+GRANT ALL ON TABLE public.paymaster_policies TO service_role;
+GRANT ALL ON TABLE public.paymaster_policies TO prisma;
+
+
+--
+-- Name: TABLE pd_collateral; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pd_collateral TO anon;
+GRANT ALL ON TABLE public.pd_collateral TO authenticated;
+GRANT ALL ON TABLE public.pd_collateral TO service_role;
+GRANT ALL ON TABLE public.pd_collateral TO prisma;
+
+
+--
+-- Name: TABLE pd_covenants; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pd_covenants TO anon;
+GRANT ALL ON TABLE public.pd_covenants TO authenticated;
+GRANT ALL ON TABLE public.pd_covenants TO service_role;
+GRANT ALL ON TABLE public.pd_covenants TO prisma;
+
+
+--
+-- Name: TABLE pd_credit_ratings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pd_credit_ratings TO anon;
+GRANT ALL ON TABLE public.pd_credit_ratings TO authenticated;
+GRANT ALL ON TABLE public.pd_credit_ratings TO service_role;
+GRANT ALL ON TABLE public.pd_credit_ratings TO prisma;
+
+
+--
+-- Name: TABLE pd_default_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pd_default_events TO anon;
+GRANT ALL ON TABLE public.pd_default_events TO authenticated;
+GRANT ALL ON TABLE public.pd_default_events TO service_role;
+GRANT ALL ON TABLE public.pd_default_events TO prisma;
+
+
+--
+-- Name: TABLE pd_loan_schedules; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pd_loan_schedules TO anon;
+GRANT ALL ON TABLE public.pd_loan_schedules TO authenticated;
+GRANT ALL ON TABLE public.pd_loan_schedules TO service_role;
+GRANT ALL ON TABLE public.pd_loan_schedules TO prisma;
+
+
+--
+-- Name: TABLE pd_payment_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pd_payment_history TO anon;
+GRANT ALL ON TABLE public.pd_payment_history TO authenticated;
+GRANT ALL ON TABLE public.pd_payment_history TO service_role;
+GRANT ALL ON TABLE public.pd_payment_history TO prisma;
+
+
+--
+-- Name: TABLE pe_capital_calls; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pe_capital_calls TO anon;
+GRANT ALL ON TABLE public.pe_capital_calls TO authenticated;
+GRANT ALL ON TABLE public.pe_capital_calls TO service_role;
+GRANT ALL ON TABLE public.pe_capital_calls TO prisma;
+
+
+--
+-- Name: TABLE pe_distributions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pe_distributions TO anon;
+GRANT ALL ON TABLE public.pe_distributions TO authenticated;
+GRANT ALL ON TABLE public.pe_distributions TO service_role;
+GRANT ALL ON TABLE public.pe_distributions TO prisma;
+
+
+--
+-- Name: TABLE pe_performance_metrics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pe_performance_metrics TO anon;
+GRANT ALL ON TABLE public.pe_performance_metrics TO authenticated;
+GRANT ALL ON TABLE public.pe_performance_metrics TO service_role;
+GRANT ALL ON TABLE public.pe_performance_metrics TO prisma;
+
+
+--
+-- Name: TABLE pe_portfolio_companies; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pe_portfolio_companies TO anon;
+GRANT ALL ON TABLE public.pe_portfolio_companies TO authenticated;
+GRANT ALL ON TABLE public.pe_portfolio_companies TO service_role;
+GRANT ALL ON TABLE public.pe_portfolio_companies TO prisma;
+
+
+--
+-- Name: TABLE pe_valuations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.pe_valuations TO anon;
+GRANT ALL ON TABLE public.pe_valuations TO authenticated;
+GRANT ALL ON TABLE public.pe_valuations TO service_role;
+GRANT ALL ON TABLE public.pe_valuations TO prisma;
 
 
 --
 -- Name: TABLE permissions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.permissions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.permissions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.permissions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.permissions TO prisma;
+GRANT ALL ON TABLE public.permissions TO anon;
+GRANT ALL ON TABLE public.permissions TO authenticated;
+GRANT ALL ON TABLE public.permissions TO service_role;
+GRANT ALL ON TABLE public.permissions TO prisma;
 
 
 --
 -- Name: TABLE policy_operation_mappings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_operation_mappings TO prisma;
+GRANT ALL ON TABLE public.policy_operation_mappings TO anon;
+GRANT ALL ON TABLE public.policy_operation_mappings TO authenticated;
+GRANT ALL ON TABLE public.policy_operation_mappings TO service_role;
+GRANT ALL ON TABLE public.policy_operation_mappings TO prisma;
 
 
 --
 -- Name: TABLE policy_rule_approvers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers TO prisma;
+GRANT ALL ON TABLE public.policy_rule_approvers TO anon;
+GRANT ALL ON TABLE public.policy_rule_approvers TO authenticated;
+GRANT ALL ON TABLE public.policy_rule_approvers TO service_role;
+GRANT ALL ON TABLE public.policy_rule_approvers TO prisma;
 
 
 --
 -- Name: TABLE policy_rule_approvers_backup; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers_backup TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers_backup TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers_backup TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_rule_approvers_backup TO prisma;
+GRANT ALL ON TABLE public.policy_rule_approvers_backup TO anon;
+GRANT ALL ON TABLE public.policy_rule_approvers_backup TO authenticated;
+GRANT ALL ON TABLE public.policy_rule_approvers_backup TO service_role;
+GRANT ALL ON TABLE public.policy_rule_approvers_backup TO prisma;
 
 
 --
 -- Name: TABLE policy_template_approvers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_template_approvers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_template_approvers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_template_approvers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_template_approvers TO prisma;
+GRANT ALL ON TABLE public.policy_template_approvers TO anon;
+GRANT ALL ON TABLE public.policy_template_approvers TO authenticated;
+GRANT ALL ON TABLE public.policy_template_approvers TO service_role;
+GRANT ALL ON TABLE public.policy_template_approvers TO prisma;
 
 
 --
 -- Name: TABLE policy_templates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_templates TO prisma;
+GRANT ALL ON TABLE public.policy_templates TO anon;
+GRANT ALL ON TABLE public.policy_templates TO authenticated;
+GRANT ALL ON TABLE public.policy_templates TO service_role;
+GRANT ALL ON TABLE public.policy_templates TO prisma;
 
 
 --
 -- Name: TABLE policy_violations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.policy_violations TO prisma;
+GRANT ALL ON TABLE public.policy_violations TO anon;
+GRANT ALL ON TABLE public.policy_violations TO authenticated;
+GRANT ALL ON TABLE public.policy_violations TO service_role;
+GRANT ALL ON TABLE public.policy_violations TO prisma;
 
 
 --
 -- Name: TABLE pool; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pool TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pool TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pool TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.pool TO prisma;
+GRANT ALL ON TABLE public.pool TO anon;
+GRANT ALL ON TABLE public.pool TO authenticated;
+GRANT ALL ON TABLE public.pool TO service_role;
+GRANT ALL ON TABLE public.pool TO prisma;
 
 
 --
@@ -37400,120 +47809,180 @@ GRANT ALL ON SEQUENCE public.pool_pool_id_seq TO prisma;
 -- Name: TABLE private_debt_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_debt_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_debt_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_debt_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_debt_products TO prisma;
+GRANT ALL ON TABLE public.private_debt_products TO anon;
+GRANT ALL ON TABLE public.private_debt_products TO authenticated;
+GRANT ALL ON TABLE public.private_debt_products TO service_role;
+GRANT ALL ON TABLE public.private_debt_products TO prisma;
 
 
 --
 -- Name: TABLE private_equity_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_equity_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_equity_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_equity_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.private_equity_products TO prisma;
+GRANT ALL ON TABLE public.private_equity_products TO anon;
+GRANT ALL ON TABLE public.private_equity_products TO authenticated;
+GRANT ALL ON TABLE public.private_equity_products TO service_role;
+GRANT ALL ON TABLE public.private_equity_products TO prisma;
+
+
+--
+-- Name: TABLE token_deployments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.token_deployments TO anon;
+GRANT ALL ON TABLE public.token_deployments TO authenticated;
+GRANT ALL ON TABLE public.token_deployments TO service_role;
+GRANT ALL ON TABLE public.token_deployments TO prisma;
+
+
+--
+-- Name: TABLE problematic_token_deployments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.problematic_token_deployments TO anon;
+GRANT ALL ON TABLE public.problematic_token_deployments TO authenticated;
+GRANT ALL ON TABLE public.problematic_token_deployments TO service_role;
+GRANT ALL ON TABLE public.problematic_token_deployments TO prisma;
 
 
 --
 -- Name: TABLE product_lifecycle_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.product_lifecycle_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.product_lifecycle_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.product_lifecycle_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.product_lifecycle_events TO prisma;
+GRANT ALL ON TABLE public.product_lifecycle_events TO anon;
+GRANT ALL ON TABLE public.product_lifecycle_events TO authenticated;
+GRANT ALL ON TABLE public.product_lifecycle_events TO service_role;
+GRANT ALL ON TABLE public.product_lifecycle_events TO prisma;
 
 
 --
 -- Name: TABLE production_data; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.production_data TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.production_data TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.production_data TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.production_data TO prisma;
+GRANT ALL ON TABLE public.production_data TO anon;
+GRANT ALL ON TABLE public.production_data TO authenticated;
+GRANT ALL ON TABLE public.production_data TO service_role;
+GRANT ALL ON TABLE public.production_data TO prisma;
 
 
 --
 -- Name: TABLE profiles; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.profiles TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.profiles TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.profiles TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.profiles TO prisma;
+GRANT ALL ON TABLE public.profiles TO anon;
+GRANT ALL ON TABLE public.profiles TO authenticated;
+GRANT ALL ON TABLE public.profiles TO service_role;
+GRANT ALL ON TABLE public.profiles TO prisma;
 
 
 --
 -- Name: TABLE project_organization_assignments; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_organization_assignments TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_organization_assignments TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_organization_assignments TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_organization_assignments TO prisma;
+GRANT ALL ON TABLE public.project_organization_assignments TO anon;
+GRANT ALL ON TABLE public.project_organization_assignments TO authenticated;
+GRANT ALL ON TABLE public.project_organization_assignments TO service_role;
+GRANT ALL ON TABLE public.project_organization_assignments TO prisma;
 
 
 --
 -- Name: TABLE projects; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects TO prisma;
+GRANT ALL ON TABLE public.projects TO anon;
+GRANT ALL ON TABLE public.projects TO authenticated;
+GRANT ALL ON TABLE public.projects TO service_role;
+GRANT ALL ON TABLE public.projects TO prisma;
 
 
 --
 -- Name: TABLE project_type_stats; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_type_stats TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_type_stats TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_type_stats TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_type_stats TO prisma;
+GRANT ALL ON TABLE public.project_type_stats TO anon;
+GRANT ALL ON TABLE public.project_type_stats TO authenticated;
+GRANT ALL ON TABLE public.project_type_stats TO service_role;
+GRANT ALL ON TABLE public.project_type_stats TO prisma;
 
 
 --
 -- Name: TABLE project_wallets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_wallets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_wallets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_wallets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.project_wallets TO prisma;
+GRANT ALL ON TABLE public.project_wallets TO anon;
+GRANT ALL ON TABLE public.project_wallets TO authenticated;
+GRANT ALL ON TABLE public.project_wallets TO service_role;
+GRANT ALL ON TABLE public.project_wallets TO prisma;
 
 
 --
 -- Name: TABLE projects_backup; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.projects_backup TO prisma;
+GRANT ALL ON TABLE public.projects_backup TO anon;
+GRANT ALL ON TABLE public.projects_backup TO authenticated;
+GRANT ALL ON TABLE public.projects_backup TO service_role;
+GRANT ALL ON TABLE public.projects_backup TO prisma;
+
+
+--
+-- Name: TABLE property_expenses; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.property_expenses TO anon;
+GRANT ALL ON TABLE public.property_expenses TO authenticated;
+GRANT ALL ON TABLE public.property_expenses TO service_role;
+GRANT ALL ON TABLE public.property_expenses TO prisma;
+
+
+--
+-- Name: TABLE property_insurance; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.property_insurance TO anon;
+GRANT ALL ON TABLE public.property_insurance TO authenticated;
+GRANT ALL ON TABLE public.property_insurance TO service_role;
+GRANT ALL ON TABLE public.property_insurance TO prisma;
+
+
+--
+-- Name: TABLE property_tax_rates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.property_tax_rates TO anon;
+GRANT ALL ON TABLE public.property_tax_rates TO authenticated;
+GRANT ALL ON TABLE public.property_tax_rates TO service_role;
+GRANT ALL ON TABLE public.property_tax_rates TO prisma;
+
+
+--
+-- Name: TABLE property_valuations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.property_valuations TO anon;
+GRANT ALL ON TABLE public.property_valuations TO authenticated;
+GRANT ALL ON TABLE public.property_valuations TO service_role;
+GRANT ALL ON TABLE public.property_valuations TO prisma;
 
 
 --
 -- Name: TABLE proposal_signatures; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.proposal_signatures TO prisma;
+GRANT ALL ON TABLE public.proposal_signatures TO anon;
+GRANT ALL ON TABLE public.proposal_signatures TO authenticated;
+GRANT ALL ON TABLE public.proposal_signatures TO service_role;
+GRANT ALL ON TABLE public.proposal_signatures TO prisma;
 
 
 --
 -- Name: TABLE provider; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.provider TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.provider TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.provider TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.provider TO prisma;
+GRANT ALL ON TABLE public.provider TO anon;
+GRANT ALL ON TABLE public.provider TO authenticated;
+GRANT ALL ON TABLE public.provider TO service_role;
+GRANT ALL ON TABLE public.provider TO prisma;
 
 
 --
@@ -37527,1493 +47996,1713 @@ GRANT ALL ON SEQUENCE public.provider_provider_id_seq TO prisma;
 
 
 --
+-- Name: TABLE quant_backtests; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.quant_backtests TO anon;
+GRANT ALL ON TABLE public.quant_backtests TO authenticated;
+GRANT ALL ON TABLE public.quant_backtests TO service_role;
+GRANT ALL ON TABLE public.quant_backtests TO prisma;
+
+
+--
+-- Name: TABLE quant_factors; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.quant_factors TO anon;
+GRANT ALL ON TABLE public.quant_factors TO authenticated;
+GRANT ALL ON TABLE public.quant_factors TO service_role;
+GRANT ALL ON TABLE public.quant_factors TO prisma;
+
+
+--
+-- Name: TABLE quant_performance_attribution; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.quant_performance_attribution TO anon;
+GRANT ALL ON TABLE public.quant_performance_attribution TO authenticated;
+GRANT ALL ON TABLE public.quant_performance_attribution TO service_role;
+GRANT ALL ON TABLE public.quant_performance_attribution TO prisma;
+
+
+--
+-- Name: TABLE quant_risk_metrics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.quant_risk_metrics TO anon;
+GRANT ALL ON TABLE public.quant_risk_metrics TO authenticated;
+GRANT ALL ON TABLE public.quant_risk_metrics TO service_role;
+GRANT ALL ON TABLE public.quant_risk_metrics TO prisma;
+
+
+--
+-- Name: TABLE quant_signals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.quant_signals TO anon;
+GRANT ALL ON TABLE public.quant_signals TO authenticated;
+GRANT ALL ON TABLE public.quant_signals TO service_role;
+GRANT ALL ON TABLE public.quant_signals TO prisma;
+
+
+--
 -- Name: TABLE quantitative_investment_strategies_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_investment_strategies_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_investment_strategies_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_investment_strategies_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_investment_strategies_products TO prisma;
+GRANT ALL ON TABLE public.quantitative_investment_strategies_products TO anon;
+GRANT ALL ON TABLE public.quantitative_investment_strategies_products TO authenticated;
+GRANT ALL ON TABLE public.quantitative_investment_strategies_products TO service_role;
+GRANT ALL ON TABLE public.quantitative_investment_strategies_products TO prisma;
 
 
 --
 -- Name: TABLE quantitative_strategies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_strategies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_strategies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_strategies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.quantitative_strategies TO prisma;
+GRANT ALL ON TABLE public.quantitative_strategies TO anon;
+GRANT ALL ON TABLE public.quantitative_strategies TO authenticated;
+GRANT ALL ON TABLE public.quantitative_strategies TO service_role;
+GRANT ALL ON TABLE public.quantitative_strategies TO prisma;
 
 
 --
 -- Name: TABLE ramp_network_config; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_network_config TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_network_config TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_network_config TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_network_config TO prisma;
+GRANT ALL ON TABLE public.ramp_network_config TO anon;
+GRANT ALL ON TABLE public.ramp_network_config TO authenticated;
+GRANT ALL ON TABLE public.ramp_network_config TO service_role;
+GRANT ALL ON TABLE public.ramp_network_config TO prisma;
 
 
 --
 -- Name: TABLE ramp_supported_assets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_supported_assets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_supported_assets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_supported_assets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_supported_assets TO prisma;
+GRANT ALL ON TABLE public.ramp_supported_assets TO anon;
+GRANT ALL ON TABLE public.ramp_supported_assets TO authenticated;
+GRANT ALL ON TABLE public.ramp_supported_assets TO service_role;
+GRANT ALL ON TABLE public.ramp_supported_assets TO prisma;
 
 
 --
 -- Name: TABLE ramp_transaction_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_transaction_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_transaction_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_transaction_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_transaction_events TO prisma;
+GRANT ALL ON TABLE public.ramp_transaction_events TO anon;
+GRANT ALL ON TABLE public.ramp_transaction_events TO authenticated;
+GRANT ALL ON TABLE public.ramp_transaction_events TO service_role;
+GRANT ALL ON TABLE public.ramp_transaction_events TO prisma;
 
 
 --
 -- Name: TABLE ramp_webhook_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_webhook_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_webhook_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_webhook_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ramp_webhook_events TO prisma;
+GRANT ALL ON TABLE public.ramp_webhook_events TO anon;
+GRANT ALL ON TABLE public.ramp_webhook_events TO authenticated;
+GRANT ALL ON TABLE public.ramp_webhook_events TO service_role;
+GRANT ALL ON TABLE public.ramp_webhook_events TO prisma;
 
 
 --
 -- Name: TABLE real_estate_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.real_estate_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.real_estate_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.real_estate_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.real_estate_products TO prisma;
+GRANT ALL ON TABLE public.real_estate_products TO anon;
+GRANT ALL ON TABLE public.real_estate_products TO authenticated;
+GRANT ALL ON TABLE public.real_estate_products TO service_role;
+GRANT ALL ON TABLE public.real_estate_products TO prisma;
 
 
 --
 -- Name: TABLE rec_price_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rec_price_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rec_price_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rec_price_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rec_price_cache TO prisma;
+GRANT ALL ON TABLE public.rec_price_cache TO anon;
+GRANT ALL ON TABLE public.rec_price_cache TO authenticated;
+GRANT ALL ON TABLE public.rec_price_cache TO service_role;
+GRANT ALL ON TABLE public.rec_price_cache TO prisma;
 
 
 --
 -- Name: TABLE redemption_analytics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_analytics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_analytics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_analytics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_analytics TO prisma;
+GRANT ALL ON TABLE public.redemption_analytics TO anon;
+GRANT ALL ON TABLE public.redemption_analytics TO authenticated;
+GRANT ALL ON TABLE public.redemption_analytics TO service_role;
+GRANT ALL ON TABLE public.redemption_analytics TO prisma;
 
 
 --
 -- Name: TABLE redemption_approvers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_approvers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_approvers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_approvers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_approvers TO prisma;
+GRANT ALL ON TABLE public.redemption_approvers TO anon;
+GRANT ALL ON TABLE public.redemption_approvers TO authenticated;
+GRANT ALL ON TABLE public.redemption_approvers TO service_role;
+GRANT ALL ON TABLE public.redemption_approvers TO prisma;
 
 
 --
 -- Name: TABLE redemption_notifications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_notifications TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_notifications TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_notifications TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_notifications TO prisma;
+GRANT ALL ON TABLE public.redemption_notifications TO anon;
+GRANT ALL ON TABLE public.redemption_notifications TO authenticated;
+GRANT ALL ON TABLE public.redemption_notifications TO service_role;
+GRANT ALL ON TABLE public.redemption_notifications TO prisma;
 
 
 --
 -- Name: TABLE redemption_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_requests TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_requests TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_requests TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_requests TO prisma;
+GRANT ALL ON TABLE public.redemption_requests TO anon;
+GRANT ALL ON TABLE public.redemption_requests TO authenticated;
+GRANT ALL ON TABLE public.redemption_requests TO service_role;
+GRANT ALL ON TABLE public.redemption_requests TO prisma;
 
 
 --
 -- Name: TABLE stablecoin_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_products TO prisma;
+GRANT ALL ON TABLE public.stablecoin_products TO anon;
+GRANT ALL ON TABLE public.stablecoin_products TO authenticated;
+GRANT ALL ON TABLE public.stablecoin_products TO service_role;
+GRANT ALL ON TABLE public.stablecoin_products TO prisma;
 
 
 --
 -- Name: TABLE structured_products; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.structured_products TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.structured_products TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.structured_products TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.structured_products TO prisma;
+GRANT ALL ON TABLE public.structured_products TO anon;
+GRANT ALL ON TABLE public.structured_products TO authenticated;
+GRANT ALL ON TABLE public.structured_products TO service_role;
+GRANT ALL ON TABLE public.structured_products TO prisma;
 
 
 --
 -- Name: TABLE redemption_rules_with_product_details; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules_with_product_details TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules_with_product_details TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules_with_product_details TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_rules_with_product_details TO prisma;
+GRANT ALL ON TABLE public.redemption_rules_with_product_details TO anon;
+GRANT ALL ON TABLE public.redemption_rules_with_product_details TO authenticated;
+GRANT ALL ON TABLE public.redemption_rules_with_product_details TO service_role;
+GRANT ALL ON TABLE public.redemption_rules_with_product_details TO prisma;
 
 
 --
 -- Name: TABLE redemption_settlements; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_settlements TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_settlements TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_settlements TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_settlements TO prisma;
+GRANT ALL ON TABLE public.redemption_settlements TO anon;
+GRANT ALL ON TABLE public.redemption_settlements TO authenticated;
+GRANT ALL ON TABLE public.redemption_settlements TO service_role;
+GRANT ALL ON TABLE public.redemption_settlements TO prisma;
 
 
 --
 -- Name: TABLE redemption_system_health; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_system_health TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_system_health TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_system_health TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_system_health TO prisma;
+GRANT ALL ON TABLE public.redemption_system_health TO anon;
+GRANT ALL ON TABLE public.redemption_system_health TO authenticated;
+GRANT ALL ON TABLE public.redemption_system_health TO service_role;
+GRANT ALL ON TABLE public.redemption_system_health TO prisma;
 
 
 --
 -- Name: TABLE redemption_window_templates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_window_templates TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_window_templates TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_window_templates TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_window_templates TO prisma;
+GRANT ALL ON TABLE public.redemption_window_templates TO anon;
+GRANT ALL ON TABLE public.redemption_window_templates TO authenticated;
+GRANT ALL ON TABLE public.redemption_window_templates TO service_role;
+GRANT ALL ON TABLE public.redemption_window_templates TO prisma;
 
 
 --
 -- Name: TABLE redemption_windows; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_windows TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_windows TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_windows TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.redemption_windows TO prisma;
+GRANT ALL ON TABLE public.redemption_windows TO anon;
+GRANT ALL ON TABLE public.redemption_windows TO authenticated;
+GRANT ALL ON TABLE public.redemption_windows TO service_role;
+GRANT ALL ON TABLE public.redemption_windows TO prisma;
 
 
 --
 -- Name: TABLE regulatory_equivalence_mapping; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_equivalence_mapping TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_equivalence_mapping TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_equivalence_mapping TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_equivalence_mapping TO prisma;
+GRANT ALL ON TABLE public.regulatory_equivalence_mapping TO anon;
+GRANT ALL ON TABLE public.regulatory_equivalence_mapping TO authenticated;
+GRANT ALL ON TABLE public.regulatory_equivalence_mapping TO service_role;
+GRANT ALL ON TABLE public.regulatory_equivalence_mapping TO prisma;
 
 
 --
 -- Name: TABLE regulatory_exemptions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_exemptions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_exemptions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_exemptions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_exemptions TO prisma;
+GRANT ALL ON TABLE public.regulatory_exemptions TO anon;
+GRANT ALL ON TABLE public.regulatory_exemptions TO authenticated;
+GRANT ALL ON TABLE public.regulatory_exemptions TO service_role;
+GRANT ALL ON TABLE public.regulatory_exemptions TO prisma;
 
 
 --
 -- Name: TABLE regulatory_registrations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_registrations TO prisma;
+GRANT ALL ON TABLE public.regulatory_registrations TO anon;
+GRANT ALL ON TABLE public.regulatory_registrations TO authenticated;
+GRANT ALL ON TABLE public.regulatory_registrations TO service_role;
+GRANT ALL ON TABLE public.regulatory_registrations TO prisma;
 
 
 --
 -- Name: TABLE regulatory_reports; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.regulatory_reports TO prisma;
+GRANT ALL ON TABLE public.regulatory_reports TO anon;
+GRANT ALL ON TABLE public.regulatory_reports TO authenticated;
+GRANT ALL ON TABLE public.regulatory_reports TO service_role;
+GRANT ALL ON TABLE public.regulatory_reports TO prisma;
 
 
 --
 -- Name: TABLE remediation_actions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.remediation_actions TO prisma;
+GRANT ALL ON TABLE public.remediation_actions TO anon;
+GRANT ALL ON TABLE public.remediation_actions TO authenticated;
+GRANT ALL ON TABLE public.remediation_actions TO service_role;
+GRANT ALL ON TABLE public.remediation_actions TO prisma;
 
 
 --
 -- Name: TABLE renewable_energy_credits; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.renewable_energy_credits TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.renewable_energy_credits TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.renewable_energy_credits TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.renewable_energy_credits TO prisma;
+GRANT ALL ON TABLE public.renewable_energy_credits TO anon;
+GRANT ALL ON TABLE public.renewable_energy_credits TO authenticated;
+GRANT ALL ON TABLE public.renewable_energy_credits TO service_role;
+GRANT ALL ON TABLE public.renewable_energy_credits TO prisma;
 
 
 --
 -- Name: TABLE restriction_statistics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_statistics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_statistics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_statistics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_statistics TO prisma;
+GRANT ALL ON TABLE public.restriction_statistics TO anon;
+GRANT ALL ON TABLE public.restriction_statistics TO authenticated;
+GRANT ALL ON TABLE public.restriction_statistics TO service_role;
+GRANT ALL ON TABLE public.restriction_statistics TO prisma;
 
 
 --
 -- Name: TABLE restriction_validation_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_validation_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_validation_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_validation_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.restriction_validation_logs TO prisma;
+GRANT ALL ON TABLE public.restriction_validation_logs TO anon;
+GRANT ALL ON TABLE public.restriction_validation_logs TO authenticated;
+GRANT ALL ON TABLE public.restriction_validation_logs TO service_role;
+GRANT ALL ON TABLE public.restriction_validation_logs TO prisma;
 
 
 --
 -- Name: TABLE ripple_dex_orders; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_dex_orders TO prisma;
+GRANT ALL ON TABLE public.ripple_dex_orders TO anon;
+GRANT ALL ON TABLE public.ripple_dex_orders TO authenticated;
+GRANT ALL ON TABLE public.ripple_dex_orders TO service_role;
+GRANT ALL ON TABLE public.ripple_dex_orders TO prisma;
 
 
 --
 -- Name: TABLE ripple_escrows; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_escrows TO prisma;
+GRANT ALL ON TABLE public.ripple_escrows TO anon;
+GRANT ALL ON TABLE public.ripple_escrows TO authenticated;
+GRANT ALL ON TABLE public.ripple_escrows TO service_role;
+GRANT ALL ON TABLE public.ripple_escrows TO prisma;
 
 
 --
 -- Name: TABLE ripple_issuers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_issuers TO prisma;
+GRANT ALL ON TABLE public.ripple_issuers TO anon;
+GRANT ALL ON TABLE public.ripple_issuers TO authenticated;
+GRANT ALL ON TABLE public.ripple_issuers TO service_role;
+GRANT ALL ON TABLE public.ripple_issuers TO prisma;
 
 
 --
 -- Name: TABLE ripple_multisig_accounts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_accounts TO prisma;
+GRANT ALL ON TABLE public.ripple_multisig_accounts TO anon;
+GRANT ALL ON TABLE public.ripple_multisig_accounts TO authenticated;
+GRANT ALL ON TABLE public.ripple_multisig_accounts TO service_role;
+GRANT ALL ON TABLE public.ripple_multisig_accounts TO prisma;
 
 
 --
 -- Name: TABLE ripple_multisig_proposals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_multisig_proposals TO prisma;
+GRANT ALL ON TABLE public.ripple_multisig_proposals TO anon;
+GRANT ALL ON TABLE public.ripple_multisig_proposals TO authenticated;
+GRANT ALL ON TABLE public.ripple_multisig_proposals TO service_role;
+GRANT ALL ON TABLE public.ripple_multisig_proposals TO prisma;
 
 
 --
 -- Name: TABLE ripple_payments; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_payments TO prisma;
+GRANT ALL ON TABLE public.ripple_payments TO anon;
+GRANT ALL ON TABLE public.ripple_payments TO authenticated;
+GRANT ALL ON TABLE public.ripple_payments TO service_role;
+GRANT ALL ON TABLE public.ripple_payments TO prisma;
 
 
 --
 -- Name: TABLE ripple_tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_tokens TO prisma;
+GRANT ALL ON TABLE public.ripple_tokens TO anon;
+GRANT ALL ON TABLE public.ripple_tokens TO authenticated;
+GRANT ALL ON TABLE public.ripple_tokens TO service_role;
+GRANT ALL ON TABLE public.ripple_tokens TO prisma;
 
 
 --
 -- Name: TABLE ripple_trust_lines; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.ripple_trust_lines TO prisma;
+GRANT ALL ON TABLE public.ripple_trust_lines TO anon;
+GRANT ALL ON TABLE public.ripple_trust_lines TO authenticated;
+GRANT ALL ON TABLE public.ripple_trust_lines TO service_role;
+GRANT ALL ON TABLE public.ripple_trust_lines TO prisma;
 
 
 --
 -- Name: TABLE risk_assessments; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_assessments TO prisma;
+GRANT ALL ON TABLE public.risk_assessments TO anon;
+GRANT ALL ON TABLE public.risk_assessments TO authenticated;
+GRANT ALL ON TABLE public.risk_assessments TO service_role;
+GRANT ALL ON TABLE public.risk_assessments TO prisma;
 
 
 --
 -- Name: TABLE risk_thresholds; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.risk_thresholds TO prisma;
+GRANT ALL ON TABLE public.risk_thresholds TO anon;
+GRANT ALL ON TABLE public.risk_thresholds TO authenticated;
+GRANT ALL ON TABLE public.risk_thresholds TO service_role;
+GRANT ALL ON TABLE public.risk_thresholds TO prisma;
 
 
 --
 -- Name: TABLE role_permissions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.role_permissions TO prisma;
+GRANT ALL ON TABLE public.role_permissions TO anon;
+GRANT ALL ON TABLE public.role_permissions TO authenticated;
+GRANT ALL ON TABLE public.role_permissions TO service_role;
+GRANT ALL ON TABLE public.role_permissions TO prisma;
 
 
 --
 -- Name: TABLE rule_conflicts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_conflicts TO prisma;
+GRANT ALL ON TABLE public.rule_conflicts TO anon;
+GRANT ALL ON TABLE public.rule_conflicts TO authenticated;
+GRANT ALL ON TABLE public.rule_conflicts TO service_role;
+GRANT ALL ON TABLE public.rule_conflicts TO prisma;
 
 
 --
 -- Name: TABLE rule_evaluations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rule_evaluations TO prisma;
+GRANT ALL ON TABLE public.rule_evaluations TO anon;
+GRANT ALL ON TABLE public.rule_evaluations TO authenticated;
+GRANT ALL ON TABLE public.rule_evaluations TO service_role;
+GRANT ALL ON TABLE public.rule_evaluations TO prisma;
 
 
 --
 -- Name: TABLE rules; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rules TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rules TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rules TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.rules TO prisma;
+GRANT ALL ON TABLE public.rules TO anon;
+GRANT ALL ON TABLE public.rules TO authenticated;
+GRANT ALL ON TABLE public.rules TO service_role;
+GRANT ALL ON TABLE public.rules TO prisma;
+
+
+--
+-- Name: TABLE sc_algorithm_parameters; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sc_algorithm_parameters TO anon;
+GRANT ALL ON TABLE public.sc_algorithm_parameters TO authenticated;
+GRANT ALL ON TABLE public.sc_algorithm_parameters TO service_role;
+GRANT ALL ON TABLE public.sc_algorithm_parameters TO prisma;
+
+
+--
+-- Name: TABLE sc_minting_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sc_minting_events TO anon;
+GRANT ALL ON TABLE public.sc_minting_events TO authenticated;
+GRANT ALL ON TABLE public.sc_minting_events TO service_role;
+GRANT ALL ON TABLE public.sc_minting_events TO prisma;
+
+
+--
+-- Name: TABLE sc_peg_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sc_peg_history TO anon;
+GRANT ALL ON TABLE public.sc_peg_history TO authenticated;
+GRANT ALL ON TABLE public.sc_peg_history TO service_role;
+GRANT ALL ON TABLE public.sc_peg_history TO prisma;
+
+
+--
+-- Name: TABLE sc_redemptions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sc_redemptions TO anon;
+GRANT ALL ON TABLE public.sc_redemptions TO authenticated;
+GRANT ALL ON TABLE public.sc_redemptions TO service_role;
+GRANT ALL ON TABLE public.sc_redemptions TO prisma;
+
+
+--
+-- Name: TABLE sc_reserve_audits; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sc_reserve_audits TO anon;
+GRANT ALL ON TABLE public.sc_reserve_audits TO authenticated;
+GRANT ALL ON TABLE public.sc_reserve_audits TO service_role;
+GRANT ALL ON TABLE public.sc_reserve_audits TO prisma;
 
 
 --
 -- Name: TABLE security_audit_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_audit_logs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_audit_logs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_audit_logs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_audit_logs TO prisma;
+GRANT ALL ON TABLE public.security_audit_logs TO anon;
+GRANT ALL ON TABLE public.security_audit_logs TO authenticated;
+GRANT ALL ON TABLE public.security_audit_logs TO service_role;
+GRANT ALL ON TABLE public.security_audit_logs TO prisma;
 
 
 --
 -- Name: TABLE security_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.security_events TO prisma;
+GRANT ALL ON TABLE public.security_events TO anon;
+GRANT ALL ON TABLE public.security_events TO authenticated;
+GRANT ALL ON TABLE public.security_events TO service_role;
+GRANT ALL ON TABLE public.security_events TO prisma;
 
 
 --
 -- Name: TABLE session_key_usage; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_key_usage TO prisma;
+GRANT ALL ON TABLE public.session_key_usage TO anon;
+GRANT ALL ON TABLE public.session_key_usage TO authenticated;
+GRANT ALL ON TABLE public.session_key_usage TO service_role;
+GRANT ALL ON TABLE public.session_key_usage TO prisma;
 
 
 --
 -- Name: TABLE session_keys; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.session_keys TO prisma;
+GRANT ALL ON TABLE public.session_keys TO anon;
+GRANT ALL ON TABLE public.session_keys TO authenticated;
+GRANT ALL ON TABLE public.session_keys TO service_role;
+GRANT ALL ON TABLE public.session_keys TO prisma;
 
 
 --
 -- Name: TABLE settlement_metrics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_metrics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_metrics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_metrics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_metrics TO prisma;
+GRANT ALL ON TABLE public.settlement_metrics TO anon;
+GRANT ALL ON TABLE public.settlement_metrics TO authenticated;
+GRANT ALL ON TABLE public.settlement_metrics TO service_role;
+GRANT ALL ON TABLE public.settlement_metrics TO prisma;
 
 
 --
 -- Name: TABLE settlement_summary; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_summary TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_summary TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_summary TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.settlement_summary TO prisma;
+GRANT ALL ON TABLE public.settlement_summary TO anon;
+GRANT ALL ON TABLE public.settlement_summary TO authenticated;
+GRANT ALL ON TABLE public.settlement_summary TO service_role;
+GRANT ALL ON TABLE public.settlement_summary TO prisma;
 
 
 --
 -- Name: TABLE sidebar_configurations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations TO prisma;
+GRANT ALL ON TABLE public.sidebar_configurations TO anon;
+GRANT ALL ON TABLE public.sidebar_configurations TO authenticated;
+GRANT ALL ON TABLE public.sidebar_configurations TO service_role;
+GRANT ALL ON TABLE public.sidebar_configurations TO prisma;
 
 
 --
 -- Name: TABLE sidebar_configurations_with_names; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations_with_names TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations_with_names TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations_with_names TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_configurations_with_names TO prisma;
+GRANT ALL ON TABLE public.sidebar_configurations_with_names TO anon;
+GRANT ALL ON TABLE public.sidebar_configurations_with_names TO authenticated;
+GRANT ALL ON TABLE public.sidebar_configurations_with_names TO service_role;
+GRANT ALL ON TABLE public.sidebar_configurations_with_names TO prisma;
 
 
 --
 -- Name: TABLE sidebar_items; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_items TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_items TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_items TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_items TO prisma;
+GRANT ALL ON TABLE public.sidebar_items TO anon;
+GRANT ALL ON TABLE public.sidebar_items TO authenticated;
+GRANT ALL ON TABLE public.sidebar_items TO service_role;
+GRANT ALL ON TABLE public.sidebar_items TO prisma;
 
 
 --
 -- Name: TABLE sidebar_sections; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_sections TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_sections TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_sections TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.sidebar_sections TO prisma;
+GRANT ALL ON TABLE public.sidebar_sections TO anon;
+GRANT ALL ON TABLE public.sidebar_sections TO authenticated;
+GRANT ALL ON TABLE public.sidebar_sections TO service_role;
+GRANT ALL ON TABLE public.sidebar_sections TO prisma;
 
 
 --
 -- Name: TABLE signature_migration_approvals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migration_approvals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migration_approvals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migration_approvals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migration_approvals TO prisma;
+GRANT ALL ON TABLE public.signature_migration_approvals TO anon;
+GRANT ALL ON TABLE public.signature_migration_approvals TO authenticated;
+GRANT ALL ON TABLE public.signature_migration_approvals TO service_role;
+GRANT ALL ON TABLE public.signature_migration_approvals TO prisma;
 
 
 --
 -- Name: TABLE signature_migrations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migrations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migrations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migrations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signature_migrations TO prisma;
+GRANT ALL ON TABLE public.signature_migrations TO anon;
+GRANT ALL ON TABLE public.signature_migrations TO authenticated;
+GRANT ALL ON TABLE public.signature_migrations TO service_role;
+GRANT ALL ON TABLE public.signature_migrations TO prisma;
 
 
 --
 -- Name: TABLE signatures; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signatures TO prisma;
+GRANT ALL ON TABLE public.signatures TO anon;
+GRANT ALL ON TABLE public.signatures TO authenticated;
+GRANT ALL ON TABLE public.signatures TO service_role;
+GRANT ALL ON TABLE public.signatures TO prisma;
 
 
 --
 -- Name: TABLE signer_keys; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.signer_keys TO prisma;
+GRANT ALL ON TABLE public.signer_keys TO anon;
+GRANT ALL ON TABLE public.signer_keys TO authenticated;
+GRANT ALL ON TABLE public.signer_keys TO service_role;
+GRANT ALL ON TABLE public.signer_keys TO prisma;
 
 
 --
 -- Name: TABLE smart_contract_wallets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.smart_contract_wallets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.smart_contract_wallets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.smart_contract_wallets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.smart_contract_wallets TO prisma;
+GRANT ALL ON TABLE public.smart_contract_wallets TO anon;
+GRANT ALL ON TABLE public.smart_contract_wallets TO authenticated;
+GRANT ALL ON TABLE public.smart_contract_wallets TO service_role;
+GRANT ALL ON TABLE public.smart_contract_wallets TO prisma;
+
+
+--
+-- Name: TABLE sp_barrier_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sp_barrier_events TO anon;
+GRANT ALL ON TABLE public.sp_barrier_events TO authenticated;
+GRANT ALL ON TABLE public.sp_barrier_events TO service_role;
+GRANT ALL ON TABLE public.sp_barrier_events TO prisma;
+
+
+--
+-- Name: TABLE sp_components; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sp_components TO anon;
+GRANT ALL ON TABLE public.sp_components TO authenticated;
+GRANT ALL ON TABLE public.sp_components TO service_role;
+GRANT ALL ON TABLE public.sp_components TO prisma;
+
+
+--
+-- Name: TABLE sp_coupon_schedules; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sp_coupon_schedules TO anon;
+GRANT ALL ON TABLE public.sp_coupon_schedules TO authenticated;
+GRANT ALL ON TABLE public.sp_coupon_schedules TO service_role;
+GRANT ALL ON TABLE public.sp_coupon_schedules TO prisma;
+
+
+--
+-- Name: TABLE sp_payoff_structures; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sp_payoff_structures TO anon;
+GRANT ALL ON TABLE public.sp_payoff_structures TO authenticated;
+GRANT ALL ON TABLE public.sp_payoff_structures TO service_role;
+GRANT ALL ON TABLE public.sp_payoff_structures TO prisma;
+
+
+--
+-- Name: TABLE sp_performance_tracking; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sp_performance_tracking TO anon;
+GRANT ALL ON TABLE public.sp_performance_tracking TO authenticated;
+GRANT ALL ON TABLE public.sp_performance_tracking TO service_role;
+GRANT ALL ON TABLE public.sp_performance_tracking TO prisma;
+
+
+--
+-- Name: TABLE sp_redemption_features; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sp_redemption_features TO anon;
+GRANT ALL ON TABLE public.sp_redemption_features TO authenticated;
+GRANT ALL ON TABLE public.sp_redemption_features TO service_role;
+GRANT ALL ON TABLE public.sp_redemption_features TO prisma;
 
 
 --
 -- Name: TABLE stablecoin_collateral; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_collateral TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_collateral TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_collateral TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stablecoin_collateral TO prisma;
+GRANT ALL ON TABLE public.stablecoin_collateral TO anon;
+GRANT ALL ON TABLE public.stablecoin_collateral TO authenticated;
+GRANT ALL ON TABLE public.stablecoin_collateral TO service_role;
+GRANT ALL ON TABLE public.stablecoin_collateral TO prisma;
 
 
 --
 -- Name: TABLE stage_requirements; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stage_requirements TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stage_requirements TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stage_requirements TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stage_requirements TO prisma;
+GRANT ALL ON TABLE public.stage_requirements TO anon;
+GRANT ALL ON TABLE public.stage_requirements TO authenticated;
+GRANT ALL ON TABLE public.stage_requirements TO service_role;
+GRANT ALL ON TABLE public.stage_requirements TO prisma;
+
+
+--
+-- Name: TABLE stock_dividends; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.stock_dividends TO anon;
+GRANT ALL ON TABLE public.stock_dividends TO authenticated;
+GRANT ALL ON TABLE public.stock_dividends TO service_role;
+GRANT ALL ON TABLE public.stock_dividends TO prisma;
+
+
+--
+-- Name: TABLE stock_exchanges; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.stock_exchanges TO anon;
+GRANT ALL ON TABLE public.stock_exchanges TO authenticated;
+GRANT ALL ON TABLE public.stock_exchanges TO service_role;
+GRANT ALL ON TABLE public.stock_exchanges TO prisma;
 
 
 --
 -- Name: TABLE stripe_conversion_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_conversion_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_conversion_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_conversion_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_conversion_transactions TO prisma;
+GRANT ALL ON TABLE public.stripe_conversion_transactions TO anon;
+GRANT ALL ON TABLE public.stripe_conversion_transactions TO authenticated;
+GRANT ALL ON TABLE public.stripe_conversion_transactions TO service_role;
+GRANT ALL ON TABLE public.stripe_conversion_transactions TO prisma;
 
 
 --
 -- Name: TABLE stripe_stablecoin_accounts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_stablecoin_accounts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_stablecoin_accounts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_stablecoin_accounts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_stablecoin_accounts TO prisma;
+GRANT ALL ON TABLE public.stripe_stablecoin_accounts TO anon;
+GRANT ALL ON TABLE public.stripe_stablecoin_accounts TO authenticated;
+GRANT ALL ON TABLE public.stripe_stablecoin_accounts TO service_role;
+GRANT ALL ON TABLE public.stripe_stablecoin_accounts TO prisma;
 
 
 --
 -- Name: TABLE stripe_webhook_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_webhook_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_webhook_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_webhook_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.stripe_webhook_events TO prisma;
+GRANT ALL ON TABLE public.stripe_webhook_events TO anon;
+GRANT ALL ON TABLE public.stripe_webhook_events TO authenticated;
+GRANT ALL ON TABLE public.stripe_webhook_events TO service_role;
+GRANT ALL ON TABLE public.stripe_webhook_events TO prisma;
 
 
 --
 -- Name: TABLE subscriptions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.subscriptions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.subscriptions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.subscriptions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.subscriptions TO prisma;
+GRANT ALL ON TABLE public.subscriptions TO anon;
+GRANT ALL ON TABLE public.subscriptions TO authenticated;
+GRANT ALL ON TABLE public.subscriptions TO service_role;
+GRANT ALL ON TABLE public.subscriptions TO prisma;
 
 
 --
 -- Name: TABLE suspicious_activity_reports; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.suspicious_activity_reports TO prisma;
+GRANT ALL ON TABLE public.suspicious_activity_reports TO anon;
+GRANT ALL ON TABLE public.suspicious_activity_reports TO authenticated;
+GRANT ALL ON TABLE public.suspicious_activity_reports TO service_role;
+GRANT ALL ON TABLE public.suspicious_activity_reports TO prisma;
+
+
+--
+-- Name: TABLE wallet_access_logs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.wallet_access_logs TO anon;
+GRANT ALL ON TABLE public.wallet_access_logs TO authenticated;
+GRANT ALL ON TABLE public.wallet_access_logs TO service_role;
+GRANT ALL ON TABLE public.wallet_access_logs TO prisma;
+
+
+--
+-- Name: TABLE suspicious_wallet_activity; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.suspicious_wallet_activity TO anon;
+GRANT ALL ON TABLE public.suspicious_wallet_activity TO authenticated;
+GRANT ALL ON TABLE public.suspicious_wallet_activity TO service_role;
+GRANT ALL ON TABLE public.suspicious_wallet_activity TO prisma;
 
 
 --
 -- Name: TABLE system_processes; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_processes TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_processes TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_processes TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_processes TO prisma;
+GRANT ALL ON TABLE public.system_processes TO anon;
+GRANT ALL ON TABLE public.system_processes TO authenticated;
+GRANT ALL ON TABLE public.system_processes TO service_role;
+GRANT ALL ON TABLE public.system_processes TO prisma;
 
 
 --
 -- Name: TABLE system_process_activities; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activities TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activities TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activities TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activities TO prisma;
+GRANT ALL ON TABLE public.system_process_activities TO anon;
+GRANT ALL ON TABLE public.system_process_activities TO authenticated;
+GRANT ALL ON TABLE public.system_process_activities TO service_role;
+GRANT ALL ON TABLE public.system_process_activities TO prisma;
 
 
 --
 -- Name: TABLE system_process_activity; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activity TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activity TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activity TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_activity TO prisma;
+GRANT ALL ON TABLE public.system_process_activity TO anon;
+GRANT ALL ON TABLE public.system_process_activity TO authenticated;
+GRANT ALL ON TABLE public.system_process_activity TO service_role;
+GRANT ALL ON TABLE public.system_process_activity TO prisma;
 
 
 --
 -- Name: TABLE system_process_performance; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_performance TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_performance TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_performance TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_process_performance TO prisma;
+GRANT ALL ON TABLE public.system_process_performance TO anon;
+GRANT ALL ON TABLE public.system_process_performance TO authenticated;
+GRANT ALL ON TABLE public.system_process_performance TO service_role;
+GRANT ALL ON TABLE public.system_process_performance TO prisma;
 
 
 --
 -- Name: TABLE system_settings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.system_settings TO prisma;
+GRANT ALL ON TABLE public.system_settings TO anon;
+GRANT ALL ON TABLE public.system_settings TO authenticated;
+GRANT ALL ON TABLE public.system_settings TO service_role;
+GRANT ALL ON TABLE public.system_settings TO prisma;
 
 
 --
 -- Name: TABLE threshold_breaches; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.threshold_breaches TO prisma;
+GRANT ALL ON TABLE public.threshold_breaches TO anon;
+GRANT ALL ON TABLE public.threshold_breaches TO authenticated;
+GRANT ALL ON TABLE public.threshold_breaches TO service_role;
+GRANT ALL ON TABLE public.threshold_breaches TO prisma;
 
 
 --
 -- Name: TABLE token_allocations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_allocations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_allocations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_allocations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_allocations TO prisma;
+GRANT ALL ON TABLE public.token_allocations TO anon;
+GRANT ALL ON TABLE public.token_allocations TO authenticated;
+GRANT ALL ON TABLE public.token_allocations TO service_role;
+GRANT ALL ON TABLE public.token_allocations TO prisma;
 
 
 --
 -- Name: TABLE token_deployment_history; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployment_history TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployment_history TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployment_history TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployment_history TO prisma;
+GRANT ALL ON TABLE public.token_deployment_history TO anon;
+GRANT ALL ON TABLE public.token_deployment_history TO authenticated;
+GRANT ALL ON TABLE public.token_deployment_history TO service_role;
+GRANT ALL ON TABLE public.token_deployment_history TO prisma;
 
 
 --
--- Name: TABLE token_deployments; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE token_deployment_verifications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployments TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployments TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployments TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_deployments TO prisma;
+GRANT ALL ON TABLE public.token_deployment_verifications TO anon;
+GRANT ALL ON TABLE public.token_deployment_verifications TO authenticated;
+GRANT ALL ON TABLE public.token_deployment_verifications TO service_role;
+GRANT ALL ON TABLE public.token_deployment_verifications TO prisma;
 
 
 --
 -- Name: TABLE token_designs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_designs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_designs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_designs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_designs TO prisma;
+GRANT ALL ON TABLE public.token_designs TO anon;
+GRANT ALL ON TABLE public.token_designs TO authenticated;
+GRANT ALL ON TABLE public.token_designs TO service_role;
+GRANT ALL ON TABLE public.token_designs TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_balances; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_balances TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_balances TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_balances TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_balances TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_balances TO anon;
+GRANT ALL ON TABLE public.token_erc1155_balances TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_balances TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_balances TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_crafting_recipes; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_crafting_recipes TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_crafting_recipes TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_crafting_recipes TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_crafting_recipes TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_crafting_recipes TO anon;
+GRANT ALL ON TABLE public.token_erc1155_crafting_recipes TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_crafting_recipes TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_crafting_recipes TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_discount_tiers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_discount_tiers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_discount_tiers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_discount_tiers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_discount_tiers TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_discount_tiers TO anon;
+GRANT ALL ON TABLE public.token_erc1155_discount_tiers TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_discount_tiers TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_discount_tiers TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_properties TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_properties TO anon;
+GRANT ALL ON TABLE public.token_erc1155_properties TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_properties TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_properties TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_type_configs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_type_configs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_type_configs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_type_configs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_type_configs TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_type_configs TO anon;
+GRANT ALL ON TABLE public.token_erc1155_type_configs TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_type_configs TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_type_configs TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_types; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_types TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_types TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_types TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_types TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_types TO anon;
+GRANT ALL ON TABLE public.token_erc1155_types TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_types TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_types TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_uri_mappings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_uri_mappings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_uri_mappings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_uri_mappings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_uri_mappings TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_uri_mappings TO anon;
+GRANT ALL ON TABLE public.token_erc1155_uri_mappings TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_uri_mappings TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_uri_mappings TO prisma;
 
 
 --
 -- Name: TABLE token_erc1155_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1155_view TO prisma;
+GRANT ALL ON TABLE public.token_erc1155_view TO anon;
+GRANT ALL ON TABLE public.token_erc1155_view TO authenticated;
+GRANT ALL ON TABLE public.token_erc1155_view TO service_role;
+GRANT ALL ON TABLE public.token_erc1155_view TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_controllers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_controllers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_controllers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_controllers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_controllers TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_controllers TO anon;
+GRANT ALL ON TABLE public.token_erc1400_controllers TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_controllers TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_controllers TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_corporate_actions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_corporate_actions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_corporate_actions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_corporate_actions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_corporate_actions TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO anon;
+GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_custody_providers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_custody_providers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_custody_providers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_custody_providers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_custody_providers TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_custody_providers TO anon;
+GRANT ALL ON TABLE public.token_erc1400_custody_providers TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_custody_providers TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_custody_providers TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_documents TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_documents TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_documents TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_documents TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_documents TO anon;
+GRANT ALL ON TABLE public.token_erc1400_documents TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_documents TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_documents TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_partition_balances; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_balances TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_balances TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_balances TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_balances TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_partition_balances TO anon;
+GRANT ALL ON TABLE public.token_erc1400_partition_balances TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_partition_balances TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_partition_balances TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_partition_operators; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_operators TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_operators TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_operators TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_operators TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_partition_operators TO anon;
+GRANT ALL ON TABLE public.token_erc1400_partition_operators TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_partition_operators TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_partition_operators TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_partition_transfers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_transfers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_transfers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_transfers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partition_transfers TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_partition_transfers TO anon;
+GRANT ALL ON TABLE public.token_erc1400_partition_transfers TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_partition_transfers TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_partition_transfers TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_partitions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partitions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partitions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partitions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_partitions TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_partitions TO anon;
+GRANT ALL ON TABLE public.token_erc1400_partitions TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_partitions TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_partitions TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_properties TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_properties TO anon;
+GRANT ALL ON TABLE public.token_erc1400_properties TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_properties TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_properties TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_regulatory_filings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_regulatory_filings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_regulatory_filings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_regulatory_filings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_regulatory_filings TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO anon;
+GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO prisma;
 
 
 --
 -- Name: TABLE token_erc1400_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc1400_view TO prisma;
+GRANT ALL ON TABLE public.token_erc1400_view TO anon;
+GRANT ALL ON TABLE public.token_erc1400_view TO authenticated;
+GRANT ALL ON TABLE public.token_erc1400_view TO service_role;
+GRANT ALL ON TABLE public.token_erc1400_view TO prisma;
 
 
 --
 -- Name: TABLE token_erc20_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_properties TO prisma;
+GRANT ALL ON TABLE public.token_erc20_properties TO anon;
+GRANT ALL ON TABLE public.token_erc20_properties TO authenticated;
+GRANT ALL ON TABLE public.token_erc20_properties TO service_role;
+GRANT ALL ON TABLE public.token_erc20_properties TO prisma;
 
 
 --
 -- Name: TABLE token_erc20_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc20_view TO prisma;
+GRANT ALL ON TABLE public.token_erc20_view TO anon;
+GRANT ALL ON TABLE public.token_erc20_view TO authenticated;
+GRANT ALL ON TABLE public.token_erc20_view TO service_role;
+GRANT ALL ON TABLE public.token_erc20_view TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_allocations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_allocations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_allocations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_allocations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_allocations TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_allocations TO anon;
+GRANT ALL ON TABLE public.token_erc3525_allocations TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_allocations TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_allocations TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_payment_schedules; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_payment_schedules TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_payment_schedules TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_payment_schedules TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_payment_schedules TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_payment_schedules TO anon;
+GRANT ALL ON TABLE public.token_erc3525_payment_schedules TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_payment_schedules TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_payment_schedules TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_properties TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_properties TO anon;
+GRANT ALL ON TABLE public.token_erc3525_properties TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_properties TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_properties TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_slot_configs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slot_configs TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slot_configs TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slot_configs TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slot_configs TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_slot_configs TO anon;
+GRANT ALL ON TABLE public.token_erc3525_slot_configs TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_slot_configs TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_slot_configs TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_slots; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slots TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slots TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slots TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_slots TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_slots TO anon;
+GRANT ALL ON TABLE public.token_erc3525_slots TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_slots TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_slots TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_value_adjustments; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_value_adjustments TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_value_adjustments TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_value_adjustments TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_value_adjustments TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_value_adjustments TO anon;
+GRANT ALL ON TABLE public.token_erc3525_value_adjustments TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_value_adjustments TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_value_adjustments TO prisma;
 
 
 --
 -- Name: TABLE token_erc3525_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc3525_view TO prisma;
+GRANT ALL ON TABLE public.token_erc3525_view TO anon;
+GRANT ALL ON TABLE public.token_erc3525_view TO authenticated;
+GRANT ALL ON TABLE public.token_erc3525_view TO service_role;
+GRANT ALL ON TABLE public.token_erc3525_view TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_asset_allocations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_asset_allocations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_asset_allocations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_asset_allocations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_asset_allocations TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_asset_allocations TO anon;
+GRANT ALL ON TABLE public.token_erc4626_asset_allocations TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_asset_allocations TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_asset_allocations TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_fee_tiers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_fee_tiers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_fee_tiers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_fee_tiers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_fee_tiers TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_fee_tiers TO anon;
+GRANT ALL ON TABLE public.token_erc4626_fee_tiers TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_fee_tiers TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_fee_tiers TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_performance_metrics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_performance_metrics TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_performance_metrics TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_performance_metrics TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_performance_metrics TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_performance_metrics TO anon;
+GRANT ALL ON TABLE public.token_erc4626_performance_metrics TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_performance_metrics TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_performance_metrics TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_properties TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_properties TO anon;
+GRANT ALL ON TABLE public.token_erc4626_properties TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_properties TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_properties TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_strategy_params; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_strategy_params TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_strategy_params TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_strategy_params TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_strategy_params TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_strategy_params TO anon;
+GRANT ALL ON TABLE public.token_erc4626_strategy_params TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_strategy_params TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_strategy_params TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_vault_strategies; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_vault_strategies TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_vault_strategies TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_vault_strategies TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_vault_strategies TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO anon;
+GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO prisma;
 
 
 --
 -- Name: TABLE token_erc4626_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc4626_view TO prisma;
+GRANT ALL ON TABLE public.token_erc4626_view TO anon;
+GRANT ALL ON TABLE public.token_erc4626_view TO authenticated;
+GRANT ALL ON TABLE public.token_erc4626_view TO service_role;
+GRANT ALL ON TABLE public.token_erc4626_view TO prisma;
 
 
 --
 -- Name: TABLE token_erc721_attributes; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_attributes TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_attributes TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_attributes TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_attributes TO prisma;
+GRANT ALL ON TABLE public.token_erc721_attributes TO anon;
+GRANT ALL ON TABLE public.token_erc721_attributes TO authenticated;
+GRANT ALL ON TABLE public.token_erc721_attributes TO service_role;
+GRANT ALL ON TABLE public.token_erc721_attributes TO prisma;
 
 
 --
 -- Name: TABLE token_erc721_mint_phases; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_mint_phases TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_mint_phases TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_mint_phases TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_mint_phases TO prisma;
+GRANT ALL ON TABLE public.token_erc721_mint_phases TO anon;
+GRANT ALL ON TABLE public.token_erc721_mint_phases TO authenticated;
+GRANT ALL ON TABLE public.token_erc721_mint_phases TO service_role;
+GRANT ALL ON TABLE public.token_erc721_mint_phases TO prisma;
 
 
 --
 -- Name: TABLE token_erc721_properties; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_properties TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_properties TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_properties TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_properties TO prisma;
+GRANT ALL ON TABLE public.token_erc721_properties TO anon;
+GRANT ALL ON TABLE public.token_erc721_properties TO authenticated;
+GRANT ALL ON TABLE public.token_erc721_properties TO service_role;
+GRANT ALL ON TABLE public.token_erc721_properties TO prisma;
 
 
 --
 -- Name: TABLE token_erc721_trait_definitions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_trait_definitions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_trait_definitions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_trait_definitions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_trait_definitions TO prisma;
+GRANT ALL ON TABLE public.token_erc721_trait_definitions TO anon;
+GRANT ALL ON TABLE public.token_erc721_trait_definitions TO authenticated;
+GRANT ALL ON TABLE public.token_erc721_trait_definitions TO service_role;
+GRANT ALL ON TABLE public.token_erc721_trait_definitions TO prisma;
 
 
 --
 -- Name: TABLE token_erc721_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_erc721_view TO prisma;
+GRANT ALL ON TABLE public.token_erc721_view TO anon;
+GRANT ALL ON TABLE public.token_erc721_view TO authenticated;
+GRANT ALL ON TABLE public.token_erc721_view TO service_role;
+GRANT ALL ON TABLE public.token_erc721_view TO prisma;
 
 
 --
 -- Name: TABLE token_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_events TO prisma;
+GRANT ALL ON TABLE public.token_events TO anon;
+GRANT ALL ON TABLE public.token_events TO authenticated;
+GRANT ALL ON TABLE public.token_events TO service_role;
+GRANT ALL ON TABLE public.token_events TO prisma;
+
+
+--
+-- Name: TABLE token_extensions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.token_extensions TO anon;
+GRANT ALL ON TABLE public.token_extensions TO authenticated;
+GRANT ALL ON TABLE public.token_extensions TO service_role;
+GRANT ALL ON TABLE public.token_extensions TO prisma;
 
 
 --
 -- Name: TABLE token_geographic_restrictions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions TO prisma;
+GRANT ALL ON TABLE public.token_geographic_restrictions TO anon;
+GRANT ALL ON TABLE public.token_geographic_restrictions TO authenticated;
+GRANT ALL ON TABLE public.token_geographic_restrictions TO service_role;
+GRANT ALL ON TABLE public.token_geographic_restrictions TO prisma;
 
 
 --
 -- Name: TABLE token_geographic_restrictions_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_geographic_restrictions_view TO prisma;
+GRANT ALL ON TABLE public.token_geographic_restrictions_view TO anon;
+GRANT ALL ON TABLE public.token_geographic_restrictions_view TO authenticated;
+GRANT ALL ON TABLE public.token_geographic_restrictions_view TO service_role;
+GRANT ALL ON TABLE public.token_geographic_restrictions_view TO prisma;
 
 
 --
 -- Name: TABLE token_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_operations TO prisma;
+GRANT ALL ON TABLE public.token_operations TO anon;
+GRANT ALL ON TABLE public.token_operations TO authenticated;
+GRANT ALL ON TABLE public.token_operations TO service_role;
+GRANT ALL ON TABLE public.token_operations TO prisma;
 
 
 --
 -- Name: TABLE token_sanctions_rules; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_sanctions_rules TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_sanctions_rules TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_sanctions_rules TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_sanctions_rules TO prisma;
+GRANT ALL ON TABLE public.token_sanctions_rules TO anon;
+GRANT ALL ON TABLE public.token_sanctions_rules TO authenticated;
+GRANT ALL ON TABLE public.token_sanctions_rules TO service_role;
+GRANT ALL ON TABLE public.token_sanctions_rules TO prisma;
 
 
 --
 -- Name: TABLE token_templates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_templates TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_templates TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_templates TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_templates TO prisma;
+GRANT ALL ON TABLE public.token_templates TO anon;
+GRANT ALL ON TABLE public.token_templates TO authenticated;
+GRANT ALL ON TABLE public.token_templates TO service_role;
+GRANT ALL ON TABLE public.token_templates TO prisma;
 
 
 --
 -- Name: TABLE token_versions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_versions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_versions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_versions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_versions TO prisma;
+GRANT ALL ON TABLE public.token_versions TO anon;
+GRANT ALL ON TABLE public.token_versions TO authenticated;
+GRANT ALL ON TABLE public.token_versions TO service_role;
+GRANT ALL ON TABLE public.token_versions TO prisma;
 
 
 --
 -- Name: TABLE token_whitelists; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelists TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelists TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelists TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelists TO prisma;
+GRANT ALL ON TABLE public.token_whitelists TO anon;
+GRANT ALL ON TABLE public.token_whitelists TO authenticated;
+GRANT ALL ON TABLE public.token_whitelists TO service_role;
+GRANT ALL ON TABLE public.token_whitelists TO prisma;
 
 
 --
 -- Name: TABLE token_whitelist_summary; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelist_summary TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelist_summary TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelist_summary TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.token_whitelist_summary TO prisma;
+GRANT ALL ON TABLE public.token_whitelist_summary TO anon;
+GRANT ALL ON TABLE public.token_whitelist_summary TO authenticated;
+GRANT ALL ON TABLE public.token_whitelist_summary TO service_role;
+GRANT ALL ON TABLE public.token_whitelist_summary TO prisma;
 
 
 --
 -- Name: TABLE transaction_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_events TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_events TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_events TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_events TO prisma;
+GRANT ALL ON TABLE public.transaction_events TO anon;
+GRANT ALL ON TABLE public.transaction_events TO authenticated;
+GRANT ALL ON TABLE public.transaction_events TO service_role;
+GRANT ALL ON TABLE public.transaction_events TO prisma;
 
 
 --
 -- Name: TABLE transaction_notifications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_notifications TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_notifications TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_notifications TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_notifications TO prisma;
+GRANT ALL ON TABLE public.transaction_notifications TO anon;
+GRANT ALL ON TABLE public.transaction_notifications TO authenticated;
+GRANT ALL ON TABLE public.transaction_notifications TO service_role;
+GRANT ALL ON TABLE public.transaction_notifications TO prisma;
 
 
 --
 -- Name: TABLE transaction_proposals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_proposals TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_proposals TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_proposals TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_proposals TO prisma;
+GRANT ALL ON TABLE public.transaction_proposals TO anon;
+GRANT ALL ON TABLE public.transaction_proposals TO authenticated;
+GRANT ALL ON TABLE public.transaction_proposals TO service_role;
+GRANT ALL ON TABLE public.transaction_proposals TO prisma;
 
 
 --
 -- Name: TABLE transaction_signatures; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_signatures TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_signatures TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_signatures TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_signatures TO prisma;
+GRANT ALL ON TABLE public.transaction_signatures TO anon;
+GRANT ALL ON TABLE public.transaction_signatures TO authenticated;
+GRANT ALL ON TABLE public.transaction_signatures TO service_role;
+GRANT ALL ON TABLE public.transaction_signatures TO prisma;
 
 
 --
 -- Name: TABLE transaction_validations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transaction_validations TO prisma;
+GRANT ALL ON TABLE public.transaction_validations TO anon;
+GRANT ALL ON TABLE public.transaction_validations TO authenticated;
+GRANT ALL ON TABLE public.transaction_validations TO service_role;
+GRANT ALL ON TABLE public.transaction_validations TO prisma;
 
 
 --
 -- Name: TABLE transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transactions TO prisma;
+GRANT ALL ON TABLE public.transactions TO anon;
+GRANT ALL ON TABLE public.transactions TO authenticated;
+GRANT ALL ON TABLE public.transactions TO service_role;
+GRANT ALL ON TABLE public.transactions TO prisma;
 
 
 --
 -- Name: TABLE transfer_history; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transfer_history TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transfer_history TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transfer_history TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.transfer_history TO prisma;
+GRANT ALL ON TABLE public.transfer_history TO anon;
+GRANT ALL ON TABLE public.transfer_history TO authenticated;
+GRANT ALL ON TABLE public.transfer_history TO service_role;
+GRANT ALL ON TABLE public.transfer_history TO prisma;
 
 
 --
 -- Name: TABLE user_activity_summary; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_activity_summary TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_activity_summary TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_activity_summary TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_activity_summary TO prisma;
+GRANT ALL ON TABLE public.user_activity_summary TO anon;
+GRANT ALL ON TABLE public.user_activity_summary TO authenticated;
+GRANT ALL ON TABLE public.user_activity_summary TO service_role;
+GRANT ALL ON TABLE public.user_activity_summary TO prisma;
 
 
 --
 -- Name: TABLE user_mfa_settings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_mfa_settings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_mfa_settings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_mfa_settings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_mfa_settings TO prisma;
+GRANT ALL ON TABLE public.user_mfa_settings TO anon;
+GRANT ALL ON TABLE public.user_mfa_settings TO authenticated;
+GRANT ALL ON TABLE public.user_mfa_settings TO service_role;
+GRANT ALL ON TABLE public.user_mfa_settings TO prisma;
 
 
 --
 -- Name: TABLE user_operations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_operations TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_operations TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_operations TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_operations TO prisma;
+GRANT ALL ON TABLE public.user_operations TO anon;
+GRANT ALL ON TABLE public.user_operations TO authenticated;
+GRANT ALL ON TABLE public.user_operations TO service_role;
+GRANT ALL ON TABLE public.user_operations TO prisma;
 
 
 --
 -- Name: TABLE user_organization_roles; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_organization_roles TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_organization_roles TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_organization_roles TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_organization_roles TO prisma;
+GRANT ALL ON TABLE public.user_organization_roles TO anon;
+GRANT ALL ON TABLE public.user_organization_roles TO authenticated;
+GRANT ALL ON TABLE public.user_organization_roles TO service_role;
+GRANT ALL ON TABLE public.user_organization_roles TO prisma;
 
 
 --
 -- Name: TABLE user_roles; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_roles TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_roles TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_roles TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_roles TO prisma;
+GRANT ALL ON TABLE public.user_roles TO anon;
+GRANT ALL ON TABLE public.user_roles TO authenticated;
+GRANT ALL ON TABLE public.user_roles TO service_role;
+GRANT ALL ON TABLE public.user_roles TO prisma;
 
 
 --
 -- Name: TABLE user_permissions_view; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_permissions_view TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_permissions_view TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_permissions_view TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_permissions_view TO prisma;
+GRANT ALL ON TABLE public.user_permissions_view TO anon;
+GRANT ALL ON TABLE public.user_permissions_view TO authenticated;
+GRANT ALL ON TABLE public.user_permissions_view TO service_role;
+GRANT ALL ON TABLE public.user_permissions_view TO prisma;
 
 
 --
 -- Name: TABLE user_sessions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sessions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sessions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sessions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sessions TO prisma;
+GRANT ALL ON TABLE public.user_sessions TO anon;
+GRANT ALL ON TABLE public.user_sessions TO authenticated;
+GRANT ALL ON TABLE public.user_sessions TO service_role;
+GRANT ALL ON TABLE public.user_sessions TO prisma;
 
 
 --
 -- Name: TABLE user_sidebar_preferences; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sidebar_preferences TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sidebar_preferences TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sidebar_preferences TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_sidebar_preferences TO prisma;
+GRANT ALL ON TABLE public.user_sidebar_preferences TO anon;
+GRANT ALL ON TABLE public.user_sidebar_preferences TO authenticated;
+GRANT ALL ON TABLE public.user_sidebar_preferences TO service_role;
+GRANT ALL ON TABLE public.user_sidebar_preferences TO prisma;
 
 
 --
 -- Name: TABLE user_verifications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.user_verifications TO prisma;
+GRANT ALL ON TABLE public.user_verifications TO anon;
+GRANT ALL ON TABLE public.user_verifications TO authenticated;
+GRANT ALL ON TABLE public.user_verifications TO service_role;
+GRANT ALL ON TABLE public.user_verifications TO prisma;
 
 
 --
 -- Name: TABLE valid_policy_approvers; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.valid_policy_approvers TO prisma;
+GRANT ALL ON TABLE public.valid_policy_approvers TO anon;
+GRANT ALL ON TABLE public.valid_policy_approvers TO authenticated;
+GRANT ALL ON TABLE public.valid_policy_approvers TO service_role;
+GRANT ALL ON TABLE public.valid_policy_approvers TO prisma;
 
 
 --
 -- Name: TABLE validation_alerts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_alerts TO prisma;
+GRANT ALL ON TABLE public.validation_alerts TO anon;
+GRANT ALL ON TABLE public.validation_alerts TO authenticated;
+GRANT ALL ON TABLE public.validation_alerts TO service_role;
+GRANT ALL ON TABLE public.validation_alerts TO prisma;
 
 
 --
 -- Name: TABLE validation_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.validation_cache TO prisma;
+GRANT ALL ON TABLE public.validation_cache TO anon;
+GRANT ALL ON TABLE public.validation_cache TO authenticated;
+GRANT ALL ON TABLE public.validation_cache TO service_role;
+GRANT ALL ON TABLE public.validation_cache TO prisma;
 
 
 --
 -- Name: TABLE violation_patterns; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.violation_patterns TO prisma;
+GRANT ALL ON TABLE public.violation_patterns TO anon;
+GRANT ALL ON TABLE public.violation_patterns TO authenticated;
+GRANT ALL ON TABLE public.violation_patterns TO service_role;
+GRANT ALL ON TABLE public.violation_patterns TO prisma;
+
+
+--
+-- Name: TABLE wallet_access_summary; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.wallet_access_summary TO anon;
+GRANT ALL ON TABLE public.wallet_access_summary TO authenticated;
+GRANT ALL ON TABLE public.wallet_access_summary TO service_role;
+GRANT ALL ON TABLE public.wallet_access_summary TO prisma;
 
 
 --
 -- Name: TABLE wallet_details; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_details TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_details TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_details TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_details TO prisma;
+GRANT ALL ON TABLE public.wallet_details TO anon;
+GRANT ALL ON TABLE public.wallet_details TO authenticated;
+GRANT ALL ON TABLE public.wallet_details TO service_role;
+GRANT ALL ON TABLE public.wallet_details TO prisma;
 
 
 --
 -- Name: TABLE wallet_facets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_facets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_facets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_facets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_facets TO prisma;
+GRANT ALL ON TABLE public.wallet_facets TO anon;
+GRANT ALL ON TABLE public.wallet_facets TO authenticated;
+GRANT ALL ON TABLE public.wallet_facets TO service_role;
+GRANT ALL ON TABLE public.wallet_facets TO prisma;
 
 
 --
 -- Name: TABLE wallet_guardians; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_guardians TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_guardians TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_guardians TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_guardians TO prisma;
+GRANT ALL ON TABLE public.wallet_guardians TO anon;
+GRANT ALL ON TABLE public.wallet_guardians TO authenticated;
+GRANT ALL ON TABLE public.wallet_guardians TO service_role;
+GRANT ALL ON TABLE public.wallet_guardians TO prisma;
 
 
 --
 -- Name: TABLE wallet_locks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_locks TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_locks TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_locks TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_locks TO prisma;
+GRANT ALL ON TABLE public.wallet_locks TO anon;
+GRANT ALL ON TABLE public.wallet_locks TO authenticated;
+GRANT ALL ON TABLE public.wallet_locks TO service_role;
+GRANT ALL ON TABLE public.wallet_locks TO prisma;
 
 
 --
 -- Name: TABLE wallet_restriction_rules; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_restriction_rules TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_restriction_rules TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_restriction_rules TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_restriction_rules TO prisma;
+GRANT ALL ON TABLE public.wallet_restriction_rules TO anon;
+GRANT ALL ON TABLE public.wallet_restriction_rules TO authenticated;
+GRANT ALL ON TABLE public.wallet_restriction_rules TO service_role;
+GRANT ALL ON TABLE public.wallet_restriction_rules TO prisma;
 
 
 --
 -- Name: TABLE wallet_signatories; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_signatories TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_signatories TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_signatories TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_signatories TO prisma;
+GRANT ALL ON TABLE public.wallet_signatories TO anon;
+GRANT ALL ON TABLE public.wallet_signatories TO authenticated;
+GRANT ALL ON TABLE public.wallet_signatories TO service_role;
+GRANT ALL ON TABLE public.wallet_signatories TO prisma;
 
 
 --
 -- Name: TABLE wallet_transaction_drafts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transaction_drafts TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transaction_drafts TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transaction_drafts TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transaction_drafts TO prisma;
+GRANT ALL ON TABLE public.wallet_transaction_drafts TO anon;
+GRANT ALL ON TABLE public.wallet_transaction_drafts TO authenticated;
+GRANT ALL ON TABLE public.wallet_transaction_drafts TO service_role;
+GRANT ALL ON TABLE public.wallet_transaction_drafts TO prisma;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.wallet_transaction_drafts TO PUBLIC;
 
 
@@ -39021,168 +49710,166 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.wallet_transaction_drafts TO P
 -- Name: TABLE wallet_transactions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transactions TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transactions TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transactions TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallet_transactions TO prisma;
+GRANT ALL ON TABLE public.wallet_transactions TO anon;
+GRANT ALL ON TABLE public.wallet_transactions TO authenticated;
+GRANT ALL ON TABLE public.wallet_transactions TO service_role;
+GRANT ALL ON TABLE public.wallet_transactions TO prisma;
 
 
 --
 -- Name: TABLE wallets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallets TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallets TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallets TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.wallets TO prisma;
+GRANT ALL ON TABLE public.wallets TO anon;
+GRANT ALL ON TABLE public.wallets TO authenticated;
+GRANT ALL ON TABLE public.wallets TO service_role;
+GRANT ALL ON TABLE public.wallets TO prisma;
 
 
 --
 -- Name: TABLE weather_cache; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_cache TO prisma;
+GRANT ALL ON TABLE public.weather_cache TO anon;
+GRANT ALL ON TABLE public.weather_cache TO authenticated;
+GRANT ALL ON TABLE public.weather_cache TO service_role;
+GRANT ALL ON TABLE public.weather_cache TO prisma;
 
 
 --
 -- Name: TABLE weather_data; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_data TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_data TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_data TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.weather_data TO prisma;
+GRANT ALL ON TABLE public.weather_data TO anon;
+GRANT ALL ON TABLE public.weather_data TO authenticated;
+GRANT ALL ON TABLE public.weather_data TO service_role;
+GRANT ALL ON TABLE public.weather_data TO prisma;
 
 
 --
 -- Name: TABLE webauthn_challenges; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_challenges TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_challenges TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_challenges TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_challenges TO prisma;
+GRANT ALL ON TABLE public.webauthn_challenges TO anon;
+GRANT ALL ON TABLE public.webauthn_challenges TO authenticated;
+GRANT ALL ON TABLE public.webauthn_challenges TO service_role;
+GRANT ALL ON TABLE public.webauthn_challenges TO prisma;
 
 
 --
 -- Name: TABLE webauthn_credentials; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_credentials TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_credentials TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_credentials TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.webauthn_credentials TO prisma;
+GRANT ALL ON TABLE public.webauthn_credentials TO anon;
+GRANT ALL ON TABLE public.webauthn_credentials TO authenticated;
+GRANT ALL ON TABLE public.webauthn_credentials TO service_role;
+GRANT ALL ON TABLE public.webauthn_credentials TO prisma;
 
 
 --
 -- Name: TABLE whitelist_entries; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_entries TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_entries TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_entries TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_entries TO prisma;
+GRANT ALL ON TABLE public.whitelist_entries TO anon;
+GRANT ALL ON TABLE public.whitelist_entries TO authenticated;
+GRANT ALL ON TABLE public.whitelist_entries TO service_role;
+GRANT ALL ON TABLE public.whitelist_entries TO prisma;
 
 
 --
 -- Name: TABLE whitelist_settings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_settings TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_settings TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_settings TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_settings TO prisma;
+GRANT ALL ON TABLE public.whitelist_settings TO anon;
+GRANT ALL ON TABLE public.whitelist_settings TO authenticated;
+GRANT ALL ON TABLE public.whitelist_settings TO service_role;
+GRANT ALL ON TABLE public.whitelist_settings TO prisma;
 
 
 --
 -- Name: TABLE whitelist_signatories; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_signatories TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_signatories TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_signatories TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.whitelist_signatories TO prisma;
+GRANT ALL ON TABLE public.whitelist_signatories TO anon;
+GRANT ALL ON TABLE public.whitelist_signatories TO authenticated;
+GRANT ALL ON TABLE public.whitelist_signatories TO service_role;
+GRANT ALL ON TABLE public.whitelist_signatories TO prisma;
 
 
 --
 -- Name: TABLE workflow_stages; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.workflow_stages TO anon;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.workflow_stages TO authenticated;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.workflow_stages TO service_role;
-GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLE public.workflow_stages TO prisma;
+GRANT ALL ON TABLE public.workflow_stages TO anon;
+GRANT ALL ON TABLE public.workflow_stages TO authenticated;
+GRANT ALL ON TABLE public.workflow_stages TO service_role;
+GRANT ALL ON TABLE public.workflow_stages TO prisma;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO prisma;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES  TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES  TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES  TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES  TO prisma;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES  TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES  TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES  TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO prisma;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS  TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS  TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS  TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS  TO prisma;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS  TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS  TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS  TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO service_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO prisma;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES  TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES  TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES  TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES  TO prisma;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,UPDATE ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES  TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES  TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES  TO authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES  TO service_role;
 
 
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict L2SgOHaNmBD4XVWEKisjF3Pj5JBHq9fjVfPpBahjDbRuaoCQrMglf2dJznB6kPp
 

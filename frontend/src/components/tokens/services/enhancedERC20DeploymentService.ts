@@ -489,6 +489,8 @@ export class EnhancedERC20DeploymentService {
   ) {
     // Use the foundry deployment service to deploy the enhanced contract
     const deploymentParams = {
+      tokenId: crypto.randomUUID(), // Generate unique token ID
+      projectId: keyId, // Use keyId as projectId for database tracking
       tokenType: 'EnhancedERC20' as const,
       config: {
         name: baseConfig.name,

@@ -373,8 +373,6 @@ const ProjectsList = ({
         // Numeric fields
         target_raise: projectData.target_raise === "" ? null : projectData.target_raise,
         total_notional: projectData.total_notional === "" ? null : projectData.total_notional,
-        authorized_shares: projectData.authorized_shares === "" ? null : projectData.authorized_shares,
-        share_price: projectData.share_price === "" ? null : projectData.share_price,
         company_valuation: projectData.company_valuation === "" ? null : projectData.company_valuation,
         minimum_investment: projectData.minimum_investment === "" ? null : projectData.minimum_investment,
         estimated_yield_percentage: projectData.estimated_yield_percentage === "" ? null : projectData.estimated_yield_percentage,
@@ -678,38 +676,35 @@ const ProjectsList = ({
     try {
       setIsProcessing(true);
 
-      // First attempt: Use the delete_project_cascade RPC
-      try {
-        const { data, error } = await supabase.rpc('delete_project_cascade', {
-          project_id: currentProject.id
-        });
+      // Use the delete_project_cascade RPC function
+      const { error } = await supabase.rpc('delete_project_cascade', {
+        project_id: currentProject.id
+      });
 
-        if (error) {
-          console.warn("RPC deletion failed, falling back to manual deletion:", error);
-          throw error; // This will be caught by the catch block below
-        }
-        
-        // If we reach here, deletion was successful via RPC
-        setProjects((prev) => prev.filter((project) => project.id !== currentProject.id));
+      if (error) {
+        console.error("Failed to delete project:", error);
         toast({
-          title: "Success",
-          description: "Project deleted successfully",
+          title: "Error",
+          description: error.message || "Failed to delete project. Please try again.",
+          variant: "destructive",
         });
-        setIsDeleteDialogOpen(false);
-        setCurrentProject(null);
         return;
-      } catch (rpcError) {
-        // Continue to manual deletion if RPC fails
       }
-
-      // Manual deletion as fallback - truncated for brevity
-      // ... existing manual deletion logic ...
       
-    } catch (err) {
+      // Deletion successful
+      setProjects((prev) => prev.filter((project) => project.id !== currentProject.id));
+      toast({
+        title: "Success",
+        description: "Project deleted successfully",
+      });
+      setIsDeleteDialogOpen(false);
+      setCurrentProject(null);
+      
+    } catch (err: any) {
       console.error("Error in project deletion process:", err);
       toast({
         title: "Error",
-        description: "Failed to delete project. Please try again.",
+        description: err?.message || "Failed to delete project. Please try again.",
         variant: "destructive",
       });
     } finally {

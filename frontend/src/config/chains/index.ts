@@ -17,7 +17,8 @@ export {
   isEnvironmentAvailable,
   getBalanceServiceKey,
   getExplorerUrl,
-  formatChainEnvironment
+  formatChainEnvironment,
+  resolveChainAndEnvironment
 } from './enhancedChainConfig';
 
 // Export types

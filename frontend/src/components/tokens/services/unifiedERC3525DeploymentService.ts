@@ -10,6 +10,7 @@ import { erc3525ConfigurationMapper, type ComplexityAnalysis } from './erc3525Co
 import { foundryDeploymentService } from './foundryDeploymentService';
 import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
+import { GasConfig } from './unifiedTokenDeploymentService'; // ✅ FIX #5: Import GasConfig type
 
 export interface UnifiedERC3525DeploymentOptions {
   useOptimization?: boolean; // Default: true
@@ -17,6 +18,7 @@ export interface UnifiedERC3525DeploymentOptions {
   enableAnalytics?: boolean; // Default: true
   enableValidation?: boolean; // Default: true
   enableProgressTracking?: boolean; // Default: true
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration option
 }
 
 export interface UnifiedERC3525DeploymentResult extends ERC3525DeploymentResult {
@@ -49,7 +51,8 @@ export class UnifiedERC3525DeploymentService {
       forceStrategy = 'auto',
       enableAnalytics = true,
       enableValidation = true,
-      enableProgressTracking = true
+      enableProgressTracking = true,
+      gasConfig // ✅ FIX #5: Extract gas configuration from options
     } = options;
 
     try {
@@ -85,9 +88,11 @@ export class UnifiedERC3525DeploymentService {
         enableValidation,
         enableProgressTracking,
         chunkDelay: 2000,
-        maxRetries: 3
+        maxRetries: 3,
+        gasConfig // ✅ FIX #5: Pass gas configuration to deployment
       };
 
+      // ✅ FIX #5: TODO - enhancedERC3525DeploymentService may need gasConfig parameter
       const deploymentResult = await enhancedERC3525DeploymentService.deployERC3525Token(
         tokenId,
         userId,
@@ -95,6 +100,7 @@ export class UnifiedERC3525DeploymentService {
         blockchain,
         environment,
         deploymentOptions
+        // TODO: Verify gasConfig is passed through deploymentOptions
       );
 
       // Step 6: Prepare unified result

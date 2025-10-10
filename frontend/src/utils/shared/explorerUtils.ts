@@ -22,6 +22,12 @@ const EXPLORER_URLS: Record<string, { base: string; transaction: string; address
     address: '/address/',
     block: '/block/'
   },
+  'ethereum-holesky': {
+    base: 'https://holesky.etherscan.io',
+    transaction: '/tx/',
+    address: '/address/',
+    block: '/block/'
+  },
   polygon: {
     base: 'https://polygonscan.com',
     transaction: '/tx/',
@@ -200,4 +206,57 @@ export function hasExplorerSupport(blockchain: string): boolean {
  */
 export function getSupportedExplorers(): string[] {
   return Object.keys(EXPLORER_URLS);
+}
+
+/**
+ * Network display names for better UX
+ */
+const NETWORK_DISPLAY_NAMES: Record<string, string> = {
+  ethereum: 'Ethereum Mainnet',
+  'ethereum-goerli': 'Ethereum Goerli Testnet',
+  'ethereum-sepolia': 'Ethereum Sepolia Testnet',
+  'ethereum-holesky': 'Ethereum Holesky Testnet',
+  polygon: 'Polygon Mainnet',
+  'polygon-mumbai': 'Polygon Mumbai Testnet',
+  'polygon-amoy': 'Polygon Amoy Testnet',
+  arbitrum: 'Arbitrum One',
+  'arbitrum-goerli': 'Arbitrum Goerli Testnet',
+  optimism: 'Optimism Mainnet',
+  'optimism-goerli': 'Optimism Goerli Testnet',
+  base: 'Base Mainnet',
+  'base-goerli': 'Base Goerli Testnet',
+  avalanche: 'Avalanche C-Chain',
+  'avalanche-fuji': 'Avalanche Fuji Testnet',
+  bsc: 'BNB Smart Chain',
+  'bsc-testnet': 'BNB Smart Chain Testnet',
+  solana: 'Solana Mainnet',
+  'solana-devnet': 'Solana Devnet',
+  bitcoin: 'Bitcoin Mainnet',
+  'bitcoin-testnet': 'Bitcoin Testnet'
+};
+
+/**
+ * Get human-readable network name for a blockchain
+ * @param blockchain The blockchain network identifier
+ * @returns Human-readable network name
+ */
+export function getNetworkDisplayName(blockchain: string): string {
+  const normalizedBlockchain = blockchain.toLowerCase();
+  return NETWORK_DISPLAY_NAMES[normalizedBlockchain] || blockchain;
+}
+
+/**
+ * Check if a blockchain is a testnet
+ * @param blockchain The blockchain network identifier
+ * @returns True if the blockchain is a testnet
+ */
+export function isTestnet(blockchain: string): boolean {
+  const normalizedBlockchain = blockchain.toLowerCase();
+  return normalizedBlockchain.includes('testnet') || 
+         normalizedBlockchain.includes('goerli') || 
+         normalizedBlockchain.includes('sepolia') ||
+         normalizedBlockchain.includes('mumbai') ||
+         normalizedBlockchain.includes('amoy') ||
+         normalizedBlockchain.includes('fuji') ||
+         normalizedBlockchain.includes('devnet');
 }

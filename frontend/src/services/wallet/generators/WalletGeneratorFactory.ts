@@ -37,6 +37,8 @@ export class WalletGeneratorFactory {
   private static createGenerator(blockchain: string): WalletGenerator {
     switch (blockchain.toLowerCase()) {
       case 'ethereum':
+      case 'sepolia':
+      case 'holesky':
         return new ETHWalletGenerator();
       case 'bitcoin':
         return new BTCWalletGenerator();
@@ -91,6 +93,8 @@ export class WalletGeneratorFactory {
       
       // EVM chains using ETH generator
       'ethereum',
+      'sepolia',     // Ethereum testnet
+      'holesky',     // Ethereum testnet
       'polygon', 
       'avalanche',
       'optimism',

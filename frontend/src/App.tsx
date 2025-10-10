@@ -167,6 +167,11 @@ import CalculatorDetailPage from '@/pages/nav/calculator-detail-page';
 import NavValuationsPage from '@/pages/nav/nav-valuations-page';
 import NavAuditPage from '@/pages/nav/nav-audit-page';
 
+// Bond Pages
+import BondsListPage from '@/pages/nav/bonds/bonds-list-page';
+import BondDetailPage from '@/pages/nav/bonds/bond-detail-page';
+import BondCalculatorPage from '@/pages/nav/bonds/bond-calculator-page';
+
 // Redirect component for token routes
 const TokenRedirect = () => {
   const { projectId } = useParams();
@@ -654,6 +659,14 @@ function App() {
               <Route path="nav/calculators/:slug" element={<CalculatorDetailPage />} />
               <Route path="nav/valuations" element={<NavValuationsPage />} />
               <Route path="nav/audit" element={<NavAuditPage />} />
+
+              {/* Bond Routes */}
+              <Route path="nav/bonds" element={<BondsListPage />} />
+              <Route path="nav/bonds/new" element={<BondsListPage />} /> {/* TODO: Add BondProductForm page */}
+              <Route path="nav/bonds/upload" element={<BondsListPage />} /> {/* TODO: Add CSV Upload page */}
+              <Route path="nav/bonds/:bondId" element={<BondDetailPage />} />
+              <Route path="nav/bonds/:bondId/edit" element={<BondDetailPage />} /> {/* TODO: Edit mode */}
+              <Route path="nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
 
               {/* Factoring Routes */}
               <Route path="factoring/" element={<FactoringManager/>} />

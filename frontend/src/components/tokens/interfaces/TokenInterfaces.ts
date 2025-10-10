@@ -229,15 +229,31 @@ export type FoundryTokenConfig =
   | FoundryERC4626Config;
 
 /**
+ * Gas configuration for deployment transactions
+ * ✅ FIX #5: Added for gas configuration passing
+ */
+export interface GasConfig {
+  gasPrice?: string; // Legacy gas price in Gwei
+  gasLimit?: number; // Gas limit
+  maxFeePerGas?: string; // EIP-1559 max fee per gas in Gwei
+  maxPriorityFeePerGas?: string; // EIP-1559 max priority fee per gas in Gwei
+}
+
+/**
  * Enhanced deployment parameters for Foundry contracts
+ * ✅ FIX #5: Added gasConfig parameter
+ * ✅ FIX #6: Added tokenId and projectId for database tracking
  */
 export interface FoundryDeploymentParams {
+  tokenId: string; // UUID - Required for token_deployments table
+  projectId: string; // UUID - Required for token_deployment_history table
   tokenType: 'ERC20' | 'ERC721' | 'ERC1155' | 'ERC1400' | 'ERC3525' | 'ERC4626' | 'EnhancedERC20' | 'EnhancedERC721' | 'EnhancedERC1155' | 'EnhancedERC3525' | 'EnhancedERC4626' | 'BaseERC1400' | 'EnhancedERC1400';
   config: FoundryTokenConfig;
   blockchain: string;
   environment: 'mainnet' | 'testnet';
   salt?: string; // For create2 deployment
   factoryAddress?: string; // Address of deployed factory contract
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration
 }
 
 /**

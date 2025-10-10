@@ -23,6 +23,7 @@ import auditRoutes from './routes/audit'
 import tokenRoutes from './routes/tokens'
 import userRoutes from './routes/users'
 import walletRoutes from './routes/wallets'
+import walletEncryptionRoutes from './routes/wallet-encryption'
 import documentRoutes from './routes/documents'
 import subscriptionRoutes from './routes/subscriptions'
 import policyRoutes from './routes/policy'
@@ -87,8 +88,10 @@ async function buildApp(): Promise<FastifyInstance> {
     origin: [
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:5173', // Vite frontend
       'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:5173'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
@@ -118,6 +121,9 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Register authentication middleware (provides fastify.authenticate)
   await app.register(import('./middleware/auth/jwt-auth'))
+
+  // Register Supabase plugin
+  await app.register(import('./plugins/supabase'))
 
   // Register Swagger documentation
   await app.register(import('@fastify/swagger'), {
@@ -242,6 +248,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(subscriptionRoutes, { prefix: apiPrefix })
   await app.register(documentRoutes, { prefix: apiPrefix })
   await app.register(walletRoutes, { prefix: apiPrefix })
+  await app.register(walletEncryptionRoutes) // No prefix - uses /api/wallet/ directly
   await app.register(navRoutes, { prefix: apiPrefix })
   
   // System routes

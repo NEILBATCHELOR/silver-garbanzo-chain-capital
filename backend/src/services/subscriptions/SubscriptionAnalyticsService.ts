@@ -412,7 +412,7 @@ export class SubscriptionAnalyticsService extends BaseService {
       include: {
         investors: {
           select: {
-            investor_type: true
+            type: true  // Changed from investor_type to type
           }
         }
       }
@@ -442,7 +442,7 @@ export class SubscriptionAnalyticsService extends BaseService {
     // Investor type demographics
     const byInvestorType: Record<string, { count: number; amount: number; percentage: number }> = {}
     subscriptions.forEach(sub => {
-      const type = sub.investors?.investor_type || 'unknown'
+      const type = sub.investors?.type || 'unknown'
       if (!byInvestorType[type]) {
         byInvestorType[type] = { count: 0, amount: 0, percentage: 0 }
       }

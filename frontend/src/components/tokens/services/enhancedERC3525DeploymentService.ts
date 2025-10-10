@@ -19,6 +19,7 @@ export interface ERC3525DeploymentOptions {
   enableProgressTracking?: boolean;
   chunkDelay?: number; // ms between chunks
   maxRetries?: number;
+  gasConfig?: any; // Gas configuration for deployment
 }
 
 export interface ERC3525DeploymentResult {
@@ -225,6 +226,8 @@ export class EnhancedERC3525DeploymentService {
     try {
       // Use foundry service for basic deployment
       const deploymentParams = {
+        tokenId: crypto.randomUUID(), // Generate unique token ID
+        projectId: keyId, // Use keyId as projectId for database tracking
         tokenType: 'ERC3525' as const,
         config: {
           name: config.baseConfig.name,
@@ -299,6 +302,8 @@ export class EnhancedERC3525DeploymentService {
     try {
       // Enhanced deployment includes more features in single transaction
       const deploymentParams = {
+        tokenId: crypto.randomUUID(), // Generate unique token ID
+        projectId: keyId, // Use keyId as projectId for database tracking
         tokenType: 'EnhancedERC3525' as const,
         config: {
           // All base configuration

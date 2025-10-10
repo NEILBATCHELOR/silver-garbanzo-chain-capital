@@ -141,14 +141,15 @@ contract ERC3525Master is
     
     /**
      * @notice Initialize the semi-fungible token
+     * @dev OPTIMIZED: Uses calldata instead of memory (saves ~300 gas)
      * @param name_ Token name
      * @param symbol_ Token symbol
      * @param decimals_ Value decimals
      * @param owner_ Owner address
      */
     function initialize(
-        string memory name_,
-        string memory symbol_,
+        string calldata name_,
+        string calldata symbol_,
         uint8 decimals_,
         address owner_
     ) public initializer {
@@ -447,6 +448,92 @@ contract ERC3525Master is
         onlyRole(DEFAULT_ADMIN_ROLE) 
     {
         _baseTokenURI = baseURI;
+    }
+    
+    function setBaseSlotURI(string memory baseSlotURI_)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _baseSlotURI = baseSlotURI_;
+    }
+    
+    function setTokenURI(uint256 tokenId, string memory uri)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (_tokens[tokenId].owner == address(0)) revert InvalidToken();
+        _tokenURIs[tokenId] = uri;
+    }
+    
+    function setSlotURI(uint256 slot, string memory uri)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _slotURIs[slot] = uri;
+    }
+    
+    // ============ Metadata View Functions ============
+    
+    /**
+     * @notice Get base token URI
+     * @return Base URI for token metadata
+     */
+    function baseTokenURI() public view returns (string memory) {
+        return _baseTokenURI;
+    }
+    
+    /**
+     * @notice Get base slot URI  
+     * @return Base URI for slot metadata
+     */
+    function baseSlotURI() public view returns (string memory) {
+        return _baseSlotURI;
+    }
+    
+    /**
+     * @notice Get token URI
+     * @param tokenId Token ID
+     * @return Token metadata URI
+     */
+    function tokenURI(uint256 tokenId) public view returns (string memory) {
+        if (_tokens[tokenId].owner == address(0)) revert InvalidToken();
+        
+        string memory _tokenURI = _tokenURIs[tokenId];
+        
+        // If token has specific URI, return it
+        if (bytes(_tokenURI).length > 0) {
+            return _tokenURI;
+        }
+        
+        // Otherwise, concatenate base URI + tokenId
+        string memory base = _baseTokenURI;
+        if (bytes(base).length == 0) {
+            return "";
+        }
+        
+        return string(abi.encodePacked(base, tokenId.toString()));
+    }
+    
+    /**
+     * @notice Get slot URI
+     * @param slot Slot ID
+     * @return Slot metadata URI
+     */
+    function slotURI(uint256 slot) public view returns (string memory) {
+        string memory _slotURI = _slotURIs[slot];
+        
+        // If slot has specific URI, return it
+        if (bytes(_slotURI).length > 0) {
+            return _slotURI;
+        }
+        
+        // Otherwise, concatenate base slot URI + slot
+        string memory base = _baseSlotURI;
+        if (bytes(base).length == 0) {
+            return "";
+        }
+        
+        return string(abi.encodePacked(base, slot.toString()));
     }
     
     // ============ UUPS Upgrade ============

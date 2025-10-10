@@ -319,7 +319,7 @@ export function ItemCreateDialog({
                   <div className="space-y-3">
                     <h4 className="font-medium">Required Permissions</h4>
                     <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                      {metadata.permissions.slice(0, 20).map((permission) => (
+                      {metadata.permissions.map((permission) => (
                         <div key={permission.name} className="flex items-center space-x-2">
                           <Checkbox
                             id={`perm-${permission.name}`}

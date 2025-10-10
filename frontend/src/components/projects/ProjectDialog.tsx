@@ -1007,12 +1007,18 @@ const ProjectDialog = ({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="1_month" className="py-1.5">1 Month</SelectItem>
-                            <SelectItem value="3_months" className="py-1.5">3 Months</SelectItem>
-                            <SelectItem value="6_months" className="py-1.5">6 Months</SelectItem>
-                            <SelectItem value="9_months" className="py-1.5">9 Months</SelectItem>
-                            <SelectItem value="12_months" className="py-1.5">12 Months</SelectItem>
-                            <SelectItem value="over_12_months" className="py-1.5">Over 12 Months</SelectItem>
+                            <SelectItem value="1m" className="py-1.5">1 Month</SelectItem>
+                            <SelectItem value="3m" className="py-1.5">3 Months</SelectItem>
+                            <SelectItem value="6m" className="py-1.5">6 Months</SelectItem>
+                            <SelectItem value="9m" className="py-1.5">9 Months</SelectItem>
+                            <SelectItem value="12m" className="py-1.5">12 Months</SelectItem>
+                            <SelectItem value="1y" className="py-1.5">1 Year</SelectItem>
+                            <SelectItem value="2y" className="py-1.5">2 Years</SelectItem>
+                            <SelectItem value="3y" className="py-1.5">3 Years</SelectItem>
+                            <SelectItem value="5y" className="py-1.5">5 Years</SelectItem>
+                            <SelectItem value="10y" className="py-1.5">10 Years</SelectItem>
+                            <SelectItem value="20y" className="py-1.5">20 Years</SelectItem>
+                            <SelectItem value="30y" className="py-1.5">30 Years</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormDescription>

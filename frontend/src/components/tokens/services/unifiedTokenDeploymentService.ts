@@ -24,12 +24,25 @@ import { DeploymentStatus, DeploymentResult } from '@/types/deployment/TokenDepl
 import { TokenStandard } from '@/types/core/centralModels';
 
 /**
+ * Gas configuration for deployment
+ * ✅ FIX #5: Added gas configuration interface
+ */
+export interface GasConfig {
+  gasPrice?: string; // Legacy gas price in Gwei
+  gasLimit?: number; // Gas limit
+  maxFeePerGas?: string; // EIP-1559 max fee per gas in Gwei
+  maxPriorityFeePerGas?: string; // EIP-1559 max priority fee per gas in Gwei
+}
+
+/**
  * Unified deployment options
+ * ✅ FIX #5: Added gasConfig property
  */
 export interface UnifiedDeploymentOptions {
   useOptimization?: boolean; // Default: true for complex contracts
   forceStrategy?: 'direct' | 'chunked' | 'batched' | 'auto'; // Default: auto
   enableAnalytics?: boolean; // Default: true
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration from form
 }
 
 /**
@@ -63,8 +76,9 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Determine if ERC-721 token should use specialized deployment service
+   * ✅ FIX #4: Updated to accept walletAddress parameter instead of using 'default_address'
    */
-  private async shouldUseERC721Specialist(tokenId: string, useOptimization: boolean): Promise<boolean> {
+  private async shouldUseERC721Specialist(tokenId: string, useOptimization: boolean, walletAddress: string): Promise<boolean> {
     try {
       // Always check for advanced features, regardless of optimization setting
       const { data: token, error } = await supabase
@@ -92,9 +106,10 @@ export class UnifiedTokenDeploymentService {
       // Use configuration mapper for detailed analysis if available
       try {
         const { erc721ConfigurationMapper } = await import('./erc721ConfigurationMapper');
+        // ✅ FIX #4: Use wallet address instead of 'default_address'
         const mappingResult = erc721ConfigurationMapper.mapTokenFormToEnhancedConfig(
           token,
-          token.deployed_by || 'default_address'
+          token.deployed_by || walletAddress
         );
         
         // Check if any advanced configurations exist
@@ -171,8 +186,9 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Determine if ERC-1400 token should use specialized deployment service
+   * ✅ FIX #4: Updated to accept walletAddress parameter
    */
-  private async shouldUseERC1400Specialist(tokenId: string, useOptimization: boolean): Promise<boolean> {
+  private async shouldUseERC1400Specialist(tokenId: string, useOptimization: boolean, walletAddress: string): Promise<boolean> {
     try {
       // Always check for advanced features for security tokens
       const { data: token, error } = await supabase
@@ -200,7 +216,8 @@ export class UnifiedTokenDeploymentService {
       // Use configuration mapper for detailed analysis if available
       try {
         const { erc1400ConfigurationMapper } = await import('./erc1400ConfigurationMapper');
-        const tokenForm = this.convertToTokenForm(token);
+        // ✅ FIX #4: Pass wallet address to convertToTokenForm
+        const tokenForm = this.convertToTokenForm(token, walletAddress);
         const mappingResult = erc1400ConfigurationMapper.mapTokenFormToEnhancedConfig(tokenForm);
         
         if (!mappingResult.success) {
@@ -278,8 +295,9 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Determine if ERC-1155 token should use specialized deployment service
+   * ✅ FIX #4: Updated to accept walletAddress parameter
    */
-  private async shouldUseERC1155Specialist(tokenId: string, useOptimization: boolean): Promise<boolean> {
+  private async shouldUseERC1155Specialist(tokenId: string, useOptimization: boolean, walletAddress: string): Promise<boolean> {
     try {
       // Always check for advanced features, regardless of optimization setting
       const { data: token, error } = await supabase
@@ -307,9 +325,10 @@ export class UnifiedTokenDeploymentService {
       // Use configuration mapper for detailed analysis if available
       try {
         const { erc1155ConfigurationMapper } = await import('./erc1155ConfigurationMapper');
+        // ✅ FIX #4: Use wallet address instead of 'default_address'
         const mappingResult = erc1155ConfigurationMapper.mapTokenFormToEnhancedConfig(
           token,
-          token.deployed_by || 'default_address'
+          token.deployed_by || walletAddress
         );
         
         if (!mappingResult.success) {
@@ -398,8 +417,9 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Determine if ERC-3525 token should use specialized deployment service
+   * ✅ FIX #4: Updated to accept walletAddress parameter
    */
-  private async shouldUseERC3525Specialist(tokenId: string, useOptimization: boolean): Promise<boolean> {
+  private async shouldUseERC3525Specialist(tokenId: string, useOptimization: boolean, walletAddress: string): Promise<boolean> {
     try {
       // Always check for advanced features, regardless of optimization setting
       const { data: token, error } = await supabase
@@ -428,9 +448,10 @@ export class UnifiedTokenDeploymentService {
       try {
         const { erc3525ConfigurationMapper } = await import('./erc3525ConfigurationMapper');
         const tokenForm = this.prepareTokenFormForERC3525(token);
+        // ✅ FIX #4: Use wallet address instead of 'default_address'
         const mappingResult = erc3525ConfigurationMapper.mapTokenFormToEnhancedConfig(
           tokenForm,
-          token.deployed_by || 'default_address'
+          token.deployed_by || walletAddress
         );
         
         if (!mappingResult.success) {
@@ -558,8 +579,9 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Determine if ERC-4626 token should use specialized deployment service
+   * ✅ FIX #4: Updated to accept walletAddress parameter
    */
-  private async shouldUseERC4626Specialist(tokenId: string, useOptimization: boolean): Promise<boolean> {
+  private async shouldUseERC4626Specialist(tokenId: string, useOptimization: boolean, walletAddress: string): Promise<boolean> {
     try {
       // Always check for advanced features, regardless of optimization setting
       const { data: token, error } = await supabase
@@ -587,9 +609,10 @@ export class UnifiedTokenDeploymentService {
       // Use configuration mapper for detailed analysis if available
       try {
         const { erc4626ConfigurationMapper } = await import('./erc4626ConfigurationMapper');
+        // ✅ FIX #4: Use wallet address instead of 'default_address'
         const mappingResult = erc4626ConfigurationMapper.mapTokenFormToEnhancedConfig(
           token,
-          token.deployed_by || 'default_address'
+          token.deployed_by || walletAddress
         );
         
         if (!mappingResult.success) {
@@ -772,9 +795,17 @@ export class UnifiedTokenDeploymentService {
   }
 
   /**
-   * Convert token database record to TokenForm format for configuration mapping
+   * ✅ FIX #4: Convert token database record to TokenForm format for configuration mapping
+   * Updated to use valid wallet address fallback instead of 'default_address'
    */
-  private convertToTokenForm(token: any): any {
+  private convertToTokenForm(token: any, walletAddress?: string): any {
+    // Use wallet address as fallback if deployed_by is missing
+    const initialOwner = token.deployed_by || walletAddress || undefined;
+    
+    if (!initialOwner) {
+      console.warn('⚠️ FIX #4: No deployed_by or wallet address available for token', token.id);
+    }
+    
     return {
       id: token.id,
       name: token.name,
@@ -782,7 +813,7 @@ export class UnifiedTokenDeploymentService {
       decimals: token.decimals || 18,
       standard: token.standard,
       initialSupply: token.total_supply || '1000000',
-      initialOwner: token.deployed_by || 'default_address',
+      initialOwner: initialOwner, // ✅ FIX #4: Use wallet address fallback
       isMintable: token.is_mintable,
       isBurnable: token.is_burnable,
       isPausable: token.is_pausable,
@@ -790,6 +821,31 @@ export class UnifiedTokenDeploymentService {
       governanceFeatures: token.governanceFeatures || {},
       blocks: token.blocks || {}
     };
+  }
+
+  /**
+   * ✅ FIX #4: Helper method to retrieve project wallet address
+   * Retrieves wallet address from project_wallets table for given project and blockchain
+   */
+  private async getProjectWallet(projectId: string, blockchain: string): Promise<string> {
+    const { data: walletData, error: walletError } = await supabase
+      .from('project_wallets')
+      .select('wallet_address')
+      .eq('project_id', projectId)
+      .eq('wallet_type', blockchain)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (walletError) {
+      throw new Error(`Failed to fetch project wallet: ${walletError.message}`);
+    }
+
+    if (!walletData || !walletData.wallet_address) {
+      throw new Error(`No wallet address found for project ${projectId} on ${blockchain}`);
+    }
+
+    return walletData.wallet_address;
   }
 
   /**
@@ -810,7 +866,8 @@ export class UnifiedTokenDeploymentService {
     const {
       useOptimization = true,
       forceStrategy = 'auto',
-      enableAnalytics = true
+      enableAnalytics = true,
+      gasConfig // ✅ FIX #5: Extract gas configuration from options
     } = options;
 
     try {
@@ -829,8 +886,41 @@ export class UnifiedTokenDeploymentService {
       }
 
       const tokenStandard = token.standard as TokenStandard;
-      const blockchain = token.blockchain || 'ethereum';
-      const environment = token.deployment_environment || 'testnet';
+      
+      // Smart blockchain detection: If token.blockchain is null, infer from project wallets
+      let blockchain = token.blockchain;
+      let environment = token.deployment_environment || 'testnet';
+      
+      if (!blockchain) {
+        // Query project_wallets to find available blockchain for this project
+        const { data: projectWallet, error: walletError } = await supabase
+          .from('project_wallets')
+          .select('wallet_type')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (projectWallet && projectWallet.wallet_type) {
+          blockchain = projectWallet.wallet_type;
+          console.log(`Auto-detected blockchain from project wallet: ${blockchain}`);
+        } else {
+          // Fallback to ethereum only if no project wallets exist
+          blockchain = 'ethereum';
+          console.warn(`No project wallet found, defaulting to ethereum. Consider creating a project wallet first.`);
+        }
+      }
+
+      // ✅ FIX #4: Retrieve wallet address for use in specialist checks and deployment
+      let walletAddress: string;
+      try {
+        walletAddress = await this.getProjectWallet(projectId, blockchain);
+      } catch (error) {
+        return {
+          status: DeploymentStatus.FAILED,
+          error: error instanceof Error ? error.message : 'Failed to retrieve project wallet'
+        };
+      }
 
       // Step 2: Apply rate limiting and security validation
       // (This also handles all the security checks and token events)
@@ -869,11 +959,13 @@ export class UnifiedTokenDeploymentService {
         
         if (shouldUseERC20Specialist) {
           // Use specialized ERC20 deployment service
+          // ✅ FIX #5: Pass gasConfig to ERC20 specialist
           const erc20Result = await unifiedERC20DeploymentService.deployERC20Token(
             tokenId,
             userId,
             projectId,
-            useOptimization
+            useOptimization,
+            gasConfig
           );
           
           return {
@@ -895,10 +987,11 @@ export class UnifiedTokenDeploymentService {
 
       // Special handling for ERC-721 tokens - check if advanced features exist
       if (normalizedStandard === 'ERC721') {
-        const shouldUseERC721Specialist = await this.shouldUseERC721Specialist(tokenId, useOptimization);
+        const shouldUseERC721Specialist = await this.shouldUseERC721Specialist(tokenId, useOptimization, walletAddress);
         
         if (shouldUseERC721Specialist) {
           // Use specialized ERC721 deployment service
+          // ✅ FIX #5: Pass gasConfig to ERC721 specialist
           const erc721Result = await unifiedERC721DeploymentService.deployERC721Token(
             tokenId,
             userId,
@@ -906,7 +999,8 @@ export class UnifiedTokenDeploymentService {
             {
               useOptimization,
               forceStrategy: forceStrategy === 'auto' ? 'auto' : forceStrategy as any,
-              enableAnalytics
+              enableAnalytics,
+              gasConfig // ✅ FIX #5: Include gas configuration
             }
           );
           
@@ -926,10 +1020,11 @@ export class UnifiedTokenDeploymentService {
 
       // Special handling for ERC-1400 tokens - check if advanced features exist
       if (normalizedStandard === 'ERC1400') {
-        const shouldUseERC1400Specialist = await this.shouldUseERC1400Specialist(tokenId, useOptimization);
+        const shouldUseERC1400Specialist = await this.shouldUseERC1400Specialist(tokenId, useOptimization, walletAddress);
         
         if (shouldUseERC1400Specialist) {
           // Use specialized ERC1400 deployment service
+          // ✅ FIX #5: Pass gasConfig to ERC1400 specialist
           const erc1400Result = await unifiedERC1400DeploymentService.deployERC1400Token(
             tokenId,
             userId,
@@ -939,7 +1034,8 @@ export class UnifiedTokenDeploymentService {
               forceStrategy: forceStrategy === 'auto' ? 'auto' : forceStrategy as any,
               enableAnalytics,
               enableComplianceValidation: true,
-              institutionalGrade: forceStrategy === 'chunked' // Force institutional if chunked requested
+              institutionalGrade: forceStrategy === 'chunked', // Force institutional if chunked requested
+              gasConfig // ✅ FIX #5: Include gas configuration
             }
           );
           
@@ -959,10 +1055,11 @@ export class UnifiedTokenDeploymentService {
 
       // Special handling for ERC-1155 tokens - check if advanced features exist
       if (normalizedStandard === 'ERC1155') {
-        const shouldUseERC1155Specialist = await this.shouldUseERC1155Specialist(tokenId, useOptimization);
+        const shouldUseERC1155Specialist = await this.shouldUseERC1155Specialist(tokenId, useOptimization, walletAddress);
         
         if (shouldUseERC1155Specialist) {
           // Use specialized ERC1155 deployment service
+          // ✅ FIX #5: Pass gasConfig to ERC1155 specialist
           const erc1155Result = await unifiedERC1155DeploymentService.deployERC1155Token(
             tokenId,
             userId,
@@ -970,7 +1067,8 @@ export class UnifiedTokenDeploymentService {
             {
               useOptimization,
               forceStrategy: forceStrategy === 'auto' ? 'auto' : forceStrategy as any,
-              enableAnalytics
+              enableAnalytics,
+              gasConfig // ✅ FIX #5: Include gas configuration
             }
           );
           
@@ -990,10 +1088,11 @@ export class UnifiedTokenDeploymentService {
 
       // Special handling for ERC-3525 tokens - check if advanced features exist
       if (normalizedStandard === 'ERC3525') {
-        const shouldUseERC3525Specialist = await this.shouldUseERC3525Specialist(tokenId, useOptimization);
+        const shouldUseERC3525Specialist = await this.shouldUseERC3525Specialist(tokenId, useOptimization, walletAddress);
         
         if (shouldUseERC3525Specialist) {
           // Use specialized ERC3525 deployment service
+          // ✅ FIX #5: Pass gasConfig to ERC3525 specialist
           const erc3525Result = await unifiedERC3525DeploymentService.deployERC3525Token(
             tokenId,
             userId,
@@ -1003,7 +1102,8 @@ export class UnifiedTokenDeploymentService {
               forceStrategy: forceStrategy === 'auto' ? 'auto' : forceStrategy as any,
               enableAnalytics,
               enableValidation: true,
-              enableProgressTracking: true
+              enableProgressTracking: true,
+              gasConfig // ✅ FIX #5: Include gas configuration
             }
           );
           
@@ -1023,10 +1123,11 @@ export class UnifiedTokenDeploymentService {
 
       // Special handling for ERC-4626 tokens - check if advanced features exist
       if (normalizedStandard === 'ERC4626') {
-        const shouldUseERC4626Specialist = await this.shouldUseERC4626Specialist(tokenId, useOptimization);
+        const shouldUseERC4626Specialist = await this.shouldUseERC4626Specialist(tokenId, useOptimization, walletAddress);
         
         if (shouldUseERC4626Specialist) {
           // Use specialized ERC4626 deployment service
+          // ✅ FIX #5: Pass gasConfig to ERC4626 specialist
           const erc4626Result = await unifiedERC4626DeploymentService.deployERC4626Token(
             tokenId,
             userId,
@@ -1036,7 +1137,8 @@ export class UnifiedTokenDeploymentService {
               forceStrategy: forceStrategy === 'auto' ? 'auto' : forceStrategy as any,
               enableAnalytics,
               enableValidation: true,
-              enableProgressTracking: true
+              enableProgressTracking: true,
+              gasConfig // ✅ FIX #5: Include gas configuration
             }
           );
           
@@ -1063,13 +1165,15 @@ export class UnifiedTokenDeploymentService {
           deploymentStrategy = complexityAnalysis.recommendedStrategy;
           
           // Use optimization services
+          // ✅ FIX #4: Pass walletAddress to deployWithOptimization
           result = await this.deployWithOptimization(
             token,
             tokenStandard,
             userId,
             blockchain,
             environment,
-            complexityAnalysis
+            complexityAnalysis,
+            walletAddress
           );
         } else {
           // Use standard enhanced deployment
@@ -1085,13 +1189,15 @@ export class UnifiedTokenDeploymentService {
         deploymentStrategy = forceStrategy;
         optimizationUsed = true;
         
+        // ✅ FIX #4: Pass walletAddress to deployWithForcedStrategy
         result = await this.deployWithForcedStrategy(
           token,
           tokenStandard,
           userId,
           blockchain,
           environment,
-          forceStrategy
+          forceStrategy,
+          walletAddress
         );
       } else {
         // Use standard deployment without optimization
@@ -1251,6 +1357,7 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Deploy with optimization services
+   * ✅ FIX #4: Updated to accept and use wallet address parameter
    */
   private async deployWithOptimization(
     token: any,
@@ -1258,14 +1365,15 @@ export class UnifiedTokenDeploymentService {
     userId: string,
     blockchain: string,
     environment: string,
-    analysis: any
+    analysis: any,
+    walletAddress: string
   ): Promise<UnifiedDeploymentResult> {
     
     const normalizedStandard = this.normalizeTokenStandard(tokenStandard);
     
     if (normalizedStandard === 'ERC3525' && analysis.recommendedStrategy === 'chunked') {
       // Use specialized ERC3525 optimization service
-      const optimizedConfig = this.convertToOptimizedERC3525Config(token);
+      const optimizedConfig = this.convertToOptimizedERC3525Config(token, walletAddress);
       
       const result = await optimizedDeploymentService.deployERC3525Optimized(
         optimizedConfig,
@@ -1289,7 +1397,7 @@ export class UnifiedTokenDeploymentService {
       };
     } else {
       // Use multi-standard optimization service
-      const optimizedConfig = this.convertToMultiStandardConfig(token, tokenStandard);
+      const optimizedConfig = this.convertToMultiStandardConfig(token, tokenStandard, walletAddress);
       
       const result = await multiStandardOptimizationService.deployWithOptimalStrategy(
         optimizedConfig,
@@ -1316,6 +1424,7 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Deploy with forced strategy
+   * ✅ FIX #4: Updated to accept and use wallet address parameter
    */
   private async deployWithForcedStrategy(
     token: any,
@@ -1323,7 +1432,8 @@ export class UnifiedTokenDeploymentService {
     userId: string,
     blockchain: string,
     environment: string,
-    strategy: 'direct' | 'chunked' | 'batched'
+    strategy: 'direct' | 'chunked' | 'batched',
+    walletAddress: string
   ): Promise<UnifiedDeploymentResult> {
     
     const normalizedStandard = this.normalizeTokenStandard(tokenStandard);
@@ -1331,10 +1441,10 @@ export class UnifiedTokenDeploymentService {
     if (strategy === 'chunked' && normalizedStandard === 'ERC3525') {
       return await this.deployWithOptimization(token, tokenStandard, userId, blockchain, environment, {
         recommendedStrategy: 'chunked'
-      });
+      }, walletAddress);
     } else {
       // For non-ERC3525 or non-chunked strategies, use multi-standard service
-      const optimizedConfig = this.convertToMultiStandardConfig(token, tokenStandard);
+      const optimizedConfig = this.convertToMultiStandardConfig(token, tokenStandard, walletAddress);
       
       const result = await multiStandardOptimizationService.deployWithOptimalStrategy(
         optimizedConfig,
@@ -1357,8 +1467,9 @@ export class UnifiedTokenDeploymentService {
 
   /**
    * Convert token data to optimized ERC3525 config
+   * ✅ FIX #4: Updated to use wallet address fallback instead of 'default_address'
    */
-  private convertToOptimizedERC3525Config(token: any): any {
+  private convertToOptimizedERC3525Config(token: any, walletAddress: string): any {
     const blocks = token.blocks || {};
     
     return {
@@ -1369,27 +1480,28 @@ export class UnifiedTokenDeploymentService {
         mintingEnabled: blocks.mintingEnabled || true,
         burningEnabled: blocks.burningEnabled || true,
         transfersPaused: blocks.transfersPaused || false,
-        initialOwner: blocks.initialOwner || token.deployed_by || 'default_address'
+        initialOwner: blocks.initialOwner || token.deployed_by || walletAddress
       },
       postDeployment: {
         slots: blocks.postDeployment?.slots || [],
         allocations: blocks.postDeployment?.allocations || [],
-        royalty: blocks.postDeployment?.royalty || { fraction: 0, recipient: token.deployed_by || 'default_address' }
+        royalty: blocks.postDeployment?.royalty || { fraction: 0, recipient: token.deployed_by || walletAddress }
       }
     };
   }
 
   /**
    * Convert token data to multi-standard config
+   * ✅ FIX #4: Updated to use wallet address fallback instead of 'default_address'
    */
-  private convertToMultiStandardConfig(token: any, standard: TokenStandard): any {
+  private convertToMultiStandardConfig(token: any, standard: TokenStandard, walletAddress: string): any {
     const blocks = token.blocks || {};
     const normalizedStandard = this.normalizeTokenStandard(standard);
     
     const baseConfig = {
       name: token.name,
       symbol: token.symbol,
-      initialOwner: token.deployed_by || 'default_address'
+      initialOwner: token.deployed_by || walletAddress
     };
 
     return {
@@ -1411,7 +1523,7 @@ export class UnifiedTokenDeploymentService {
           }),
           ...(normalizedStandard === 'ERC4626' && {
             decimals: blocks.decimals || 18,
-            asset: blocks.asset || token.deployed_by || 'default_address'
+            asset: blocks.asset || token.deployed_by || walletAddress
           })
         },
         postDeployment: blocks.postDeployment || {}

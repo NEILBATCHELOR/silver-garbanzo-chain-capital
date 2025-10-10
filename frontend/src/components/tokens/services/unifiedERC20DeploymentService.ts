@@ -9,9 +9,11 @@ import { enhancedTokenDeploymentService } from './tokenDeploymentService';
 import { enhancedERC20DeploymentService, EnhancedERC20Config } from './enhancedERC20DeploymentService';
 import { erc20ConfigurationMapper } from './erc20ConfigurationMapper';
 import { foundryDeploymentService } from './foundryDeploymentService';
+import { FoundryDeploymentParams } from '../interfaces/TokenInterfaces';
 import { TokenFormData } from '@/components/tokens/types';
 import { logActivity } from '@/infrastructure/activityLogger';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
+import { GasConfig } from './unifiedTokenDeploymentService'; // ✅ FIX #5: Import GasConfig type
 
 export interface UnifiedERC20DeploymentResult {
   success: boolean;
@@ -40,12 +42,14 @@ export interface UnifiedERC20DeploymentResult {
 export class UnifiedERC20DeploymentService {
   /**
    * Deploy ERC-20 token with automatic strategy selection
+   * ✅ FIX #5: Added gasConfig parameter for custom gas configuration
    */
   async deployERC20Token(
     tokenId: string,
     userId: string,
     projectId: string,
-    optimizationEnabled: boolean = true
+    optimizationEnabled: boolean = true,
+    gasConfig?: GasConfig // ✅ FIX #5: Gas configuration parameter
   ): Promise<UnifiedERC20DeploymentResult> {
     const startTime = Date.now();
     
@@ -100,7 +104,7 @@ export class UnifiedERC20DeploymentService {
 
       switch (strategy) {
         case 'basic':
-          result = await this.executeBasicDeployment(tokenData, userId, projectId);
+          result = await this.executeBasicDeployment(tokenData, userId, projectId, gasConfig); // ✅ FIX #5
           break;
           
         case 'enhanced':
@@ -108,7 +112,8 @@ export class UnifiedERC20DeploymentService {
             mappingResult.config,
             tokenId,
             userId,
-            projectId
+            projectId,
+            gasConfig // ✅ FIX #5
           );
           break;
           
@@ -117,7 +122,8 @@ export class UnifiedERC20DeploymentService {
             mappingResult.config,
             tokenId,
             userId,
-            projectId
+            projectId,
+            gasConfig // ✅ FIX #5
           );
           break;
           
@@ -258,11 +264,13 @@ export class UnifiedERC20DeploymentService {
 
   /**
    * Execute basic ERC-20 deployment
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async executeBasicDeployment(
     tokenData: TokenFormData,
     userId: string,
-    projectId: string
+    projectId: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC20DeploymentResult> {
     try {
       // Use existing enhanced token deployment service for basic deployment
@@ -295,25 +303,30 @@ export class UnifiedERC20DeploymentService {
 
   /**
    * Execute enhanced ERC-20 deployment (single transaction with all features)
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async executeEnhancedDeployment(
     config: EnhancedERC20Config,
     tokenId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC20DeploymentResult> {
     try {
       // Deploy enhanced contract with simplified configuration
       const simplifiedConfig = this.simplifyConfigurationForSingleTx(config);
       
-      const deploymentParams = {
+      const deploymentParams: FoundryDeploymentParams = {
+        tokenId,
+        projectId,
         tokenType: 'EnhancedERC20' as const,
         config: {
           ...simplifiedConfig,
           transfersPaused: false // Add missing required property
         },
         blockchain: 'polygon', // Default - should come from project settings
-        environment: 'testnet' as 'mainnet' | 'testnet' // Fix type error
+        environment: 'testnet' as 'mainnet' | 'testnet', // Fix type error
+        gasConfig // ✅ FIX #5: Pass gas configuration
       };
 
       // Get deployment key (should come from user settings)
@@ -345,23 +358,27 @@ export class UnifiedERC20DeploymentService {
 
   /**
    * Execute chunked ERC-20 deployment (base + post-deployment configuration)
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async executeChunkedDeployment(
     config: EnhancedERC20Config,
     tokenId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC20DeploymentResult> {
     try {
       // Get deployment key (should come from user settings)
       const keyId = await this.getDeploymentKeyId(userId);
       
+      // ✅ FIX #5: Note - enhancedERC20DeploymentService may need to be updated to accept gasConfig
       const result = await enhancedERC20DeploymentService.deployEnhancedERC20(
         config,
         userId,
         keyId,
         'polygon', // Default - should come from project settings
         'testnet'  // Now properly typed
+        // TODO: Pass gasConfig when enhancedERC20DeploymentService supports it
       );
 
       return {

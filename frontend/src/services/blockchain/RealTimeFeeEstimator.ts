@@ -1,10 +1,15 @@
 /**
- * Real-time fee estimation service using Etherscan V2 API
- * Unified API across 60+ chains with single API key
+ * Real-time fee estimation service using Etherscan API V2
+ * Uses unified endpoint with chainid parameter for all 60+ supported chains
+ * 
+ * NO FALLBACKS - Requires real-time gas price data from RPC providers.
+ * Service will throw errors if gas prices cannot be fetched.
+ * 
+ * Premium RPC providers (Alchemy/QuickNode) REQUIRED for testnets.
  * 
  * Official Documentation:
- * - V2 Guide: https://docs.etherscan.io/v2-migration
- * - Supported Chains: https://docs.etherscan.io/supported-chains
+ * - V2 Migration Guide: https://docs.etherscan.io/v2-migration
+ * - Gas Tracker API: https://docs.etherscan.io/v/etherscan-v2/api-endpoints/gas-tracker
  * - Get API Key: https://etherscan.io/myapikey
  */
 
@@ -29,6 +34,7 @@ export interface FeeData {
   estimatedTimeSeconds: number;
   networkCongestion: NetworkCongestion;
   priority: FeePriority;
+  source?: 'etherscan' | 'premium-rpc' | 'public-rpc' | 'static-fallback';
 }
 
 export interface GasEstimate {
@@ -41,13 +47,56 @@ export interface GasEstimate {
 }
 
 /**
- * Chain ID mapping for Etherscan V2 API
- * Source: https://docs.etherscan.io/supported-chains
- * Last Updated: September 29, 2025
+ * Etherscan API V2 unified base URL
+ * All chains use the same base URL with chainid parameter
+ * Source: https://docs.etherscan.io/v2-migration
+ */
+const ETHERSCAN_V2_API_URL = 'https://api.etherscan.io/v2/api';
+
+/**
+ * Chains where Etherscan gastracker module is NOT supported
+ * These chains will skip Etherscan and go directly to RPC
+ * 
+ * Note: Testnets typically don't support gastracker API
+ * Source: https://stackoverflow.com/questions/70797186/etherscan-gas-tracker-api-for-testnets
+ */
+const CHAINS_WITHOUT_GASTRACKER = new Set([
+  11155111, // Sepolia
+  17000,    // Holesky
+  560048,   // Hoodi
+  421614,   // Arbitrum Sepolia
+  11155420, // OP Sepolia
+  84532,    // Base Sepolia
+  80002,    // Polygon Amoy
+  2442,     // Polygon zkEVM Cardona
+  43113,    // Avalanche Fuji
+  97,       // BSC Testnet
+  5611,     // opBNB Testnet
+  534351,   // Scroll Sepolia
+  168587773, // Blast Sepolia
+  59141,    // Linea Sepolia
+  300,      // zkSync Sepolia
+  2522,     // Fraxtal Testnet
+  44787,    // Celo Alfajores
+  1287,     // Moonbase Alpha
+  167009,   // Taiko Hekla
+  1301,     // Unichain Sepolia
+  4801,     // World Sepolia
+  80069,    // Berachain Bepolia
+  14601,    // Sonic Testnet
+  1924,     // Swellchain Testnet
+  11124,    // Abstract Sepolia
+  33111,    // ApeChain Curtis
+  1328,     // Sei Testnet
+  5003,     // Mantle Sepolia
+  // Add more testnets as needed
+]);
+
+/**
+ * Chain IDs by blockchain name
+ * Supports 60+ EVM chains
  */
 const CHAIN_IDS: Record<string, number> = {
-  // Ethereum Mainnets
-  'ethereum': 1,
   'eth': 1,
   
   // Ethereum Testnets
@@ -288,7 +337,10 @@ export class RealTimeFeeEstimator {
   private etherscanApiKey: string | null = null;
   private cache: Map<string, { data: FeeData; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 10000; // 10 seconds cache
-  private readonly V2_BASE_URL = 'https://api.etherscan.io/v2/api';
+  
+  // Rate limiting: Etherscan V2 free tier allows 5 req/sec with API key, 1 req/5sec without
+  private lastRequestTime = 0;
+  private readonly MIN_REQUEST_INTERVAL = 250; // 250ms = 4 req/sec (safe buffer below 5 req/sec limit)
   
   public static getInstance(): RealTimeFeeEstimator {
     if (!RealTimeFeeEstimator.instance) {
@@ -320,6 +372,67 @@ export class RealTimeFeeEstimator {
   }
 
   /**
+   * Rate limiter to prevent hitting API limits
+   * Enforces minimum interval between requests
+   */
+  private async waitForRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      console.log(`[RealTimeFeeEstimator] Rate limiting: waiting ${waitTime}ms before next request`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastRequestTime = Date.now();
+  }
+
+  /**
+   * Get RPC URL for blockchain, preferring environment variables over fallbacks
+   */
+  private getRpcUrl(blockchain: string): string {
+    // Try to get from environment first
+    const envKey = `VITE_${blockchain.toUpperCase()}_RPC_URL`;
+    const envUrl = import.meta.env[envKey];
+    if (envUrl) {
+      return envUrl;
+    }
+
+    // Fall back to hardcoded public RPCs
+    const fallbackUrl = FALLBACK_RPC[blockchain.toLowerCase()];
+    if (!fallbackUrl) {
+      throw new Error(`No RPC endpoint configured for ${blockchain}`);
+    }
+    
+    return fallbackUrl;
+  }
+
+  /**
+   * Check if using a premium RPC provider (Alchemy, Infura, QuickNode, etc.)
+   * Premium providers return realistic gas prices even on testnets
+   */
+  private hasPremiumRpcProvider(blockchain: string): boolean {
+    try {
+      const rpcUrl = this.getRpcUrl(blockchain).toLowerCase();
+      const premiumProviders = [
+        'alchemy.com',
+        'alchemyapi.io',
+        'infura.io',
+        'quicknode.com',
+        'chainstack.com',
+        'ankr.com',
+        'blast.io',
+        'getblock.io'
+      ];
+      
+      return premiumProviders.some(provider => rpcUrl.includes(provider));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Get chain ID from blockchain name
    * Supports multiple name variations (e.g., 'ethereum', 'eth')
    */
@@ -346,73 +459,137 @@ export class RealTimeFeeEstimator {
   /**
    * Get optimal fee data from Etherscan V2 API
    * Automatically falls back to RPC then static defaults
+   * 
+   * Per Etherscan V2 docs, API supports 60+ chains including testnets
+   * See: https://docs.etherscan.io/supported-chains
+   * 
+   * Note: gastracker module is NOT available for testnets
    */
   async getOptimalFeeData(blockchain: string, priority: FeePriority): Promise<FeeData> {
     // Check cache first
     const cacheKey = `${blockchain}-${priority}`;
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      console.log(`[RealTimeFeeEstimator] Using cached data for ${blockchain}`);
       return cached.data;
     }
 
-    try {
-      // Try Etherscan V2 API first
-      const explorerData = await this.fetchFromEtherscanV2(blockchain);
-      if (explorerData) {
-        const chainId = this.getChainId(blockchain);
-        const feeData = this.calculateFeeData(explorerData, priority, chainId);
-        this.cache.set(cacheKey, { data: feeData, timestamp: Date.now() });
-        return feeData;
-      }
-    } catch (error) {
-      console.warn(`Etherscan V2 API unavailable for ${blockchain}:`, error);
+    const chainId = this.getChainId(blockchain);
+    console.log(`[RealTimeFeeEstimator] Fetching fee data for ${blockchain} (chain ${chainId}), priority: ${priority}`);
+
+    // Check if this chain supports gastracker module
+    const supportsGastracker = !CHAINS_WITHOUT_GASTRACKER.has(chainId);
+    
+    // Check if premium RPC is available
+    const hasPremiumRpc = this.hasPremiumRpcProvider(blockchain);
+    
+    // NO FALLBACKS - Require premium RPC for testnets
+    if (!supportsGastracker && !hasPremiumRpc) {
+      throw new Error(
+        `Testnet ${blockchain} requires premium RPC provider (Alchemy/QuickNode) for gas estimation. ` +
+        `Etherscan gastracker is not supported on testnets. ` +
+        `Configure VITE_${blockchain.toUpperCase()}_RPC_URL with premium provider in .env`
+      );
+    }
+    
+    if (!supportsGastracker && hasPremiumRpc) {
+      console.log(`[RealTimeFeeEstimator] 🔗 Testnet detected (${blockchain}) with premium RPC (Alchemy/Infura) - fetching real gas prices`);
     }
 
-    // Fallback to RPC endpoint
+    // Try Etherscan API first (only for mainnet chains with gastracker support)
+    if (supportsGastracker) {
+      try {
+        console.log(`[RealTimeFeeEstimator] Trying Etherscan API...`);
+        const explorerData = await this.fetchFromEtherscanV2(blockchain);
+        if (explorerData) {
+          const feeData = this.calculateFeeData(explorerData, priority, chainId);
+          feeData.source = 'etherscan';
+          this.cache.set(cacheKey, { data: feeData, timestamp: Date.now() });
+          console.log(`[RealTimeFeeEstimator] ✅ SUCCESS via Etherscan - Gas price: ${feeData.gasPrice} Wei [Source: etherscan]`);
+          return feeData;
+        }
+      } catch (error) {
+        console.warn(`[RealTimeFeeEstimator] ⚠️ Etherscan API failed for ${blockchain}, falling back to RPC:`, error);
+      }
+    }
+
+    // Fallback to RPC (for mainnets without Etherscan, or testnets with premium RPC)
     try {
+      console.log(`[RealTimeFeeEstimator] Trying RPC fallback...`);
       const rpcData = await this.fetchFromRPC(blockchain);
-      const chainId = this.getChainId(blockchain);
       const feeData = this.calculateFeeData(rpcData, priority, chainId);
+      // Determine if this is premium or public RPC
+      feeData.source = hasPremiumRpc ? 'premium-rpc' : 'public-rpc';
       this.cache.set(cacheKey, { data: feeData, timestamp: Date.now() });
+      console.log(`[RealTimeFeeEstimator] ✅ SUCCESS via RPC - Gas price: ${feeData.gasPrice} Wei [Source: ${feeData.source}]`);
       return feeData;
     } catch (error) {
-      console.error(`RPC fallback failed for ${blockchain}:`, error);
+      console.error(`[RealTimeFeeEstimator] ❌ RPC fallback also failed for ${blockchain}:`, error);
     }
 
-    // Final fallback to static defaults
-    const chainId = this.getChainId(blockchain);
-    return this.getFallbackFeeData(chainId, priority);
+    // NO STATIC FALLBACK - Throw error instead
+    throw new Error(
+      `Failed to fetch gas prices for ${blockchain}. ` +
+      `Both Etherscan and RPC providers failed. ` +
+      `Check: 1) RPC URL is correctly configured, ` +
+      `2) RPC provider is responding (Alchemy/Infura recommended), ` +
+      `3) Network connection is stable. ` +
+      `Cannot proceed without real-time gas price data.`
+    );
   }
 
   /**
-   * Fetch gas prices from Etherscan V2 API
-   * Official endpoint format: https://api.etherscan.io/v2/api?chainid={CHAIN_ID}&...
+   * Fetch gas prices from Etherscan API V2 using unified endpoint
+   * Official docs: https://docs.etherscan.io/v/etherscan-v2/api-endpoints/gas-tracker
+   * Format: https://api.etherscan.io/v2/api?chainid={CHAIN_ID}&module=gastracker&action=gasoracle&apikey={API_KEY}
    */
   private async fetchFromEtherscanV2(blockchain: string): Promise<any> {
+    // Apply rate limiting
+    await this.waitForRateLimit();
+    
+    // Get the chain ID for this blockchain
     const chainId = this.getChainId(blockchain);
     
-    // Build V2 API URL per official docs
-    const url = new URL(this.V2_BASE_URL);
+    // Build V2 API URL with chainid parameter
+    const url = new URL(ETHERSCAN_V2_API_URL);
     url.searchParams.set('chainid', chainId.toString());
     url.searchParams.set('module', 'gastracker');
     url.searchParams.set('action', 'gasoracle');
     
-    // API key is optional per official docs
+    // API key is optional
     if (this.etherscanApiKey) {
       url.searchParams.set('apikey', this.etherscanApiKey);
     }
 
+    console.log(`[RealTimeFeeEstimator] Fetching from Etherscan V2 for ${blockchain} (chainId: ${chainId})`);
+    
     const response = await fetch(url.toString());
     
     if (!response.ok) {
+      console.error(`[RealTimeFeeEstimator] HTTP error: ${response.status} ${response.statusText}`);
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
 
-    // Etherscan API response format
+    // Etherscan API response format - log for debugging
+    console.log(`[RealTimeFeeEstimator] Etherscan V2 response:`, {
+      status: data.status,
+      message: data.message,
+      hasResult: !!data.result,
+      blockchain,
+      chainId
+    });
+
     if (data.status !== '1') {
-      throw new Error(data.message || 'API request failed');
+      console.error('[RealTimeFeeEstimator] Etherscan API error:', {
+        status: data.status,
+        message: data.message,
+        result: data.result,
+        blockchain,
+        chainId
+      });
+      throw new Error(data.message || data.result || 'API request failed');
     }
 
     return data.result;
@@ -423,70 +600,94 @@ export class RealTimeFeeEstimator {
    * Used as fallback when Etherscan API is unavailable
    */
   private async fetchFromRPC(blockchain: string): Promise<any> {
-    const rpcUrl = FALLBACK_RPC[blockchain.toLowerCase()];
-    if (!rpcUrl) {
-      throw new Error(`No RPC endpoint configured for ${blockchain}`);
-    }
-
-    // Fetch current gas price via eth_gasPrice
-    const gasPriceResponse = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_gasPrice',
-        params: [],
-        id: 1
-      })
-    });
-
-    const gasPriceData = await gasPriceResponse.json();
+    const rpcUrl = this.getRpcUrl(blockchain);
     
-    if (gasPriceData.error) {
-      throw new Error(gasPriceData.error.message);
-    }
-    
-    const gasPrice = BigInt(gasPriceData.result);
+    console.log(`[RealTimeFeeEstimator] Fetching from RPC fallback for ${blockchain}: ${rpcUrl}`);
 
-    // Try to fetch EIP-1559 data if supported
-    const chainId = this.getChainId(blockchain);
-    if (this.supportsEIP1559(chainId)) {
-      try {
-        const blockResponse = await fetch(rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_getBlockByNumber',
-            params: ['latest', false],
-            id: 2
-          })
-        });
+    try {
+      // Fetch current gas price via eth_gasPrice
+      const gasPriceResponse = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_gasPrice',
+          params: [],
+          id: 1
+        })
+      });
 
-        const blockData = await blockResponse.json();
-        const block = blockData.result;
-
-        if (block && block.baseFeePerGas) {
-          const baseFee = BigInt(block.baseFeePerGas);
-          // Return Etherscan-compatible format
-          return {
-            SafeGasPrice: (gasPrice / BigInt(1e9)).toString(),
-            ProposeGasPrice: ((gasPrice * BigInt(12)) / BigInt(10) / BigInt(1e9)).toString(),
-            FastGasPrice: ((gasPrice * BigInt(15)) / BigInt(10) / BigInt(1e9)).toString(),
-            suggestBaseFee: (baseFee / BigInt(1e9)).toString()
-          };
-        }
-      } catch (error) {
-        console.warn('Failed to fetch EIP-1559 data:', error);
+      if (!gasPriceResponse.ok) {
+        throw new Error(`RPC HTTP error: ${gasPriceResponse.status} ${gasPriceResponse.statusText}`);
       }
-    }
 
-    // Return legacy format
-    return {
-      SafeGasPrice: ((gasPrice * BigInt(9)) / BigInt(10) / BigInt(1e9)).toString(),
-      ProposeGasPrice: (gasPrice / BigInt(1e9)).toString(),
-      FastGasPrice: ((gasPrice * BigInt(12)) / BigInt(10) / BigInt(1e9)).toString()
-    };
+      const gasPriceData = await gasPriceResponse.json();
+      
+      if (gasPriceData.error) {
+        console.error('[RealTimeFeeEstimator] RPC error:', gasPriceData.error);
+        throw new Error(gasPriceData.error.message);
+      }
+      
+      if (!gasPriceData.result) {
+        throw new Error('RPC returned no gas price result');
+      }
+
+      const gasPrice = BigInt(gasPriceData.result);
+      console.log(`[RealTimeFeeEstimator] RPC gas price (Wei):`, gasPrice.toString(), `(${Number(gasPrice / BigInt(1e9))} Gwei)`);
+
+      // Try to fetch EIP-1559 data if supported
+      const chainId = this.getChainId(blockchain);
+      if (this.supportsEIP1559(chainId)) {
+        try {
+          const blockResponse = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'eth_getBlockByNumber',
+              params: ['latest', false],
+              id: 2
+            })
+          });
+
+          if (!blockResponse.ok) {
+            throw new Error(`Block fetch HTTP error: ${blockResponse.status}`);
+          }
+
+          const blockData = await blockResponse.json();
+          const block = blockData.result;
+
+          if (block && block.baseFeePerGas) {
+            const baseFee = BigInt(block.baseFeePerGas);
+            console.log(`[RealTimeFeeEstimator] EIP-1559 base fee (Wei):`, baseFee.toString(), `(${Number(baseFee / BigInt(1e9))} Gwei)`);
+            
+            // Return Etherscan-compatible format
+            const result = {
+              SafeGasPrice: (gasPrice / BigInt(1e9)).toString(),
+              ProposeGasPrice: ((gasPrice * BigInt(12)) / BigInt(10) / BigInt(1e9)).toString(),
+              FastGasPrice: ((gasPrice * BigInt(15)) / BigInt(10) / BigInt(1e9)).toString(),
+              suggestBaseFee: (baseFee / BigInt(1e9)).toString()
+            };
+            console.log(`[RealTimeFeeEstimator] RPC SUCCESS - Returning EIP-1559 data:`, result);
+            return result;
+          }
+        } catch (error) {
+          console.warn('[RealTimeFeeEstimator] Failed to fetch EIP-1559 data, using legacy format:', error);
+        }
+      }
+
+      // Return legacy format
+      const result = {
+        SafeGasPrice: ((gasPrice * BigInt(9)) / BigInt(10) / BigInt(1e9)).toString(),
+        ProposeGasPrice: (gasPrice / BigInt(1e9)).toString(),
+        FastGasPrice: ((gasPrice * BigInt(12)) / BigInt(10) / BigInt(1e9)).toString()
+      };
+      console.log(`[RealTimeFeeEstimator] RPC SUCCESS - Returning legacy data:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[RealTimeFeeEstimator] RPC fetch failed for ${blockchain}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -577,54 +778,19 @@ export class RealTimeFeeEstimator {
   }
 
   /**
-   * Get fallback fee data when all API calls fail
+   * DEPRECATED: Get fallback fee data when all API calls fail
+   * 
+   * This method is no longer used. The service now throws errors
+   * instead of using static fallbacks.
+   * 
    * Chain-specific base fees for major networks
    */
   private getFallbackFeeData(chainId: number, priority: FeePriority): FeeData {
-    // Base fees in Gwei for different chain types
-    const baseFees: Record<number, number> = {
-      1: 20,       // Ethereum - 20 gwei
-      11155111: 10, // Sepolia - 10 gwei
-      17000: 10,   // Holesky - 10 gwei
-      137: 30,     // Polygon - 30 gwei
-      80002: 25,   // Polygon Amoy - 25 gwei
-      42161: 0.1,  // Arbitrum - 0.1 gwei
-      421614: 0.1, // Arbitrum Sepolia - 0.1 gwei
-      42170: 0.1,  // Arbitrum Nova - 0.1 gwei
-      10: 1,       // Optimism - 1 gwei
-      11155420: 1, // OP Sepolia - 1 gwei
-      8453: 0.1,   // Base - 0.1 gwei
-      84532: 0.1,  // Base Sepolia - 0.1 gwei
-      43114: 25,   // Avalanche - 25 gwei
-      43113: 25,   // Avalanche Fuji - 25 gwei
-      56: 5,       // BSC - 5 gwei
-      97: 5,       // BSC Testnet - 5 gwei
-      534352: 0.5, // Scroll - 0.5 gwei
-      534351: 0.5, // Scroll Sepolia - 0.5 gwei
-      81457: 0.1,  // Blast - 0.1 gwei
-      168587773: 0.1, // Blast Sepolia - 0.1 gwei
-      324: 0.25,   // zkSync Era - 0.25 gwei
-      300: 0.25,   // zkSync Sepolia - 0.25 gwei
-    };
-    
-    const baseGwei = baseFees[chainId] || 20; // Default to 20 gwei
-    const multiplier = this.getPriorityMultiplier(priority);
-    const selectedGwei = baseGwei * multiplier;
-
-    const feeData: FeeData = {
-      gasPrice: Math.round(selectedGwei * 1e9).toString(),
-      estimatedTimeSeconds: this.getEstimatedTime(priority),
-      networkCongestion: NetworkCongestion.MEDIUM,
-      priority
-    };
-
-    // Add EIP-1559 fees for supported chains
-    if (this.supportsEIP1559(chainId)) {
-      feeData.maxFeePerGas = Math.round(selectedGwei * 1.2 * 1e9).toString();
-      feeData.maxPriorityFeePerGas = Math.round(selectedGwei * 0.1 * 1e9).toString();
-    }
-
-    return feeData;
+    throw new Error(
+      'getFallbackFeeData() is deprecated. ' +
+      'Service now requires real-time gas price data from RPC providers. ' +
+      'Configure premium RPC providers (Alchemy/QuickNode) in .env file.'
+    );
   }
 
   /**
@@ -650,10 +816,7 @@ export class RealTimeFeeEstimator {
     data?: string,
     value?: string
   ): Promise<GasEstimate> {
-    const rpcUrl = FALLBACK_RPC[blockchain.toLowerCase()];
-    if (!rpcUrl) {
-      throw new Error(`No RPC endpoint configured for ${blockchain}`);
-    }
+    const rpcUrl = this.getRpcUrl(blockchain);
 
     try {
       // Estimate gas limit via eth_estimateGas

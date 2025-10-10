@@ -9,7 +9,7 @@ export * from './calculators.config'
 
 // Calculator forms
 export { default as EquityCalculatorForm } from './equity-calculator-form'
-export { default as BondsCalculatorForm } from './bonds-calculator-form'
+export { default as BondsCalculatorForm } from '../bonds/calculator/bond-calculator-form'
 export { default as MmfCalculatorForm } from './mmf-calculator-form'
 export { default as CommoditiesCalculatorForm } from './commodities-calculator-form'
 export { default as PrivateEquityCalculatorForm } from './private-equity-calculator-form'

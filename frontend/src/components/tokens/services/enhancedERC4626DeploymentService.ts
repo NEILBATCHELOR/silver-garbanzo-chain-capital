@@ -243,6 +243,8 @@ export class EnhancedERC4626DeploymentService {
       
       const deploymentResult = await foundryDeploymentService.deployToken(
         {
+          tokenId: crypto.randomUUID(), // Generate unique token ID
+          projectId: userId, // Using userId as projectId for database tracking
           tokenType: 'ERC4626',
           config: foundryConfig,
           blockchain: 'ethereum', // Will be determined from token config
@@ -293,6 +295,8 @@ export class EnhancedERC4626DeploymentService {
       
       const deploymentResult = await foundryDeploymentService.deployToken(
         {
+          tokenId: crypto.randomUUID(), // Generate unique token ID
+          projectId: userId, // Using userId as projectId for database tracking
           tokenType: 'EnhancedERC4626',
           config: foundryConfig,
           blockchain: 'ethereum',
@@ -345,6 +349,8 @@ export class EnhancedERC4626DeploymentService {
       
       const deploymentResult = await foundryDeploymentService.deployToken(
         {
+          tokenId: crypto.randomUUID(), // Generate unique token ID
+          projectId: userId, // Using userId as projectId for database tracking
           tokenType: 'EnhancedERC4626',
           config: foundryConfig,
           blockchain: 'ethereum',

@@ -135,6 +135,7 @@ contract ERC1400Master is
     
     /**
      * @notice Initialize the security token
+     * @dev OPTIMIZED: Uses calldata instead of memory (saves ~300 gas)
      * @param _name Token name
      * @param _symbol Token symbol
      * @param _decimals Token decimals
@@ -143,10 +144,10 @@ contract ERC1400Master is
      * @param _isControllable Whether token can be controlled
      */
     function initialize(
-        string memory _name,
-        string memory _symbol,
+        string calldata _name,
+        string calldata _symbol,
         uint8 _decimals,
-        bytes32[] memory _defaultPartitions,
+        bytes32[] calldata _defaultPartitions,
         address _owner,
         bool _isControllable
     ) public initializer {

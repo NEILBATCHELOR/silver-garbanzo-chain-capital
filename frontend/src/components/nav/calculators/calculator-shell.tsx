@@ -1,15 +1,18 @@
 /**
- * Calculator Shell
+ * Calculator Shell - ENHANCED with Database Mode Support
  * Reusable wrapper component for all NAV calculators
- * Provides consistent header, actions, and result display
+ * Provides consistent header, actions, result display, and mode switching
+ * 
+ * NEW: Supports both standalone and database modes
  */
 
 import { ReactNode, useState } from 'react'
-import { Calculator, Play, RotateCcw, Save, Download, Info } from 'lucide-react'
+import { Calculator, Play, RotateCcw, Save, Download, Info, Database, FileText, ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +21,9 @@ import {
 } from '@/components/ui/tooltip'
 import { CalculationResult, CalculationStatus, AssetType } from '@/types/nav'
 import { CalculatorRegistryEntry } from './calculators.config'
+
+// NEW: Mode type
+export type CalculatorMode = 'standalone' | 'database'
 
 interface CalculatorShellProps {
   calculator: CalculatorRegistryEntry
@@ -32,6 +38,13 @@ interface CalculatorShellProps {
   onExport?: () => void
   showActions?: boolean
   className?: string
+  // NEW: Mode props
+  mode?: CalculatorMode
+  onModeChange?: (mode: CalculatorMode) => void
+  // NEW: Database mode props
+  assetId?: string
+  assetName?: string
+  onBackToList?: () => void
 }
 
 function getStatusBadge(status: CalculationStatus) {
@@ -62,6 +75,25 @@ function getComplexityBadge(level: 'basic' | 'intermediate' | 'advanced') {
   }
 }
 
+function getModeBadge(mode: CalculatorMode) {
+  switch (mode) {
+    case 'database':
+      return (
+        <Badge variant="default" className="bg-blue-50 text-blue-700 border-blue-200">
+          <Database className="h-3 w-3 mr-1" />
+          Database Mode
+        </Badge>
+      )
+    case 'standalone':
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          <FileText className="h-3 w-3 mr-1" />
+          Standalone Mode
+        </Badge>
+      )
+  }
+}
+
 function formatCurrency(value: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -69,6 +101,55 @@ function formatCurrency(value: number, currency = 'USD'): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 6
   }).format(value)
+}
+
+// NEW: Database Mode Header
+function DatabaseModeHeader({ 
+  assetName, 
+  onBackToList 
+}: { 
+  assetName?: string
+  onBackToList?: () => void 
+}) {
+  return (
+    <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+      {onBackToList && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBackToList}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to List
+        </Button>
+      )}
+      <div className="flex-1">
+        <p className="text-sm font-medium text-blue-900">
+          Calculating NAV for: {assetName || 'Selected Asset'}
+        </p>
+        <p className="text-xs text-blue-700">
+          Data will be loaded automatically from the database
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// NEW: Standalone Mode Header
+function StandaloneModeHeader() {
+  return (
+    <div className="flex items-center gap-3 p-3 bg-muted/50 border rounded-lg">
+      <div className="flex-1">
+        <p className="text-sm font-medium text-foreground">
+          Manual Calculation Mode
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Enter all parameters manually for one-time calculations
+        </p>
+      </div>
+    </div>
+  )
 }
 
 function ResultsSection({ result }: { result: CalculationResult }) {
@@ -155,12 +236,23 @@ export function CalculatorShell({
   onSave,
   onExport,
   showActions = true,
-  className = ''
+  className = '',
+  // NEW: Mode props
+  mode = 'standalone',
+  onModeChange,
+  assetId,
+  assetName,
+  onBackToList
 }: CalculatorShellProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const hasResult = result && result.status === CalculationStatus.COMPLETED
   const hasError = error || (result && result.status === CalculationStatus.FAILED)
+  
+  // NEW: Check if calculator supports multiple modes
+  const supportsModes = calculator.modes && calculator.modes.length > 1
+  const supportsDatabase = calculator.modes?.includes('database')
+  const currentMode = mode || calculator.defaultMode || 'standalone'
 
   return (
     <Card className={`w-full ${className}`}>
@@ -171,9 +263,10 @@ export function CalculatorShell({
               <Calculator className="h-6 w-6 text-primary" />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CardTitle className="text-xl">{calculator.name}</CardTitle>
                 {getComplexityBadge(calculator.complexityLevel)}
+                {getModeBadge(currentMode)}
                 {calculator.estimatedDuration && (
                   <Badge variant="outline" className="text-xs">
                     {calculator.estimatedDuration}
@@ -183,6 +276,28 @@ export function CalculatorShell({
               <p className="text-sm text-muted-foreground max-w-2xl">
                 {calculator.description}
               </p>
+              
+              {/* NEW: Mode Switcher */}
+              {supportsModes && onModeChange && (
+                <div className="pt-2">
+                  <Tabs value={currentMode} onValueChange={(value) => onModeChange(value as CalculatorMode)}>
+                    <TabsList className="grid w-full max-w-md grid-cols-2">
+                      <TabsTrigger value="standalone" className="text-xs">
+                        <FileText className="h-3 w-3 mr-1" />
+                        Standalone
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="database" 
+                        disabled={!supportsDatabase}
+                        className="text-xs"
+                      >
+                        <Database className="h-3 w-3 mr-1" />
+                        Database
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              )}
               
               {calculator.features && calculator.features.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -253,6 +368,20 @@ export function CalculatorShell({
               </div>
             </div>
             
+            {/* NEW: Mode information */}
+            {calculator.modes && (
+              <div className="text-sm">
+                <span className="font-medium">Supported Modes:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {calculator.modes.map((m) => (
+                    <Badge key={m} variant="secondary" className="text-xs">
+                      {m}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {calculator.tags && (
               <div className="text-sm">
                 <span className="font-medium">Tags:</span>
@@ -265,6 +394,18 @@ export function CalculatorShell({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* NEW: Mode-specific headers */}
+        {currentMode === 'database' && assetId && (
+          <div className="mt-4">
+            <DatabaseModeHeader assetName={assetName} onBackToList={onBackToList} />
+          </div>
+        )}
+        {currentMode === 'standalone' && (
+          <div className="mt-4">
+            <StandaloneModeHeader />
           </div>
         )}
       </CardHeader>

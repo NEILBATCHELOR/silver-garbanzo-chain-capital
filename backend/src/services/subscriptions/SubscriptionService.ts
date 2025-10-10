@@ -325,7 +325,7 @@ export class SubscriptionService extends BaseService {
               investor_id: true,
               name: true,
               email: true,
-              investor_type: true
+              type: true
             }
           },
           projects: data.project_id ? {
@@ -418,7 +418,7 @@ export class SubscriptionService extends BaseService {
               investor_id: true,
               name: true,
               email: true,
-              investor_type: true
+              type: true
             }
           },
           projects: existingSubscription.project_id ? {

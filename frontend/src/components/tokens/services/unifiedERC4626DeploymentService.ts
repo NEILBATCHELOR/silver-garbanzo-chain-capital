@@ -11,6 +11,7 @@ import { erc4626ConfigurationMapper } from './erc4626ConfigurationMapper';
 import { enhancedERC4626DeploymentService, EnhancedERC4626DeploymentResult } from './enhancedERC4626DeploymentService';
 import { foundryDeploymentService } from './foundryDeploymentService';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
+import { GasConfig } from './unifiedTokenDeploymentService'; // ✅ FIX #5: Import GasConfig type
 
 /**
  * Unified deployment options
@@ -21,6 +22,7 @@ export interface UnifiedERC4626DeploymentOptions {
   enableAnalytics?: boolean; // Default: true
   enableValidation?: boolean; // Default: true
   enableProgressTracking?: boolean; // Default: true for chunked
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration option
 }
 
 /**
@@ -93,7 +95,8 @@ export class UnifiedERC4626DeploymentService {
       forceStrategy = 'auto',
       enableAnalytics = true,
       enableValidation = true,
-      enableProgressTracking = true
+      enableProgressTracking = true,
+      gasConfig // ✅ FIX #5: Extract gas configuration from options
     } = options;
 
     const startTime = Date.now();
@@ -150,14 +153,16 @@ export class UnifiedERC4626DeploymentService {
       let deploymentResult: EnhancedERC4626DeploymentResult;
 
       if (selectedStrategy === 'basic') {
-        deploymentResult = await this.deployBasicVault(tokenId, userId, projectId);
+        deploymentResult = await this.deployBasicVault(tokenId, userId, projectId, gasConfig); // ✅ FIX #5
       } else {
         // Use enhanced deployment service for enhanced and chunked strategies
+        // ✅ FIX #5: TODO - enhancedERC4626DeploymentService may need gasConfig parameter
         deploymentResult = await enhancedERC4626DeploymentService.deployERC4626Token(
           tokenId,
           userId,
           projectId,
           useOptimization
+          // TODO: Pass gasConfig when enhancedERC4626DeploymentService supports it
         );
       }
 
@@ -437,11 +442,13 @@ export class UnifiedERC4626DeploymentService {
 
   /**
    * Deploy basic vault using foundry service
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async deployBasicVault(
     tokenId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<EnhancedERC4626DeploymentResult> {
     
     try {
@@ -479,10 +486,13 @@ export class UnifiedERC4626DeploymentService {
       // Deploy using foundry service
       const deploymentResult = await foundryDeploymentService.deployToken(
         {
+          tokenId: token.id,
+          projectId: token.project_id || userId, // Use project_id from token or fallback to userId
           tokenType: 'ERC4626',
           config: foundryConfig,
           blockchain: 'ethereum',
-          environment: 'testnet'
+          environment: 'testnet',
+          gasConfig // ✅ FIX #5: Pass gas configuration to foundry
         },
         userId,
         userId // Using userId as keyId for now

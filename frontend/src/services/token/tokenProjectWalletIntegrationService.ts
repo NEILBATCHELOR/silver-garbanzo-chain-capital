@@ -29,24 +29,83 @@ export interface TokenWalletOptions {
 
 /**
  * Network mapping for consistent wallet_type values
+ * ✅ FIX #6: Enhanced network normalization with comprehensive mapping
  */
 const NETWORK_MAPPING: Record<string, string> = {
+  // Ethereum variants (mainnet)
   'ethereum': 'ethereum',
+  'eth': 'ethereum',
+  'ethnet': 'ethereum',
+  'etherum': 'ethereum', // Common misspelling
+  
+  // Ethereum testnets
+  'sepolia': 'ethereum',
+  'holesky': 'ethereum',
+  'goerli': 'ethereum', // Deprecated but still included for compatibility
+  
+  // Polygon variants
   'polygon': 'polygon',
-  'avalanche': 'avalanche', 
+  'matic': 'polygon',
+  'poly': 'polygon',
+  'polygonmatic': 'polygon',
+  
+  // Avalanche variants
+  'avalanche': 'avalanche',
+  'avax': 'avalanche',
+  'avax-c': 'avalanche',
+  'avax-x': 'avalanche',
+  
+  // Optimism variants
   'optimism': 'optimism',
+  'op': 'optimism',
+  'opnet': 'optimism',
+  
+  // Base variants
   'base': 'base',
+  'basename': 'base',
+  'basenet': 'base',
+  
+  // Arbitrum variants
   'arbitrum': 'arbitrum',
+  'arb': 'arbitrum',
+  'arbnet': 'arbitrum',
+  'arbitrumone': 'arbitrum',
+  
+  // Binance Smart Chain variants
   'binance': 'binance',
-  'fantom': 'fantom'
+  'bsc': 'binance',
+  'bnb': 'binance',
+  'binancesmartchain': 'binance',
+  'bnbchain': 'binance',
+  
+  // Fantom variants
+  'fantom': 'fantom',
+  'ftm': 'fantom',
+  'fantomopera': 'fantom'
 };
 
 /**
  * Get normalized network name for wallet_type
+ * ✅ FIX #6: Enhanced with validation and error handling
  */
 function getNormalizedNetwork(network: string): string {
-  const normalized = network.toLowerCase();
-  return NETWORK_MAPPING[normalized] || normalized;
+  if (!network) {
+    throw new Error('Network parameter is required');
+  }
+  
+  const normalized = network.toLowerCase().trim();
+  const mappedNetwork = NETWORK_MAPPING[normalized];
+  
+  if (!mappedNetwork) {
+    // Provide helpful error message with supported networks
+    const supportedNetworks = Array.from(new Set(Object.values(NETWORK_MAPPING))).join(', ');
+    throw new Error(
+      `Unsupported network: "${network}". Supported networks: ${supportedNetworks}`
+    );
+  }
+  
+  console.log(`✅ FIX #6: Network normalization - Input: "${network}" → Output: "${mappedNetwork}"`);
+  return mappedNetwork;
 }
 
 /**

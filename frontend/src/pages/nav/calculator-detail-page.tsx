@@ -211,30 +211,13 @@ export default function CalculatorDetailPage() {
               schema={schema}
               isLoading={isLoadingSchema}
             >
-              {CalculatorComponent && (
-                <CalculatorComponent
-                  onSubmit={handleCalculatorSubmit}
-                  onReset={handleCalculatorReset}
-                  isLoading={false}
-                />
-              )}
+              {CalculatorComponent && <CalculatorComponent />}
             </CalculatorShell>
           </Suspense>
         </div>
       </div>
     </div>
   )
-
-  function handleCalculatorSubmit(data: any) {
-    console.log('Calculator submission:', data)
-    // TODO: Integrate with useAsyncCalculation hook
-    // This will be implemented when the calculator forms are updated
-  }
-
-  function handleCalculatorReset() {
-    console.log('Calculator reset')
-    // Handle form reset
-  }
 }
 
 function CalculatorDetailSkeleton() {

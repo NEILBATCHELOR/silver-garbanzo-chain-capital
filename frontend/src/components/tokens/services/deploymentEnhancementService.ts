@@ -7,11 +7,13 @@ import { ethers } from 'ethers';
 import { providerManager, NetworkEnvironment } from '@/infrastructure/web3/ProviderManager';
 import { supabase } from '@/infrastructure/database/client';
 import { RealTimeFeeEstimator, FeePriority } from '@/services/blockchain/RealTimeFeeEstimator';
+import { enhancedGasEstimator } from '@/services/blockchain/EnhancedGasEstimationService';
 
 export interface ProjectWallet {
   id: string;
   wallet_address: string;
   wallet_type: string;
+  chain_id?: string; // Chain ID for the wallet's network
   created_at: string;
 }
 
@@ -32,6 +34,16 @@ export interface GasEstimation {
   estimatedTimeSeconds: number;
 }
 
+/**
+ * Options for gas estimation when contract data is available
+ */
+export interface GasEstimationOptions {
+  contractBytecode?: string;
+  abi?: any[];
+  constructorArgs?: any[];
+  deployerAddress?: string;
+}
+
 export interface FaucetInfo {
   name: string;
   url: string;
@@ -47,29 +59,38 @@ class DeploymentEnhancementService {
   }
 
   /**
-   * Get all project wallets for a specific blockchain
-   * Note: For Ethereum testnets (sepolia, holesky), queries for 'ethereum' wallets
-   * since they use the same address/key infrastructure
+   * Get all project wallets for a specific blockchain and chain ID
+   * Filters by chain_id to ensure wallets match the exact network (mainnet/testnet)
    */
   async getProjectWallets(
     projectId: string,
-    blockchain: string
+    blockchain: string,
+    chainId?: string | number
   ): Promise<ProjectWallet[]> {
-    // Normalize blockchain for wallet queries - all Ethereum networks use 'ethereum' wallets
-    const walletType = this.normalizeBlockchainForWallets(blockchain);
-    
-    const { data, error } = await supabase
+    let query = supabase
       .from('project_wallets')
-      .select('id, wallet_address, wallet_type, created_at')
-      .eq('project_id', projectId)
-      .eq('wallet_type', walletType)
-      .order('created_at', { ascending: false });
+      .select('id, wallet_address, wallet_type, created_at, chain_id')
+      .eq('project_id', projectId);
+
+    // Filter by chain_id if provided (preferred method for precise filtering)
+    if (chainId !== undefined && chainId !== null) {
+      query = query.eq('chain_id', chainId.toString());
+    } else {
+      // Fallback to wallet_type filtering (legacy behavior)
+      const walletType = this.normalizeBlockchainForWallets(blockchain);
+      query = query.eq('wallet_type', walletType);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching project wallets:', error);
       throw new Error(`Failed to fetch project wallets: ${error.message}`);
     }
 
+    console.log(`[getProjectWallets] Found ${data?.length || 0} wallets for project ${projectId}, chain_id ${chainId}`);
     return data || [];
   }
 
@@ -118,69 +139,80 @@ class DeploymentEnhancementService {
   }
 
   /**
-   * Estimate gas for token deployment dynamically
+   * Estimate gas for token deployment
+   * If contract data is not provided, returns null (estimation will happen at deployment time)
+   * If contract data is provided, performs real blockchain-based estimation
    */
   async estimateDeploymentGas(
     blockchain: string,
     environment: NetworkEnvironment,
     tokenType: string,
-    contractBytecode?: string
-  ): Promise<GasEstimation> {
+    options?: {
+      contractBytecode?: string;
+      abi?: any[];
+      constructorArgs?: any[];
+      deployerAddress?: string;
+    }
+  ): Promise<GasEstimation | null> {
     try {
-      // Use RealTimeFeeEstimator for accurate gas price
-      const feeData = await this.feeEstimator.getOptimalFeeData(blockchain, FeePriority.MEDIUM);
+      // If no contract data provided, return null - estimation will happen at deployment time
+      if (!options?.contractBytecode || !options?.abi || !options?.deployerAddress) {
+        console.log(`[DeploymentEnhancement] Contract data not yet available - gas estimation deferred to deployment time`);
+        return null;
+      }
+
+      console.log(`[DeploymentEnhancement] Estimating gas for ${tokenType} on ${blockchain} with real contract data`);
       
-      // Estimate gas limit based on token type
-      const gasLimit = this.estimateGasLimit(tokenType, contractBytecode);
+      // Get provider for blockchain
+      const provider = providerManager.getProviderForEnvironment(
+        blockchain as any,
+        environment
+      );
+
+      if (!provider) {
+        throw new Error(`No provider available for ${blockchain} (${environment})`);
+      }
+
+      // Use real blockchain-based estimation
+      const estimate = await enhancedGasEstimator.estimateDeploymentCost({
+        provider,
+        bytecode: options.contractBytecode,
+        abi: options.abi,
+        constructorArgs: options.constructorArgs || [],
+        blockchain,
+        tokenType,
+        from: options.deployerAddress,
+        priority: FeePriority.MEDIUM
+      });
+
+      console.log(`[DeploymentEnhancement] Real Blockchain Estimate:
+        - Gas Limit: ${estimate.recommendedGasLimit.toString()}
+        - Gas Price Source: ${estimate.gasPriceSource}
+        - Total Cost: ${estimate.estimatedCostNative} ${estimate.breakdown.nativeCurrency}
+        - Estimated Time: ${estimate.estimatedTimeSeconds}s
+        - Network Congestion: ${estimate.networkCongestion}`);
       
-      // Calculate total cost
-      const gasPrice = feeData.gasPrice || feeData.maxFeePerGas || '20000000000'; // 20 gwei fallback
-      const gasPriceBigInt = BigInt(gasPrice);
-      const gasLimitBigInt = BigInt(gasLimit);
-      const totalCost = gasPriceBigInt * gasLimitBigInt;
-      
+      // Format for UI display
       return {
-        gasLimit: gasLimit.toString(),
-        gasPrice: feeData.gasPrice || '',
-        maxFeePerGas: feeData.maxFeePerGas,
-        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-        totalCostNative: ethers.formatEther(totalCost),
-        estimatedTimeSeconds: feeData.estimatedTimeSeconds
+        gasLimit: estimate.recommendedGasLimit.toString(),
+        gasPrice: estimate.breakdown.gasPrice,
+        maxFeePerGas: estimate.breakdown.maxFeePerGas,
+        maxPriorityFeePerGas: estimate.breakdown.maxPriorityFeePerGas,
+        totalCostNative: estimate.estimatedCostNative,
+        totalCostUsd: estimate.estimatedCostUSD,
+        estimatedTimeSeconds: estimate.estimatedTimeSeconds
       };
     } catch (error) {
-      console.error('Error estimating gas:', error);
+      console.error('[DeploymentEnhancement] Gas estimation error:', error);
       throw error;
     }
   }
 
   /**
-   * Estimate gas limit based on token type
-   */
-  private estimateGasLimit(tokenType: string, contractBytecode?: string): number {
-    // Base estimates for different token types
-    const estimates: Record<string, number> = {
-      'ERC20': 1500000,
-      'EnhancedERC20': 2000000,
-      'ERC721': 2500000,
-      'EnhancedERC721': 3000000,
-      'ERC1155': 2800000,
-      'EnhancedERC1155': 3500000,
-      'ERC3525': 3200000,
-      'EnhancedERC3525': 4000000,
-      'ERC4626': 2600000,
-      'EnhancedERC4626': 3300000,
-      'ERC1400': 3500000,
-      'BaseERC1400': 3200000,
-      'EnhancedERC1400': 4200000
-    };
-
-    return estimates[tokenType] || 3000000; // Default to 3M gas
-  }
-
-  /**
    * Get chain ID for blockchain and environment
+   * Public method to allow external access for wallet filtering
    */
-  private getChainId(blockchain: string, environment: NetworkEnvironment): number {
+  getChainId(blockchain: string, environment: NetworkEnvironment): number {
     const chainIds: Record<string, Record<string, number>> = {
       'ethereum': {
         [NetworkEnvironment.MAINNET]: 1,

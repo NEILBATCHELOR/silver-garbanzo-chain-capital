@@ -1,16 +1,41 @@
 /**
- * useNavHistory Hook
+ * useNavHistory Hook - ENHANCED with Asset-Specific Support
  * React hook for fetching NAV calculation history with pagination
+ * NEW: Supports asset-specific fields (e.g., bond risk metrics)
  */
 
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { navService } from '@/services/nav'
-import { NavRunsListRequest, CalculationResult, NavError, convertToNavError, AssetType, CalculationStatus, ApprovalStatus } from '@/types/nav'
+import { 
+  NavRunsListRequest, 
+  CalculationResult, 
+  NavError, 
+  convertToNavError, 
+  AssetType, 
+  CalculationStatus, 
+  ApprovalStatus 
+} from '@/types/nav'
 import type { NavCalculationResult } from '@/services/nav/NavService'
+
+// NEW: Extended calculation result with asset-specific fields
+export interface EnhancedCalculationResult extends CalculationResult {
+  // Bond-specific fields (populated when productType === BONDS)
+  bondMetrics?: {
+    duration?: number
+    modifiedDuration?: number
+    convexity?: number
+    yieldToMaturity?: number
+    spreadToBenchmark?: number
+    dv01?: number
+  }
+  // Other asset-specific fields can be added here
+  breakdown?: any // Detailed calculation breakdown
+  confidence?: 'high' | 'medium' | 'low' // Data confidence level
+}
 
 export interface UseNavHistoryResult {
   // Data
-  runs: CalculationResult[]
+  runs: EnhancedCalculationResult[]
   pagination: {
     total: number
     page: number
@@ -39,6 +64,11 @@ interface UseNavHistoryOptions {
   refetchInterval?: number // Auto-refresh interval in ms
   staleTime?: number // How long data stays fresh
   gcTime?: number // Garbage collection time (formerly cacheTime)
+  // NEW: Asset-specific options
+  assetType?: AssetType // Filter by asset type
+  assetId?: string // Filter by specific asset
+  includeRiskMetrics?: boolean // Include risk metrics (for bonds)
+  includeBreakdown?: boolean // Include detailed breakdown
 }
 
 const defaultParams: NavRunsListRequest = {
@@ -46,6 +76,53 @@ const defaultParams: NavRunsListRequest = {
   limit: 20,
   sortBy: 'calculatedAt',
   sortOrder: 'desc'
+}
+
+// NEW: Transform function with asset-specific fields
+function transformCalculationResult(run: NavCalculationResult, options: UseNavHistoryOptions): EnhancedCalculationResult {
+  const base: EnhancedCalculationResult = {
+    runId: run.runId,
+    assetId: run.assetId,
+    projectId: run.projectId,
+    productType: run.productType as AssetType,
+    valuationDate: run.valuationDate,
+    navValue: run.navValue,
+    navPerShare: run.navPerShare,
+    totalAssets: run.totalAssets,
+    totalLiabilities: run.totalLiabilities,
+    netAssets: run.netAssets,
+    sharesOutstanding: run.sharesOutstanding,
+    currency: run.currency,
+    calculatedAt: run.calculatedAt,
+    status: run.status as CalculationStatus,
+    approvalStatus: run.approvalStatus as ApprovalStatus,
+    errorMessage: run.errorMessage,
+    metadata: run.metadata
+  }
+
+  // NEW: Extract bond-specific metrics from metadata
+  if (run.productType === AssetType.BONDS && options.includeRiskMetrics && run.metadata) {
+    base.bondMetrics = {
+      duration: run.metadata.duration,
+      modifiedDuration: run.metadata.modifiedDuration,
+      convexity: run.metadata.convexity,
+      yieldToMaturity: run.metadata.yieldToMaturity,
+      spreadToBenchmark: run.metadata.spreadToBenchmark,
+      dv01: run.metadata.dv01
+    }
+  }
+
+  // NEW: Extract breakdown if requested
+  if (options.includeBreakdown && run.metadata?.breakdown) {
+    base.breakdown = run.metadata.breakdown
+  }
+
+  // NEW: Extract confidence level
+  if (run.metadata?.confidence) {
+    base.confidence = run.metadata.confidence as 'high' | 'medium' | 'low'
+  }
+
+  return base
 }
 
 export function useNavHistory(
@@ -56,37 +133,33 @@ export function useNavHistory(
     enabled = true,
     refetchInterval,
     staleTime = 30000, // 30 seconds
-    gcTime = 300000 // 5 minutes
+    gcTime = 300000, // 5 minutes
+    // NEW: Asset-specific options
+    assetType,
+    assetId,
+    includeRiskMetrics = false,
+    includeBreakdown = false
   } = options
 
   // Merge params with defaults
-  const queryParams = { ...defaultParams, ...params }
+  const queryParams: NavRunsListRequest = { 
+    ...defaultParams, 
+    ...params,
+    // NEW: Add asset filters
+    ...(assetType && { productType: assetType }),
+    ...(assetId && { assetId })
+  }
 
   const query = useQuery({
-    queryKey: ['nav', 'runs', queryParams],
+    queryKey: ['nav', 'runs', queryParams, includeRiskMetrics, includeBreakdown],
     queryFn: async () => {
       try {
         const serviceResult = await navService.getCalculationRuns(queryParams)
-        // Transform NavCalculationResult to CalculationResult
-        const transformedRuns: CalculationResult[] = serviceResult.runs.map((run: NavCalculationResult) => ({
-          runId: run.runId,
-          assetId: run.assetId,
-          projectId: run.projectId,
-          productType: run.productType as AssetType,
-          valuationDate: run.valuationDate,
-          navValue: run.navValue,
-          navPerShare: run.navPerShare,
-          totalAssets: run.totalAssets,
-          totalLiabilities: run.totalLiabilities,
-          netAssets: run.netAssets,
-          sharesOutstanding: run.sharesOutstanding,
-          currency: run.currency,
-          calculatedAt: run.calculatedAt,
-          status: run.status as CalculationStatus,
-          approvalStatus: run.approvalStatus as ApprovalStatus,
-          errorMessage: run.errorMessage,
-          metadata: run.metadata
-        }))
+        
+        // Transform NavCalculationResult to EnhancedCalculationResult
+        const transformedRuns: EnhancedCalculationResult[] = serviceResult.runs.map(
+          (run: NavCalculationResult) => transformCalculationResult(run, options)
+        )
         
         return {
           runs: transformedRuns,
@@ -135,6 +208,21 @@ export function useNavHistory(
     hasNextPage,
     hasPreviousPage
   }
+}
+
+/**
+ * NEW: Hook specifically for bond NAV history with risk metrics
+ */
+export function useBondNavHistory(
+  params: NavRunsListRequest = defaultParams,
+  options: Omit<UseNavHistoryOptions, 'assetType' | 'includeRiskMetrics'> = {}
+) {
+  return useNavHistory(params, {
+    ...options,
+    assetType: AssetType.BONDS,
+    includeRiskMetrics: true,
+    includeBreakdown: true
+  })
 }
 
 /**

@@ -272,7 +272,6 @@ export class CapTableService extends BaseService {
           accreditation_status: data.accreditationStatus,
           tax_id_number: data.taxIdNumber,
           tax_residency: data.residenceCountry, // Map to tax_residency field
-          investor_type: data.investorType,
           onboarding_completed: false, // Default value
           // Store additional fields in profile_data JSON field
           profile_data: {

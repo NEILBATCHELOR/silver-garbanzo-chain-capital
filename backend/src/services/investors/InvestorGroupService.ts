@@ -367,7 +367,7 @@ export class InvestorGroupService extends BaseService {
                 investor_id: true,
                 name: true,
                 email: true,
-                investor_type: true,
+                type: true,
                 investor_status: true,
                 kyc_status: true,
                 created_at: true

@@ -28,6 +28,7 @@ import complianceRoutes from './src/routes/compliance'
 import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
+import walletEncryptionRoutes from './src/routes/wallet-encryption'
 
 // Types
 const PORT = parseInt(process.env.PORT || '3001', 10)
@@ -575,6 +576,7 @@ Comprehensive platform supporting:
     await app.register(subscriptionRoutes, { prefix: apiPrefix })
     await app.register(documentRoutes, { prefix: apiPrefix })
     await app.register(walletRoutes, { prefix: apiPrefix })
+    await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
     await app.register(calendarRoutes, { prefix: apiPrefix })
 
     // System routes

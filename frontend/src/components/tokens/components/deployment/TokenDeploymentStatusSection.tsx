@@ -29,7 +29,8 @@ import {
 import { TokenDetails } from '@/components/tokens/interfaces/TokenInterfaces';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
 import { formatAddress } from '@/utils/shared/addressUtils';
-import { getExplorerUrl } from '@/utils/shared/explorerUtils';
+import { getExplorerUrl, getNetworkDisplayName } from '@/utils/shared/explorerUtils';
+import { constructNetworkIdentifier } from '@/utils/shared/networkUtils';
 import DeploymentStatusCard from './DeploymentStatusCard';
 import DeploymentHistoryView from './DeploymentHistoryView';
 
@@ -48,6 +49,12 @@ const TokenDeploymentStatusSection: React.FC<TokenDeploymentStatusSectionProps> 
 }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Construct full network identifier from blockchain + environment
+  const fullNetworkIdentifier = constructNetworkIdentifier(
+    token.blockchain,
+    token.deployment_environment
+  );
 
   // Deployment status will be managed by parent component
   // No need for event listeners here
@@ -98,7 +105,7 @@ const TokenDeploymentStatusSection: React.FC<TokenDeploymentStatusSectionProps> 
                 </Badge>
               </div>
               <CardDescription>
-                This token has been deployed to the {token.blockchain} network.
+                This token has been deployed to {getNetworkDisplayName(fullNetworkIdentifier)}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -108,7 +115,7 @@ const TokenDeploymentStatusSection: React.FC<TokenDeploymentStatusSectionProps> 
                   <p className="font-medium flex items-center">
                     <span className="truncate mr-1">{formatAddress(token.address || '')}</span>
                     <a
-                      href={getExplorerUrl(token.blockchain || 'ethereum', token.address || '', 'address')}
+                      href={getExplorerUrl(fullNetworkIdentifier, token.address || '', 'address')}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:text-blue-700 ml-1"
@@ -119,7 +126,7 @@ const TokenDeploymentStatusSection: React.FC<TokenDeploymentStatusSectionProps> 
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Network</p>
-                  <p className="font-medium">{token.blockchain}</p>
+                  <p className="font-medium">{getNetworkDisplayName(fullNetworkIdentifier)}</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Token Name</p>

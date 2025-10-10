@@ -278,7 +278,6 @@ export class InvestorService extends BaseService {
           name: data.name,
           email: data.email,
           type: data.type,
-          investor_type: data.investor_type || 'individual',
           wallet_address: data.wallet_address,
           company: data.company,
           notes: data.notes,
@@ -455,8 +454,9 @@ export class InvestorService extends BaseService {
       }
 
       // Check for dependencies before deletion
+      // TODO: Cap table functionality removed - needs rebuild
       const [capTableEntries, groupMemberships] = await Promise.all([
-        this.db.cap_table_investors.count({ where: { investor_id: id } }),
+        Promise.resolve(0), // this.db.cap_table_investors.count({ where: { investor_id: id } }),
         this.db.investor_group_members.count({ where: { investor_id: id } })
       ])
 
@@ -651,15 +651,10 @@ export class InvestorService extends BaseService {
   }
 
   private async calculateInvestorStatistics(investorId: string): Promise<InvestorStatistics> {
+    // TODO: Cap table functionality removed - needs rebuild
     // Get cap table entries for this investor
-    const capTableEntries = await this.db.cap_table_investors.findMany({
-      where: { investor_id: investorId },
-      include: {
-        cap_tables: {
-          include: { projects: true }
-        }
-      }
-    })
+    // const capTableEntries = await this.db.cap_table_investors.findMany({...})
+    const capTableEntries: any[] = []
 
     const totalInvested = capTableEntries.reduce((sum: number, entry: any) => 
       sum + (entry.amount_invested || 0), 0

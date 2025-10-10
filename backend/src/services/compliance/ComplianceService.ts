@@ -685,7 +685,7 @@ export class ComplianceService extends BaseService {
       where: { investor_id },
       select: {
         kyc_status: true,
-        investor_type: true,
+        type: true,
         tax_residency: true,
         risk_assessment: true
       }
@@ -706,10 +706,10 @@ export class ComplianceService extends BaseService {
     }
 
     // Investor Type Risk
-    if (investor?.investor_type === 'institutional') {
+    if (investor?.type === 'institutional') {
       scores.entity_type_risk = 5
       totalScore += 5
-    } else if (investor?.investor_type === 'corporate') {
+    } else if (investor?.type === 'corporate') {
       factors.push('Corporate entity requires enhanced due diligence')
       scores.entity_type_risk = 15
       totalScore += 15

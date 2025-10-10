@@ -452,11 +452,11 @@ export class RedemptionService extends BaseService {
         return this.error('Redemption request not found', 'NOT_FOUND', 404)
       }
 
-      // Find the specific approval assignment
-      const assignment = await this.db.redemption_approver_assignments.findFirst({
+      // Find the specific approval assignment - use redemption_approvers table
+      const assignment = await this.db.redemption_approvers.findFirst({
         where: {
-          redemption_request_id,
-          approver_user_id,
+          redemption_id: redemption_request_id,
+          approver_id: approver_user_id,
           status: 'pending'
         }
       })
@@ -466,24 +466,22 @@ export class RedemptionService extends BaseService {
       }
 
       // Process the approval
-      const approval = await this.db.redemption_approver_assignments.update({
+      const approval = await this.db.redemption_approvers.update({
         where: { id: assignment.id },
         data: {
           status: action === 'approve' ? 'approved' : 'rejected',
-          approval_timestamp: new Date(),
-          rejection_reason: action === 'reject' ? rejection_reason : null,
-          comments,
-          approval_signature
+          approved_at: new Date(),
+          comments: action === 'reject' ? rejection_reason : comments
         }
       })
 
       // Check if all required approvals are completed
-      const allAssignments = await this.db.redemption_approver_assignments.findMany({
-        where: { redemption_request_id }
+      const allAssignments = await this.db.redemption_approvers.findMany({
+        where: { redemption_id: redemption_request_id }
       })
 
-      const approvedCount = allAssignments.filter(a => a.status === 'approved').length
-      const rejectedCount = allAssignments.filter(a => a.status === 'rejected').length
+      const approvedCount = allAssignments.filter((a: any) => a.status === 'approved').length
+      const rejectedCount = allAssignments.filter((a: any) => a.status === 'rejected').length
       const requiredApprovals = redemption.required_approvals
 
       // Update redemption status based on approval results

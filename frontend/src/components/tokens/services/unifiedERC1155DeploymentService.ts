@@ -12,12 +12,14 @@ import { FoundryDeploymentParams } from '../interfaces/TokenInterfaces';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
 import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
+import { GasConfig } from './unifiedTokenDeploymentService'; // ✅ FIX #5: Import GasConfig type
 
 export interface UnifiedERC1155DeploymentOptions {
   useOptimization?: boolean; // Default: true for complex configurations
   forceStrategy?: 'basic' | 'enhanced' | 'chunked' | 'auto'; // Default: auto
   enableAnalytics?: boolean; // Default: true
   dryRun?: boolean; // Default: false
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration option
 }
 
 export interface UnifiedERC1155DeploymentResult {
@@ -71,7 +73,8 @@ export class UnifiedERC1155DeploymentService {
       useOptimization = true,
       forceStrategy = 'auto',
       enableAnalytics = true,
-      dryRun = false
+      dryRun = false,
+      gasConfig // ✅ FIX #5: Extract gas configuration from options
     } = options;
 
     try {
@@ -101,14 +104,14 @@ export class UnifiedERC1155DeploymentService {
 
       switch (strategy) {
         case 'chunked':
-          result = await this.executeChunkedDeployment(tokenId, userId, projectId, dryRun);
+          result = await this.executeChunkedDeployment(tokenId, userId, projectId, dryRun, gasConfig); // ✅ FIX #5
           break;
         case 'enhanced':
-          result = await this.executeEnhancedDeployment(tokenId, userId, projectId, dryRun);
+          result = await this.executeEnhancedDeployment(tokenId, userId, projectId, dryRun, gasConfig); // ✅ FIX #5
           break;
         case 'basic':
         default:
-          result = await this.executeBasicDeployment(tokenId, userId, projectId, dryRun);
+          result = await this.executeBasicDeployment(tokenId, userId, projectId, dryRun, gasConfig); // ✅ FIX #5
           break;
       }
 
@@ -140,7 +143,33 @@ export class UnifiedERC1155DeploymentService {
   }
 
   /**
+   * ✅ FIX #4: Helper method to retrieve project wallet address
+   * Retrieves wallet address from project_wallets table for given project and blockchain
+   */
+  private async getProjectWallet(projectId: string, blockchain: string): Promise<string> {
+    const { data: walletData, error: walletError } = await supabase
+      .from('project_wallets')
+      .select('wallet_address')
+      .eq('project_id', projectId)
+      .eq('wallet_type', blockchain)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (walletError) {
+      throw new Error(`Failed to fetch project wallet: ${walletError.message}`);
+    }
+
+    if (!walletData || !walletData.wallet_address) {
+      throw new Error(`No wallet address found for project ${projectId} on ${blockchain}`);
+    }
+
+    return walletData.wallet_address;
+  }
+
+  /**
    * Get deployment recommendation without deploying
+   * ✅ FIX #4: Updated to use wallet address from project_wallets instead of 'default_address'
    */
   async getDeploymentRecommendation(tokenId: string): Promise<DeploymentRecommendation> {
     try {
@@ -154,10 +183,16 @@ export class UnifiedERC1155DeploymentService {
         throw new Error('Token not found');
       }
 
+      // ✅ FIX #4: Get wallet address from project_wallets
+      const blockchain = token.blockchain || 'ethereum';
+      const walletAddress = token.project_id 
+        ? await this.getProjectWallet(token.project_id, blockchain)
+        : token.deployed_by || '';
+
       // Analyze configuration complexity
       const mappingResult = erc1155ConfigurationMapper.mapTokenFormToEnhancedConfig(
         token,
-        token.deployed_by || 'default_address'
+        walletAddress
       );
 
       if (!mappingResult.success) {
@@ -236,6 +271,7 @@ export class UnifiedERC1155DeploymentService {
 
   /**
    * Determine optimal deployment strategy
+   * ✅ FIX #4: Updated to use wallet address from project_wallets instead of 'default_address'
    */
   private async determineOptimalStrategy(
     token: any,
@@ -246,9 +282,15 @@ export class UnifiedERC1155DeploymentService {
     }
 
     try {
+      // ✅ FIX #4: Get wallet address from project_wallets
+      const blockchain = token.blockchain || 'ethereum';
+      const walletAddress = token.project_id 
+        ? await this.getProjectWallet(token.project_id, blockchain)
+        : token.deployed_by || '';
+
       const mappingResult = erc1155ConfigurationMapper.mapTokenFormToEnhancedConfig(
         token,
-        token.deployed_by || 'default_address'
+        walletAddress
       );
 
       if (!mappingResult.success || !mappingResult.config) {
@@ -298,14 +340,17 @@ export class UnifiedERC1155DeploymentService {
 
   /**
    * Execute chunked deployment
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async executeChunkedDeployment(
     tokenId: string,
     userId: string,
     projectId: string,
-    dryRun: boolean
+    dryRun: boolean,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC1155DeploymentResult> {
     try {
+      // ✅ FIX #5: TODO - enhancedERC1155DeploymentService may need gasConfig parameter
       const result = await enhancedERC1155DeploymentService.deployERC1155Optimized(
         tokenId,
         userId,
@@ -315,6 +360,7 @@ export class UnifiedERC1155DeploymentService {
           chunkDelay: 1000,
           enableProgressTracking: true,
           dryRun
+          // TODO: Pass gasConfig when enhancedERC1155DeploymentService supports it
         }
       );
 
@@ -341,14 +387,17 @@ export class UnifiedERC1155DeploymentService {
 
   /**
    * Execute enhanced deployment (single transaction with all features)
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async executeEnhancedDeployment(
     tokenId: string,
     userId: string,
     projectId: string,
-    dryRun: boolean
+    dryRun: boolean,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC1155DeploymentResult> {
     try {
+      // ✅ FIX #5: TODO - enhancedERC1155DeploymentService may need gasConfig parameter
       const result = await enhancedERC1155DeploymentService.deployERC1155Optimized(
         tokenId,
         userId,
@@ -356,6 +405,7 @@ export class UnifiedERC1155DeploymentService {
         {
           maxGasPerChunk: 15000000, // Higher limit for single transaction
           chunkDelay: 0,
+          // TODO: Pass gasConfig when enhancedERC1155DeploymentService supports it
           enableProgressTracking: false,
           dryRun
         }
@@ -383,12 +433,14 @@ export class UnifiedERC1155DeploymentService {
 
   /**
    * Execute basic deployment using foundry service
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async executeBasicDeployment(
     tokenId: string,
     userId: string,
     projectId: string,
-    dryRun: boolean
+    dryRun: boolean,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC1155DeploymentResult> {
     try {
       if (dryRun) {
@@ -414,7 +466,8 @@ export class UnifiedERC1155DeploymentService {
       }
 
       // Convert to foundry deployment parameters
-      const deploymentParams = this.convertToFoundryParams(token);
+      // ✅ FIX #5: TODO - convertToFoundryParams method needs to be created to accept gasConfig
+      const deploymentParams = this.convertToFoundryParams(token, gasConfig); // ✅ FIX #5
 
       const result = await foundryDeploymentService.deployToken(
         deploymentParams,
@@ -443,10 +496,12 @@ export class UnifiedERC1155DeploymentService {
   /**
    * Convert token to foundry deployment parameters
    */
-  private convertToFoundryParams(token: any): FoundryDeploymentParams {
+  private convertToFoundryParams(token: any, gasConfig?: GasConfig): FoundryDeploymentParams {
     const erc1155Props = token.erc1155Properties || {};
     
     return {
+      tokenId: token.id || crypto.randomUUID(), // Use existing token ID or generate new one
+      projectId: token.project_id || '', // Use token's project ID
       tokenType: 'ERC1155',
       config: {
         name: token.name,
@@ -459,7 +514,8 @@ export class UnifiedERC1155DeploymentService {
         initialOwner: token.deployed_by || token.user_id
       },
       blockchain: token.blockchain || 'ethereum',
-      environment: token.deployment_environment || 'testnet'
+      environment: token.deployment_environment || 'testnet',
+      ...(gasConfig && { gasConfig })
     };
   }
 
@@ -591,6 +647,7 @@ export class UnifiedERC1155DeploymentService {
 
   /**
    * Validate ERC-1155 configuration before deployment
+   * ✅ FIX #4: Updated to use wallet address from project_wallets instead of 'default_address'
    */
   async validateERC1155Configuration(tokenId: string): Promise<{
     isValid: boolean;
@@ -614,9 +671,15 @@ export class UnifiedERC1155DeploymentService {
         };
       }
 
+      // ✅ FIX #4: Get wallet address from project_wallets
+      const blockchain = token.blockchain || 'ethereum';
+      const walletAddress = token.project_id 
+        ? await this.getProjectWallet(token.project_id, blockchain)
+        : token.deployed_by || '';
+
       const mappingResult = erc1155ConfigurationMapper.mapTokenFormToEnhancedConfig(
         token,
-        token.deployed_by || 'default_address'
+        walletAddress
       );
 
       return {

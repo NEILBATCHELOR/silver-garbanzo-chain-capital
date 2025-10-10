@@ -32,12 +32,14 @@ import {
   Filter,
   X,
   SortAsc,
-  SortDesc
+  SortDesc,
+  Loader2
 } from "lucide-react";
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
 import { BalanceFormatter, balanceService } from "@/services/wallet/balances";
 import type { WalletBalance } from "@/services/wallet/balances";
 import { getChainEnvironment, getExplorerUrl } from "@/config/chains";
+import { WalletEncryptionClient } from "@/services/security/walletEncryptionService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +85,10 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const [walletToDelete, setWalletToDelete] = useState<string | null>(null);
   const [showPrivateKey, setShowPrivateKey] = useState<Record<string, boolean>>({});
   const [showMnemonic, setShowMnemonic] = useState<Record<string, boolean>>({});
+  const [decryptedPrivateKeys, setDecryptedPrivateKeys] = useState<Record<string, string>>({});
+  const [decryptedMnemonics, setDecryptedMnemonics] = useState<Record<string, string>>({});
+  const [decryptingPrivateKey, setDecryptingPrivateKey] = useState<Record<string, boolean>>({});
+  const [decryptingMnemonic, setDecryptingMnemonic] = useState<Record<string, boolean>>({});
   const [fetchingBalances, setFetchingBalances] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('network_asc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,6 +158,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           '1': 'ethereum',
           '11155111': 'sepolia',
           '17000': 'holesky',
+          '560048': 'hoodi',
           
           // Polygon networks
           '137': 'polygon',
@@ -389,28 +396,147 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     setShowDeleteDialog(true);
   };
 
-  const toggleShowPrivateKey = (walletId: string) => {
-    setShowPrivateKey(prev => ({
-      ...prev,
-      [walletId]: !prev[walletId]
-    }));
+  const toggleShowPrivateKey = async (walletId: string) => {
+    const wallet = wallets.find(w => w.id === walletId);
+    if (!wallet || !wallet.private_key) return;
+
+    // If already showing, just hide it
+    if (showPrivateKey[walletId]) {
+      setShowPrivateKey(prev => ({
+        ...prev,
+        [walletId]: false
+      }));
+      return;
+    }
+
+    // Check if encrypted
+    const isEncrypted = WalletEncryptionClient.isEncrypted(wallet.private_key);
+    
+    if (isEncrypted) {
+      // Need to decrypt first
+      if (decryptedPrivateKeys[walletId]) {
+        // Already decrypted, just show it
+        setShowPrivateKey(prev => ({
+          ...prev,
+          [walletId]: true
+        }));
+      } else {
+        // Decrypt it
+        setDecryptingPrivateKey(prev => ({ ...prev, [walletId]: true }));
+        try {
+          const decrypted = await WalletEncryptionClient.decrypt(wallet.private_key);
+          setDecryptedPrivateKeys(prev => ({
+            ...prev,
+            [walletId]: decrypted
+          }));
+          setShowPrivateKey(prev => ({
+            ...prev,
+            [walletId]: true
+          }));
+        } catch (error) {
+          console.error('Failed to decrypt private key:', error);
+          toast({
+            title: "Decryption Failed",
+            description: "Could not decrypt private key. Please check backend connection.",
+            variant: "destructive"
+          });
+        } finally {
+          setDecryptingPrivateKey(prev => ({ ...prev, [walletId]: false }));
+        }
+      }
+    } else {
+      // Not encrypted, just show it
+      setShowPrivateKey(prev => ({
+        ...prev,
+        [walletId]: true
+      }));
+    }
   };
 
-  const toggleShowMnemonic = (walletId: string) => {
-    setShowMnemonic(prev => ({
-      ...prev,
-      [walletId]: !prev[walletId]
-    }));
+  const toggleShowMnemonic = async (walletId: string) => {
+    const wallet = wallets.find(w => w.id === walletId);
+    if (!wallet || !wallet.mnemonic) return;
+
+    // If already showing, just hide it
+    if (showMnemonic[walletId]) {
+      setShowMnemonic(prev => ({
+        ...prev,
+        [walletId]: false
+      }));
+      return;
+    }
+
+    // Check if encrypted
+    const isEncrypted = WalletEncryptionClient.isEncrypted(wallet.mnemonic);
+    
+    if (isEncrypted) {
+      // Need to decrypt first
+      if (decryptedMnemonics[walletId]) {
+        // Already decrypted, just show it
+        setShowMnemonic(prev => ({
+          ...prev,
+          [walletId]: true
+        }));
+      } else {
+        // Decrypt it
+        setDecryptingMnemonic(prev => ({ ...prev, [walletId]: true }));
+        try {
+          const decrypted = await WalletEncryptionClient.decrypt(wallet.mnemonic);
+          setDecryptedMnemonics(prev => ({
+            ...prev,
+            [walletId]: decrypted
+          }));
+          setShowMnemonic(prev => ({
+            ...prev,
+            [walletId]: true
+          }));
+        } catch (error) {
+          console.error('Failed to decrypt mnemonic:', error);
+          toast({
+            title: "Decryption Failed",
+            description: "Could not decrypt mnemonic. Please check backend connection.",
+            variant: "destructive"
+          });
+        } finally {
+          setDecryptingMnemonic(prev => ({ ...prev, [walletId]: false }));
+        }
+      }
+    } else {
+      // Not encrypted, just show it
+      setShowMnemonic(prev => ({
+        ...prev,
+        [walletId]: true
+      }));
+    }
   };
 
-  const copyToClipboard = async (text: string, label: string) => {
+  const copyToClipboard = async (text: string, label: string, walletId?: string, isPrivateKey?: boolean, isMnemonic?: boolean) => {
     try {
-      await navigator.clipboard.writeText(text);
+      let textToCopy = text;
+      
+      // If it's encrypted and we have a decrypted version, use that
+      if (walletId) {
+        if (isPrivateKey && decryptedPrivateKeys[walletId]) {
+          textToCopy = decryptedPrivateKeys[walletId];
+        } else if (isMnemonic && decryptedMnemonics[walletId]) {
+          textToCopy = decryptedMnemonics[walletId];
+        } else if (WalletEncryptionClient.isEncrypted(text)) {
+          // Need to decrypt first
+          toast({
+            title: "Decrypting",
+            description: "Decrypting data before copying...",
+          });
+          textToCopy = await WalletEncryptionClient.decrypt(text);
+        }
+      }
+      
+      await navigator.clipboard.writeText(textToCopy);
       toast({
         title: "Copied",
         description: `${label} copied to clipboard`,
       });
     } catch (error) {
+      console.error('Copy failed:', error);
       toast({
         title: "Error",
         description: "Failed to copy to clipboard",
@@ -702,29 +828,45 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                     <TableCell>
                       {wallet.private_key ? (
                         <div className="flex items-center space-x-2">
-                          <span className="font-mono text-xs truncate max-w-[150px]">
-                            {showPrivateKey[wallet.id || ''] 
-                              ? wallet.private_key 
-                              : '••••••••••••••••••••'}
-                          </span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => toggleShowPrivateKey(wallet.id || '')}
-                          >
-                            {showPrivateKey[wallet.id || ''] 
-                              ? <EyeOff className="h-3 w-3" /> 
-                              : <Eye className="h-3 w-3" />}
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => copyToClipboard(wallet.private_key || '', 'Private key')}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          {decryptingPrivateKey[wallet.id || ''] ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                              <span className="text-xs text-muted-foreground">Decrypting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-mono text-xs truncate max-w-[150px]">
+                                {showPrivateKey[wallet.id || ''] 
+                                  ? (decryptedPrivateKeys[wallet.id || ''] || wallet.private_key)
+                                  : '••••••••••••••••••••'}
+                              </span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => toggleShowPrivateKey(wallet.id || '')}
+                                disabled={decryptingPrivateKey[wallet.id || '']}
+                              >
+                                {showPrivateKey[wallet.id || ''] 
+                                  ? <EyeOff className="h-3 w-3" /> 
+                                  : <Eye className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => copyToClipboard(
+                                  wallet.private_key || '', 
+                                  'Private key',
+                                  wallet.id,
+                                  true,
+                                  false
+                                )}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <Badge variant="outline" className="bg-amber-100 text-amber-800">
@@ -736,29 +878,45 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                     <TableCell>
                       {wallet.mnemonic ? (
                         <div className="flex items-center space-x-2">
-                          <span className="font-mono text-xs truncate max-w-[150px]">
-                            {showMnemonic[wallet.id || ''] 
-                              ? wallet.mnemonic 
-                              : '•••••• •••••• ••••••'}
-                          </span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => toggleShowMnemonic(wallet.id || '')}
-                          >
-                            {showMnemonic[wallet.id || ''] 
-                              ? <EyeOff className="h-3 w-3" /> 
-                              : <Eye className="h-3 w-3" />}
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={() => copyToClipboard(wallet.mnemonic || '', 'Mnemonic')}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                          {decryptingMnemonic[wallet.id || ''] ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                              <span className="text-xs text-muted-foreground">Decrypting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-mono text-xs truncate max-w-[150px]">
+                                {showMnemonic[wallet.id || ''] 
+                                  ? (decryptedMnemonics[wallet.id || ''] || wallet.mnemonic)
+                                  : '•••••• •••••• ••••••'}
+                              </span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => toggleShowMnemonic(wallet.id || '')}
+                                disabled={decryptingMnemonic[wallet.id || '']}
+                              >
+                                {showMnemonic[wallet.id || ''] 
+                                  ? <EyeOff className="h-3 w-3" /> 
+                                  : <Eye className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => copyToClipboard(
+                                  wallet.mnemonic || '', 
+                                  'Mnemonic',
+                                  wallet.id,
+                                  false,
+                                  true
+                                )}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-xs">Not available</span>

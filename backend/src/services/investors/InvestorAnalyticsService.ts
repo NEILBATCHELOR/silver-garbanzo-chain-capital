@@ -30,18 +30,10 @@ export class InvestorAnalyticsService extends BaseService {
         return this.error('Investor not found', 'NOT_FOUND', 404)
       }
 
+      // TODO: Cap table functionality removed - needs rebuild
       // Get cap table entries with project details
-      const capTableEntries = await this.db.cap_table_investors.findMany({
-        where: { investor_id: investorId },
-        include: {
-          cap_tables: {
-            include: {
-              projects: true
-            }
-          }
-        },
-        orderBy: { created_at: 'asc' }
-      })
+      // const capTableEntries = await this.db.cap_table_investors.findMany({...})
+      const capTableEntries: any[] = []
 
       const analytics: InvestorAnalytics = {
         investor_id: investorId,
@@ -136,14 +128,15 @@ export class InvestorAnalyticsService extends BaseService {
         include: {
           investor_group_members: {
             include: { investor_groups: true }
-          },
-          cap_table_investors: {
-            include: {
-              cap_tables: {
-                include: { projects: true }
-              }
-            }
           }
+          // TODO: Cap table functionality removed - needs rebuild
+          // cap_table_investors: {
+          //   include: {
+          //     cap_tables: {
+          //       include: { projects: true }
+          //     }
+          //   }
+          // }
         }
       })
 
@@ -271,15 +264,10 @@ export class InvestorAnalyticsService extends BaseService {
       })
       const kycApprovalRate = totalInvestors > 0 ? (kycApproved / totalInvestors) * 100 : 0
 
+      // TODO: Cap table functionality removed - needs rebuild
       // Get investment metrics
-      const capTableEntries = await this.db.cap_table_investors.findMany({
-        include: {
-          investors: true,
-          cap_tables: {
-            include: { projects: true }
-          }
-        }
-      })
+      // const capTableEntries = await this.db.cap_table_investors.findMany({...})
+      const capTableEntries: any[] = []
 
       const totalInvested = capTableEntries.reduce((sum: number, entry: any) => sum + (entry.amount_invested || 0), 0)
       const averageInvestmentSize = capTableEntries.length > 0 ? totalInvested / capTableEntries.length : 0
@@ -299,7 +287,8 @@ export class InvestorAnalyticsService extends BaseService {
       const topInvestors = await this.db.investors.findMany({
         where: { investor_id: { in: topInvestorIds } },
         include: {
-          cap_table_investors: true,
+          // TODO: Cap table functionality removed
+          // cap_table_investors: true,
           investor_group_members: {
             include: { investor_groups: true }
           }
@@ -327,7 +316,7 @@ export class InvestorAnalyticsService extends BaseService {
 
       // Get investor type distribution
       const investorsWithType = await this.db.investors.findMany({
-        select: { investor_type: true }
+        select: { type: true }
       })
 
       const investorTypeDistribution = investorsWithType.reduce((acc: any, investor: any) => {
@@ -499,10 +488,9 @@ export class InvestorAnalyticsService extends BaseService {
 
   private async calculateInvestorStatistics(investorId: string): Promise<any> {
     // Simplified version of statistics calculation
-    const capTableEntries = await this.db.cap_table_investors.findMany({
-      where: { investor_id: investorId },
-      include: { cap_tables: { include: { projects: true } } }
-    })
+    // TODO: Cap table functionality removed - needs rebuild
+    // const capTableEntries = await this.db.cap_table_investors.findMany({...})
+    const capTableEntries: any[] = []
 
     return {
       total_invested: capTableEntries.reduce((sum: number, entry: any) => sum + (entry.amount_invested || 0), 0),

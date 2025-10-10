@@ -23,7 +23,47 @@ export * from './wallet';
 // ============================================
 // BLOCKCHAIN SERVICES
 // ============================================
-export * from './blockchain';
+// Export blockchain services, but rename GasEstimate to avoid conflict with wallet's GasEstimate
+export {
+  RPCStatusService,
+  LiveRPCStatusService,
+  EnhancedLiveRPCStatusService,
+  RealTimeFeeEstimator,
+  FeePriority,
+  NetworkCongestion,
+  EnhancedGasEstimationService,
+  enhancedGasEstimator,
+  ExplorerService,
+  TransactionMonitor
+} from './blockchain';
+
+export type {
+  RPCEndpoint,
+  FeeData,
+  GasEstimate as BlockchainGasEstimate, // Rename to avoid conflict with wallet's GasEstimate
+  DeploymentEstimationParams,
+  GasEstimationResult
+} from './blockchain';
+
+// ============================================
+// GAS ORACLE SERVICES
+// ============================================
+// Gas price fetching for Ethereum mainnet and testnets
+// - Mainnet: Uses Etherscan V2 API gastracker module
+// - Testnets: Uses JSON-RPC (gastracker not supported by Etherscan)
+export {
+  getGasOracle,
+  getMainnetGas,
+  buildEip1559Fees,
+  toWeiFromGwei,
+  type GasOracle
+} from './GasOracleService';
+
+export {
+  getSepoliaGas,
+  getHoleskyGas,
+  getTestnetGas
+} from './TestnetGasService';
 
 // ============================================
 // TOKEN SERVICES

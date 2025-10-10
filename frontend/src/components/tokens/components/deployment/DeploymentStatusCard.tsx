@@ -21,8 +21,9 @@ import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
 import { cn } from '@/utils/utils';
 import { unifiedTokenDeploymentService } from '@/components/tokens/services/unifiedTokenDeploymentService';
 import { formatDistanceToNow } from 'date-fns';
-import { getExplorerUrl } from '@/utils/shared/explorerUtils';
+import { getExplorerUrl, getNetworkDisplayName } from '@/utils/shared/explorerUtils';
 import { formatAddress } from '@/utils/shared/addressUtils';
+import { constructNetworkIdentifier } from '@/utils/shared/networkUtils';
 
 interface DeploymentStatusCardProps {
   tokenId: string;
@@ -60,6 +61,9 @@ const DeploymentStatusCard: React.FC<DeploymentStatusCardProps> = ({
   });
   const [refreshing, setRefreshing] = useState(false);
   const [timeSince, setTimeSince] = useState<string>('');
+
+  // Construct full network identifier from blockchain + environment
+  const fullNetworkIdentifier = constructNetworkIdentifier(blockchain, environment);
 
   // Effect to fetch initial status
   useEffect(() => {
@@ -202,7 +206,7 @@ const DeploymentStatusCard: React.FC<DeploymentStatusCardProps> = ({
           {/* Status details */}
           <div className="grid grid-cols-2 gap-y-2 text-sm">
             <div className="font-medium text-muted-foreground">Network</div>
-            <div>{blockchain} {environment.toLowerCase()}</div>
+            <div>{getNetworkDisplayName(fullNetworkIdentifier)}</div>
             
             {deploymentDetails.transactionHash && (
               <>
@@ -215,7 +219,7 @@ const DeploymentStatusCard: React.FC<DeploymentStatusCardProps> = ({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <a 
-                          href={getExplorerUrl(blockchain, deploymentDetails.transactionHash, 'transaction')} 
+                          href={getExplorerUrl(fullNetworkIdentifier, deploymentDetails.transactionHash, 'transaction')} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="inline-flex text-blue-500 hover:text-blue-700"
@@ -243,7 +247,7 @@ const DeploymentStatusCard: React.FC<DeploymentStatusCardProps> = ({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <a 
-                          href={getExplorerUrl(blockchain, deploymentDetails.tokenAddress, 'address')} 
+                          href={getExplorerUrl(fullNetworkIdentifier, deploymentDetails.tokenAddress, 'address')} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="inline-flex text-blue-500 hover:text-blue-700"
@@ -291,7 +295,7 @@ const DeploymentStatusCard: React.FC<DeploymentStatusCardProps> = ({
       <CardFooter className="pt-2">
         {status === DeploymentStatus.SUCCESS && deploymentDetails.tokenAddress && (
           <a 
-            href={getExplorerUrl(blockchain, deploymentDetails.tokenAddress, 'address')} 
+            href={getExplorerUrl(fullNetworkIdentifier, deploymentDetails.tokenAddress, 'address')} 
             target="_blank" 
             rel="noopener noreferrer"
             className="w-full"

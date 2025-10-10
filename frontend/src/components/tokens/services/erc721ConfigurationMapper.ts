@@ -138,7 +138,7 @@ export class ERC721ConfigurationMapper {
       mintingEnabled: props.minting_enabled || blocks.mintingEnabled || true,
       burningEnabled: props.burning_enabled || blocks.burningEnabled || false,
       publicMinting: props.public_minting || blocks.publicMinting || false,
-      initialOwner: deployerAddress || tokenData.deployed_by || 'default_address'
+      initialOwner: deployerAddress || tokenData.deployed_by || ''
     };
 
     // Metadata configuration
@@ -165,13 +165,14 @@ export class ERC721ConfigurationMapper {
     };
 
     // Royalty configuration
+    // ✅ FIX #4: Removed 'default_address' fallback - use deployerAddress or empty string
     const royaltyConfig = {
       hasRoyalty: props.has_royalty || false,
       royaltyPercentage: props.royalty_percentage || 0,
-      royaltyReceiver: props.royalty_receiver || deployerAddress || 'default_address',
+      royaltyReceiver: props.royalty_receiver || deployerAddress || '',
       creatorEarningsEnabled: props.creator_earnings_enabled || false,
       creatorEarningsPercentage: props.creator_earnings_percentage || 0,
-      creatorEarningsAddress: props.creator_earnings_address || deployerAddress || 'default_address',
+      creatorEarningsAddress: props.creator_earnings_address || deployerAddress || '',
       operatorFilterEnabled: props.operator_filter_enabled || false,
       customOperatorFilterAddress: props.custom_operator_filter_address || ''
     };
@@ -398,11 +399,12 @@ export class ERC721ConfigurationMapper {
     }
 
     // Royalty validation
+    // ✅ FIX #4: Updated validation - check for empty string instead of 'default_address'
     if (config.royaltyConfig.hasRoyalty) {
       if (config.royaltyConfig.royaltyPercentage < 0 || config.royaltyConfig.royaltyPercentage > 10000) {
         errors.push('Royalty percentage must be between 0 and 10000 basis points (0-100%)');
       }
-      if (!config.royaltyConfig.royaltyReceiver || config.royaltyConfig.royaltyReceiver === 'default_address') {
+      if (!config.royaltyConfig.royaltyReceiver) {
         warnings.push('Royalty receiver address should be specified');
       }
     }

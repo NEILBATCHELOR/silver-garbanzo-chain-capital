@@ -178,7 +178,7 @@ export function SectionPropertiesPanel({
               <Label>Required Permissions</Label>
             </div>
             <div className="space-y-2 max-h-32 overflow-y-auto">
-              {metadata.permissions.slice(0, 15).map((permission) => (
+              {metadata.permissions.map((permission) => (
                 <div key={permission.name} className="flex items-center space-x-2">
                   <Checkbox
                     id={`section-perm-${permission.name}`}
@@ -488,7 +488,7 @@ export function ItemPropertiesPanel({
               <Label>Required Permissions</Label>
             </div>
             <div className="space-y-2 max-h-24 overflow-y-auto">
-              {metadata.permissions.slice(0, 10).map((permission) => (
+              {metadata.permissions.map((permission) => (
                 <div key={permission.name} className="flex items-center space-x-2">
                   <Checkbox
                     id={`item-perm-${permission.name}`}

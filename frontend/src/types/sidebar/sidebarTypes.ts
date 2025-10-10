@@ -9,6 +9,7 @@ export interface SidebarItem {
   roles?: string[];           // Required roles (any of these)
   profileTypes?: string[];    // Required profile types (any of these)
   minRolePriority?: number;   // Minimum role priority required
+  requiresProject?: boolean;  // Whether item requires a project context
   isVisible?: boolean;        // Manual override for visibility
 }
 

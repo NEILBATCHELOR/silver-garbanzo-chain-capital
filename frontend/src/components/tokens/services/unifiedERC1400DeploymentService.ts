@@ -12,6 +12,7 @@ import { enhancedTokenDeploymentService } from './tokenDeploymentService';
 import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
 import { TokenFormData } from '@/components/tokens/types';
+import { GasConfig } from './unifiedTokenDeploymentService'; // ✅ FIX #5: Import GasConfig type
 
 export interface UnifiedERC1400DeploymentOptions {
   useOptimization?: boolean; // Default: true for security tokens
@@ -19,6 +20,7 @@ export interface UnifiedERC1400DeploymentOptions {
   enableAnalytics?: boolean; // Default: true
   enableComplianceValidation?: boolean; // Default: true
   institutionalGrade?: boolean; // Default: auto-detect
+  gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration option
 }
 
 export interface UnifiedERC1400DeploymentResult {
@@ -70,6 +72,31 @@ export interface ERC1400DeploymentRecommendation {
 
 export class UnifiedERC1400DeploymentService {
   /**
+   * ✅ FIX #4: Helper method to retrieve project wallet address
+   * Retrieves wallet address from project_wallets table for given project and blockchain
+   */
+  private async getProjectWallet(projectId: string, blockchain: string): Promise<string> {
+    const { data: walletData, error: walletError } = await supabase
+      .from('project_wallets')
+      .select('wallet_address')
+      .eq('project_id', projectId)
+      .eq('wallet_type', blockchain)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (walletError) {
+      throw new Error(`Failed to fetch project wallet: ${walletError.message}`);
+    }
+
+    if (!walletData || !walletData.wallet_address) {
+      throw new Error(`No wallet address found for project ${projectId} on ${blockchain}`);
+    }
+
+    return walletData.wallet_address;
+  }
+
+  /**
    * Deploy ERC-1400 security token with automatic strategy selection
    */
   async deployERC1400Token(
@@ -83,7 +110,8 @@ export class UnifiedERC1400DeploymentService {
       forceStrategy = 'auto',
       enableAnalytics = true,
       enableComplianceValidation = true,
-      institutionalGrade
+      institutionalGrade,
+      gasConfig // ✅ FIX #5: Extract gas configuration from options
     } = options;
 
     const startTime = Date.now();
@@ -125,8 +153,22 @@ export class UnifiedERC1400DeploymentService {
         };
       }
 
+      // ✅ FIX #4: Retrieve wallet address for use in deployment
+      const blockchain = token.blockchain || 'ethereum';
+      let walletAddress: string;
+      try {
+        walletAddress = await this.getProjectWallet(projectId, blockchain);
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to retrieve project wallet',
+          deploymentStrategy: 'basic',
+          deploymentTimeMs: Date.now() - startTime
+        };
+      }
+
       // Step 3: Convert token data to form format and map to enhanced config
-      const tokenForm = this.convertToTokenForm(token);
+      const tokenForm = this.convertToTokenForm(token, walletAddress);
       const mappingResult = erc1400ConfigurationMapper.mapTokenFormToEnhancedConfig(tokenForm);
       
       if (!mappingResult.success) {
@@ -178,19 +220,25 @@ export class UnifiedERC1400DeploymentService {
       switch (deploymentStrategy) {
         case 'chunked':
           result = await this.deployWithChunkedStrategy(
+            tokenId,
+            projectId,
             config,
             userId,
             token.blockchain || 'ethereum',
-            token.deployment_environment || 'testnet'
+            token.deployment_environment || 'testnet',
+            gasConfig // ✅ FIX #5
           );
           break;
 
         case 'enhanced':
           result = await this.deployWithEnhancedStrategy(
+            tokenId,
+            projectId,
             config,
             userId,
             token.blockchain || 'ethereum',
-            token.deployment_environment || 'testnet'
+            token.deployment_environment || 'testnet',
+            gasConfig // ✅ FIX #5
           );
           break;
 
@@ -199,7 +247,8 @@ export class UnifiedERC1400DeploymentService {
           result = await this.deployWithBasicStrategy(
             tokenId,
             userId,
-            projectId
+            projectId,
+            gasConfig // ✅ FIX #5
           );
           break;
       }
@@ -245,8 +294,9 @@ export class UnifiedERC1400DeploymentService {
 
   /**
    * Get deployment recommendation without deploying
+   * ✅ FIX #4: Updated to retrieve and pass wallet address
    */
-  async getDeploymentRecommendation(tokenId: string): Promise<ERC1400DeploymentRecommendation> {
+  async getDeploymentRecommendation(tokenId: string, projectId: string): Promise<ERC1400DeploymentRecommendation> {
     try {
       // Get token data
       const { data: token, error } = await supabase
@@ -263,8 +313,19 @@ export class UnifiedERC1400DeploymentService {
         throw new Error('Token is not an ERC-1400 security token');
       }
 
+      // ✅ FIX #4: Retrieve wallet address for configuration analysis
+      const blockchain = token.blockchain || 'ethereum';
+      let walletAddress: string;
+      try {
+        walletAddress = await this.getProjectWallet(projectId, blockchain);
+      } catch (error) {
+        // Use a fallback if wallet doesn't exist yet
+        walletAddress = token.deployed_by || '0x0000000000000000000000000000000000000000';
+        console.warn('⚠️ FIX #4: No project wallet found for recommendation, using fallback');
+      }
+
       // Convert and analyze configuration
-      const tokenForm = this.convertToTokenForm(token);
+      const tokenForm = this.convertToTokenForm(token, walletAddress);
       const mappingResult = erc1400ConfigurationMapper.mapTokenFormToEnhancedConfig(tokenForm);
       
       if (!mappingResult.success) {
@@ -346,22 +407,28 @@ export class UnifiedERC1400DeploymentService {
 
   /**
    * Deploy with chunked strategy (highest reliability)
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async deployWithChunkedStrategy(
+    tokenId: string,
+    projectId: string,
     config: any,
     userId: string,
     blockchain: string,
-    environment: string
+    environment: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC1400DeploymentResult> {
     try {
       const keyId = userId; // Simplified for now
       
+      // ✅ FIX #5: TODO - enhancedERC1400DeploymentService needs gasConfig parameter
       const result = await enhancedERC1400DeploymentService.deployEnhancedERC1400(
         config,
         userId,
         keyId,
         blockchain,
         environment as 'mainnet' | 'testnet'
+        // TODO: Pass gasConfig when enhancedERC1400DeploymentService supports it
       );
 
       return {
@@ -391,16 +458,22 @@ export class UnifiedERC1400DeploymentService {
 
   /**
    * Deploy with enhanced strategy (optimized single transaction)
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async deployWithEnhancedStrategy(
+    tokenId: string,
+    projectId: string,
     config: any,
     userId: string,
     blockchain: string,
-    environment: string
+    environment: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC1400DeploymentResult> {
     try {
       // For enhanced strategy, use foundry with optimized configuration
       const deploymentParams = {
+        tokenId,
+        projectId,
         tokenType: 'BaseERC1400' as const,
         config: {
           ...config.baseConfig,
@@ -412,7 +485,8 @@ export class UnifiedERC1400DeploymentService {
           whitelistEnabled: config.complianceConfig?.whitelistEnabled || true
         },
         blockchain,
-        environment: environment as 'mainnet' | 'testnet'
+        environment: environment as 'mainnet' | 'testnet',
+        gasConfig // ✅ FIX #5: Pass gas configuration to foundry
       };
 
       const result = await foundryDeploymentService.deployToken(deploymentParams, userId, userId);
@@ -445,13 +519,16 @@ export class UnifiedERC1400DeploymentService {
 
   /**
    * Deploy with basic strategy (standard deployment)
+   * ✅ FIX #5: Added gasConfig parameter
    */
   private async deployWithBasicStrategy(
     tokenId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    gasConfig?: GasConfig // ✅ FIX #5
   ): Promise<UnifiedERC1400DeploymentResult> {
     try {
+      // ✅ FIX #5: TODO - enhancedTokenDeploymentService may need gasConfig parameter
       const result = await enhancedTokenDeploymentService.deployToken(tokenId, userId, projectId);
       
       return {
@@ -642,9 +719,17 @@ export class UnifiedERC1400DeploymentService {
   }
 
   /**
-   * Convert token database record to TokenForm format
+   * ✅ FIX #4: Convert token database record to TokenForm format
+   * Updated to use valid wallet address fallback instead of 'default_address'
    */
-  private convertToTokenForm(token: any): TokenFormData {
+  private convertToTokenForm(token: any, walletAddress: string): TokenFormData {
+    // Use wallet address as fallback if deployed_by is missing
+    const initialOwner = token.deployed_by || walletAddress;
+    
+    if (!token.deployed_by) {
+      console.warn('⚠️ FIX #4: No deployed_by found for token', token.id, '- using wallet address:', walletAddress);
+    }
+    
     return {
       id: token.id,
       name: token.name,
@@ -652,7 +737,7 @@ export class UnifiedERC1400DeploymentService {
       decimals: token.decimals || 18,
       standard: token.standard,
       initialSupply: token.total_supply || '0',
-      initialOwner: token.deployed_by || 'default_address',
+      initialOwner: initialOwner, // ✅ FIX #4: Use wallet address fallback
       erc1400Properties: token.erc1400Properties || {},
       // Include related table data if available
       partitions: token.partitions || [],

@@ -18,7 +18,8 @@ import type {
   BulkProjectUpdateRequest,
   ProjectComplianceSummary,
   ProjectStatus,
-  InvestmentStatus
+  InvestmentStatus,
+  ProjectDuration
 } from '@/types/project-service'
 import type { ServiceResult, PaginatedResponse } from '../../types/index'
 
@@ -265,12 +266,10 @@ export class ProjectService extends BaseService {
           
           // Handle boolean fields
           isPrimary: project.is_primary ?? undefined,
+        
           
-          // Handle number fields with null to undefined conversion
-          authorizedShares: project.authorized_shares ?? undefined,
-          
-          // Handle enum fields with null to undefined conversion
-          duration: project.duration ?? undefined,
+          // Handle duration - stored as text in DB, cast to ProjectDuration type
+          duration: project.duration as ProjectDuration | undefined,
           
           // Convert Decimal to number using helper method
           targetRaise: this.convertToNumber(project.target_raise),

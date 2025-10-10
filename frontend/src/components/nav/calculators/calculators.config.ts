@@ -7,9 +7,10 @@
 import { lazy, LazyExoticComponent, ComponentType } from 'react'
 import { AssetType } from '@/types/nav'
 
-// Lazy-loaded calculator components (will be created in subsequent phases)
+// Lazy-loaded calculator components
 const EquityCalculatorForm = lazy(() => import('./equity-calculator-form'))
-const BondCalculatorForm = lazy(() => import('./bonds-calculator-form'))
+// NEW Week 1: Bond calculator points to new component with database mode (wrap named export)
+const BondCalculatorForm = lazy(() => import('../bonds/calculator/bond-calculator-form').then(m => ({ default: m.BondCalculatorForm })))
 const MmfCalculatorForm = lazy(() => import('./mmf-calculator-form'))
 const CommoditiesCalculatorForm = lazy(() => import('./commodities-calculator-form'))
 const PrivateEquityCalculatorForm = lazy(() => import('./private-equity-calculator-form'))
@@ -28,6 +29,11 @@ const CompositeFundCalculatorForm = lazy(() => import('./composite-fund-calculat
 const StablecoinFiatCalculatorForm = lazy(() => import('./stablecoin-fiat-calculator-form'))
 const StablecoinCryptoCalculatorForm = lazy(() => import('./stablecoin-crypto-calculator-form'))
 
+// NEW Week 1: Lazy-loaded data management components (for database mode) - wrap named exports
+const BondListTable = lazy(() => import('../bonds/data-management/bond-list-table').then(m => ({ default: m.BondListTable })))
+const BondDetailView = lazy(() => import('../bonds/data-management/bond-detail-view').then(m => ({ default: m.BondDetailView })))
+const BondProductForm = lazy(() => import('../bonds/data-input/bond-product-form').then(m => ({ default: m.BondProductForm })))
+
 // Calculator form component interface
 export interface CalculatorFormProps {
   onSubmit: (data: any) => void
@@ -35,9 +41,20 @@ export interface CalculatorFormProps {
   isLoading?: boolean
   initialData?: any
   error?: string
+  // NEW Week 1: Database mode props
+  mode?: 'standalone' | 'database'
+  assetId?: string
+  assetName?: string
 }
 
 export type CalculatorFormComponent = ComponentType<CalculatorFormProps>
+
+// NEW Week 1: Data management component interfaces
+export interface DataManagementComponents {
+  listComponent?: LazyExoticComponent<ComponentType<any>>
+  detailComponent?: LazyExoticComponent<ComponentType<any>>
+  formComponent?: LazyExoticComponent<ComponentType<any>>
+}
 
 // Calculator registry entry
 export interface CalculatorRegistryEntry {
@@ -45,7 +62,7 @@ export interface CalculatorRegistryEntry {
   name: string
   description: string
   assetTypes: AssetType[]
-  component: LazyExoticComponent<CalculatorFormComponent>
+  component: LazyExoticComponent<any> // Allow any component type for flexibility
   category: string
   priority: number // For sorting in UI (higher = more prominent)
   enabled: boolean
@@ -54,6 +71,11 @@ export interface CalculatorRegistryEntry {
   complexityLevel: 'basic' | 'intermediate' | 'advanced'
   estimatedDuration?: string // e.g., "< 1 min", "1-5 min"
   features?: string[]
+  // NEW Week 1: Mode support
+  modes?: Array<'standalone' | 'database'>
+  defaultMode?: 'standalone' | 'database'
+  // NEW Week 1: Data management components
+  dataManagement?: DataManagementComponents
 }
 
 /**
@@ -90,7 +112,20 @@ export const CALCULATOR_REGISTRY: CalculatorRegistryEntry[] = [
     tags: ['bonds', 'fixed-income', 'credit'],
     complexityLevel: 'intermediate',
     estimatedDuration: '1-2 min',
-    features: ['Yield curve analysis', 'Credit spread adjustments', 'Accrued interest']
+    features: [
+      'Yield curve analysis', 
+      'Credit spread adjustments', 
+      'Accrued interest',
+      'Database mode support', // NEW Week 1
+      'Data management UI' // NEW Week 1
+    ],
+    modes: ['standalone', 'database'], // NEW Week 1: Supports both modes
+    defaultMode: 'database', // NEW Week 1: Default to database mode
+    dataManagement: { // NEW Week 1: Data management components
+      listComponent: BondListTable,
+      detailComponent: BondDetailView,
+      formComponent: BondProductForm
+    }
   },
   {
     id: 'mmf',
@@ -368,16 +403,7 @@ export const getCalculatorById = (id: string): CalculatorRegistryEntry | undefin
   return CALCULATOR_REGISTRY.find(calc => calc.id === id)
 }
 
-// Get calculator component by slug/ID
-export const getCalculatorComponent = (slug: string): LazyExoticComponent<CalculatorFormComponent> | null => {
-  const calculator = getCalculatorById(slug)
-  return calculator ? calculator.component : null
-}
-
-// Get calculators by category
-export const getCalculatorsByCategory = (category: string): CalculatorRegistryEntry[] => {
-  return CALCULATOR_REGISTRY.filter(calc => calc.category === category && calc.enabled)
-}
+// Note: getCalculatorComponent and getCalculatorsByCategory moved below to avoid duplicates
 
 // Get calculators by asset type
 export const getCalculatorsByAssetType = (assetType: AssetType): CalculatorRegistryEntry[] => {
@@ -398,6 +424,11 @@ export const getCalculatorsByComplexity = (level: 'basic' | 'intermediate' | 'ad
   return CALCULATOR_REGISTRY.filter(calc => 
     calc.complexityLevel === level && calc.enabled
   )
+}
+
+// Get calculators by category
+export const getCalculatorsByCategory = (category: string): CalculatorRegistryEntry[] => {
+  return CALCULATOR_REGISTRY.filter(calc => calc.category === category && calc.enabled)
 }
 
 // Get all unique categories
@@ -433,6 +464,17 @@ export const getAvailableCalculators = (userPermissions: string[]): CalculatorRe
   return getEnabledCalculators().filter(calc => 
     hasCalculatorPermissions(calc, userPermissions)
   )
+}
+
+// Get calculator component by ID
+export const getCalculatorComponent = (id: string): LazyExoticComponent<any> | undefined => {
+  const calculator = CALCULATOR_REGISTRY.find(calc => calc.id === id)
+  return calculator?.component
+}
+
+// NEW Week 1: Get calculators supporting database mode
+export const getDatabaseModeCalculators = (): CalculatorRegistryEntry[] => {
+  return CALCULATOR_REGISTRY.filter(calc => calc.modes?.includes('database'))
 }
 
 export default CALCULATOR_REGISTRY

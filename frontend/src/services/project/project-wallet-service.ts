@@ -1,8 +1,10 @@
 import { supabase } from "@/infrastructure/database/client";
 import { WalletGeneratorFactory } from "../wallet/generators/WalletGeneratorFactory";
+import { WalletEncryptionClient } from "../security/walletEncryptionService";
+import { WalletAuditService } from "../security/walletAuditService";
 import { v4 as uuidv4 } from 'uuid';
 import { ethers } from 'ethers';
-import { getChainEnvironment } from '@/config/chains';
+import { getChainEnvironment, resolveChainAndEnvironment } from '@/config/chains';
 
 export interface ProjectWalletResult {
   success: boolean;
@@ -230,11 +232,19 @@ export const enhancedProjectWalletService = {
       let finalNet = net;
       
       // If chainId or net not provided, try to get from chain config
+      // First, resolve the network input to proper chain/environment pair
       if (!finalChainId || !finalNet) {
-        const envConfig = getChainEnvironment(network, networkEnvironment);
-        if (!envConfig) {
-          throw new Error(`Unsupported network environment: ${network} ${networkEnvironment}`);
+        const resolved = resolveChainAndEnvironment(network, networkEnvironment);
+        if (!resolved) {
+          throw new Error(`Unsupported network environment: ${network}${networkEnvironment ? ' ' + networkEnvironment : ''}`);
         }
+        
+        const envConfig = getChainEnvironment(resolved.chain, resolved.environment);
+        if (!envConfig) {
+          throw new Error(`Unsupported network environment: ${resolved.chain} ${resolved.environment}`);
+        }
+        
+        console.log(`[ProjectWalletService] Resolved network '${network}' to chain '${resolved.chain}' environment '${resolved.environment}'`);
         finalChainId = finalChainId || envConfig.chainId;
         finalNet = finalNet || envConfig.net;
       }
@@ -267,8 +277,32 @@ export const enhancedProjectWalletService = {
       // Register this generation to prevent duplicates
       inProgressGenerations.set(requestId, { address: walletAddress, requestId });
       
+      // Encrypt sensitive data before storing
+      let encryptedPrivateKey: string | undefined;
+      let encryptedMnemonic: string | undefined;
+      
+      if (includePrivateKey && privateKey) {
+        try {
+          encryptedPrivateKey = await WalletEncryptionClient.encrypt(privateKey);
+          console.log(`[ProjectWalletService] Private key encrypted for wallet: ${walletAddress}`);
+        } catch (error) {
+          console.error('[ProjectWalletService] Failed to encrypt private key:', error);
+          throw new Error('Failed to encrypt private key');
+        }
+      }
+      
+      if (includeMnemonic && mnemonic) {
+        try {
+          encryptedMnemonic = await WalletEncryptionClient.encrypt(mnemonic);
+          console.log(`[ProjectWalletService] Mnemonic encrypted for wallet: ${walletAddress}`);
+        } catch (error) {
+          console.error('[ProjectWalletService] Failed to encrypt mnemonic:', error);
+          throw new Error('Failed to encrypt mnemonic');
+        }
+      }
+      
       // In a real implementation, we would store the private key in a secure vault
-      // For now, we're just storing it in the database for demonstration purposes
+      // For now, we're storing it encrypted in the database
       const walletData: ProjectWalletData = {
         project_id: projectId,
         wallet_type: network,
@@ -277,9 +311,9 @@ export const enhancedProjectWalletService = {
         key_vault_id: keyVaultId,
         chain_id: finalChainId,
         net: finalNet,
-        // Only include sensitive data if requested
-        ...(includePrivateKey && { private_key: privateKey }),
-        ...(includeMnemonic && mnemonic && { mnemonic }),
+        // Store encrypted sensitive data
+        private_key: encryptedPrivateKey,
+        mnemonic: encryptedMnemonic,
       };
 
       console.log(`[ProjectWalletService] Saving wallet to database: ${walletAddress}, request ID: ${requestId}`);
@@ -288,12 +322,31 @@ export const enhancedProjectWalletService = {
       const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
       console.log(`[ProjectWalletService] Wallet saved successfully: ${savedWallet.id}`);
       
+      // Log wallet creation
+      if (params.userId) {
+        await WalletAuditService.logAccess({
+          walletId: savedWallet.id,
+          accessedBy: params.userId,
+          action: 'create',
+          success: true,
+          metadata: {
+            network,
+            chainId: finalChainId,
+            net: finalNet,
+            hasPrivateKey: !!encryptedPrivateKey,
+            hasMnemonic: !!encryptedMnemonic
+          }
+        });
+      }
+      
+      // Return UNENCRYPTED data for immediate display
+      // The encrypted versions are already stored in the database
       return {
         success: true,
         walletAddress: savedWallet.wallet_address,
         publicKey: savedWallet.public_key,
-        privateKey: savedWallet.private_key,
-        mnemonic: savedWallet.mnemonic,
+        privateKey: includePrivateKey ? privateKey : undefined,
+        mnemonic: includeMnemonic ? mnemonic : undefined,
         keyVaultId: savedWallet.key_vault_id,
         vaultStorageId: savedWallet.vault_storage_id,
         network: savedWallet.wallet_type,
@@ -358,6 +411,28 @@ export const enhancedProjectWalletService = {
         // Register this generation to prevent duplicates
         inProgressGenerations.set(requestId, { address: walletAddress, requestId });
         
+        // Encrypt sensitive data before storing
+        let encryptedPrivateKey: string | undefined;
+        let encryptedMnemonic: string | undefined;
+        
+        if (includePrivateKey && privateKey) {
+          try {
+            encryptedPrivateKey = await WalletEncryptionClient.encrypt(privateKey);
+          } catch (error) {
+            console.error(`[ProjectWalletService] Failed to encrypt private key for ${network}:`, error);
+            throw new Error('Failed to encrypt private key');
+          }
+        }
+        
+        if (includeMnemonic && mnemonic) {
+          try {
+            encryptedMnemonic = await WalletEncryptionClient.encrypt(mnemonic);
+          } catch (error) {
+            console.error(`[ProjectWalletService] Failed to encrypt mnemonic for ${network}:`, error);
+            throw new Error('Failed to encrypt mnemonic');
+          }
+        }
+        
         const walletData: ProjectWalletData = {
           project_id: projectId,
           wallet_type: network,
@@ -366,19 +441,37 @@ export const enhancedProjectWalletService = {
           key_vault_id: keyVaultId,
           chain_id: environment.chainId,
           net: environment.net,
-          // Only include sensitive data if requested
-          ...(includePrivateKey && { private_key: privateKey }),
-          ...(includeMnemonic && mnemonic && { mnemonic }),
+          // Store encrypted sensitive data
+          private_key: encryptedPrivateKey,
+          mnemonic: encryptedMnemonic,
         };
 
         const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
         
+        // Log wallet creation
+        if (params.userId) {
+          await WalletAuditService.logAccess({
+            walletId: savedWallet.id,
+            accessedBy: params.userId,
+            action: 'create',
+            success: true,
+            metadata: {
+              network,
+              chainId: environment.chainId,
+              net: environment.net,
+              hasPrivateKey: !!encryptedPrivateKey,
+              hasMnemonic: !!encryptedMnemonic
+            }
+          });
+        }
+        
+        // Return UNENCRYPTED data for immediate display
         return {
           success: true,
           walletAddress: savedWallet.wallet_address,
           publicKey: savedWallet.public_key,
-          privateKey: savedWallet.private_key,
-          mnemonic: savedWallet.mnemonic,
+          privateKey: includePrivateKey ? privateKey : undefined,
+          mnemonic: includeMnemonic ? mnemonic : undefined,
           keyVaultId: savedWallet.key_vault_id,
           vaultStorageId: savedWallet.vault_storage_id,
           network: savedWallet.wallet_type,

@@ -14,6 +14,7 @@ import { detectAddressFormat, getChainCategory, isAddressCompatibleWithChain } f
 import { ethereumBalanceService } from './evm/EthereumBalanceService';
 import { sepoliaBalanceService } from './evm/SepoliaBalanceService';
 import { holeskyBalanceService } from './evm/HoleskyBalanceService';
+import { hoodiBalanceService } from './evm/HoodiBalanceService';
 import { polygonBalanceService } from './evm/PolygonBalanceService';
 import { amoyBalanceService } from './evm/AmoyBalanceService';
 import { optimismBalanceService } from './evm/OptimismBalanceService';
@@ -87,9 +88,11 @@ export class BalanceService {
     'ethereum': ethereumBalanceService,
     'sepolia': sepoliaBalanceService,
     'holesky': holeskyBalanceService,
+    'hoodi': hoodiBalanceService,
     'eth-mainnet': ethereumBalanceService,
     'eth-sepolia': sepoliaBalanceService,
     'eth-holesky': holeskyBalanceService,
+    'eth-hoodi': hoodiBalanceService,
     
     // Polygon networks  
     'polygon': polygonBalanceService,
@@ -196,12 +199,12 @@ export class BalanceService {
 
   // Define testnet networks for easy identification
   private readonly testnetNetworks = new Set([
-    'sepolia', 'holesky', 'amoy', 'optimism-sepolia', 'arbitrum-sepolia',
+    'sepolia', 'holesky', 'hoodi', 'amoy', 'optimism-sepolia', 'arbitrum-sepolia',
     'base-sepolia', 'bsc-testnet', 'zksync-sepolia', 'avalanche-testnet',
     'fuji', 'bitcoin-testnet', 'solana-devnet', 'solana-testnet',
     'aptos-testnet', 'sui-testnet', 'near-testnet', 'injective-testnet',
     'ripple-testnet', 'fantom-testnet', 'cronos-testnet', 'sei-testnet',
-    'ronin-testnet', 'core-testnet', 'eth-sepolia', 'eth-holesky',
+    'ronin-testnet', 'core-testnet', 'eth-sepolia', 'eth-holesky', 'eth-hoodi',
     'polygon-testnet', 'polygon-amoy', 'opt-sepolia', 'arb-sepolia',
     'bnb-testnet', 'ftm-testnet', 'cro-testnet', 'ron-testnet',
     'btc-testnet', 'sol-devnet', 'apt-testnet', 'inj-testnet',
@@ -210,7 +213,7 @@ export class BalanceService {
 
   // Mainnet to testnet mapping
   private readonly mainnetToTestnet: Record<string, string[]> = {
-    'ethereum': ['sepolia', 'holesky'],
+    'ethereum': ['sepolia', 'holesky', 'hoodi'],
     'polygon': ['amoy'],
     'optimism': ['optimism-sepolia'],
     'arbitrum': ['arbitrum-sepolia'],
@@ -423,7 +426,7 @@ export class BalanceService {
 
     // Get primary networks plus testnets  
     const primaryNetworks = [
-      'ethereum', 'sepolia', 'holesky', // Ethereum + testnets
+      'ethereum', 'sepolia', 'holesky', 'hoodi', // Ethereum + testnets
       'polygon', 'amoy', // Polygon + testnet
       'optimism', 'optimism-sepolia', // Optimism + testnet
       'arbitrum', 'arbitrum-sepolia', // Arbitrum + testnet
@@ -664,7 +667,7 @@ export class BalanceService {
     const normalized = walletType.toLowerCase();
     
     const mapping: Record<string, string[]> = {
-      'ethereum': ['ethereum', 'sepolia', 'holesky'],
+      'ethereum': ['ethereum', 'sepolia', 'holesky', 'hoodi'],
       'polygon': ['polygon', 'amoy'],
       'optimism': ['optimism', 'optimism-sepolia'],
       'arbitrum': ['arbitrum', 'arbitrum-sepolia'],

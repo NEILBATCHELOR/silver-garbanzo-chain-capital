@@ -80,6 +80,21 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
           symbol: 'ETH',
           decimals: 18
         }
+      },
+      {
+        name: 'hoodi',
+        chainId: '560048',
+        net: 'hoodi',
+        displayName: 'Hoodi Testnet',
+        isTestnet: true,
+        explorerUrl: 'https://light-hoodi.beaconcha.in',
+        rpcUrl: 'https://rpc.hoodi.ethpandaops.io',
+        balanceServiceKey: 'hoodi',
+        nativeCurrency: {
+          name: 'Hoodi Ether',
+          symbol: 'ETH',
+          decimals: 18
+        }
       }
     ]
   },
@@ -578,4 +593,102 @@ export function formatChainEnvironment(
 ): string {
   const env = getChainEnvironment(chainName, environmentName);
   return env?.displayName || `${chainName} ${environmentName}`;
+}
+
+/**
+ * Map of environment names to their parent chain names
+ * This allows converting user-selected environment (e.g., "holesky") to proper chain/environment pair
+ */
+const ENVIRONMENT_TO_CHAIN_MAP: Record<string, { chain: string; environment: string }> = {
+  // Ethereum environments
+  'mainnet': { chain: 'ethereum', environment: 'mainnet' },
+  'sepolia': { chain: 'ethereum', environment: 'sepolia' },
+  'holesky': { chain: 'ethereum', environment: 'holesky' },
+  'hoodi': { chain: 'ethereum', environment: 'hoodi' },
+  
+  // Polygon environments
+  'polygon': { chain: 'polygon', environment: 'mainnet' },
+  'mumbai': { chain: 'polygon', environment: 'mumbai' },
+  'amoy': { chain: 'polygon', environment: 'amoy' },
+  
+  // Avalanche environments
+  'avalanche': { chain: 'avalanche', environment: 'mainnet' },
+  'fuji': { chain: 'avalanche', environment: 'fuji' },
+  
+  // Optimism environments
+  'optimism': { chain: 'optimism', environment: 'mainnet' },
+  'optimism-sepolia': { chain: 'optimism', environment: 'sepolia' },
+  
+  // Arbitrum environments
+  'arbitrum': { chain: 'arbitrum', environment: 'mainnet' },
+  'arbitrum-sepolia': { chain: 'arbitrum', environment: 'sepolia' },
+  
+  // Base environments
+  'base': { chain: 'base', environment: 'mainnet' },
+  'base-sepolia': { chain: 'base', environment: 'sepolia' },
+  
+  // BSC environments
+  'bsc': { chain: 'bsc', environment: 'mainnet' },
+  'bsc-testnet': { chain: 'bsc', environment: 'testnet' },
+  
+  // Solana environments
+  'solana': { chain: 'solana', environment: 'mainnet-beta' },
+  'solana-testnet': { chain: 'solana', environment: 'testnet' },
+  'solana-devnet': { chain: 'solana', environment: 'devnet' },
+  
+  // Injective environments
+  'injective': { chain: 'injective', environment: 'mainnet' },
+  'injective-testnet': { chain: 'injective', environment: 'testnet' },
+  
+  // Bitcoin environments
+  'bitcoin': { chain: 'bitcoin', environment: 'mainnet' },
+  'bitcoin-testnet': { chain: 'bitcoin', environment: 'testnet' }
+};
+
+/**
+ * Get chain and environment from a network string
+ * Handles cases where the network might be just an environment name (like "holesky")
+ * or a chain name (like "ethereum")
+ * 
+ * @param networkInput - The network input (could be environment or chain name)
+ * @param environmentInput - Optional environment name
+ * @returns Object with chain and environment names, or undefined if not found
+ */
+export function resolveChainAndEnvironment(
+  networkInput: string,
+  environmentInput?: string
+): { chain: string; environment: string } | undefined {
+  const normalizedNetwork = networkInput.toLowerCase();
+  
+  // Case 1: If both network and environment provided, verify they exist
+  if (environmentInput) {
+    const normalizedEnv = environmentInput.toLowerCase();
+    const envConfig = getChainEnvironment(normalizedNetwork, normalizedEnv);
+    if (envConfig) {
+      return { chain: normalizedNetwork, environment: normalizedEnv };
+    }
+  }
+  
+  // Case 2: Check if networkInput is actually an environment name
+  const mapping = ENVIRONMENT_TO_CHAIN_MAP[normalizedNetwork];
+  if (mapping) {
+    return mapping;
+  }
+  
+  // Case 3: Try to find as a chain with mainnet environment
+  const chainConfig = getChainConfig(normalizedNetwork);
+  if (chainConfig) {
+    const mainnet = chainConfig.environments.find(env => !env.isTestnet);
+    if (mainnet) {
+      return { chain: normalizedNetwork, environment: mainnet.name };
+    }
+    // Fallback to first environment if no mainnet found
+    if (chainConfig.environments.length > 0) {
+      return { chain: normalizedNetwork, environment: chainConfig.environments[0].name };
+    }
+  }
+  
+  // Case 4: Not found
+  console.warn(`[ChainConfig] Could not resolve chain and environment for: ${networkInput}${environmentInput ? `/${environmentInput}` : ''}`);
+  return undefined;
 }
