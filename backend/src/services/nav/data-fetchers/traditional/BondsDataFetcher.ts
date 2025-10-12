@@ -29,29 +29,42 @@ import {
 export interface BondProduct {
   id: string
   project_id: string
-  bond_type: 'corporate' | 'government' | 'municipal' | 'agency' | 'supranational'
+  bond_identifier: string | null
+  bond_isin_cusip: string | null
+  isin: string | null
+  cusip: string | null
+  sedol: string | null
+  asset_name: string | null
   issuer_name: string
-  issuer_country: string
-  issuer_sector?: string
-  isin?: string
-  cusip?: string
-  ticker?: string
+  issuer_type: string | null
+  seniority: string | null
+  bond_type: string
+  callable_flag: boolean | null
+  callable_features: boolean | null
+  call_date: Date | null
+  call_price: number | null
+  call_put_dates: any | null
+  puttable: boolean | null
+  convertible: boolean | null
+  coupon_rate: number
+  coupon_frequency: string | null
+  coupon_payment_history: any | null
+  face_value: number
+  currency: string
   issue_date: Date
   maturity_date: Date
-  par_value: number
-  currency: string
-  coupon_rate: number
-  coupon_frequency: number
-  day_count_convention: string
-  accounting_classification: 'htm' | 'afs' | 'trading'
-  is_callable: boolean
-  is_puttable: boolean
-  is_convertible: boolean
-  is_amortizing: boolean
-  has_sinking_fund: boolean
-  credit_rating?: string
-  embedded_option_type?: string
-  interest_payment_dates?: string[]
+  redemption_call_date: Date | null
+  yield_to_maturity: number | null
+  duration: number | null
+  day_count_convention: string | null
+  purchase_price: number | null
+  purchase_date: Date | null
+  current_price: number | null
+  accounting_treatment: string | null
+  credit_rating: string | null
+  accrued_interest: number | null
+  security_collateral: string | null
+  target_raise: number | null
   status: string
   created_at: Date
   updated_at: Date
@@ -74,26 +87,29 @@ export interface BondCouponPayment {
   bond_product_id: string
   payment_date: Date
   coupon_amount: number
-  currency: string
   payment_status: string
-  accrued_interest?: number
-  payment_number: number
+  actual_payment_date: Date | null
+  accrual_start_date: Date
+  accrual_end_date: Date
+  days_in_period: number
   created_at: Date
+  updated_at: Date
 }
 
 export interface BondMarketPrice {
   id: string
   bond_product_id: string
   price_date: Date
+  price_time: string | null
   clean_price: number
-  dirty_price?: number
-  yield_to_maturity?: number
-  yield_to_call?: number
-  yield_to_worst?: number
-  spread_to_benchmark?: number
-  duration?: number
-  convexity?: number
-  price_source: string
+  dirty_price: number | null
+  bid_price: number | null
+  ask_price: number | null
+  mid_price: number | null
+  ytm: number | null
+  spread_to_benchmark: number | null
+  data_source: string
+  is_official_close: boolean
   created_at: Date
 }
 
@@ -101,11 +117,14 @@ export interface BondCallPutSchedule {
   id: string
   bond_product_id: string
   option_type: 'call' | 'put'
-  exercise_date: Date
-  exercise_price: number
-  notice_period_days?: number
-  exercise_status: string
+  option_date: Date
+  call_price: number | null
+  put_price: number | null
+  notice_days: number | null
+  option_style: 'american' | 'european' | 'bermudan' | 'make_whole'
+  is_make_whole: boolean
   created_at: Date
+  updated_at: Date
 }
 
 export interface BondCreditRating {
@@ -113,9 +132,10 @@ export interface BondCreditRating {
   bond_product_id: string
   rating_agency: string
   rating: string
+  rating_outlook: string | null
   rating_date: Date
-  outlook?: string
-  watch_status?: string
+  previous_rating: string | null
+  rating_action: string | null
   created_at: Date
 }
 
@@ -124,11 +144,13 @@ export interface BondCovenant {
   bond_product_id: string
   covenant_type: string
   covenant_description: string
-  threshold_value?: number
-  current_value?: number
+  financial_ratio: string | null
+  threshold_value: number | null
+  test_frequency: string | null
+  last_test_date: Date | null
   compliance_status: string
-  last_tested_date?: Date
   created_at: Date
+  updated_at: Date
 }
 
 export interface BondAmortizationSchedule {
@@ -136,10 +158,11 @@ export interface BondAmortizationSchedule {
   bond_product_id: string
   payment_date: Date
   principal_payment: number
-  remaining_principal: number
-  payment_number: number
+  beginning_balance: number
+  ending_balance: number
   payment_status: string
   created_at: Date
+  updated_at: Date
 }
 
 export interface BondSinkingFund {
@@ -147,18 +170,22 @@ export interface BondSinkingFund {
   bond_product_id: string
   payment_date: Date
   required_amount: number
-  amount_paid?: number
+  actual_amount: number | null
+  redemption_price: number
   payment_status: string
   created_at: Date
+  updated_at: Date
 }
 
 export interface BondEvent {
   id: string
   bond_product_id: string
-  event_date: Date
   event_type: string
+  event_date: Date
+  announcement_date: Date | null
   event_description: string
-  financial_impact?: number
+  financial_impact: number | null
+  requires_revaluation: boolean
   created_at: Date
 }
 
@@ -378,7 +405,7 @@ export class BondsDataFetcher extends BaseDataFetcher<
       'bond_product_id',
       productId,
       undefined,
-      { column: 'exercise_date', ascending: true }
+      { column: 'option_date', ascending: true }
     )
   }
   
@@ -473,7 +500,7 @@ export class BondsDataFetcher extends BaseDataFetcher<
       'issuer_name',
       'issue_date',
       'maturity_date',
-      'par_value',
+      'face_value',
       'coupon_rate',
       'coupon_frequency',
       'couponPayments', // At least 1 coupon payment OR market price

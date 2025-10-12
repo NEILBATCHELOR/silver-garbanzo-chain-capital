@@ -179,6 +179,27 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         permissions: ['nav:run_calculation']
       },
       {
+        id: 'nav-bonds',
+        label: 'Bonds',
+        href: '/nav/bonds',
+        icon: FileText,
+        permissions: ['nav:view_dashboard']
+      },
+      {
+        id: 'nav-bonds-new',
+        label: 'Add Bond',
+        href: '/nav/bonds/new',
+        icon: Plus,
+        permissions: ['nav:create']
+      },
+      {
+        id: 'nav-bonds-upload',
+        label: 'Bulk Upload',
+        href: '/nav/bonds/upload',
+        icon: FileSpreadsheet,
+        permissions: ['nav:create']
+      },
+      {
         id: 'valuations',
         label: 'Valuations',
         href: '/nav/valuations',

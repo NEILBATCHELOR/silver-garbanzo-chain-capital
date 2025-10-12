@@ -29,6 +29,8 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
+import { bondDataInputRoutes, bondCalculationRoutes } from './src/routes/nav/index'
+import supabasePlugin from './src/plugins/supabase'
 
 // Types
 const PORT = parseInt(process.env.PORT || '3001', 10)
@@ -386,6 +388,9 @@ async function buildApp(): Promise<FastifyInstance> {
     // Register authentication middleware
     await app.register(import('./src/middleware/auth/jwt-auth'))
 
+    // Register Supabase plugin for database access
+    await app.register(supabasePlugin)
+
     // Register Swagger with comprehensive documentation
     await app.register(import('@fastify/swagger'), {
       openapi: {
@@ -578,6 +583,10 @@ Comprehensive platform supporting:
     await app.register(walletRoutes, { prefix: apiPrefix })
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
     await app.register(calendarRoutes, { prefix: apiPrefix })
+    
+    // NAV routes
+    await app.register(bondDataInputRoutes, { prefix: `${apiPrefix}/nav` })
+    await app.register(bondCalculationRoutes, { prefix: `${apiPrefix}/nav` })
 
     // System routes
     await app.register(auditRoutes, { prefix: apiPrefix })

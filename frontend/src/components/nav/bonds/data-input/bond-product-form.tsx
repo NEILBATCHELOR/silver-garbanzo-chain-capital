@@ -39,6 +39,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/utils/shared/utils'
 
 import { useCreateBond, useUpdateBond } from '@/hooks/bonds'
+import { CouponScheduleForm } from './coupon-schedule-form'
 import { 
   bondProductInputSchema, 
   type BondProductInputData 
@@ -64,6 +65,7 @@ const STEPS = [
   { id: 1, title: 'Basic Information', description: 'Identifiers and issuer details' },
   { id: 2, title: 'Characteristics', description: 'Financial terms and dates' },
   { id: 3, title: 'Features & Accounting', description: 'Options and classification' },
+  { id: 4, title: 'Coupon Schedule', description: 'Payment schedule (optional)' },
 ]
 
 export function BondProductForm({ 
@@ -73,12 +75,17 @@ export function BondProductForm({
   onCancel 
 }: BondProductFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
+  const [savedBondId, setSavedBondId] = useState<string | undefined>(bond?.id)
   const isEdit = !!bond
 
   // Setup mutations
   const createMutation = useCreateBond({
     onSuccess: (response) => {
-      onSuccess?.(response.data)
+      setSavedBondId(response.data.id)
+      // Don't call onSuccess yet - wait until coupon schedule step
+      if (currentStep === 3) {
+        nextStep() // Move to coupon schedule step
+      }
     }
   })
 
@@ -101,22 +108,22 @@ export function BondProductForm({
       maturity_date: bond.maturity_date ? new Date(bond.maturity_date) : new Date(),
       accounting_treatment: bond.accounting_treatment as AccountingTreatment,
       currency: bond.currency || 'USD',
-      isin: bond.isin,
-      cusip: bond.cusip,
-      sedol: bond.sedol,
-      asset_name: bond.asset_name,
-      issuer_name: bond.issuer_name,
-      issuer_type: bond.issuer_type as IssuerType,
-      credit_rating: bond.credit_rating,
-      seniority: bond.seniority as Seniority,
-      day_count_convention: bond.day_count_convention as DayCountConvention,
+      isin: bond.isin || '',
+      cusip: bond.cusip || '',
+      sedol: bond.sedol || '',
+      asset_name: bond.asset_name || '',
+      issuer_name: bond.issuer_name || '',
+      issuer_type: bond.issuer_type as IssuerType || undefined,
+      credit_rating: bond.credit_rating || '',
+      seniority: bond.seniority as Seniority || undefined,
+      day_count_convention: bond.day_count_convention as DayCountConvention || undefined,
       purchase_date: bond.purchase_date ? new Date(bond.purchase_date) : undefined,
-      purchase_price: bond.purchase_price,
-      current_price: bond.current_price,
-      callable_features: bond.callable_features,
-      puttable: bond.puttable,
-      convertible: bond.convertible,
-      status: bond.status,
+      purchase_price: bond.purchase_price || undefined,
+      current_price: bond.current_price || undefined,
+      callable_features: bond.callable_features || false,
+      puttable: bond.puttable || false,
+      convertible: bond.convertible || false,
+      status: bond.status || 'active',
     } : {
       project_id: projectId,
       bond_type: BondType.CORPORATE,
@@ -127,6 +134,22 @@ export function BondProductForm({
       maturity_date: new Date(new Date().setFullYear(new Date().getFullYear() + 10)),
       accounting_treatment: AccountingTreatment.HELD_TO_MATURITY,
       currency: 'USD',
+      isin: '',
+      cusip: '',
+      sedol: '',
+      asset_name: '',
+      issuer_name: '',
+      issuer_type: undefined,
+      credit_rating: '',
+      seniority: undefined,
+      day_count_convention: undefined,
+      purchase_date: undefined,
+      purchase_price: undefined,
+      current_price: undefined,
+      callable_features: false,
+      puttable: false,
+      convertible: false,
+      status: 'active',
     }
   })
 
@@ -207,7 +230,7 @@ export function BondProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Bond Type *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue />
@@ -233,7 +256,7 @@ export function BondProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue />
@@ -334,7 +357,7 @@ export function BondProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Issuer Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select type" />
@@ -510,7 +533,7 @@ export function BondProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Credit Rating</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select rating" />
@@ -540,7 +563,7 @@ export function BondProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Seniority</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select seniority" />
@@ -564,7 +587,7 @@ export function BondProductForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Day Count Convention</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select convention" />
@@ -633,7 +656,7 @@ export function BondProductForm({
                       <FormItem className="flex items-center space-x-2">
                         <FormControl>
                           <Checkbox
-                            checked={field.value}
+                            checked={!!field.value}
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
@@ -651,7 +674,7 @@ export function BondProductForm({
                       <FormItem className="flex items-center space-x-2">
                         <FormControl>
                           <Checkbox
-                            checked={field.value}
+                            checked={!!field.value}
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
@@ -669,7 +692,7 @@ export function BondProductForm({
                       <FormItem className="flex items-center space-x-2">
                         <FormControl>
                           <Checkbox
-                            checked={field.value}
+                            checked={!!field.value}
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
@@ -766,6 +789,42 @@ export function BondProductForm({
               />
             </div>
           )}
+          
+          {/* Step 4: Coupon Schedule */}
+          {currentStep === 4 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Coupon Payment Schedule</h3>
+              <p className="text-sm text-muted-foreground">
+                {savedBondId 
+                  ? 'Generate and manage coupon payment schedule for this bond. You can skip this step and add the schedule later.'
+                  : 'Save the bond first (complete step 3) before adding coupon schedule.'}
+              </p>
+              
+              {savedBondId && (
+                <CouponScheduleForm
+                  bondId={savedBondId}
+                  bondDetails={{
+                    face_value: form.getValues('face_value'),
+                    coupon_rate: form.getValues('coupon_rate'),
+                    coupon_frequency: form.getValues('coupon_frequency'),
+                    issue_date: form.getValues('issue_date'),
+                    maturity_date: form.getValues('maturity_date'),
+                    day_count_convention: form.getValues('day_count_convention')
+                  }}
+                  onSuccess={() => {
+                    // Call the final onSuccess callback
+                    const product = form.getValues() as any
+                    onSuccess?.({ ...product, id: savedBondId })
+                  }}
+                  onCancel={() => {
+                    // Skip coupon schedule and finish
+                    const product = form.getValues() as any
+                    onSuccess?.({ ...product, id: savedBondId })
+                  }}
+                />
+              )}
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="flex justify-between pt-6 border-t">
@@ -784,7 +843,7 @@ export function BondProductForm({
             </div>
 
             <div className="flex gap-2">
-              {onCancel && (
+              {onCancel && currentStep < 4 && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -795,7 +854,7 @@ export function BondProductForm({
                 </Button>
               )}
 
-              {currentStep < STEPS.length ? (
+              {currentStep < 3 ? (
                 <Button
                   type="button"
                   onClick={nextStep}
@@ -804,18 +863,31 @@ export function BondProductForm({
                   Next
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
-              ) : (
+              ) : currentStep === 3 ? (
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? (
                     'Saving...'
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      {isEdit ? 'Update Bond' : 'Create Bond'}
+                      {isEdit ? 'Update Bond' : 'Save & Continue'}
                     </>
                   )}
                 </Button>
-              )}
+              ) : currentStep === 4 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    // Skip coupon schedule and finish
+                    const product = form.getValues() as any
+                    onSuccess?.({ ...product, id: savedBondId })
+                  }}
+                  disabled={isLoading}
+                >
+                  Skip & Finish
+                </Button>
+              ) : null}
             </div>
           </div>
         </form>

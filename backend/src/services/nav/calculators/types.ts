@@ -19,7 +19,14 @@ export interface CalculatorResult {
   success: boolean
   data?: NAVResult
   error?: CalculatorError
+  warning?: CalculatorWarning
   metadata: CalculatorMetadata
+}
+
+export interface CalculatorWarning {
+  code: string
+  message: string
+  details?: string
 }
 
 export interface NAVResult {
@@ -34,6 +41,16 @@ export interface NAVResult {
   confidence: 'high' | 'medium' | 'low'
   calculationMethod: string
   sources: DataSource[]
+  // Bond-specific: Market comparison for HTM bonds
+  marketComparison?: {
+    accountingValue: Decimal      // Amortized cost (book value)
+    marketValue: Decimal           // Current market price
+    unrealizedGainLoss: Decimal    // Difference
+    marketPriceDate: Date          // When market price was observed
+    marketYTM: Decimal             // Market yield
+    accountingYTM: Decimal         // Effective interest rate
+    yieldSpread: Decimal           // Difference in yields
+  }
 }
 
 export interface NAVBreakdown {
@@ -79,6 +96,17 @@ export interface ValidationResult {
   isValid: boolean
   errors: ValidationError[]
   warnings: ValidationWarning[]
+  summary?: {
+    bondId?: string
+    bondName?: string
+    accountingTreatment?: string
+    totalErrors: number
+    totalWarnings: number
+    criticalIssues: number
+    canCalculate: boolean
+    missingTables?: string[]
+  }
+  info?: string[]
 }
 
 export interface ValidationError {
@@ -86,10 +114,17 @@ export interface ValidationError {
   rule: string
   message: string
   value?: any
+  // Enhanced validation fields
+  fix?: string
+  table?: string
+  severity?: 'error' | 'warning' | 'info'
+  context?: Record<string, any>
 }
 
 export interface ValidationWarning {
   field: string
   issue: string
   recommendation: string
+  table?: string
+  impact?: string
 }

@@ -168,9 +168,16 @@ import NavValuationsPage from '@/pages/nav/nav-valuations-page';
 import NavAuditPage from '@/pages/nav/nav-audit-page';
 
 // Bond Pages
-import BondsListPage from '@/pages/nav/bonds/bonds-list-page';
-import BondDetailPage from '@/pages/nav/bonds/bond-detail-page';
-import BondCalculatorPage from '@/pages/nav/bonds/bond-calculator-page';
+import {
+  BondsListPage,
+  BondDetailPage,
+  BondCalculatorPage,
+  BondAddPage,
+  BondUploadPage,
+  BondAnalyticsPage,
+  BondTokenLinksPage,
+  BondHistoryPage,
+} from '@/pages/nav/bonds';
 
 // Redirect component for token routes
 const TokenRedirect = () => {
@@ -660,13 +667,34 @@ function App() {
               <Route path="nav/valuations" element={<NavValuationsPage />} />
               <Route path="nav/audit" element={<NavAuditPage />} />
 
+              {/* Project-specific NAV Routes */}
+              <Route path="projects/:projectId/nav" element={<NavDashboardPage />} />
+              <Route path="projects/:projectId/nav/calculators" element={<NavCalculatorsPage />} />
+              <Route path="projects/:projectId/nav/calculators/:slug" element={<CalculatorDetailPage />} />
+              <Route path="projects/:projectId/nav/valuations" element={<NavValuationsPage />} />
+              <Route path="projects/:projectId/nav/audit" element={<NavAuditPage />} />
+
               {/* Bond Routes */}
               <Route path="nav/bonds" element={<BondsListPage />} />
-              <Route path="nav/bonds/new" element={<BondsListPage />} /> {/* TODO: Add BondProductForm page */}
-              <Route path="nav/bonds/upload" element={<BondsListPage />} /> {/* TODO: Add CSV Upload page */}
+              <Route path="nav/bonds/new" element={<BondAddPage />} />
+              <Route path="nav/bonds/upload" element={<BondUploadPage />} />
+              <Route path="nav/bonds/analytics" element={<BondAnalyticsPage />} />
+              <Route path="nav/bonds/token-links" element={<BondTokenLinksPage />} />
+              <Route path="nav/bonds/history" element={<BondHistoryPage />} />
               <Route path="nav/bonds/:bondId" element={<BondDetailPage />} />
-              <Route path="nav/bonds/:bondId/edit" element={<BondDetailPage />} /> {/* TODO: Edit mode */}
+              <Route path="nav/bonds/:bondId/edit" element={<BondDetailPage />} />
               <Route path="nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
+
+              {/* Project-specific Bond Routes */}
+              <Route path="projects/:projectId/nav/bonds" element={<BondsListPage />} />
+              <Route path="projects/:projectId/nav/bonds/new" element={<BondAddPage />} />
+              <Route path="projects/:projectId/nav/bonds/upload" element={<BondUploadPage />} />
+              <Route path="projects/:projectId/nav/bonds/analytics" element={<BondAnalyticsPage />} />
+              <Route path="projects/:projectId/nav/bonds/token-links" element={<BondTokenLinksPage />} />
+              <Route path="projects/:projectId/nav/bonds/history" element={<BondHistoryPage />} />
+              <Route path="projects/:projectId/nav/bonds/:bondId" element={<BondDetailPage />} />
+              <Route path="projects/:projectId/nav/bonds/:bondId/edit" element={<BondDetailPage />} />
+              <Route path="projects/:projectId/nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
 
               {/* Factoring Routes */}
               <Route path="factoring/" element={<FactoringManager/>} />

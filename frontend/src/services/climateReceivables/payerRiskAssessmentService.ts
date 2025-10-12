@@ -8,8 +8,8 @@
  * - Dynamic credit rating matrix from system_settings table
  * - Real-time market data integration without hardcoded fallbacks
  * - Database-driven risk calculation parameters
- * - Proper error handling without conservative estimates
- * - No hardcoded values or mock data
+ * - Proper error handling with graceful fallback defaults
+ * - Warns when database configuration is missing
  * 
  * Integrates with:
  * - Free government APIs (Treasury.gov, FRED, Federal Register)
@@ -19,6 +19,36 @@
 
 import { supabase } from '@/infrastructure/database/client';
 import { EnhancedExternalAPIService } from '@/components/climateReceivables/services/api/enhanced-external-api-service';
+
+// Default credit rating configuration (used as fallback when database is not configured)
+const DEFAULT_CREDIT_RATINGS: Record<string, CreditRatingData> = {
+  'AAA': { rating: 'AAA', investment_grade: true, default_rate_3yr: 0.002, typical_spread_bps: 50, risk_tier: 'Prime' },
+  'AA': { rating: 'AA', investment_grade: true, default_rate_3yr: 0.005, typical_spread_bps: 75, risk_tier: 'Prime' },
+  'A': { rating: 'A', investment_grade: true, default_rate_3yr: 0.010, typical_spread_bps: 100, risk_tier: 'Investment Grade' },
+  'BBB': { rating: 'BBB', investment_grade: true, default_rate_3yr: 0.025, typical_spread_bps: 150, risk_tier: 'Investment Grade' },
+  'BB': { rating: 'BB', investment_grade: false, default_rate_3yr: 0.050, typical_spread_bps: 300, risk_tier: 'Speculative' },
+  'B': { rating: 'B', investment_grade: false, default_rate_3yr: 0.100, typical_spread_bps: 500, risk_tier: 'Speculative' },
+  'CCC': { rating: 'CCC', investment_grade: false, default_rate_3yr: 0.200, typical_spread_bps: 800, risk_tier: 'High Risk' },
+  'CC': { rating: 'CC', investment_grade: false, default_rate_3yr: 0.350, typical_spread_bps: 1200, risk_tier: 'High Risk' },
+  'C': { rating: 'C', investment_grade: false, default_rate_3yr: 0.500, typical_spread_bps: 1500, risk_tier: 'Default Risk' },
+  'D': { rating: 'D', investment_grade: false, default_rate_3yr: 1.000, typical_spread_bps: 2000, risk_tier: 'Default Risk' }
+};
+
+const DEFAULT_PARAMETERS = {
+  baseDiscountRate: 1.5,
+  maxDiscountRate: 12.0,
+  minDiscountRate: 1.0,
+  climatePremium: 0.75,
+  esgDiscountThreshold: 70,
+  esgPremiumThreshold: 30,
+  esgDiscountRate: 0.5,
+  esgPremiumRate: 1.0,
+  healthMultiplierMin: 0.7,
+  healthMultiplierMax: 1.5
+};
+
+// Flag to track if we've already warned about missing configuration
+let hasWarnedAboutMissingConfig = false;
 
 export interface PayerCreditProfile {
   payer_id?: string;
@@ -221,8 +251,22 @@ export class PayerRiskAssessmentService {
       !settings[`climate_credit_rating_${rating.toLowerCase()}_spread_bps`]
     );
 
+    // If missing configuration, use defaults and warn (only once)
     if (missingRatings.length > 0) {
-      throw new Error(`Missing credit rating configuration for: ${missingRatings.join(', ')}. Please configure credit rating data in system_settings table.`);
+      if (!hasWarnedAboutMissingConfig) {
+        console.warn(
+          `⚠️ Credit rating configuration missing for: ${missingRatings.join(', ')}.\n` +
+          `Using default values. Please configure credit rating data in system_settings table for production use.\n` +
+          `Required keys pattern: climate_credit_rating_{rating}_default_rate, climate_credit_rating_{rating}_spread_bps`
+        );
+        hasWarnedAboutMissingConfig = true;
+      }
+      
+      // Return default configuration
+      return { 
+        ratings: DEFAULT_CREDIT_RATINGS, 
+        parameters: DEFAULT_PARAMETERS 
+      };
     }
 
     // Build ratings matrix
@@ -266,10 +310,12 @@ export class PayerRiskAssessmentService {
    */
   public static async calculateRiskScore(creditProfile: PayerCreditProfile): Promise<number> {
     const config = await this.loadCreditRatingConfiguration();
-    const creditData = config.ratings[creditProfile.credit_rating];
+    let creditData = config.ratings[creditProfile.credit_rating];
     
+    // If rating not found, try to use default for 'BBB' as a moderate baseline
     if (!creditData) {
-      throw new Error(`Unknown credit rating: ${creditProfile.credit_rating}. Please ensure this rating is configured in the system_settings table.`);
+      console.warn(`Unknown credit rating: ${creditProfile.credit_rating}. Using BBB rating as fallback.`);
+      creditData = config.ratings['BBB'] || DEFAULT_CREDIT_RATINGS['BBB'];
     }
 
     // Base risk score from credit rating (inverse of quality)

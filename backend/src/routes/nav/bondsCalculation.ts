@@ -45,15 +45,22 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
           includeBreakdown: { type: 'boolean' },
           saveToDatabase: { type: 'boolean' }
         },
-        required: ['asOfDate']
+        required: ['asOfDate'],
+        additionalProperties: true // Allow extra fields (for debugging)
       },
       response: {
         200: {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
-            data: { type: 'object' },
-            metadata: { type: 'object' }
+            data: { 
+              type: 'object',
+              additionalProperties: true  // ✅ Allow any properties in data
+            },
+            metadata: { 
+              type: 'object',
+              additionalProperties: true  // ✅ Allow any properties in metadata
+            }
           }
         }
       }
@@ -61,6 +68,12 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { bondId } = request.params as { bondId: string }
     const body = request.body as Record<string, any>
+    
+    // DEBUG: Log the incoming request
+    console.log('=== BOND CALCULATION REQUEST ===')
+    console.log('Bond ID:', bondId)
+    console.log('Request Body:', JSON.stringify(body, null, 2))
+    console.log('Body Keys:', Object.keys(body))
     
     try {
       // Validate request
@@ -82,22 +95,176 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
       })
       
       if (!result.success) {
-        return reply.code(400).send(result)
+        // Enhanced error formatting for all error types
+        const errorResponse = {
+          success: false,
+          error: {
+            code: result.error?.code || 'UNKNOWN_ERROR',
+            message: result.error?.message || 'An error occurred',
+            // Include detailed validation/database errors if available
+            ...(result.error?.details && result.error.details.length > 0 && {
+              details: result.error.details,
+              // For convenience, also provide a formatted message
+              formattedMessage: result.error.details.map((err: any) => {
+                const parts = [
+                  `❌ ${err.field || 'Error'}: ${err.message}`
+                ]
+                if (err.fix) parts.push(`💡 FIX: ${err.fix}`)
+                if (err.table) parts.push(`📊 TABLE: ${err.table}`)
+                if (err.code && err.code !== result.error?.code) {
+                  parts.push(`🔧 ERROR CODE: ${err.code}`)
+                }
+                if (err.constraint) {
+                  parts.push(`⚠️  CONSTRAINT: ${err.constraint}`)
+                }
+                return parts.join('\n')
+              }).join('\n\n')
+            })
+          },
+          metadata: result.metadata
+        }
+        
+        console.error('=== CALCULATION FAILED ===')
+        console.error('Error Code:', errorResponse.error.code)
+        console.error('Error Message:', errorResponse.error.message)
+        if (errorResponse.error.details) {
+          console.error('Detailed Errors:')
+          errorResponse.error.details.forEach((err: any, i: number) => {
+            console.error(`\n[${i + 1}] ${err.severity || 'error'}: ${err.field}`)
+            console.error(`    Message: ${err.message}`)
+            if (err.fix) console.error(`    Fix: ${err.fix}`)
+            if (err.table) console.error(`    Table: ${err.table}`)
+            if (err.code) console.error(`    Code: ${err.code}`)
+            if (err.constraint) console.error(`    Constraint: ${err.constraint}`)
+            if (err.context) {
+              console.error('    Context:', JSON.stringify(err.context, null, 2))
+            }
+          })
+        }
+        
+        return reply.code(400).send(errorResponse)
       }
       
-      return reply.send(result)
+      // DEBUG: Log what we actually received
+      console.log('=== TRANSFORMATION DEBUG ===')
+      console.log('result.success:', result.success)
+      console.log('result.data type:', typeof result.data)
+      console.log('result.data keys:', result.data ? Object.keys(result.data) : 'null/undefined')
+      console.log('result.data:', JSON.stringify(result.data, null, 2))
+      
+      // Helper to safely convert to number
+      const toNumber = (value: any): number | undefined => {
+        if (value === null || value === undefined) return undefined
+        if (typeof value === 'number') return value
+        if (typeof value === 'string') return parseFloat(value)
+        if (typeof value === 'object' && 'toNumber' in value) return value.toNumber()
+        return undefined
+      }
+      
+      // Transform backend NAVResult format to frontend format
+      const backendData = result.data as any
+      
+      // Get breakdown component values
+      const getComponentValue = (key: string): number | undefined => {
+        if (!backendData.breakdown?.componentValues) return undefined
+        const map = backendData.breakdown.componentValues
+        if (map instanceof Map) {
+          return toNumber(map.get(key))
+        }
+        return toNumber(map[key])
+      }
+      
+      const frontendData = {
+        // Generic fields (used by all calculators)
+        assetId: backendData.productId || bondId,      // ✅ Generic: assetId
+        navValue: toNumber(backendData.nav) || 0,      // ✅ Generic: navValue
+        // Bond-specific fields (for backward compatibility)
+        bondId: backendData.productId || bondId,
+        netAssetValue: toNumber(backendData.nav) || 0,
+        // Common fields
+        asOfDate: backendData.valuationDate,
+        calculationMethod: backendData.calculationMethod || 'Unknown',
+        confidenceLevel: (backendData.confidence || 'medium') as 'high' | 'medium' | 'low',
+        priorNAV: undefined, // Could be calculated from history if needed
+        breakdown: backendData.breakdown ? {
+          cleanPrice: getComponentValue('clean_price'),
+          accruedInterest: getComponentValue('accrued_interest'),
+          totalValue: getComponentValue('dirty_price'),
+          ytm: getComponentValue('ytm'),
+          duration: getComponentValue('duration'),
+          convexity: getComponentValue('convexity')
+        } : undefined,
+        // Market comparison for HTM bonds
+        marketComparison: backendData.marketComparison ? {
+          accountingValue: toNumber(backendData.marketComparison.accountingValue),
+          marketValue: toNumber(backendData.marketComparison.marketValue),
+          unrealizedGainLoss: toNumber(backendData.marketComparison.unrealizedGainLoss),
+          marketPriceDate: backendData.marketComparison.marketPriceDate,
+          marketYTM: toNumber(backendData.marketComparison.marketYTM),
+          accountingYTM: toNumber(backendData.marketComparison.accountingYTM),
+          yieldSpread: toNumber(backendData.marketComparison.yieldSpread)
+        } : undefined,
+        metadata: {
+          calculatedAt: result.metadata?.calculatedAt || new Date(),
+          calculationDate: backendData.valuationDate,
+          dataSourcesUsed: backendData.sources?.map((s: any) => `${s.table} (${s.recordCount} records)`) || [],
+          dataSources: backendData.sources?.map((s: any) => ({
+            source: s.table,
+            timestamp: backendData.valuationDate
+          })) || []
+        },
+        riskMetrics: backendData.breakdown?.componentValues ? {
+          duration: getComponentValue('duration'),
+          modifiedDuration: getComponentValue('modified_duration'),
+          convexity: getComponentValue('convexity'),
+          dv01: getComponentValue('bpv'),
+          spreadDuration: undefined // Not currently calculated
+        } : undefined
+      }
+      
+      console.log('=== TRANSFORMED DATA ===')
+      console.log('frontendData:', JSON.stringify(frontendData, null, 2))
+      console.log('frontendData.netAssetValue:', frontendData.netAssetValue)
+      
+      // Test JSON serialization before sending
+      const responseObj = {
+        success: true,
+        data: frontendData,
+        metadata: result.metadata,
+        warning: result.warning
+      }
+      
+      console.log('=== ABOUT TO SEND RESPONSE ===')
+      console.log('Response object keys:', Object.keys(responseObj))
+      console.log('Response.data keys:', Object.keys(responseObj.data))
+      console.log('Trying JSON.stringify on response...')
+      const jsonString = JSON.stringify(responseObj)
+      console.log('JSON.stringify result length:', jsonString.length)
+      console.log('JSON.stringify result:', jsonString.substring(0, 200))
+      
+      return reply.send(responseObj)
       
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('=== ZOD VALIDATION ERROR ===')
+        console.error('Errors:', JSON.stringify(error.errors, null, 2))
+        
         return reply.code(400).send({
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Request validation failed',
-            details: error.errors
+            details: error.errors.map(e => ({
+              path: e.path.join('.'),
+              message: e.message,
+              ...(('received' in e) && { received: e.received })
+            }))
           }
         })
       }
+      
+      console.error('=== CALCULATION ERROR ===')
+      console.error('Error:', error)
       
       return reply.code(500).send({
         success: false,

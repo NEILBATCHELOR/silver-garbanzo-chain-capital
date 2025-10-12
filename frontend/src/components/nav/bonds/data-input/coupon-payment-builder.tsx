@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
-import { format, addMonths, differenceInDays } from 'date-fns'
-import { Plus, Trash2, Download, Calendar } from 'lucide-react'
+import { format, addMonths, addDays, differenceInDays } from 'date-fns'
+import { Plus, Trash2, Download, Calendar, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAddCouponPayments } from '@/hooks/bonds/useBondData'
 import type { CouponPaymentInput } from '@/types/nav/bonds'
 import { PaymentStatus } from '@/types/nav/bonds'
+import { validateCouponPayments, formatPaymentStatus } from '@/utils/bonds'
 
 interface BondCharacteristics {
   faceValue: number
@@ -52,32 +53,59 @@ export function CouponPaymentBuilder({
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showAccruedCalculator, setShowAccruedCalculator] = useState(false)
   const [calculationDate, setCalculationDate] = useState<Date>(new Date())
+  const [validationErrors, setValidationErrors] = useState<Map<number, string[]>>(new Map())
 
   const addPaymentsMutation = useAddCouponPayments(bondId)
 
+  /**
+   * Generate payment schedule from bond characteristics
+   * FIXED: Properly sets actual_payment_date for past 'paid' payments
+   * ENHANCED: Better error message listing specific missing fields
+   */
   const generatePaymentSchedule = () => {
     const { faceValue, couponRate, paymentFrequency, issueDate, maturityDate } = characteristics
 
-    if (!faceValue || !couponRate || !paymentFrequency || !issueDate || !maturityDate) {
+    // Check for missing fields and provide detailed feedback
+    const missingFields: string[] = []
+    if (!faceValue) missingFields.push('Face Value')
+    if (!couponRate) missingFields.push('Coupon Rate')
+    if (!paymentFrequency) missingFields.push('Payment Frequency')
+    if (!issueDate) missingFields.push('Issue Date')
+    if (!maturityDate) missingFields.push('Maturity Date')
+
+    if (missingFields.length > 0) {
+      alert(
+        `Cannot auto-generate schedule. Missing required bond characteristics:\n\n` +
+        `• ${missingFields.join('\n• ')}\n\n` +
+        `Please edit the bond details to add these fields before generating the payment schedule.`
+      )
       return
     }
 
     const paymentAmount = (faceValue * couponRate) / paymentFrequency
     const generatedPayments: CouponPaymentInput[] = []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Normalize to start of day
 
     let currentDate = new Date(issueDate)
     let previousDate = new Date(issueDate)
+    const maturity = new Date(maturityDate)
 
-    while (currentDate < maturityDate) {
+    // Generate regular coupon payments
+    while (currentDate < maturity) {
       currentDate = addMonths(currentDate, 12 / paymentFrequency)
 
-      if (currentDate <= maturityDate) {
+      // Only add if payment date is before or on maturity
+      if (currentDate <= maturity) {
         const daysInPeriod = differenceInDays(currentDate, previousDate)
+        const isPastPayment = currentDate < today
 
         generatedPayments.push({
           payment_date: new Date(currentDate),
           coupon_amount: paymentAmount,
-          payment_status: PaymentStatus.SCHEDULED,
+          // CRITICAL FIX: If payment date is in the past, mark as 'paid' and set actual_payment_date
+          payment_status: isPastPayment ? PaymentStatus.PAID : PaymentStatus.SCHEDULED,
+          actual_payment_date: isPastPayment ? new Date(currentDate) : undefined,
           accrual_start_date: new Date(previousDate),
           accrual_end_date: new Date(currentDate),
           days_in_period: daysInPeriod,
@@ -87,19 +115,34 @@ export function CouponPaymentBuilder({
       }
     }
 
-    const maturityDays = differenceInDays(maturityDate, previousDate)
-    generatedPayments.push({
-      payment_date: new Date(maturityDate),
-      coupon_amount: faceValue + paymentAmount,
-      payment_status: PaymentStatus.SCHEDULED,
-      accrual_start_date: new Date(previousDate),
-      accrual_end_date: new Date(maturityDate),
-      days_in_period: maturityDays,
-    })
+    // Add maturity payment (principal + final coupon) if not already added
+    const lastPayment = generatedPayments[generatedPayments.length - 1]
+    if (!lastPayment || lastPayment.payment_date.getTime() !== maturity.getTime()) {
+      const maturityDays = differenceInDays(maturity, previousDate)
+      const isPastMaturity = maturity < today
+      
+      generatedPayments.push({
+        payment_date: new Date(maturity),
+        coupon_amount: faceValue + paymentAmount, // Principal + final coupon
+        payment_status: isPastMaturity ? PaymentStatus.PAID : PaymentStatus.SCHEDULED,
+        actual_payment_date: isPastMaturity ? new Date(maturity) : undefined,
+        accrual_start_date: new Date(previousDate),
+        accrual_end_date: new Date(maturity),
+        days_in_period: maturityDays,
+      })
+    } else {
+      // Update last payment to include principal
+      lastPayment.coupon_amount = faceValue + paymentAmount
+    }
 
     setPayments(generatedPayments)
+    setValidationErrors(new Map()) // Clear validation errors
   }
 
+  /**
+   * Calculate accrued interest as of calculation date
+   * Fixed: Better logic for finding relevant payment period
+   */
   const calculateAccruedInterest = useMemo(() => {
     if (!payments.length || !calculationDate) return null
 
@@ -107,41 +150,63 @@ export function CouponPaymentBuilder({
       (a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime()
     )
 
-    let relevantPayment = null
-    for (const payment of sortedPayments) {
+    // Find the payment period that contains the calculation date
+    let currentPeriod = null
+    let nextPeriod = null
+    
+    for (let i = 0; i < sortedPayments.length; i++) {
+      const payment = sortedPayments[i]
       const paymentDate = new Date(payment.payment_date)
-      if (paymentDate <= calculationDate) {
-        relevantPayment = payment
-      } else {
+      const accrualStart = new Date(payment.accrual_start_date)
+      
+      // Check if calculation date is within this period
+      if (calculationDate >= accrualStart && calculationDate <= paymentDate) {
+        currentPeriod = payment
+        nextPeriod = sortedPayments[i + 1] || null
         break
+      }
+      
+      // If calculation date is after this payment, keep looking
+      if (calculationDate > paymentDate) {
+        continue
       }
     }
 
-    if (!relevantPayment) return null
+    if (!currentPeriod) return null
 
-    const startDate = new Date(relevantPayment.accrual_start_date)
-    const daysSinceLastPayment = differenceInDays(calculationDate, startDate)
-    const totalDaysInPeriod = relevantPayment.days_in_period
+    const startDate = new Date(currentPeriod.accrual_start_date)
+    const endDate = new Date(currentPeriod.accrual_end_date)
+    const daysSinceStart = differenceInDays(calculationDate, startDate)
+    const totalDaysInPeriod = currentPeriod.days_in_period
 
-    const accruedInterest = (relevantPayment.coupon_amount * daysSinceLastPayment) / totalDaysInPeriod
+    // Accrued interest = (Coupon Amount * Days Since Start) / Total Days
+    const accruedInterest = (currentPeriod.coupon_amount * daysSinceStart) / totalDaysInPeriod
 
     return {
       amount: accruedInterest,
-      daysSinceLastPayment,
+      daysSinceStart,
       totalDaysInPeriod,
-      lastPaymentDate: relevantPayment.payment_date,
-      nextPaymentDate: relevantPayment.payment_date,
+      lastPaymentDate: format(startDate, 'MMM dd, yyyy'),
+      nextPaymentDate: format(endDate, 'MMM dd, yyyy'),
     }
   }, [payments, calculationDate])
 
+  /**
+   * Add new payment manually
+   * Fixed: Set days_in_period to 1 (minimum valid value) instead of 0
+   */
   const handleAddPayment = () => {
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
     const newPayment: CouponPaymentInput = {
-      payment_date: new Date(),
+      payment_date: tomorrow,
       coupon_amount: 0,
       payment_status: PaymentStatus.SCHEDULED,
-      accrual_start_date: new Date(),
-      accrual_end_date: new Date(),
-      days_in_period: 0,
+      accrual_start_date: today,
+      accrual_end_date: tomorrow,
+      days_in_period: 1, // Minimum valid value, will be recalculated when dates change
     }
     setPayments([...payments, newPayment])
     setEditingIndex(payments.length)
@@ -149,38 +214,96 @@ export function CouponPaymentBuilder({
 
   const handleDeletePayment = (index: number) => {
     setPayments(payments.filter((_, i) => i !== index))
+    const errors = new Map(validationErrors)
+    errors.delete(index)
+    setValidationErrors(errors)
   }
 
+  /**
+   * Update payment field and recalculate days if dates change
+   * FIXED: Ensures payment_date stays synchronized with accrual_end_date
+   * ENHANCED: Adjusts end date when days are manually changed
+   */
   const handleUpdatePayment = (index: number, field: keyof CouponPaymentInput, value: any) => {
     const updated = [...payments]
     updated[index] = { ...updated[index], [field]: value }
 
+    // Auto-calculate days_in_period when dates change
     if (field === 'accrual_start_date' || field === 'accrual_end_date') {
       const startDate = new Date(updated[index].accrual_start_date)
       const endDate = new Date(updated[index].accrual_end_date)
-      updated[index].days_in_period = differenceInDays(endDate, startDate)
+      const days = differenceInDays(endDate, startDate)
+      updated[index].days_in_period = Math.max(1, days) // Ensure at least 1 day
+      
+      // CRITICAL FIX: Keep payment_date synchronized with accrual_end_date
+      // This matches database constraint and standard bond payment logic
+      if (field === 'accrual_end_date') {
+        updated[index].payment_date = endDate
+      }
+    }
+    
+    // NEW: When days_in_period is manually changed, adjust accrual_end_date
+    if (field === 'days_in_period') {
+      const startDate = new Date(updated[index].accrual_start_date)
+      const daysValue = Math.max(1, value) // Ensure at least 1 day
+      const newEndDate = addDays(startDate, daysValue)
+      updated[index].accrual_end_date = newEndDate
+      updated[index].payment_date = newEndDate // Keep constraint satisfied
+      updated[index].days_in_period = daysValue // Use the validated value
+    }
+    
+    // If payment_date is changed directly, sync accrual_end_date
+    if (field === 'payment_date') {
+      updated[index].accrual_end_date = new Date(value)
+      // Recalculate days
+      const startDate = new Date(updated[index].accrual_start_date)
+      const endDate = new Date(value)
+      const days = differenceInDays(endDate, startDate)
+      updated[index].days_in_period = Math.max(1, days)
     }
 
     setPayments(updated)
+    
+    // Clear validation errors for this payment
+    if (validationErrors.has(index)) {
+      const errors = new Map(validationErrors)
+      errors.delete(index)
+      setValidationErrors(errors)
+    }
   }
 
+  /**
+   * Validate and save coupon payments
+   * New: Pre-save validation with clear error messages
+   */
   const handleSave = async () => {
+    // Validate all payments
+    const errors = validateCouponPayments(payments)
+    
+    if (errors.size > 0) {
+      setValidationErrors(errors)
+      alert(`Validation failed: ${errors.size} payment(s) have errors. Please fix them before saving.`)
+      return
+    }
+
     try {
       await addPaymentsMutation.mutateAsync(payments)
+      setValidationErrors(new Map())
       onSuccess?.()
     } catch (error) {
       console.error('Failed to save coupon payments:', error)
+      alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   const handleExportCSV = () => {
     const headers = ['Payment Date', 'Coupon Amount', 'Status', 'Accrual Start', 'Accrual End', 'Days']
     const rows = payments.map((p) => [
-      p.payment_date,
-      p.coupon_amount,
+      format(new Date(p.payment_date), 'yyyy-MM-dd'),
+      p.coupon_amount.toFixed(2),
       p.payment_status,
-      p.accrual_start_date,
-      p.accrual_end_date,
+      format(new Date(p.accrual_start_date), 'yyyy-MM-dd'),
+      format(new Date(p.accrual_end_date), 'yyyy-MM-dd'),
       p.days_in_period,
     ])
 
@@ -191,6 +314,7 @@ export function CouponPaymentBuilder({
     a.href = url
     a.download = `bond-${bondId}-coupon-schedule.csv`
     a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -224,6 +348,15 @@ export function CouponPaymentBuilder({
             </Button>
           </div>
 
+          {validationErrors.size > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {validationErrors.size} payment(s) have validation errors. Please review and fix.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {payments.length > 0 && (
             <Alert>
               <AlertDescription>
@@ -233,7 +366,10 @@ export function CouponPaymentBuilder({
                   </div>
                   <div>
                     <span className="font-semibold">Total Amount:</span> $
-                    {payments.reduce((sum, p) => sum + p.coupon_amount, 0).toLocaleString()}
+                    {payments.reduce((sum, p) => sum + p.coupon_amount, 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </div>
                   <div>
                     <span className="font-semibold">Next Payment:</span>{' '}
@@ -280,7 +416,7 @@ export function CouponPaymentBuilder({
               </div>
             </div>
 
-            {calculateAccruedInterest && (
+            {calculateAccruedInterest ? (
               <Alert>
                 <AlertDescription>
                   <div className="space-y-2">
@@ -288,12 +424,18 @@ export function CouponPaymentBuilder({
                       Accrued Interest: ${calculateAccruedInterest.amount.toFixed(2)}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                      <div>Days Since Last Payment: {calculateAccruedInterest.daysSinceLastPayment}</div>
+                      <div>Days Since Start: {calculateAccruedInterest.daysSinceStart}</div>
                       <div>Total Days in Period: {calculateAccruedInterest.totalDaysInPeriod}</div>
-                      <div>Last Payment: {calculateAccruedInterest.lastPaymentDate}</div>
-                      <div>Next Payment: {calculateAccruedInterest.nextPaymentDate}</div>
+                      <div>Period Start: {calculateAccruedInterest.lastPaymentDate}</div>
+                      <div>Period End: {calculateAccruedInterest.nextPaymentDate}</div>
                     </div>
                   </div>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert>
+                <AlertDescription>
+                  No accrued interest to calculate. The calculation date may be outside the payment schedule range.
                 </AlertDescription>
               </Alert>
             )}
@@ -316,121 +458,137 @@ export function CouponPaymentBuilder({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((payment, index) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    {editingIndex === index ? (
-                      <Input
-                        type="date"
-                        value={format(new Date(payment.payment_date), 'yyyy-MM-dd')}
-                        onChange={(e) => handleUpdatePayment(index, 'payment_date', new Date(e.target.value))}
-                      />
-                    ) : (
-                      format(new Date(payment.payment_date), 'MMM dd, yyyy')
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingIndex === index ? (
-                      <Input
-                        type="number"
-                        value={payment.coupon_amount}
-                        onChange={(e) =>
-                          handleUpdatePayment(index, 'coupon_amount', parseFloat(e.target.value))
-                        }
-                      />
-                    ) : (
-                      `$${payment.coupon_amount.toLocaleString()}`
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingIndex === index ? (
-                      <Select
-                        value={payment.payment_status}
-                        onValueChange={(value) =>
-                          handleUpdatePayment(index, 'payment_status', value as PaymentStatus)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="scheduled">Scheduled</SelectItem>
-                          <SelectItem value="paid">Paid</SelectItem>
-                          <SelectItem value="missed">Missed</SelectItem>
-                          <SelectItem value="deferred">Deferred</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          payment.payment_status === 'paid'
-                            ? 'bg-green-100 text-green-700'
-                            : payment.payment_status === 'scheduled'
-                            ? 'bg-blue-100 text-blue-700'
-                            : payment.payment_status === 'missed'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}
-                      >
-                        {payment.payment_status}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingIndex === index ? (
-                      <Input
-                        type="date"
-                        value={format(new Date(payment.accrual_start_date), 'yyyy-MM-dd')}
-                        onChange={(e) =>
-                          handleUpdatePayment(index, 'accrual_start_date', new Date(e.target.value))
-                        }
-                      />
-                    ) : (
-                      format(new Date(payment.accrual_start_date), 'MMM dd, yyyy')
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingIndex === index ? (
-                      <Input
-                        type="date"
-                        value={format(new Date(payment.accrual_end_date), 'yyyy-MM-dd')}
-                        onChange={(e) => handleUpdatePayment(index, 'accrual_end_date', new Date(e.target.value))}
-                      />
-                    ) : (
-                      format(new Date(payment.accrual_end_date), 'MMM dd, yyyy')
-                    )}
-                  </TableCell>
-                  <TableCell>{payment.days_in_period}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+              {payments.map((payment, index) => {
+                const hasErrors = validationErrors.has(index)
+                const paymentStatus = formatPaymentStatus(payment.payment_status)
+                
+                return (
+                  <TableRow key={index} className={hasErrors ? 'bg-red-50' : ''}>
+                    <TableCell>
                       {editingIndex === index ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingIndex(null)}
-                        >
-                          Done
-                        </Button>
+                        <Input
+                          type="date"
+                          value={format(new Date(payment.payment_date), 'yyyy-MM-dd')}
+                          onChange={(e) => handleUpdatePayment(index, 'payment_date', new Date(e.target.value))}
+                        />
                       ) : (
+                        format(new Date(payment.payment_date), 'MMM dd, yyyy')
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingIndex === index ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={payment.coupon_amount}
+                          onChange={(e) =>
+                            handleUpdatePayment(index, 'coupon_amount', parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      ) : (
+                        `$${payment.coupon_amount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingIndex === index ? (
+                        <Select
+                          value={payment.payment_status}
+                          onValueChange={(value) =>
+                            handleUpdatePayment(index, 'payment_status', value as PaymentStatus)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="scheduled">Scheduled</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="missed">Missed</SelectItem>
+                            <SelectItem value="deferred">Deferred</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${paymentStatus.colorClass}`}>
+                          {paymentStatus.label}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingIndex === index ? (
+                        <Input
+                          type="date"
+                          value={format(new Date(payment.accrual_start_date), 'yyyy-MM-dd')}
+                          onChange={(e) =>
+                            handleUpdatePayment(index, 'accrual_start_date', new Date(e.target.value))
+                          }
+                        />
+                      ) : (
+                        format(new Date(payment.accrual_start_date), 'MMM dd, yyyy')
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingIndex === index ? (
+                        <Input
+                          type="date"
+                          value={format(new Date(payment.accrual_end_date), 'yyyy-MM-dd')}
+                          onChange={(e) => handleUpdatePayment(index, 'accrual_end_date', new Date(e.target.value))}
+                        />
+                      ) : (
+                        format(new Date(payment.accrual_end_date), 'MMM dd, yyyy')
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingIndex === index ? (
+                        <Input
+                          type="number"
+                          value={payment.days_in_period}
+                          onChange={(e) =>
+                            handleUpdatePayment(index, 'days_in_period', parseInt(e.target.value, 10) || 1)
+                          }
+                        />
+                      ) : (
+                        payment.days_in_period
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {editingIndex === index ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingIndex(null)}
+                          >
+                            Done
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingIndex(index)}
+                          >
+                            Edit
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setEditingIndex(index)}
+                          onClick={() => handleDeletePayment(index)}
                         >
-                          Edit
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
+                      </div>
+                      {hasErrors && (
+                        <div className="mt-1 text-xs text-red-600">
+                          {validationErrors.get(index)?.join(', ')}
+                        </div>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeletePayment(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </CardContent>

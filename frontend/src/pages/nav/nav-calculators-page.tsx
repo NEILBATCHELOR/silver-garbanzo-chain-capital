@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCalculators } from '@/hooks/nav'
 import { getCalculatorCategories } from '@/components/nav/calculators/calculators.config'
+import { NavNavigation } from '@/components/nav'
 
 export default function NavCalculatorsPage() {
   const navigate = useNavigate()
@@ -62,192 +63,203 @@ export default function NavCalculatorsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
-            ))}
+      <>
+        <NavNavigation />
+        <div className="container mx-auto px-6 py-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (isError) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-800">Error Loading Calculators</CardTitle>
-            <CardDescription className="text-red-600">
-              {error?.message || 'Failed to load NAV calculators. Please try again.'}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <>
+        <NavNavigation />
+        <div className="container mx-auto px-6 py-8">
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800">Error Loading Calculators</CardTitle>
+              <CardDescription className="text-red-600">
+                {error?.message || 'Failed to load NAV calculators. Please try again.'}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">NAV Calculators</h1>
-            <p className="text-muted-foreground mt-1">
-              Choose from {stats.total} specialized calculators for accurate NAV calculations
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold">{stats.enabled}</div>
-              <p className="text-xs text-muted-foreground">Available</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold">{stats.priority}</div>
-              <p className="text-xs text-muted-foreground">Priority</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold">{stats.byComplexity.basic}</div>
-              <p className="text-xs text-muted-foreground">Basic Level</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold">{stats.byComplexity.advanced}</div>
-              <p className="text-xs text-muted-foreground">Advanced</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search calculators..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+    <>
+      {/* Horizontal Navigation */}
+      <NavNavigation />
+      
+      <div className="container mx-auto px-6 py-8 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">NAV Calculators</h1>
+              <p className="text-muted-foreground mt-1">
+                Choose from {stats.total} specialized calculators for accurate NAV calculations
+              </p>
             </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedComplexity} onValueChange={setSelectedComplexity}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Complexity" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="basic">Basic</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Calculators */}
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList>
-          <TabsTrigger value="all">All ({filteredCalculators.length})</TabsTrigger>
-          <TabsTrigger value="priority">Priority ({priorityCalculators.length})</TabsTrigger>
-          <TabsTrigger value="extended">Extended ({extendedCalculators.length})</TabsTrigger>
-        </TabsList>
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold">{stats.enabled}</div>
+                <p className="text-xs text-muted-foreground">Available</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold">{stats.priority}</div>
+                <p className="text-xs text-muted-foreground">Priority</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold">{stats.byComplexity.basic}</div>
+                <p className="text-xs text-muted-foreground">Basic Level</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold">{stats.byComplexity.advanced}</div>
+                <p className="text-xs text-muted-foreground">Advanced</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-        <TabsContent value="all" className="space-y-6">
-          <CalculatorsGrid 
-            calculators={filteredCalculators} 
-            viewMode={viewMode}
-            onCalculatorClick={handleCalculatorClick}
-          />
-        </TabsContent>
-
-        <TabsContent value="priority" className="space-y-6">
-          <CalculatorsGrid 
-            calculators={priorityCalculators} 
-            viewMode={viewMode}
-            onCalculatorClick={handleCalculatorClick}
-          />
-        </TabsContent>
-
-        <TabsContent value="extended" className="space-y-6">
-          <CalculatorsGrid 
-            calculators={extendedCalculators} 
-            viewMode={viewMode}
-            onCalculatorClick={handleCalculatorClick}
-          />
-        </TabsContent>
-      </Tabs>
-
-      {/* No Results */}
-      {filteredCalculators.length === 0 && (
+        {/* Filters */}
         <Card>
-          <CardContent className="p-6 text-center">
-            <Calculator className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No calculators found</h3>
-            <p className="text-muted-foreground mb-4">
-              Try adjusting your search criteria or filters
-            </p>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearchQuery('')
-                setSelectedCategory('all')
-                setSelectedComplexity('all')
-              }}
-            >
-              Clear Filters
-            </Button>
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search calculators..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedComplexity} onValueChange={setSelectedComplexity}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Complexity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  <SelectItem value="basic">Basic</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
-      )}
-    </div>
+
+        {/* Calculators */}
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList>
+            <TabsTrigger value="all">All ({filteredCalculators.length})</TabsTrigger>
+            <TabsTrigger value="priority">Priority ({priorityCalculators.length})</TabsTrigger>
+            <TabsTrigger value="extended">Extended ({extendedCalculators.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="space-y-6">
+            <CalculatorsGrid 
+              calculators={filteredCalculators} 
+              viewMode={viewMode}
+              onCalculatorClick={handleCalculatorClick}
+            />
+          </TabsContent>
+
+          <TabsContent value="priority" className="space-y-6">
+            <CalculatorsGrid 
+              calculators={priorityCalculators} 
+              viewMode={viewMode}
+              onCalculatorClick={handleCalculatorClick}
+            />
+          </TabsContent>
+
+          <TabsContent value="extended" className="space-y-6">
+            <CalculatorsGrid 
+              calculators={extendedCalculators} 
+              viewMode={viewMode}
+              onCalculatorClick={handleCalculatorClick}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* No Results */}
+        {filteredCalculators.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <Calculator className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No calculators found</h3>
+              <p className="text-muted-foreground mb-4">
+                Try adjusting your search criteria or filters
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchQuery('')
+                  setSelectedCategory('all')
+                  setSelectedComplexity('all')
+                }}
+              >
+                Clear Filters
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </>
   )
 }
 

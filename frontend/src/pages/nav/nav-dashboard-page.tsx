@@ -1,19 +1,21 @@
 /**
  * NAV Dashboard Page
  * Main dashboard for NAV operations with KPIs, quick actions, and recent activity
+ * Enhanced to match Climate Receivables dashboard style
  */
 
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Calculator, TrendingUp, Clock, Activity } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
-  NavDashboardHeader,
+  NavDashboardHeaderEnhanced,
   NavKpiCards,
   NavPermissionGuard,
-  InlineNavPermissionGuard
+  InlineNavPermissionGuard,
+  NavNavigation
 } from '@/components/nav'
 import { 
   useNavOverview,
@@ -25,10 +27,16 @@ import {
   calculationStatusColors 
 } from '@/types/nav'
 import { NAV_PERMISSIONS } from '@/utils/nav'
+import { useTokenProjectContext } from '@/hooks/project'
 
 export function NavDashboardPage() {
   const navigate = useNavigate()
+  const { projectId: urlProjectId } = useParams()
+  const { projectId: contextProjectId, project, isLoading: isLoadingProject } = useTokenProjectContext()
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Use URL project ID if available, otherwise context project ID
+  const projectId = urlProjectId || contextProjectId
   
   // Fetch overview data
   const {
@@ -48,22 +56,37 @@ export function NavDashboardPage() {
 
   // Navigation handlers
   const handleQuickCalculate = () => {
-    navigate('/nav/calculators')
+    if (projectId) {
+      navigate(`/projects/${projectId}/nav/calculators`)
+    } else {
+      navigate('/nav/calculators')
+    }
   }
 
   const handleViewHistory = () => {
-    navigate('/nav/history')
+    if (projectId) {
+      navigate(`/projects/${projectId}/nav/audit`)
+    } else {
+      navigate('/nav/audit')
+    }
   }
 
   const handleViewCalculator = (calculatorId: string) => {
-    navigate(`/nav/calculators/${calculatorId}`)
+    if (projectId) {
+      navigate(`/projects/${projectId}/nav/calculators/${calculatorId}`)
+    } else {
+      navigate(`/nav/calculators/${calculatorId}`)
+    }
   }
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
     if (query.trim()) {
       // Navigate to calculators page with search
-      navigate(`/nav/calculators?search=${encodeURIComponent(query)}`)
+      const url = projectId 
+        ? `/projects/${projectId}/nav/calculators?search=${encodeURIComponent(query)}`
+        : `/nav/calculators?search=${encodeURIComponent(query)}`
+      navigate(url)
     }
   }
 
@@ -71,23 +94,35 @@ export function NavDashboardPage() {
     refetchOverview()
   }
 
+  const handleProjectChange = (newProjectId: string) => {
+    if (newProjectId !== projectId) {
+      navigate(`/projects/${newProjectId}/nav`)
+    }
+  }
+
   return (
-    <NavPermissionGuard 
-      permission={NAV_PERMISSIONS.VIEW_DASHBOARD}
-      showPermissionNotice={true}
-      className="space-y-6"
-    >
-      {/* Dashboard Header */}
-      <NavDashboardHeader
+    <>
+      {/* Enhanced Header - Matches Climate Receivables Style */}
+      <NavDashboardHeaderEnhanced
+        projectId={projectId}
+        projectName={project?.name}
         title="NAV Dashboard"
         subtitle="Net Asset Value calculations and analytics"
-        onSearch={handleSearch}
         onRefresh={handleRefresh}
-        onQuickCalculate={handleQuickCalculate}
-        onViewHistory={handleViewHistory}
-        isLoading={overviewLoading}
+        onProjectChange={handleProjectChange}
+        onCalculateNav={handleQuickCalculate}
+        isLoading={overviewLoading || isLoadingProject}
+        showCalculateNav={true}
       />
 
+      {/* Horizontal Navigation */}
+      <NavNavigation projectId={projectId} />
+      
+      <NavPermissionGuard 
+        permission={NAV_PERMISSIONS.VIEW_DASHBOARD}
+        showPermissionNotice={true}
+        className="container mx-auto px-6 py-8 space-y-6"
+      >
       {/* KPI Cards */}
       <NavKpiCards 
         kpis={kpis}
@@ -139,7 +174,13 @@ export function NavDashboardPage() {
                 <Button
                   variant="outline"
                   className="w-full mt-4"
-                  onClick={() => navigate('/nav/calculators')}
+                  onClick={() => {
+                    if (projectId) {
+                      navigate(`/projects/${projectId}/nav/calculators`)
+                    } else {
+                      navigate('/nav/calculators')
+                    }
+                  }}
                 >
                   View All Calculators
                 </Button>
@@ -282,7 +323,13 @@ export function NavDashboardPage() {
                 <Button
                   variant="outline"
                   className="w-full mt-4"
-                  onClick={() => navigate('/nav/analytics')}
+                  onClick={() => {
+                    if (projectId) {
+                      navigate(`/projects/${projectId}/nav/analytics`)
+                    } else {
+                      navigate('/nav/analytics')
+                    }
+                  }}
                 >
                   View Analytics
                 </Button>
@@ -346,6 +393,7 @@ export function NavDashboardPage() {
         </div>
       )}
     </NavPermissionGuard>
+    </>
   )
 }
 

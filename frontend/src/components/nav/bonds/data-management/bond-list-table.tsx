@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { format } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 import {
   Eye,
   Edit,
@@ -13,6 +13,20 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-react'
+
+// Helper function to safely format dates
+const formatSafeDate = (dateValue: string | Date | null | undefined, formatString: string = 'MMM dd, yyyy'): string => {
+  if (!dateValue) return 'N/A'
+  
+  try {
+    const date = typeof dateValue === 'string' ? parseISO(dateValue) : dateValue
+    if (!isValid(date)) return 'Invalid Date'
+    return format(date, formatString)
+  } catch (error) {
+    console.error('Date formatting error:', error, 'Value:', dateValue)
+    return 'Invalid Date'
+  }
+}
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -50,7 +64,7 @@ interface BondListTableProps {
   onCalculate?: (bondId: string) => void
 }
 
-type SortField = 'asset_name' | 'issuer_name' | 'par_value' | 'coupon_rate' | 'maturity_date'
+type SortField = 'asset_name' | 'issuer_name' | 'face_value' | 'coupon_rate' | 'maturity_date'
 type SortDirection = 'asc' | 'desc'
 
 export function BondListTable({
@@ -179,7 +193,7 @@ export function BondListTable({
       bond.issuer_name,
       bond.isin || '',
       bond.cusip || '',
-      bond.par_value,
+      bond.face_value || bond.par_value || 0,
       bond.coupon_rate,
       bond.maturity_date,
       bond.accounting_treatment,
@@ -298,10 +312,10 @@ export function BondListTable({
                     variant="ghost"
                     size="sm"
                     className="h-8 p-0 hover:bg-transparent"
-                    onClick={() => handleSort('par_value')}
+                    onClick={() => handleSort('face_value')}
                   >
-                    Par Value
-                    <SortIcon field="par_value" />
+                    Face Value
+                    <SortIcon field="face_value" />
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -355,10 +369,10 @@ export function BondListTable({
                   </TableCell>
                   <TableCell>{bond.issuer_name}</TableCell>
                   <TableCell>
-                    {bond.currency} {bond.par_value.toLocaleString()}
+                    {bond.currency} {((bond.face_value || bond.par_value) || 0).toLocaleString()}
                   </TableCell>
                   <TableCell>{(bond.coupon_rate * 100).toFixed(2)}%</TableCell>
-                  <TableCell>{format(new Date(bond.maturity_date), 'MMM dd, yyyy')}</TableCell>
+                  <TableCell>{formatSafeDate(bond.maturity_date)}</TableCell>
                   <TableCell>
                     <Badge
                       variant={

@@ -1,3 +1,5 @@
+console.log('🚨🚨🚨 bond-calculator-form.tsx FILE LOADED')
+
 import { useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
@@ -15,16 +17,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { cn } from '@/utils/utils'
 
 import { useCalculateBondNAV } from '@/hooks/bonds/useBondData'
-import { AccountingMethodSelector } from './accounting-method-selector'
-import type { CalculationParams, NAVResult, AccountingTreatment } from '@/types/nav/bonds'
+import type { CalculationParams, NAVResult } from '@/types/nav/bonds'
 
 // Validation schema
+// NOTE: accountingMethod is determined from the database, not user input
 const calculatorFormSchema = z.object({
   asOfDate: z.date({
     required_error: 'As-of date is required',
-  }),
-  accountingMethod: z.enum(['held_to_maturity', 'available_for_sale', 'trading'], {
-    required_error: 'Accounting method is required',
   }),
   includeBreakdown: z.boolean().default(true),
   includeRiskMetrics: z.boolean().default(true),
@@ -36,7 +35,7 @@ type CalculatorFormValues = z.infer<typeof calculatorFormSchema>
 interface BondCalculatorFormProps {
   bondId: string
   bondName: string
-  currentAccountingMethod?: 'held_to_maturity' | 'available_for_sale' | 'trading'
+  accountingClassification?: 'held_to_maturity' | 'available_for_sale' | 'trading'
   onSuccess?: (result: NAVResult) => void
   onError?: (error: Error) => void
 }
@@ -44,10 +43,12 @@ interface BondCalculatorFormProps {
 export function BondCalculatorForm({
   bondId,
   bondName,
-  currentAccountingMethod,
+  accountingClassification,
   onSuccess,
   onError,
 }: BondCalculatorFormProps) {
+  console.log('🟡 BondCalculatorForm mounted with bondId:', bondId)
+  
   const [calculationResult, setCalculationResult] = useState<NAVResult | null>(null)
   const calculateMutation = useCalculateBondNAV(bondId)
 
@@ -55,7 +56,6 @@ export function BondCalculatorForm({
     resolver: zodResolver(calculatorFormSchema),
     defaultValues: {
       asOfDate: new Date(),
-      accountingMethod: currentAccountingMethod || 'held_to_maturity',
       includeBreakdown: true,
       includeRiskMetrics: true,
       saveToDatabase: true,
@@ -63,19 +63,36 @@ export function BondCalculatorForm({
   })
 
   const onSubmit = async (values: CalculatorFormValues) => {
+    console.log('🟢 FORM SUBMITTED!')
+    console.log('🟢 Form values:', values)
+    
     try {
       const params: CalculationParams = {
         asOfDate: values.asOfDate,
-        accountingMethod: values.accountingMethod as AccountingTreatment,
         includeBreakdown: values.includeBreakdown,
         saveToDatabase: values.saveToDatabase,
       }
 
+      console.log('🟢 Calling calculateMutation.mutateAsync with params:', params)
+      
       const result = await calculateMutation.mutateAsync(params)
+      
+      console.log('🟢 Got result from mutation!')
+      console.log('🟢 result:', result)
+      console.log('🟢 result type:', typeof result)
+      console.log('🟢 result keys:', result ? Object.keys(result) : 'null/undefined')
+      console.log('🟢 result.data:', result.data)
+      console.log('🟢 result.data.netAssetValue:', result.data?.netAssetValue)
+      
+      console.log('🟢 Setting calculation result to:', result.data)
       setCalculationResult(result.data)
+      
+      console.log('🟢 Calling onSuccess callback')
       onSuccess?.(result.data)
+      
+      console.log('🟢 Form submission complete!')
     } catch (error) {
-      console.error('Calculation error:', error)
+      console.error('🔴 FORM ERROR:', error)
       onError?.(error as Error)
     }
   }
@@ -141,27 +158,19 @@ export function BondCalculatorForm({
                 )}
               />
 
-              {/* Accounting Method */}
-              <FormField
-                control={form.control}
-                name="accountingMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Accounting Method</FormLabel>
-                    <FormControl>
-                      <AccountingMethodSelector
-                        value={field.value}
-                        onChange={field.onChange}
-                        currentMethod={currentAccountingMethod}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Select the accounting treatment method for valuation
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Accounting Classification Info */}
+              {accountingClassification && (
+                <div className="rounded-lg border bg-muted/50 p-4">
+                  <div className="font-medium text-sm mb-1">Accounting Classification</div>
+                  <div className="text-sm text-muted-foreground">
+                    This bond uses <span className="font-semibold text-foreground">
+                      {accountingClassification === 'held_to_maturity' ? 'Held-to-Maturity (HTM)' :
+                       accountingClassification === 'available_for_sale' ? 'Available-for-Sale (AFS)' :
+                       'Trading'}
+                    </span> accounting treatment. The calculator will automatically use the appropriate valuation method.
+                  </div>
+                </div>
+              )}
 
               {/* Options */}
               <div className="space-y-4">
@@ -231,15 +240,97 @@ export function BondCalculatorForm({
                 />
               </div>
 
-              {/* Error Display */}
+              {/* Error Display - Enhanced with Detailed Validation Errors */}
               {calculateMutation.isError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Calculation Failed</AlertTitle>
-                  <AlertDescription>
-                    {calculateMutation.error?.message || 'An error occurred during calculation'}
-                  </AlertDescription>
-                </Alert>
+                <div className="space-y-3">
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Calculation Failed</AlertTitle>
+                    <AlertDescription className="mt-2 space-y-2">
+                      <p className="font-medium">
+                        {calculateMutation.error?.message?.split('\n')[0] || 'An error occurred during calculation'}
+                      </p>
+                      
+                      {/* Show detailed errors if available */}
+                      {(calculateMutation.error as any)?.details && (
+                        <div className="mt-4 space-y-4 border-t pt-4">
+                          <p className="text-sm font-semibold">Detailed Information:</p>
+                          {(calculateMutation.error as any).details.map((error: any, index: number) => (
+                            <div key={index} className="bg-white/10 rounded-lg p-3 space-y-2 text-sm">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                <div className="space-y-1 flex-1">
+                                  {/* Error Message */}
+                                  <p className="font-medium">
+                                    {error.field && `${error.field}: `}{error.message}
+                                  </p>
+                                  
+                                  {/* Error Code (for database errors) */}
+                                  {error.code && (
+                                    <p className="text-xs opacity-90">
+                                      🔧 <span className="font-medium">Error Code:</span> {error.code}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Constraint Name (for database errors) */}
+                                  {error.constraint && (
+                                    <p className="text-xs opacity-90">
+                                      ⚠️ <span className="font-medium">Constraint:</span> {error.constraint}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Fix Instructions */}
+                                  {error.fix && (
+                                    <p className="text-xs opacity-90">
+                                      💡 <span className="font-medium">Fix:</span> {error.fix}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Table Name */}
+                                  {error.table && (
+                                    <p className="text-xs opacity-90">
+                                      📊 <span className="font-medium">Table:</span> {error.table}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Context Details (expandable) */}
+                                  {error.context && Object.keys(error.context).length > 0 && (
+                                    <details className="text-xs opacity-75 mt-2">
+                                      <summary className="cursor-pointer hover:opacity-100 font-medium">
+                                        Show technical details
+                                      </summary>
+                                      <div className="mt-2 p-2 bg-black/10 rounded space-y-1">
+                                        {Object.entries(error.context).map(([key, value]) => (
+                                          <div key={key} className="flex gap-2">
+                                            <span className="font-medium">{key}:</span>
+                                            <span className="opacity-90">
+                                              {typeof value === 'object' 
+                                                ? JSON.stringify(value, null, 2)
+                                                : String(value)
+                                              }
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </details>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Show formatted message if no details */}
+                      {!(calculateMutation.error as any)?.details && 
+                       calculateMutation.error?.message?.includes('\n') && (
+                        <pre className="mt-3 text-xs whitespace-pre-wrap font-mono bg-white/10 p-3 rounded-lg max-h-60 overflow-auto">
+                          {calculateMutation.error.message}
+                        </pre>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                </div>
               )}
 
               {/* Submit Button */}

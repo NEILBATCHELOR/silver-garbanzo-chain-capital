@@ -5,7 +5,9 @@
 
 // Main components
 export { NavDashboardHeader } from './nav-dashboard-header'
+export { NavDashboardHeaderEnhanced } from './nav-dashboard-header-enhanced'
 export { NavKpiCards } from './nav-kpi-cards'
+export { default as NavNavigation } from './shared/nav-navigation'
 
 // Calculator components
 export { CalculatorShell } from './calculators/calculator-shell'

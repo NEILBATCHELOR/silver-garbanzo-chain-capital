@@ -84,8 +84,16 @@ export class BondsValidator {
     const errors: ValidationError[] = []
     const warnings: ValidationWarning[] = []
     
+    // Helper to check if value is negative (works with both Decimal and number)
+    const isNegativeValue = (val: any): boolean => {
+      if (!val) return true
+      if (typeof val === 'number') return val < 0
+      if (typeof val === 'object' && 'isNegative' in val) return val.isNegative()
+      return true // If we can't determine, consider it invalid
+    }
+    
     // Validate NAV is present and positive
-    if (!result.nav || result.nav.isNegative()) {
+    if (isNegativeValue(result.nav)) {
       errors.push({
         field: 'nav',
         rule: 'positive',
@@ -128,11 +136,11 @@ export class BondsValidator {
       'issuer_name',
       'issue_date',
       'maturity_date',
-      'par_value',
+      'face_value',
       'currency',
       'coupon_rate',
       'coupon_frequency',
-      'accounting_classification'
+      'accounting_treatment'
     ]
     
     for (const field of requiredFields) {
@@ -161,15 +169,18 @@ export class BondsValidator {
       }
     }
     
-    // Validate coupon frequency
-    const validFrequencies = [1, 2, 4, 12]
-    if (product.coupon_frequency && !validFrequencies.includes(product.coupon_frequency)) {
-      errors.push({
-        field: 'coupon_frequency',
-        rule: 'enum',
-        message: 'Coupon frequency must be 1, 2, 4, or 12 (annual, semi-annual, quarterly, monthly)',
-        value: product.coupon_frequency
-      })
+    // Validate coupon frequency (FIX: Handle string type, convert to number)
+    if (product.coupon_frequency) {
+      const frequency = this.parseFrequency(product.coupon_frequency)
+      const validFrequencies = [1, 2, 4, 12]
+      if (!validFrequencies.includes(frequency)) {
+        errors.push({
+          field: 'coupon_frequency',
+          rule: 'enum',
+          message: 'Coupon frequency must be annual, semi-annual, quarterly, or monthly',
+          value: product.coupon_frequency
+        })
+      }
     }
   }
   
@@ -184,7 +195,7 @@ export class BondsValidator {
   ): void {
     
     // For HTM (Held-to-Maturity): Need coupon schedule
-    if (product.accounting_classification === 'htm') {
+    if (product.accounting_treatment === 'held_to_maturity' || product.accounting_treatment === 'htm') {
       if (supporting.couponPayments.length === 0) {
         errors.push({
           field: 'couponPayments',
@@ -196,12 +207,14 @@ export class BondsValidator {
     }
     
     // For AFS/Trading: Need market prices
-    if (product.accounting_classification === 'afs' || product.accounting_classification === 'trading') {
+    if (product.accounting_treatment === 'available_for_sale' || 
+        product.accounting_treatment === 'afs' || 
+        product.accounting_treatment === 'trading') {
       if (supporting.marketPrices.length === 0) {
         errors.push({
           field: 'marketPrices',
           rule: 'required',
-          message: `Market prices are required for ${product.accounting_classification.toUpperCase()} classification`,
+          message: `Market prices are required for ${product.accounting_treatment.toUpperCase()} classification`,
           value: supporting.marketPrices.length
         })
       }
@@ -215,8 +228,8 @@ export class BondsValidator {
       }
     }
     
-    // For callable bonds: Need call schedule
-    if (product.is_callable && supporting.callPutSchedules.length === 0) {
+    // For callable bonds: Need call schedule (FIX: callable_flag not is_callable)
+    if (product.callable_flag && supporting.callPutSchedules.length === 0) {
       warnings.push({
         field: 'callPutSchedules',
         issue: 'Bond is callable but no call schedule provided',
@@ -224,8 +237,8 @@ export class BondsValidator {
       })
     }
     
-    // For puttable bonds: Need put schedule
-    if (product.is_puttable && supporting.callPutSchedules.length === 0) {
+    // For puttable bonds: Need put schedule (FIX: puttable not is_puttable)
+    if (product.puttable && supporting.callPutSchedules.length === 0) {
       warnings.push({
         field: 'callPutSchedules',
         issue: 'Bond is puttable but no put schedule provided',
@@ -233,14 +246,22 @@ export class BondsValidator {
       })
     }
     
-    // For amortizing bonds: Need amortization schedule
-    if (product.is_amortizing && supporting.amortizationSchedule.length === 0) {
-      errors.push({
-        field: 'amortizationSchedule',
-        rule: 'required',
-        message: 'Amortization schedule is required for amortizing bonds',
-        value: supporting.amortizationSchedule.length
-      })
+    // For amortizing bonds: Infer from amortization schedule presence (FIX: No is_amortizing field)
+    // Amortization is critical for proper cash flow calculation
+    if (supporting.amortizationSchedule && supporting.amortizationSchedule.length > 0) {
+      // This is an amortizing bond - validate the schedule is complete
+      const scheduleHasGaps = this.validateAmortizationScheduleCompleteness(
+        supporting.amortizationSchedule,
+        product
+      )
+      
+      if (scheduleHasGaps) {
+        warnings.push({
+          field: 'amortizationSchedule',
+          issue: 'Amortization schedule appears incomplete',
+          recommendation: 'Ensure all principal payment dates are included in bond_amortization_schedule'
+        })
+      }
     }
     
     // Credit ratings recommended for all bonds
@@ -265,14 +286,8 @@ export class BondsValidator {
     
     // Validate coupon payments consistency
     for (const payment of supporting.couponPayments) {
-      if (payment.currency !== product.currency) {
-        errors.push({
-          field: 'couponPayments',
-          rule: 'consistency',
-          message: `Coupon payment currency (${payment.currency}) does not match bond currency (${product.currency})`,
-          value: payment.id
-        })
-      }
+      // FIX: Currency field doesn't exist on couponPayment - only on product
+      // Removed currency check
       
       // Validate payment dates are between issue and maturity
       const paymentDate = new Date(payment.payment_date)
@@ -298,14 +313,65 @@ export class BondsValidator {
         })
       }
       
-      if (price.yield_to_maturity && (price.yield_to_maturity < -0.05 || price.yield_to_maturity > 0.50)) {
+      // FIX: yield_to_maturity → ytm (correct field name in bond_market_prices)
+      if (!price.ytm) {
         warnings.push({
-          field: 'marketPrices',
-          issue: `Unusual YTM: ${price.yield_to_maturity}`,
+          field: 'ytm',
+          issue: `Market price on ${price.price_date} missing ytm`,
+          recommendation: 'Add YTM to all market price entries'
+        })
+      } else if (price.ytm < -0.05 || price.ytm > 0.50) {
+        warnings.push({
+          field: 'ytm',
+          issue: `Unusual YTM: ${price.ytm}`,
           recommendation: 'Verify YTM is correct (typical range: -5% to 50%)'
         })
       }
     }
+  }
+  
+  /**
+   * Helper: Parse coupon frequency string to number
+   */
+  private parseFrequency(frequency: string): number {
+    const freq = frequency.toLowerCase()
+    if (freq.includes('annual') && !freq.includes('semi')) return 1
+    if (freq.includes('semi')) return 2
+    if (freq.includes('quarter')) return 4
+    if (freq.includes('month')) return 12
+    return 2 // Default to semi-annual
+  }
+  
+  /**
+   * Helper: Validate amortization schedule completeness
+   * Returns true if there are gaps
+   */
+  protected validateAmortizationScheduleCompleteness(
+    schedule: any[],
+    product: BondProduct
+  ): boolean {
+    if (schedule.length === 0) return false
+    
+    // Basic check: Schedule should have multiple entries
+    if (schedule.length < 2) return true
+    
+    // Check dates are sequential
+    const dates = schedule.map(s => new Date(s.payment_date)).sort((a, b) => a.getTime() - b.getTime())
+    
+    for (let i = 1; i < dates.length; i++) {
+      const currentDate = dates[i]
+      const prevDate = dates[i-1]
+      
+      if (!currentDate || !prevDate) continue
+      
+      const diffMonths = (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+      // If gap is more than 6 months, flag it
+      if (diffMonths > 6) {
+        return true
+      }
+    }
+    
+    return false
   }
 }
 

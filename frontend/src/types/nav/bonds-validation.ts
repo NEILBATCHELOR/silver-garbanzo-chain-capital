@@ -245,11 +245,18 @@ export const bondBulkUploadSchema = z.object({
 
 // ==================== CALCULATION PARAMETER SCHEMA ====================
 
+/**
+ * Bond NAV Calculation Parameters
+ * 
+ * NOTE: accountingMethod is NOT included here because it's determined
+ * from the database (bond_products.accounting_classification).
+ * The calculator automatically routes to the correct method based on
+ * the bond's accounting classification.
+ */
 export const bondCalculationParamsSchema = z.object({
   asOfDate: z.date(),
   includeBreakdown: z.boolean().optional().default(false),
-  saveToDatabase: z.boolean().optional().default(true),
-  accountingMethod: accountingTreatmentSchema.optional()
+  saveToDatabase: z.boolean().optional().default(true)
 })
 
 // ==================== TYPE EXPORTS ====================

@@ -62,7 +62,7 @@ export function CalculationBreakdown({ breakdown }: CalculationBreakdownProps) {
                   <TableRow>
                     <TableCell className="font-medium">Clean Price</TableCell>
                     <TableCell className="text-right">
-                      {breakdown.cleanPrice.toFixed(4)}%
+                      {formatCurrency(breakdown.cleanPrice)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       Price without accrued interest
@@ -84,7 +84,7 @@ export function CalculationBreakdown({ breakdown }: CalculationBreakdownProps) {
                   <TableRow>
                     <TableCell className="font-medium">Dirty Price</TableCell>
                     <TableCell className="text-right">
-                      {breakdown.dirtyPrice.toFixed(4)}%
+                      {formatCurrency(breakdown.dirtyPrice)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       Price including accrued interest

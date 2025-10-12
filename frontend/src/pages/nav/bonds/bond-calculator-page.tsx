@@ -1,180 +1,227 @@
 /**
  * Bond Calculator Page
- * Page for calculating NAV for a specific bond (database mode)
+ * NAV calculation interface for bonds
+ * Pattern matches ClimateReceivablesManager structure
  */
 
 import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Calculator } from 'lucide-react'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { BondCalculatorForm } from '@/components/nav/bonds/calculator/bond-calculator-form'
-import { CalculationResults } from '@/components/nav/bonds/calculator/calculation-results'
-import { CalculationBreakdown } from '@/components/nav/bonds/calculator/calculation-breakdown'
-import { RiskMetricsPanel } from '@/components/nav/bonds/calculator/risk-metrics-panel'
-import { useBond } from '@/hooks/bonds/useBondData'
-import type { NAVResult } from '@/types/nav/bonds'
+import {
+  BondCalculatorForm,
+  CalculationResults,
+  CalculationBreakdown,
+  RiskMetricsPanel,
+  BondNavigation,
+} from '@/components/nav/bonds'
+import { NavNavigation, NavDashboardHeader } from '@/components/nav'
+import { useBond } from '@/hooks/bonds'
+import { CombinedOrgProjectSelector } from '@/components/organizations'
+import { useTokenProjectContext } from '@/hooks/project'
 
 export default function BondCalculatorPage() {
   const navigate = useNavigate()
-  const { bondId } = useParams<{ bondId: string }>()
-  const [result, setResult] = useState<NAVResult | null>(null)
+  const { bondId, projectId: urlProjectId } = useParams()
+  const { projectId: contextProjectId } = useTokenProjectContext()
+  
+  // Get project ID from URL param or context
+  const projectId = urlProjectId || contextProjectId
 
-  const { data: bondData, isLoading, error } = useBond(bondId || '')
+  // Fetch bond data
+  const { data: bond, isLoading, refetch } = useBond(bondId!)
+
+  // Calculation result state
+  const [calculationResult, setCalculationResult] = useState<any>(null)
 
   const handleBack = () => {
-    navigate(`/nav/bonds/${bondId}`)
+    if (projectId) {
+      navigate(`/projects/${projectId}/nav/bonds/${bondId}`)
+    } else {
+      navigate(`/nav/bonds/${bondId}`)
+    }
   }
 
   const handleBackToList = () => {
-    navigate('/nav/bonds')
+    if (projectId) {
+      navigate(`/projects/${projectId}/nav/bonds`)
+    } else {
+      navigate('/nav/bonds')
+    }
+  }
+
+  const handleSuccess = (result: any) => {
+    setCalculationResult(result)
   }
 
   const handleNewCalculation = () => {
-    setResult(null)
+    setCalculationResult(null)
   }
 
-  const handleSuccess = (calculationResult: NAVResult) => {
-    setResult(calculationResult)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-96 bg-gray-200 rounded-lg"></div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-6">
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-800">Error Loading Bond</CardTitle>
-            <CardDescription className="text-red-600">
-              {error.message || 'Failed to load bond for calculation. Please try again.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={handleBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Bond
-              </Button>
-              <Button variant="outline" onClick={handleBackToList}>
-                Back to List
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+  const handleRefresh = () => {
+    refetch()
   }
 
   if (!bondId) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="text-yellow-800">No Bond Selected</CardTitle>
-            <CardDescription className="text-yellow-600">
-              Please select a bond from the list to calculate NAV.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" onClick={handleBackToList}>
+      <>
+        <NavNavigation projectId={projectId} />
+        <BondNavigation projectId={projectId} />
+        <div className="container mx-auto px-6 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <p className="text-red-800 font-medium">Invalid Bond ID</p>
+            <Button
+              variant="outline"
+              onClick={handleBackToList}
+              className="mt-4"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to List
+              Back to Bonds List
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      </>
     )
   }
 
-  const bond = bondData?.data
+  if (isLoading) {
+    return (
+      <>
+        <NavNavigation projectId={projectId} />
+        <BondNavigation projectId={projectId} />
+        <div className="container mx-auto px-6 py-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-96 bg-gray-200 rounded-lg"></div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (!bond) {
+    return (
+      <>
+        <NavNavigation projectId={projectId} />
+        <BondNavigation projectId={projectId} />
+        <div className="container mx-auto px-6 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <p className="text-red-800 font-medium">Bond Not Found</p>
+            <Button
+              variant="outline"
+              onClick={handleBackToList}
+              className="mt-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Bonds List
+            </Button>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+    <>
+      {/* Top-level NAV Navigation */}
+      <NavNavigation projectId={projectId} />
+      
+      {/* Project Selector */}
+      <div className="bg-white border-b px-6 py-3">
+        <div className="flex items-center justify-between">
+          <CombinedOrgProjectSelector 
+            className="w-64"
+          />
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleBack}
+            onClick={handleRefresh}
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Bond
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center">
-              <Calculator className="h-6 w-6 mr-2" />
-              Calculate NAV
-            </h1>
-            {bond?.asset_name && (
-              <p className="text-muted-foreground">
-                {bond.asset_name}
-              </p>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Calculator or Results */}
-      {!result ? (
-        <BondCalculatorForm
-          bondId={bondId}
-          bondName={bond?.asset_name || ''}
-          currentAccountingMethod={bond?.accounting_treatment}
-          onSuccess={handleSuccess}
-        />
-      ) : (
-        <div className="space-y-6">
-          {/* Results Display */}
-          <CalculationResults
-            result={result}
-            bondName={bond?.asset_name || ''}
-            onNewCalculation={handleNewCalculation}
+      {/* Bond-specific Sub-navigation */}
+      <BondNavigation projectId={projectId} />
+
+      <div className="container mx-auto px-6 py-8 space-y-6">
+        {/* Dashboard Header */}
+        <div className="space-y-4">
+          <NavDashboardHeader
+            title="Calculate Bond NAV"
+            subtitle={`${bond.data.asset_name || bond.data.cusip || bond.data.isin || 'Bond'} | ${bond.data.issuer_name || 'Unknown Issuer'}`}
+            onRefresh={handleRefresh}
           />
-
-          {/* Breakdown (if available) */}
-          {result.breakdown && (
-            <CalculationBreakdown
-              breakdown={result.breakdown}
-            />
-          )}
-
-          {/* Risk Metrics (if available) */}
-          {result.riskMetrics && (
-            <RiskMetricsPanel
-              metrics={result.riskMetrics}
-            />
-          )}
-
-          {/* Actions */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex space-x-2">
-                <Button onClick={handleNewCalculation}>
-                  <Calculator className="h-4 w-4 mr-2" />
-                  New Calculation
-                </Button>
-                <Button variant="outline" onClick={handleBack}>
-                  Back to Bond Details
-                </Button>
-                <Button variant="outline" onClick={handleBackToList}>
-                  Back to List
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackToList}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to List
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBack}
+            >
+              View Bond Details
+            </Button>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Calculator or Results */}
+        {!calculationResult ? (
+          <BondCalculatorForm
+            bondId={bondId}
+            bondName={bond.data.asset_name || bond.data.cusip || bond.data.isin || 'Bond'}
+            accountingClassification={bond.data.accounting_treatment}
+            onSuccess={handleSuccess}
+          />
+        ) : (
+          <div className="space-y-6">
+            {/* Primary Results */}
+            <CalculationResults
+              result={calculationResult}
+              bondName={bond.data.asset_name || bond.data.cusip || bond.data.isin || 'Bond'}
+              onNewCalculation={handleNewCalculation}
+            />
+
+            {/* Detailed Breakdown */}
+            {calculationResult.breakdown && (
+              <CalculationBreakdown breakdown={calculationResult.breakdown} />
+            )}
+
+            {/* Risk Metrics */}
+            {calculationResult.bondMetrics && (
+              <RiskMetricsPanel metrics={calculationResult.bondMetrics} />
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Bond Details
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleNewCalculation}
+              >
+                Run New Calculation
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   )
 }

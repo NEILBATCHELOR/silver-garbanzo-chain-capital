@@ -332,6 +332,7 @@ export interface BondProductInput {
   // Characteristics
   bond_type: BondType
   face_value: number
+  par_value?: number  // Alias for face_value for UI compatibility
   coupon_rate: number
   coupon_frequency: string
   credit_rating?: string
@@ -364,6 +365,7 @@ export interface CouponPaymentInput {
   payment_date: Date
   coupon_amount: number
   payment_status?: PaymentStatus
+  actual_payment_date?: Date
   accrual_start_date: Date
   accrual_end_date: Date
   days_in_period: number
@@ -388,8 +390,10 @@ export interface MarketPriceInput {
 export interface CallPutScheduleInput {
   option_type: 'call' | 'put'
   option_date: Date
+  exercise_date?: Date  // Alias for option_date for UI compatibility
   call_price?: number
   put_price?: number
+  strike_price?: number  // Alias for call_price/put_price for UI compatibility
   notice_days?: number
   option_style: OptionStyle
   is_make_whole?: boolean
@@ -410,11 +414,16 @@ export interface BondProductComplete extends BondProduct {
 
 // ==================== CALCULATION TYPES ====================
 
+/**
+ * Bond NAV Calculation Parameters
+ * 
+ * NOTE: accountingMethod is NOT included because it's determined from
+ * the database (bond_products.accounting_classification).
+ */
 export interface CalculationParams {
   asOfDate: Date
   includeBreakdown?: boolean
   saveToDatabase?: boolean
-  accountingMethod?: AccountingTreatment
 }
 
 export interface NAVResult {
@@ -445,6 +454,15 @@ export interface NAVResult {
     convexity?: number
     dv01?: number
     spreadDuration?: number
+  }
+  marketComparison?: {
+    accountingValue: number
+    accountingYTM: number
+    marketValue: number
+    marketYTM: number
+    marketPriceDate: Date
+    unrealizedGainLoss: number
+    yieldSpread: number
   }
 }
 
