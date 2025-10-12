@@ -23,8 +23,8 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useAddCouponPayments } from '@/hooks/bonds/useBondData'
-import type { CouponPaymentInput } from '@/types/nav/bonds'
+import { useAddCouponPayments, useDeleteCouponPayment } from '@/hooks/bonds/useBondData'
+import type { CouponPaymentInput, CouponPayment } from '@/types/nav/bonds'
 import { PaymentStatus } from '@/types/nav/bonds'
 import { validateCouponPayments, formatPaymentStatus } from '@/utils/bonds'
 
@@ -39,7 +39,7 @@ interface BondCharacteristics {
 interface CouponPaymentBuilderProps {
   bondId: string
   characteristics: BondCharacteristics
-  existingPayments?: CouponPaymentInput[]
+  existingPayments?: Array<CouponPayment | CouponPaymentInput>  // Support both types
   onSuccess?: () => void
 }
 
@@ -49,13 +49,15 @@ export function CouponPaymentBuilder({
   existingPayments = [],
   onSuccess,
 }: CouponPaymentBuilderProps) {
-  const [payments, setPayments] = useState<CouponPaymentInput[]>(existingPayments)
+  const [payments, setPayments] = useState<Array<CouponPayment | CouponPaymentInput>>(existingPayments)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showAccruedCalculator, setShowAccruedCalculator] = useState(false)
   const [calculationDate, setCalculationDate] = useState<Date>(new Date())
   const [validationErrors, setValidationErrors] = useState<Map<number, string[]>>(new Map())
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null)  // Track which payment is being deleted
 
   const addPaymentsMutation = useAddCouponPayments(bondId)
+  const deletePaymentMutation = useDeleteCouponPayment(bondId)
 
   /**
    * Generate payment schedule from bond characteristics
@@ -212,11 +214,56 @@ export function CouponPaymentBuilder({
     setEditingIndex(payments.length)
   }
 
-  const handleDeletePayment = (index: number) => {
-    setPayments(payments.filter((_, i) => i !== index))
-    const errors = new Map(validationErrors)
-    errors.delete(index)
-    setValidationErrors(errors)
+  /**
+   * Delete payment - calls API if payment exists in database
+   * FIXED: Now properly deletes from database instead of just local state
+   */
+  const handleDeletePayment = async (index: number) => {
+    const payment = payments[index]
+    
+    // Check if this is an existing payment (has an id from database)
+    const isExistingPayment = 'id' in payment && payment.id
+    
+    if (isExistingPayment) {
+      // Payment exists in database - call API to delete
+      const confirmed = window.confirm(
+        'Delete this coupon payment from the database? This action cannot be undone.'
+      )
+      
+      if (!confirmed) return
+      
+      try {
+        setDeletingIndex(index)  // Show loading state
+        
+        await deletePaymentMutation.mutateAsync(payment.id)
+        
+        // Success - remove from local state
+        setPayments(payments.filter((_, i) => i !== index))
+        
+        // Clear validation errors
+        const errors = new Map(validationErrors)
+        errors.delete(index)
+        setValidationErrors(errors)
+        
+        // Call success callback
+        onSuccess?.()
+      } catch (error) {
+        console.error('Failed to delete coupon payment:', error)
+        alert(
+          `Failed to delete payment: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      } finally {
+        setDeletingIndex(null)
+      }
+    } else {
+      // New payment not yet saved - just remove from local state
+      setPayments(payments.filter((_, i) => i !== index))
+      
+      // Clear validation errors
+      const errors = new Map(validationErrors)
+      errors.delete(index)
+      setValidationErrors(errors)
+    }
   }
 
   /**
@@ -576,8 +623,13 @@ export function CouponPaymentBuilder({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeletePayment(index)}
+                          disabled={deletingIndex === index}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          {deletingIndex === index ? (
+                            <span className="text-xs">Deleting...</span>
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
                         </Button>
                       </div>
                       {hasErrors && (

@@ -162,6 +162,26 @@ export function useAddCouponPayments(
 }
 
 /**
+ * Delete a coupon payment from a bond
+ */
+export function useDeleteCouponPayment(
+  bondId: string,
+  options?: UseMutationOptions<{ success: boolean; message: string }, Error, string>
+) {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (paymentId) => BondsAPI.deleteCouponPayment(bondId, paymentId),
+    onSuccess: (data, variables, onMutateResult, context) => {
+      // Invalidate bond detail to refresh payment list
+      queryClient.invalidateQueries({ queryKey: bondKeys.detail(bondId) })
+      options?.onSuccess?.(data, variables, onMutateResult, context)
+    },
+    ...options,
+  })
+}
+
+/**
  * Add market prices to a bond
  */
 export function useAddMarketPrices(

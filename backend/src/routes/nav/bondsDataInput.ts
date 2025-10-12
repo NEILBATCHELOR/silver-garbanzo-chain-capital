@@ -277,6 +277,48 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
   })
   
   /**
+   * DELETE /api/v1/nav/bonds/:bondId/coupon-payments/:paymentId
+   * Delete a specific coupon payment
+   */
+  fastify.delete('/bonds/:bondId/coupon-payments/:paymentId', async (request, reply) => {
+    const { bondId, paymentId } = request.params as { bondId: string; paymentId: string }
+    
+    try {
+      fastify.log.info({ bondId, paymentId }, 'Deleting coupon payment')
+      
+      // Delete the payment
+      const { error } = await fastify.supabase
+        .from('bond_coupon_payments')
+        .delete()
+        .eq('id', paymentId)
+        .eq('bond_product_id', bondId)
+      
+      if (error) {
+        fastify.log.error({ error, bondId, paymentId }, 'Database delete error')
+        return reply.code(500).send({ 
+          success: false, 
+          error: error.message
+        })
+      }
+      
+      fastify.log.info({ bondId, paymentId }, 'Coupon payment deleted successfully')
+      
+      return reply.send({
+        success: true,
+        message: 'Coupon payment deleted successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Unexpected error')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+  
+  /**
    * POST /api/v1/nav/bonds/:bondId/market-prices
    * Add market price history
    */

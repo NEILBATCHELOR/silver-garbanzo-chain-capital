@@ -273,6 +273,20 @@ export const BondsAPI = {
   },
   
   /**
+   * Delete a coupon payment
+   * DELETE /api/v1/nav/bonds/:bondId/coupon-payments/:paymentId
+   */
+  deleteCouponPayment: async (bondId: string, paymentId: string) => {
+    const response = await fetchWithAuth(
+      `${BONDS_BASE}/${bondId}/coupon-payments/${paymentId}`,
+      {
+        method: 'DELETE'
+      }
+    )
+    return handleResponse<{ success: boolean; message: string }>(response)
+  },
+  
+  /**
    * Add market prices to a bond
    * POST /api/v1/nav/bonds/:bondId/market-prices
    */
