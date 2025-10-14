@@ -117,18 +117,18 @@ export function BondHistoryModal({ bondId, open, onClose }: BondHistoryModalProp
                 {history.map((calc) => {
                   // Safely calculate previous NAV change
                   const prev = history[history.indexOf(calc) + 1]
-                  const navChange = prev && calc.netAssetValue && prev.netAssetValue
-                    ? ((calc.netAssetValue - prev.netAssetValue) / prev.netAssetValue) * 100
+                  const navChange = prev && calc.result_nav_value && prev.result_nav_value
+                    ? ((calc.result_nav_value - prev.result_nav_value) / prev.result_nav_value) * 100
                     : 0
 
                   return (
                     <TableRow key={calc.id}>
                       <TableCell>
-                        {formatDate(calc.as_of_date)}
+                        {formatDate(calc.valuation_date)}
                       </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {calc.netAssetValue ? formatCurrency(calc.netAssetValue) : 'N/A'}
+                          {calc.result_nav_value ? formatCurrency(calc.result_nav_value) : 'N/A'}
                           {prev && navChange !== 0 && (
                             <span
                               className={`text-xs flex items-center ${

@@ -75,19 +75,32 @@ const couponPaymentSchema = z.object({
 })
 
 // Market price schema - ALIGNED WITH DATABASE
-const marketPriceSchema = z.object({
+const marketPriceBaseSchema = z.object({
   price_date: z.coerce.date(),
   price_time: z.string().optional(),
-  clean_price: z.number().positive(),
-  dirty_price: z.number().optional(),
+  clean_price: z.number().positive(), // Must be > 0 per database constraint
+  dirty_price: z.number().positive(), // Required and must be positive per database constraint
   bid_price: z.number().optional(),
   ask_price: z.number().optional(),
   mid_price: z.number().optional(),
-  ytm: z.number().optional(),
+  ytm: z.number().min(-0.05).max(0.50).optional().refine(
+    (val) => val === undefined || val === null || (val >= -0.05 && val <= 0.50),
+    {
+      message: 'YTM must be between -5% and 50% (stored as decimal: -0.05 to 0.50)',
+    }
+  ),
   spread_to_benchmark: z.number().optional(),
   data_source: z.enum(['bloomberg', 'reuters', 'ice', 'tradeweb', 'markit', 'internal_pricing', 'vendor']),
   is_official_close: z.boolean().default(false)
 })
+
+const marketPriceSchema = marketPriceBaseSchema.refine(
+  (data) => data.dirty_price >= data.clean_price,
+  {
+    message: 'Dirty price must be greater than or equal to clean price',
+    path: ['dirty_price']
+  }
+)
 
 export async function bondDataInputRoutes(fastify: FastifyInstance) {
   
@@ -319,6 +332,232 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
   })
   
   /**
+   * GET /api/v1/nav/bonds/:bondId/latest-ytm
+   * Get YTM from the latest NAV calculation
+   */
+  fastify.get('/bonds/:bondId/latest-ytm', async (request, reply) => {
+    const { bondId } = request.params as { bondId: string }
+    
+    try {
+      // Get the latest calculation run for this bond
+      const { data: latestRun, error: runError } = await fastify.supabase
+        .from('nav_calculation_runs')
+        .select('id, valuation_date, result_nav_value, created_at')
+        .eq('asset_id', bondId)
+        .eq('status', 'completed')
+        .order('valuation_date', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (runError || !latestRun) {
+        return reply.code(404).send({
+          success: false,
+          error: 'No calculation history found for this bond'
+        })
+      }
+      
+      // Get the valuation calculation step with YTM
+      const { data: historyStep, error: historyError } = await fastify.supabase
+        .from('nav_calculation_history')
+        .select('output_data')
+        .eq('run_id', latestRun.id)
+        .eq('calculation_step', 'valuation_calculation')
+        .single()
+      
+      if (historyError || !historyStep) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Calculation history not found'
+        })
+      }
+      
+      // Extract YTM from output_data
+      const outputData = historyStep.output_data as any
+      const ytm = outputData?.components?.ytm
+      
+      if (!ytm) {
+        return reply.code(404).send({
+          success: false,
+          error: 'YTM not found in calculation'
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: {
+          ytm: parseFloat(ytm),
+          valuationDate: latestRun.valuation_date,
+          navValue: parseFloat(latestRun.result_nav_value),
+          calculatedAt: latestRun.created_at
+        }
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Unexpected error')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+  
+  /**
+   * GET /api/v1/nav/bonds/:bondId/market-prices
+   * Get market price history for a bond
+   */
+  fastify.get('/bonds/:bondId/market-prices', async (request, reply) => {
+    const { bondId } = request.params as { bondId: string }
+    const { limit = 50 } = request.query as { limit?: number }
+    
+    try {
+      const { data, error } = await fastify.supabase
+        .from('bond_market_prices')
+        .select('*')
+        .eq('bond_product_id', bondId)
+        .order('price_date', { ascending: false })
+        .limit(limit)
+      
+      if (error) {
+        fastify.log.error({ error, bondId }, 'Database error fetching market prices')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: data || [],
+        count: data?.length || 0
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, bondId }, 'Unexpected error fetching market prices')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * PUT /api/v1/nav/bonds/:bondId/market-prices/:priceId
+   * Update a specific market price
+   */
+  fastify.put('/bonds/:bondId/market-prices/:priceId', async (request, reply) => {
+    const { bondId, priceId } = request.params as { bondId: string; priceId: string }
+    
+    try {
+      fastify.log.info({ bondId, priceId }, 'Updating market price')
+      
+      // Validate update data using partial schema (all fields optional)
+      const updateSchema = marketPriceBaseSchema.partial()
+      const validatedData = updateSchema.parse(request.body)
+      
+      // Format date if present
+      const updateData = {
+        ...validatedData,
+        ...(validatedData.price_date && {
+          price_date: validatedData.price_date instanceof Date 
+            ? validatedData.price_date.toISOString().split('T')[0]
+            : validatedData.price_date
+        })
+      }
+      
+      // Update the price
+      const { data, error } = await fastify.supabase
+        .from('bond_market_prices')
+        .update(updateData)
+        .eq('id', priceId)
+        .eq('bond_product_id', bondId)
+        .select()
+        .single()
+      
+      if (error) {
+        fastify.log.error({ error, bondId, priceId }, 'Database update error')
+        return reply.code(500).send({ 
+          success: false, 
+          error: error.message
+        })
+      }
+      
+      if (!data) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Market price not found'
+        })
+      }
+      
+      fastify.log.info({ bondId, priceId }, 'Market price updated successfully')
+      
+      return reply.send({
+        success: true,
+        data,
+        message: 'Market price updated successfully'
+      })
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.code(400).send({
+          success: false,
+          errors: error.errors
+        })
+      }
+      
+      fastify.log.error({ error }, 'Unexpected error')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * DELETE /api/v1/nav/bonds/:bondId/market-prices/:priceId
+   * Delete a specific market price
+   */
+  fastify.delete('/bonds/:bondId/market-prices/:priceId', async (request, reply) => {
+    const { bondId, priceId } = request.params as { bondId: string; priceId: string }
+    
+    try {
+      fastify.log.info({ bondId, priceId }, 'Deleting market price')
+      
+      // Delete the price
+      const { error } = await fastify.supabase
+        .from('bond_market_prices')
+        .delete()
+        .eq('id', priceId)
+        .eq('bond_product_id', bondId)
+      
+      if (error) {
+        fastify.log.error({ error, bondId, priceId }, 'Database delete error')
+        return reply.code(500).send({ 
+          success: false, 
+          error: error.message
+        })
+      }
+      
+      fastify.log.info({ bondId, priceId }, 'Market price deleted successfully')
+      
+      return reply.send({
+        success: true,
+        message: 'Market price deleted successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Unexpected error')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
    * POST /api/v1/nav/bonds/:bondId/market-prices
    * Add market price history
    */
@@ -332,10 +571,14 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
       const pricesSchema = z.array(marketPriceSchema)
       const validatedPrices = pricesSchema.parse(prices)
       
-      // Add bond_product_id to each price
+      // Add bond_product_id to each price and format dates for database
       const pricesWithBondId = validatedPrices.map(price => ({
         ...price,
-        bond_product_id: bondId
+        bond_product_id: bondId,
+        // Convert Date to YYYY-MM-DD format for PostgreSQL date column
+        price_date: price.price_date instanceof Date 
+          ? price.price_date.toISOString().split('T')[0]
+          : price.price_date
       }))
       
       // Bulk insert
@@ -375,6 +618,272 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
     }
   })
   
+  /**
+   * GET /api/v1/nav/bonds/:bondId/token-links
+   * Get tokens linked to this bond
+   * Returns tokens where product_id matches bondId
+   */
+  fastify.get('/bonds/:bondId/token-links', async (request, reply) => {
+    const { bondId } = request.params as { bondId: string }
+    
+    try {
+      const { data, error } = await fastify.supabase
+        .from('tokens')
+        .select('id, name, symbol, product_id, ratio, status, created_at, updated_at')
+        .eq('product_id', bondId)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        fastify.log.error({ error, bondId }, 'Database error fetching token links')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: data || [],
+        count: data?.length || 0
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, bondId }, 'Unexpected error fetching token links')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * POST /api/v1/nav/bonds/:bondId/token-links
+   * Link a token to this bond by updating token's product_id and ratio
+   * Body: { tokenId: string, parityRatio: number, collateralizationPercentage: number }
+   */
+  fastify.post('/bonds/:bondId/token-links', async (request, reply) => {
+    const { bondId } = request.params as { bondId: string }
+    const { tokenId, parityRatio, collateralizationPercentage } = request.body as {
+      tokenId: string
+      parityRatio: number
+      collateralizationPercentage: number
+    }
+    
+    try {
+      // Validate inputs
+      if (!tokenId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'tokenId is required'
+        })
+      }
+      
+      if (!parityRatio || parityRatio <= 0) {
+        return reply.code(400).send({
+          success: false,
+          error: 'parityRatio must be a positive number'
+        })
+      }
+      
+      // Check if token exists
+      const { data: token, error: tokenError } = await fastify.supabase
+        .from('tokens')
+        .select('id, product_id')
+        .eq('id', tokenId)
+        .single()
+      
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Token not found'
+        })
+      }
+      
+      // Check if token is already linked to another bond
+      if (token.product_id && token.product_id !== bondId) {
+        return reply.code(400).send({
+          success: false,
+          error: `Token is already linked to another bond (${token.product_id}). Unlink first.`
+        })
+      }
+      
+      // Update token with bond link
+      const { data: updatedToken, error: updateError } = await fastify.supabase
+        .from('tokens')
+        .update({
+          product_id: bondId,
+          ratio: parityRatio
+        })
+        .eq('id', tokenId)
+        .select()
+        .single()
+      
+      if (updateError) {
+        fastify.log.error({ updateError, tokenId, bondId }, 'Failed to link token')
+        return reply.code(500).send({
+          success: false,
+          error: updateError.message
+        })
+      }
+      
+      fastify.log.info({ tokenId, bondId, parityRatio }, 'Token linked successfully')
+      
+      return reply.send({
+        success: true,
+        data: updatedToken,
+        message: 'Token linked successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, bondId, tokenId }, 'Unexpected error linking token')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * PUT /api/v1/nav/bonds/:bondId/token-links/:tokenId
+   * Update token link (ratio)
+   * Body: { parityRatio: number, collateralizationPercentage: number }
+   */
+  fastify.put('/bonds/:bondId/token-links/:tokenId', async (request, reply) => {
+    const { bondId, tokenId } = request.params as { bondId: string; tokenId: string }
+    const { parityRatio, collateralizationPercentage } = request.body as {
+      parityRatio: number
+      collateralizationPercentage: number
+    }
+    
+    try {
+      // Validate inputs
+      if (!parityRatio || parityRatio <= 0) {
+        return reply.code(400).send({
+          success: false,
+          error: 'parityRatio must be a positive number'
+        })
+      }
+      
+      // Check if token is linked to this bond
+      const { data: token, error: tokenError } = await fastify.supabase
+        .from('tokens')
+        .select('id, product_id')
+        .eq('id', tokenId)
+        .single()
+      
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Token not found'
+        })
+      }
+      
+      if (token.product_id !== bondId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Token is not linked to this bond'
+        })
+      }
+      
+      // Update ratio
+      const { data: updatedToken, error: updateError } = await fastify.supabase
+        .from('tokens')
+        .update({ ratio: parityRatio })
+        .eq('id', tokenId)
+        .select()
+        .single()
+      
+      if (updateError) {
+        fastify.log.error({ updateError, tokenId, bondId }, 'Failed to update token link')
+        return reply.code(500).send({
+          success: false,
+          error: updateError.message
+        })
+      }
+      
+      fastify.log.info({ tokenId, bondId, parityRatio }, 'Token link updated successfully')
+      
+      return reply.send({
+        success: true,
+        data: updatedToken,
+        message: 'Token link updated successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, bondId, tokenId }, 'Unexpected error updating token link')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * DELETE /api/v1/nav/bonds/:bondId/token-links/:tokenId
+   * Unlink a token from this bond by setting product_id and ratio to NULL
+   */
+  fastify.delete('/bonds/:bondId/token-links/:tokenId', async (request, reply) => {
+    const { bondId, tokenId } = request.params as { bondId: string; tokenId: string }
+    
+    try {
+      // Check if token is linked to this bond
+      const { data: token, error: tokenError } = await fastify.supabase
+        .from('tokens')
+        .select('id, product_id')
+        .eq('id', tokenId)
+        .single()
+      
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Token not found'
+        })
+      }
+      
+      if (token.product_id !== bondId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Token is not linked to this bond'
+        })
+      }
+      
+      // Unlink by setting product_id and ratio to NULL
+      const { error: updateError } = await fastify.supabase
+        .from('tokens')
+        .update({
+          product_id: null,
+          ratio: null
+        })
+        .eq('id', tokenId)
+      
+      if (updateError) {
+        fastify.log.error({ updateError, tokenId, bondId }, 'Failed to unlink token')
+        return reply.code(500).send({
+          success: false,
+          error: updateError.message
+        })
+      }
+      
+      fastify.log.info({ tokenId, bondId }, 'Token unlinked successfully')
+      
+      return reply.send({
+        success: true,
+        message: 'Token unlinked successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, bondId, tokenId }, 'Unexpected error unlinking token')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
   /**
    * POST /api/v1/nav/bonds/bulk
    * Bulk upload from CSV

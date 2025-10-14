@@ -87,13 +87,18 @@ export interface NAVResult {
 
 export interface NAVCalculation {
   id: string
-  bond_product_id: string
-  as_of_date: Date
-  netAssetValue: number
-  calculationMethod: string
-  confidenceLevel: 'high' | 'medium' | 'low'
+  bond_product_id?: string
+  asset_id?: string
+  valuation_date: string | Date  // Backend returns this field
+  result_nav_value: number        // Backend returns this field
+  nav_per_share?: number
+  status?: string
+  calculationMethod?: string
+  confidenceLevel?: 'high' | 'medium' | 'low'
   breakdown?: Record<string, unknown>
   metadata?: Record<string, unknown>
+  pricing_sources?: any
+  error_message?: string | null
   riskMetrics?: {
     duration?: number
     modified_duration?: number
@@ -103,8 +108,9 @@ export interface NAVCalculation {
     spreadDuration?: number
     option_adjusted_duration?: number
   }
-  calculatedAt: Date
-  created_at: Date
+  calculatedAt?: Date
+  created_at: string | Date
+  updated_at?: string | Date
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -299,6 +305,70 @@ export const BondsAPI = {
       }
     )
     return handleResponse<{ success: boolean; count: number }>(response)
+  },
+  
+  /**
+   * Update a market price
+   * PUT /api/v1/nav/bonds/:bondId/market-prices/:priceId
+   */
+  updateMarketPrice: async (bondId: string, priceId: string, data: Partial<MarketPriceInput>) => {
+    const response = await fetchWithAuth(
+      `${BONDS_BASE}/${bondId}/market-prices/${priceId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      }
+    )
+    return handleResponse<{ success: boolean; data: MarketPriceInput; message: string }>(response)
+  },
+  
+  /**
+   * Delete a market price
+   * DELETE /api/v1/nav/bonds/:bondId/market-prices/:priceId
+   */
+  deleteMarketPrice: async (bondId: string, priceId: string) => {
+    const response = await fetchWithAuth(
+      `${BONDS_BASE}/${bondId}/market-prices/${priceId}`,
+      {
+        method: 'DELETE'
+      }
+    )
+    return handleResponse<{ success: boolean; message: string }>(response)
+  },
+  
+  /**
+   * Get market prices for a bond
+   * GET /api/v1/nav/bonds/:bondId/market-prices
+   */
+  getMarketPrices: async (bondId: string) => {
+    const response = await fetchWithAuth(
+      `${BONDS_BASE}/${bondId}/market-prices`
+    )
+    return handleResponse<{ success: boolean; data: MarketPriceInput[]; count: number }>(response)
+  },
+  
+  /**
+   * Get tokens linked to a bond
+   * GET /api/v1/nav/bonds/:bondId/token-links
+   */
+  getTokenLinks: async (bondId: string) => {
+    const response = await fetchWithAuth(
+      `${BONDS_BASE}/${bondId}/token-links`
+    )
+    return handleResponse<{ 
+      success: boolean; 
+      data: Array<{
+        id: string;
+        name: string;
+        symbol: string;
+        product_id: string;
+        ratio: number | null;
+        status: string;
+        created_at: string;
+        updated_at: string;
+      }>; 
+      count: number 
+    }>(response)
   },
   
   /**

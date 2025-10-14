@@ -42,15 +42,15 @@ export function NAVHistoryTable({ bondId, bondName }: NAVHistoryTableProps) {
     const headers = [
       'Calculation Date',
       'Net Asset Value',
-      'Method',
-      'Confidence',
+      'NAV Per Share',
+      'Status',
       'Calculated At',
     ]
     const rows = filteredData.map((item) => [
-      format(new Date(item.as_of_date), 'yyyy-MM-dd'),
-      item.netAssetValue.toString(),
-      item.calculationMethod,
-      item.confidenceLevel,
+      format(new Date(item.valuation_date), 'yyyy-MM-dd'),
+      item.result_nav_value.toString(),
+      item.nav_per_share?.toString() || 'N/A',
+      item.status || 'completed',
       format(new Date(item.created_at), 'yyyy-MM-dd HH:mm:ss'),
     ])
 
@@ -124,9 +124,9 @@ export function NAVHistoryTable({ bondId, bondName }: NAVHistoryTableProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">NAV</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Confidence</TableHead>
+                <TableHead className="text-right">NAV Value</TableHead>
+                <TableHead className="text-right">NAV Per Share</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Calculated At</TableHead>
                 <TableHead className="text-right">Change</TableHead>
               </TableRow>
@@ -135,40 +135,46 @@ export function NAVHistoryTable({ bondId, bondName }: NAVHistoryTableProps) {
               {filteredData && filteredData.length > 0 ? (
                 filteredData.map((item, index) => {
                   const previousNAV = index < filteredData.length - 1
-                    ? filteredData[index + 1].netAssetValue
+                    ? filteredData[index + 1].result_nav_value
                     : null
                   const change = previousNAV
-                    ? item.netAssetValue - previousNAV
+                    ? item.result_nav_value - previousNAV
                     : null
                   const changePercent = previousNAV && change
                     ? (change / previousNAV) * 100
                     : null
 
                   return (
-                    <TableRow key={index}>
+                    <TableRow key={item.id}>
                       <TableCell className="font-medium">
-                        {format(new Date(item.as_of_date), 'MMM dd, yyyy')}
+                        {format(new Date(item.valuation_date), 'MMM dd, yyyy')}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        ${item.netAssetValue.toLocaleString('en-US', {
+                        ${item.result_nav_value.toLocaleString('en-US', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.calculationMethod}</Badge>
+                      <TableCell className="text-right font-mono">
+                        {item.nav_per_share 
+                          ? `$${item.nav_per_share.toLocaleString('en-US', {
+                              minimumFractionDigits: 4,
+                              maximumFractionDigits: 4,
+                            })}`
+                          : 'N/A'
+                        }
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant={
-                            item.confidenceLevel === 'high'
+                            item.status === 'completed'
                               ? 'default'
-                              : item.confidenceLevel === 'medium'
+                              : item.status === 'pending'
                               ? 'secondary'
                               : 'destructive'
                           }
                         >
-                          {item.confidenceLevel}
+                          {item.status || 'completed'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">

@@ -2559,76 +2559,60 @@ $$;
 --
 
 CREATE FUNCTION public.delete_project_cascade(project_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $_$
-DECLARE
-  cap_table_ids UUID[];
-  subscription_ids UUID[];
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
 BEGIN
-  -- Start a transaction to ensure atomicity
-  BEGIN
-    -- Find cap table IDs related to the project
-    SELECT array_agg(id) INTO cap_table_ids FROM cap_tables WHERE project_id = $1;
-    
-    -- If cap tables exist, delete their investors first
-    IF cap_table_ids IS NOT NULL THEN
-      DELETE FROM cap_table_investors WHERE cap_table_id = ANY(cap_table_ids);
-      
-      -- Then delete the cap tables themselves
-      DELETE FROM cap_tables WHERE project_id = $1;
-    END IF;
-    
-    -- Find subscription IDs for this project
-    SELECT array_agg(id) INTO subscription_ids FROM subscriptions WHERE project_id = $1;
-    
-    -- If there are subscriptions, delete token allocations first
-    IF subscription_ids IS NOT NULL THEN
-      DELETE FROM token_allocations WHERE subscription_id = ANY(subscription_ids);
-      
-      -- Then delete the subscriptions
-      DELETE FROM subscriptions WHERE project_id = $1;
-    END IF;
-    
-    -- Delete from all product-related tables
-    DELETE FROM structured_products WHERE project_id = $1;
-    DELETE FROM equity_products WHERE project_id = $1;
-    DELETE FROM commodities_products WHERE project_id = $1;
-    DELETE FROM fund_products WHERE project_id = $1;
-    DELETE FROM bond_products WHERE project_id = $1;
-    DELETE FROM quantitative_investment_strategies_products WHERE project_id = $1;
-    DELETE FROM private_equity_products WHERE project_id = $1;
-    DELETE FROM private_debt_products WHERE project_id = $1;
-    DELETE FROM real_estate_products WHERE project_id = $1;
-    DELETE FROM energy_products WHERE project_id = $1;
-    DELETE FROM infrastructure_products WHERE project_id = $1;
-    DELETE FROM collectibles_products WHERE project_id = $1;
-    DELETE FROM asset_backed_products WHERE project_id = $1;
-    DELETE FROM digital_tokenized_fund_products WHERE project_id = $1;
-    DELETE FROM stablecoin_products WHERE project_id = $1;
-    
-    -- Delete from other related tables
-    DELETE FROM issuer_detail_documents WHERE project_id = $1;
-    DELETE FROM token_deployment_history WHERE project_id = $1;
-    DELETE FROM investor_groups WHERE project_id = $1;
-    DELETE FROM project_credentials WHERE project_id = $1;
-    DELETE FROM token_templates WHERE project_id = $1;
-    DELETE FROM tokens WHERE project_id = $1;
-    DELETE FROM compliance_checks WHERE project_id = $1;
-    DELETE FROM distributions WHERE project_id = $1;
-    
-    -- Finally delete the project
-    DELETE FROM projects WHERE id = $1;
-    
-    -- Explicitly commit the transaction
-    COMMIT;
-  EXCEPTION
-    WHEN OTHERS THEN
-      -- Rollback the transaction if any error occurs
-      ROLLBACK;
-      RAISE;
-  END;
+  -- Delete cap_tables (no child tables to worry about)
+  DELETE FROM cap_tables WHERE cap_tables.project_id = delete_project_cascade.project_id;
+  
+  -- Delete subscription-related records
+  -- First delete children of subscriptions
+  DELETE FROM token_allocations WHERE subscription_id IN (
+    SELECT id FROM subscriptions WHERE subscriptions.project_id = delete_project_cascade.project_id
+  );
+  DELETE FROM distributions WHERE subscription_id IN (
+    SELECT id FROM subscriptions WHERE subscriptions.project_id = delete_project_cascade.project_id
+  );
+  DELETE FROM invoices WHERE subscription_id IN (
+    SELECT id FROM subscriptions WHERE subscriptions.project_id = delete_project_cascade.project_id
+  );
+  
+  -- Then delete subscriptions
+  DELETE FROM subscriptions WHERE subscriptions.project_id = delete_project_cascade.project_id;
+  
+  -- Delete all product types
+  DELETE FROM structured_products WHERE structured_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM equity_products WHERE equity_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM commodities_products WHERE commodities_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM fund_products WHERE fund_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM bond_products WHERE bond_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM quantitative_investment_strategies_products WHERE quantitative_investment_strategies_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM private_equity_products WHERE private_equity_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM private_debt_products WHERE private_debt_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM real_estate_products WHERE real_estate_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM energy_products WHERE energy_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM infrastructure_products WHERE infrastructure_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM collectibles_products WHERE collectibles_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM asset_backed_products WHERE asset_backed_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM digital_tokenized_fund_products WHERE digital_tokenized_fund_products.project_id = delete_project_cascade.project_id;
+  DELETE FROM stablecoin_products WHERE stablecoin_products.project_id = delete_project_cascade.project_id;
+  
+  -- Delete other project-related records (only tables that actually exist)
+  DELETE FROM issuer_detail_documents WHERE issuer_detail_documents.project_id = delete_project_cascade.project_id;
+  DELETE FROM token_deployment_history WHERE token_deployment_history.project_id = delete_project_cascade.project_id;
+  DELETE FROM investor_groups WHERE investor_groups.project_id = delete_project_cascade.project_id;
+  DELETE FROM token_templates WHERE token_templates.project_id = delete_project_cascade.project_id;
+  DELETE FROM tokens WHERE tokens.project_id = delete_project_cascade.project_id;
+  DELETE FROM compliance_checks WHERE compliance_checks.project_id = delete_project_cascade.project_id;
+  DELETE FROM project_wallets WHERE project_wallets.project_id = delete_project_cascade.project_id;
+  DELETE FROM project_organization_assignments WHERE project_organization_assignments.project_id = delete_project_cascade.project_id;
+  DELETE FROM notification_settings WHERE notification_settings.project_id = delete_project_cascade.project_id;
+  DELETE FROM documents WHERE documents.project_id = delete_project_cascade.project_id;
+  
+  -- Finally delete the project
+  DELETE FROM projects WHERE projects.id = delete_project_cascade.project_id;
 END;
-$_$;
+$$;
 
 
 --
@@ -8447,8 +8431,8 @@ CREATE TABLE public.bond_coupon_payments (
     CONSTRAINT bond_coupon_payments_coupon_amount_check CHECK ((coupon_amount > (0)::numeric)),
     CONSTRAINT bond_coupon_payments_days_in_period_check CHECK (((days_in_period > 0) AND (days_in_period <= 366))),
     CONSTRAINT bond_coupon_payments_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['scheduled'::character varying, 'paid'::character varying, 'missed'::character varying, 'deferred'::character varying])::text[]))),
-    CONSTRAINT bond_coupon_valid_accrual_period CHECK ((accrual_start_date < accrual_end_date)),
-    CONSTRAINT bond_coupon_valid_payment_date CHECK ((payment_date = accrual_end_date))
+    CONSTRAINT bond_coupon_reasonable_payment_date CHECK ((abs(EXTRACT(day FROM ((payment_date)::timestamp without time zone - (accrual_end_date)::timestamp without time zone))) <= (7)::numeric)),
+    CONSTRAINT bond_coupon_valid_accrual_period CHECK ((accrual_start_date < accrual_end_date))
 );
 
 
@@ -8457,6 +8441,13 @@ CREATE TABLE public.bond_coupon_payments (
 --
 
 COMMENT ON TABLE public.bond_coupon_payments IS 'Scheduled and historical coupon payments for cash flow projection';
+
+
+--
+-- Name: CONSTRAINT bond_coupon_reasonable_payment_date ON bond_coupon_payments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON CONSTRAINT bond_coupon_reasonable_payment_date ON public.bond_coupon_payments IS 'Ensures payment_date is within 7 days of accrual_end_date to allow for settlement periods';
 
 
 --
@@ -8562,12 +8553,12 @@ COMMENT ON TABLE public.bond_market_prices IS 'Historical and current market pri
 CREATE TABLE public.bond_products (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     project_id uuid NOT NULL,
-    bond_isin_cusip character varying(50),
+    bond_isin_cusip text,
     issuer_name text,
     coupon_rate numeric,
     face_value numeric,
     credit_rating character varying(10),
-    bond_type character varying(50),
+    bond_type text,
     callable_flag boolean,
     call_put_dates timestamp with time zone[],
     yield_to_maturity numeric,
@@ -8587,21 +8578,35 @@ CREATE TABLE public.bond_products (
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    bond_identifier character varying,
-    isin character varying(12),
-    cusip character varying(9),
-    sedol character varying(7),
-    asset_name character varying(255),
+    bond_identifier text,
+    isin text,
+    cusip text,
+    sedol text,
+    asset_name text,
     issuer_type character varying(50),
     seniority character varying(50),
     day_count_convention character varying(20) DEFAULT 'actual_actual'::character varying,
     purchase_price numeric(20,2),
     purchase_date date,
     current_price numeric(20,2),
-    accounting_treatment character varying(30) DEFAULT 'held_to_maturity'::character varying,
+    accounting_treatment text,
     puttable boolean DEFAULT false,
     convertible boolean DEFAULT false
 );
+
+
+--
+-- Name: TABLE bond_products; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.bond_products IS 'Bond products table. Each project can have multiple bonds (one-to-many relationship).';
+
+
+--
+-- Name: COLUMN bond_products.project_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.bond_products.project_id IS 'Foreign key to projects table. A project can have multiple bonds (one-to-many relationship).';
 
 
 --
@@ -9525,7 +9530,9 @@ CREATE TABLE public.tokens (
     master_version text,
     is_minimal_proxy boolean DEFAULT true,
     initialization_data jsonb,
-    initial_owner text
+    initial_owner text,
+    product_id uuid,
+    ratio numeric
 );
 
 
@@ -18941,6 +18948,19 @@ CREATE TABLE public.risk_thresholds (
 
 
 --
+-- Name: role_contracts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.role_contracts (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    role_id uuid NOT NULL,
+    contract_roles jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: role_permissions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -23978,21 +23998,6 @@ ALTER TABLE ONLY public.bond_products
 
 
 --
--- Name: bond_products bond_products_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.bond_products
-    ADD CONSTRAINT bond_products_project_id_key UNIQUE (project_id);
-
-
---
--- Name: CONSTRAINT bond_products_project_id_key ON bond_products; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON CONSTRAINT bond_products_project_id_key ON public.bond_products IS 'Ensures only one product per project in this table';
-
-
---
 -- Name: bond_sinking_fund bond_sinking_fund_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -27630,6 +27635,14 @@ ALTER TABLE ONLY public.risk_thresholds
 
 
 --
+-- Name: role_contracts role_contracts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_contracts
+    ADD CONSTRAINT role_contracts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: role_permissions role_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -29823,13 +29836,6 @@ CREATE INDEX idx_bond_products_maturity_date ON public.bond_products USING btree
 --
 
 CREATE INDEX idx_bond_products_project_id ON public.bond_products USING btree (project_id);
-
-
---
--- Name: idx_bond_products_project_id_unique; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX idx_bond_products_project_id_unique ON public.bond_products USING btree (project_id);
 
 
 --
@@ -41102,6 +41108,14 @@ ALTER TABLE ONLY public.ripple_trust_lines
 
 
 --
+-- Name: role_contracts role_contracts_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_contracts
+    ADD CONSTRAINT role_contracts_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
 -- Name: role_permissions role_permissions_permission_name_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -42819,24 +42833,6 @@ CREATE POLICY ripple_trust_owner_all ON public.ripple_trust_lines USING ((owner_
 ALTER TABLE public.risk_thresholds ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: sidebar_configurations; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.sidebar_configurations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sidebar_items; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.sidebar_items ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sidebar_sections; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.sidebar_sections ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: signer_keys; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -42853,12 +42849,6 @@ ALTER TABLE public.suspicious_activity_reports ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.threshold_breaches ENABLE ROW LEVEL SECURITY;
-
---
--- Name: user_sidebar_preferences; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.user_sidebar_preferences ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: user_verifications; Type: ROW SECURITY; Schema: public; Owner: -
@@ -48413,6 +48403,16 @@ GRANT ALL ON TABLE public.risk_thresholds TO anon;
 GRANT ALL ON TABLE public.risk_thresholds TO authenticated;
 GRANT ALL ON TABLE public.risk_thresholds TO service_role;
 GRANT ALL ON TABLE public.risk_thresholds TO prisma;
+
+
+--
+-- Name: TABLE role_contracts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.role_contracts TO anon;
+GRANT ALL ON TABLE public.role_contracts TO authenticated;
+GRANT ALL ON TABLE public.role_contracts TO service_role;
+GRANT ALL ON TABLE public.role_contracts TO prisma;
 
 
 --

@@ -21,6 +21,7 @@ type CallbackStatus = 'loading' | 'success' | 'error';
 const AuthCallbackPage: React.FC = () => {
   const [status, setStatus] = useState<CallbackStatus>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [type, setType] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -36,8 +37,11 @@ const AuthCallbackPage: React.FC = () => {
         const expiresIn = searchParams.get('expires_in');
         const error = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
-        const type = searchParams.get('type');
+        const authType = searchParams.get('type');
         const isLinking = searchParams.get('link') === 'true';
+
+        // Set type state for use in render
+        setType(authType);
 
         // Handle errors from auth provider
         if (error) {
@@ -67,8 +71,22 @@ const AuthCallbackPage: React.FC = () => {
           return;
         }
 
-        // Check for magic link verification
-        if (type === 'signup' || type === 'email_change' || type === 'recovery') {
+        // Handle password recovery separately
+        if (authType === 'recovery') {
+          // For password recovery, redirect to reset password page with tokens
+          setStatus('success');
+          
+          setTimeout(() => {
+            // Preserve tokens in URL for password reset form
+            const resetUrl = `/auth/reset-password?${searchParams.toString()}`;
+            navigate(resetUrl, { replace: true });
+          }, 1500);
+          
+          return;
+        }
+
+        // Check for magic link verification (signup, email change)
+        if (authType === 'signup' || authType === 'email_change') {
           // Get current session after email verification
           const sessionResponse = await authService.getSession();
           
@@ -156,7 +174,7 @@ const AuthCallbackPage: React.FC = () => {
               
               <CardTitle className="text-2xl font-bold">
                 {status === 'loading' && 'Signing you in...'}
-                {status === 'success' && 'Welcome back!'}
+                {status === 'success' && (type === 'recovery' ? 'Reset Link Verified!' : 'Welcome back!')}
                 {status === 'error' && 'Authentication failed'}
               </CardTitle>
             </CardHeader>
@@ -179,13 +197,18 @@ const AuthCallbackPage: React.FC = () => {
                   <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>
-                      You have been successfully signed in. Redirecting to your dashboard...
+                      {type === 'recovery' 
+                        ? 'Your reset link has been verified. Redirecting to set your new password...'
+                        : 'You have been successfully signed in. Redirecting to your dashboard...'
+                      }
                     </AlertDescription>
                   </Alert>
                   
-                  <Button onClick={handleGoToDashboard} className="w-full">
-                    Continue to Dashboard
-                  </Button>
+                  {type !== 'recovery' && (
+                    <Button onClick={handleGoToDashboard} className="w-full">
+                      Continue to Dashboard
+                    </Button>
+                  )}
                 </div>
               )}
 

@@ -161,6 +161,23 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
         return undefined
       }
       
+      // Helper to convert YTM to decimal format (0.0999 for 9.99%)
+      // Handles multiple input formats and ensures consistent output
+      const toYTMDecimal = (value: any): number | undefined => {
+        const num = toNumber(value)
+        if (num === undefined) return undefined
+        
+        // If value is greater than 1, assume it's in percentage format (e.g., 9.99 or 999 basis points)
+        // Convert to decimal by dividing by 100
+        if (num > 1) {
+          console.log(`YTM appears to be in percentage format (${num}), converting to decimal: ${num / 100}`)
+          return num / 100
+        }
+        
+        // If value is between 0 and 1, it's already in decimal format
+        return num
+      }
+      
       // Transform backend NAVResult format to frontend format
       const backendData = result.data as any
       
@@ -172,6 +189,14 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
           return toNumber(map.get(key))
         }
         return toNumber(map[key])
+      }
+      
+      // Special getter for YTM values to handle percentage conversion
+      const getYTMComponentValue = (key: string): number | undefined => {
+        if (!backendData.breakdown?.componentValues) return undefined
+        const map = backendData.breakdown.componentValues
+        const value = map instanceof Map ? map.get(key) : map[key]
+        return toYTMDecimal(value)
       }
       
       const frontendData = {
@@ -190,7 +215,7 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
           cleanPrice: getComponentValue('clean_price'),
           accruedInterest: getComponentValue('accrued_interest'),
           totalValue: getComponentValue('dirty_price'),
-          ytm: getComponentValue('ytm'),
+          ytm: getYTMComponentValue('ytm'),  // ✅ Use special getter for YTM
           duration: getComponentValue('duration'),
           convexity: getComponentValue('convexity')
         } : undefined,
@@ -200,9 +225,9 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
           marketValue: toNumber(backendData.marketComparison.marketValue),
           unrealizedGainLoss: toNumber(backendData.marketComparison.unrealizedGainLoss),
           marketPriceDate: backendData.marketComparison.marketPriceDate,
-          marketYTM: toNumber(backendData.marketComparison.marketYTM),
-          accountingYTM: toNumber(backendData.marketComparison.accountingYTM),
-          yieldSpread: toNumber(backendData.marketComparison.yieldSpread)
+          marketYTM: toYTMDecimal(backendData.marketComparison.marketYTM),  // ✅ Convert YTM to decimal
+          accountingYTM: toYTMDecimal(backendData.marketComparison.accountingYTM),  // ✅ Convert YTM to decimal
+          yieldSpread: toYTMDecimal(backendData.marketComparison.yieldSpread)  // ✅ Convert spread to decimal
         } : undefined,
         metadata: {
           calculatedAt: result.metadata?.calculatedAt || new Date(),
@@ -354,20 +379,23 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/nav/bonds/:bondId/history
    * Get NAV calculation history for a bond
+   * FIXED: Now queries nav_calculation_runs table instead of asset_nav_data
    */
   fastify.get('/bonds/:bondId/history', async (request, reply) => {
     const { bondId } = request.params as { bondId: string }
     const { limit = 10 } = request.query as { limit?: number }
     
     try {
+      // Query nav_calculation_runs table with correct fields
       const { data, error } = await fastify.supabase
-        .from('asset_nav_data')
-        .select('*')
+        .from('nav_calculation_runs')
+        .select('id, valuation_date, result_nav_value, nav_per_share, status, created_at, error_message, pricing_sources')
         .eq('asset_id', bondId)
-        .order('date', { ascending: false })
+        .order('valuation_date', { ascending: false })
         .limit(limit)
       
       if (error) {
+        fastify.log.error({ error, bondId }, 'Failed to fetch NAV history')
         return reply.code(500).send({
           success: false,
           error: error.message
@@ -376,11 +404,12 @@ export async function bondCalculationRoutes(fastify: FastifyInstance) {
       
       return reply.send({
         success: true,
-        data,
+        data: data || [],
         count: data?.length || 0
       })
       
     } catch (error) {
+      fastify.log.error({ error, bondId }, 'Unexpected error fetching NAV history')
       return reply.code(500).send({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

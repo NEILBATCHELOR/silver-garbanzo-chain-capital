@@ -7,10 +7,74 @@ import React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { NavNavigation, NavDashboardHeaderEnhanced } from '@/components/nav'
 import { BondNavigation } from '@/components/nav/bonds'
-import { NAVHistoryTable } from '@/components/nav/bonds/nav-management'
 import { useTokenProjectContext } from '@/hooks/project'
-import { useBonds } from '@/hooks/bonds/useBondData'
-import { History } from 'lucide-react'
+import { useBonds, useBondCalculationHistory } from '@/hooks/bonds/useBondData'
+import { History, TrendingUp, Calendar, AlertCircle } from 'lucide-react'
+import { format } from 'date-fns'
+
+// Component to show NAV history for a single bond
+function BondHistoryRow({ bond, projectId }: { bond: any; projectId: string }) {
+  const navigate = useNavigate()
+  const { data: historyData } = useBondCalculationHistory(bond.id)
+  
+  const calculations = historyData?.data || []
+  const calculationsCount = calculations.length
+  const latestCalc = calculations[0] // Already sorted by valuation_date desc from backend
+  
+  return (
+    <div
+      onClick={() => navigate(`/projects/${projectId}/nav/bonds/${bond.id}`)}
+      className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className="font-medium">
+            {bond.asset_name || bond.cusip || bond.isin || 'Unnamed Bond'}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {bond.issuer_name || 'Unknown Issuer'} • 
+            {bond.coupon_rate ? ` ${(bond.coupon_rate * 100).toFixed(2)}%` : ' N/A'} • 
+            {bond.accounting_treatment || 'N/A'}
+          </p>
+        </div>
+        <div className="flex items-center gap-8">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-blue-600">{calculationsCount}</p>
+            <p className="text-xs text-muted-foreground">Calculations</p>
+          </div>
+          {latestCalc && (
+            <>
+              <div className="text-right">
+                <p className="text-sm font-medium">
+                  {latestCalc.result_nav_value 
+                    ? `$${latestCalc.result_nav_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : 'N/A'
+                  }
+                </p>
+                <p className="text-xs text-muted-foreground">Latest NAV</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium">
+                  {latestCalc.valuation_date 
+                    ? format(new Date(latestCalc.valuation_date), 'MMM dd, yyyy')
+                    : 'N/A'
+                  }
+                </p>
+                <p className="text-xs text-muted-foreground">Last Calculated</p>
+              </div>
+            </>
+          )}
+          {!latestCalc && (
+            <div className="text-right text-muted-foreground">
+              <p className="text-sm">No calculations yet</p>
+              <p className="text-xs">Click to calculate</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function BondHistoryPage() {
   const navigate = useNavigate()
@@ -73,6 +137,10 @@ export default function BondHistoryPage() {
   }
 
   const bonds = bondsData?.data || []
+  
+  // Calculate aggregate statistics
+  const totalBonds = bonds.length
+  const totalCalculations = 0 // We'd need to sum all calculations, but for now just show per-bond
 
   return (
     <>
@@ -107,73 +175,70 @@ export default function BondHistoryPage() {
         ) : (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white p-6 rounded-lg border">
-                <p className="text-sm text-muted-foreground">Total Bonds</p>
-                <p className="text-2xl font-bold mt-2">{bonds.length}</p>
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="h-8 w-8 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Bonds</p>
+                    <p className="text-2xl font-bold mt-1">{totalBonds}</p>
+                  </div>
+                </div>
               </div>
               <div className="bg-white p-6 rounded-lg border">
-                <p className="text-sm text-muted-foreground">Calculations Run</p>
-                <p className="text-2xl font-bold mt-2">0</p>
-                <p className="text-xs text-muted-foreground mt-1">All time</p>
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-8 w-8 text-green-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Bonds with History</p>
+                    <p className="text-2xl font-bold mt-1">-</p>
+                    <p className="text-xs text-muted-foreground">Calculated bonds</p>
+                  </div>
+                </div>
               </div>
               <div className="bg-white p-6 rounded-lg border">
-                <p className="text-sm text-muted-foreground">Latest NAV</p>
-                <p className="text-2xl font-bold mt-2">-</p>
-                <p className="text-xs text-muted-foreground mt-1">No calculations yet</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg border">
-                <p className="text-sm text-muted-foreground">Avg Calculation Time</p>
-                <p className="text-2xl font-bold mt-2">-</p>
-                <p className="text-xs text-muted-foreground mt-1">No data</p>
+                <div className="flex items-center gap-3">
+                  <History className="h-8 w-8 text-purple-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Calculations</p>
+                    <p className="text-2xl font-bold mt-1">-</p>
+                    <p className="text-xs text-muted-foreground">All time</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Bond Selection for History View */}
+            {/* Bond History List */}
             <div className="bg-white rounded-lg border">
               <div className="p-6 border-b">
-                <h3 className="text-lg font-semibold">Select a Bond</h3>
-                <p className="text-sm text-muted-foreground">
-                  Choose a bond to view its complete calculation history
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  NAV Calculation History
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  View calculation history for each bond. Click on a bond to see detailed history.
                 </p>
               </div>
               <div className="divide-y">
                 {bonds.map((bond) => (
-                  <div
-                    key={bond.id}
-                    onClick={() => navigate(`/projects/${projectId}/nav/bonds/${bond.id}`)}
-                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {bond.asset_name || bond.cusip || bond.isin || 'Unnamed Bond'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {bond.issuer_name || 'Unknown Issuer'} • 
-                          {bond.coupon_rate ? ` ${(bond.coupon_rate * 100).toFixed(2)}%` : ' N/A'} • 
-                          {bond.accounting_treatment || 'N/A'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">0 calculations</p>
-                        <p className="text-xs text-muted-foreground">Click to view details</p>
-                      </div>
-                    </div>
-                  </div>
+                  <BondHistoryRow key={bond.id} bond={bond} projectId={projectId} />
                 ))}
               </div>
             </div>
 
             {/* Info Box */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <p className="text-blue-800 font-medium">📊 NAV History Features</p>
-              <ul className="text-blue-600 text-sm mt-2 space-y-1 list-disc list-inside">
-                <li>View complete calculation history for each bond</li>
-                <li>Track NAV changes over time with detailed breakdowns</li>
-                <li>Export historical data to CSV for analysis</li>
-                <li>Compare calculation methods and results</li>
-              </ul>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-blue-800 font-medium">📊 NAV History Features</p>
+                  <ul className="text-blue-600 text-sm mt-2 space-y-1 list-disc list-inside">
+                    <li>View complete calculation history for each bond</li>
+                    <li>Track NAV changes over time with detailed breakdowns</li>
+                    <li>Monitor calculation status and identify errors</li>
+                    <li>Compare calculation methods and results</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </>
         )}

@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/infrastructure/database/client';
 
 import { usePasswordManagement, useAuthError } from '../hooks/useAuth';
 import { 
@@ -104,6 +105,19 @@ export const PasswordResetForm: React.FC<PasswordResetFormProps> = ({
 
   const handleUpdatePassword = async (data: UpdatePasswordFormData) => {
     clearError();
+
+    // Check if there's a valid session before attempting password update
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // No valid session - the reset link has likely expired
+        navigate('/auth/reset-password?error=session_expired', { replace: true });
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking session:', err);
+    }
 
     const success = await updatePassword({
       password: data.password,

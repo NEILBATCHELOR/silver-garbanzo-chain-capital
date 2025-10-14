@@ -29,6 +29,8 @@ export const bondKeys = {
   details: () => [...bondKeys.all, 'detail'] as const,
   detail: (bondId: string) => [...bondKeys.details(), bondId] as const,
   calculations: (bondId: string) => [...bondKeys.detail(bondId), 'calculations'] as const,
+  marketPrices: (bondId: string) => [...bondKeys.detail(bondId), 'marketPrices'] as const,
+  tokenLinks: (bondId: string) => [...bondKeys.detail(bondId), 'tokenLinks'] as const,
 }
 
 // ==================== QUERY HOOKS ====================
@@ -74,6 +76,51 @@ export function useBondCalculationHistory(
   return useQuery({
     queryKey: bondKeys.calculations(bondId),
     queryFn: () => BondsAPI.getCalculationHistory(bondId),
+    staleTime: 30 * 1000, // 30 seconds
+    enabled: !!bondId,
+    ...options,
+  })
+}
+
+/**
+ * Fetch market prices for a bond
+ */
+export function useMarketPrices(
+  bondId: string,
+  options?: Omit<UseQueryOptions<{ success: boolean; data: MarketPriceInput[]; count: number }>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: bondKeys.marketPrices(bondId),
+    queryFn: () => BondsAPI.getMarketPrices(bondId),
+    staleTime: 30 * 1000, // 30 seconds
+    enabled: !!bondId,
+    ...options,
+  })
+}
+
+/**
+ * Fetch tokens linked to a bond
+ */
+export function useTokenLinks(
+  bondId: string,
+  options?: Omit<UseQueryOptions<{ 
+    success: boolean; 
+    data: Array<{
+      id: string;
+      name: string;
+      symbol: string;
+      product_id: string;
+      ratio: number | null;
+      status: string;
+      created_at: string;
+      updated_at: string;
+    }>; 
+    count: number 
+  }>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: bondKeys.tokenLinks(bondId),
+    queryFn: () => BondsAPI.getTokenLinks(bondId),
     staleTime: 30 * 1000, // 30 seconds
     enabled: !!bondId,
     ...options,
@@ -193,8 +240,55 @@ export function useAddMarketPrices(
   return useMutation({
     mutationFn: (prices) => BondsAPI.addMarketPrices(bondId, prices),
     onSuccess: (data, variables, onMutateResult, context) => {
-      // Invalidate bond detail to show new prices
+      // Invalidate bond detail and market prices to show new prices
       queryClient.invalidateQueries({ queryKey: bondKeys.detail(bondId) })
+      queryClient.invalidateQueries({ queryKey: bondKeys.marketPrices(bondId) })
+      options?.onSuccess?.(data, variables, onMutateResult, context)
+    },
+    ...options,
+  })
+}
+
+/**
+ * Update a market price for a bond
+ */
+export function useUpdateMarketPrice(
+  bondId: string,
+  options?: UseMutationOptions<
+    { success: boolean; data: MarketPriceInput; message: string }, 
+    Error, 
+    { priceId: string; data: Partial<MarketPriceInput> }
+  >
+) {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ priceId, data }) => BondsAPI.updateMarketPrice(bondId, priceId, data),
+    onSuccess: (data, variables, onMutateResult, context) => {
+      // Invalidate bond detail and market prices to refresh price list
+      queryClient.invalidateQueries({ queryKey: bondKeys.detail(bondId) })
+      queryClient.invalidateQueries({ queryKey: bondKeys.marketPrices(bondId) })
+      options?.onSuccess?.(data, variables, onMutateResult, context)
+    },
+    ...options,
+  })
+}
+
+/**
+ * Delete a market price from a bond
+ */
+export function useDeleteMarketPrice(
+  bondId: string,
+  options?: UseMutationOptions<{ success: boolean; message: string }, Error, string>
+) {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (priceId) => BondsAPI.deleteMarketPrice(bondId, priceId),
+    onSuccess: (data, variables, onMutateResult, context) => {
+      // Invalidate bond detail and market prices to refresh price list
+      queryClient.invalidateQueries({ queryKey: bondKeys.detail(bondId) })
+      queryClient.invalidateQueries({ queryKey: bondKeys.marketPrices(bondId) })
       options?.onSuccess?.(data, variables, onMutateResult, context)
     },
     ...options,
@@ -318,4 +412,40 @@ export function usePrefetchBonds(projectId: string) {
       staleTime: 1 * 60 * 1000,
     })
   }
+}
+
+/**
+ * Get latest YTM from NAV calculation
+ */
+export function useGetLatestYTM(bondId: string) {
+  return useQuery({
+    queryKey: ['bonds', bondId, 'latest-ytm'],
+    queryFn: async () => {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/nav/bonds/${bondId}/latest-ytm`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to fetch latest YTM')
+      }
+      
+      const result = await response.json()
+      return result.data as {
+        ytm: number
+        valuationDate: string
+        navValue: number
+        calculatedAt: string
+      }
+    },
+    enabled: !!bondId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1
+  })
 }

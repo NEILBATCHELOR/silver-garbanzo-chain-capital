@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useBond, useUpdateBond } from '@/hooks/bonds/useBondData'
+import { useBond, useUpdateBond, useMarketPrices } from '@/hooks/bonds/useBondData'
 import { CouponPaymentBuilder } from '../data-input/coupon-payment-builder'
 import { MarketPriceManager } from '../data-input/market-price-manager'
 import { CallPutScheduleManager } from '../data-input/call-put-schedule-manager'
@@ -71,6 +71,7 @@ export function BondDetailView({
 }: BondDetailViewProps) {
   const { toast } = useToast()
   const { data: bondResponse, isLoading } = useBond(bondId)
+  const { data: marketPricesResponse } = useMarketPrices(bondId)
   const [activeTab, setActiveTab] = useState('overview')
   const [editedBond, setEditedBond] = useState<Partial<BondProductInput>>({})
 
@@ -556,7 +557,10 @@ export function BondDetailView({
             </TabsContent>
 
             <TabsContent value="market-prices">
-              <MarketPriceManager bondId={bondId} />
+              <MarketPriceManager 
+                bondId={bondId} 
+                existingPrices={marketPricesResponse?.data || []}
+              />
             </TabsContent>
 
             <TabsContent value="call-put">

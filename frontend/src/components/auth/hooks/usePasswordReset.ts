@@ -22,16 +22,18 @@ export const usePasswordReset = () => {
       const refreshToken = searchParams.get('refresh_token');
       const tokenType = searchParams.get('token_type');
       const type = searchParams.get('type');
-      const error = searchParams.get('error');
+      const queryError = searchParams.get('error');
+      
+      // Check hash parameters for errors (Supabase often puts errors in hash)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const hashError = hashParams.get('error');
+      const errorCode = hashParams.get('error_code');
+      
+      const error = queryError || hashError;
 
-      // Handle error from email link
+      // Handle error from email link - don't show toast, let the page handle it
       if (error) {
-        toast({
-          title: "Reset Link Invalid",
-          description: "The password reset link is invalid or has expired. Please request a new one.",
-          variant: "destructive",
-        });
-        navigate('/auth/login');
+        // Just return, the page component will show the error UI
         return;
       }
 

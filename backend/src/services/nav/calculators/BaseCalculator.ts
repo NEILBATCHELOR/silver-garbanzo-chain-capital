@@ -116,6 +116,8 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
       if (input.saveToDatabase !== false) {
         try {
           await this.saveToDatabase(navResult)
+          // Also save to calculation tracking tables
+          await this.saveCalculationRun(input, navResult, product, supporting, dataFetchTime, calculationTime)
         } catch (saveError) {
           // Database save failed, but calculation succeeded
           // Return success with warning about save failure
@@ -284,6 +286,192 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
   private extractConstraintFromMessage(message: string): string | undefined {
     const match = message.match(/constraint "(\w+)"/)
     return match ? match[1] : undefined
+  }
+  
+  /**
+   * Save calculation run to nav_calculation_runs and nav_calculation_history tables
+   * This provides detailed tracking of all NAV calculations
+   */
+  protected async saveCalculationRun(
+    input: CalculatorInput,
+    result: NAVResult,
+    product: TProduct,
+    supporting: TSupporting,
+    dataFetchTime: number,
+    calculationTime: number
+  ): Promise<string | null> {
+    try {
+      // Get project_id from product
+      let projectId: string | null = null
+      const productTableMap: Record<string, string> = {
+        'bonds': 'bond_products',
+        'equity': 'equity_products',
+        'commodities': 'commodity_products',
+        'funds': 'fund_products',
+        'structured_products': 'structured_products'
+      }
+      
+      const productTable = productTableMap[this.assetType]
+      if (productTable) {
+        const { data: productData } = await this.dbClient
+          .from(productTable)
+          .select('project_id')
+          .eq('id', result.productId)
+          .single()
+        
+        if (productData) {
+          projectId = productData.project_id
+        }
+      }
+      
+      if (!projectId) {
+        console.warn(`No project_id found for calculation run, using product_id as fallback`)
+        projectId = result.productId
+      }
+      
+      // Create calculation run record
+      const runId = crypto.randomUUID()
+      const startedAt = new Date(Date.now() - dataFetchTime - calculationTime)
+      const completedAt = new Date()
+      
+      // Prepare inputs JSON
+      const inputsJson = {
+        productId: input.productId,
+        asOfDate: input.asOfDate,
+        targetCurrency: input.targetCurrency,
+        includeBreakdown: input.includeBreakdown
+      }
+      
+      // Prepare pricing sources JSON
+      const pricingSources = result.sources?.map(s => ({
+        table: s.table,
+        recordCount: s.recordCount,
+        dateRange: s.dateRange
+      })) || []
+      
+      // Insert calculation run
+      const { data: runData, error: runError } = await this.dbClient
+        .from('nav_calculation_runs')
+        .insert({
+          id: runId,
+          asset_id: result.productId,
+          product_type: this.assetType,
+          project_id: projectId,
+          valuation_date: result.valuationDate,
+          started_at: startedAt,
+          completed_at: completedAt,
+          status: 'completed',
+          inputs_json: inputsJson,
+          result_nav_value: result.nav.toString(),
+          nav_per_share: result.navPerShare?.toString() || null,
+          fx_rate_used: null, // Could be added if currency conversion is implemented
+          pricing_sources: pricingSources,
+          error_message: null,
+          created_by: null, // Could be set from request context
+          created_at: new Date()
+        })
+        .select()
+        .single()
+      
+      if (runError) {
+        console.error('Failed to save calculation run:', runError)
+        // Don't throw - calculation succeeded, just tracking failed
+        return null
+      }
+      
+      // Save calculation history steps
+      await this.saveCalculationHistory(runId, result, dataFetchTime, calculationTime)
+      
+      console.log(`Calculation run saved: ${runId}`)
+      return runId
+      
+    } catch (error) {
+      console.error('Error saving calculation run:', error)
+      // Don't throw - calculation succeeded, just tracking failed
+      return null
+    }
+  }
+  
+  /**
+   * Save detailed calculation steps to nav_calculation_history
+   */
+  protected async saveCalculationHistory(
+    runId: string,
+    result: NAVResult,
+    dataFetchTime: number,
+    calculationTime: number
+  ): Promise<void> {
+    try {
+      const historySteps = []
+      
+      // Step 1: Data Fetch
+      historySteps.push({
+        run_id: runId,
+        asset_id: result.productId,
+        product_type: this.assetType,
+        calculation_step: 'data_fetch',
+        step_order: 1,
+        input_data: { productId: result.productId, asOfDate: result.valuationDate },
+        output_data: { 
+          sources: result.sources || [],
+          dataQuality: result.dataQuality
+        },
+        processing_time_ms: Math.round(dataFetchTime),
+        data_sources: result.sources || [],
+        validation_results: null,
+        created_at: new Date()
+      })
+      
+      // Step 2: Valuation Calculation
+      const calculationOutput: any = {
+        nav: result.nav.toString(),
+        method: result.calculationMethod,
+        confidence: result.confidence
+      }
+      
+      // Add breakdown if available
+      if (result.breakdown) {
+        calculationOutput.breakdown = {
+          totalAssets: result.breakdown.totalAssets.toString(),
+          totalLiabilities: result.breakdown.totalLiabilities.toString(),
+          netAssets: result.breakdown.netAssets.toString()
+        }
+        
+        // Add component values (including YTM for bonds)
+        if (result.breakdown.componentValues) {
+          calculationOutput.components = result.breakdown.componentValues
+        }
+      }
+      
+      historySteps.push({
+        run_id: runId,
+        asset_id: result.productId,
+        product_type: this.assetType,
+        calculation_step: 'valuation_calculation',
+        step_order: 2,
+        input_data: {
+          asOfDate: result.valuationDate,
+          currency: result.currency
+        },
+        output_data: calculationOutput,
+        processing_time_ms: Math.round(calculationTime),
+        data_sources: result.sources || [],
+        validation_results: null,
+        created_at: new Date()
+      })
+      
+      // Insert all history steps
+      const { error } = await this.dbClient
+        .from('nav_calculation_history')
+        .insert(historySteps)
+      
+      if (error) {
+        console.error('Failed to save calculation history:', error)
+      }
+      
+    } catch (error) {
+      console.error('Error saving calculation history:', error)
+    }
   }
   
   /**

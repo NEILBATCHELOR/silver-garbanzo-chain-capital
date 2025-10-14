@@ -2043,7 +2043,7 @@ export type Database = {
           {
             foreignKeyName: "fk_bond_products_project"
             columns: ["project_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -21491,6 +21491,38 @@ export type Database = {
         }
         Relationships: []
       }
+      role_contracts: {
+        Row: {
+          contract_roles: Json
+          created_at: string
+          id: string
+          role_id: string
+          updated_at: string
+        }
+        Insert: {
+          contract_roles: Json
+          created_at?: string
+          id?: string
+          role_id: string
+          updated_at?: string
+        }
+        Update: {
+          contract_roles?: Json
+          created_at?: string
+          id?: string
+          role_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_contracts_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -31328,7 +31360,9 @@ export type Database = {
           master_version: string | null
           metadata: Json | null
           name: string
+          product_id: string | null
           project_id: string
+          ratio: number | null
           reviewers: string[] | null
           standard: Database["public"]["Enums"]["token_standard_enum"]
           status: Database["public"]["Enums"]["token_status_enum"]
@@ -31362,7 +31396,9 @@ export type Database = {
           master_version?: string | null
           metadata?: Json | null
           name: string
+          product_id?: string | null
           project_id: string
+          ratio?: number | null
           reviewers?: string[] | null
           standard: Database["public"]["Enums"]["token_standard_enum"]
           status?: Database["public"]["Enums"]["token_status_enum"]
@@ -31396,7 +31432,9 @@ export type Database = {
           master_version?: string | null
           metadata?: Json | null
           name?: string
+          product_id?: string | null
           project_id?: string
+          ratio?: number | null
           reviewers?: string[] | null
           standard?: Database["public"]["Enums"]["token_standard_enum"]
           status?: Database["public"]["Enums"]["token_status_enum"]

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { format } from 'date-fns'
-import { Plus, Trash2, Download, Upload, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Download, Upload, TrendingUp, AlertTriangle, Calculator } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,13 +23,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { useAddMarketPrices } from '@/hooks/bonds/useBondData'
-import type { MarketPriceInput } from '@/types/nav/bonds'
+import { useAddMarketPrices, useUpdateMarketPrice, useGetLatestYTM, useDeleteMarketPrice } from '@/hooks/bonds/useBondData'
+import type { MarketPriceInput, MarketPrice } from '@/types/nav/bonds'
 import { PriceSource } from '@/types/nav/bonds'
 
 interface MarketPriceManagerProps {
   bondId: string
-  existingPrices?: MarketPriceInput[]
+  existingPrices?: (MarketPrice | MarketPriceInput)[]
   onSuccess?: () => void
 }
 
@@ -40,16 +40,26 @@ interface DataQualityMetrics {
   status: 'good' | 'warning' | 'poor'
 }
 
+// Type guard to check if a price has an id (is from database)
+const hasId = (price: MarketPrice | MarketPriceInput): price is MarketPrice => {
+  return 'id' in price && typeof price.id === 'string'
+}
+
 export function MarketPriceManager({
   bondId,
   existingPrices = [],
   onSuccess,
 }: MarketPriceManagerProps) {
-  const [prices, setPrices] = useState<MarketPriceInput[]>(existingPrices)
+  const [prices, setPrices] = useState<(MarketPrice | MarketPriceInput)[]>(existingPrices)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showChart, setShowChart] = useState(true)
+  // Track edited prices: Map<priceId, updatedFields>
+  const [editedPrices, setEditedPrices] = useState<Map<string, Partial<MarketPriceInput>>>(new Map())
 
   const addPricesMutation = useAddMarketPrices(bondId)
+  const updatePriceMutation = useUpdateMarketPrice(bondId)
+  const deletePriceMutation = useDeleteMarketPrice(bondId)
+  const { data: latestYTM, isLoading: isLoadingYTM, refetch: refetchYTM } = useGetLatestYTM(bondId)
 
   const calculateDataQuality = (): DataQualityMetrics => {
     if (!prices.length) {
@@ -103,8 +113,8 @@ export function MarketPriceManager({
   const handleAddPrice = () => {
     const newPrice: MarketPriceInput = {
       price_date: new Date(),
-      clean_price: 0,
-      dirty_price: 0,
+      clean_price: 100, // Default to 100 (typical bond price) instead of 0
+      dirty_price: 100, // Default to 100 instead of 0
       data_source: PriceSource.INTERNAL_PRICING,
       is_official_close: false,
     }
@@ -112,11 +122,33 @@ export function MarketPriceManager({
     setEditingIndex(prices.length)
   }
 
-  const handleDeletePrice = (index: number) => {
-    setPrices(prices.filter((_, i) => i !== index))
+  const handleDeletePrice = async (index: number) => {
+    const price = prices[index]
+    
+    // If price has an id, it's from the database - delete via API
+    if (hasId(price)) {
+      try {
+        await deletePriceMutation.mutateAsync(price.id)
+        // Remove from local state after successful API deletion
+        setPrices(prices.filter((_, i) => i !== index))
+        // Also remove from edited prices tracking if it was being edited
+        if (editedPrices.has(price.id)) {
+          const newEditedPrices = new Map(editedPrices)
+          newEditedPrices.delete(price.id)
+          setEditedPrices(newEditedPrices)
+        }
+        onSuccess?.()
+      } catch (error) {
+        console.error('Failed to delete market price:', error)
+      }
+    } else {
+      // If no id, it's a new unsaved price - just remove from local state
+      setPrices(prices.filter((_, i) => i !== index))
+    }
   }
 
   const handleUpdatePrice = (index: number, field: keyof MarketPriceInput, value: any) => {
+    const price = prices[index]
     const updated = [...prices]
     updated[index] = { ...updated[index], [field]: value }
 
@@ -126,11 +158,107 @@ export function MarketPriceManager({
     }
 
     setPrices(updated)
+
+    // Track edits for existing prices (those with IDs)
+    if (hasId(price)) {
+      const currentEdits = editedPrices.get(price.id) || {}
+      setEditedPrices(new Map(editedPrices.set(price.id, {
+        ...currentEdits,
+        [field]: value,
+        // Include dirty_price if clean_price changed
+        ...(field === 'clean_price' ? { dirty_price: value } : {})
+      })))
+    }
+  }
+
+  const handleUseCalculatedYTM = async (index: number) => {
+    try {
+      const result = await refetchYTM()
+      if (result.data?.ytm) {
+        handleUpdatePrice(index, 'ytm', result.data.ytm)
+      }
+    } catch (error) {
+      console.error('Failed to fetch calculated YTM:', error)
+    }
   }
 
   const handleSave = async () => {
     try {
-      await addPricesMutation.mutateAsync(prices)
+      // Separate new prices (without IDs) and edited prices (with IDs that were modified)
+      const newPrices = prices.filter(p => !hasId(p)) as MarketPriceInput[]
+      const hasNewPrices = newPrices.length > 0
+      const hasEdits = editedPrices.size > 0
+      
+      // If nothing to save, exit early
+      if (!hasNewPrices && !hasEdits) {
+        console.log('No changes to save')
+        onSuccess?.()
+        return
+      }
+      
+      // Validate all new prices before saving
+      if (hasNewPrices) {
+        const invalidPrices = newPrices.filter(
+          (p) => p.clean_price <= 0 || p.dirty_price <= 0 || p.dirty_price < p.clean_price
+        )
+        
+        if (invalidPrices.length > 0) {
+          console.error('Validation failed: Invalid new prices found', invalidPrices)
+          throw new Error(
+            'All prices must be positive and dirty price must be >= clean price'
+          )
+        }
+
+        // Validate YTM values are within reasonable range (-5% to 50%)
+        const invalidYTM = newPrices.filter(
+          (p) => p.ytm !== undefined && p.ytm !== null && (p.ytm < -0.05 || p.ytm > 0.50)
+        )
+        
+        if (invalidYTM.length > 0) {
+          console.error('Validation failed: Invalid YTM values found', invalidYTM)
+          throw new Error(
+            'YTM must be between -5% and 50%. Please check your values.'
+          )
+        }
+      }
+
+      // Save new prices
+      if (hasNewPrices) {
+        await addPricesMutation.mutateAsync(newPrices)
+      }
+
+      // Save edited prices
+      if (hasEdits) {
+        const updatePromises = Array.from(editedPrices.entries()).map(([priceId, updates]) => {
+          // Validate edited prices
+          const priceIndex = prices.findIndex(p => hasId(p) && p.id === priceId)
+          if (priceIndex !== -1) {
+            const price = prices[priceIndex]
+            const updatedPrice = { ...price, ...updates }
+            
+            // Validate the updated price
+            if (updatedPrice.clean_price <= 0 || updatedPrice.dirty_price <= 0) {
+              throw new Error('All prices must be positive')
+            }
+            if (updatedPrice.dirty_price < updatedPrice.clean_price) {
+              throw new Error('Dirty price must be >= clean price')
+            }
+            if (updatedPrice.ytm !== undefined && updatedPrice.ytm !== null) {
+              if (updatedPrice.ytm < -0.05 || updatedPrice.ytm > 0.50) {
+                throw new Error('YTM must be between -5% and 50%')
+              }
+            }
+          }
+          
+          return updatePriceMutation.mutateAsync({ priceId, data: updates })
+        })
+        
+        await Promise.all(updatePromises)
+      }
+
+      // Clear edited prices tracking
+      setEditedPrices(new Map())
+      
       onSuccess?.()
     } catch (error) {
       console.error('Failed to save market prices:', error)
@@ -138,14 +266,14 @@ export function MarketPriceManager({
   }
 
   const handleExportCSV = () => {
-    const headers = ['Date', 'Clean Price', 'Dirty Price', 'Bid', 'Ask', 'YTM', 'Spread', 'Source', 'Official']
+    const headers = ['Date', 'Clean Price', 'Dirty Price', 'Bid', 'Ask', 'YTM (%)', 'Spread (bps)', 'Source', 'Official']
     const rows = prices.map((p) => [
       p.price_date,
       p.clean_price,
       p.dirty_price,
       p.bid_price || '',
       p.ask_price || '',
-      p.ytm || '',
+      p.ytm ? (p.ytm * 100).toFixed(2) : '', // Convert decimal to percentage for export
       p.spread_to_benchmark || '',
       p.data_source,
       p.is_official_close,
@@ -185,6 +313,32 @@ export function MarketPriceManager({
               {showChart ? 'Hide' : 'Show'} Chart
             </Button>
           </div>
+
+          {/* Latest Calculated YTM Info */}
+          {latestYTM && (
+            <Alert>
+              <Calculator className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <strong>Latest Calculated YTM:</strong> {(latestYTM.ytm * 100).toFixed(2)}%
+                    <span className="text-sm text-muted-foreground ml-2">
+                      (from NAV calculation on {format(new Date(latestYTM.valuationDate), 'MMM dd, yyyy')})
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => editingIndex !== null && handleUseCalculatedYTM(editingIndex)}
+                    disabled={editingIndex === null}
+                  >
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Use for Current Row
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Data Quality Indicators */}
           {prices.length > 0 && (
@@ -370,16 +524,31 @@ export function MarketPriceManager({
                   </TableCell>
                   <TableCell>
                     {editingIndex === index ? (
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={price.ytm || ''}
-                        onChange={(e) =>
-                          handleUpdatePrice(index, 'ytm', parseFloat(e.target.value) || undefined)
-                        }
-                      />
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 6.50 for 6.50%"
+                          value={price.ytm ? (price.ytm * 100).toFixed(2) : ''}
+                          onChange={(e) => {
+                            const percentageValue = parseFloat(e.target.value);
+                            // Convert percentage to decimal for storage (e.g., 6.50 → 0.065)
+                            const decimalValue = percentageValue ? percentageValue / 100 : undefined;
+                            handleUpdatePrice(index, 'ytm', decimalValue);
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleUseCalculatedYTM(index)}
+                          disabled={isLoadingYTM || !latestYTM}
+                          title={latestYTM ? `Use calculated YTM: ${(latestYTM.ytm * 100).toFixed(2)}%` : 'No calculated YTM available'}
+                        >
+                          <Calculator className="h-4 w-4" />
+                        </Button>
+                      </div>
                     ) : (
-                      price.ytm ? `${price.ytm.toFixed(2)}%` : '-'
+                      price.ytm ? `${(price.ytm * 100).toFixed(2)}%` : '-'
                     )}
                   </TableCell>
                   <TableCell>
@@ -467,9 +636,27 @@ export function MarketPriceManager({
       <div className="flex justify-end gap-2">
         <Button
           onClick={handleSave}
-          disabled={!prices.length || addPricesMutation.isPending}
+          disabled={
+            (prices.filter(p => !hasId(p)).length === 0 && editedPrices.size === 0) ||
+            addPricesMutation.isPending ||
+            updatePriceMutation.isPending ||
+            prices.some((p) => p.clean_price <= 0 || p.dirty_price <= 0 || p.dirty_price < p.clean_price)
+          }
         >
-          {addPricesMutation.isPending ? 'Saving...' : 'Save Market Prices'}
+          {(addPricesMutation.isPending || updatePriceMutation.isPending) ? 'Saving...' : (() => {
+            const newCount = prices.filter(p => !hasId(p)).length
+            const editCount = editedPrices.size
+            const parts = []
+            
+            if (newCount > 0) {
+              parts.push(`${newCount} New`)
+            }
+            if (editCount > 0) {
+              parts.push(`${editCount} Edit${editCount !== 1 ? 's' : ''}`)
+            }
+            
+            return parts.length > 0 ? `Save ${parts.join(' + ')}` : 'Save Changes'
+          })()}
         </Button>
       </div>
     </div>
