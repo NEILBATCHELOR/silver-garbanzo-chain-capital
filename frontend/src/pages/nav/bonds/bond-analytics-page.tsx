@@ -165,13 +165,7 @@ export default function BondAnalyticsPage() {
               </div>
             )}
 
-            {/* TODO: Add portfolio-wide analytics charts */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <p className="text-blue-800 font-medium">🚧 Enhanced Portfolio Analytics Coming Soon</p>
-              <p className="text-blue-600 text-sm mt-2">
-                Portfolio-wide duration, yield curve analysis, and sector allocation charts will be added here.
-              </p>
-            </div>
+
           </>
         )}
       </div>

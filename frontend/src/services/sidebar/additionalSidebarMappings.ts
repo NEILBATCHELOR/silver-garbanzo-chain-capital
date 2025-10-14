@@ -165,20 +165,6 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         permissions: ['nav:view_dashboard']
       },
       {
-        id: 'calculators',
-        label: 'Calculators',
-        href: '/nav/calculators',
-        icon: Hash,
-        permissions: ['nav:view_calculators']
-      },
-      {
-        id: 'marks',
-        label: 'Marks',
-        href: '/nav/calculators/:slug',
-        icon: Equal,
-        permissions: ['nav:run_calculation']
-      },
-      {
         id: 'nav-bonds',
         label: 'Bonds',
         href: '/nav/bonds',
@@ -198,20 +184,6 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         href: '/nav/bonds/upload',
         icon: FileSpreadsheet,
         permissions: ['nav:create']
-      },
-      {
-        id: 'valuations',
-        label: 'Valuations',
-        href: '/nav/valuations',
-        icon: BarChart3,
-        permissions: ['nav:manage_valuations']
-      },
-      {
-        id: 'nav-history',
-        label: 'History',
-        href: '/nav/audit',
-        icon: FileSpreadsheet,
-        permissions: ['nav:view_history']
       }
     ]
   },

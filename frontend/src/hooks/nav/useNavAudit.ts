@@ -79,16 +79,10 @@ export function useNavAudit(options: UseNavAuditOptions = {}): UseNavAuditResult
     queryKey,
     queryFn: async (): Promise<PaginatedResponse<NavAuditEvent>> => {
       try {
-        // TODO: Replace with actual backend endpoint when available
-        // const result = await navService.getAuditEvents({
-        //   page, limit, userId, action, entityType, entityId, dateFrom, dateTo, sortBy, sortOrder
-        // })
-        
-        // Mock implementation for now
-        const mockEvents = generateMockAuditEvents(page, limit, {
-          userId, action, entityType, entityId, dateFrom, dateTo
+        const result = await navService.getAuditEvents({
+          page, limit, userId, action, entityType, entityId, dateFrom, dateTo, sortBy, sortOrder
         })
-        return mockEvents
+        return result
       } catch (error) {
         throw convertToNavError(error)
       }
@@ -205,132 +199,6 @@ export function useNavUserAudit(
     userId,
     enabled: options.enabled !== false && !!userId
   })
-}
-
-/**
- * Generate mock audit events for testing
- */
-function generateMockAuditEvents(
-  page: number = 1, 
-  limit: number = 50, 
-  filters: {
-    userId?: string
-    action?: string
-    entityType?: string
-    entityId?: string
-    dateFrom?: string
-    dateTo?: string
-  } = {}
-): PaginatedResponse<NavAuditEvent> {
-  const total = 234 // Mock total count
-  const startIndex = (page - 1) * limit
-  
-  const actions = [
-    'calculation_created',
-    'calculation_started',
-    'calculation_completed',
-    'calculation_failed',
-    'valuation_saved',
-    'valuation_updated',
-    'valuation_deleted',
-    'valuation_shared',
-    'approval_requested',
-    'approval_granted',
-    'approval_rejected',
-    'schema_accessed',
-    'calculator_launched',
-    'export_generated'
-  ]
-
-  const entityTypes = ['calculation', 'valuation', 'approval'] as const
-  const usernames = ['john.doe', 'jane.smith', 'alex.wilson', 'maria.garcia', 'david.chen']
-
-  const mockEvents: NavAuditEvent[] = Array.from({ length: Math.min(limit, total - startIndex) }, (_, i) => {
-    const index = startIndex + i
-    const timestamp = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000) // Last 7 days
-    const action = actions[Math.floor(Math.random() * actions.length)]
-    const entityType = entityTypes[Math.floor(Math.random() * entityTypes.length)]
-    const userId = `user_${Math.floor(Math.random() * 5) + 1}`
-    const username = usernames[Math.floor(Math.random() * usernames.length)]
-
-    // Apply filters
-    if (filters.userId && userId !== filters.userId) return null
-    if (filters.action && action !== filters.action) return null
-    if (filters.entityType && entityType !== filters.entityType) return null
-    
-    return {
-      id: `audit_${index + 1}`,
-      timestamp: timestamp.toISOString(),
-      userId,
-      username,
-      action,
-      entityType,
-      entityId: `${entityType}_${Math.floor(Math.random() * 100) + 1}`,
-      details: generateEventDetails(action, entityType),
-      ipAddress: `192.168.1.${Math.floor(Math.random() * 254) + 1}`,
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-    }
-  }).filter(Boolean) as NavAuditEvent[]
-
-  return {
-    success: true,
-    data: mockEvents,
-    pagination: {
-      total,
-      page,
-      limit,
-      hasMore: startIndex + limit < total,
-      totalPages: Math.ceil(total / limit)
-    },
-    timestamp: new Date().toISOString()
-  }
-}
-
-/**
- * Generate event-specific details
- */
-function generateEventDetails(action: string, entityType: string): Record<string, any> {
-  const baseDetails = {
-    timestamp: new Date().toISOString(),
-    source: 'nav_dashboard'
-  }
-
-  switch (action) {
-    case 'calculation_created':
-      return {
-        ...baseDetails,
-        calculatorType: ['equity', 'bonds', 'mmf', 'real-estate'][Math.floor(Math.random() * 4)],
-        valuationDate: new Date().toISOString().split('T')[0],
-        currency: 'USD'
-      }
-    
-    case 'calculation_completed':
-      return {
-        ...baseDetails,
-        navValue: Math.random() * 10000000 + 1000000,
-        duration: Math.floor(Math.random() * 300) + 30, // 30-330 seconds
-        status: 'completed'
-      }
-    
-    case 'valuation_saved':
-      return {
-        ...baseDetails,
-        name: `NAV Calculation ${Math.floor(Math.random() * 100)}`,
-        isPublic: Math.random() > 0.5,
-        tags: ['portfolio', 'q4-2024']
-      }
-    
-    case 'approval_requested':
-      return {
-        ...baseDetails,
-        requestedBy: 'portfolio_manager',
-        approvalType: 'nav_calculation',
-        priority: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)]
-      }
-    
-    default:
-      return baseDetails
-  }
 }
 
 export default useNavAudit

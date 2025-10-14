@@ -60,12 +60,6 @@ const BondNavigation: React.FC<BondNavigationProps> = ({ projectId }) => {
           active: isActive('/nav/bonds/upload'),
         },
         {
-          icon: <Calculator className="h-4 w-4" />,
-          label: 'Calculator',
-          href: `/projects/${projectId}/nav/calculators/bonds`,
-          active: isActive('/nav/calculators/bonds') || (currentPath.includes('/nav/bonds') && currentPath.includes('/calculate')),
-        },
-        {
           icon: <TrendingUp className="h-4 w-4" />,
           label: 'Analytics',
           href: `/projects/${projectId}/nav/bonds/analytics`,

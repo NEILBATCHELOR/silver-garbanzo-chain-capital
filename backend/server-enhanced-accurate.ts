@@ -126,10 +126,63 @@ const SERVICE_CATALOG = {
         operations: ['CRUD', 'Process', 'Validate', 'Analytics', 'Bulk Operations', 'Reconciliation'],
         prefix: '/api/v1/subscriptions',
         description: 'Subscription processing and management system'
+      },
+      {
+        name: 'Documents',
+        endpoints: 14,
+        routes: [
+          'GET /documents (list)', 'GET /documents/:id (get)', 'POST /documents/upload (upload)',
+          'PUT /documents/:id (update)', 'DELETE /documents/:id (delete)', 'PUT /documents/:id/status (status)',
+          'POST /documents/:id/share (share)', 'GET /documents/:id/download (download)',
+          'POST /documents/:id/version (version)', 'GET /documents/:id/metadata (metadata)',
+          'GET /documents/search (search)', 'GET /documents/templates (templates)',
+          'POST /documents/bulk-upload (bulk)', 'GET /documents/analytics (analytics)'
+        ],
+        operations: ['Upload', 'Storage', 'Retrieval', 'Validation', 'Version Control', 'Sharing'],
+        prefix: '/api/v1/documents',
+        description: 'Document storage and management system'
       }
     ],
-    total_endpoints: 74,
-    total_services: 5
+    total_endpoints: 88,
+    total_services: 6
+  },
+  nav_operations: {
+    category: 'NAV & Bond Operations',
+    services: [
+      {
+        name: 'Bond Data Input',
+        endpoints: 25,
+        routes: [
+          'POST /nav/bonds (create)', 'GET /nav/bonds (list)', 'GET /nav/bonds/:id (get)',
+          'PUT /nav/bonds/:id (update)', 'DELETE /nav/bonds/:id (delete)',
+          'GET /nav/bonds/:bondId/token-links (get-links)', 'POST /nav/bonds/:bondId/token-links (create-link)',
+          'POST /nav/bonds/bulk (bulk-create)', 'POST /nav/bonds/csv/upload (csv-upload)',
+          'GET /nav/bonds/csv/template (csv-template)', 'POST /nav/bonds/csv/validate (csv-validate)',
+          // Additional bond management endpoints
+          'GET /nav/bonds/search (search)', 'GET /nav/bonds/analytics (analytics)',
+          'POST /nav/bonds/import (import)', 'GET /nav/bonds/export (export)'
+        ],
+        operations: ['CRUD', 'CSV Import', 'Bulk Operations', 'Token Linking', 'Analytics'],
+        prefix: '/api/v1/nav',
+        description: 'Bond product data input and token linking for NAV calculations'
+      },
+      {
+        name: 'Bond Calculations',
+        endpoints: 15,
+        routes: [
+          'POST /nav/bonds/:bondId/calculate (calculate)', 'GET /nav/bonds/:bondId/nav (get-nav)',
+          'GET /nav/bonds/:bondId/history (nav-history)', 'POST /nav/calculate/batch (batch-calc)',
+          'GET /nav/bonds/:bondId/yield (yield-calc)', 'GET /nav/bonds/:bondId/duration (duration)',
+          'GET /nav/bonds/:bondId/price (price-calc)', 'POST /nav/bonds/:bondId/scenario (scenario)',
+          'GET /nav/project/:projectId/aggregate (project-nav)', 'GET /nav/analytics/performance (performance)'
+        ],
+        operations: ['NAV Calculation', 'Yield Analysis', 'Duration', 'Price Discovery', 'Batch Processing'],
+        prefix: '/api/v1/nav',
+        description: 'Bond NAV calculations, yield analysis, and portfolio analytics'
+      }
+    ],
+    total_endpoints: 40,
+    total_services: 2
   },
   financial_operations: {
     category: 'Financial Operations',
@@ -137,6 +190,24 @@ const SERVICE_CATALOG = {
       {
         name: 'Wallets',
         endpoints: 50,
+        routes: [
+          'POST /wallets (create)', 'GET /wallets (list)', 'GET /wallets/:id (get)',
+          'GET /wallets/user/:userId (by-user)', 'POST /wallets/hd (create-hd)',
+          'POST /wallets/smart-contract (create-sc)', 'GET /wallets/:id/balance (balance)',
+          'POST /wallets/:id/transaction (send)', 'POST /wallets/:id/sign (sign)',
+          'POST /wallets/multi-sig (create-multisig)', 'GET /wallets/:id/transactions (txns)',
+          'POST /wallets/:id/backup (backup)', 'GET /wallets/:id/recovery (recovery)',
+          'POST /wallets/:id/restore (restore)', 'POST /wallets/:id/upgrade (upgrade)',
+          // ... 35 more wallet endpoints for comprehensive wallet management
+          'DELETE /wallets/:id/facet (remove-facet)'
+        ],
+        operations: ['Multi-Sig', 'Smart Contracts', 'HD Wallets', 'Transactions', 'Security', 'Backup/Recovery'],
+        prefix: '/api/v1/wallets',
+        description: 'Comprehensive wallet infrastructure with advanced security features'
+      },
+      {
+        name: 'Factoring',
+        endpoints: 21,
         routes: [
           'POST /wallets (create)', 'GET /wallets (list)', 'GET /wallets/:id (get)',
           'GET /wallets/user/:userId (by-user)', 'POST /wallets/hd (create-hd)',
@@ -171,10 +242,23 @@ const SERVICE_CATALOG = {
         operations: ['Invoice Processing', 'Tokenization', 'Pool Management', 'Risk Assessment', 'Trading'],
         prefix: '/api/v1/factoring',
         description: 'Healthcare invoice factoring and tokenization platform'
+      },
+      {
+        name: 'Wallet Encryption',
+        endpoints: 8,
+        routes: [
+          'POST /api/wallet/encrypt (encrypt)', 'POST /api/wallet/decrypt (decrypt)',
+          'POST /api/wallet/store (store)', 'GET /api/wallet/retrieve (retrieve)',
+          'POST /api/wallet/backup (backup)', 'POST /api/wallet/restore (restore)',
+          'POST /api/wallet/rotate-key (rotate)', 'GET /api/wallet/status (status)'
+        ],
+        operations: ['Encryption', 'Decryption', 'Secure Storage', 'Key Rotation', 'Backup'],
+        prefix: '/api/wallet',
+        description: 'Wallet encryption and secure key management services'
       }
     ],
-    total_endpoints: 71,
-    total_services: 2
+    total_endpoints: 79,
+    total_services: 3
   },
   compliance_governance: {
     category: 'Compliance & Governance',
@@ -250,21 +334,6 @@ const SERVICE_CATALOG = {
     category: 'System & Infrastructure',
     services: [
       {
-        name: 'Documents',
-        endpoints: 14,
-        routes: [
-          'GET /documents (list)', 'GET /documents/:id (get)', 'POST /documents/upload (upload)',
-          'PUT /documents/:id (update)', 'DELETE /documents/:id (delete)', 'PUT /documents/:id/status (status)',
-          'POST /documents/:id/share (share)', 'GET /documents/:id/download (download)',
-          'POST /documents/:id/version (version)', 'GET /documents/:id/metadata (metadata)',
-          'GET /documents/search (search)', 'GET /documents/templates (templates)',
-          'POST /documents/bulk-upload (bulk)', 'GET /documents/analytics (analytics)'
-        ],
-        operations: ['Upload', 'Storage', 'Retrieval', 'Validation', 'Version Control', 'Sharing'],
-        prefix: '/api/v1/documents',
-        description: 'Document storage and management system'
-      },
-      {
         name: 'Authentication',
         endpoints: 8,
         routes: [
@@ -316,8 +385,8 @@ const SERVICE_CATALOG = {
         description: 'Calendar and event management system'
       }
     ],
-    total_endpoints: 59,
-    total_services: 5
+    total_endpoints: 45,
+    total_services: 4
   }
 }
 
@@ -527,6 +596,7 @@ Comprehensive platform supporting:
         'Investor Onboarding & KYC/AML',
         'Multi-Signature Wallet Infrastructure', 
         'Smart Contract Deployment',
+        'Bond NAV Calculations & Analytics',
         'Regulatory Compliance & Reporting',
         'Healthcare Invoice Factoring',
         'Document Management & Storage',
@@ -584,7 +654,7 @@ Comprehensive platform supporting:
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
     await app.register(calendarRoutes, { prefix: apiPrefix })
     
-    // NAV routes
+    // NAV routes (includes bond data input and token-links)
     await app.register(bondDataInputRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(bondCalculationRoutes, { prefix: `${apiPrefix}/nav` })
 
@@ -722,10 +792,11 @@ async function start() {
     console.log('🎉 SUCCESS! Enhanced accurate server started with all services')
     console.log('')
     console.log(`📊 AVAILABLE SERVICES (${TOTAL_SERVICES}):`)
-    console.log('   🏢 Core Business: Projects, Investors, Cap Tables, Tokens, Subscriptions')  
-    console.log('   💰 Financial Ops: Wallets (50 endpoints), Factoring')
-    console.log('   ⚖️  Compliance: Compliance, Organizations, Policies, Rules')
-    console.log('   🔧 Infrastructure: Documents, Auth, Users, Audit, Calendar')
+    console.log('   🏢 Core Business (6): Projects, Investors, Cap Tables, Tokens, Subscriptions, Documents')
+    console.log('   📊 NAV Operations (2): Bond Data Input, Bond Calculations')
+    console.log('   💰 Financial Ops (3): Wallets, Factoring, Wallet Encryption')
+    console.log('   ⚖️  Compliance (4): Compliance, Organizations, Policies, Rules')
+    console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
     console.log('')
     console.log('🔗 QUICK ACCESS:')
     console.log(`   📚 API Docs: http://${HOST}:${PORT}/docs`)

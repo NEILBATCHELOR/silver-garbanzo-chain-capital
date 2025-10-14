@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Edit, Calculator, Trash2, RefreshCw, MoreVertical, History, Settings } from 'lucide-react'
+import { ArrowLeft, Edit, Calculator, Trash2, RefreshCw, MoreVertical, History, Settings, PenSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,7 +25,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { BondDetailView, BondNavigation } from '@/components/nav/bonds'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { BondDetailView, BondNavigation, ManualNAVEntry } from '@/components/nav/bonds'
 import { NavNavigation, NavDashboardHeader } from '@/components/nav'
 import { useBond, useDeleteBond } from '@/hooks/bonds'
 import { CombinedOrgProjectSelector } from '@/components/organizations'
@@ -47,6 +54,7 @@ export default function BondDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showManualNAVDialog, setShowManualNAVDialog] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
 
   // Fetch bond data
@@ -109,6 +117,47 @@ export default function BondDetailPage() {
 
   const handleSettings = () => {
     setShowSettingsModal(true)
+  }
+
+  const handleManualNAVEntry = () => {
+    setShowManualNAVDialog(true)
+  }
+
+  const handleManualNAVSave = async (values: any) => {
+    try {
+      // Import navService at the top level
+      const { navService } = await import('@/services/nav')
+      
+      // Call backend API to save manual NAV entry
+      await navService.createManualNavEntry({
+        assetId: bondId!,
+        productType: 'bonds', // Bond product type
+        valuationDate: values.valuationDate,
+        navValue: values.navValue,
+        dataSource: values.dataSource,
+        notes: values.notes,
+        confidenceLevel: values.confidenceLevel,
+        currency: 'USD',
+        projectId: projectId || undefined
+      })
+      
+      toast({
+        title: 'NAV Entry Saved',
+        description: `Manual NAV of $${values.navValue.toLocaleString()} saved successfully.`,
+      })
+      
+      setShowManualNAVDialog(false)
+      
+      // Refresh bond data to get updated NAV
+      refetch()
+    } catch (error) {
+      console.error('Failed to save manual NAV entry:', error)
+      toast({
+        title: 'Save Failed',
+        description: error instanceof Error ? error.message : 'Failed to save manual NAV entry.',
+        variant: 'destructive',
+      })
+    }
   }
 
   if (!bondId) {
@@ -272,6 +321,10 @@ export default function BondDetailPage() {
                   Edit Bond
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleManualNAVEntry}>
+                  <PenSquare className="h-4 w-4 mr-2" />
+                  Manual NAV Entry
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleViewHistory}>
                   <History className="h-4 w-4 mr-2" />
                   View History
@@ -340,6 +393,24 @@ export default function BondDetailPage() {
         open={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+
+      {/* Manual NAV Entry Dialog */}
+      <Dialog open={showManualNAVDialog} onOpenChange={setShowManualNAVDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manual NAV Entry</DialogTitle>
+            <DialogDescription>
+              Enter NAV value manually for {bond?.data.asset_name || bond?.data.cusip || bond?.data.isin || 'this bond'}
+            </DialogDescription>
+          </DialogHeader>
+          <ManualNAVEntry
+            bondId={bondId}
+            bondName={bond?.data.asset_name || bond?.data.cusip || bond?.data.isin || 'Bond'}
+            currentNAV={bond?.data.current_price}
+            onSave={handleManualNAVSave}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

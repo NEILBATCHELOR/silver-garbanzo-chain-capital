@@ -72,6 +72,20 @@ interface GetProjectWeightedNavRequest {
   }
 }
 
+interface CreateManualNavEntryRequest {
+  Body: {
+    assetId: string
+    productType: string
+    valuationDate: string // ISO date string
+    navValue: number
+    dataSource: string
+    notes?: string
+    confidenceLevel: 'high' | 'medium' | 'low'
+    currency?: string
+    projectId?: string
+  }
+}
+
 // ==================== SCHEMA DEFINITIONS ====================
 
 const assetTypeEnum = [
@@ -526,6 +540,104 @@ const getProjectWeightedNavSchema = {
   }
 }
 
+// Manual NAV Entry Schema
+const createManualNavEntrySchema = {
+  description: 'Create a manual NAV entry for an asset',
+  tags: ['NAV', 'Manual Entry'],
+  body: {
+    type: 'object',
+    required: ['assetId', 'productType', 'valuationDate', 'navValue', 'dataSource', 'confidenceLevel'],
+    properties: {
+      assetId: {
+        type: 'string',
+        format: 'uuid',
+        description: 'Asset identifier'
+      },
+      productType: {
+        type: 'string',
+        enum: assetTypeEnum,
+        description: 'Product type of the asset'
+      },
+      valuationDate: {
+        type: 'string',
+        format: 'date-time',
+        description: 'Date of the manual NAV entry'
+      },
+      navValue: {
+        type: 'number',
+        minimum: 0,
+        description: 'Manually entered NAV value'
+      },
+      dataSource: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 500,
+        description: 'Source of the NAV data (e.g., Bloomberg, Internal Model)'
+      },
+      notes: {
+        type: 'string',
+        maxLength: 2000,
+        description: 'Optional notes about the manual entry'
+      },
+      confidenceLevel: {
+        type: 'string',
+        enum: ['high', 'medium', 'low'],
+        description: 'Confidence level in the manual NAV value'
+      },
+      currency: {
+        type: 'string',
+        pattern: '^[A-Z]{3}$',
+        default: 'USD',
+        description: 'Currency of the NAV value (ISO 4217 code)'
+      },
+      projectId: {
+        type: 'string',
+        format: 'uuid',
+        description: 'Optional project identifier'
+      }
+    }
+  },
+  response: {
+    201: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: {
+          type: 'object',
+          properties: {
+            runId: { type: 'string' },
+            assetId: { type: 'string', format: 'uuid' },
+            productType: { type: 'string' },
+            projectId: { type: 'string', format: 'uuid' },
+            valuationDate: { type: 'string', format: 'date-time' },
+            navValue: { type: 'number' },
+            currency: { type: 'string' },
+            dataSource: { type: 'string' },
+            confidenceLevel: { type: 'string' },
+            status: { type: 'string' },
+            calculatedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        message: { type: 'string' },
+        timestamp: { type: 'string', format: 'date-time' }
+      }
+    },
+    400: {
+      type: 'object',
+      properties: {
+        error: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            statusCode: { type: 'number' },
+            validation: { type: 'array' }
+          }
+        }
+      }
+    }
+  }
+}
+
 // ==================== ROUTE HANDLERS ====================
 
 /**
@@ -825,6 +937,105 @@ export default async function navRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({
         error: {
           message: 'Failed to get project weighted NAV',
+          statusCode: 500
+        }
+      })
+    }
+  })
+
+  /**
+   * POST /nav/manual - Create manual NAV entry
+   */
+  fastify.post<CreateManualNavEntryRequest>('/nav/manual', {
+    schema: createManualNavEntrySchema
+  }, async (request: FastifyRequest<CreateManualNavEntryRequest>, reply: FastifyReply) => {
+    try {
+      const {
+        assetId,
+        productType,
+        valuationDate,
+        navValue,
+        dataSource,
+        notes,
+        confidenceLevel,
+        currency = 'USD',
+        projectId
+      } = request.body
+
+      // Get Supabase client from Fastify instance
+      const supabase = fastify.supabase
+
+      // Create manual NAV entry in nav_calculation_runs table
+      const runId = `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      const { data, error } = await supabase
+        .from('nav_calculation_runs')
+        .insert({
+          id: runId,
+          asset_id: assetId,
+          product_type: productType,
+          project_id: projectId || null,
+          valuation_date: valuationDate,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          status: 'completed',
+          result_nav_value: navValue,
+          nav_per_share: null,
+          fx_rate_used: null,
+          pricing_sources: {
+            manual_entry: true,
+            data_source: dataSource,
+            confidence_level: confidenceLevel,
+            entered_at: new Date().toISOString()
+          },
+          inputs_json: {
+            manual_entry: true,
+            data_source: dataSource,
+            confidence_level: confidenceLevel,
+            notes: notes || null
+          },
+          error_message: null,
+          created_by: null, // TODO: Add user ID from auth context
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        fastify.log.error({ error, body: request.body }, 'Failed to insert manual NAV entry')
+        return reply.status(500).send({
+          error: {
+            message: 'Failed to save manual NAV entry to database',
+            statusCode: 500
+          }
+        })
+      }
+
+      // Return success response
+      return reply.status(201).send({
+        success: true,
+        data: {
+          runId: data.id,
+          assetId: data.asset_id,
+          productType: data.product_type,
+          projectId: data.project_id,
+          valuationDate: data.valuation_date,
+          navValue: parseFloat(data.result_nav_value),
+          currency,
+          dataSource,
+          confidenceLevel,
+          status: data.status,
+          calculatedAt: data.completed_at
+        },
+        message: 'Manual NAV entry created successfully',
+        timestamp: new Date().toISOString()
+      })
+
+    } catch (error) {
+      fastify.log.error({ error, body: request.body }, 'Failed to create manual NAV entry')
+      return reply.status(500).send({
+        error: {
+          message: 'Failed to create manual NAV entry',
           statusCode: 500
         }
       })

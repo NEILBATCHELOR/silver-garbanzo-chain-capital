@@ -34,7 +34,7 @@ function BondTokenLinkRow({
     const fetchTokenLinks = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/v1/nav/token-links?bond_id=${bond.id}&project_id=${projectId}`,
+          `${import.meta.env.VITE_API_URL}/api/v1/nav/bonds/${bond.id}/token-links?project_id=${projectId}`,
           {
             headers: {
               'Content-Type': 'application/json',

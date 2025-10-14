@@ -352,9 +352,72 @@ export class NavService {
   /**
    * Get audit trail
    */
-  async listAudit(params: any): Promise<any[]> {
-    // TODO: Implement when backend provides audit endpoint
-    throw new Error('Audit endpoint not yet implemented in backend');
+  async getAuditEvents(params: {
+    page?: number
+    limit?: number
+    userId?: string
+    action?: string
+    entityType?: 'calculation' | 'valuation' | 'approval'
+    entityId?: string
+    dateFrom?: string
+    dateTo?: string
+    sortBy?: 'timestamp' | 'action' | 'userId'
+    sortOrder?: 'asc' | 'desc'
+  } = {}): Promise<PaginatedResponse<any>> {
+    const searchParams = new URLSearchParams();
+    
+    if (params.page) searchParams.append('page', params.page.toString());
+    if (params.limit) searchParams.append('limit', params.limit.toString());
+    if (params.userId) searchParams.append('userId', params.userId);
+    if (params.action) searchParams.append('action', params.action);
+    if (params.entityType) searchParams.append('entityType', params.entityType);
+    if (params.entityId) searchParams.append('entityId', params.entityId);
+    if (params.dateFrom) searchParams.append('dateFrom', params.dateFrom);
+    if (params.dateTo) searchParams.append('dateTo', params.dateTo);
+    if (params.sortBy) searchParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) searchParams.append('sortOrder', params.sortOrder);
+
+    const endpoint = `/audit${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const response = await this.client.get<PaginatedResponse<any>>(endpoint);
+    
+    if (!response.success) {
+      throw new NavApiError('Failed to get audit events', 500);
+    }
+    
+    return response;
+  }
+
+  /**
+   * Create manual NAV entry
+   * POST /manual
+   */
+  async createManualNavEntry(request: {
+    assetId: string
+    productType: string
+    valuationDate: string | Date
+    navValue: number
+    dataSource: string
+    notes?: string
+    confidenceLevel: 'high' | 'medium' | 'low'
+    currency?: string
+    projectId?: string
+  }): Promise<NavCalculationResult> {
+    const response = await this.client.post<ApiResponse<NavCalculationResult>>(
+      '/manual',
+      {
+        ...request,
+        valuationDate: typeof request.valuationDate === 'string' 
+          ? request.valuationDate 
+          : request.valuationDate.toISOString(),
+        currency: request.currency || 'USD'
+      }
+    );
+    
+    if (!response.success || !response.data) {
+      throw new NavApiError(response.error || 'Failed to create manual NAV entry', 500);
+    }
+    
+    return response.data;
   }
 }
 

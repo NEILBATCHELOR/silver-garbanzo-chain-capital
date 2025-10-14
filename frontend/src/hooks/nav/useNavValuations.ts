@@ -73,14 +73,50 @@ export function useNavValuations(options: UseNavValuationsOptions = {}): UseNavV
     queryKey,
     queryFn: async (): Promise<PaginatedResponse<NavValuation>> => {
       try {
-        // TODO: Replace with actual backend endpoint when available
-        // const result = await navService.getValuations({
-        //   page, limit, userId, tags, isPublic, sortBy, sortOrder
-        // })
-        
-        // Mock implementation for now
-        const mockValuations = generateMockValuations(page, limit, userId)
-        return mockValuations
+        // Fetch real data from nav_calculation_runs table via backend API
+        const result = await navService.getCalculationRuns({
+          page,
+          limit,
+          // Ensure sortBy maps only to allowed backend fields: 'status', 'navValue', 'valuationDate', 'calculatedAt'
+          sortBy: sortBy === 'navValue'
+            ? 'navValue'
+            : sortBy === 'savedAt'
+            ? 'calculatedAt'
+            : sortBy === 'name'
+            ? undefined
+            : sortBy,
+          sortOrder
+        })
+        const valuations: NavValuation[] = result.runs.map(run => ({
+          id: run.runId,
+          name: `${run.productType || 'Asset'} NAV - ${new Date(run.valuationDate).toLocaleDateString()}`,
+          description: `NAV calculation for ${run.productType || 'asset'} on ${new Date(run.valuationDate).toLocaleDateString()}`,
+          calculationResult: {
+            runId: run.runId,
+            valuationDate: run.valuationDate,
+            navValue: run.navValue,
+            navPerShare: run.navPerShare,
+            totalAssets: run.totalAssets,
+            totalLiabilities: run.totalLiabilities,
+            netAssets: run.netAssets,
+            sharesOutstanding: run.sharesOutstanding,
+            currency: run.currency,
+            calculatedAt: run.calculatedAt,
+            status: run.status,
+            approvalStatus: run.approvalStatus
+          },
+          savedAt: run.calculatedAt,
+          savedBy: userId || 'system',
+          tags: run.metadata?.tags as string[] | undefined,
+          isPublic: false // Default to false, can be enhanced later
+        }))
+
+        return {
+          success: true,
+          data: valuations,
+          pagination: result.pagination,
+          timestamp: new Date().toISOString()
+        }
       } catch (error) {
         if (error instanceof Error) {
           throw {
@@ -253,19 +289,32 @@ export function useNavValuation(valuationId: string, options: Omit<UseNavValuati
     queryKey,
     queryFn: async (): Promise<NavValuation> => {
       try {
-        // TODO: Replace with actual backend endpoint
-        // return await navService.getValuation(valuationId)
+        // Fetch specific calculation run by ID
+        const run = await navService.getCalculationById(valuationId)
         
-        // Mock implementation
-        const mockValuations = generateMockValuations(1, 10)
-        const valuation = mockValuations.data.find(v => v.id === valuationId)
-        
-        if (!valuation) {
-          throw {
-            message: 'Valuation not found',
-            statusCode: 404,
-            timestamp: new Date().toISOString()
-          } as NavError
+        // Map NavCalculationResult to NavValuation format
+        const valuation: NavValuation = {
+          id: run.runId,
+          name: `${run.productType || 'Asset'} NAV - ${new Date(run.valuationDate).toLocaleDateString()}`,
+          description: `NAV calculation for ${run.productType || 'asset'} on ${new Date(run.valuationDate).toLocaleDateString()}`,
+          calculationResult: {
+            runId: run.runId,
+            valuationDate: run.valuationDate,
+            navValue: run.navValue,
+            navPerShare: run.navPerShare,
+            totalAssets: run.totalAssets,
+            totalLiabilities: run.totalLiabilities,
+            netAssets: run.netAssets,
+            sharesOutstanding: run.sharesOutstanding,
+            currency: run.currency,
+            calculatedAt: run.calculatedAt,
+            status: run.status,
+            approvalStatus: run.approvalStatus
+          },
+          savedAt: run.calculatedAt,
+          savedBy: 'system',
+          tags: run.metadata?.tags as string[] | undefined,
+          isPublic: false
         }
         
         return valuation
@@ -298,56 +347,6 @@ export function useNavValuation(valuationId: string, options: Omit<UseNavValuati
     isError: query.isError,
     error: query.error ? convertToNavError(query.error) : null,
     refetch: query.refetch
-  }
-}
-
-/**
- * Generate mock valuations for testing
- */
-function generateMockValuations(page: number = 1, limit: number = 20, userId?: string): PaginatedResponse<NavValuation> {
-  const total = 47 // Mock total count
-  const startIndex = (page - 1) * limit
-  
-  const mockValuations: NavValuation[] = Array.from({ length: Math.min(limit, total - startIndex) }, (_, i) => {
-    const index = startIndex + i
-    return {
-      id: `val_${index + 1}`,
-      name: `NAV Calculation ${index + 1}`,
-      description: `Saved NAV calculation from ${new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}`,
-      calculationResult: {
-        runId: `run_${index + 1}`,
-        valuationDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        navValue: Math.random() * 10000000 + 1000000, // $1M - $11M
-        navPerShare: Math.random() * 100 + 50, // $50 - $150
-        totalAssets: Math.random() * 12000000 + 1200000,
-        totalLiabilities: Math.random() * 2000000 + 200000,
-        netAssets: Math.random() * 10000000 + 1000000,
-        sharesOutstanding: Math.random() * 100000 + 10000,
-        currency: 'USD',
-        calculatedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        status: ['completed', 'completed', 'completed', 'failed'][Math.floor(Math.random() * 4)] as any,
-        approvalStatus: ['approved', 'draft', 'validated'][Math.floor(Math.random() * 3)] as any
-      },
-      savedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      savedBy: userId || `user_${Math.floor(Math.random() * 10) + 1}`,
-      tags: ['equity', 'q4-2024', 'final'][Math.floor(Math.random() * 3)] ? 
-        [['equity', 'portfolio'], ['bonds', 'fixed-income'], ['mmf', 'liquidity']][Math.floor(Math.random() * 3)] : 
-        undefined,
-      isPublic: Math.random() > 0.7
-    }
-  })
-
-  return {
-    success: true,
-    data: mockValuations,
-    pagination: {
-      total,
-      page,
-      limit,
-      hasMore: startIndex + limit < total,
-      totalPages: Math.ceil(total / limit)
-    },
-    timestamp: new Date().toISOString()
   }
 }
 

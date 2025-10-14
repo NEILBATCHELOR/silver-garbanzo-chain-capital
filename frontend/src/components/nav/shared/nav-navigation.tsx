@@ -40,18 +40,6 @@ const NavNavigation: React.FC<NavNavigationProps> = ({ projectId }) => {
       active: currentPath === '/nav' || currentPath === '/nav/',
     },
     {
-      icon: <TrendingUp className="h-4 w-4" />,
-      label: 'Valuations',
-      href: projectId ? `/projects/${projectId}/nav/valuations` : '/nav/valuations',
-      active: isActive('/nav/valuations'),
-    },
-    {
-      icon: <FileSpreadsheet className="h-4 w-4" />,
-      label: 'History',
-      href: projectId ? `/projects/${projectId}/nav/audit` : '/nav/audit',
-      active: isActive('/nav/audit'),
-    },
-    {
       icon: <Landmark className="h-4 w-4" />,
       label: 'Bonds',
       href: projectId ? `/projects/${projectId}/nav/bonds` : '/nav/bonds',

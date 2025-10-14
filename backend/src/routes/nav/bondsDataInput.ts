@@ -619,6 +619,111 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
   })
   
   /**
+   * GET /api/v1/nav/token-links
+   * Get ALL token links for a project (across all bonds)
+   * Query params: project_id (required), bond_id (optional filter)
+   */
+  fastify.get('/token-links', async (request, reply) => {
+    const { project_id, bond_id } = request.query as { 
+      project_id?: string
+      bond_id?: string 
+    }
+    
+    if (!project_id) {
+      return reply.code(400).send({
+        success: false,
+        error: 'project_id query parameter is required'
+      })
+    }
+    
+    try {
+      // First, get all tokens that have a product_id (linked to bonds)
+      let tokensQuery = fastify.supabase
+        .from('tokens')
+        .select('id, name, symbol, product_id, ratio, parity, status, created_at, updated_at')
+        .eq('project_id', project_id)
+        .not('product_id', 'is', null)
+      
+      // Optional filter by specific bond
+      if (bond_id) {
+        tokensQuery = tokensQuery.eq('product_id', bond_id)
+      }
+      
+      tokensQuery = tokensQuery.order('created_at', { ascending: false })
+      
+      const { data: tokens, error: tokensError } = await tokensQuery
+      
+      if (tokensError) {
+        fastify.log.error({ error: tokensError, project_id, bond_id }, 'Database error fetching tokens')
+        return reply.code(500).send({
+          success: false,
+          error: tokensError.message
+        })
+      }
+      
+      if (!tokens || tokens.length === 0) {
+        return reply.send({
+          success: true,
+          data: [],
+          count: 0
+        })
+      }
+      
+      // Get unique bond IDs
+      const bondIds = [...new Set(tokens.map(t => t.product_id).filter(Boolean))] as string[]
+      
+      // Fetch bond information for all linked bonds
+      const { data: bonds, error: bondsError } = await fastify.supabase
+        .from('bond_products')
+        .select('id, asset_name, cusip, isin')
+        .in('id', bondIds)
+      
+      if (bondsError) {
+        fastify.log.error({ error: bondsError, bondIds }, 'Database error fetching bonds')
+        // Continue even if bonds fetch fails - we'll just show IDs
+      }
+      
+      // Create a map of bond_id -> bond_info for quick lookup
+      const bondMap = new Map(
+        (bonds || []).map(bond => [
+          bond.id,
+          bond.asset_name || bond.cusip || bond.isin || 'Unknown'
+        ])
+      )
+      
+      // Transform data to combine token and bond info
+      const transformedData = tokens.map((token) => ({
+        id: token.id,
+        token_id: token.id,
+        token_name: token.name,
+        token_symbol: token.symbol,
+        bond_id: token.product_id!,
+        bond_name: bondMap.get(token.product_id!) || token.product_id!,
+        parity: token.parity || token.ratio || 1.0,
+        ratio: token.ratio || 1.0,
+        status: token.status || 'active',
+        effective_date: token.created_at,
+        created_at: token.created_at,
+        updated_at: token.updated_at
+      }))
+      
+      return reply.send({
+        success: true,
+        data: transformedData,
+        count: transformedData.length
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, project_id, bond_id }, 'Unexpected error fetching token links')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
    * GET /api/v1/nav/bonds/:bondId/token-links
    * Get tokens linked to this bond
    * Returns tokens where product_id matches bondId

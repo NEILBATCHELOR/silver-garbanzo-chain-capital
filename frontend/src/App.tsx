@@ -162,10 +162,6 @@ const queryClient = new QueryClient({
 
 // NAV Pages
 import NavDashboardPage from '@/pages/nav/nav-dashboard-page';
-import NavCalculatorsPage from '@/pages/nav/nav-calculators-page';
-import CalculatorDetailPage from '@/pages/nav/calculator-detail-page';
-import NavValuationsPage from '@/pages/nav/nav-valuations-page';
-import NavAuditPage from '@/pages/nav/nav-audit-page';
 
 // Bond Pages
 import {
@@ -662,18 +658,8 @@ function App() {
 
               {/* NAV Routes */}
               <Route path="nav" element={<NavDashboardPage />} />
-              <Route path="nav/calculators" element={<NavCalculatorsPage />} />
-              <Route path="nav/calculators/:slug" element={<CalculatorDetailPage />} />
-              <Route path="nav/valuations" element={<NavValuationsPage />} />
-              <Route path="nav/audit" element={<NavAuditPage />} />
-
-              {/* Project-specific NAV Routes */}
-              <Route path="projects/:projectId/nav" element={<NavDashboardPage />} />
-              <Route path="projects/:projectId/nav/calculators" element={<NavCalculatorsPage />} />
-              <Route path="projects/:projectId/nav/calculators/:slug" element={<CalculatorDetailPage />} />
-              <Route path="projects/:projectId/nav/valuations" element={<NavValuationsPage />} />
-              <Route path="projects/:projectId/nav/audit" element={<NavAuditPage />} />
-
+              <Route path="projects/:projectId/nav/" element={<NavDashboardPage />} />
+              
               {/* Bond Routes */}
               <Route path="nav/bonds" element={<BondsListPage />} />
               <Route path="nav/bonds/new" element={<BondAddPage />} />
@@ -788,11 +774,6 @@ function App() {
               
               {/* NAV Engine Routes */}
               <Route path="nav" element={<NavDashboardPage />} />
-              <Route path="nav/calculators" element={<NavCalculatorsPage />} />
-              <Route path="nav/calculators/:slug" element={<CalculatorDetailPage />} />
-              <Route path="nav/valuations" element={<NavValuationsPage />} />
-              <Route path="nav/audit" element={<NavAuditPage />} />
-              
               {/* Admin Configuration Routes */}
               <Route path="admin/sidebar-configuration" element={<SidebarAdminDashboard />} />
             </Route>
