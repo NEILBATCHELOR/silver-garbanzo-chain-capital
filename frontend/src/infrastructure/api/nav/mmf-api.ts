@@ -431,6 +431,190 @@ export const MMFAPI = {
       `${MMF_BASE}/${fundId}/calculations`
     )
     return handleResponse<{ success: boolean; data: MMFCalculation[] }>(response)
+  },
+
+  // ========== Enhancement Features (Market Leader) ==========
+
+  /**
+   * ENHANCEMENT 1: Get asset allocation breakdown with typical comparisons
+   * GET /api/v1/nav/mmf/:fundId/allocation-breakdown
+   */
+  getAllocationBreakdown: async (fundId: string) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/allocation-breakdown`
+    )
+    return handleResponse<{
+      success: boolean
+      data: Array<{
+        assetClass: string
+        totalValue: number
+        percentage: number
+        numberOfSecurities: number
+        averageMaturityDays: number
+        typicalRange?: { min: number; max: number; average: number }
+        variance?: number | null
+      }>
+    }>(response)
+  },
+
+  /**
+   * ENHANCEMENT 2: Get fund-type specific validation
+   * GET /api/v1/nav/mmf/:fundId/fund-type-validation
+   */
+  getFundTypeValidation: async (fundId: string) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/fund-type-validation`
+    )
+    return handleResponse<{
+      success: boolean
+      data: {
+        fundType: string
+        specificRules: Array<{
+          rule: string
+          requirement: string
+          actualValue: number | string
+          isCompliant: boolean
+          severity: 'critical' | 'warning'
+        }>
+        allRulesMet: boolean
+        violations: string[]
+      }
+    }>(response)
+  },
+
+  /**
+   * ENHANCEMENT 3: Get concentration risk analysis
+   * GET /api/v1/nav/mmf/:fundId/concentration-risk
+   */
+  getConcentrationRisk: async (fundId: string) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/concentration-risk`
+    )
+    return handleResponse<{
+      success: boolean
+      data: {
+        topIssuers: Array<{
+          issuer: string
+          exposure: number
+          value: number
+          securities: number
+        }>
+        alerts: Array<{
+          issuer: string
+          issuerId: string | null
+          currentExposure: number
+          limit: number
+          exceedsLimit: boolean
+          exceedBy: number
+          severity: 'critical' | 'warning' | 'info'
+          totalValue: number
+          numberOfSecurities: number
+          isAffiliated: boolean
+          suggestedAction: string
+          alternativeIssuers?: string[]
+        }>
+        totalExposedIssuers: number
+        complianceStatus: 'compliant' | 'warning' | 'violation'
+        recommendations: string[]
+      }
+    }>(response)
+  },
+
+  /**
+   * ENHANCEMENT 4: Get fees and gates analysis
+   * GET /api/v1/nav/mmf/:fundId/fees-gates-analysis
+   */
+  getFeesGatesAnalysis: async (fundId: string) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/fees-gates-analysis`
+    )
+    return handleResponse<{
+      success: boolean
+      data: {
+        currentStatus: 'no_action' | 'discretionary_permitted' | 'mandatory_required'
+        fee: {
+          type: 'none' | 'discretionary' | 'mandatory'
+          percentage: number
+          reason: string
+        }
+        gate: {
+          permitted: boolean
+          note: string
+        }
+        boardNotificationRequired: boolean
+        recommendations: string[]
+      }
+    }>(response)
+  },
+
+  /**
+   * ENHANCEMENT 5: Analyze transaction impact
+   * POST /api/v1/nav/mmf/:fundId/transaction-impact
+   */
+  analyzeTransactionImpact: async (fundId: string, transaction: {
+    type: 'buy' | 'sell' | 'mature'
+    holdingType: string
+    issuerName: string
+    quantity: number
+    price: number
+    maturityDate: Date
+    isGovernmentSecurity: boolean
+    isDailyLiquid: boolean
+    isWeeklyLiquid: boolean
+    creditRating: string
+  }) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/transaction-impact`,
+      {
+        method: 'POST',
+        body: JSON.stringify(transaction)
+      }
+    )
+    return handleResponse<{
+      success: boolean
+      data: {
+        transaction: {
+          type: string
+          security: string
+          quantity: number
+          price: number
+          totalValue: number
+        }
+        preTransaction: {
+          nav: number
+          wam: number
+          wal: number
+          dailyLiquidPercentage: number
+          weeklyLiquidPercentage: number
+        }
+        postTransaction: {
+          nav: number
+          wam: number
+          wal: number
+          dailyLiquidPercentage: number
+          weeklyLiquidPercentage: number
+        }
+        impacts: {
+          navChange: number
+          wamChange: number
+          walChange: number
+          dailyLiquidChange: number
+          weeklyLiquidChange: number
+        }
+        complianceCheck: {
+          willBeCompliant: boolean
+          violations: string[]
+          warnings: string[]
+        }
+        concentrationCheck: {
+          newIssuerExposure?: number
+          exceedsLimit: boolean
+          message: string
+        }
+        recommendation: 'approve' | 'review' | 'reject'
+        recommendationReason: string
+      }
+    }>(response)
   }
 }
 

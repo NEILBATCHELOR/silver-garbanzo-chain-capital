@@ -213,15 +213,19 @@ export interface FundTypeCompliance {
   fundType: FundType
   specificRules: ComplianceRule[]
   allRulesMet: boolean
+  violations: string[]
 }
 
 export type FundType = 'government' | 'prime' | 'retail' | 'municipal' | 'institutional'
 
 export interface ComplianceRule {
   rule: string
-  threshold: number | string
-  currentValue: number | string
+  requirement?: string
+  threshold?: number | string
+  actualValue?: number | string
+  currentValue?: number | string
   isCompliant: boolean
+  severity?: 'critical' | 'warning'
 }
 
 export interface AuditTrail {
@@ -251,6 +255,118 @@ export interface FallbackRecord {
   primarySource: string
   fallbackSource: string
   value: any
+}
+
+// =====================================================
+// ENHANCEMENT TYPES (Market Leader Features)
+// =====================================================
+
+export interface AllocationBreakdown {
+  assetClass: string
+  totalValue: Decimal
+  percentage: number
+  numberOfSecurities: number
+  averageMaturityDays: number
+  typicalRange?: { min: number; max: number; average: number } | null
+  variance?: number | null
+}
+
+export interface ConcentrationAlert {
+  issuer: string
+  issuerId: string | null
+  currentExposure: number
+  limit: number
+  exceedsLimit: boolean
+  exceedBy: number
+  severity: 'critical' | 'warning' | 'info'
+  totalValue: Decimal
+  numberOfSecurities: number
+  isAffiliated: boolean
+  suggestedAction: string
+}
+
+export interface ConcentrationRiskAnalysis {
+  topIssuers: Array<{
+    issuer: string
+    exposure: number
+    value: Decimal
+    securities: number
+  }>
+  alerts: ConcentrationAlert[]
+  totalExposedIssuers: number
+  complianceStatus: 'compliant' | 'warning' | 'violation'
+  recommendations: string[]
+}
+
+export interface FeesGatesAnalysis {
+  currentStatus: 'no_action' | 'discretionary_permitted' | 'mandatory_required'
+  fee: {
+    type: 'none' | 'discretionary' | 'mandatory'
+    percentage: number
+    reason: string
+  }
+  gate: {
+    permitted: boolean
+    note: string
+  }
+  boardNotificationRequired: boolean
+  recommendations: string[]
+}
+
+export interface TransactionInput {
+  type: 'buy' | 'sell' | 'mature'
+  holdingType: string
+  issuerName: string
+  quantity: number
+  price: number
+  maturityDate: Date
+  isGovernmentSecurity: boolean
+  isDailyLiquid: boolean
+  isWeeklyLiquid: boolean
+  creditRating: string
+}
+
+export interface TransactionImpactAnalysis {
+  transaction: {
+    type: 'buy' | 'sell' | 'mature'
+    security: string
+    quantity: number
+    price: number
+    totalValue: Decimal
+  }
+  preTransaction: {
+    nav: Decimal
+    wam: number
+    wal: number
+    dailyLiquidPercentage: number
+    weeklyLiquidPercentage: number
+  }
+  postTransaction: {
+    nav: Decimal
+    wam: number
+    wal: number
+    dailyLiquidPercentage: number
+    weeklyLiquidPercentage: number
+  }
+  impacts: {
+    navChange: Decimal
+    wamChange: number
+    walChange: number
+    dailyLiquidChange: number
+    weeklyLiquidChange: number
+  }
+  complianceCheck: {
+    willBeCompliant: boolean
+    violations: string[]
+    warnings: string[]
+  }
+  concentrationCheck: {
+    newIssuerExposure?: number
+    exceedsLimit: boolean
+    message: string
+  }
+  recommendation: 'approve' | 'review' | 'reject'
+  recommendationReason: string
 }
 
 // =====================================================
@@ -718,6 +834,37 @@ export class EnhancedMMFModels {
       weeklyLiquidValue: weeklyLiquid
     }
   }
+
+  /**
+   * Helper method to calculate WAM only
+   */
+  private calculateWAM(holdings: MMFHolding[], totalAmortizedCost: Decimal): number {
+    const metrics = this.calculateMaturityMetricsEnhanced(holdings, totalAmortizedCost)
+    return metrics.wam
+  }
+
+  /**
+   * Helper method to calculate WAL only
+   */
+  private calculateWAL(holdings: MMFHolding[], totalAmortizedCost: Decimal): number {
+    const metrics = this.calculateMaturityMetricsEnhanced(holdings, totalAmortizedCost)
+    return metrics.wal
+  }
+
+  /**
+   * Helper method alias for calculateLiquidityMetrics (for consistency)
+   */
+  private calculateLiquidityRatios(
+    holdings: MMFHolding[],
+    totalAmortizedCost: Decimal
+  ): {
+    dailyLiquidPercentage: number
+    weeklyLiquidPercentage: number
+    dailyLiquidValue: Decimal
+    weeklyLiquidValue: Decimal
+  } {
+    return this.calculateLiquidityMetrics(holdings, totalAmortizedCost)
+  }
   
   /**
    * ENHANCEMENT 3: Fund-type specific regulatory compliance
@@ -841,7 +988,8 @@ export class EnhancedMMFModels {
       fundTypeSpecificRules: {
         fundType,
         specificRules,
-        allRulesMet: specificRules.every(r => r.isCompliant)
+        allRulesMet: specificRules.every(r => r.isCompliant),
+        violations: [] // Add empty violations array for fund-type specific rules
       }
     }
   }
@@ -1474,6 +1622,459 @@ export class EnhancedMMFModels {
   }
   
   // =====================================================
+  // ENHANCEMENT METHODS (Market Leader Features)
+  // =====================================================
+
+  /**
+   * ENHANCEMENT 1: Calculate Asset Allocation Breakdown
+   * Groups holdings by asset class and compares to typical industry allocations
+   */
+  calculateAllocationBreakdown(
+    holdings: MMFHolding[],
+    fundType: string,
+    totalValue: Decimal
+  ): AllocationBreakdown[] {
+    // Group holdings by asset class
+    const grouped: Record<string, MMFHolding[]> = {}
+    
+    holdings.forEach(h => {
+      const assetClass = this.normalizeAssetClass(h.holding_type)
+      if (!grouped[assetClass]) grouped[assetClass] = []
+      grouped[assetClass].push(h)
+    })
+    
+    const breakdowns: AllocationBreakdown[] = []
+    
+    for (const [assetClass, securities] of Object.entries(grouped)) {
+      const classTotal = securities.reduce(
+        (sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)),
+        new Decimal(0)
+      )
+      
+      const percentage = classTotal.div(totalValue).times(100).toNumber()
+      
+      const avgMaturity = securities.reduce((sum, h) => 
+        sum + (h.days_to_maturity || 0), 0
+      ) / securities.length
+      
+      // Get typical allocation for comparison
+      const typical = this.getTypicalAllocation(fundType, assetClass)
+      const variance = typical ? percentage - typical.average : null
+      
+      breakdowns.push({
+        assetClass,
+        totalValue: classTotal,
+        percentage,
+        numberOfSecurities: securities.length,
+        averageMaturityDays: Math.round(avgMaturity),
+        typicalRange: typical,
+        variance
+      })
+    }
+    
+    return breakdowns.sort((a, b) => b.percentage - a.percentage)
+  }
+
+  /**
+   * ENHANCEMENT 2: Validate Fund-Type Specific Rules
+   * Enforces regulatory requirements specific to each MMF type
+   */
+  validateFundTypeSpecificRules(
+    fundType: string,
+    holdings: MMFHolding[],
+    totalValue: Decimal
+  ): FundTypeCompliance {
+    const normalizedType = this.normalizeFundType(fundType)
+    const rules: ComplianceRule[] = []
+    const violations: string[] = []
+    
+    switch (normalizedType) {
+      case 'government':
+        // Rule: ≥99.5% government securities
+        const govPercentage = this.calculateGovernmentSecuritiesPercentage(holdings, totalValue)
+        rules.push({
+          rule: 'Government Securities Minimum',
+          requirement: '≥99.5% in government securities',
+          actualValue: govPercentage,
+          isCompliant: govPercentage >= 99.5,
+          severity: 'critical'
+        })
+        if (govPercentage < 99.5) {
+          violations.push(`Government MMF holds only ${govPercentage.toFixed(1)}% government securities (requires ≥99.5%)`)
+        }
+        break
+        
+      case 'prime':
+        // Rule 1: ≤5% in second-tier securities
+        const tier2Percentage = this.calculateTier2Percentage(holdings, totalValue)
+        rules.push({
+          rule: 'Second-Tier Securities Limit',
+          requirement: '≤5% in second-tier securities',
+          actualValue: tier2Percentage,
+          isCompliant: tier2Percentage <= 5,
+          severity: 'critical'
+        })
+        if (tier2Percentage > 5) {
+          violations.push(`Prime MMF holds ${tier2Percentage.toFixed(1)}% second-tier securities (max 5%)`)
+        }
+        
+        // Rule 2: Stricter liquidity requirements
+        const dailyLiq = this.calculateDailyLiquidPercentage(holdings, totalValue)
+        rules.push({
+          rule: 'Daily Liquidity Enhanced',
+          requirement: '≥30% daily liquid for Prime (vs 25% standard)',
+          actualValue: dailyLiq,
+          isCompliant: dailyLiq >= 30,
+          severity: 'warning'
+        })
+        if (dailyLiq < 30) {
+          violations.push(`Prime MMF daily liquidity ${dailyLiq.toFixed(1)}% below enhanced 30% target`)
+        }
+        break
+        
+      case 'municipal':
+        // Rule 1: ≥80% municipal securities
+        const muniPercentage = this.calculateMunicipalSecuritiesPercentage(holdings, totalValue)
+        rules.push({
+          rule: 'Municipal Securities Minimum',
+          requirement: '≥80% in tax-exempt municipal securities',
+          actualValue: muniPercentage,
+          isCompliant: muniPercentage >= 80,
+          severity: 'critical'
+        })
+        if (muniPercentage < 80) {
+          violations.push(`Tax-Exempt MMF holds only ${muniPercentage.toFixed(1)}% municipal securities (requires ≥80%)`)
+        }
+        
+        // Rule 2: Exempt from daily liquidity minimum (per 2023 reforms)
+        rules.push({
+          rule: 'Daily Liquidity Exemption',
+          requirement: 'Exempt from 25% daily liquidity minimum',
+          actualValue: 'Exempt',
+          isCompliant: true,
+          severity: 'warning'
+        })
+        break
+        
+      case 'retail':
+        // Rule: Must maintain CNAV at $1.00
+        rules.push({
+          rule: 'Constant NAV Requirement',
+          requirement: 'Must maintain stable $1.00 NAV (CNAV)',
+          actualValue: '$1.00 target',
+          isCompliant: true,
+          severity: 'critical'
+        })
+        break
+        
+      case 'institutional':
+        // Rule: Mandatory liquidity fees mechanism
+        rules.push({
+          rule: 'Mandatory Liquidity Fee Trigger',
+          requirement: 'Must impose 1% fee if net redemptions >5% in a day',
+          actualValue: 'Fee mechanism required',
+          isCompliant: true,
+          severity: 'critical'
+        })
+        break
+    }
+    
+    return {
+      fundType: normalizedType,
+      specificRules: rules,
+      allRulesMet: violations.length === 0,
+      violations
+    }
+  }
+
+  /**
+   * ENHANCEMENT 3: Check Concentration Risk
+   * Monitors issuer concentration and flags violations (>5% per issuer)
+   */
+  checkConcentrationRisk(
+    holdings: MMFHolding[],
+    totalValue: Decimal,
+    fundType: string
+  ): ConcentrationRiskAnalysis {
+    const CONCENTRATION_LIMIT = 5.0
+    
+    // Group by issuer
+    const byIssuer = holdings.reduce((acc, h) => {
+      const issuerName = h.issuer_name
+      let issuerData = acc[issuerName]
+      
+      if (!issuerData) {
+        issuerData = {
+          securities: [],
+          isGovernment: h.is_government_security,
+          isAffiliated: h.is_affiliated_issuer
+        }
+        acc[issuerName] = issuerData
+      }
+      
+      issuerData.securities.push(h)
+      return acc
+    }, {} as Record<string, { securities: MMFHolding[]; isGovernment: boolean; isAffiliated: boolean }>)
+    
+    const alerts: ConcentrationAlert[] = []
+    const topIssuers: ConcentrationRiskAnalysis['topIssuers'] = []
+    
+    for (const [issuer, data] of Object.entries(byIssuer)) {
+      const issuerValue = data.securities.reduce(
+        (sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)),
+        new Decimal(0)
+      )
+      const exposure = issuerValue.div(totalValue).times(100).toNumber()
+      
+      topIssuers.push({
+        issuer,
+        exposure,
+        value: issuerValue,
+        securities: data.securities.length
+      })
+      
+      // Check concentration limit (exempt government securities)
+      if (!data.isGovernment && exposure > CONCENTRATION_LIMIT) {
+        const exceedBy = exposure - CONCENTRATION_LIMIT
+        
+        alerts.push({
+          issuer,
+          issuerId: data.securities[0]?.issuer_id || null,
+          currentExposure: exposure,
+          limit: CONCENTRATION_LIMIT,
+          exceedsLimit: true,
+          exceedBy,
+          severity: exceedBy > 2 ? 'critical' : 'warning',
+          totalValue: issuerValue,
+          numberOfSecurities: data.securities.length,
+          isAffiliated: data.isAffiliated,
+          suggestedAction: `Reduce ${issuer} holdings by $${issuerValue.times(exceedBy / 100).toFixed(0)} (${exceedBy.toFixed(1)}% of NAV) to reach 5% limit`
+        })
+      }
+    }
+    
+    topIssuers.sort((a, b) => b.exposure - a.exposure)
+    
+    const criticalAlerts = alerts.filter(a => a.severity === 'critical').length
+    const complianceStatus: ConcentrationRiskAnalysis['complianceStatus'] = 
+      criticalAlerts > 0 ? 'violation' : alerts.length > 0 ? 'warning' : 'compliant'
+    
+    const recommendations: string[] = []
+    if (alerts.length === 0) {
+      recommendations.push('✅ All issuer concentrations within 5% regulatory limit')
+    } else {
+      recommendations.push(`⚠️ ${alerts.length} issuer(s) exceed 5% concentration limit`)
+      recommendations.push('Priority: Reduce exposure to top-concentrated issuers')
+      recommendations.push('Consider diversification across multiple issuers to mitigate credit risk')
+    }
+    
+    return {
+      topIssuers: topIssuers.slice(0, 10),
+      alerts,
+      totalExposedIssuers: Object.keys(byIssuer).length,
+      complianceStatus,
+      recommendations
+    }
+  }
+
+  /**
+   * ENHANCEMENT 4: Evaluate Fees and Gates
+   * Implements 2023 SEC reform fee requirements
+   */
+  evaluateFeesGates(
+    fundType: string,
+    weeklyLiquidityPercentage: number,
+    dailyLiquidityPercentage: number,
+    netRedemptionsPercentage: number
+  ): FeesGatesAnalysis {
+    const recommendations: string[] = []
+    let currentStatus: FeesGatesAnalysis['currentStatus'] = 'no_action'
+    let feeType: 'none' | 'discretionary' | 'mandatory' = 'none'
+    let feePercentage = 0
+    let reason = ''
+    let boardNotificationRequired = false
+    
+    // Check for mandatory liquidity fee (institutional & tax-exempt MMFs only)
+    if ((fundType === 'institutional' || fundType === 'municipal') && netRedemptionsPercentage > 5) {
+      currentStatus = 'mandatory_required'
+      feeType = 'mandatory'
+      feePercentage = 1.0
+      reason = `Net redemptions (${netRedemptionsPercentage.toFixed(1)}%) exceeded 5% threshold`
+      recommendations.push('MANDATORY: Impose 1% liquidity fee on redemptions (SEC Rule 2a-7)')
+      recommendations.push('Consider increasing fee to 2% if redemptions continue')
+      boardNotificationRequired = true
+    }
+    
+    // Check for discretionary liquidity fee (all types)
+    if (weeklyLiquidityPercentage < 30) {
+      if (currentStatus === 'no_action') {
+        currentStatus = 'discretionary_permitted'
+        feeType = 'discretionary'
+        feePercentage = 1.0
+        reason = `Weekly liquidity (${weeklyLiquidityPercentage.toFixed(1)}%) fell below 30% threshold`
+      }
+      recommendations.push(`DISCRETIONARY: May impose up to 2% liquidity fee (weekly liquidity ${weeklyLiquidityPercentage.toFixed(1)}% < 30%)`)
+      recommendations.push('Consider fee to discourage further redemptions and protect remaining shareholders')
+    }
+    
+    // Check for board notification requirement
+    if (dailyLiquidityPercentage < 12.5) {
+      boardNotificationRequired = true
+      recommendations.push(`CRITICAL: Notify board within 1 business day (daily liquidity ${dailyLiquidityPercentage.toFixed(1)}% < 12.5%)`)
+    }
+    
+    // Gates no longer permitted (2023 reform)
+    const gateNote = 'Redemption gates removed per 2023 SEC reforms. Historical gates tracked for compliance only.'
+    
+    if (currentStatus === 'no_action') {
+      recommendations.push('✅ No liquidity fees required at this time')
+      recommendations.push('✅ Weekly liquidity adequate (≥30%)')
+    }
+    
+    return {
+      currentStatus,
+      fee: {
+        type: feeType,
+        percentage: feePercentage,
+        reason
+      },
+      gate: {
+        permitted: false,
+        note: gateNote
+      },
+      boardNotificationRequired,
+      recommendations
+    }
+  }
+
+  /**
+   * ENHANCEMENT 5: Analyze Transaction Impact
+   * Pre-trade analysis of how a transaction would affect portfolio metrics and compliance
+   */
+  async analyzeTransactionImpact(
+    transaction: TransactionInput,
+    currentHoldings: MMFHolding[],
+    product: MMFProduct,
+    asOfDate: Date
+  ): Promise<TransactionImpactAnalysis> {
+    // Calculate current state
+    const totalAmortizedCost = currentHoldings.reduce(
+      (sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)),
+      new Decimal(0)
+    )
+    
+    // Simulate transaction
+    const simulatedHoldings = this.simulateTransaction(currentHoldings, transaction)
+    
+    const simTotalAmortizedCost = simulatedHoldings.reduce(
+      (sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)),
+      new Decimal(0)
+    )
+    
+    // Calculate metrics before and after
+    const preWAM = this.calculateWAM(currentHoldings, totalAmortizedCost)
+    const postWAM = this.calculateWAM(simulatedHoldings, simTotalAmortizedCost)
+    
+    const preWAL = this.calculateWAL(currentHoldings, totalAmortizedCost)
+    const postWAL = this.calculateWAL(simulatedHoldings, simTotalAmortizedCost)
+    
+    const preLiquidity = this.calculateLiquidityRatios(currentHoldings, totalAmortizedCost)
+    const postLiquidity = this.calculateLiquidityRatios(simulatedHoldings, simTotalAmortizedCost)
+    
+    // Calculate impacts
+    const impacts = {
+      navChange: new Decimal(0), // Assuming no immediate NAV change
+      wamChange: postWAM - preWAM,
+      walChange: postWAL - preWAL,
+      dailyLiquidChange: postLiquidity.dailyLiquidPercentage - preLiquidity.dailyLiquidPercentage,
+      weeklyLiquidChange: postLiquidity.weeklyLiquidPercentage - preLiquidity.weeklyLiquidPercentage
+    }
+    
+    // Check compliance
+    const violations: string[] = []
+    const warnings: string[] = []
+    
+    if (postWAM > 60) violations.push(`WAM would increase to ${postWAM.toFixed(1)} days (max 60)`)
+    if (postWAL > 120) violations.push(`WAL would increase to ${postWAL.toFixed(1)} days (max 120)`)
+    if (postLiquidity.dailyLiquidPercentage < 25) violations.push(`Daily liquidity would drop to ${postLiquidity.dailyLiquidPercentage.toFixed(1)}% (min 25%)`)
+    if (postLiquidity.weeklyLiquidPercentage < 50) violations.push(`Weekly liquidity would drop to ${postLiquidity.weeklyLiquidPercentage.toFixed(1)}% (min 50%)`)
+    
+    if (Math.abs(impacts.wamChange) > 5) warnings.push(`WAM would change by ${impacts.wamChange.toFixed(1)} days`)
+    if (Math.abs(impacts.dailyLiquidChange) > 5) warnings.push(`Daily liquidity would change by ${impacts.dailyLiquidChange.toFixed(1)}%`)
+    
+    // Check concentration for buys
+    let concentrationCheck: TransactionImpactAnalysis['concentrationCheck'] = {
+      exceedsLimit: false,
+      message: 'N/A for sell/mature transactions'
+    }
+    
+    if (transaction.type === 'buy') {
+      const issuerExposure = this.calculateIssuerExposure(
+        simulatedHoldings,
+        transaction.issuerName,
+        simTotalAmortizedCost
+      )
+      concentrationCheck = {
+        newIssuerExposure: issuerExposure,
+        exceedsLimit: !transaction.isGovernmentSecurity && issuerExposure > 5,
+        message: transaction.isGovernmentSecurity
+          ? `Government security (exempt from 5% limit)`
+          : issuerExposure > 5
+            ? `⚠️ Would exceed 5% limit: ${issuerExposure.toFixed(2)}% exposure to ${transaction.issuerName}`
+            : `✅ Within 5% limit: ${issuerExposure.toFixed(2)}% exposure to ${transaction.issuerName}`
+      }
+    }
+    
+    // Determine recommendation
+    let recommendation: 'approve' | 'review' | 'reject' = 'approve'
+    let recommendationReason = 'Transaction meets all compliance requirements'
+    
+    if (violations.length > 0) {
+      recommendation = 'reject'
+      recommendationReason = `Regulatory violations: ${violations.join('; ')}`
+    } else if (concentrationCheck.exceedsLimit) {
+      recommendation = 'reject'
+      recommendationReason = `Concentration limit exceeded: ${concentrationCheck.message}`
+    } else if (warnings.length > 0) {
+      recommendation = 'review'
+      recommendationReason = `Warnings detected: ${warnings.join('; ')}`
+    }
+    
+    return {
+      transaction: {
+        type: transaction.type,
+        security: transaction.holdingType,
+        quantity: transaction.quantity,
+        price: transaction.price,
+        totalValue: new Decimal(transaction.quantity).times(transaction.price)
+      },
+      preTransaction: {
+        nav: new Decimal(1.0),
+        wam: preWAM,
+        wal: preWAL,
+        dailyLiquidPercentage: preLiquidity.dailyLiquidPercentage,
+        weeklyLiquidPercentage: preLiquidity.weeklyLiquidPercentage
+      },
+      postTransaction: {
+        nav: new Decimal(1.0),
+        wam: postWAM,
+        wal: postWAL,
+        dailyLiquidPercentage: postLiquidity.dailyLiquidPercentage,
+        weeklyLiquidPercentage: postLiquidity.weeklyLiquidPercentage
+      },
+      impacts,
+      complianceCheck: {
+        willBeCompliant: violations.length === 0,
+        violations,
+        warnings
+      },
+      concentrationCheck,
+      recommendation,
+      recommendationReason
+    }
+  }
+
+  // =====================================================
   // UTILITY METHODS
   // =====================================================
   
@@ -1613,6 +2214,178 @@ export class EnhancedMMFModels {
     
     // Convert to years and apply approximation factor
     return (avgDaysToMaturity / 365) * 0.95
+  }
+
+  // =====================================================
+  // HELPER METHODS FOR ENHANCEMENTS
+  // =====================================================
+
+  /**
+   * Normalize asset class for allocation breakdown
+   */
+  private normalizeAssetClass(holdingType: string): string {
+    const type = holdingType.toLowerCase()
+    
+    if (type.includes('treasury')) return 'treasury_debt'
+    if (type.includes('agency')) return 'agency_debt'
+    if (type.includes('commercial') || type.includes('cp')) return 'commercial_paper'
+    if (type.includes('cd') || type.includes('deposit')) return 'certificate_of_deposit'
+    if (type.includes('repo')) {
+      if (type.includes('treasury')) return 'treasury_repo'
+      if (type.includes('agency')) return 'agency_repo'
+      return 'other_repo'
+    }
+    if (type.includes('vrdn') || type.includes('variable')) return 'vrdn'
+    if (type.includes('municipal') || type.includes('muni')) return 'municipal'
+    
+    return 'other'
+  }
+
+  /**
+   * Get typical allocation for a fund type and asset class
+   * Based on leadership plan data (September 30, 2025 allocations)
+   */
+  private getTypicalAllocation(
+    fundType: string,
+    assetClass: string
+  ): { min: number; max: number; average: number } | null {
+    const typicalAllocations: Record<string, Record<string, { min: number; max: number; average: number }>> = {
+      government: {
+        treasury_debt: { min: 30, max: 40, average: 35.2 },
+        agency_debt: { min: 20, max: 28, average: 23.8 },
+        treasury_repo: { min: 20, max: 26, average: 23.0 },
+        agency_repo: { min: 15, max: 20, average: 17.5 }
+      },
+      prime: {
+        commercial_paper: { min: 20, max: 26, average: 23.0 },
+        certificate_of_deposit: { min: 12, max: 17, average: 14.4 },
+        treasury_repo: { min: 22, max: 27, average: 24.4 },
+        agency_repo: { min: 11, max: 16, average: 13.4 },
+        treasury_debt: { min: 5, max: 10, average: 7.2 }
+      }
+    }
+    
+    return typicalAllocations[fundType]?.[assetClass] || null
+  }
+
+  /**
+   * Calculate daily liquid percentage
+   */
+  private calculateDailyLiquidPercentage(
+    holdings: MMFHolding[],
+    totalValue: Decimal
+  ): number {
+    const dailyLiquid = holdings
+      .filter(h => h.is_daily_liquid)
+      .reduce((sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)), new Decimal(0))
+    
+    return dailyLiquid.div(totalValue).times(100).toNumber()
+  }
+
+  /**
+   * Calculate municipal securities percentage
+   */
+  private calculateMunicipalSecuritiesPercentage(
+    holdings: MMFHolding[],
+    totalValue: Decimal
+  ): number {
+    const muniValue = holdings
+      .filter(h => 
+        h.holding_type.toLowerCase().includes('municipal') ||
+        h.holding_type.toLowerCase().includes('muni') ||
+        h.holding_type.toLowerCase().includes('vrdn')
+      )
+      .reduce((sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)), new Decimal(0))
+    
+    return muniValue.div(totalValue).times(100).toNumber()
+  }
+
+  /**
+   * Calculate issuer exposure percentage
+   */
+  private calculateIssuerExposure(
+    holdings: MMFHolding[],
+    issuerName: string,
+    totalNAV: Decimal
+  ): number {
+    const issuerValue = holdings
+      .filter(h => h.issuer_name === issuerName)
+      .reduce((sum, h) => sum.plus(new Decimal(h.amortized_cost || 0)), new Decimal(0))
+    
+    return issuerValue.div(totalNAV).times(100).toNumber()
+  }
+
+  /**
+   * Simulate a transaction on holdings
+   */
+  private simulateTransaction(
+    currentHoldings: MMFHolding[],
+    transaction: TransactionInput
+  ): MMFHolding[] {
+    const holdings = [...currentHoldings]
+    
+    if (transaction.type === 'buy') {
+      // Add new holding
+      const newHolding: MMFHolding = {
+        id: 'simulated-' + Date.now(),
+        fund_product_id: currentHoldings[0]?.fund_product_id || '',
+        holding_type: transaction.holdingType,
+        issuer_name: transaction.issuerName,
+        issuer_id: null,
+        security_description: `${transaction.holdingType} - ${transaction.issuerName}`,
+        cusip: null,
+        isin: null,
+        par_value: transaction.quantity,
+        purchase_price: transaction.price,
+        current_price: transaction.price,
+        amortized_cost: transaction.quantity * transaction.price,
+        market_value: transaction.quantity * transaction.price,
+        currency: 'USD',
+        quantity: transaction.quantity,
+        yield_to_maturity: null,
+        coupon_rate: null,
+        effective_maturity_date: transaction.maturityDate,
+        final_maturity_date: transaction.maturityDate,
+        weighted_average_maturity_days: null,
+        weighted_average_life_days: null,
+        days_to_maturity: Math.floor((transaction.maturityDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+        credit_rating: transaction.creditRating,
+        rating_agency: null,
+        is_government_security: transaction.isGovernmentSecurity,
+        is_daily_liquid: transaction.isDailyLiquid,
+        is_weekly_liquid: transaction.isWeeklyLiquid,
+        liquidity_classification: null,
+        acquisition_date: new Date(),
+        settlement_date: null,
+        accrued_interest: null,
+        amortization_adjustment: null,
+        shadow_nav_impact: null,
+        stress_test_value: null,
+        counterparty: null,
+        collateral_description: null,
+        is_affiliated_issuer: false,
+        concentration_percentage: null,
+        status: 'active',
+        notes: null,
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+      holdings.push(newHolding)
+    } else if (transaction.type === 'sell') {
+      // Remove or reduce existing holding
+      const existingIndex = holdings.findIndex(h => h.issuer_name === transaction.issuerName)
+      if (existingIndex >= 0) {
+        holdings.splice(existingIndex, 1)
+      }
+    } else if (transaction.type === 'mature') {
+      // Remove matured holding
+      const existingIndex = holdings.findIndex(h => h.issuer_name === transaction.issuerName)
+      if (existingIndex >= 0) {
+        holdings.splice(existingIndex, 1)
+      }
+    }
+    
+    return holdings
   }
 }
 

@@ -19,5 +19,8 @@ export * from './nav-management'
 // Visualization Components
 export * from './visualization'
 
+// Enhancement Components (Market Leader Features)
+export * from './enhancements'
+
 // Shared Components
 export * from './shared'
