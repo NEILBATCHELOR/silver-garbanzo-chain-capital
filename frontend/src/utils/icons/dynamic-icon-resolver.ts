@@ -30,7 +30,7 @@ export const resolveIcon = (iconName: string | undefined): IconComponent => {
 
   // Try direct lookup in LucideIcons
   const directIcon = (LucideIcons as any)[iconName] as IconComponent;
-  if (directIcon && typeof directIcon === 'function') {
+  if (directIcon && (typeof directIcon === 'function' || typeof directIcon === 'object')) {
     iconCache.set(iconName, directIcon);
     return directIcon;
   }
@@ -54,7 +54,7 @@ export const resolveIcon = (iconName: string | undefined): IconComponent => {
   // Try each variation
   for (const variation of variations) {
     const icon = (LucideIcons as any)[variation] as IconComponent;
-    if (icon && typeof icon === 'function') {
+    if (icon && (typeof icon === 'function' || typeof icon === 'object')) {
       iconCache.set(iconName, icon);
       return icon;
     }
@@ -166,13 +166,14 @@ export const resolveIcon = (iconName: string | undefined): IconComponent => {
     'UserRoundCog': 'UserRoundCog',
     'Activity': 'Activity',
     // NAV Engine icon mappings
-    'Sheet': 'Table', // Sheet doesn't exist, use Table for spreadsheet-like display
+    'Sheet': 'FileSpreadsheet', // Sheet icon for spreadsheet display
     'Calculator': 'Calculator',
     'CircleEqual': 'Equal', // CircleEqual doesn't exist, use Equal
     'SquareSigma': 'Sigma', // SquareSigma doesn't exist, use Sigma
     'FileSpreadsheet': 'FileSpreadsheet',
     // Administration icon mappings
-    'PanelLeftDashed': 'PanelLeft' // PanelLeftDashed doesn't exist, use PanelLeft
+    'PanelLeftDashed': 'PanelLeft', // PanelLeftDashed doesn't exist, use PanelLeft
+    'FileStackIcon': 'Files' // FileStackIcon doesn't exist, use Files
   };
 
   // Try special mappings with both original case and lowercase

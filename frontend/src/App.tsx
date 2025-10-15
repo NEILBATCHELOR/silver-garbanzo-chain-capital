@@ -175,6 +175,19 @@ import {
   BondHistoryPage,
 } from '@/pages/nav/bonds';
 
+// MMF Pages
+import {
+  MMFsListPage,
+  MMFDetailPage,
+  MMFCalculatorPage,
+  MMFAddPage,
+  MMFAnalyticsPage,
+  MMFNAVTrackerPage,
+  MMFUploadPage,
+  MMFHistoryPage,
+  MMFTokenLinksPage,
+} from '@/pages/nav/mmf';
+
 // Redirect component for token routes
 const TokenRedirect = () => {
   const { projectId } = useParams();
@@ -681,6 +694,28 @@ function App() {
               <Route path="projects/:projectId/nav/bonds/:bondId" element={<BondDetailPage />} />
               <Route path="projects/:projectId/nav/bonds/:bondId/edit" element={<BondDetailPage />} />
               <Route path="projects/:projectId/nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
+
+              {/* MMF Routes */}
+              <Route path="nav/mmf" element={<MMFsListPage />} />
+              <Route path="nav/mmf/create" element={<MMFAddPage />} />
+              <Route path="nav/mmf/upload" element={<MMFUploadPage />} />
+              <Route path="nav/mmf/analytics" element={<MMFAnalyticsPage />} />
+              <Route path="nav/mmf/nav-tracker" element={<MMFNAVTrackerPage />} />
+              <Route path="nav/mmf/token-links" element={<MMFTokenLinksPage />} />
+              <Route path="nav/mmf/history" element={<MMFHistoryPage />} />
+              <Route path="nav/mmf/:fundId" element={<MMFDetailPage />} />
+              <Route path="nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
+
+              {/* Project-specific MMF Routes */}
+              <Route path="projects/:projectId/nav/mmf" element={<MMFsListPage />} />
+              <Route path="projects/:projectId/nav/mmf/create" element={<MMFAddPage />} />
+              <Route path="projects/:projectId/nav/mmf/upload" element={<MMFUploadPage />} />
+              <Route path="projects/:projectId/nav/mmf/analytics" element={<MMFAnalyticsPage />} />
+              <Route path="projects/:projectId/nav/mmf/nav-tracker" element={<MMFNAVTrackerPage />} />
+              <Route path="projects/:projectId/nav/mmf/token-links" element={<MMFTokenLinksPage />} />
+              <Route path="projects/:projectId/nav/mmf/history" element={<MMFHistoryPage />} />
+              <Route path="projects/:projectId/nav/mmf/:fundId" element={<MMFDetailPage />} />
+              <Route path="projects/:projectId/nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
 
               {/* Factoring Routes */}
               <Route path="factoring/" element={<FactoringManager/>} />

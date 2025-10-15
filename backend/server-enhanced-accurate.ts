@@ -29,7 +29,7 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
-import { bondDataInputRoutes, bondCalculationRoutes } from './src/routes/nav/index'
+import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes } from './src/routes/nav/index'
 import supabasePlugin from './src/plugins/supabase'
 
 // Types
@@ -654,9 +654,11 @@ Comprehensive platform supporting:
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
     await app.register(calendarRoutes, { prefix: apiPrefix })
     
-    // NAV routes (includes bond data input and token-links)
+    // NAV routes (includes bond and MMF data input and calculations)
     await app.register(bondDataInputRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(bondCalculationRoutes, { prefix: `${apiPrefix}/nav` })
+    await app.register(mmfDataInputRoutes, { prefix: `${apiPrefix}/nav` })
+    await app.register(mmfCalculationRoutes, { prefix: `${apiPrefix}/nav` })
 
     // System routes
     await app.register(auditRoutes, { prefix: apiPrefix })

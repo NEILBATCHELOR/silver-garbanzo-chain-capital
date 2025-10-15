@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Landmark,
   FileSpreadsheet,
+  Droplets,
 } from 'lucide-react';
 
 interface NavNavigationProps {
@@ -44,6 +45,12 @@ const NavNavigation: React.FC<NavNavigationProps> = ({ projectId }) => {
       label: 'Bonds',
       href: projectId ? `/projects/${projectId}/nav/bonds` : '/nav/bonds',
       active: isActive('/nav/bonds'),
+    },
+    {
+      icon: <Droplets className="h-4 w-4" />,
+      label: 'Money Market Funds',
+      href: projectId ? `/projects/${projectId}/nav/mmf` : '/nav/mmf',
+      active: isActive('/nav/mmf'),
     },
   ];
 

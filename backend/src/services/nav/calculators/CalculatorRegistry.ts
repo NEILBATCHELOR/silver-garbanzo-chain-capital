@@ -2,7 +2,7 @@
  * Calculator Registry
  * 
  * Factory pattern for dynamic calculator resolution
- * Currently supports: Bonds
+ * Currently supports: Bonds, MMF (Money Market Funds)
  * 
  * Following Phase 5 specifications
  */
@@ -10,10 +10,12 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { BaseCalculator } from './BaseCalculator'
 import { createBondsCalculator } from './traditional/BondsCalculator'
+import { createMMFCalculator } from './traditional/MMFCalculator'
 import { CalculatorInput, CalculatorResult } from './types'
 
 export type AssetType = 
   | 'bonds'
+  | 'mmf'
   // Add more as implemented:
   // | 'equity'
   // | 'real_estate'
@@ -37,6 +39,9 @@ export class CalculatorRegistry {
   private registerCalculators(): void {
     // Register Bonds calculator
     this.calculators.set('bonds', createBondsCalculator(this.dbClient))
+    
+    // Register MMF calculator
+    this.calculators.set('mmf', createMMFCalculator(this.dbClient))
     
     // TODO: Register additional calculators as they are implemented
     // this.calculators.set('equity', createEquityCalculator(this.dbClient))

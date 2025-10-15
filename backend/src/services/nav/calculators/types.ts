@@ -51,6 +51,16 @@ export interface NAVResult {
     accountingYTM: Decimal         // Effective interest rate
     yieldSpread: Decimal           // Difference in yields
   }
+  // MMF-specific: Shadow NAV and compliance metrics
+  shadowNAV?: Decimal              // Market-based NAV (mark-to-market)
+  deviationFromStable?: Decimal    // Deviation from $1.00 stable NAV
+  deviationBps?: number            // Deviation in basis points
+  isBreakingBuck?: boolean         // Whether NAV < $0.995
+  wam?: number                     // Weighted Average Maturity (days)
+  wal?: number                     // Weighted Average Life (days)
+  dailyLiquidPercentage?: number   // Daily liquid assets %
+  weeklyLiquidPercentage?: number  // Weekly liquid assets %
+  complianceStatus?: any           // SEC Rule 2a-7 compliance
 }
 
 export interface NAVBreakdown {

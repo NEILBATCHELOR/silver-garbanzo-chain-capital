@@ -12,6 +12,9 @@ export * from './nav'
 // Export domain-specific calculator types
 export * from './calculator-inputs'
 
+// Export MMF types
+export * from './mmf'
+
 // Re-export service types for compatibility
 export type { NavCalculationRequest, NavCalculationResult } from '@/services/nav'
 
