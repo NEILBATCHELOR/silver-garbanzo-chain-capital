@@ -1,8 +1,9 @@
 /**
- * Form component for fund products (ETFs, Mutual Funds, ETPs)
+ * Form component for fund products (ETFs, Mutual Funds, ETPs, Money Market Funds)
+ * Enhanced to support Money Market Fund types: government, prime, retail, institutional
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FundProduct } from '@/types/products';
 import { 
@@ -10,7 +11,8 @@ import {
   FormControl, 
   FormField, 
   FormItem, 
-  FormLabel
+  FormLabel,
+  FormDescription
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -33,12 +35,41 @@ interface FundProductFormProps {
   onCancel?: () => void;
 }
 
+// Money Market Fund types as per industry standards
+const MONEY_MARKET_FUND_TYPES = [
+  { value: 'government', label: 'Government MMF', description: '≥99.5% government securities' },
+  { value: 'prime', label: 'Prime MMF', description: 'Corporate and diversified holdings' },
+  { value: 'retail', label: 'Retail MMF', description: 'For individual investors' },
+  { value: 'institutional', label: 'Institutional MMF', description: 'For institutional investors' },
+];
+
+// Traditional fund types
+const TRADITIONAL_FUND_TYPES = [
+  { value: 'ETF', label: 'ETF' },
+  { value: 'Mutual Fund', label: 'Mutual Fund' },
+  { value: 'ETP', label: 'ETP' },
+  { value: 'Index Fund', label: 'Index Fund' },
+  { value: 'Hedge Fund', label: 'Hedge Fund' },
+  { value: 'Closed-End Fund', label: 'Closed-End Fund' },
+  { value: 'Open-End Fund', label: 'Open-End Fund' },
+];
+
 export default function FundProductForm({ 
   defaultValues, 
   onSubmit, 
   isSubmitting = false,
   onCancel
 }: FundProductFormProps) {
+  // Determine if the default fund type is an MMF type
+  const isMMFType = (type: string | undefined) => {
+    return type && MONEY_MARKET_FUND_TYPES.some(mmf => mmf.value === type);
+  };
+
+  const [showMMFTypes, setShowMMFTypes] = useState(isMMFType(defaultValues?.fundType));
+  const [selectedFundCategory, setSelectedFundCategory] = useState<'traditional' | 'mmf'>(
+    isMMFType(defaultValues?.fundType) ? 'mmf' : 'traditional'
+  );
+
   // Format dates and complex types for the form
   const formattedDefaultValues = {
     ...defaultValues,
@@ -62,6 +93,15 @@ export default function FundProductForm({
   const form = useForm({
     defaultValues: formattedDefaultValues as any,
   });
+
+  // Watch the fund type to show/hide MMF-specific fields
+  const fundType = form.watch('fundType');
+
+  useEffect(() => {
+    const isMMF = isMMFType(fundType);
+    setShowMMFTypes(isMMF);
+    setSelectedFundCategory(isMMF ? 'mmf' : 'traditional');
+  }, [fundType]);
 
   // Handle form submission
   const handleSubmit = async (data: any) => {
@@ -172,31 +212,82 @@ export default function FundProductForm({
                 )}
               />
               
+              {/* Fund Category Selector */}
+              <div className="space-y-4">
+                <FormLabel>Fund Category</FormLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedFundCategory === 'traditional' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSelectedFundCategory('traditional');
+                      form.setValue('fundType', '');
+                    }}
+                    className="w-full"
+                  >
+                    Traditional Funds
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={selectedFundCategory === 'mmf' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSelectedFundCategory('mmf');
+                      form.setValue('fundType', '');
+                    }}
+                    className="w-full"
+                  >
+                    Money Market Funds
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Fund Type Selector */}
               <FormField
                 control={form.control}
                 name="fundType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Fund Type</FormLabel>
+                    <FormLabel>
+                      {selectedFundCategory === 'mmf' ? 'Money Market Fund Type' : 'Fund Type'}
+                    </FormLabel>
                     <Select 
                       onValueChange={field.onChange}
                       value={field.value || ""}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select fund type" />
+                          <SelectValue placeholder={
+                            selectedFundCategory === 'mmf' 
+                              ? "Select MMF type" 
+                              : "Select fund type"
+                          } />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="ETF">ETF</SelectItem>
-                        <SelectItem value="Mutual Fund">Mutual Fund</SelectItem>
-                        <SelectItem value="ETP">ETP</SelectItem>
-                        <SelectItem value="Index Fund">Index Fund</SelectItem>
-                        <SelectItem value="Hedge Fund">Hedge Fund</SelectItem>
-                        <SelectItem value="Closed-End Fund">Closed-End Fund</SelectItem>
-                        <SelectItem value="Open-End Fund">Open-End Fund</SelectItem>
+                        {selectedFundCategory === 'mmf' ? (
+                          <>
+                            {MONEY_MARKET_FUND_TYPES.map(mmfType => (
+                              <SelectItem key={mmfType.value} value={mmfType.value}>
+                                {mmfType.label}
+                              </SelectItem>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            {TRADITIONAL_FUND_TYPES.map(fundTypeOption => (
+                              <SelectItem key={fundTypeOption.value} value={fundTypeOption.value}>
+                                {fundTypeOption.label}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
+                    {selectedFundCategory === 'mmf' && fundType && (
+                      <FormDescription>
+                        {MONEY_MARKET_FUND_TYPES.find(t => t.value === fundType)?.description}
+                      </FormDescription>
+                    )}
                   </FormItem>
                 )}
               />
@@ -271,7 +362,10 @@ export default function FundProductForm({
                   name="netAssetValue"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Net Asset Value (NAV)</FormLabel>
+                      <FormLabel>
+                        Net Asset Value (NAV)
+                        {showMMFTypes && <span className="text-xs text-muted-foreground ml-1">(Target: $1.00 for MMFs)</span>}
+                      </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} value={field.value || ''} />
                       </FormControl>
@@ -508,12 +602,18 @@ export default function FundProductForm({
                 name="holdings"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Holdings</FormLabel>
+                    <FormLabel>
+                      Holdings
+                      {showMMFTypes && <span className="text-xs text-muted-foreground ml-1">(Treasury, Agency, CP, CD, Repo)</span>}
+                    </FormLabel>
                     <FormControl>
                       <Textarea 
                         {...field} 
                         value={field.value || ''}
-                        placeholder='[{"security": "AAPL", "weight": 0.05, "shares": 1000}]'
+                        placeholder={showMMFTypes 
+                          ? '[{"security": "US Treasury", "weight": 0.40, "maturity": "2025-03-01"}]'
+                          : '[{"security": "AAPL", "weight": 0.05, "shares": 1000}]'
+                        }
                         rows={4}
                       />
                     </FormControl>
