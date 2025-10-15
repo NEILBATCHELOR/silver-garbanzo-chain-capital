@@ -2,6 +2,7 @@
  * MMF Detail View
  * Comprehensive view of a single MMF with tabs for different aspects
  * Overview, Holdings, NAV History, Compliance, Configuration
+ * PLUS 5 Enhancement Tabs: Allocation, Fund Compliance, Risk, Fees/Gates, Transactions
  */
 
 import { useState } from 'react'
@@ -13,7 +14,12 @@ import {
   Briefcase, 
   Shield, 
   Settings,
-  ArrowLeft
+  ArrowLeft,
+  PieChart,
+  AlertTriangle,
+  Target,
+  DollarSign,
+  ArrowRightLeft
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -31,6 +37,15 @@ import { Separator } from '@/components/ui/separator'
 import { useMMF, useLatestMMFNAV } from '@/hooks/mmf'
 import type { MMFProduct } from '@/types/nav/mmf'
 import { HoldingsTable } from './holdings-table'
+
+// Import Enhancement Components
+import {
+  AllocationBreakdown,
+  FundTypeCompliance,
+  ConcentrationRiskDashboard,
+  FeesGatesMonitor,
+  TransactionManager
+} from '../enhancements'
 
 interface MMFDetailViewProps {
   fundId: string
@@ -171,7 +186,8 @@ export function MMFDetailView({ fundId, onBack, onEdit, onCalculate }: MMFDetail
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
+          {/* Original 5 Tabs */}
           <TabsTrigger value="overview">
             <Briefcase className="mr-2 h-4 w-4" />
             Overview
@@ -191,6 +207,28 @@ export function MMFDetailView({ fundId, onBack, onEdit, onCalculate }: MMFDetail
           <TabsTrigger value="config">
             <Settings className="mr-2 h-4 w-4" />
             Configuration
+          </TabsTrigger>
+          
+          {/* NEW ENHANCEMENT TABS */}
+          <TabsTrigger value="allocation">
+            <PieChart className="mr-2 h-4 w-4" />
+            Asset Allocation
+          </TabsTrigger>
+          <TabsTrigger value="fund-compliance">
+            <Shield className="mr-2 h-4 w-4" />
+            Fund Compliance
+          </TabsTrigger>
+          <TabsTrigger value="risk">
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Risk Analysis
+          </TabsTrigger>
+          <TabsTrigger value="fees-gates">
+            <DollarSign className="mr-2 h-4 w-4" />
+            Fees & Gates
+          </TabsTrigger>
+          <TabsTrigger value="transactions">
+            <ArrowRightLeft className="mr-2 h-4 w-4" />
+            Transactions
           </TabsTrigger>
         </TabsList>
 
@@ -407,6 +445,33 @@ export function MMFDetailView({ fundId, onBack, onEdit, onCalculate }: MMFDetail
               </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ========== NEW ENHANCEMENT TABS ========== */}
+
+        {/* Asset Allocation Tab */}
+        <TabsContent value="allocation">
+          <AllocationBreakdown fundId={fundId} />
+        </TabsContent>
+
+        {/* Fund-Type Compliance Tab */}
+        <TabsContent value="fund-compliance">
+          <FundTypeCompliance fundId={fundId} fundType={mmf.fund_type} />
+        </TabsContent>
+
+        {/* Concentration Risk Tab */}
+        <TabsContent value="risk">
+          <ConcentrationRiskDashboard fundId={fundId} />
+        </TabsContent>
+
+        {/* Fees & Gates Tab */}
+        <TabsContent value="fees-gates">
+          <FeesGatesMonitor fundId={fundId} />
+        </TabsContent>
+
+        {/* Transactions Tab */}
+        <TabsContent value="transactions">
+          <TransactionManager fundId={fundId} />
         </TabsContent>
       </Tabs>
     </div>

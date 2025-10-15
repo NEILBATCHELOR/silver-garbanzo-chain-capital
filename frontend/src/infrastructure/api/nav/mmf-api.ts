@@ -295,11 +295,11 @@ export const MMFAPI = {
   
   /**
    * Get latest NAV for an MMF
-   * GET /api/nav/mmf/:fundId/latest (existing endpoint)
+   * GET /api/v1/nav/mmf/:fundId/latest
    */
   getLatestNAV: async (fundId: string) => {
     const response = await fetchWithAuth(
-      `${API_BASE}/api/nav/mmf/${fundId}/latest`
+      `${MMF_BASE}/${fundId}/latest`
     )
     return handleResponse<{ success: boolean; data: MMFNAVHistory }>(response)
   },
@@ -381,7 +381,7 @@ export const MMFAPI = {
   
   /**
    * Calculate NAV for an MMF
-   * POST /api/nav/mmf/:fundId/calculate (existing endpoint)
+   * POST /api/v1/nav/mmf/:fundId/calculate
    */
   calculateNAV: async (fundId: string, params: MMFCalculationParams) => {
     console.log('🔵 mmf-api.ts: calculateNAV called')
@@ -389,7 +389,7 @@ export const MMFAPI = {
     console.log('  params:', params)
     
     const response = await fetchWithAuth(
-      `${API_BASE}/api/nav/mmf/${fundId}/calculate`,
+      `${MMF_BASE}/${fundId}/calculate`,
       {
         method: 'POST',
         body: JSON.stringify(params)
@@ -614,6 +614,103 @@ export const MMFAPI = {
         recommendation: 'approve' | 'review' | 'reject'
         recommendationReason: string
       }
+    }>(response)
+  },
+
+  // ========== Token Links ==========
+  
+  /**
+   * Get tokens linked to an MMF
+   * GET /api/v1/nav/mmf/:fundId/token-links
+   */
+  getTokenLinks: async (fundId: string) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/token-links`
+    )
+    return handleResponse<{ 
+      success: boolean; 
+      data: Array<{
+        id: string;
+        name: string;
+        symbol: string;
+        product_id: string;
+        ratio: number | null;
+        parity: number | null;
+        status: string;
+        created_at: string;
+        updated_at: string;
+      }>; 
+      count: number 
+    }>(response)
+  },
+
+  /**
+   * Create a token link for an MMF
+   * POST /api/v1/nav/mmf/:fundId/token-links
+   */
+  createTokenLink: async (
+    fundId: string,
+    data: {
+      tokenId: string;
+      parityRatio: number;
+      collateralizationPercentage: number;
+    }
+  ) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/token-links`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    )
+    return handleResponse<{ 
+      success: boolean; 
+      data: any;
+    }>(response)
+  },
+
+  /**
+   * Update a token link for an MMF
+   * PUT /api/v1/nav/mmf/:fundId/token-links/:tokenId
+   */
+  updateTokenLink: async (
+    fundId: string,
+    tokenId: string,
+    data: {
+      parityRatio?: number;
+      collateralizationPercentage?: number;
+    }
+  ) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/token-links/${tokenId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      }
+    )
+    return handleResponse<{ 
+      success: boolean; 
+      data: any;
+    }>(response)
+  },
+
+  /**
+   * Delete a token link for an MMF
+   * DELETE /api/v1/nav/mmf/:fundId/token-links/:tokenId
+   */
+  deleteTokenLink: async (
+    fundId: string,
+    tokenId: string
+  ) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/token-links/${tokenId}`,
+      {
+        method: 'DELETE'
+      }
+    )
+    return handleResponse<{ 
+      success: boolean; 
+      message: string;
     }>(response)
   }
 }

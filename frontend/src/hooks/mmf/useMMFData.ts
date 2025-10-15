@@ -36,6 +36,7 @@ export const mmfKeys = {
   navHistory: (fundId: string) => [...mmfKeys.detail(fundId), 'navHistory'] as const,
   calculations: (fundId: string) => [...mmfKeys.detail(fundId), 'calculations'] as const,
   latestNAV: (fundId: string) => [...mmfKeys.detail(fundId), 'latestNAV'] as const,
+  tokenLinks: (fundId: string) => [...mmfKeys.detail(fundId), 'tokenLinks'] as const,
 }
 
 // ==================== QUERY HOOKS ====================
@@ -148,6 +149,50 @@ export function useMMFCalculationHistory(
   return useQuery<{ success: boolean; data: MMFCalculation[] }, Error>({
     queryKey: mmfKeys.calculations(fundId),
     queryFn: () => MMFAPI.getCalculationHistory(fundId),
+    staleTime: 30 * 1000, // 30 seconds
+    enabled: !!fundId,
+    ...options,
+  })
+}
+
+/**
+ * Fetch tokens linked to an MMF
+ */
+export function useMMFTokenLinks(
+  fundId: string,
+  options?: Omit<UseQueryOptions<{ 
+    success: boolean; 
+    data: Array<{
+      id: string;
+      name: string;
+      symbol: string;
+      product_id: string;
+      ratio: number | null;
+      parity: number | null;
+      status: string;
+      created_at: string;
+      updated_at: string;
+    }>; 
+    count: number 
+  }, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<{ 
+    success: boolean; 
+    data: Array<{
+      id: string;
+      name: string;
+      symbol: string;
+      product_id: string;
+      ratio: number | null;
+      parity: number | null;
+      status: string;
+      created_at: string;
+      updated_at: string;
+    }>; 
+    count: number 
+  }, Error>({
+    queryKey: mmfKeys.tokenLinks(fundId),
+    queryFn: () => MMFAPI.getTokenLinks(fundId),
     staleTime: 30 * 1000, // 30 seconds
     enabled: !!fundId,
     ...options,

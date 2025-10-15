@@ -8,9 +8,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { NavNavigation, NavDashboardHeaderEnhanced } from '@/components/nav'
 import { MMFNavigation } from '@/components/nav/mmf'
 import { useTokenProjectContext } from '@/hooks/project'
-import { Link as LinkIcon, CheckCircle2, XCircle, Plus, AlertCircle } from 'lucide-react'
+import { useMMFs } from '@/hooks/mmf/useMMFData'
+import { Link as LinkIcon, CheckCircle2, XCircle, Plus, Table as TableIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TokenLinkDialog, TokenLinksTable } from '@/components/nav/mmf/calculator'
 
 // Component to show token link status for a single MMF
 function MMFTokenLinkRow({ 
@@ -20,11 +23,35 @@ function MMFTokenLinkRow({
 }: { 
   mmf: any; 
   projectId: string;
-  onLinkClick: (mmfId: string, mmfName: string) => void;
+  onLinkClick: (fundId: string, fundName: string) => void;
 }) {
-  // TODO: Fetch token links from API when available
   const [tokenLinksCount, setTokenLinksCount] = React.useState<number>(0)
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    const fetchTokenLinks = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/v1/nav/mmf/${mmf.id}/token-links?project_id=${projectId}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+        if (response.ok) {
+          const result = await response.json()
+          setTokenLinksCount(result.data?.length || 0)
+        }
+      } catch (error) {
+        console.error('Failed to fetch token links:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchTokenLinks()
+  }, [mmf.id, projectId])
   
   const isConnected = tokenLinksCount > 0
   
@@ -93,24 +120,28 @@ export default function MMFTokenLinksPage() {
   const { projectId: urlProjectId } = useParams()
   const { projectId: contextProjectId, project, isLoading: isLoadingProject } = useTokenProjectContext()
   
-  // Dialog state (to be implemented when token link dialog is created)
+  // Dialog state
   const [tokenLinkDialogOpen, setTokenLinkDialogOpen] = useState(false)
   const [selectedMMF, setSelectedMMF] = useState<{ id: string; name: string } | null>(null)
 
   // Get project ID from URL param or context
   const projectId = urlProjectId || contextProjectId
 
-  // TODO: Replace with actual MMF data hook when available
-  const mmfs: any[] = []
-  const isLoadingMMFs = false
-
-  const handleLinkClick = (mmfId: string, mmfName: string) => {
-    setSelectedMMF({ id: mmfId, name: mmfName })
+  // Fetch all MMFs for this project
+  const { data: mmfsData, isLoading: isLoadingMMFs, refetch: refetchMMFs } = useMMFs(projectId || '')
+  
+  const handleLinkClick = (fundId: string, fundName: string) => {
+    setSelectedMMF({ id: fundId, name: fundName })
     setTokenLinkDialogOpen(true)
   }
   
+  const handleLinkSuccess = () => {
+    // Refetch MMFs to update token link counts
+    refetchMMFs()
+  }
+
   const handleRefresh = () => {
-    window.location.reload()
+    refetchMMFs()
   }
 
   const handleProjectChange = (newProjectId: string) => {
@@ -158,6 +189,8 @@ export default function MMFTokenLinksPage() {
     )
   }
 
+  const mmfs = mmfsData?.data || []
+
   return (
     <>
       {/* Enhanced Header */}
@@ -190,64 +223,94 @@ export default function MMFTokenLinksPage() {
           </div>
         ) : (
           <>
-            {/* MMFs List with Token Connection Status */}
-            <div className="bg-white rounded-lg border">
-              <div className="p-6 border-b">
-                <h3 className="text-lg font-semibold">All Money Market Funds</h3>
-                <p className="text-sm text-muted-foreground">
-                  Click "Link Token" button on unconnected MMFs to create token connections
-                </p>
-              </div>
-              <div className="divide-y">
-                {mmfs.map((mmf) => (
-                  <MMFTokenLinkRow 
-                    key={mmf.id} 
-                    mmf={mmf} 
+            {/* Tabbed View */}
+            <Tabs defaultValue="mmfs" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="mmfs">
+                  MMFs Overview
+                </TabsTrigger>
+                <TabsTrigger value="links">
+                  <TableIcon className="h-4 w-4 mr-2" />
+                  All Token Links
+                </TabsTrigger>
+              </TabsList>
+
+              {/* MMFs List Tab */}
+              <TabsContent value="mmfs" className="space-y-6">
+                {/* MMFs List with Token Connection Status */}
+                <div className="bg-white rounded-lg border">
+                  <div className="p-6 border-b">
+                    <h3 className="text-lg font-semibold">All Money Market Funds</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Click "Link Token" button on unconnected MMFs to create token connections
+                    </p>
+                  </div>
+                  <div className="divide-y">
+                    {mmfs.map((mmf) => (
+                      <MMFTokenLinkRow 
+                        key={mmf.id} 
+                        mmf={mmf} 
+                        projectId={projectId} 
+                        onLinkClick={handleLinkClick}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Info Box */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                  <div className="flex items-start gap-3">
+                    <LinkIcon className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <p className="text-blue-800 font-medium">💡 How MMF Token Connections Work</p>
+                      <p className="text-blue-600 text-sm mt-2">
+                        Token connections allow you to link MMFs to tokenized shares, set parity ratios for 
+                        fractional ownership, and automatically update token valuations based on stable NAV and 
+                        shadow NAV calculations. This enables digital asset representations of money market funds.
+                      </p>
+                      <ul className="text-blue-600 text-sm mt-2 space-y-1 list-disc list-inside">
+                        <li>Link multiple tokens to a single MMF</li>
+                        <li>Set custom share-to-token ratios (e.g., 1:1, 1000:1)</li>
+                        <li>Track stable NAV ($1.00 target) and shadow NAV</li>
+                        <li>Monitor breaking the buck events automatically</li>
+                        <li>Automatic NAV propagation to linked tokens daily</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* All Token Links Table Tab */}
+              <TabsContent value="links" className="space-y-6">
+                <div className="bg-white rounded-lg border p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold">All Token Links</h3>
+                    <p className="text-sm text-muted-foreground">
+                      View, edit, and manage all MMF-token connections for this project
+                    </p>
+                  </div>
+                  <TokenLinksTable 
                     projectId={projectId} 
-                    onLinkClick={handleLinkClick}
+                    onRefresh={handleRefresh}
                   />
-                ))}
-              </div>
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <div className="flex items-start gap-3">
-                <LinkIcon className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-blue-800 font-medium">💡 How MMF Token Connections Work</p>
-                  <p className="text-blue-600 text-sm mt-2">
-                    Token connections allow you to link MMFs to tokenized shares, set parity ratios for 
-                    fractional ownership, and automatically update token valuations based on stable NAV and 
-                    shadow NAV calculations. This enables digital asset representations of money market funds.
-                  </p>
-                  <ul className="text-blue-600 text-sm mt-2 space-y-1 list-disc list-inside">
-                    <li>Link multiple tokens to a single MMF</li>
-                    <li>Set custom share-to-token ratios (e.g., 1:1, 1000:1)</li>
-                    <li>Track stable NAV ($1.00 target) and shadow NAV</li>
-                    <li>Monitor breaking the buck events automatically</li>
-                    <li>Automatic NAV propagation to linked tokens daily</li>
-                  </ul>
                 </div>
-              </div>
-            </div>
-
-            {/* Implementation Notice */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                <div>
-                  <p className="text-yellow-800 font-medium">🚧 Token Link Dialog Coming Soon</p>
-                  <p className="text-yellow-600 text-sm mt-2">
-                    The token link creation dialog is currently being developed. Once complete, 
-                    you'll be able to easily connect MMFs to tokens with a few clicks.
-                  </p>
-                </div>
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </div>
+      
+      {/* Token Link Dialog */}
+      {selectedMMF && projectId && (
+        <TokenLinkDialog
+          open={tokenLinkDialogOpen}
+          onOpenChange={setTokenLinkDialogOpen}
+          fundId={selectedMMF.id}
+          fundName={selectedMMF.name}
+          projectId={projectId}
+          onSuccess={handleLinkSuccess}
+        />
+      )}
     </>
   )
 }

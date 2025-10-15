@@ -179,10 +179,46 @@ const SERVICE_CATALOG = {
         operations: ['NAV Calculation', 'Yield Analysis', 'Duration', 'Price Discovery', 'Batch Processing'],
         prefix: '/api/v1/nav',
         description: 'Bond NAV calculations, yield analysis, and portfolio analytics'
+      },
+      {
+        name: 'MMF Data Input',
+        endpoints: 11,
+        routes: [
+          'POST /nav/mmf/upload (create/update)', 'GET /nav/mmf (list)', 'GET /nav/mmf/:fundId (get)',
+          'POST /nav/mmf/:fundId/holdings (add/update-holdings)', 'DELETE /nav/mmf/:fundId/holdings/:id (delete-holding)',
+          'GET /nav/mmf/history (nav-history)', 'GET /nav/mmf/:fundId/history/latest (latest-nav)',
+          'POST /nav/mmf/:fundId/nav-history (add-nav-entry)', 'GET /nav/mmf/token-links (get-token-links)',
+          'GET /nav/mmf/token-links/latest (latest-token-link)', 'POST /nav/mmf/:fundId/validate (validate)'
+        ],
+        operations: ['CRUD', 'Holdings Management', 'NAV History', 'Token Linking', 'Validation'],
+        prefix: '/api/v1/nav',
+        description: 'Money Market Fund data input and portfolio management'
+      },
+      {
+        name: 'MMF Calculations',
+        endpoints: 2,
+        routes: [
+          'POST /nav/mmf/:fundId/calculate (calculate)', 'GET /nav/mmf/:fundId/latest (latest-calc)'
+        ],
+        operations: ['NAV Calculation', 'Dual NAV System', 'Compliance Monitoring'],
+        prefix: '/api/v1/nav',
+        description: 'MMF NAV calculations with amortized cost and shadow NAV'
+      },
+      {
+        name: 'MMF Enhancements',
+        endpoints: 5,
+        routes: [
+          'GET /nav/mmf/:fundId/allocation-breakdown (allocation)', 'GET /nav/mmf/:fundId/fund-type-validation (validation)',
+          'GET /nav/mmf/:fundId/concentration-risk (concentration)', 'GET /nav/mmf/:fundId/fees-gates-analysis (fees-gates)',
+          'POST /nav/mmf/:fundId/transaction-impact (transaction-impact)'
+        ],
+        operations: ['Asset Allocation', 'Fund-Type Compliance', 'Risk Analysis', 'Fees/Gates', 'Transaction Analysis'],
+        prefix: '/api/v1/nav',
+        description: 'MMF market leader features: allocation tracking, risk monitoring, transaction analysis'
       }
     ],
-    total_endpoints: 40,
-    total_services: 2
+    total_endpoints: 58,
+    total_services: 5
   },
   financial_operations: {
     category: 'Financial Operations',

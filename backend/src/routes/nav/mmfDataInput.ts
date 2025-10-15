@@ -748,4 +748,233 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
       })
     }
   })
+
+  /**
+   * POST /api/v1/nav/mmf/:fundId/token-links
+   * Link a token to this MMF by updating token's product_id, ratio, and parity
+   * Body: { tokenId: string, parityRatio: number, collateralizationPercentage: number }
+   */
+  fastify.post('/mmf/:fundId/token-links', async (request, reply) => {
+    const { fundId } = request.params as { fundId: string }
+    const { tokenId, parityRatio, collateralizationPercentage } = request.body as {
+      tokenId: string
+      parityRatio: number
+      collateralizationPercentage: number
+    }
+    
+    try {
+      // Validate inputs
+      if (!tokenId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'tokenId is required'
+        })
+      }
+      
+      if (!parityRatio || parityRatio <= 0) {
+        return reply.code(400).send({
+          success: false,
+          error: 'parityRatio must be a positive number'
+        })
+      }
+      
+      // Check if token exists
+      const { data: token, error: tokenError } = await fastify.supabase
+        .from('tokens')
+        .select('id, product_id, project_id')
+        .eq('id', tokenId)
+        .single()
+      
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Token not found'
+        })
+      }
+      
+      // Check if token is already linked to another MMF
+      if (token.product_id && token.product_id !== fundId) {
+        return reply.code(400).send({
+          success: false,
+          error: `Token is already linked to another MMF (${token.product_id}). Unlink first.`
+        })
+      }
+      
+      // Update token with MMF link
+      const ratio = collateralizationPercentage / 100
+      
+      const { data: updatedToken, error: updateError } = await fastify.supabase
+        .from('tokens')
+        .update({
+          product_id: fundId,
+          ratio: ratio,
+          parity: parityRatio,
+          status: 'active'
+        })
+        .eq('id', tokenId)
+        .select()
+        .single()
+      
+      if (updateError) {
+        return reply.code(500).send({
+          success: false,
+          error: updateError.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: updatedToken
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, fundId, tokenId }, 'Unexpected error creating token link')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * DELETE /api/v1/nav/mmf/:fundId/token-links/:tokenId
+   * Unlink a token from this MMF by clearing token's product_id, ratio, and parity
+   */
+  fastify.delete('/mmf/:fundId/token-links/:tokenId', async (request, reply) => {
+    const { fundId, tokenId } = request.params as { fundId: string; tokenId: string }
+    
+    try {
+      // Verify token is linked to this MMF
+      const { data: token, error: tokenError } = await fastify.supabase
+        .from('tokens')
+        .select('id, product_id')
+        .eq('id', tokenId)
+        .single()
+      
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Token not found'
+        })
+      }
+      
+      if (token.product_id !== fundId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Token is not linked to this MMF'
+        })
+      }
+      
+      // Unlink token
+      const { error: unlinkError } = await fastify.supabase
+        .from('tokens')
+        .update({
+          product_id: null,
+          ratio: null,
+          parity: null
+        })
+        .eq('id', tokenId)
+      
+      if (unlinkError) {
+        return reply.code(500).send({
+          success: false,
+          error: unlinkError.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        message: 'Token link deleted successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, fundId, tokenId }, 'Unexpected error deleting token link')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * PUT /api/v1/nav/mmf/:fundId/token-links/:tokenId
+   * Update token link parameters (ratio, parity)
+   */
+  fastify.put('/mmf/:fundId/token-links/:tokenId', async (request, reply) => {
+    const { fundId, tokenId } = request.params as { fundId: string; tokenId: string }
+    const { parityRatio, collateralizationPercentage } = request.body as {
+      parityRatio?: number
+      collateralizationPercentage?: number
+    }
+    
+    try {
+      // Verify token is linked to this MMF
+      const { data: token, error: tokenError } = await fastify.supabase
+        .from('tokens')
+        .select('id, product_id')
+        .eq('id', tokenId)
+        .single()
+      
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Token not found'
+        })
+      }
+      
+      if (token.product_id !== fundId) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Token is not linked to this MMF'
+        })
+      }
+      
+      // Build update object
+      const updateData: any = {}
+      
+      if (parityRatio !== undefined) {
+        if (parityRatio <= 0) {
+          return reply.code(400).send({
+            success: false,
+            error: 'parityRatio must be a positive number'
+          })
+        }
+        updateData.parity = parityRatio
+      }
+      
+      if (collateralizationPercentage !== undefined) {
+        updateData.ratio = collateralizationPercentage / 100
+      }
+      
+      // Update token
+      const { data: updatedToken, error: updateError } = await fastify.supabase
+        .from('tokens')
+        .update(updateData)
+        .eq('id', tokenId)
+        .select()
+        .single()
+      
+      if (updateError) {
+        return reply.code(500).send({
+          success: false,
+          error: updateError.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: updatedToken
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, fundId, tokenId }, 'Unexpected error updating token link')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
 }
