@@ -32,6 +32,12 @@ export default function MMFCalculatorPage() {
 
   // Calculation result state
   const [calculationResult, setCalculationResult] = useState<any>(null)
+  const [configLimits, setConfigLimits] = useState<{
+    wamLimit: number
+    walLimit: number
+    dailyLiquidMinimum: number
+    weeklyLiquidMinimum: number
+  } | null>(null)
 
   const handleBack = () => {
     if (projectId) {
@@ -49,12 +55,22 @@ export default function MMFCalculatorPage() {
     }
   }
 
-  const handleSuccess = (result: any) => {
+  const handleSuccess = (result: any, limits: {
+    wamLimit: number
+    walLimit: number
+    dailyLiquidMinimum: number
+    weeklyLiquidMinimum: number
+  }) => {
+    console.log('=== PAGE RECEIVED ===')
+    console.log('Result:', result)
+    console.log('Config Limits:', limits)
     setCalculationResult(result)
+    setConfigLimits(limits)
   }
 
   const handleNewCalculation = () => {
     setCalculationResult(null)
+    setConfigLimits(null)
   }
 
   const handleRefresh = () => {
@@ -205,6 +221,7 @@ export default function MMFCalculatorPage() {
               weeklyLiquidPercentage={calculationResult.weeklyLiquidPercentage}
               wam={calculationResult.wam}
               wal={calculationResult.wal}
+              configLimits={configLimits}
             />
 
             {/* Compliance Status */}
@@ -214,6 +231,7 @@ export default function MMFCalculatorPage() {
               wal={calculationResult.wal}
               dailyLiquidPercentage={calculationResult.dailyLiquidPercentage}
               weeklyLiquidPercentage={calculationResult.weeklyLiquidPercentage}
+              configLimits={configLimits}
             />
           </div>
         )}

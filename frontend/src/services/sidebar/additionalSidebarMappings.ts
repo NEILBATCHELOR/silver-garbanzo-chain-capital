@@ -163,13 +163,6 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         href: '/nav',
         icon: Table,
         permissions: ['nav:view_dashboard']
-      },
-      {
-        id: 'nav-bonds',
-        label: 'Bonds',
-        href: '/nav/bonds',
-        icon: FileText,
-        permissions: ['nav:view_dashboard']
       }
     ]
   },

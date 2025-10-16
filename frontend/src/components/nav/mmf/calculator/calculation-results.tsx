@@ -8,8 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 import type { MMFNAVResult } from '@/types/nav/mmf'
-import { LiquidityPanel } from './liquidity-panel'
-import { ComplianceStatus } from './compliance-status'
 
 interface CalculationResultsProps {
   result: MMFNAVResult
@@ -59,10 +57,10 @@ export function CalculationResults({
   }
 
   return (
-    <div className="space-y-6">
+    <Card>
       {/* Breaking the Buck Alert */}
       {result.isBreakingBuck && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mb-6">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Breaking the Buck Alert</AlertTitle>
           <AlertDescription>
@@ -72,21 +70,19 @@ export function CalculationResults({
         </Alert>
       )}
 
-      {/* Main NAV Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Calculation Complete</CardTitle>
-              <CardDescription>{fundName}</CardDescription>
-            </div>
-            <Badge variant="outline" className="flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" />
-              Success
-            </Badge>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Calculation Complete</CardTitle>
+            <CardDescription>{fundName}</CardDescription>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          <Badge variant="outline" className="flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" />
+            Success
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
           {/* Dual NAV Display */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Stable NAV */}
@@ -227,23 +223,5 @@ export function CalculationResults({
           </div>
         </CardContent>
       </Card>
-
-      {/* Liquidity Panel */}
-      <LiquidityPanel
-        dailyLiquidPercentage={result.dailyLiquidPercentage}
-        weeklyLiquidPercentage={result.weeklyLiquidPercentage}
-        wam={result.wam}
-        wal={result.wal}
-      />
-
-      {/* Compliance Status */}
-      <ComplianceStatus
-        complianceStatus={result.complianceStatus}
-        wam={result.wam}
-        wal={result.wal}
-        dailyLiquidPercentage={result.dailyLiquidPercentage}
-        weeklyLiquidPercentage={result.weeklyLiquidPercentage}
-      />
-    </div>
   )
 }

@@ -40,7 +40,7 @@ interface MMFCalculatorFormProps {
   fundId: string
   fundName: string
   fundType?: string
-  onSuccess?: (result: MMFNAVResult) => void
+  onSuccess?: (result: MMFNAVResult, configLimits: { wamLimit: number; walLimit: number; dailyLiquidMinimum: number; weeklyLiquidMinimum: number }) => void
   onError?: (error: Error) => void
 }
 
@@ -54,6 +54,12 @@ export function MMFCalculatorForm({
   const [calculationResult, setCalculationResult] = useState<MMFNAVResult | null>(null)
   const [diagnostic, setDiagnostic] = useState<any>(null)
   const [showConfigOverrides, setShowConfigOverrides] = useState(false)
+  const [appliedConfigLimits, setAppliedConfigLimits] = useState<{
+    wamLimit: number
+    walLimit: number
+    dailyLiquidMinimum: number
+    weeklyLiquidMinimum: number
+  } | null>(null)
   const calculateMutation = useCalculateMMFNAV(fundId)
 
   const form = useForm<CalculatorFormValues>({
@@ -114,6 +120,16 @@ export function MMFCalculatorForm({
       console.log('Fund Type:', fundType)
       console.log('Config Overrides:', JSON.stringify(configOverrides, null, 2))
 
+      // Store the actual limits that will be used for display
+      const actualLimits = {
+        wamLimit: wamLimit !== undefined ? wamLimit : 60,
+        walLimit: walLimit !== undefined ? walLimit : 120,
+        dailyLiquidMinimum: dailyLiquidMinimum !== undefined ? dailyLiquidMinimum : 25,
+        weeklyLiquidMinimum: weeklyLiquidMinimum !== undefined ? weeklyLiquidMinimum : 50
+      }
+      setAppliedConfigLimits(actualLimits)
+      console.log('Applied Config Limits:', actualLimits)
+
       const params: MMFCalculationParams = {
         asOfDate: values.asOfDate,
         includeBreakdown: values.includeBreakdown,
@@ -132,7 +148,8 @@ export function MMFCalculatorForm({
       if (result.data) {
         setCalculationResult(result.data)
         setDiagnostic(null) // Clear any previous diagnostic
-        onSuccess?.(result.data)
+        // FIX: Pass actualLimits directly, not the state variable (which is async)
+        onSuccess?.(result.data, actualLimits)
       } else {
         throw new Error('Calculation returned no data')
       }

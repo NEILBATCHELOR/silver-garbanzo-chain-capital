@@ -288,10 +288,16 @@ export const DEFAULT_MMF_CONFIG: MMFCalculationConfig = {
  * FIXED: Now properly deep-merges nested objects like wamLimits, walLimits
  */
 export function buildMMFConfig(overrides?: Partial<MMFCalculationConfig>): MMFCalculationConfig {
-  if (!overrides) return DEFAULT_MMF_CONFIG
+  if (!overrides) {
+    console.log('=== buildMMFConfig: NO OVERRIDES (using defaults) ===')
+    return DEFAULT_MMF_CONFIG
+  }
   
-  console.log('=== buildMMFConfig: DEEP MERGE ===')
+  console.log('=====================================================')
+  console.log('=== buildMMFConfig: DEEP MERGE WITH OVERRIDES ===')
+  console.log('=====================================================')
   console.log('Overrides received:', JSON.stringify(overrides, null, 2))
+  console.log('─────────────────────────────────────────────────────')
   
   const mergedConfig = {
     compliance: {
@@ -336,12 +342,13 @@ export function buildMMFConfig(overrides?: Partial<MMFCalculationConfig>): MMFCa
     interestRateSensitivity: { ...DEFAULT_MMF_CONFIG.interestRateSensitivity, ...overrides.interestRateSensitivity }
   }
   
-  console.log('=== Merged Config ===')
-  console.log('WAM Limits:', mergedConfig.compliance.wamLimits)
-  console.log('WAL Limits:', mergedConfig.compliance.walLimits)
-  console.log('Daily Liquid Min:', mergedConfig.compliance.dailyLiquidMinimum)
-  console.log('Weekly Liquid Min:', mergedConfig.compliance.weeklyLiquidMinimum)
-  console.log('=====================')
+  console.log('─────────────────────────────────────────────────────')
+  console.log('MERGED CONFIG RESULT:')
+  console.log('  WAM Limits:', JSON.stringify(mergedConfig.compliance.wamLimits))
+  console.log('  WAL Limits:', JSON.stringify(mergedConfig.compliance.walLimits))
+  console.log('  Daily Liquid Min:', mergedConfig.compliance.dailyLiquidMinimum, '%')
+  console.log('  Weekly Liquid Min:', mergedConfig.compliance.weeklyLiquidMinimum, '%')
+  console.log('=====================================================')
   
   return mergedConfig
 }

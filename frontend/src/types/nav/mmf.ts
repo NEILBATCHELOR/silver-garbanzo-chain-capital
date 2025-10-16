@@ -476,3 +476,10 @@ export const mmfHoldingInputSchema = z.object({
   is_affiliated_issuer: z.boolean().default(false),
   status: z.string().default('active')
 })
+// Interface for configuration limits used in calculation
+export interface MMFConfigLimits {
+  wamLimit: number
+  walLimit: number
+  dailyLiquidMinimum: number
+  weeklyLiquidMinimum: number
+}

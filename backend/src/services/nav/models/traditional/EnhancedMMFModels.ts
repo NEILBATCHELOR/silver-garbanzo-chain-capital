@@ -897,6 +897,31 @@ export class EnhancedMMFModels {
     const wamLimit = config.compliance.wamLimits[fundType] || config.compliance.wamLimits.default
     const walLimit = config.compliance.walLimits[fundType] || config.compliance.walLimits.default
     
+    // COMPREHENSIVE LOGGING: Show exactly what limits are being used
+    console.log('=====================================================')
+    console.log('=== COMPLIANCE ASSESSMENT WITH CONFIG VALUES ===')
+    console.log('=====================================================')
+    console.log('Fund Type:', fundType)
+    console.log('─────────────────────────────────────────────────────')
+    console.log('CONFIG LIMITS (from config, may be overridden):')
+    console.log('  WAM Limit:', wamLimit, 'days (default: 60)')
+    console.log('  WAL Limit:', walLimit, 'days (default: 120)')
+    console.log('  Daily Liquid Min:', config.compliance.dailyLiquidMinimum, '% (default: 25)')
+    console.log('  Weekly Liquid Min:', config.compliance.weeklyLiquidMinimum, '% (default: 50)')
+    console.log('─────────────────────────────────────────────────────')
+    console.log('ACTUAL CALCULATED METRICS (from holdings):')
+    console.log('  Actual WAM:', wam.toFixed(2), 'days')
+    console.log('  Actual WAL:', wal.toFixed(2), 'days')
+    console.log('  Actual Daily Liquid:', liquidityMetrics.dailyLiquidPercentage.toFixed(2), '%')
+    console.log('  Actual Weekly Liquid:', liquidityMetrics.weeklyLiquidPercentage.toFixed(2), '%')
+    console.log('─────────────────────────────────────────────────────')
+    console.log('COMPLIANCE CHECKS (using config limits):')
+    console.log('  WAM Check:', wam.toFixed(2), '<=', wamLimit, '?', wam <= wamLimit ? '✅ PASS' : '❌ FAIL')
+    console.log('  WAL Check:', wal.toFixed(2), '<=', walLimit, '?', wal <= walLimit ? '✅ PASS' : '❌ FAIL')
+    console.log('  Daily Liquid Check:', liquidityMetrics.dailyLiquidPercentage.toFixed(2), '% >=', config.compliance.dailyLiquidMinimum, '%?', liquidityMetrics.dailyLiquidPercentage >= config.compliance.dailyLiquidMinimum ? '✅ PASS' : '❌ FAIL')
+    console.log('  Weekly Liquid Check:', liquidityMetrics.weeklyLiquidPercentage.toFixed(2), '% >=', config.compliance.weeklyLiquidMinimum, '%?', liquidityMetrics.weeklyLiquidPercentage >= config.compliance.weeklyLiquidMinimum ? '✅ PASS' : '❌ FAIL')
+    console.log('=====================================================')
+    
     switch (fundType) {
       case 'government':
         // Government MMFs: More relaxed WAM, WAL limits from config

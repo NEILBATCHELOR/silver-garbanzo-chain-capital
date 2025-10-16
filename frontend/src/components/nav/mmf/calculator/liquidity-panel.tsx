@@ -9,6 +9,12 @@ interface LiquidityPanelProps {
   weeklyLiquidPercentage: number
   wam: number
   wal: number
+  configLimits?: {
+    wamLimit: number
+    walLimit: number
+    dailyLiquidMinimum: number
+    weeklyLiquidMinimum: number
+  } | null
 }
 
 export function LiquidityPanel({
@@ -16,20 +22,31 @@ export function LiquidityPanel({
   weeklyLiquidPercentage,
   wam,
   wal,
+  configLimits,
 }: LiquidityPanelProps) {
+  // Use config limits if provided, otherwise use defaults
+  const dailyLiquidMin = configLimits?.dailyLiquidMinimum ?? 25
+  const weeklyLiquidMin = configLimits?.weeklyLiquidMinimum ?? 50
+  const wamLimit = configLimits?.wamLimit ?? 60
+  const walLimit = configLimits?.walLimit ?? 120
+  
+  // Critical thresholds (half of minimum)
+  const dailyCritical = dailyLiquidMin / 2
+  const weeklyWarning = weeklyLiquidMin * 0.6 // 60% of minimum
+  
   const formatNumber = (value: number, decimals: number = 2) => {
     return value.toFixed(decimals)
   }
 
   const getDailyLiquidityStatus = (percentage: number) => {
-    if (percentage >= 25) return { level: 'Compliant', color: 'bg-green-500', variant: 'default' as const }
-    if (percentage >= 12.5) return { level: 'Warning', color: 'bg-yellow-500', variant: 'secondary' as const }
+    if (percentage >= dailyLiquidMin) return { level: 'Compliant', color: 'bg-green-500', variant: 'default' as const }
+    if (percentage >= dailyCritical) return { level: 'Warning', color: 'bg-yellow-500', variant: 'secondary' as const }
     return { level: 'Critical', color: 'bg-red-500', variant: 'destructive' as const }
   }
 
   const getWeeklyLiquidityStatus = (percentage: number) => {
-    if (percentage >= 50) return { level: 'Compliant', color: 'bg-green-500', variant: 'default' as const }
-    if (percentage >= 30) return { level: 'Warning', color: 'bg-yellow-500', variant: 'secondary' as const }
+    if (percentage >= weeklyLiquidMin) return { level: 'Compliant', color: 'bg-green-500', variant: 'default' as const }
+    if (percentage >= weeklyWarning) return { level: 'Warning', color: 'bg-yellow-500', variant: 'secondary' as const }
     return { level: 'Critical', color: 'bg-red-500', variant: 'destructive' as const }
   }
 
@@ -69,8 +86,8 @@ export function LiquidityPanel({
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Minimum: 25%</span>
-              <span>Critical: 12.5%</span>
+              <span>Minimum: {dailyLiquidMin}%</span>
+              <span>Critical: {dailyCritical}%</span>
             </div>
           </div>
 
@@ -113,8 +130,8 @@ export function LiquidityPanel({
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Minimum: 50%</span>
-              <span>Warning: 30%</span>
+              <span>Minimum: {weeklyLiquidMin}%</span>
+              <span>Warning: {weeklyWarning}%</span>
             </div>
           </div>
 
@@ -153,7 +170,7 @@ export function LiquidityPanel({
                       {formatNumber(wam, 0)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      days (max: 60)
+                      days (max: {wamLimit})
                     </div>
                   </div>
                 </TooltipTrigger>
@@ -183,7 +200,7 @@ export function LiquidityPanel({
                       {formatNumber(wal, 0)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      days (max: 120)
+                      days (max: {walLimit})
                     </div>
                   </div>
                 </TooltipTrigger>

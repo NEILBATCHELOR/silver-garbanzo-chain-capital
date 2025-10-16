@@ -17,6 +17,12 @@ interface ComplianceStatusProps {
   wal: number
   dailyLiquidPercentage: number
   weeklyLiquidPercentage: number
+  configLimits?: {
+    wamLimit: number
+    walLimit: number
+    dailyLiquidMinimum: number
+    weeklyLiquidMinimum: number
+  } | null
 }
 
 export function ComplianceStatus({
@@ -25,26 +31,33 @@ export function ComplianceStatus({
   wal,
   dailyLiquidPercentage,
   weeklyLiquidPercentage,
+  configLimits,
 }: ComplianceStatusProps) {
+  // Use config limits if provided, otherwise use defaults
+  const wamLimit = configLimits?.wamLimit ?? 60
+  const walLimit = configLimits?.walLimit ?? 120
+  const dailyLiquidMin = configLimits?.dailyLiquidMinimum ?? 25
+  const weeklyLiquidMin = configLimits?.weeklyLiquidMinimum ?? 50
+  
   const formatNumber = (value: number, decimals: number = 2) => {
     return value.toFixed(decimals)
   }
 
   const getWAMStatus = () => {
-    const percentage = (wam / 60) * 100
+    const percentage = (wam / wamLimit) * 100
     return {
       percentage: Math.min(percentage, 100),
-      color: wam <= 60 ? 'bg-green-500' : 'bg-red-500',
-      status: wam <= 60 ? 'Compliant' : 'Violation'
+      color: wam <= wamLimit ? 'bg-green-500' : 'bg-red-500',
+      status: wam <= wamLimit ? 'Compliant' : 'Violation'
     }
   }
 
   const getWALStatus = () => {
-    const percentage = (wal / 120) * 100
+    const percentage = (wal / walLimit) * 100
     return {
       percentage: Math.min(percentage, 100),
-      color: wal <= 120 ? 'bg-green-500' : 'bg-red-500',
-      status: wal <= 120 ? 'Compliant' : 'Violation'
+      color: wal <= walLimit ? 'bg-green-500' : 'bg-red-500',
+      status: wal <= walLimit ? 'Compliant' : 'Violation'
     }
   }
 
@@ -122,7 +135,7 @@ export function ComplianceStatus({
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>0 days</span>
-              <span>Limit: 60 days</span>
+              <span>Limit: {wamLimit} days</span>
             </div>
           </div>
 
@@ -130,7 +143,7 @@ export function ComplianceStatus({
             {complianceStatus.wamCompliant ? (
               '✓ Within regulatory limit'
             ) : (
-              '✗ Exceeds 60-day limit - immediate action required'
+              `✗ Exceeds ${wamLimit}-day limit - immediate action required`
             )}
           </div>
         </div>
@@ -159,7 +172,7 @@ export function ComplianceStatus({
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>0 days</span>
-              <span>Limit: 120 days</span>
+              <span>Limit: {walLimit} days</span>
             </div>
           </div>
 
@@ -167,7 +180,7 @@ export function ComplianceStatus({
             {complianceStatus.walCompliant ? (
               '✓ Within regulatory limit'
             ) : (
-              '✗ Exceeds 120-day limit - immediate action required'
+              `✗ Exceeds ${walLimit}-day limit - immediate action required`
             )}
           </div>
         </div>
@@ -178,50 +191,50 @@ export function ComplianceStatus({
           
           <div className="grid grid-cols-2 gap-3">
             <div className={`p-3 rounded-lg border ${
-              dailyLiquidPercentage >= 25
+              dailyLiquidPercentage >= dailyLiquidMin
                 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
                 : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
             }`}>
               <div className={`text-xs font-medium mb-1 ${
-                dailyLiquidPercentage >= 25
+                dailyLiquidPercentage >= dailyLiquidMin
                   ? 'text-green-700 dark:text-green-300'
                   : 'text-red-700 dark:text-red-300'
               }`}>
                 Daily Liquid Assets
               </div>
               <div className={`text-lg font-bold ${
-                dailyLiquidPercentage >= 25
+                dailyLiquidPercentage >= dailyLiquidMin
                   ? 'text-green-900 dark:text-green-100'
                   : 'text-red-900 dark:text-red-100'
               }`}>
                 {formatNumber(dailyLiquidPercentage, 1)}%
               </div>
               <div className="text-xs text-muted-foreground">
-                {dailyLiquidPercentage >= 25 ? '≥ 25% ✓' : '< 25% ✗'}
+                {dailyLiquidPercentage >= dailyLiquidMin ? `≥ ${dailyLiquidMin}% ✓` : `< ${dailyLiquidMin}% ✗`}
               </div>
             </div>
 
             <div className={`p-3 rounded-lg border ${
-              weeklyLiquidPercentage >= 50
+              weeklyLiquidPercentage >= weeklyLiquidMin
                 ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
                 : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
             }`}>
               <div className={`text-xs font-medium mb-1 ${
-                weeklyLiquidPercentage >= 50
+                weeklyLiquidPercentage >= weeklyLiquidMin
                   ? 'text-green-700 dark:text-green-300'
                   : 'text-red-700 dark:text-red-300'
               }`}>
                 Weekly Liquid Assets
               </div>
               <div className={`text-lg font-bold ${
-                weeklyLiquidPercentage >= 50
+                weeklyLiquidPercentage >= weeklyLiquidMin
                   ? 'text-green-900 dark:text-green-100'
                   : 'text-red-900 dark:text-red-100'
               }`}>
                 {formatNumber(weeklyLiquidPercentage, 1)}%
               </div>
               <div className="text-xs text-muted-foreground">
-                {weeklyLiquidPercentage >= 50 ? '≥ 50% ✓' : '< 50% ✗'}
+                {weeklyLiquidPercentage >= weeklyLiquidMin ? `≥ ${weeklyLiquidMin}% ✓` : `< ${weeklyLiquidMin}% ✗`}
               </div>
             </div>
           </div>
