@@ -9,6 +9,7 @@
 
 import { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { validateProductLink } from '../../services/tokens/ProductLinkValidator'
 
 // MMF product schema for validation - ALIGNED WITH DATABASE (fund_products table)
 const mmfProductSchema = z.object({
@@ -321,6 +322,112 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
   })
   
   /**
+   * PUT /api/v1/nav/mmf/:fundId
+   * Update MMF product by ID
+   */
+  fastify.put('/mmf/:fundId', async (request, reply) => {
+    const { fundId } = request.params as { fundId: string }
+    
+    try {
+      const validatedData = mmfProductSchema.partial().parse(request.body)
+      
+      // Update existing fund
+      const { data: product, error } = await fastify.supabase
+        .from('fund_products')
+        .update(validatedData)
+        .eq('id', fundId)
+        .select()
+        .single()
+      
+      if (error) {
+        fastify.log.error({ error }, 'Database update error')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      if (!product) {
+        return reply.code(404).send({
+          success: false,
+          error: 'MMF product not found'
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: product,
+        message: 'MMF updated successfully'
+      })
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.code(400).send({
+          success: false,
+          errors: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        })
+      }
+      
+      fastify.log.error({ error }, 'Unexpected error')
+      return reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  })
+  
+  /**
+   * DELETE /api/v1/nav/mmf/:fundId
+   * Delete MMF product
+   */
+  fastify.delete('/mmf/:fundId', async (request, reply) => {
+    const { fundId } = request.params as { fundId: string }
+    
+    try {
+      // Delete holdings first (cascade)
+      await fastify.supabase
+        .from('mmf_holdings')
+        .delete()
+        .eq('fund_product_id', fundId)
+      
+      // Delete NAV history
+      await fastify.supabase
+        .from('mmf_nav_history')
+        .delete()
+        .eq('fund_product_id', fundId)
+      
+      // Delete the fund product
+      const { error } = await fastify.supabase
+        .from('fund_products')
+        .delete()
+        .eq('id', fundId)
+      
+      if (error) {
+        fastify.log.error({ error }, 'Database delete error')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        message: 'MMF deleted successfully'
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Unexpected error')
+      return reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  })
+  
+  /**
    * POST /api/v1/nav/mmf/:fundId/holdings
    * Add or update holdings
    */
@@ -361,6 +468,67 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
         success: true,
         data,
         count: data?.length || 0
+      })
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.code(400).send({
+          success: false,
+          errors: error.errors
+        })
+      }
+      
+      fastify.log.error({ error }, 'Unexpected error')
+      return reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  })
+  
+  /**
+   * PUT /api/v1/nav/mmf/:fundId/holdings/:holdingId
+   * Update a specific holding
+   */
+  fastify.put('/mmf/:fundId/holdings/:holdingId', async (request, reply) => {
+    const { fundId, holdingId } = request.params as { fundId: string; holdingId: string }
+    
+    try {
+      // Validate partial holding data
+      const partialHoldingSchema = mmfHoldingSchema.partial()
+      const validatedData = partialHoldingSchema.parse(request.body)
+      
+      // Update the holding
+      const { data, error } = await fastify.supabase
+        .from('mmf_holdings')
+        .update({
+          ...validatedData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', holdingId)
+        .eq('fund_product_id', fundId)
+        .select()
+        .single()
+      
+      if (error) {
+        fastify.log.error({ error }, 'Database update error')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      if (!data) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Holding not found'
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data,
+        message: 'Holding updated successfully'
       })
       
     } catch (error) {
@@ -438,6 +606,56 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
         .from('mmf_nav_history')
         .select('*')
         .eq('fund_product_id', fund_product_id)
+        .order('valuation_date', { ascending: false })
+      
+      if (start_date) {
+        query = query.gte('valuation_date', start_date)
+      }
+      if (end_date) {
+        query = query.lte('valuation_date', end_date)
+      }
+      
+      const { data, error } = await query
+      
+      if (error) {
+        fastify.log.error({ error }, 'Database error')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: data || []
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Unexpected error')
+      return reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  })
+  
+  /**
+   * GET /api/v1/nav/mmf/:fundId/history
+   * Get NAV history for a specific fund (path param version)
+   */
+  fastify.get('/mmf/:fundId/history', async (request, reply) => {
+    const { fundId } = request.params as { fundId: string }
+    
+    try {
+      const { start_date, end_date } = request.query as {
+        start_date?: string
+        end_date?: string
+      }
+      
+      let query = fastify.supabase
+        .from('mmf_nav_history')
+        .select('*')
+        .eq('fund_product_id', fundId)
         .order('valuation_date', { ascending: false })
       
       if (start_date) {
@@ -595,21 +813,40 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
       // Get token links for these products
       const productIds = products.map(p => p.id)
       
-      const { data: tokenLinks, error: linksError } = await fastify.supabase
-        .from('product_token_links')
+      const { data: tokens, error: tokensError } = await fastify.supabase
+        .from('tokens')
         .select('*')
         .in('product_id', productIds)
+        .not('product_id', 'is', null)
       
-      if (linksError) {
+      if (tokensError) {
         return reply.code(500).send({
           success: false,
-          error: linksError.message
+          error: tokensError.message
         })
       }
       
+      // Transform the data to match frontend expectations
+      const tokenLinks = (tokens || []).map(token => {
+        const product = products.find(p => p.id === token.product_id)
+        return {
+          id: token.id,
+          mmf_id: token.product_id,
+          token_id: token.id,
+          token_name: token.name,
+          token_symbol: token.symbol,
+          mmf_name: product?.fund_name || product?.fund_ticker || 'Unknown MMF',
+          parity: token.parity || 1.0,
+          ratio: token.ratio || 1.0,
+          effective_date: token.created_at,
+          status: token.status || 'active',
+          created_at: token.created_at
+        }
+      })
+      
       return reply.send({
         success: true,
-        data: tokenLinks || []
+        data: tokenLinks
       })
       
     } catch (error) {
@@ -750,6 +987,44 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
   })
 
   /**
+   * GET /api/v1/nav/mmf/:fundId/token-links
+   * Get token links for a specific MMF
+   */
+  fastify.get('/mmf/:fundId/token-links', async (request, reply) => {
+    const { fundId } = request.params as { fundId: string }
+    
+    try {
+      // Get all tokens linked to this MMF
+      const { data: tokens, error: tokensError } = await fastify.supabase
+        .from('tokens')
+        .select('id, name, symbol, product_id, ratio, parity, status, created_at, updated_at')
+        .eq('product_id', fundId)
+      
+      if (tokensError) {
+        fastify.log.error({ error: tokensError }, 'Database error fetching token links')
+        return reply.code(500).send({
+          success: false,
+          error: tokensError.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        data: tokens || [],
+        count: tokens?.length || 0
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error, fundId }, 'Unexpected error fetching token links')
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return reply.code(500).send({
+        success: false,
+        error: errorMessage
+      })
+    }
+  })
+
+  /**
    * POST /api/v1/nav/mmf/:fundId/token-links
    * Link a token to this MMF by updating token's product_id, ratio, and parity
    * Body: { tokenId: string, parityRatio: number, collateralizationPercentage: number }
@@ -778,10 +1053,19 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
         })
       }
       
+      // Validate that the MMF product exists in fund_products
+      const productValidation = await validateProductLink(fastify.supabase, fundId, 'mmf')
+      if (!productValidation.isValid) {
+        return reply.code(404).send({
+          success: false,
+          error: productValidation.error || 'MMF product not found'
+        })
+      }
+      
       // Check if token exists
       const { data: token, error: tokenError } = await fastify.supabase
         .from('tokens')
-        .select('id, product_id, project_id')
+        .select('id, product_id, product_type, project_id')
         .eq('id', tokenId)
         .single()
       
@@ -792,11 +1076,12 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
         })
       }
       
-      // Check if token is already linked to another MMF
+      // Check if token is already linked to another product
       if (token.product_id && token.product_id !== fundId) {
+        const linkedProductType = token.product_type || 'unknown'
         return reply.code(400).send({
           success: false,
-          error: `Token is already linked to another MMF (${token.product_id}). Unlink first.`
+          error: `Token is already linked to another ${linkedProductType} product (${token.product_id}). Unlink first.`
         })
       }
       
@@ -807,9 +1092,10 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
         .from('tokens')
         .update({
           product_id: fundId,
+          product_type: 'mmf',  // Specify this is an MMF product
           ratio: ratio,
           parity: parityRatio,
-          status: 'active'
+          status: 'DEPLOYED'  // Use uppercase enum value
         })
         .eq('id', tokenId)
         .select()
@@ -974,6 +1260,129 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         success: false,
         error: errorMessage
+      })
+    }
+  })
+
+  /**
+   * POST /api/v1/nav/mmf/:fundId/holdings/bulk
+   * Bulk upload MMF holdings via CSV data
+   */
+  fastify.post('/mmf/:fundId/holdings/bulk', async (request, reply) => {
+    const { fundId } = request.params as { fundId: string }
+    
+    try {
+      const { holdings } = request.body as { holdings: any[] }
+      
+      if (!Array.isArray(holdings) || holdings.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Holdings array is required and must not be empty'
+        })
+      }
+      
+      // Validate each holding
+      const errors: Array<{
+        row: number
+        field: string
+        message: string
+        value: unknown
+      }> = []
+      
+      const validatedHoldings: any[] = []
+      
+      holdings.forEach((holding, index) => {
+        try {
+          const validated = mmfHoldingSchema.parse({
+            ...holding,
+            fund_product_id: fundId
+          })
+          validatedHoldings.push(validated)
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            error.errors.forEach((err) => {
+              errors.push({
+                row: index + 1,
+                field: err.path.join('.'),
+                message: err.message,
+                value: holding[err.path[0] as string]
+              })
+            })
+          }
+        }
+      })
+      
+      // If there are validation errors, return them
+      if (errors.length > 0) {
+        return reply.code(400).send({
+          success: false,
+          totalRows: holdings.length,
+          successCount: validatedHoldings.length,
+          failureCount: errors.length,
+          errors
+        })
+      }
+      
+      // Bulk insert all validated holdings
+      const { data, error } = await fastify.supabase
+        .from('mmf_holdings')
+        .insert(validatedHoldings)
+        .select()
+      
+      if (error) {
+        fastify.log.error({ error }, 'Database bulk insert error')
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        })
+      }
+      
+      return reply.send({
+        success: true,
+        totalRows: holdings.length,
+        successCount: data?.length || 0,
+        failureCount: 0,
+        errors: []
+      })
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Unexpected error in bulk upload')
+      return reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  })
+
+  /**
+   * GET /api/v1/nav/mmf/template/holdings
+   * Download CSV template for holdings upload
+   */
+  fastify.get('/mmf/template/holdings', async (request, reply) => {
+    try {
+      // CSV template with all required and optional fields
+      const csvTemplate = [
+        // Header row
+        'holding_type,issuer_name,security_description,cusip,isin,par_value,purchase_price,current_price,amortized_cost,market_value,currency,quantity,yield_to_maturity,coupon_rate,effective_maturity_date,final_maturity_date,weighted_average_maturity_days,weighted_average_life_days,days_to_maturity,credit_rating,rating_agency,is_government_security,is_daily_liquid,is_weekly_liquid,liquidity_classification,acquisition_date,settlement_date,accrued_interest,amortization_adjustment,shadow_nav_impact,stress_test_value,counterparty,collateral_description,is_affiliated_issuer,concentration_percentage,notes',
+        // Example row 1: Treasury Bill
+        'treasury,U.S. Treasury,Treasury Bill 3-Month,912796YR4,US912796YR43,1000000,999500,999800,999800,999800,USD,1000,3.85,0,2025-01-15,2025-01-15,90,90,90,AAA,S&P,true,true,true,daily,2024-10-16,2024-10-16,0,0,0,0,,,false,0,',
+        // Example row 2: Commercial Paper
+        'commercial_paper,XYZ Corporation,90-Day Commercial Paper,12345ABC7,US12345ABC78,500000,498500,498800,498800,498800,USD,500,4.15,0,2025-01-15,2025-01-15,90,90,90,A-1,S&P,false,false,true,weekly,2024-10-16,2024-10-16,0,0,0,0,,,false,0,High-quality issuer',
+        // Example row 3: Agency Security
+        'agency,Fannie Mae,FNMA 3-Month Note,31331XYZ1,US31331XYZ12,750000,749000,749500,749500,749500,USD,750,3.95,0,2025-01-15,2025-01-15,90,90,90,AA+,S&P,true,false,true,weekly,2024-10-16,2024-10-16,0,0,0,0,,,false,0,'
+      ].join('\n')
+      
+      // Set headers for CSV download
+      reply.header('Content-Type', 'text/csv')
+      reply.header('Content-Disposition', 'attachment; filename="mmf_holdings_template.csv"')
+      
+      return reply.send(csvTemplate)
+      
+    } catch (error) {
+      fastify.log.error({ error }, 'Error generating holdings template')
+      return reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       })
     }
   })

@@ -86,12 +86,12 @@ export function TokenLinksTable({ projectId, fundId, onRefresh }: TokenLinksTabl
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: async (linkId: string) => {
-      const link = data?.find(l => l.id === linkId)
+    mutationFn: async (tokenId: string) => {
+      const link = data?.find(l => l.token_id === tokenId)
       if (!link) throw new Error('Link not found')
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/nav/mmf/${link.mmf_id}/token-links/${linkId}?project_id=${projectId}`,
+        `${import.meta.env.VITE_API_URL}/api/v1/nav/mmf/${link.mmf_id}/token-links/${tokenId}`,
         {
           method: 'DELETE',
           headers: {
@@ -102,7 +102,7 @@ export function TokenLinksTable({ projectId, fundId, onRefresh }: TokenLinksTabl
       
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error?.message || 'Failed to delete token link')
+        throw new Error(errorData.error || 'Failed to delete token link')
       }
     },
     onSuccess: () => {
@@ -122,8 +122,8 @@ export function TokenLinksTable({ projectId, fundId, onRefresh }: TokenLinksTabl
     setDialogOpen(true)
   }
 
-  const handleDelete = (linkId: string) => {
-    setDeletingLinkId(linkId)
+  const handleDelete = (tokenId: string) => {
+    setDeletingLinkId(tokenId)
   }
 
   const confirmDelete = () => {
@@ -264,7 +264,7 @@ export function TokenLinksTable({ projectId, fundId, onRefresh }: TokenLinksTabl
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(link.id)}
+                        onClick={() => handleDelete(link.token_id)}
                       >
                         <Trash className="h-4 w-4 text-destructive" />
                       </Button>

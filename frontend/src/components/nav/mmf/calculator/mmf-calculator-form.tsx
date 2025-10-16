@@ -17,20 +17,21 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/utils/utils'
 
 import { useCalculateMMFNAV } from '@/hooks/mmf/useMMFData'
+import { MMFDiagnosticPanel } from './mmf-diagnostic-panel'
 import type { MMFCalculationParams, MMFNAVResult } from '@/types/nav/mmf'
 
-// Validation schema
+// Validation schema - Use empty string as default instead of undefined
 const calculatorFormSchema = z.object({
   asOfDate: z.date({
     required_error: 'As-of date is required',
   }),
   includeBreakdown: z.boolean().default(true),
   saveToDatabase: z.boolean().default(true),
-  // Config overrides (optional)
-  wamLimit: z.number().min(1).max(120).optional(),
-  walLimit: z.number().min(1).max(397).optional(),
-  dailyLiquidMinimum: z.number().min(0).max(100).optional(),
-  weeklyLiquidMinimum: z.number().min(0).max(100).optional(),
+  // Config overrides (optional) - Use empty string for controlled inputs
+  wamLimit: z.string().optional(),
+  walLimit: z.string().optional(),
+  dailyLiquidMinimum: z.string().optional(),
+  weeklyLiquidMinimum: z.string().optional(),
 })
 
 type CalculatorFormValues = z.infer<typeof calculatorFormSchema>
@@ -51,6 +52,7 @@ export function MMFCalculatorForm({
   onError,
 }: MMFCalculatorFormProps) {
   const [calculationResult, setCalculationResult] = useState<MMFNAVResult | null>(null)
+  const [diagnostic, setDiagnostic] = useState<any>(null)
   const [showConfigOverrides, setShowConfigOverrides] = useState(false)
   const calculateMutation = useCalculateMMFNAV(fundId)
 
@@ -60,6 +62,10 @@ export function MMFCalculatorForm({
       asOfDate: new Date(),
       includeBreakdown: true,
       saveToDatabase: true,
+      wamLimit: '',
+      walLimit: '',
+      dailyLiquidMinimum: '',
+      weeklyLiquidMinimum: '',
     },
   })
 
@@ -67,30 +73,46 @@ export function MMFCalculatorForm({
     try {
       // Build config overrides if any are provided
       const configOverrides: any = {}
-      if (values.wamLimit) {
-        configOverrides.compliance = {
-          ...configOverrides.compliance,
-          wamLimits: { [fundType || 'prime']: values.wamLimit }
+      
+      // Parse string values to numbers, only if not empty
+      const wamLimit = values.wamLimit && values.wamLimit !== '' ? Number(values.wamLimit) : undefined
+      const walLimit = values.walLimit && values.walLimit !== '' ? Number(values.walLimit) : undefined
+      const dailyLiquidMinimum = values.dailyLiquidMinimum && values.dailyLiquidMinimum !== '' 
+        ? Number(values.dailyLiquidMinimum)  // Keep as percentage (25, not 0.25)
+        : undefined
+      const weeklyLiquidMinimum = values.weeklyLiquidMinimum && values.weeklyLiquidMinimum !== '' 
+        ? Number(values.weeklyLiquidMinimum)  // Keep as percentage (50, not 0.50)
+        : undefined
+      
+      // FIX: Build compliance overrides correctly
+      if (wamLimit !== undefined || walLimit !== undefined || dailyLiquidMinimum !== undefined || weeklyLiquidMinimum !== undefined) {
+        configOverrides.compliance = {}
+        
+        if (wamLimit !== undefined) {
+          configOverrides.compliance.wamLimits = {
+            [fundType || 'default']: wamLimit
+          }
+        }
+        
+        if (walLimit !== undefined) {
+          configOverrides.compliance.walLimits = {
+            [fundType || 'default']: walLimit
+          }
+        }
+        
+        if (dailyLiquidMinimum !== undefined) {
+          configOverrides.compliance.dailyLiquidMinimum = dailyLiquidMinimum
+        }
+        
+        if (weeklyLiquidMinimum !== undefined) {
+          configOverrides.compliance.weeklyLiquidMinimum = weeklyLiquidMinimum
         }
       }
-      if (values.walLimit) {
-        configOverrides.compliance = {
-          ...configOverrides.compliance,
-          walLimits: { [fundType || 'prime']: values.walLimit }
-        }
-      }
-      if (values.dailyLiquidMinimum !== undefined) {
-        configOverrides.liquidity = {
-          ...configOverrides.liquidity,
-          dailyLiquidMinimum: values.dailyLiquidMinimum / 100
-        }
-      }
-      if (values.weeklyLiquidMinimum !== undefined) {
-        configOverrides.liquidity = {
-          ...configOverrides.liquidity,
-          weeklyLiquidMinimum: values.weeklyLiquidMinimum / 100
-        }
-      }
+
+      console.log('=== SUBMITTING CALCULATION ===')
+      console.log('Fund ID:', fundId)
+      console.log('Fund Type:', fundType)
+      console.log('Config Overrides:', JSON.stringify(configOverrides, null, 2))
 
       const params: MMFCalculationParams = {
         asOfDate: values.asOfDate,
@@ -101,16 +123,44 @@ export function MMFCalculatorForm({
 
       const result = await calculateMutation.mutateAsync(params)
       
-      setCalculationResult(result.data)
-      onSuccess?.(result.data)
-    } catch (error) {
+      console.log('=== CALCULATION RESULT ===')
+      console.log('Success:', result.success)
+      console.log('Data:', result.data)
+      console.log('NAV:', result.data?.nav)
+      console.log('=========================')
+      
+      if (result.data) {
+        setCalculationResult(result.data)
+        setDiagnostic(null) // Clear any previous diagnostic
+        onSuccess?.(result.data)
+      } else {
+        throw new Error('Calculation returned no data')
+      }
+    } catch (error: any) {
       console.error('MMF NAV calculation error:', error)
+      
+      // Extract diagnostic information from error if available
+      if (error.diagnostic) {
+        console.log('Diagnostic info available:', error.diagnostic)
+        setDiagnostic(error.diagnostic)
+      } else {
+        setDiagnostic(null)
+      }
+      
       onError?.(error as Error)
     }
   }
 
   return (
     <div className="space-y-6">
+      {/* Diagnostic Panel - Shows intelligent error analysis */}
+      {diagnostic && (
+        <MMFDiagnosticPanel 
+          diagnostic={diagnostic}
+          currentNAV={calculationResult?.nav}
+        />
+      )}
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -206,9 +256,9 @@ export function MMFCalculatorForm({
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel>Save to NAV history</FormLabel>
+                        <FormLabel>Save to database</FormLabel>
                         <FormDescription>
-                          Store this calculation in the database for historical tracking
+                          Store calculation result in mmf_nav_history
                         </FormDescription>
                       </div>
                     </FormItem>
@@ -218,38 +268,38 @@ export function MMFCalculatorForm({
 
               <Separator />
 
-              {/* Config Overrides Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium">Configuration Overrides</div>
-                    <div className="text-xs text-muted-foreground">
-                      Temporarily adjust compliance thresholds for testing
-                    </div>
+              {/* Config Overrides Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium">Configuration Overrides</div>
+                  <div className="text-xs text-muted-foreground">
+                    Temporarily adjust compliance thresholds for testing
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowConfigOverrides(!showConfigOverrides)}
-                  >
-                    {showConfigOverrides ? 'Hide' : 'Show'}
-                  </Button>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowConfigOverrides(!showConfigOverrides)}
+                >
+                  {showConfigOverrides ? 'Hide' : 'Show'}
+                </Button>
+              </div>
 
-                {showConfigOverrides && (
+              {/* Config Overrides Section */}
+              {showConfigOverrides && (
+                <>
+                  <Separator />
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Testing Mode</AlertTitle>
+                    <AlertTitle>Temporary Overrides</AlertTitle>
                     <AlertDescription>
-                      These overrides are temporary and only apply to this calculation.
-                      They do not change the database configuration.
+                      These overrides only apply to this calculation and do not modify database values.
+                      Leave fields empty to use default values from configuration.
                     </AlertDescription>
                   </Alert>
-                )}
 
-                {showConfigOverrides && (
-                  <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="wamLimit"
@@ -261,11 +311,12 @@ export function MMFCalculatorForm({
                               type="number"
                               placeholder="60"
                               {...field}
-                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value)}
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">
-                            Default: 60 days
+                          <FormDescription>
+                            Max: 120 days (default: 60)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -283,11 +334,12 @@ export function MMFCalculatorForm({
                               type="number"
                               placeholder="120"
                               {...field}
-                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value)}
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">
-                            Default: 120 days
+                          <FormDescription>
+                            Max: 397 days (default: 120)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -299,17 +351,18 @@ export function MMFCalculatorForm({
                       name="dailyLiquidMinimum"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Daily Liquid Min (%)</FormLabel>
+                          <FormLabel>Daily Liquid Minimum (%)</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               placeholder="25"
                               {...field}
-                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value)}
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">
-                            Default: 25%
+                          <FormDescription>
+                            Min: 0%, Max: 100% (default: 25%)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -321,25 +374,26 @@ export function MMFCalculatorForm({
                       name="weeklyLiquidMinimum"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Weekly Liquid Min (%)</FormLabel>
+                          <FormLabel>Weekly Liquid Minimum (%)</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               placeholder="50"
                               {...field}
-                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value)}
                             />
                           </FormControl>
-                          <FormDescription className="text-xs">
-                            Default: 50%
+                          <FormDescription>
+                            Min: 0%, Max: 100% (default: 50%)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-                )}
-              </div>
+                </>
+              )}
 
               {/* Submit Button */}
               <Button
@@ -374,27 +428,6 @@ export function MMFCalculatorForm({
               )}
             </form>
           </Form>
-        </CardContent>
-      </Card>
-
-      {/* Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">About MMF NAV Calculation</CardTitle>
-        </CardHeader>
-        <CardContent className="text-xs text-muted-foreground space-y-2">
-          <p>
-            <strong>Stable NAV:</strong> Calculated using amortized cost method, targeting $1.00 per share.
-            This is the primary NAV for money market funds.
-          </p>
-          <p>
-            <strong>Shadow NAV:</strong> Mark-to-market valuation showing the current market value.
-            Used for risk monitoring and "breaking the buck" alerts.
-          </p>
-          <p>
-            <strong>Compliance:</strong> All calculations check SEC Rule 2a-7 requirements including
-            WAM ≤ 60 days, WAL ≤ 120 days, Daily liquid ≥ 25%, Weekly liquid ≥ 50%.
-          </p>
         </CardContent>
       </Card>
     </div>

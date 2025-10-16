@@ -8721,6 +8721,37 @@ COMMENT ON TABLE public.bundler_operations IS 'Tracks EIP-4337 bundler operation
 
 
 --
+-- Name: cap_table_investors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cap_table_investors (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    cap_table_id uuid NOT NULL,
+    investor_id uuid,
+    investor_name text NOT NULL,
+    investor_email text,
+    investor_type text,
+    shares_owned bigint DEFAULT 0 NOT NULL,
+    share_class text,
+    investment_date timestamp with time zone,
+    investment_amount numeric(20,2),
+    percentage_ownership numeric(5,2),
+    vesting_schedule jsonb,
+    notes text,
+    status text DEFAULT 'active'::text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE cap_table_investors; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cap_table_investors IS 'Stores individual investor holdings in cap tables';
+
+
+--
 -- Name: cap_tables; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9532,7 +9563,8 @@ CREATE TABLE public.tokens (
     initialization_data jsonb,
     initial_owner text,
     product_id uuid,
-    ratio numeric
+    ratio numeric,
+    parity numeric
 );
 
 
@@ -12661,10 +12693,20 @@ CREATE TABLE public.fund_products (
     updated_at timestamp with time zone DEFAULT now(),
     asset_allocation jsonb,
     concentration_limits jsonb,
+    shares_outstanding numeric,
+    initial_shares numeric,
+    subscription_id_tracker jsonb,
     CONSTRAINT chk_fund_expense_ratio CHECK (((expense_ratio IS NULL) OR ((expense_ratio >= (0)::numeric) AND (expense_ratio <= 0.50)))),
     CONSTRAINT chk_fund_nav_positive CHECK (((net_asset_value IS NULL) OR (net_asset_value > (0)::numeric))),
     CONSTRAINT chk_fund_status_valid CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'liquidated'::character varying, 'suspended'::character varying, 'Open'::character varying])::text[])))
 );
+
+
+--
+-- Name: TABLE fund_products; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.fund_products IS 'Stores fund product details. Multiple funds can belong to one project (1:N relationship).';
 
 
 --
@@ -14006,6 +14048,35 @@ COMMENT ON TABLE public.ml_baseline_statistics IS 'Machine learning baseline sta
 
 
 --
+-- Name: mmf_allocation_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_allocation_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    as_of_date timestamp with time zone NOT NULL,
+    asset_class character varying NOT NULL,
+    total_value numeric NOT NULL,
+    percentage numeric NOT NULL,
+    number_of_securities integer DEFAULT 0 NOT NULL,
+    average_maturity_days integer,
+    average_yield numeric,
+    typical_range_min numeric,
+    typical_range_max numeric,
+    typical_range_average numeric,
+    variance_from_typical numeric,
+    is_within_typical_range boolean,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT mmf_allocation_history_average_maturity_days_check CHECK ((average_maturity_days >= 0)),
+    CONSTRAINT mmf_allocation_history_number_of_securities_check CHECK ((number_of_securities >= 0)),
+    CONSTRAINT mmf_allocation_history_percentage_check CHECK (((percentage >= (0)::numeric) AND (percentage <= (100)::numeric))),
+    CONSTRAINT mmf_allocation_history_total_value_check CHECK ((total_value >= (0)::numeric))
+);
+
+
+--
 -- Name: mmf_credit_ratings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -14043,6 +14114,42 @@ CREATE TABLE public.mmf_credit_ratings (
 --
 
 COMMENT ON TABLE public.mmf_credit_ratings IS 'Credit quality monitoring for MMF issuers';
+
+
+--
+-- Name: mmf_fees_gates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mmf_fees_gates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    effective_date timestamp with time zone NOT NULL,
+    end_date timestamp with time zone,
+    fee_type character varying NOT NULL,
+    fee_percentage numeric DEFAULT 0 NOT NULL,
+    gate_status character varying,
+    gate_duration_days integer,
+    trigger_reason text NOT NULL,
+    trigger_metrics jsonb,
+    board_approval_date timestamp with time zone,
+    board_approval_notes text,
+    board_notification_sent boolean DEFAULT false,
+    board_notification_date timestamp with time zone,
+    net_redemptions_percentage numeric,
+    weekly_liquidity_percentage numeric,
+    daily_liquidity_percentage numeric,
+    impact_on_shareholders text,
+    regulatory_filing_reference character varying,
+    status character varying DEFAULT 'active'::character varying,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    created_by uuid,
+    CONSTRAINT mmf_fees_gates_fee_percentage_check CHECK (((fee_percentage >= (0)::numeric) AND (fee_percentage <= (2)::numeric))),
+    CONSTRAINT mmf_fees_gates_fee_type_check CHECK (((fee_type)::text = ANY ((ARRAY['none'::character varying, 'mandatory'::character varying, 'discretionary'::character varying])::text[]))),
+    CONSTRAINT mmf_fees_gates_gate_duration_days_check CHECK ((gate_duration_days >= 0)),
+    CONSTRAINT mmf_fees_gates_gate_status_check CHECK (((gate_status)::text = ANY ((ARRAY['none'::character varying, 'imposed'::character varying, 'lifted'::character varying])::text[]))),
+    CONSTRAINT mmf_fees_gates_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'lifted'::character varying, 'expired'::character varying])::text[])))
+);
 
 
 --
@@ -14176,7 +14283,8 @@ CREATE TABLE public.mmf_nav_history (
     portfolio_manager_notes text,
     regulatory_filing_reference character varying(100),
     notes text,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    config_overrides_used jsonb
 );
 
 
@@ -16801,6 +16909,7 @@ CREATE TABLE public.projects (
     duration text,
     currency text DEFAULT 'USD'::text,
     regulatory_exemptions jsonb[],
+    authorized_shares bigint,
     CONSTRAINT projects_investment_status_check CHECK (((investment_status)::text = ANY ((ARRAY['Open'::character varying, 'Closed'::character varying])::text[]))),
     CONSTRAINT projects_project_type_check CHECK ((project_type = ANY (ARRAY['structured_products'::text, 'equity'::text, 'commodities'::text, 'funds_etfs_etps'::text, 'bonds'::text, 'quantitative_investment_strategies'::text, 'private_equity'::text, 'private_debt'::text, 'real_estate'::text, 'energy'::text, 'infrastructure'::text, 'collectibles'::text, 'receivables'::text, 'solar_wind_climate'::text, 'digital_tokenised_fund'::text, 'fiat_backed_stablecoin'::text, 'crypto_backed_stablecoin'::text, 'commodity_backed_stablecoin'::text, 'algorithmic_stablecoin'::text, 'rebasing_stablecoin'::text]))),
     CONSTRAINT projects_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'completed'::character varying, 'draft'::character varying])::text[])))
@@ -16924,6 +17033,13 @@ COMMENT ON COLUMN public.projects.duration IS 'Project duration (e.g., "12_month
 --
 
 COMMENT ON COLUMN public.projects.currency IS 'Currency for all financial values';
+
+
+--
+-- Name: COLUMN projects.authorized_shares; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.projects.authorized_shares IS 'Total number of authorized shares for equity-based projects';
 
 
 --
@@ -24038,6 +24154,14 @@ ALTER TABLE ONLY public.bundler_operations
 
 
 --
+-- Name: cap_table_investors cap_table_investors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cap_table_investors
+    ADD CONSTRAINT cap_table_investors_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: cap_tables cap_tables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -25705,21 +25829,6 @@ ALTER TABLE ONLY public.fund_products
 
 
 --
--- Name: fund_products fund_products_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.fund_products
-    ADD CONSTRAINT fund_products_project_id_key UNIQUE (project_id);
-
-
---
--- Name: CONSTRAINT fund_products_project_id_key ON fund_products; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON CONSTRAINT fund_products_project_id_key ON public.fund_products IS 'Ensures only one product per project in this table';
-
-
---
 -- Name: futures_prices futures_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -26127,11 +26236,35 @@ ALTER TABLE ONLY public.ml_baseline_statistics
 
 
 --
+-- Name: mmf_allocation_history mmf_allocation_history_fund_product_id_as_of_date_asset_cla_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_allocation_history
+    ADD CONSTRAINT mmf_allocation_history_fund_product_id_as_of_date_asset_cla_key UNIQUE (fund_product_id, as_of_date, asset_class);
+
+
+--
+-- Name: mmf_allocation_history mmf_allocation_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_allocation_history
+    ADD CONSTRAINT mmf_allocation_history_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: mmf_credit_ratings mmf_credit_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.mmf_credit_ratings
     ADD CONSTRAINT mmf_credit_ratings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mmf_fees_gates mmf_fees_gates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_fees_gates
+    ADD CONSTRAINT mmf_fees_gates_pkey PRIMARY KEY (id);
 
 
 --
@@ -29916,6 +30049,20 @@ CREATE INDEX idx_cache_expires ON public.validation_cache USING btree (expires_a
 
 
 --
+-- Name: idx_cap_table_investors_cap_table_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cap_table_investors_cap_table_id ON public.cap_table_investors USING btree (cap_table_id);
+
+
+--
+-- Name: idx_cap_table_investors_investor_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cap_table_investors_investor_id ON public.cap_table_investors USING btree (investor_id);
+
+
+--
 -- Name: idx_carbon_market_prices_asset_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33003,6 +33150,27 @@ CREATE INDEX idx_metrics_date ON public.compliance_metrics USING btree (metric_d
 
 
 --
+-- Name: idx_mmf_allocation_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_allocation_asset_class ON public.mmf_allocation_history USING btree (asset_class);
+
+
+--
+-- Name: idx_mmf_allocation_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_allocation_date ON public.mmf_allocation_history USING btree (as_of_date DESC);
+
+
+--
+-- Name: idx_mmf_allocation_fund_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_allocation_fund_date ON public.mmf_allocation_history USING btree (fund_product_id, as_of_date DESC);
+
+
+--
 -- Name: idx_mmf_credit_ratings_agency; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33028,6 +33196,34 @@ CREATE INDEX idx_mmf_credit_ratings_eligible ON public.mmf_credit_ratings USING 
 --
 
 CREATE INDEX idx_mmf_credit_ratings_issuer ON public.mmf_credit_ratings USING btree (issuer_name);
+
+
+--
+-- Name: idx_mmf_fees_gates_date_range; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_fees_gates_date_range ON public.mmf_fees_gates USING btree (effective_date, end_date);
+
+
+--
+-- Name: idx_mmf_fees_gates_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_fees_gates_fund ON public.mmf_fees_gates USING btree (fund_product_id, effective_date DESC);
+
+
+--
+-- Name: idx_mmf_fees_gates_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_fees_gates_status ON public.mmf_fees_gates USING btree (status);
+
+
+--
+-- Name: idx_mmf_fees_gates_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_fees_gates_type ON public.mmf_fees_gates USING btree (fee_type);
 
 
 --
@@ -36748,6 +36944,13 @@ CREATE INDEX idx_tokens_deployment_status ON public.tokens USING btree (deployme
 
 
 --
+-- Name: idx_tokens_product_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tokens_product_id ON public.tokens USING btree (product_id) WHERE (product_id IS NOT NULL);
+
+
+--
 -- Name: idx_tokens_project_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38344,6 +38547,13 @@ CREATE TRIGGER update_bond_sinking_fund_updated_at BEFORE UPDATE ON public.bond_
 
 
 --
+-- Name: cap_table_investors update_cap_table_investors_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_cap_table_investors_updated_at BEFORE UPDATE ON public.cap_table_investors FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: climate_pool_energy_assets update_climate_pool_energy_assets_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -39034,6 +39244,22 @@ ALTER TABLE ONLY public.bond_market_prices
 
 ALTER TABLE ONLY public.bond_sinking_fund
     ADD CONSTRAINT bond_sinking_fund_bond_product_id_fkey FOREIGN KEY (bond_product_id) REFERENCES public.bond_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cap_table_investors cap_table_investors_cap_table_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cap_table_investors
+    ADD CONSTRAINT cap_table_investors_cap_table_id_fkey FOREIGN KEY (cap_table_id) REFERENCES public.cap_tables(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cap_table_investors cap_table_investors_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cap_table_investors
+    ADD CONSTRAINT cap_table_investors_investor_id_fkey FOREIGN KEY (investor_id) REFERENCES public.investors(investor_id) ON DELETE SET NULL;
 
 
 --
@@ -40434,6 +40660,22 @@ ALTER TABLE ONLY public.kyc_screening_logs
 
 ALTER TABLE ONLY public.lease_agreements
     ADD CONSTRAINT lease_agreements_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_allocation_history mmf_allocation_history_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_allocation_history
+    ADD CONSTRAINT mmf_allocation_history_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mmf_fees_gates mmf_fees_gates_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_fees_gates
+    ADD CONSTRAINT mmf_fees_gates_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
 
 
 --
@@ -41905,6 +42147,21 @@ ALTER TABLE ONLY public.token_whitelists
 
 ALTER TABLE ONLY public.tokens
     ADD CONSTRAINT tokens_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: tokens tokens_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tokens
+    ADD CONSTRAINT tokens_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.bond_products(id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- Name: CONSTRAINT tokens_product_id_fkey ON tokens; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON CONSTRAINT tokens_product_id_fkey ON public.tokens IS 'Foreign key linking tokens to their underlying bond products for NAV calculations and token valuations';
 
 
 --
@@ -45226,6 +45483,16 @@ GRANT ALL ON TABLE public.bundler_operations TO prisma;
 
 
 --
+-- Name: TABLE cap_table_investors; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.cap_table_investors TO anon;
+GRANT ALL ON TABLE public.cap_table_investors TO authenticated;
+GRANT ALL ON TABLE public.cap_table_investors TO service_role;
+GRANT ALL ON TABLE public.cap_table_investors TO prisma;
+
+
+--
 -- Name: TABLE cap_tables; Type: ACL; Schema: public; Owner: -
 --
 
@@ -46966,6 +47233,16 @@ GRANT ALL ON TABLE public.ml_baseline_statistics TO prisma;
 
 
 --
+-- Name: TABLE mmf_allocation_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_allocation_history TO anon;
+GRANT ALL ON TABLE public.mmf_allocation_history TO authenticated;
+GRANT ALL ON TABLE public.mmf_allocation_history TO service_role;
+GRANT ALL ON TABLE public.mmf_allocation_history TO prisma;
+
+
+--
 -- Name: TABLE mmf_credit_ratings; Type: ACL; Schema: public; Owner: -
 --
 
@@ -46973,6 +47250,16 @@ GRANT ALL ON TABLE public.mmf_credit_ratings TO anon;
 GRANT ALL ON TABLE public.mmf_credit_ratings TO authenticated;
 GRANT ALL ON TABLE public.mmf_credit_ratings TO service_role;
 GRANT ALL ON TABLE public.mmf_credit_ratings TO prisma;
+
+
+--
+-- Name: TABLE mmf_fees_gates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_fees_gates TO anon;
+GRANT ALL ON TABLE public.mmf_fees_gates TO authenticated;
+GRANT ALL ON TABLE public.mmf_fees_gates TO service_role;
+GRANT ALL ON TABLE public.mmf_fees_gates TO prisma;
 
 
 --

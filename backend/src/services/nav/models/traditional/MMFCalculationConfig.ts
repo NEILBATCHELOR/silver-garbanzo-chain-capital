@@ -285,12 +285,34 @@ export const DEFAULT_MMF_CONFIG: MMFCalculationConfig = {
 /**
  * Configuration Builder
  * Allows partial overrides of default config
+ * FIXED: Now properly deep-merges nested objects like wamLimits, walLimits
  */
 export function buildMMFConfig(overrides?: Partial<MMFCalculationConfig>): MMFCalculationConfig {
   if (!overrides) return DEFAULT_MMF_CONFIG
   
-  return {
-    compliance: { ...DEFAULT_MMF_CONFIG.compliance, ...overrides.compliance },
+  console.log('=== buildMMFConfig: DEEP MERGE ===')
+  console.log('Overrides received:', JSON.stringify(overrides, null, 2))
+  
+  const mergedConfig = {
+    compliance: {
+      // Deep merge wamLimits
+      wamLimits: {
+        ...DEFAULT_MMF_CONFIG.compliance.wamLimits,
+        ...overrides.compliance?.wamLimits
+      },
+      // Deep merge walLimits
+      walLimits: {
+        ...DEFAULT_MMF_CONFIG.compliance.walLimits,
+        ...overrides.compliance?.walLimits
+      },
+      // Other compliance fields
+      dailyLiquidMinimum: overrides.compliance?.dailyLiquidMinimum ?? DEFAULT_MMF_CONFIG.compliance.dailyLiquidMinimum,
+      weeklyLiquidMinimum: overrides.compliance?.weeklyLiquidMinimum ?? DEFAULT_MMF_CONFIG.compliance.weeklyLiquidMinimum,
+      breakingBuckThreshold: overrides.compliance?.breakingBuckThreshold ?? DEFAULT_MMF_CONFIG.compliance.breakingBuckThreshold,
+      maxIssuerConcentration: overrides.compliance?.maxIssuerConcentration ?? DEFAULT_MMF_CONFIG.compliance.maxIssuerConcentration,
+      maxSecondTierPercentage: overrides.compliance?.maxSecondTierPercentage ?? DEFAULT_MMF_CONFIG.compliance.maxSecondTierPercentage,
+      minGovernmentSecuritiesPercentage: overrides.compliance?.minGovernmentSecuritiesPercentage ?? DEFAULT_MMF_CONFIG.compliance.minGovernmentSecuritiesPercentage
+    },
     creditRatings: {
       shortTerm: { ...DEFAULT_MMF_CONFIG.creditRatings.shortTerm, ...overrides.creditRatings?.shortTerm },
       longTerm: { ...DEFAULT_MMF_CONFIG.creditRatings.longTerm, ...overrides.creditRatings?.longTerm },
@@ -313,4 +335,13 @@ export function buildMMFConfig(overrides?: Partial<MMFCalculationConfig>): MMFCa
     },
     interestRateSensitivity: { ...DEFAULT_MMF_CONFIG.interestRateSensitivity, ...overrides.interestRateSensitivity }
   }
+  
+  console.log('=== Merged Config ===')
+  console.log('WAM Limits:', mergedConfig.compliance.wamLimits)
+  console.log('WAL Limits:', mergedConfig.compliance.walLimits)
+  console.log('Daily Liquid Min:', mergedConfig.compliance.dailyLiquidMinimum)
+  console.log('Weekly Liquid Min:', mergedConfig.compliance.weeklyLiquidMinimum)
+  console.log('=====================')
+  
+  return mergedConfig
 }

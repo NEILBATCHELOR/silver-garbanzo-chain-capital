@@ -1,12 +1,12 @@
 /**
  * MMF Calculator Page
  * NAV calculation interface for money market funds
- * Following Bonds page pattern
+ * Following Bonds page pattern with enhanced header
  */
 
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -16,15 +16,14 @@ import {
   ComplianceStatus,
   MMFNavigation,
 } from '@/components/nav/mmf'
-import { NavNavigation, NavDashboardHeader } from '@/components/nav'
+import { NavNavigation, NavDashboardHeaderEnhanced } from '@/components/nav'
 import { useMMF } from '@/hooks/mmf'
-import { CombinedOrgProjectSelector } from '@/components/organizations'
 import { useTokenProjectContext } from '@/hooks/project'
 
 export default function MMFCalculatorPage() {
   const navigate = useNavigate()
   const { fundId, projectId: urlProjectId } = useParams()
-  const { projectId: contextProjectId } = useTokenProjectContext()
+  const { projectId: contextProjectId, project, isLoading: isLoadingProject } = useTokenProjectContext()
   
   const projectId = urlProjectId || contextProjectId
 
@@ -62,9 +61,22 @@ export default function MMFCalculatorPage() {
     refetch()
   }
 
+  const handleProjectChange = (newProjectId: string) => {
+    if (newProjectId !== projectId) {
+      navigate(`/projects/${newProjectId}/nav/mmf/${fundId}/calculate`)
+    }
+  }
+
   if (!fundId) {
     return (
       <>
+        <NavDashboardHeaderEnhanced
+          projectId={projectId}
+          projectName={project?.name}
+          title="MMF Calculator"
+          subtitle="Calculate NAV for Money Market Funds"
+          isLoading={isLoadingProject}
+        />
         <NavNavigation projectId={projectId} />
         <MMFNavigation projectId={projectId} />
         <div className="container mx-auto px-6 py-8">
@@ -80,9 +92,16 @@ export default function MMFCalculatorPage() {
     )
   }
 
-  if (isLoading) {
+  if (isLoading || isLoadingProject) {
     return (
       <>
+        <NavDashboardHeaderEnhanced
+          projectId={projectId}
+          projectName={project?.name}
+          title="MMF Calculator"
+          subtitle="Calculate NAV for Money Market Funds"
+          isLoading={true}
+        />
         <NavNavigation projectId={projectId} />
         <MMFNavigation projectId={projectId} />
         <div className="container mx-auto px-6 py-8">
@@ -99,6 +118,13 @@ export default function MMFCalculatorPage() {
   if (!mmfData?.data) {
     return (
       <>
+        <NavDashboardHeaderEnhanced
+          projectId={projectId}
+          projectName={project?.name}
+          title="MMF Calculator"
+          subtitle="Calculate NAV for Money Market Funds"
+          isLoading={isLoadingProject}
+        />
         <NavNavigation projectId={projectId} />
         <MMFNavigation projectId={projectId} />
         <div className="container mx-auto px-6 py-8">
@@ -118,37 +144,35 @@ export default function MMFCalculatorPage() {
 
   return (
     <>
+      {/* Enhanced Header */}
+      <NavDashboardHeaderEnhanced
+        projectId={projectId}
+        projectName={project?.name}
+        title="Calculate MMF NAV"
+        subtitle={`${mmf.fund_name} (${mmf.fund_type})`}
+        onRefresh={handleRefresh}
+        onProjectChange={handleProjectChange}
+        isLoading={isLoading || isLoadingProject}
+        showCalculateNav={false}
+        showAddButtons={false}
+      />
+
       {/* Navigation */}
       <NavNavigation projectId={projectId} />
       <MMFNavigation projectId={projectId} />
 
       {/* Main Content */}
       <div className="container mx-auto px-6 py-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleBack}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Calculate NAV</h1>
-                <p className="text-muted-foreground">{mmf.fund_name}</p>
-              </div>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+        {/* Action Buttons */}
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Details
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleBackToList}>
+            Back to List
           </Button>
         </div>
-
-        {/* Project Selector */}
-        {!projectId && (
-          <div className="flex justify-end">
-            <CombinedOrgProjectSelector />
-          </div>
-        )}
 
         {/* Calculator or Results */}
         {!calculationResult ? (

@@ -318,11 +318,15 @@ export class MMFDataFetcher extends BaseDataFetcher<MMFProduct, MMFSupportingDat
   
   /**
    * Check if product is an MMF
+   * Valid fund types: government, prime, retail, institutional, tax-exempt, municipal
    */
   private isMMF(product: MMFProduct): boolean {
-    const mmfTypes = ['mmf', 'money_market', 'government_mmf', 'prime_mmf', 'retail_mmf', 'institutional_mmf']
-    return mmfTypes.some(type => 
-      product.fund_type?.toLowerCase().includes(type.toLowerCase())
+    const validMMFTypes = ['government', 'prime', 'retail', 'institutional', 'tax-exempt', 'municipal']
+    const fundType = product.fund_type?.toLowerCase() || ''
+    
+    // Check if fund_type exactly matches or contains one of the valid MMF types
+    return validMMFTypes.some(type => 
+      fundType === type || fundType.includes(type)
     )
   }
   

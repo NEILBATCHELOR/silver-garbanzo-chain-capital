@@ -167,13 +167,22 @@ export function MMFListTable({ projectId, onViewDetails, onCalculate }: MMFListT
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    ${mmf.net_asset_value.toFixed(4)}
+                    {mmf.net_asset_value !== null 
+                      ? `$${mmf.net_asset_value.toFixed(4)}` 
+                      : <span className="text-muted-foreground">—</span>
+                    }
                   </TableCell>
                   <TableCell className="text-right">
-                    ${(mmf.assets_under_management / 1_000_000).toFixed(2)}M
+                    {mmf.assets_under_management !== null
+                      ? `$${(mmf.assets_under_management / 1_000_000).toFixed(2)}M`
+                      : <span className="text-muted-foreground">—</span>
+                    }
                   </TableCell>
                   <TableCell className="text-right">
-                    {mmf.expense_ratio ? `${mmf.expense_ratio.toFixed(2)}%` : '—'}
+                    {mmf.expense_ratio !== null 
+                      ? `${mmf.expense_ratio.toFixed(2)}%` 
+                      : <span className="text-muted-foreground">—</span>
+                    }
                   </TableCell>
                   <TableCell>
                     <Badge 
@@ -225,7 +234,10 @@ export function MMFListTable({ projectId, onViewDetails, onCalculate }: MMFListT
         </div>
         <div>
           Total AUM: $
-          {(filteredMMFs.reduce((sum, mmf) => sum + mmf.assets_under_management, 0) / 1_000_000).toFixed(2)}
+          {(filteredMMFs.reduce((sum, mmf) => {
+            const aum = mmf.assets_under_management ?? 0
+            return sum + aum
+          }, 0) / 1_000_000).toFixed(2)}
           M
         </div>
       </div>

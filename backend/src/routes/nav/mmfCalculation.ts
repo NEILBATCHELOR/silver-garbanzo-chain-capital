@@ -17,7 +17,8 @@ const calculationRequestSchema = z.object({
   asOfDate: z.coerce.date(),
   targetCurrency: z.string().length(3).optional(),
   includeBreakdown: z.boolean().default(true),
-  saveToDatabase: z.boolean().default(true)
+  saveToDatabase: z.boolean().default(true),
+  configOverrides: z.any().optional() // Allow config overrides for testing
 })
 
 export async function mmfCalculationRoutes(fastify: FastifyInstance) {
@@ -89,8 +90,14 @@ export async function mmfCalculationRoutes(fastify: FastifyInstance) {
         asOfDate: validatedRequest.asOfDate,
         targetCurrency: validatedRequest.targetCurrency,
         includeBreakdown: validatedRequest.includeBreakdown,
-        saveToDatabase: validatedRequest.saveToDatabase
+        saveToDatabase: validatedRequest.saveToDatabase,
+        configOverrides: validatedRequest.configOverrides // Pass config overrides
       })
+      
+      console.log('=== REGISTRY CALCULATE RESULT ===')
+      console.log('Success:', result.success)
+      console.log('Has Data:', !!result.data)
+      console.log('Data Keys:', result.data ? Object.keys(result.data) : 'none')
       
       if (!result.success) {
         const errorResponse = {
@@ -105,26 +112,124 @@ export async function mmfCalculationRoutes(fastify: FastifyInstance) {
         return reply.status(400).send(errorResponse)
       }
       
-      console.log('=== MMF CALCULATION SUCCESS ===')
-      console.log('Stable NAV:', result.data?.nav)
-      console.log('Shadow NAV:', result.data?.shadowNAV)
-      console.log('Breaking Buck:', result.data?.isBreakingBuck)
+      // Ensure result.data exists
+      if (!result.data) {
+        console.error('=== CALCULATION RETURNED NO DATA ===')
+        return reply.status(500).send({
+          success: false,
+          error: {
+            code: 'NO_DATA',
+            message: 'Calculation completed but returned no data'
+          }
+        })
+      }
+      
+      console.log('=== RAW CALCULATOR DATA ===')
+      console.log('productId:', result.data.productId)
+      console.log('nav:', result.data.nav)
+      console.log('shadowNAV:', result.data.shadowNAV)
+      console.log('wam:', result.data.wam)
+      console.log('wal:', result.data.wal)
+      console.log('dailyLiquidPercentage:', result.data.dailyLiquidPercentage)
+      console.log('weeklyLiquidPercentage:', result.data.weeklyLiquidPercentage)
+      console.log('complianceStatus:', result.data.complianceStatus)
+      
+      // Transform backend result to match frontend MMFNAVResult type
+      // All fields must be explicitly mapped to avoid undefined values
+      const transformedData = {
+        fundId: result.data.productId,
+        asOfDate: result.data.valuationDate,
+        
+        // Core NAV values (REQUIRED)
+        nav: result.data.nav, // Stable NAV (amortized cost)
+        shadowNAV: result.data.shadowNAV || result.data.nav, // Fallback to nav if missing
+        deviationFromStable: result.data.deviationFromStable || 0,
+        deviationBps: result.data.deviationBps || 0,
+        
+        // Risk flags
+        isBreakingBuck: result.data.isBreakingBuck || false,
+        
+        // Risk metrics (REQUIRED)
+        wam: result.data.wam || 0,
+        wal: result.data.wal || 0,
+        dailyLiquidPercentage: result.data.dailyLiquidPercentage || 0,
+        weeklyLiquidPercentage: result.data.weeklyLiquidPercentage || 0,
+        
+        // Compliance status (REQUIRED)
+        complianceStatus: result.data.complianceStatus || {
+          isCompliant: false,
+          wamCompliant: false,
+          walCompliant: false,
+          liquidityCompliant: false,
+          violations: ['Data missing for compliance check']
+        },
+        
+        // Metadata (REQUIRED)
+        calculationMethod: result.data.calculationMethod || 'amortized_cost',
+        confidenceLevel: result.data.confidence || 'medium',
+        dataQuality: typeof result.data.dataQuality === 'string' 
+          ? { 
+              rating: result.data.dataQuality, 
+              score: 0, 
+              imputations: 0 
+            }
+          : result.data.dataQuality || {
+              rating: 'unknown',
+              score: 0,
+              imputations: 0
+            },
+        
+        // Breakdown (optional)
+        breakdown: result.data.breakdown || undefined,
+        
+        // Metadata object (REQUIRED)
+        metadata: {
+          calculationDate: result.data.valuationDate,
+          dataSourcesUsed: result.data.sources || [],
+          ...result.metadata // Contains calculatedAt and other metadata
+        }
+      }
+      
+      console.log('=== TRANSFORMED DATA ===')
+      console.log('fundId:', transformedData.fundId)
+      console.log('nav:', transformedData.nav)
+      console.log('shadowNAV:', transformedData.shadowNAV)
+      console.log('wam:', transformedData.wam)
+      console.log('wal:', transformedData.wal)
+      console.log('dailyLiquidPercentage:', transformedData.dailyLiquidPercentage)
+      console.log('weeklyLiquidPercentage:', transformedData.weeklyLiquidPercentage)
+      console.log('=========================')
+      
+      // Validate that critical fields are present
+      if (transformedData.nav === undefined || transformedData.nav === null) {
+        console.error('=== CRITICAL: NAV IS UNDEFINED ===')
+        console.error('Original nav from result.data:', result.data.nav)
+        return reply.status(500).send({
+          success: false,
+          error: {
+            code: 'INVALID_NAV',
+            message: 'Calculation did not produce a valid NAV value'
+          }
+        })
+      }
       
       return {
         success: true,
-        data: result.data,
+        data: transformedData,
         metadata: result.metadata
       }
       
     } catch (error) {
       console.error('=== MMF CALCULATION ROUTE ERROR ===')
-      console.error(error)
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error)
+      console.error('Error message:', error instanceof Error ? error.message : String(error))
+      console.error('Error stack:', error instanceof Error ? error.stack : 'N/A')
       
       return reply.status(500).send({
         success: false,
         error: {
           code: 'CALCULATION_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error occurred during calculation'
         }
       })
     }

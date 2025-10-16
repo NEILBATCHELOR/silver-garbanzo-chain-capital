@@ -2252,6 +2252,78 @@ export type Database = {
         }
         Relationships: []
       }
+      cap_table_investors: {
+        Row: {
+          cap_table_id: string
+          created_at: string | null
+          id: string
+          investment_amount: number | null
+          investment_date: string | null
+          investor_email: string | null
+          investor_id: string | null
+          investor_name: string
+          investor_type: string | null
+          notes: string | null
+          percentage_ownership: number | null
+          share_class: string | null
+          shares_owned: number
+          status: string | null
+          updated_at: string | null
+          vesting_schedule: Json | null
+        }
+        Insert: {
+          cap_table_id: string
+          created_at?: string | null
+          id?: string
+          investment_amount?: number | null
+          investment_date?: string | null
+          investor_email?: string | null
+          investor_id?: string | null
+          investor_name: string
+          investor_type?: string | null
+          notes?: string | null
+          percentage_ownership?: number | null
+          share_class?: string | null
+          shares_owned?: number
+          status?: string | null
+          updated_at?: string | null
+          vesting_schedule?: Json | null
+        }
+        Update: {
+          cap_table_id?: string
+          created_at?: string | null
+          id?: string
+          investment_amount?: number | null
+          investment_date?: string | null
+          investor_email?: string | null
+          investor_id?: string | null
+          investor_name?: string
+          investor_type?: string | null
+          notes?: string | null
+          percentage_ownership?: number | null
+          share_class?: string | null
+          shares_owned?: number
+          status?: string | null
+          updated_at?: string | null
+          vesting_schedule?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cap_table_investors_cap_table_id_fkey"
+            columns: ["cap_table_id"]
+            isOneToOne: false
+            referencedRelation: "cap_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cap_table_investors_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["investor_id"]
+          },
+        ]
+      }
       cap_tables: {
         Row: {
           created_at: string | null
@@ -10387,12 +10459,15 @@ export type Database = {
           holdings: Json | null
           id: string
           inception_date: string | null
+          initial_shares: number | null
           investment_stage: string | null
           net_asset_value: number | null
           performance_history: Json | null
           project_id: string
           sector_focus: string[] | null
+          shares_outstanding: number | null
           status: string | null
+          subscription_id_tracker: Json | null
           target_raise: number | null
           tracking_error: number | null
           updated_at: string | null
@@ -10417,12 +10492,15 @@ export type Database = {
           holdings?: Json | null
           id?: string
           inception_date?: string | null
+          initial_shares?: number | null
           investment_stage?: string | null
           net_asset_value?: number | null
           performance_history?: Json | null
           project_id: string
           sector_focus?: string[] | null
+          shares_outstanding?: number | null
           status?: string | null
+          subscription_id_tracker?: Json | null
           target_raise?: number | null
           tracking_error?: number | null
           updated_at?: string | null
@@ -10447,12 +10525,15 @@ export type Database = {
           holdings?: Json | null
           id?: string
           inception_date?: string | null
+          initial_shares?: number | null
           investment_stage?: string | null
           net_asset_value?: number | null
           performance_history?: Json | null
           project_id?: string
           sector_focus?: string[] | null
+          shares_outstanding?: number | null
           status?: string | null
+          subscription_id_tracker?: Json | null
           target_raise?: number | null
           tracking_error?: number | null
           updated_at?: string | null
@@ -10461,7 +10542,7 @@ export type Database = {
           {
             foreignKeyName: "fk_fund_products_project"
             columns: ["project_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -13129,6 +13210,74 @@ export type Database = {
         }
         Relationships: []
       }
+      mmf_allocation_history: {
+        Row: {
+          as_of_date: string
+          asset_class: string
+          average_maturity_days: number | null
+          average_yield: number | null
+          created_at: string | null
+          fund_product_id: string
+          id: string
+          is_within_typical_range: boolean | null
+          notes: string | null
+          number_of_securities: number
+          percentage: number
+          total_value: number
+          typical_range_average: number | null
+          typical_range_max: number | null
+          typical_range_min: number | null
+          updated_at: string | null
+          variance_from_typical: number | null
+        }
+        Insert: {
+          as_of_date: string
+          asset_class: string
+          average_maturity_days?: number | null
+          average_yield?: number | null
+          created_at?: string | null
+          fund_product_id: string
+          id?: string
+          is_within_typical_range?: boolean | null
+          notes?: string | null
+          number_of_securities?: number
+          percentage: number
+          total_value: number
+          typical_range_average?: number | null
+          typical_range_max?: number | null
+          typical_range_min?: number | null
+          updated_at?: string | null
+          variance_from_typical?: number | null
+        }
+        Update: {
+          as_of_date?: string
+          asset_class?: string
+          average_maturity_days?: number | null
+          average_yield?: number | null
+          created_at?: string | null
+          fund_product_id?: string
+          id?: string
+          is_within_typical_range?: boolean | null
+          notes?: string | null
+          number_of_securities?: number
+          percentage?: number
+          total_value?: number
+          typical_range_average?: number | null
+          typical_range_max?: number | null
+          typical_range_min?: number | null
+          updated_at?: string | null
+          variance_from_typical?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mmf_credit_ratings: {
         Row: {
           concentration_limits: Json | null
@@ -13212,6 +13361,92 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      mmf_fees_gates: {
+        Row: {
+          board_approval_date: string | null
+          board_approval_notes: string | null
+          board_notification_date: string | null
+          board_notification_sent: boolean | null
+          created_at: string | null
+          created_by: string | null
+          daily_liquidity_percentage: number | null
+          effective_date: string
+          end_date: string | null
+          fee_percentage: number
+          fee_type: string
+          fund_product_id: string
+          gate_duration_days: number | null
+          gate_status: string | null
+          id: string
+          impact_on_shareholders: string | null
+          net_redemptions_percentage: number | null
+          regulatory_filing_reference: string | null
+          status: string | null
+          trigger_metrics: Json | null
+          trigger_reason: string
+          updated_at: string | null
+          weekly_liquidity_percentage: number | null
+        }
+        Insert: {
+          board_approval_date?: string | null
+          board_approval_notes?: string | null
+          board_notification_date?: string | null
+          board_notification_sent?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          daily_liquidity_percentage?: number | null
+          effective_date: string
+          end_date?: string | null
+          fee_percentage?: number
+          fee_type: string
+          fund_product_id: string
+          gate_duration_days?: number | null
+          gate_status?: string | null
+          id?: string
+          impact_on_shareholders?: string | null
+          net_redemptions_percentage?: number | null
+          regulatory_filing_reference?: string | null
+          status?: string | null
+          trigger_metrics?: Json | null
+          trigger_reason: string
+          updated_at?: string | null
+          weekly_liquidity_percentage?: number | null
+        }
+        Update: {
+          board_approval_date?: string | null
+          board_approval_notes?: string | null
+          board_notification_date?: string | null
+          board_notification_sent?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          daily_liquidity_percentage?: number | null
+          effective_date?: string
+          end_date?: string | null
+          fee_percentage?: number
+          fee_type?: string
+          fund_product_id?: string
+          gate_duration_days?: number | null
+          gate_status?: string | null
+          id?: string
+          impact_on_shareholders?: string | null
+          net_redemptions_percentage?: number | null
+          regulatory_filing_reference?: string | null
+          status?: string | null
+          trigger_metrics?: Json | null
+          trigger_reason?: string
+          updated_at?: string | null
+          weekly_liquidity_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mmf_holdings: {
         Row: {
@@ -13441,6 +13676,7 @@ export type Database = {
       }
       mmf_nav_history: {
         Row: {
+          config_overrides_used: Json | null
           created_at: string | null
           currency: string | null
           daily_liquid_assets_percentage: number
@@ -13476,6 +13712,7 @@ export type Database = {
           weighted_average_maturity_days: number
         }
         Insert: {
+          config_overrides_used?: Json | null
           created_at?: string | null
           currency?: string | null
           daily_liquid_assets_percentage: number
@@ -13511,6 +13748,7 @@ export type Database = {
           weighted_average_maturity_days: number
         }
         Update: {
+          config_overrides_used?: Json | null
           created_at?: string | null
           currency?: string | null
           daily_liquid_assets_percentage?: number
@@ -17931,6 +18169,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          authorized_shares: number | null
           company_valuation: number | null
           created_at: string | null
           currency: string | null
@@ -17959,6 +18198,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          authorized_shares?: number | null
           company_valuation?: number | null
           created_at?: string | null
           currency?: string | null
@@ -17987,6 +18227,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          authorized_shares?: number | null
           company_valuation?: number | null
           created_at?: string | null
           currency?: string | null
@@ -31360,6 +31601,7 @@ export type Database = {
           master_version: string | null
           metadata: Json | null
           name: string
+          parity: number | null
           product_id: string | null
           project_id: string
           ratio: number | null
@@ -31396,6 +31638,7 @@ export type Database = {
           master_version?: string | null
           metadata?: Json | null
           name: string
+          parity?: number | null
           product_id?: string | null
           project_id: string
           ratio?: number | null
@@ -31432,6 +31675,7 @@ export type Database = {
           master_version?: string | null
           metadata?: Json | null
           name?: string
+          parity?: number | null
           product_id?: string | null
           project_id?: string
           ratio?: number | null
@@ -31443,6 +31687,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tokens_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "bond_products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tokens_project_id_fkey"
             columns: ["project_id"]

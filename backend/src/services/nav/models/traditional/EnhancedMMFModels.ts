@@ -686,6 +686,7 @@ export class EnhancedMMFModels {
   
   /**
    * ENHANCEMENT 1: Get shares outstanding with robust fallback mechanisms
+   * Note: shares_outstanding is stored in mmf_nav_history table, not fund_products
    */
   private getSharesOutstandingWithFallbacks(
     product: MMFProduct,
@@ -694,7 +695,7 @@ export class EnhancedMMFModels {
     auditTrail: AuditTrail
   ): Decimal {
     
-    // Priority 1: Latest NAV history
+    // Priority 1: Latest NAV history (most accurate source)
     if (supporting.navHistory && supporting.navHistory.length > 0) {
       const latestNav = supporting.navHistory[0]
       if (latestNav?.shares_outstanding) {
@@ -727,7 +728,7 @@ export class EnhancedMMFModels {
     
     auditTrail.fallbacksUsed.push({
       field: 'shares_outstanding',
-      primarySource: 'mmf_nav_history.shares_outstanding or product calculation',
+      primarySource: 'mmf_nav_history.shares_outstanding or calculation',
       fallbackSource: 'estimated_from_total_amortized_cost (assuming NAV=1.00)',
       value: estimatedShares.toNumber()
     })

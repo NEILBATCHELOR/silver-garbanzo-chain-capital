@@ -1,28 +1,48 @@
 /**
  * MMF NAV History Page
- * Project-level view of all MMF NAV calculations
+ * Project-level view of all MMF NAV calculations with detailed history
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { NavNavigation, NavDashboardHeaderEnhanced } from '@/components/nav'
 import { MMFNavigation } from '@/components/nav/mmf'
+import { MMFNAVHistoryDetail } from '@/components/nav/mmf/visualization'
 import { useTokenProjectContext } from '@/hooks/project'
-import { History, TrendingUp, Calendar, AlertCircle } from 'lucide-react'
+import { useMMFs, useLatestMMFNAV, useMMFNAVHistory } from '@/hooks/mmf/useMMFData'
+import { History, TrendingUp, Calendar, AlertCircle, ChevronRight, ArrowLeft } from 'lucide-react'
 import { format } from 'date-fns'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/utils/utils'
 
-// Component to show NAV history for a single MMF
-function MMFHistoryRow({ mmf, projectId }: { mmf: any; projectId: string }) {
-  const navigate = useNavigate()
+// Component to show NAV history summary for a single MMF
+function MMFHistoryRow({ 
+  mmf, 
+  projectId, 
+  isSelected,
+  onSelect 
+}: { 
+  mmf: any
+  projectId: string
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  // Fetch latest NAV and history count
+  const { data: latestNAVData } = useLatestMMFNAV(mmf.id)
+  const { data: historyData } = useMMFNAVHistory(mmf.id)
   
-  // For now, use mock data - will be replaced with actual hook when available
-  const calculationsCount = 0
-  const latestCalc = null
+  const latestCalc = latestNAVData?.data
+  const calculationsCount = historyData?.data?.length || 0
   
   return (
     <div
-      onClick={() => navigate(`/projects/${projectId}/nav/mmf/${mmf.id}`)}
-      className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+      onClick={onSelect}
+      className={cn(
+        'p-4 cursor-pointer transition-colors border-l-4',
+        isSelected 
+          ? 'bg-blue-50 border-blue-600' 
+          : 'hover:bg-gray-50 border-transparent'
+      )}
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
@@ -45,7 +65,7 @@ function MMFHistoryRow({ mmf, projectId }: { mmf: any; projectId: string }) {
               <div className="text-right">
                 <p className="text-sm font-medium">
                   {latestCalc.stable_nav 
-                    ? `$${latestCalc.stable_nav.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                    ? `$${Number(latestCalc.stable_nav).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
                     : 'N/A'
                   }
                 </p>
@@ -68,6 +88,10 @@ function MMFHistoryRow({ mmf, projectId }: { mmf: any; projectId: string }) {
               <p className="text-xs">Click to calculate</p>
             </div>
           )}
+          <ChevronRight className={cn(
+            'h-5 w-5 transition-transform',
+            isSelected && 'rotate-90'
+          )} />
         </div>
       </div>
     </div>
@@ -78,13 +102,21 @@ export default function MMFHistoryPage() {
   const navigate = useNavigate()
   const { projectId: urlProjectId } = useParams()
   const { projectId: contextProjectId, project, isLoading: isLoadingProject } = useTokenProjectContext()
+  
+  const [selectedMMFId, setSelectedMMFId] = useState<string | null>(null)
 
   // Get project ID from URL param or context
   const projectId = urlProjectId || contextProjectId
 
-  // TODO: Replace with actual MMF data hook when available
-  const mmfs: any[] = []
-  const isLoadingMMFs = false
+  // Fetch MMFs for this project
+  const { data: mmfsData, isLoading: isLoadingMMFs, error: mmfsError } = useMMFs(projectId || '', {
+    enabled: !!projectId
+  })
+
+  const mmfs = mmfsData?.data || []
+  
+  // Find selected MMF
+  const selectedMMF = mmfs.find(m => m.id === selectedMMFId)
 
   const handleRefresh = () => {
     window.location.reload()
@@ -93,7 +125,16 @@ export default function MMFHistoryPage() {
   const handleProjectChange = (newProjectId: string) => {
     if (newProjectId !== projectId) {
       navigate(`/projects/${newProjectId}/nav/mmf/history`)
+      setSelectedMMFId(null)
     }
+  }
+  
+  const handleSelectMMF = (mmfId: string) => {
+    setSelectedMMFId(selectedMMFId === mmfId ? null : mmfId)
+  }
+  
+  const handleBack = () => {
+    setSelectedMMFId(null)
   }
 
   if (isLoadingProject || isLoadingMMFs) {
@@ -135,6 +176,44 @@ export default function MMFHistoryPage() {
     )
   }
 
+  // Show error if MMFs failed to load
+  if (mmfsError) {
+    return (
+      <>
+        <NavDashboardHeaderEnhanced
+          projectId={projectId}
+          projectName={project?.name}
+          title="NAV History"
+          subtitle="Complete calculation history for all Money Market Funds"
+          onRefresh={handleRefresh}
+          onProjectChange={handleProjectChange}
+          isLoading={isLoadingProject}
+          showCalculateNav={false}
+          showAddButtons={false}
+        />
+
+        <NavNavigation projectId={projectId} />
+        <MMFNavigation projectId={projectId} />
+
+        <div className="container mx-auto px-6 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-red-400 mb-4" />
+            <p className="text-red-800 font-medium">Failed to Load MMFs</p>
+            <p className="text-red-600 text-sm mt-2">
+              {mmfsError instanceof Error ? mmfsError.message : 'An unknown error occurred'}
+            </p>
+            <button
+              onClick={handleRefresh}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   const totalMMFs = mmfs.length
 
   return (
@@ -166,76 +245,94 @@ export default function MMFHistoryPage() {
             <p className="text-gray-500 text-sm mt-2">
               Add MMFs and run calculations to view NAV history
             </p>
+            <button
+              onClick={() => navigate(`/projects/${projectId}/nav/mmf/create`)}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Create First MMF
+            </button>
           </div>
         ) : (
           <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="h-8 w-8 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total MMFs</p>
-                    <p className="text-2xl font-bold mt-1">{totalMMFs}</p>
+            {/* Show detailed view if MMF selected */}
+            {selectedMMFId && selectedMMF ? (
+              <div className="space-y-6">
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  className="mb-4"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to All MMFs
+                </Button>
+                
+                <MMFNAVHistoryDetail 
+                  fundId={selectedMMFId}
+                  fundName={selectedMMF.fund_name || selectedMMF.fund_ticker}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-6 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <TrendingUp className="h-8 w-8 text-blue-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total MMFs</p>
+                        <p className="text-2xl font-bold mt-1">{totalMMFs}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-8 w-8 text-green-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Active MMFs</p>
+                        <p className="text-2xl font-bold mt-1">
+                          {mmfs.filter(m => m.status === 'active').length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Calculated funds</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <History className="h-8 w-8 text-purple-500" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total in Project</p>
+                        <p className="text-2xl font-bold mt-1">{totalMMFs}</p>
+                        <p className="text-xs text-muted-foreground">All MMF products</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="bg-white p-6 rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-8 w-8 text-green-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">MMFs with History</p>
-                    <p className="text-2xl font-bold mt-1">-</p>
-                    <p className="text-xs text-muted-foreground">Calculated funds</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <History className="h-8 w-8 text-purple-500" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Calculations</p>
-                    <p className="text-2xl font-bold mt-1">-</p>
-                    <p className="text-xs text-muted-foreground">All time</p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* MMF History List */}
-            <div className="bg-white rounded-lg border">
-              <div className="p-6 border-b">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <History className="h-5 w-5" />
-                  NAV Calculation History
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  View calculation history for each MMF. Click on a fund to see detailed history.
-                </p>
-              </div>
-              <div className="divide-y">
-                {mmfs.map((mmf) => (
-                  <MMFHistoryRow key={mmf.id} mmf={mmf} projectId={projectId} />
-                ))}
-              </div>
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-blue-800 font-medium">📊 MMF NAV History Features</p>
-                  <ul className="text-blue-600 text-sm mt-2 space-y-1 list-disc list-inside">
-                    <li>View complete calculation history for each money market fund</li>
-                    <li>Track stable NAV and shadow NAV changes over time</li>
-                    <li>Monitor compliance status (WAM, WAL, liquidity ratios)</li>
-                    <li>Identify breaking the buck alerts and regulatory violations</li>
-                    <li>Compare amortized cost vs mark-to-market calculations</li>
-                  </ul>
+                {/* MMF History List */}
+                <div className="bg-white rounded-lg border">
+                  <div className="p-6 border-b">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <History className="h-5 w-5" />
+                      NAV Calculation History
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Click on any MMF to view detailed calculation history with charts and compliance tracking
+                    </p>
+                  </div>
+                  <div className="divide-y">
+                    {mmfs.map((mmf) => (
+                      <MMFHistoryRow 
+                        key={mmf.id} 
+                        mmf={mmf} 
+                        projectId={projectId}
+                        isSelected={selectedMMFId === mmf.id}
+                        onSelect={() => handleSelectMMF(mmf.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </>
         )}
       </div>

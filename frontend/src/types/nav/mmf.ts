@@ -382,18 +382,18 @@ export interface MMFNAVResult {
   fundId: string
   asOfDate: Date
   
-  // Dual NAV
-  stableNAV: number // Amortized cost (target $1.00)
-  shadowNAV: number // Mark-to-market
-  deviationFromStable: number
-  deviationBps: number
+  // Dual NAV system
+  nav: number // Stable NAV - Amortized cost (target $1.00)
+  shadowNAV: number // Mark-to-market NAV
+  deviationFromStable: number // Deviation from $1.00
+  deviationBps: number // Deviation in basis points
   
   // Breaking the Buck Alert
   isBreakingBuck: boolean
   
   // Metrics
-  wam: number
-  wal: number
+  wam: number // Weighted Average Maturity
+  wal: number // Weighted Average Life
   dailyLiquidPercentage: number
   weeklyLiquidPercentage: number
   
@@ -426,7 +426,7 @@ export interface MMFNAVResult {
   metadata: {
     calculatedAt: Date
     calculationDate: Date
-    dataSourcesUsed: string[]
+    dataSourcesUsed: Array<string | { table: string; recordCount: number; completeness: number }>
     dataSources?: Array<{ source: string; timestamp: Date }>
     assumptions?: Record<string, unknown>
   }

@@ -3,13 +3,12 @@
  * Comprehensive view of a single MMF with tabs for different aspects
  * Overview, Holdings, NAV History, Compliance, Configuration
  * PLUS 5 Enhancement Tabs: Allocation, Fund Compliance, Risk, Fees/Gates, Transactions
+ * Supports inline editing following Bonds pattern
  */
 
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { 
-  Calculator, 
-  Edit, 
   TrendingUp, 
   Briefcase, 
   Shield, 
@@ -17,7 +16,6 @@ import {
   ArrowLeft,
   PieChart,
   AlertTriangle,
-  Target,
   DollarSign,
   ArrowRightLeft
 } from 'lucide-react'
@@ -36,7 +34,8 @@ import { Separator } from '@/components/ui/separator'
 
 import { useMMF, useLatestMMFNAV } from '@/hooks/mmf'
 import type { MMFProduct } from '@/types/nav/mmf'
-import { HoldingsTable } from './holdings-table'
+import { HoldingsManager } from '../data-input/holdings-manager'
+import { MMFProductForm } from '../data-input/mmf-product-form'
 
 // Import Enhancement Components
 import {
@@ -49,15 +48,26 @@ import {
 
 interface MMFDetailViewProps {
   fundId: string
+  isEditMode?: boolean
   onBack?: () => void
-  onEdit?: (mmf: MMFProduct) => void
-  onCalculate?: (mmf: MMFProduct) => void
+  onEdit?: () => void
+  onCalculate?: () => void
+  onSave?: () => void
+  onCancel?: () => void
 }
 
-export function MMFDetailView({ fundId, onBack, onEdit, onCalculate }: MMFDetailViewProps) {
+export function MMFDetailView({ 
+  fundId, 
+  isEditMode = false,
+  onBack, 
+  onEdit, 
+  onCalculate,
+  onSave,
+  onCancel 
+}: MMFDetailViewProps) {
   const [activeTab, setActiveTab] = useState('overview')
 
-  const { data: mmfData, isLoading } = useMMF(fundId)
+  const { data: mmfData, isLoading, refetch } = useMMF(fundId)
   const { data: latestNAVData } = useLatestMMFNAV(fundId)
 
   if (isLoading) {
@@ -87,40 +97,43 @@ export function MMFDetailView({ fundId, onBack, onEdit, onCalculate }: MMFDetail
   const navHistory = mmf.nav_history || []
   const latestNAV = latestNAVData?.data
 
+  // Handle edit form success
+  const handleFormSuccess = () => {
+    refetch() // Refresh data
+    onSave?.() // Exit edit mode
+  }
+
+  // If in edit mode, show the edit form
+  if (isEditMode) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Money Market Fund</CardTitle>
+          <CardDescription>Update fund information</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MMFProductForm
+            projectId={mmf.project_id}
+            mmf={mmf}
+            onSuccess={handleFormSuccess}
+            onCancel={onCancel}
+          />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Normal view mode
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            {onBack && (
-              <Button variant="ghost" size="sm" onClick={onBack}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            )}
-            <h2 className="text-3xl font-bold tracking-tight">{mmf.fund_name}</h2>
-          </div>
-          {mmf.fund_ticker && (
-            <p className="text-lg text-muted-foreground">
-              <code className="text-sm bg-muted px-2 py-1 rounded">{mmf.fund_ticker}</code>
-            </p>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          {onCalculate && (
-            <Button onClick={() => onCalculate(mmf)}>
-              <Calculator className="mr-2 h-4 w-4" />
-              Calculate NAV
-            </Button>
-          )}
-          {onEdit && (
-            <Button variant="outline" onClick={() => onEdit(mmf)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          )}
-        </div>
+      <div className="space-y-1">
+        <h2 className="text-3xl font-bold tracking-tight">{mmf.fund_name}</h2>
+        {mmf.fund_ticker && (
+          <p className="text-lg text-muted-foreground">
+            <code className="text-sm bg-muted px-2 py-1 rounded">{mmf.fund_ticker}</code>
+          </p>
+        )}
       </div>
 
       {/* Quick Stats */}
@@ -329,7 +342,7 @@ export function MMFDetailView({ fundId, onBack, onEdit, onCalculate }: MMFDetail
 
         {/* Holdings Tab */}
         <TabsContent value="holdings">
-          <HoldingsTable fundId={fundId} />
+          <HoldingsManager fundId={fundId} fundCurrency={mmf.currency} />
         </TabsContent>
 
         {/* NAV History Tab */}

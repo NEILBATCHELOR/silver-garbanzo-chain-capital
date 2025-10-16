@@ -22,8 +22,8 @@ export function CalculationResults({
   fundName,
   onNewCalculation,
 }: CalculationResultsProps) {
-  // Null safety check
-  if (!result || result.stableNAV === undefined) {
+  // Null safety check - use 'nav' as the stable NAV (amortized cost)
+  if (!result || result.nav === undefined) {
     return (
       <Card>
         <CardHeader>
@@ -44,7 +44,19 @@ export function CalculationResults({
     )
   }
 
+  // Convert nav (Decimal) to number for display
+  const stableNAV = typeof result.nav === 'number' ? result.nav : Number(result.nav)
+  const shadowNAV = typeof result.shadowNAV === 'number' ? result.shadowNAV : Number(result.shadowNAV)
+  
   const dataSources = result.metadata?.dataSourcesUsed || []
+  
+  // Format method name from snake_case to Title Case
+  const formatMethodName = (method: string): string => {
+    return method
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
 
   return (
     <div className="space-y-6">
@@ -83,7 +95,7 @@ export function CalculationResults({
                 Stable NAV (Amortized Cost)
               </div>
               <div className="text-4xl font-bold text-blue-900 dark:text-blue-100">
-                ${result.stableNAV.toFixed(4)}
+                ${stableNAV.toFixed(4)}
               </div>
               <div className="text-xs text-blue-600 dark:text-blue-400">
                 Target: $1.0000 per share
@@ -96,7 +108,7 @@ export function CalculationResults({
                 Shadow NAV (Mark-to-Market)
               </div>
               <div className="text-4xl font-bold text-purple-900 dark:text-purple-100">
-                ${result.shadowNAV.toFixed(4)}
+                ${shadowNAV.toFixed(4)}
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400">
                 Current market value
@@ -109,24 +121,24 @@ export function CalculationResults({
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">Deviation from $1.00</div>
               <Badge
-                variant={Math.abs(result.deviationBps) < 50 ? 'default' : 'destructive'}
+                variant={Math.abs(result.deviationBps || 0) < 50 ? 'default' : 'destructive'}
               >
-                {result.deviationBps.toFixed(0)} bps
+                {(result.deviationBps || 0).toFixed(0)} bps
               </Badge>
             </div>
             <div className="flex items-center gap-2">
-              {result.deviationFromStable < 0 && (
+              {(result.deviationFromStable || 0) < 0 && (
                 <TrendingDown className="h-4 w-4 text-red-600" />
               )}
               <span
                 className={
-                  result.deviationFromStable < 0 ? 'text-red-600' : 'text-green-600'
+                  (result.deviationFromStable || 0) < 0 ? 'text-red-600' : 'text-green-600'
                 }
               >
-                ${Math.abs(result.deviationFromStable).toFixed(4)}
+                ${Math.abs(result.deviationFromStable || 0).toFixed(4)}
               </span>
               <span className="text-muted-foreground text-sm">
-                ({((result.deviationFromStable / 1.0) * 100).toFixed(3)}%)
+                ({(((result.deviationFromStable || 0) / 1.0) * 100).toFixed(3)}%)
               </span>
             </div>
           </div>
@@ -161,7 +173,7 @@ export function CalculationResults({
                 Method
               </div>
               <div className="text-sm font-medium">
-                {result.calculationMethod}
+                {formatMethodName(result.calculationMethod)}
               </div>
             </div>
 
@@ -188,11 +200,17 @@ export function CalculationResults({
               <div className="space-y-2">
                 <div className="text-sm font-medium">Data Sources</div>
                 <div className="space-y-1">
-                  {dataSources.map((source, index) => (
-                    <div key={index} className="text-xs text-muted-foreground">
-                      • {source}
-                    </div>
-                  ))}
+                  {dataSources.map((source, index) => {
+                    // Handle both string and object formats
+                    const sourceText = typeof source === 'string' 
+                      ? source 
+                      : `${source.table} (${source.recordCount} records, ${source.completeness}% complete)`
+                    return (
+                      <div key={index} className="text-xs text-muted-foreground">
+                        • {sourceText}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </>

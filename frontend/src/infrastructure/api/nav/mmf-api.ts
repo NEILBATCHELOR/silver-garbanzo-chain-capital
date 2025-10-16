@@ -68,6 +68,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`
     let detailedErrors: any[] = []
+    let diagnostic: any = null
     
     try {
       const errorData = await response.json()
@@ -88,6 +89,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
         
         if (err.details && Array.isArray(err.details)) {
           detailedErrors = err.details
+          
+          // Extract diagnostic info from first error if available
+          const firstError = err.details[0]
+          if (firstError && firstError.rootCause) {
+            diagnostic = {
+              rootCause: firstError.rootCause,
+              details: firstError.details || [],
+              recommendations: firstError.recommendations || [],
+              severity: firstError.severity || 'critical'
+            }
+          }
           
           if (!err.formattedMessage && detailedErrors.length > 0) {
             errorMessage = detailedErrors.map((detail: any) => {
@@ -119,12 +131,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
       status: response.status,
       statusText: response.statusText,
       message: errorMessage,
-      detailedErrors
+      detailedErrors,
+      diagnostic
     })
     
     const error: any = new Error(errorMessage)
     error.status = response.status
     error.details = detailedErrors
+    error.diagnostic = diagnostic // Add diagnostic info to error object
     
     throw error
   }
@@ -151,10 +165,10 @@ export const MMFAPI = {
   
   /**
    * Create a new MMF product
-   * POST /api/v1/nav/mmf/data
+   * POST /api/v1/nav/mmf/upload
    */
   createProduct: async (data: MMFProductInput) => {
-    const response = await fetchWithAuth(`${MMF_BASE}/data`, {
+    const response = await fetchWithAuth(`${MMF_BASE}/upload`, {
       method: 'POST',
       body: JSON.stringify(data)
     })
@@ -208,13 +222,18 @@ export const MMFAPI = {
   
   /**
    * Get holdings for an MMF
-   * GET /api/v1/nav/mmf/:fundId/holdings
+   * NOTE: Holdings come with the fund data from GET /mmf/:fundId
+   * This function fetches the fund and extracts holdings
    */
   getHoldings: async (fundId: string) => {
-    const response = await fetchWithAuth(
-      `${MMF_BASE}/${fundId}/holdings`
-    )
-    return handleResponse<{ success: boolean; data: MMFHolding[]; count: number }>(response)
+    const response = await fetchWithAuth(`${MMF_BASE}/${fundId}`)
+    const result = await handleResponse<{ success: boolean; data: MMFProductComplete }>(response)
+    
+    return {
+      success: result.success,
+      data: result.data.holdings || [],
+      count: result.data.holdings?.length || 0
+    }
   },
   
   /**

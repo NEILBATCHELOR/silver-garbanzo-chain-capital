@@ -84,7 +84,7 @@ export function TokenLinkDialog({
       collateralizationPercentage: number
     }) => {
       const endpoint = existingLink
-        ? `${import.meta.env.VITE_API_URL}/api/v1/nav/mmf/${fundId}/token-links/${existingLink.id}`
+        ? `${import.meta.env.VITE_API_URL}/api/v1/nav/mmf/${fundId}/token-links/${data.tokenId}`
         : `${import.meta.env.VITE_API_URL}/api/v1/nav/mmf/${fundId}/token-links`
 
       const method = existingLink ? 'PUT' : 'POST'
@@ -98,13 +98,12 @@ export function TokenLinkDialog({
           tokenId: data.tokenId,
           parityRatio: data.parityRatio,
           collateralizationPercentage: data.collateralizationPercentage,
-          projectId,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error?.message || `Failed to ${existingLink ? 'update' : 'create'} token link`)
+        throw new Error(errorData.error || `Failed to ${existingLink ? 'update' : 'create'} token link`)
       }
 
       return response.json()

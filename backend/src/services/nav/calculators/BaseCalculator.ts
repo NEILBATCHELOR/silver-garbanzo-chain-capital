@@ -27,6 +27,7 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
   protected readonly fetcher: any
   protected readonly model: TModel
   protected readonly validator: any
+  protected currentInput?: CalculatorInput  // ✅ ADD: Store current input for access in overridden methods
   
   constructor(
     dbClient: SupabaseClient,
@@ -49,6 +50,9 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
     const startTime = Date.now()
     let dataFetchTime = 0
     let calculationTime = 0
+    
+    // ✅ ADD: Store input for access in overridden methods
+    this.currentInput = input
     
     try {
       // Step 1: Validate input
@@ -212,11 +216,14 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
         'equity': 'equity_products',
         'commodities': 'commodity_products',
         'funds': 'fund_products',
+        'mmf': 'fund_products', // Money Market Funds use fund_products table
         'structured_products': 'structured_products'
         // Add other asset types as needed
       }
       
       const productTable = productTableMap[this.assetType]
+      console.log(`[DEBUG] Fetching project_id for asset_type: ${this.assetType}, productTable: ${productTable}, productId: ${result.productId}`)
+      
       if (productTable) {
         const { data: productData, error: productError } = await this.dbClient
           .from(productTable)
@@ -224,10 +231,15 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
           .eq('id', result.productId)
           .single()
         
+        console.log(`[DEBUG] Query result - error:`, productError, 'data:', productData)
+        
         if (productError) {
           console.error(`Failed to fetch project_id from ${productTable}:`, productError)
         } else if (productData) {
           projectId = productData.project_id
+          console.log(`[DEBUG] Set projectId from productData.project_id:`, projectId)
+        } else {
+          console.log(`[DEBUG] No productData returned from query`)
         }
       }
       
@@ -339,7 +351,8 @@ export abstract class BaseCalculator<TProduct, TSupporting, TModel> {
         productId: input.productId,
         asOfDate: input.asOfDate,
         targetCurrency: input.targetCurrency,
-        includeBreakdown: input.includeBreakdown
+        includeBreakdown: input.includeBreakdown,
+        configOverrides: input.configOverrides || null  // ✅ ADD: Track config overrides used
       }
       
       // Prepare pricing sources JSON

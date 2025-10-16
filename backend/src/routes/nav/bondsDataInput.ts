@@ -9,6 +9,7 @@
  */
 
 import { FastifyInstance } from 'fastify'
+import { validateProductLink } from '../../services/tokens/ProductLinkValidator'
 import { z } from 'zod'
 
 // Bond product schema for validation - ALIGNED WITH DATABASE
@@ -791,10 +792,19 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
         })
       }
       
+      // Validate that the bond product exists in bond_products
+      const productValidation = await validateProductLink(fastify.supabase, bondId, 'bond')
+      if (!productValidation.isValid) {
+        return reply.code(404).send({
+          success: false,
+          error: productValidation.error || 'Bond product not found'
+        })
+      }
+      
       // Check if token exists
       const { data: token, error: tokenError } = await fastify.supabase
         .from('tokens')
-        .select('id, product_id')
+        .select('id, product_id, product_type')
         .eq('id', tokenId)
         .single()
       
@@ -805,11 +815,12 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
         })
       }
       
-      // Check if token is already linked to another bond
+      // Check if token is already linked to another product
       if (token.product_id && token.product_id !== bondId) {
+        const linkedProductType = token.product_type || 'unknown'
         return reply.code(400).send({
           success: false,
-          error: `Token is already linked to another bond (${token.product_id}). Unlink first.`
+          error: `Token is already linked to another ${linkedProductType} product (${token.product_id}). Unlink first.`
         })
       }
       
@@ -818,6 +829,7 @@ export async function bondDataInputRoutes(fastify: FastifyInstance) {
         .from('tokens')
         .update({
           product_id: bondId,
+          product_type: 'bond',  // Specify this is a bond product
           ratio: parityRatio
         })
         .eq('id', tokenId)

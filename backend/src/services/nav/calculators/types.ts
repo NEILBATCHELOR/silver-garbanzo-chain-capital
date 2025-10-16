@@ -13,6 +13,7 @@ export interface CalculatorInput {
   targetCurrency?: string
   includeBreakdown?: boolean
   saveToDatabase?: boolean
+  configOverrides?: any // Temporary config overrides for testing
 }
 
 export interface CalculatorResult {
