@@ -399,19 +399,41 @@ export const updateRole = async (
 
 /**
  * Delete a role
+ * Note: Database has CASCADE delete on role_contracts.role_id foreign key,
+ * so contract roles will be automatically deleted when the role is deleted.
+ * We also explicitly delete contract roles here for clarity and potential logging.
  */
 export const deleteRole = async (roleId: string): Promise<boolean> => {
-  const { error } = await supabase
-    .from('roles')
-    .delete()
-    .eq('id', roleId);
-  
-  if (error) {
-    console.error('Error deleting role:', error);
+  try {
+    // First, explicitly delete contract roles (though CASCADE will handle this)
+    // This provides better visibility and allows for logging/auditing
+    const { error: contractError } = await supabase
+      .from('role_contracts')
+      .delete()
+      .eq('role_id', roleId);
+    
+    if (contractError) {
+      console.warn('Error deleting contract roles:', contractError);
+      // Continue with role deletion as CASCADE will handle this
+    }
+    
+    // Delete the role (CASCADE will delete role_contracts if above failed)
+    const { error } = await supabase
+      .from('roles')
+      .delete()
+      .eq('id', roleId);
+    
+    if (error) {
+      console.error('Error deleting role:', error);
+      return false;
+    }
+    
+    console.log(`Successfully deleted role ${roleId} and associated contract roles`);
+    return true;
+  } catch (error) {
+    console.error('Exception in deleteRole:', error);
     return false;
   }
-  
-  return true;
 };
 
 /**

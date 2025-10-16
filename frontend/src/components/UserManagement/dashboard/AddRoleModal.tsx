@@ -4,6 +4,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/infrastructure/database/client";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  CONTRACT_ROLE_CATEGORIES,
+  CONTRACT_ROLE_DESCRIPTIONS,
+  ContractRoleType,
+  setRoleContracts,
+} from "@/services/user/contractRoles";
 
 import {
   Dialog,
@@ -23,6 +29,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -40,6 +54,7 @@ interface AddRoleModalProps {
 
 const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedContractRoles, setSelectedContractRoles] = useState<ContractRoleType[]>([]);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -50,6 +65,14 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
       priority: 10,
     },
   });
+
+  const toggleContractRole = (role: ContractRoleType) => {
+    setSelectedContractRoles(prev =>
+      prev.includes(role)
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
+  };
 
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -72,23 +95,38 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
       }
 
       // Insert the new role
-      const { error } = await supabase
+      const { data: newRole, error: insertError } = await supabase
         .from("roles")
         .insert({
           name: values.name,
           description: values.description,
           priority: values.priority,
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // If contract roles were selected, save them
+      if (selectedContractRoles.length > 0 && newRole) {
+        const contractSuccess = await setRoleContracts(newRole.id, selectedContractRoles);
+        if (!contractSuccess) {
+          console.warn("Failed to save contract roles, but role was created");
+        }
+      }
 
       toast({
         title: "Role created",
-        description: `Role "${values.name}" has been created successfully.`,
+        description: `Role "${values.name}" has been created successfully${
+          selectedContractRoles.length > 0 
+            ? ` with ${selectedContractRoles.length} contract role(s).` 
+            : '.'
+        }`,
       });
 
       // Reset form and close modal
       form.reset();
+      setSelectedContractRoles([]);
       onOpenChange(false);
       onRoleAdded();
     } catch (error: any) {
@@ -105,7 +143,7 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Role</DialogTitle>
         </DialogHeader>
@@ -162,11 +200,55 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
               )}
             />
 
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Smart Contract Roles</Label>
+              <p className="text-sm text-muted-foreground">
+                Select which smart contract roles should be assigned to this role
+              </p>
+
+              <Accordion type="multiple" className="w-full">
+                {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
+                  <AccordionItem key={category} value={category}>
+                    <AccordionTrigger className="text-sm font-medium">
+                      {category}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2 pl-2">
+                        {roles.map((role) => (
+                          <div key={role} className="flex items-start space-x-2">
+                            <Checkbox
+                              id={`contract-role-${role}`}
+                              checked={selectedContractRoles.includes(role)}
+                              onCheckedChange={() => toggleContractRole(role)}
+                            />
+                            <div className="grid gap-1 leading-none">
+                              <label
+                                htmlFor={`contract-role-${role}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {role}
+                              </label>
+                              <p className="text-xs text-muted-foreground">
+                                {CONTRACT_ROLE_DESCRIPTIONS[role]}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                  onOpenChange(false);
+                  setSelectedContractRoles([]);
+                }}
               >
                 Cancel
               </Button>

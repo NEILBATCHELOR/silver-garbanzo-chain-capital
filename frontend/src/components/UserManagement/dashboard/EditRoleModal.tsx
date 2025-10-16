@@ -5,6 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/infrastructure/database/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Role } from "@/utils/auth/roleUtils";
+import {
+  CONTRACT_ROLE_CATEGORIES,
+  CONTRACT_ROLE_DESCRIPTIONS,
+  ContractRoleType,
+  getRoleContracts,
+  setRoleContracts,
+} from "@/services/user/contractRoles";
 
 import {
   Dialog,
@@ -26,6 +33,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -45,6 +60,8 @@ interface EditRoleModalProps {
 const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSystemRole, setIsSystemRole] = useState(false);
+  const [selectedContractRoles, setSelectedContractRoles] = useState<ContractRoleType[]>([]);
+  const [isLoadingContractRoles, setIsLoadingContractRoles] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -72,8 +89,36 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                      role.name === "Compliance Officer" || 
                      role.name === "Agent" || 
                      role.name === "Viewer");
+
+      // Load contract roles
+      loadContractRoles(role.id);
     }
   }, [role, form]);
+
+  const loadContractRoles = async (roleId: string) => {
+    setIsLoadingContractRoles(true);
+    try {
+      const contractRoles = await getRoleContracts(roleId);
+      setSelectedContractRoles(contractRoles);
+    } catch (error) {
+      console.error("Error loading contract roles:", error);
+      toast({
+        title: "Error loading contract roles",
+        description: "Failed to load existing contract roles",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingContractRoles(false);
+    }
+  };
+
+  const toggleContractRole = (contractRole: ContractRoleType) => {
+    setSelectedContractRoles(prev =>
+      prev.includes(contractRole)
+        ? prev.filter(r => r !== contractRole)
+        : [...prev, contractRole]
+    );
+  };
 
   const handleSubmit = async (values: FormValues) => {
     if (!role) return;
@@ -112,9 +157,19 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
 
       if (error) throw error;
 
+      // Update contract roles
+      const contractSuccess = await setRoleContracts(role.id, selectedContractRoles);
+      if (!contractSuccess) {
+        console.warn("Failed to update contract roles, but role was updated");
+      }
+
       toast({
         title: "Role updated",
-        description: `Role "${values.name}" has been updated successfully.`,
+        description: `Role "${values.name}" has been updated successfully${
+          selectedContractRoles.length > 0 
+            ? ` with ${selectedContractRoles.length} contract role(s).` 
+            : '.'
+        }`,
       });
 
       // Close modal and refresh roles
@@ -136,7 +191,7 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Role: {role.name}</DialogTitle>
         </DialogHeader>
@@ -198,6 +253,51 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                 </FormItem>
               )}
             />
+
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Smart Contract Roles</Label>
+              <p className="text-sm text-muted-foreground">
+                Select which smart contract roles should be assigned to this role
+              </p>
+
+              {isLoadingContractRoles ? (
+                <div className="text-sm text-muted-foreground">Loading contract roles...</div>
+              ) : (
+                <Accordion type="multiple" className="w-full">
+                  {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
+                    <AccordionItem key={category} value={category}>
+                      <AccordionTrigger className="text-sm font-medium">
+                        {category}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2 pl-2">
+                          {roles.map((contractRole) => (
+                            <div key={contractRole} className="flex items-start space-x-2">
+                              <Checkbox
+                                id={`contract-role-${contractRole}`}
+                                checked={selectedContractRoles.includes(contractRole)}
+                                onCheckedChange={() => toggleContractRole(contractRole)}
+                              />
+                              <div className="grid gap-1 leading-none">
+                                <label
+                                  htmlFor={`contract-role-${contractRole}`}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
+                                  {contractRole}
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  {CONTRACT_ROLE_DESCRIPTIONS[contractRole]}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </div>
 
             <DialogFooter>
               <Button
