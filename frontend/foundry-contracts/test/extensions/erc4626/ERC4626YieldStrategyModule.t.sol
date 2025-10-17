@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC4626YieldStrategyModule} from "src/extensions/erc4626/ERC4626YieldStrategyModule.sol";
 import {IERC4626YieldStrategyModule} from "src/extensions/erc4626/interfaces/IERC4626YieldStrategyModule.sol";
 
@@ -18,6 +19,7 @@ contract MockYieldStrategy {
 }
 
 contract ERC4626YieldStrategyModuleTest is Test {
+    ERC4626YieldStrategyModule public implementation;
     ERC4626YieldStrategyModule public module;
     MockYieldStrategy public mockStrategy1;
     MockYieldStrategy public mockStrategy2;
@@ -46,9 +48,20 @@ contract ERC4626YieldStrategyModuleTest is Test {
         mockStrategy1 = new MockYieldStrategy();
         mockStrategy2 = new MockYieldStrategy();
         
-        // Deploy and initialize module
-        module = new ERC4626YieldStrategyModule();
-        module.initialize(owner, vault, HARVEST_FREQUENCY, REBALANCE_THRESHOLD);
+        // Deploy implementation
+        implementation = new ERC4626YieldStrategyModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC4626YieldStrategyModule.initialize.selector,
+            owner,
+            vault,
+            HARVEST_FREQUENCY,
+            REBALANCE_THRESHOLD
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = ERC4626YieldStrategyModule(address(proxy));
         
         // Grant strategy manager role
         module.grantRole(module.STRATEGY_MANAGER_ROLE(), strategyManager);

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../../src/extensions/erc3525/ERC3525SlotApprovableModule.sol";
 import "../../../src/extensions/erc3525/interfaces/IERC3525SlotApprovable.sol";
 
@@ -11,6 +12,7 @@ import "../../../src/extensions/erc3525/interfaces/IERC3525SlotApprovable.sol";
  */
 contract ERC3525SlotApprovableModuleTest is Test {
     
+    ERC3525SlotApprovableModule public implementation;
     ERC3525SlotApprovableModule public slotApprovable;
     
     address public admin = address(1);
@@ -32,8 +34,17 @@ contract ERC3525SlotApprovableModuleTest is Test {
     );
     
     function setUp() public {
-        slotApprovable = new ERC3525SlotApprovableModule();
-        slotApprovable.initialize(admin);
+        // Deploy implementation
+        implementation = new ERC3525SlotApprovableModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC3525SlotApprovableModule.initialize.selector,
+            admin
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        slotApprovable = ERC3525SlotApprovableModule(address(proxy));
     }
     
     // ============ Initialization Tests ============

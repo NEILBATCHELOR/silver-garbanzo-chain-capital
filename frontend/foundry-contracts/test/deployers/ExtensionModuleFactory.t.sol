@@ -80,8 +80,8 @@ contract ExtensionModuleFactoryTest is Test {
         address module = factory.deployComplianceModule(tokenAddress, true, false);
         
         ERC20ComplianceModule compliance = ERC20ComplianceModule(module);
-        assertTrue(compliance.kycRequired());
-        assertFalse(compliance.whitelistRequired());
+        assertTrue(compliance.isKYCRequired());
+        assertFalse(compliance.isWhitelistRequired());
     }
     
     function testCannotDeployComplianceWithZeroAddress() public {

@@ -316,6 +316,49 @@ contract PolicyRegistry is
         return registeredTokens.length;
     }
     
+    /**
+     * @notice Get total number of registered tokens (alias for getTokenCount)
+     * @return count Number of tokens
+     */
+    function getTotalTokens() external view returns (uint256) {
+        return registeredTokens.length;
+    }
+    
+    /**
+     * @notice Get token standard for a registered token
+     * @param token Token address
+     * @return standard Token standard (ERC20, ERC721, etc.)
+     */
+    function getTokenStandard(
+        address token
+    ) external view returns (string memory) {
+        return tokenRegistrations[token].standard;
+    }
+    
+    /**
+     * @notice Get policy engine for a registered token
+     * @param token Token address
+     * @return policyEngine Policy engine address
+     */
+    function getTokenPolicyEngine(
+        address token
+    ) external view returns (address) {
+        return tokenRegistrations[token].policyEngine;
+    }
+    
+    /**
+     * @notice Get policy engine for a specific token and operation
+     * @param token Token address
+     * @param operationType Type of operation
+     * @return policyEngine Policy engine address
+     */
+    function getPolicyEngine(
+        address token,
+        string memory operationType
+    ) external view returns (address) {
+        return policyMetadata[token][operationType].policyEngine;
+    }
+    
     // ============ UUPS Upgrade Authorization ============
     
     /**

@@ -2,11 +2,13 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UniversalDocumentModule} from "src/extensions/document/UniversalDocumentModule.sol";
 import {IUniversalDocumentModule} from "src/extensions/document/interfaces/IUniversalDocumentModule.sol";
 import {UniversalDocumentStorage} from "src/extensions/document/storage/UniversalDocumentStorage.sol";
 
 contract UniversalDocumentModuleTest is Test {
+    UniversalDocumentModule public implementation;
     UniversalDocumentModule public module;
     
     // Test accounts
@@ -37,9 +39,17 @@ contract UniversalDocumentModuleTest is Test {
     function setUp() public {
         vm.startPrank(owner);
         
-        // Deploy and initialize module
-        module = new UniversalDocumentModule();
-        module.initialize(owner);
+        // Deploy implementation
+        implementation = new UniversalDocumentModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            UniversalDocumentModule.initialize.selector,
+            owner
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = UniversalDocumentModule(address(proxy));
         
         // Grant document manager role
         module.grantRole(module.DOCUMENT_MANAGER_ROLE(), documentManager);

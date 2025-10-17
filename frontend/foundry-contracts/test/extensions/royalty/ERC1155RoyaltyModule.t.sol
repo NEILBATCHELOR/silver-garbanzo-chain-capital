@@ -14,7 +14,6 @@ contract ERC1155RoyaltyModuleTest is Test {
     address public admin = address(1);
     address public royaltyManager = address(2);
     address public creator = address(3);
-    address public nftContract = address(0x999);
     
     bytes32 public constant ROYALTY_MANAGER_ROLE = keccak256("ROYALTY_MANAGER_ROLE");
     uint96 public constant DEFAULT_ROYALTY_BP = 500; // 5%
@@ -26,14 +25,13 @@ contract ERC1155RoyaltyModuleTest is Test {
         module = ERC1155RoyaltyModule(clone);
         
         vm.prank(admin);
-        module.initialize(admin, nftContract, creator, DEFAULT_ROYALTY_BP);
+        module.initialize(admin, creator, DEFAULT_ROYALTY_BP);
         
         vm.prank(admin);
         module.grantRole(ROYALTY_MANAGER_ROLE, royaltyManager);
     }
     
     function testInitialization() public view {
-        assertEq(module.nftContract(), nftContract);
         assertTrue(module.hasRole(ROYALTY_MANAGER_ROLE, royaltyManager));
     }
     

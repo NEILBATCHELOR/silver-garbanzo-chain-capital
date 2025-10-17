@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../../src/extensions/erc3525/ERC3525SlotManagerModule.sol";
 import "../../../src/extensions/erc3525/interfaces/IERC3525SlotManagerModule.sol";
 
@@ -12,6 +13,7 @@ import "../../../src/extensions/erc3525/interfaces/IERC3525SlotManagerModule.sol
  */
 contract ERC3525SlotManagerModuleTest is Test {
     
+    ERC3525SlotManagerModule public implementation;
     ERC3525SlotManagerModule public slotManager;
     
     address public admin = address(1);
@@ -36,8 +38,17 @@ contract ERC3525SlotManagerModuleTest is Test {
     event SlotPermissionRevoked(uint256 indexed slotId, address indexed account, bytes32 indexed permission);
     
     function setUp() public {
-        slotManager = new ERC3525SlotManagerModule();
-        slotManager.initialize(admin);
+        // Deploy implementation
+        implementation = new ERC3525SlotManagerModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC3525SlotManagerModule.initialize.selector,
+            admin
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        slotManager = ERC3525SlotManagerModule(address(proxy));
         
         // Grant slot admin role
         vm.prank(admin);

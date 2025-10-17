@@ -2,14 +2,15 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../../src/extensions/permit/ERC20PermitModule.sol";
+import "../../../src/masters/ERC20Master.sol";
 
 contract ERC20PermitModuleTest is Test {
-    using Clones for address;
     
     ERC20PermitModule public implementation;
     ERC20PermitModule public module;
+    ERC20Master public token;
     
     address public admin = address(1);
     address public owner = address(2);
@@ -24,15 +25,27 @@ contract ERC20PermitModuleTest is Test {
     function setUp() public {
         ownerAddress = vm.addr(ownerPrivateKey);
         
+        // Deploy token
+        vm.startPrank(admin);
+        token = new ERC20Master();
+        token.initialize(NAME, "TEST", 1000000e18, 1000000e18, admin);
+        
         // Deploy implementation
         implementation = new ERC20PermitModule();
         
-        // Clone and initialize
-        address clone = address(implementation).clone();
-        module = ERC20PermitModule(clone);
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC20PermitModule.initialize.selector,
+            admin,
+            address(token),
+            NAME,
+            VERSION
+        );
         
-        vm.prank(admin);
-        module.initialize(admin, NAME, VERSION);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = ERC20PermitModule(address(proxy));
+        
+        vm.stopPrank();
     }
     
     function testPermitWithValidSignature() public {

@@ -136,8 +136,8 @@ contract PolicyEngine is
         // Get or initialize tracking data
         OperationTracking storage tracking = operationTracking[token][operator][operationType];
         
-        // Check cooldown period
-        if (policy.cooldownPeriod > 0) {
+        // Check cooldown period (skip check for first operation)
+        if (policy.cooldownPeriod > 0 && tracking.lastOperationTime > 0) {
             if (block.timestamp < tracking.lastOperationTime + policy.cooldownPeriod) {
                 reason = "Operation in cooldown period";
                 emit PolicyViolation(token, operator, operationType, reason);
@@ -352,7 +352,7 @@ contract PolicyEngine is
         
         OperationTracking storage tracking = operationTracking[token][operator][operationType];
         
-        if (policy.cooldownPeriod > 0) {
+        if (policy.cooldownPeriod > 0 && tracking.lastOperationTime > 0) {
             if (block.timestamp < tracking.lastOperationTime + policy.cooldownPeriod) {
                 return (false, "Operation in cooldown period");
             }
@@ -438,6 +438,22 @@ contract PolicyEngine is
         return approvalRequests[token][requestId].hasApproved[approver];
     }
     
+    /**
+     * @notice Check if a request has received enough approvals to be executed
+     * @param token Token address
+     * @param requestId Request ID
+     * @return Whether the request has enough approvals
+     */
+    function isOperationApproved(
+        address token,
+        uint256 requestId
+    ) external view returns (bool) {
+        ApprovalRequest storage request = approvalRequests[token][requestId];
+        Policy storage policy = policies[token][request.operationType];
+        
+        return request.approvals >= policy.approvalThreshold && !request.executed;
+    }
+    
     // ============ Internal Helper Functions ============
     
     /**
@@ -446,10 +462,9 @@ contract PolicyEngine is
      * @return isNew Whether it's a new day
      */
     function _isNewDay(uint256 lastResetTime) internal view returns (bool) {
-        if (lastResetTime == 0) {
-            return true;
-        }
-        return (block.timestamp / 86400) > (lastResetTime / 86400);
+        uint256 currentDay = block.timestamp / 86400;
+        uint256 lastDay = lastResetTime / 86400;
+        return currentDay > lastDay;
     }
     
     /**

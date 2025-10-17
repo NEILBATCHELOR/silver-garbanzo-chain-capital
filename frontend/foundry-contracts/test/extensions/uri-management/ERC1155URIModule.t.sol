@@ -13,13 +13,13 @@ contract ERC1155URIModuleTest is Test {
     
     address public admin = address(1);
     address public uriManager = address(2);
-    address public nftContract = address(0x999);
     
     bytes32 public constant URI_MANAGER_ROLE = keccak256("URI_MANAGER_ROLE");
     string public constant BASE_URI = "https://api.example.com/metadata/";
+    string public constant IPFS_GATEWAY = "https://ipfs.io/ipfs/";
     
-    event BaseURISet(string baseURI);
-    event TokenURISet(uint256 indexed tokenId, string tokenURI);
+    event BaseURISet(string baseURI, address indexed setter);
+    event TokenURISet(uint256 indexed tokenId, string tokenURI, address indexed setter);
     event TokenURIFrozen(uint256 indexed tokenId);
     
     function setUp() public {
@@ -29,15 +29,15 @@ contract ERC1155URIModuleTest is Test {
         module = ERC1155URIModule(clone);
         
         vm.prank(admin);
-        module.initialize(admin, nftContract, BASE_URI);
+        module.initialize(admin, BASE_URI, IPFS_GATEWAY);
         
         vm.prank(admin);
         module.grantRole(URI_MANAGER_ROLE, uriManager);
     }
     
     function testInitialization() public view {
-        assertEq(module.nftContract(), nftContract);
         assertEq(module.getBaseURI(), BASE_URI);
+        assertEq(module.getIPFSGateway(), IPFS_GATEWAY);
         assertTrue(module.hasRole(URI_MANAGER_ROLE, uriManager));
     }
     
@@ -51,8 +51,8 @@ contract ERC1155URIModuleTest is Test {
         uint256 tokenId = 1;
         string memory customURI = "ipfs://QmCustomHash";
         
-        vm.expectEmit(true, false, false, true);
-        emit TokenURISet(tokenId, customURI);
+        vm.expectEmit(true, true, false, true);
+        emit TokenURISet(tokenId, customURI, uriManager);
         
         vm.prank(uriManager);
         module.setTokenURI(tokenId, customURI);
@@ -64,8 +64,8 @@ contract ERC1155URIModuleTest is Test {
     function testSetBaseURI() public {
         string memory newBaseURI = "https://new.example.com/metadata/";
         
-        vm.expectEmit(false, false, false, true);
-        emit BaseURISet(newBaseURI);
+        vm.expectEmit(false, true, false, true);
+        emit BaseURISet(newBaseURI, uriManager);
         
         vm.prank(uriManager);
         module.setBaseURI(newBaseURI);

@@ -86,6 +86,14 @@ contract ERC7575MultiAssetVaultModule is
      */
     event RebalanceEnabledChanged(bool enabled);
 
+    /**
+     * @notice Emitted when an asset's target weight is updated
+     * @param asset Address of the asset
+     * @param oldWeight Previous weight in basis points
+     * @param newWeight New weight in basis points
+     */
+    event AssetWeightUpdated(address indexed asset, uint256 oldWeight, uint256 newWeight);
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -203,6 +211,33 @@ contract ERC7575MultiAssetVaultModule is
         }
 
         emit AssetRemoved(asset);
+    }
+
+    /**
+     * @notice Update target weight for an existing asset
+     * @param asset Address of the asset
+     * @param newWeight New target weight in basis points
+     */
+    function updateAssetWeight(address asset, uint256 newWeight) 
+        external 
+        onlyRole(VAULT_MANAGER_ROLE) 
+    {
+        if (newWeight == 0 || newWeight > BASIS_POINTS) revert InvalidWeight();
+
+        MultiAssetVaultStorage.Layout storage $ = MultiAssetVaultStorage.layout();
+        
+        if (!$.assets[asset].active) revert AssetNotFound();
+
+        // Check if new total weight would exceed 100%
+        uint256 oldWeight = $.assets[asset].targetWeight;
+        uint256 newTotalWeight = $.totalWeight - oldWeight + newWeight;
+        if (newTotalWeight > BASIS_POINTS) revert InvalidWeight();
+
+        // Update weights
+        $.assets[asset].targetWeight = newWeight;
+        $.totalWeight = newTotalWeight;
+
+        emit AssetWeightUpdated(asset, oldWeight, newWeight);
     }
 
     // ============ Multi-Asset Deposits ============
@@ -342,6 +377,30 @@ contract ERC7575MultiAssetVaultModule is
     }
 
     /**
+     * @notice Get all assets in the vault (alias for getAssets)
+     * @return assets Array of asset addresses
+     */
+    function getAllAssets() external view returns (address[] memory) {
+        return MultiAssetVaultStorage.layout().assetList;
+    }
+
+    /**
+     * @notice Get the number of assets in the vault
+     * @return count Number of assets
+     */
+    function getAssetCount() external view returns (uint256) {
+        return MultiAssetVaultStorage.layout().assetList.length;
+    }
+
+    /**
+     * @notice Get the total weight of all assets
+     * @return weight Total weight in basis points
+     */
+    function totalWeight() external view returns (uint256) {
+        return MultiAssetVaultStorage.layout().totalWeight;
+    }
+
+    /**
      * @notice Get weight of specific asset
      * @param asset Address of the asset
      * @return weight Asset weight in basis points
@@ -360,6 +419,48 @@ contract ERC7575MultiAssetVaultModule is
     }
 
     /**
+     * @notice Get value of specific asset in base denomination
+     * @param asset Address of the asset
+     * @return value Value of the asset in base asset terms
+     * @dev Simplified implementation - would use price oracle in production
+     */
+    function getAssetValue(address asset) external view returns (uint256) {
+        MultiAssetVaultStorage.Layout storage $ = MultiAssetVaultStorage.layout();
+        if (!$.assets[asset].active) return 0;
+        // Simplified - would use price oracle in production
+        return $.assets[asset].currentBalance;
+    }
+
+    /**
+     * @notice Get full details of a specific asset
+     * @param asset Address of the asset
+     * @return assetAddress Address of the asset
+     * @return targetWeight Target weight in basis points
+     * @return currentBalance Current balance of the asset
+     * @return active Whether the asset is active
+     * @return lastRebalance Timestamp of last rebalance
+     * @return decimals Number of decimals for the asset
+     */
+    function getAsset(address asset) external view returns (
+        address assetAddress,
+        uint256 targetWeight,
+        uint256 currentBalance,
+        bool active,
+        uint256 lastRebalance,
+        uint256 decimals
+    ) {
+        MultiAssetVaultStorage.AssetInfo storage assetInfo = MultiAssetVaultStorage.layout().assets[asset];
+        return (
+            assetInfo.assetAddress,
+            assetInfo.targetWeight,
+            assetInfo.currentBalance,
+            assetInfo.active,
+            assetInfo.lastRebalance,
+            assetInfo.decimals
+        );
+    }
+
+    /**
      * @notice Calculate total vault value in base denomination
      * @return totalValue Total value of all assets
      */
@@ -375,6 +476,62 @@ contract ERC7575MultiAssetVaultModule is
         }
         
         return totalValue;
+    }
+
+    /**
+     * @notice Get the vault contract address
+     * @return address The vault contract
+     */
+    function vaultContract() external view returns (address) {
+        return MultiAssetVaultStorage.layout().vaultContract;
+    }
+
+    /**
+     * @notice Get the price oracle address
+     * @return address The price oracle
+     */
+    function priceOracle() external view returns (address) {
+        return MultiAssetVaultStorage.layout().priceOracle;
+    }
+
+    /**
+     * @notice Get the base asset address
+     * @return address The base asset
+     */
+    function baseAsset() external view returns (address) {
+        return MultiAssetVaultStorage.layout().baseAsset;
+    }
+
+    /**
+     * @notice Check if deposits are enabled
+     * @return bool Whether deposits are enabled
+     */
+    function depositsEnabled() external view returns (bool) {
+        return MultiAssetVaultStorage.layout().depositsEnabled;
+    }
+
+    /**
+     * @notice Check if rebalancing is enabled
+     * @return bool Whether rebalancing is enabled
+     */
+    function rebalanceEnabled() external view returns (bool) {
+        return MultiAssetVaultStorage.layout().rebalanceEnabled;
+    }
+
+    /**
+     * @notice Get the rebalance threshold
+     * @return threshold Rebalance threshold in basis points
+     */
+    function rebalanceThreshold() external view returns (uint256) {
+        return MultiAssetVaultStorage.layout().rebalanceThreshold;
+    }
+
+    /**
+     * @notice Get the rebalance cooldown period
+     * @return cooldown Cooldown period in seconds
+     */
+    function rebalanceCooldown() external view returns (uint256) {
+        return MultiAssetVaultStorage.layout().rebalanceCooldown;
     }
 
     /**
@@ -458,6 +615,23 @@ contract ERC7575MultiAssetVaultModule is
     function setRebalanceThreshold(uint256 threshold) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (threshold > BASIS_POINTS) revert InvalidWeight();
         MultiAssetVaultStorage.layout().rebalanceThreshold = threshold;
+    }
+
+    /**
+     * @notice Set maximum asset allocation
+     * @param maxAllocation Maximum allocation per asset in basis points
+     */
+    function setMaxAssetAllocation(uint256 maxAllocation) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (maxAllocation > BASIS_POINTS) revert InvalidWeight();
+        MultiAssetVaultStorage.layout().maxAssetAllocation = maxAllocation;
+    }
+
+    /**
+     * @notice Get the maximum asset allocation
+     * @return maxAllocation Maximum allocation per asset in basis points
+     */
+    function maxAssetAllocation() external view returns (uint256) {
+        return MultiAssetVaultStorage.layout().maxAssetAllocation;
     }
 
     // ============ UUPS Upgrade ============

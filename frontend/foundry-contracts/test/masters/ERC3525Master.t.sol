@@ -44,6 +44,9 @@ contract ERC3525MasterTest is Test {
         
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         token = ERC3525Master(address(proxy));
+        
+        // Grant DEFAULT_ADMIN_ROLE to owner for role management
+        token.grantRole(token.DEFAULT_ADMIN_ROLE(), owner);
     }
     
     // ============ Initialization Tests ============

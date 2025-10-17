@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../../../src/extensions/erc4626/async/ERC7540AsyncVaultModule.sol";
-import {RequestStatus} from "../../../src/extensions/erc4626/async/interfaces/IERC7540AsyncVault.sol";
+import {RequestStatus, IERC7540AsyncVault} from "../../../src/extensions/erc4626/async/interfaces/IERC7540AsyncVault.sol";
 
 // Mock ERC20 for testing
 contract MockERC20 is ERC20 {
@@ -185,7 +185,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         }
         
         // Try to create one more
-        vm.expectRevert(ERC7540AsyncVaultModule.TooManyPendingRequests.selector);
+        vm.expectRevert(IERC7540AsyncVault.TooManyPendingRequests.selector);
         module.requestDeposit(depositAmount, user1, user1);
         vm.stopPrank();
     }
@@ -233,7 +233,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         uint256 requestId = module.requestDeposit(10000 * 10**18, user1, user1);
         
         vm.prank(operator);
-        vm.expectRevert(ERC7540AsyncVaultModule.FulfillmentDelayNotMet.selector);
+        vm.expectRevert(IERC7540AsyncVault.FulfillmentDelayNotMet.selector);
         module.fulfillDepositRequest(requestId);
     }
     
@@ -249,7 +249,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         
         // Try to fulfill again
         vm.prank(operator);
-        vm.expectRevert(ERC7540AsyncVaultModule.RequestNotPending.selector);
+        vm.expectRevert(IERC7540AsyncVault.RequestNotPending.selector);
         module.fulfillDepositRequest(requestId);
     }
     
@@ -297,7 +297,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         uint256 requestId = module.requestDeposit(10000 * 10**18, user1, user1);
         
         vm.prank(user1);
-        vm.expectRevert(ERC7540AsyncVaultModule.RequestNotFulfilled.selector);
+        vm.expectRevert(IERC7540AsyncVault.RequestNotFulfilled.selector);
         module.claimDeposit(requestId, user1);
     }
     
@@ -334,7 +334,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         
         // Unauthorized user tries to claim
         vm.prank(address(5));
-        vm.expectRevert(ERC7540AsyncVaultModule.UnauthorizedController.selector);
+        vm.expectRevert(IERC7540AsyncVault.UnauthorizedController.selector);
         module.claimDeposit(requestId, address(5));
     }
     
@@ -378,7 +378,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         
         // Try to cancel again
         vm.prank(user1);
-        vm.expectRevert(ERC7540AsyncVaultModule.RequestNotPending.selector);
+        vm.expectRevert(IERC7540AsyncVault.RequestNotPending.selector);
         module.cancelDepositRequest(requestId);
     }
     
@@ -387,7 +387,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         uint256 requestId = module.requestDeposit(10000 * 10**18, user1, user1);
         
         vm.prank(address(5));
-        vm.expectRevert(ERC7540AsyncVaultModule.UnauthorizedController.selector);
+        vm.expectRevert(IERC7540AsyncVault.UnauthorizedController.selector);
         module.cancelDepositRequest(requestId);
     }
     
@@ -466,7 +466,7 @@ contract ERC7540AsyncVaultModuleTest is Test {
         }
         
         // Try one more
-        vm.expectRevert(ERC7540AsyncVaultModule.TooManyPendingRequests.selector);
+        vm.expectRevert(IERC7540AsyncVault.TooManyPendingRequests.selector);
         module.requestRedeem(shareChunk, user1, user1);
         vm.stopPrank();
     }

@@ -154,7 +154,7 @@ contract UpgradeGovernanceTest is Test {
         governance.executeProposal(proposalId);
         
         // Verify upgrade (would need beacon owner check in real scenario)
-        (,,,,,,,bool executed,) = governance.getProposal(proposalId);
+        (,,,,,,,, bool executed,) = governance.getProposal(proposalId);
         assertTrue(executed);
     }
     
@@ -196,7 +196,7 @@ contract UpgradeGovernanceTest is Test {
         vm.prank(admin);
         governance.cancelProposal(proposalId);
         
-        (,,,,,,,, bool cancelled) = governance.getProposal(proposalId);
+        (,,,,,,,,, bool cancelled) = governance.getProposal(proposalId);
         assertTrue(cancelled);
     }
     

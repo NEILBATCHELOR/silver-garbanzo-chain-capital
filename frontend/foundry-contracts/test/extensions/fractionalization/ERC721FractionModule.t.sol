@@ -2,10 +2,12 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC721FractionModule, FractionToken} from "src/extensions/fractionalization/ERC721FractionModule.sol";
 import {ERC721Master} from "src/masters/ERC721Master.sol";
 
 contract ERC721FractionModuleTest is Test {
+    ERC721FractionModule public implementation;
     ERC721FractionModule public module;
     ERC721Master public nft;
     
@@ -31,17 +33,34 @@ contract ERC721FractionModuleTest is Test {
         
         // Deploy NFT contract
         nft = new ERC721Master();
-        nft.initialize(owner, "Test NFT", "TNFT");
+        nft.initialize(
+            "Test NFT",           // name
+            "TNFT",               // symbol  
+            "",                   // baseTokenURI (empty for now)
+            0,                    // maxSupply (0 = unlimited)
+            owner,                // owner
+            true,                 // mintingEnabled
+            false                 // burningEnabled
+        );
         
-        // Deploy and initialize fractionalization module
-        module = new ERC721FractionModule();
-        module.initialize(owner, address(nft));
+        // Deploy implementation
+        implementation = new ERC721FractionModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC721FractionModule.initialize.selector,
+            owner,
+            address(nft)
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = ERC721FractionModule(address(proxy));
         
         // Grant roles
         module.grantRole(module.FRACTION_MANAGER_ROLE(), admin);
         
-        // Mint NFT to user1
-        nft.mint(user1, TOKEN_ID);
+        // Mint NFT to user1 with URI
+        nft.mint(user1, "ipfs://QmTest1");
         
         vm.stopPrank();
     }
@@ -176,7 +195,7 @@ contract ERC721FractionModuleTest is Test {
     function test_Integration_MultipleFractionalizations() public {
         // Mint more NFTs
         vm.prank(owner);
-        nft.mint(user1, 2);
+        nft.mint(user1, "ipfs://QmTest2");
         
         vm.startPrank(user1);
         
@@ -184,7 +203,7 @@ contract ERC721FractionModuleTest is Test {
         nft.approve(address(module), TOKEN_ID);
         address shareToken1 = module.fractionalize(TOKEN_ID, SHARES, "Fraction 1", "FNFT1");
         
-        // Fractionalize second NFT
+        // Fractionalize second NFT (token ID 2)
         nft.approve(address(module), 2);
         address shareToken2 = module.fractionalize(2, 500, "Fraction 2", "FNFT2");
         
@@ -294,7 +313,7 @@ contract ERC721FractionModuleTest is Test {
         
         vm.startPrank(owner);
         for (uint256 i = 2; i <= numTokens + 1; i++) {
-            nft.mint(user1, i);
+            nft.mint(user1, string(abi.encodePacked("ipfs://QmTest", vm.toString(i))));
         }
         vm.stopPrank();
         

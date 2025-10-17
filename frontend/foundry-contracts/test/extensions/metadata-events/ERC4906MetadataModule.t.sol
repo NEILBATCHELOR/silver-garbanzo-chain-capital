@@ -2,11 +2,13 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC4906MetadataModule} from "src/extensions/metadata-events/ERC4906MetadataModule.sol";
 import {ERC721Master} from "src/masters/ERC721Master.sol";
 import {IMetadataEvents} from "src/extensions/metadata-events/interfaces/IERC4906.sol";
 
 contract ERC4906MetadataModuleTest is Test {
+    ERC4906MetadataModule public implementation;
     ERC4906MetadataModule public module;
     ERC721Master public nft;
     
@@ -27,19 +29,36 @@ contract ERC4906MetadataModuleTest is Test {
         
         // Deploy NFT contract
         nft = new ERC721Master();
-        nft.initialize(owner, "Test NFT", "TNFT");
+        nft.initialize(
+            "Test NFT",           // name
+            "TNFT",               // symbol
+            "",                   // baseTokenURI
+            0,                    // maxSupply (0 = unlimited)
+            owner,                // owner
+            true,                 // mintingEnabled
+            false                 // burningEnabled
+        );
         
-        // Deploy and initialize metadata module
-        module = new ERC4906MetadataModule();
-        module.initialize(address(nft), owner);
+        // Deploy implementation
+        implementation = new ERC4906MetadataModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC4906MetadataModule.initialize.selector,
+            address(nft),
+            owner
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = ERC4906MetadataModule(address(proxy));
         
         // Grant roles
         module.grantRole(module.METADATA_UPDATER_ROLE(), updater);
         
-        // Mint some NFTs for testing
-        nft.mint(owner, 1);
-        nft.mint(owner, 2);
-        nft.mint(owner, 3);
+        // Mint some NFTs for testing with URIs
+        nft.mint(owner, "ipfs://QmTest1");
+        nft.mint(owner, "ipfs://QmTest2");
+        nft.mint(owner, "ipfs://QmTest3");
         
         vm.stopPrank();
     }

@@ -77,7 +77,7 @@ contract TokenFactoryTest is Test {
         address token = factory.deployERC20(NAME, SYMBOL, MAX_SUPPLY, INITIAL_SUPPLY, user1);
         
         // Check mapping
-        address[] memory tokens = factory.deployedTokensByOwner(user1);
+        address[] memory tokens = factory.getDeployedTokens(user1);
         assertEq(tokens.length, 1);
         assertEq(tokens[0], token);
         
@@ -94,7 +94,7 @@ contract TokenFactoryTest is Test {
         address token1 = factory.deployERC20("Token 1", "TK1", MAX_SUPPLY, INITIAL_SUPPLY, user1);
         address token2 = factory.deployERC20("Token 2", "TK2", MAX_SUPPLY, INITIAL_SUPPLY, user1);
         
-        address[] memory tokens = factory.deployedTokensByOwner(user1);
+        address[] memory tokens = factory.getDeployedTokens(user1);
         assertEq(tokens.length, 2);
         assertEq(tokens[0], token1);
         assertEq(tokens[1], token2);
@@ -149,7 +149,9 @@ contract TokenFactoryTest is Test {
         // First deploy an asset token
         address asset = factory.deployERC20("Asset Token", "ASSET", MAX_SUPPLY, INITIAL_SUPPLY, user1);
         
-        address vault = factory.deployERC4626(asset, NAME, SYMBOL, user1);
+        uint256 depositCap = 1_000_000 * 10**18;
+        uint256 minimumDeposit = 1 * 10**18;
+        address vault = factory.deployERC4626(asset, NAME, SYMBOL, depositCap, minimumDeposit, user1);
         
         assertTrue(vault != address(0));
         
@@ -158,20 +160,27 @@ contract TokenFactoryTest is Test {
     }
     
     function testCannotDeployERC4626WithZeroAsset() public {
+        uint256 depositCap = 1_000_000 * 10**18;
+        uint256 minimumDeposit = 1 * 10**18;
         vm.expectRevert(TokenFactory.InvalidAsset.selector);
-        factory.deployERC4626(address(0), NAME, SYMBOL, user1);
+        factory.deployERC4626(address(0), NAME, SYMBOL, depositCap, minimumDeposit, user1);
     }
     
     // ============ ERC1400 Deployment Tests ============
     
     function testDeployERC1400() public {
-        address securityToken = factory.deployERC1400(NAME, SYMBOL, INITIAL_SUPPLY, user1);
+        uint8 decimals = 18;
+        bytes32[] memory defaultPartitions = new bytes32[](2);
+        defaultPartitions[0] = bytes32("TRANCHE_A");
+        defaultPartitions[1] = bytes32("TRANCHE_B");
+        bool isControllable = true;
+        
+        address securityToken = factory.deployERC1400(NAME, SYMBOL, decimals, defaultPartitions, isControllable, user1);
         
         assertTrue(securityToken != address(0));
         
         ERC1400Master st = ERC1400Master(securityToken);
         assertEq(st.name(), NAME);
-        assertEq(st.totalSupply(), INITIAL_SUPPLY);
     }
     
     // ============ ERC20 Rebasing Deployment Tests ============
@@ -190,7 +199,7 @@ contract TokenFactoryTest is Test {
     // ============ Beacon Deployment Tests ============
     
     function testDeployERC20UsingBeacon() public {
-        address token = factory.deployERC20UsingBeacon(NAME, SYMBOL, MAX_SUPPLY, INITIAL_SUPPLY, user1);
+        address token = factory.deployERC20WithBeacon(NAME, SYMBOL, MAX_SUPPLY, INITIAL_SUPPLY, user1);
         
         assertTrue(token != address(0));
         
@@ -201,7 +210,7 @@ contract TokenFactoryTest is Test {
     function testDeployERC721UsingBeacon() public {
         string memory baseURI = "https://example.com/";
         uint256 maxSupply = 10000;
-        address collection = factory.deployERC721UsingBeacon(NAME, SYMBOL, baseURI, maxSupply, user1);
+        address collection = factory.deployERC721WithBeacon(NAME, SYMBOL, baseURI, maxSupply, user1);
         
         assertTrue(collection != address(0));
     }
@@ -212,8 +221,8 @@ contract TokenFactoryTest is Test {
         address token1 = factory.deployERC20("Token 1", "TK1", MAX_SUPPLY, INITIAL_SUPPLY, user1);
         address token2 = factory.deployERC20("Token 2", "TK2", MAX_SUPPLY, INITIAL_SUPPLY, user2);
         
-        address[] memory user1Tokens = factory.deployedTokensByOwner(user1);
-        address[] memory user2Tokens = factory.deployedTokensByOwner(user2);
+        address[] memory user1Tokens = factory.getDeployedTokens(user1);
+        address[] memory user2Tokens = factory.getDeployedTokens(user2);
         
         assertEq(user1Tokens.length, 1);
         assertEq(user2Tokens.length, 1);
@@ -254,7 +263,7 @@ contract TokenFactoryTest is Test {
         
         // Beacon deployment
         gasBefore = gasleft();
-        factory.deployERC20UsingBeacon("Beacon", "BCN", MAX_SUPPLY, INITIAL_SUPPLY, user1);
+        factory.deployERC20WithBeacon("Beacon", "BCN", MAX_SUPPLY, INITIAL_SUPPLY, user1);
         uint256 gasUsedBeacon = gasBefore - gasleft();
         
         // Both should be under reasonable limits

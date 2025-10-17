@@ -328,24 +328,38 @@ contract ERC4626Master is
     }
     
     /**
-     * @notice Virtual Offset Defense (Security Feature)
-     * @dev Prevents inflation/donation attacks by adding virtual shares/assets
+     * @notice Virtual Offset Configuration - Production Security
+     * @dev Implements OpenZeppelin's recommended inflation attack protection
      * 
-     * Security Impact:
-     * - Makes front-running attacks 1,000,000x more expensive
-     * - Industry standard: 6-decimal offset
-     * - Prevents Venus-style exploit patterns
+     * SECURITY IMPLEMENTATION:
+     * - Offset = 3 provides moderate protection (attack cost: $1K-10K)
+     * - Offset = 6 provides maximum protection (attack cost: $1M+)
+     * - Current setting: 6 (maximum security for institutional vaults)
      * 
-     * Attack Cost Analysis:
-     * - Without offset: Attack costs ~$1-10
-     * - With offset (6 decimals): Attack costs ~$1,000,000+
+     * HOW IT WORKS:
+     * - Adds 10^offset virtual shares to exchange rate calculations
+     * - Makes donation/inflation attacks economically infeasible
+     * - Protects vault even when empty or with low liquidity
      * 
-     * Gas Impact: Minimal (~200 gas per deposit/mint operation)
+     * CONVERSION BEHAVIOR:
+     * - Initial deposits show affected by virtual share factor
+     * - Ratio normalizes as vault accumulates real assets
+     * - All preview functions automatically account for offset
+     * - Integrators should always use previewDeposit/previewMint
      * 
-     * @return uint8 Number of decimals to add as virtual offset (6 = 1,000,000 virtual shares)
+     * CONFIGURATION OPTIONS:
+     * - return 0; // TESTING ONLY - No protection (vulnerable)
+     * - return 3; // PRODUCTION - Moderate security (recommended for general use)
+     * - return 6; // HIGH-VALUE - Maximum security (recommended for institutional vaults)
+     * 
+     * OpenZeppelin References:
+     * - Guide: https://docs.openzeppelin.com/contracts/5.x/erc4626
+     * - Defense: https://www.openzeppelin.com/news/a-novel-defense-against-erc4626-inflation-attacks
+     * 
+     * @return uint8 Decimal offset (6 = 1M virtual shares for maximum protection)
      */
     function _decimalsOffset() internal pure virtual override returns (uint8) {
-        return 6; // 1,000,000 virtual shares offset
+        return 6; // MAXIMUM SECURITY - Institutional-grade protection
     }
     
     /**

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../../src/extensions/snapshot/ERC20SnapshotModule.sol";
 import "../../../src/extensions/snapshot/interfaces/IERC20SnapshotModule.sol";
 
@@ -12,6 +13,7 @@ import "../../../src/extensions/snapshot/interfaces/IERC20SnapshotModule.sol";
  */
 contract ERC20SnapshotModuleTest is Test {
     
+    ERC20SnapshotModule public implementation;
     ERC20SnapshotModule public snapshotModule;
     
     address public admin = makeAddr("admin");
@@ -27,11 +29,22 @@ contract ERC20SnapshotModuleTest is Test {
     event SnapshotScheduled(uint256 indexed snapshotId, uint256 scheduledTime);
     
     function setUp() public {
-        vm.startPrank(admin);
-        snapshotModule = new ERC20SnapshotModule();
-        snapshotModule.initialize(admin, tokenContract);
+        // Deploy implementation
+        implementation = new ERC20SnapshotModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC20SnapshotModule.initialize.selector,
+            admin,
+            tokenContract
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        snapshotModule = ERC20SnapshotModule(address(proxy));
+        
+        // Grant roles
+        vm.prank(admin);
         snapshotModule.grantRole(SNAPSHOT_ROLE, snapshotCreator);
-        vm.stopPrank();
     }
     
     // ============ Initialization Tests ============

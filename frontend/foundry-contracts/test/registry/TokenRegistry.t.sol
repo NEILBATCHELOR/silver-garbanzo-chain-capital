@@ -23,7 +23,6 @@ contract TokenRegistryTest is Test {
     string constant STANDARD_ERC721 = "ERC721";
     string constant TOKEN_NAME = "Test Token";
     string constant TOKEN_SYMBOL = "TEST";
-    uint256 constant CHAIN_ID = 8453; // Base
     
     // Events
     event TokenRegistered(
@@ -59,9 +58,14 @@ contract TokenRegistryTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         registry = TokenRegistry(address(proxy));
         
+        // Grant DEFAULT_ADMIN_ROLE to admin for role management
+        registry.grantRole(registry.DEFAULT_ADMIN_ROLE(), admin);
+        
         // Grant roles
-        vm.prank(admin);
+        vm.startPrank(admin);
         registry.grantRole(registry.REGISTRAR_ROLE(), registrar);
+        registry.grantRole(registry.UPGRADER_ROLE(), registrar);
+        vm.stopPrank();
     }
     
     // ============ Initialization Tests ============
@@ -69,7 +73,6 @@ contract TokenRegistryTest is Test {
     function testInitialize() public view {
         assertTrue(registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(registry.hasRole(registry.REGISTRAR_ROLE(), admin));
-        assertTrue(registry.hasRole(registry.UPGRADER_ROLE(), admin));
         assertEq(registry.totalTokens(), 0);
         assertEq(registry.totalUpgrades(), 0);
     }
@@ -85,7 +88,7 @@ contract TokenRegistryTest is Test {
         vm.startPrank(registrar);
         
         vm.expectEmit(true, true, false, true);
-        emit TokenRegistered(proxy1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        emit TokenRegistered(proxy1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, block.chainid);
         
         registry.registerToken(
             proxy1,
@@ -93,34 +96,34 @@ contract TokenRegistryTest is Test {
             deployer1,
             STANDARD_ERC20,
             TOKEN_NAME,
-            TOKEN_SYMBOL,
-            CHAIN_ID
+            TOKEN_SYMBOL
         );
         
         vm.stopPrank();
         
-        // Verify registration
-        (address proxyAddr, address impl, address deployer, string memory standard,,,,,,bool isActive) 
-            = registry.tokens(proxy1);
+        // Verify registration using getToken()
+        TokenRegistry.TokenInfo memory tokenInfo = registry.getToken(proxy1);
         
-        assertEq(proxyAddr, proxy1);
-        assertEq(impl, impl1);
-        assertEq(deployer, deployer1);
-        assertEq(standard, STANDARD_ERC20);
-        assertTrue(isActive);
+        assertEq(tokenInfo.proxyAddress, proxy1);
+        assertEq(tokenInfo.implementation, impl1);
+        assertEq(tokenInfo.deployer, deployer1);
+        assertEq(tokenInfo.standard, STANDARD_ERC20);
+        assertEq(tokenInfo.name, TOKEN_NAME);
+        assertEq(tokenInfo.symbol, TOKEN_SYMBOL);
+        assertTrue(tokenInfo.isActive);
         assertEq(registry.totalTokens(), 1);
     }
     
     function testRegisterTokenRequiresRole() public {
         vm.prank(address(999));
         vm.expectRevert();
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
     }
     
     function testGetTokensByDeployer() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
-        registry.registerToken(proxy2, impl2, deployer1, STANDARD_ERC721, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
+        registry.registerToken(proxy2, impl2, deployer1, STANDARD_ERC721, TOKEN_NAME, TOKEN_SYMBOL);
         vm.stopPrank();
         
         address[] memory tokens = registry.getTokensByDeployer(deployer1);
@@ -131,20 +134,19 @@ contract TokenRegistryTest is Test {
     
     function testGetTokensByStandard() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
-        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
+        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         vm.stopPrank();
         
         address[] memory tokens = registry.getTokensByStandard(STANDARD_ERC20);
         assertEq(tokens.length, 2);
     }
     
-    
     // ============ Token Upgrade Tests ============
     
     function testRecordUpgrade() public {
         vm.prank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         
         vm.prank(registrar);
         vm.expectEmit(true, true, true, false);
@@ -152,47 +154,48 @@ contract TokenRegistryTest is Test {
         
         registry.recordUpgrade(proxy1, impl2, "Upgrade to v2");
         
-        (,address newImpl,,,,,,,) = registry.tokens(proxy1);
-        assertEq(newImpl, impl2);
+        TokenRegistry.TokenInfo memory tokenInfo = registry.getToken(proxy1);
+        assertEq(tokenInfo.implementation, impl2);
         assertEq(registry.totalUpgrades(), 1);
     }
     
     function testGetUpgradeHistory() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         registry.recordUpgrade(proxy1, impl2, "First upgrade");
         registry.recordUpgrade(proxy1, impl1, "Rollback");
         vm.stopPrank();
         
-        (address[] memory implementations, uint256[] memory timestamps, string[] memory reasons) = 
-            registry.getUpgradeHistory(proxy1);
+        TokenRegistry.UpgradeHistory[] memory history = registry.getUpgradeHistory(proxy1);
         
-        assertEq(implementations.length, 2);
-        assertEq(implementations[0], impl2);
-        assertEq(implementations[1], impl1);
-        assertEq(reasons[0], "First upgrade");
-        assertEq(reasons[1], "Rollback");
+        assertEq(history.length, 2);
+        assertEq(history[0].newImplementation, impl2);
+        assertEq(history[1].newImplementation, impl1);
+        assertEq(history[0].reason, "First upgrade");
+        assertEq(history[1].reason, "Rollback");
     }
     
     // ============ Token Deactivation Tests ============
     
     function testDeactivateToken() public {
         vm.prank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         
-        vm.prank(registrar);
+        vm.prank(admin);
         vm.expectEmit(true, false, false, true);
         emit TokenDeactivated(proxy1, "Security issue");
         
         registry.deactivateToken(proxy1, "Security issue");
         
-        (,,,,,,,, bool isActive) = registry.tokens(proxy1);
-        assertFalse(isActive);
+        TokenRegistry.TokenInfo memory tokenInfo = registry.getToken(proxy1);
+        assertFalse(tokenInfo.isActive);
     }
     
     function testReactivateToken() public {
-        vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        vm.prank(registrar);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
+        
+        vm.startPrank(admin);
         registry.deactivateToken(proxy1, "Test");
         
         vm.expectEmit(true, false, false, true);
@@ -201,25 +204,25 @@ contract TokenRegistryTest is Test {
         registry.reactivateToken(proxy1);
         vm.stopPrank();
         
-        (,,,,,,,, bool isActive) = registry.tokens(proxy1);
-        assertTrue(isActive);
+        TokenRegistry.TokenInfo memory tokenInfo = registry.getToken(proxy1);
+        assertTrue(tokenInfo.isActive);
     }
     
     // ============ Statistics Tests ============
     
     function testTotalTokensIncreases() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         assertEq(registry.totalTokens(), 1);
         
-        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC721, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC721, TOKEN_NAME, TOKEN_SYMBOL);
         assertEq(registry.totalTokens(), 2);
         vm.stopPrank();
     }
     
     function testTotalUpgradesIncreases() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         
         assertEq(registry.totalUpgrades(), 0);
         registry.recordUpgrade(proxy1, impl2, "Upgrade 1");
@@ -241,7 +244,7 @@ contract TokenRegistryTest is Test {
         
         // Verify new registrar can register
         vm.prank(newRegistrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
     }
     
     function testRevokeRegistrarRole() public {
@@ -252,7 +255,7 @@ contract TokenRegistryTest is Test {
         
         vm.prank(registrar);
         vm.expectRevert();
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
     }
     
     // ============ Upgradeability Tests ============
@@ -260,8 +263,10 @@ contract TokenRegistryTest is Test {
     function testUpgradeRegistry() public {
         TokenRegistry newImpl = new TokenRegistry();
         
-        vm.prank(admin);
+        vm.startPrank(admin);
+        registry.grantRole(registry.UPGRADER_ROLE(), admin);
         registry.upgradeToAndCall(address(newImpl), "");
+        vm.stopPrank();
         
         // State should be preserved
         assertEq(registry.totalTokens(), 0);
@@ -279,22 +284,20 @@ contract TokenRegistryTest is Test {
     
     function testGetTokensByChain() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, "Token 1", "TK1", 8453); // Base
-        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC20, "Token 2", "TK2", 1);     // Ethereum
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, "Token 1", "TK1");
+        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC20, "Token 2", "TK2");
         vm.stopPrank();
         
-        address[] memory baseTokens = registry.getTokensByChain(8453);
-        address[] memory ethTokens = registry.getTokensByChain(1);
+        address[] memory chainTokens = registry.getTokensByChain(block.chainid);
         
-        assertEq(baseTokens.length, 1);
-        assertEq(ethTokens.length, 1);
-        assertEq(baseTokens[0], proxy1);
-        assertEq(ethTokens[0], proxy2);
+        assertEq(chainTokens.length, 2);
+        assertEq(chainTokens[0], proxy1);
+        assertEq(chainTokens[1], proxy2);
     }
     
     function testIsTokenRegistered() public {
         vm.prank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         
         assertTrue(registry.isTokenRegistered(proxy1));
         assertFalse(registry.isTokenRegistered(address(999)));
@@ -304,35 +307,34 @@ contract TokenRegistryTest is Test {
     
     function testCannotRegisterSameTokenTwice() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         
-        vm.expectRevert("Token already registered");
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL, CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(TokenRegistry.TokenAlreadyRegistered.selector, proxy1));
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, TOKEN_NAME, TOKEN_SYMBOL);
         vm.stopPrank();
     }
     
     function testCannotRecordUpgradeForUnregisteredToken() public {
         vm.prank(registrar);
-        vm.expectRevert("Token not registered");
+        vm.expectRevert(abi.encodeWithSelector(TokenRegistry.TokenNotFound.selector, address(999)));
         registry.recordUpgrade(address(999), impl2, "Test");
     }
     
     function testCannotDeactivateUnregisteredToken() public {
-        vm.prank(registrar);
-        vm.expectRevert("Token not registered");
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(TokenRegistry.TokenNotFound.selector, address(999)));
         registry.deactivateToken(address(999), "Test");
     }
     
-    function testGetTokenInfoForUnregistered() public view {
-        (address proxy,,,,,,,, bool isActive) = registry.tokens(address(999));
-        assertEq(proxy, address(0));
-        assertFalse(isActive);
+    function testGetTokenInfoForUnregistered() public {
+        vm.expectRevert(abi.encodeWithSelector(TokenRegistry.TokenNotFound.selector, address(999)));
+        registry.getToken(address(999));
     }
     
     function testMultipleDeployersStatistics() public {
         vm.startPrank(registrar);
-        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, "Token 1", "TK1", CHAIN_ID);
-        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC20, "Token 2", "TK2", CHAIN_ID);
+        registry.registerToken(proxy1, impl1, deployer1, STANDARD_ERC20, "Token 1", "TK1");
+        registry.registerToken(proxy2, impl2, deployer2, STANDARD_ERC20, "Token 2", "TK2");
         vm.stopPrank();
         
         address[] memory deployer1Tokens = registry.getTokensByDeployer(deployer1);

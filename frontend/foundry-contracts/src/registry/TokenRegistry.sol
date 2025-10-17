@@ -383,6 +383,15 @@ contract TokenRegistry is
         return (count, active);
     }
     
+    /**
+     * @notice Check if a token is registered
+     * @param proxy Token proxy address
+     * @return True if token is registered
+     */
+    function isTokenRegistered(address proxy) external view returns (bool) {
+        return tokens[proxy].proxyAddress != address(0);
+    }
+    
     // ============ Utility Functions ============
     
     /**

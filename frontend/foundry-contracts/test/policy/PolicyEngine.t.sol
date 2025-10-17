@@ -58,7 +58,7 @@ contract PolicyEngineTest is Test {
     event ApprovalRequested(
         address indexed token,
         uint256 indexed requestId,
-        address indexed requester,
+        address requester,
         string operationType,
         uint256 amount
     );
@@ -66,7 +66,7 @@ contract PolicyEngineTest is Test {
     event ApprovalGranted(
         address indexed token,
         uint256 indexed requestId,
-        address indexed approver
+        address approver
     );
     
     function setUp() public {
@@ -212,21 +212,21 @@ contract PolicyEngineTest is Test {
     }
     
     function testValidateOperationExceedsDailyLimit() public {
-        // Create policy
+        // Create policy with no max amount limit (0 = unlimited), daily limit of 5000, no cooldown
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, 0, DAILY_LIMIT, 0);
         
-        // First operation succeeds
+        // First operation succeeds (3000 < 5000 daily limit)
         vm.prank(token);
-        policyEngine.validateOperation(token, operator, OPERATION_TRANSFER, 1000 * 10**18);
+        policyEngine.validateOperation(token, operator, OPERATION_TRANSFER, 3000 * 10**18);
         
-        // Second operation would exceed daily limit
+        // Second operation would exceed daily limit (3000 + 3000 = 6000 > 5000)
         vm.prank(token);
         (bool approved, string memory reason) = policyEngine.validateOperation(
             token,
             operator,
             OPERATION_TRANSFER,
-            4500 * 10**18
+            3000 * 10**18
         );
         
         assertFalse(approved);
@@ -296,7 +296,7 @@ contract PolicyEngineTest is Test {
         
         // Request approval
         vm.prank(operator);
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, true, false, true, address(policyEngine));
         emit ApprovalRequested(token, 0, operator, OPERATION_TRANSFER, 500 * 10**18);
         
         uint256 requestId = policyEngine.requestApproval(
@@ -309,13 +309,18 @@ contract PolicyEngineTest is Test {
         assertEq(requestId, 0);
         
         // Verify request
-        IPolicyEngine.ApprovalRequest memory request = policyEngine.getApprovalRequest(token, requestId);
-        assertEq(request.requester, operator);
-        assertEq(request.operationType, OPERATION_TRANSFER);
-        assertEq(request.amount, 500 * 10**18);
-        assertEq(request.target, target);
-        assertEq(request.approvals, 0);
-        assertFalse(request.executed);
+        (
+            address requester,
+            string memory operationType,
+            uint256 amount,
+            uint8 approvals,
+            bool executed
+        ) = policyEngine.getApprovalRequest(token, requestId);
+        assertEq(requester, operator);
+        assertEq(operationType, OPERATION_TRANSFER);
+        assertEq(amount, 500 * 10**18);
+        assertEq(approvals, 0);
+        assertFalse(executed);
     }
     
     function testApproveRequest() public {
@@ -330,13 +335,13 @@ contract PolicyEngineTest is Test {
         
         // First approval
         vm.prank(approver1);
-        vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, false, true, address(policyEngine));
         emit ApprovalGranted(token, requestId, approver1);
         policyEngine.approveRequest(token, requestId);
         
         // Verify approval count
-        IPolicyEngine.ApprovalRequest memory request = policyEngine.getApprovalRequest(token, requestId);
-        assertEq(request.approvals, 1);
+        (,, , uint8 approvals,) = policyEngine.getApprovalRequest(token, requestId);
+        assertEq(approvals, 1);
     }
     
     function testCannotApproveRequestTwice() public {
@@ -386,15 +391,15 @@ contract PolicyEngineTest is Test {
     // ============ Daily Limit Reset Tests ============
     
     function testDailyLimitResets() public {
-        // Create policy
+        // Create policy with no max amount limit (0 = unlimited), daily limit of 5000, no cooldown
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, 0);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, 0, DAILY_LIMIT, 0);
         
-        // Use some of daily limit
+        // Use some of daily limit (3000 < 5000)
         vm.prank(token);
         policyEngine.validateOperation(token, operator, OPERATION_TRANSFER, 3000 * 10**18);
         
-        // Try to use more - should fail
+        // Try to use more - should fail (3000 + 3000 = 6000 > 5000)
         vm.prank(token);
         (bool approved, ) = policyEngine.validateOperation(token, operator, OPERATION_TRANSFER, 3000 * 10**18);
         assertFalse(approved);

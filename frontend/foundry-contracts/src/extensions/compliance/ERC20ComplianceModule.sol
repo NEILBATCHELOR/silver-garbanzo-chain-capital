@@ -159,6 +159,10 @@ contract ERC20ComplianceModule is
         return _kycRequired;
     }
     
+    function isWhitelistRequired() external view returns (bool) {
+        return _whitelistRequired;
+    }
+    
     function hasVerifiedKYC(address investor) external view returns (bool) {
         return _investors[investor].kycVerified;
     }

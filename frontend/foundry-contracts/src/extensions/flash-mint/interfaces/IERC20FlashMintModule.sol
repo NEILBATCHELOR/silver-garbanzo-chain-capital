@@ -1,28 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/**
- * @title IERC3156FlashBorrower
- * @notice Interface for flash loan receivers (EIP-3156 standard)
- */
-interface IERC3156FlashBorrower {
-    /**
-     * @notice Callback for flash loans
-     * @param initiator Address that initiated the flash loan
-     * @param token Token being borrowed
-     * @param amount Amount borrowed
-     * @param fee Fee to repay
-     * @param data Additional data
-     * @return bytes32 keccak256("ERC3156FlashBorrower.onFlashLoan")
-     */
-    function onFlashLoan(
-        address initiator,
-        address token,
-        uint256 amount,
-        uint256 fee,
-        bytes calldata data
-    ) external returns (bytes32);
-}
+import "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 /**
  * @title IERC20FlashMintModule

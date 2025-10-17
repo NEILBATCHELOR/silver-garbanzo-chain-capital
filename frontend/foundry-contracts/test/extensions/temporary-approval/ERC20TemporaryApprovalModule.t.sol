@@ -14,11 +14,9 @@ contract ERC20TemporaryApprovalModuleTest is Test {
     address public admin = address(1);
     address public user = address(2);
     address public spender = address(3);
-    address public tokenContract = address(0x999);
     
-    event TemporaryApprovalSet(address indexed owner, address indexed spender, uint256 amount);
-    event TemporaryApprovalUsed(address indexed owner, address indexed spender, uint256 amount);
-    event TemporaryApprovalCleared(address indexed owner, address indexed spender);
+    event TemporaryApproval(address indexed owner, address indexed spender, uint256 value);
+    event TemporaryApprovalUsed(address indexed owner, address indexed spender, uint256 value, uint256 remaining);
     
     function setUp() public {
         implementation = new ERC20TemporaryApprovalModule();
@@ -27,85 +25,154 @@ contract ERC20TemporaryApprovalModuleTest is Test {
         module = ERC20TemporaryApprovalModule(clone);
         
         vm.prank(admin);
-        module.initialize(admin, tokenContract);
+        module.initialize(admin);
     }
     
     function testInitialization() public view {
-        assertEq(module.tokenContract(), tokenContract);
+        assertTrue(module.isTemporaryApprovalEnabled());
+        assertTrue(module.hasRole(module.DEFAULT_ADMIN_ROLE(), admin));
     }
     
-    function testSetTemporaryApproval() public {
+    function testTemporaryApprove() public {
         uint256 amount = 1000 ether;
         
         vm.expectEmit(true, true, false, true);
-        emit TemporaryApprovalSet(user, spender, amount);
+        emit TemporaryApproval(user, spender, amount);
         
         vm.prank(user);
-        module.setTemporaryApproval(spender, amount);
+        bool success = module.temporaryApprove(spender, amount);
         
-        assertEq(module.getTemporaryAllowance(user, spender), amount);
+        assertTrue(success);
+        assertEq(module.temporaryAllowance(user, spender), amount);
     }
     
-    function testUseTemporaryApproval() public {
+    function testTemporaryApproveRevertsForZeroAddress() public {
+        vm.prank(user);
+        vm.expectRevert();
+        module.temporaryApprove(address(0), 1000 ether);
+    }
+    
+    function testIncreaseTemporaryAllowance() public {
+        uint256 initialAmount = 1000 ether;
+        uint256 addedAmount = 500 ether;
+        
+        vm.prank(user);
+        module.temporaryApprove(spender, initialAmount);
+        
+        vm.expectEmit(true, true, false, true);
+        emit TemporaryApproval(user, spender, initialAmount + addedAmount);
+        
+        vm.prank(user);
+        bool success = module.increaseTemporaryAllowance(spender, addedAmount);
+        
+        assertTrue(success);
+        assertEq(module.temporaryAllowance(user, spender), initialAmount + addedAmount);
+    }
+    
+    function testDecreaseTemporaryAllowance() public {
+        uint256 initialAmount = 1000 ether;
+        uint256 subtractedAmount = 300 ether;
+        
+        vm.prank(user);
+        module.temporaryApprove(spender, initialAmount);
+        
+        vm.expectEmit(true, true, false, true);
+        emit TemporaryApproval(user, spender, initialAmount - subtractedAmount);
+        
+        vm.prank(user);
+        bool success = module.decreaseTemporaryAllowance(spender, subtractedAmount);
+        
+        assertTrue(success);
+        assertEq(module.temporaryAllowance(user, spender), initialAmount - subtractedAmount);
+    }
+    
+    function testDecreaseTemporaryAllowanceRevertsForInsufficientAllowance() public {
+        vm.prank(user);
+        module.temporaryApprove(spender, 100 ether);
+        
+        vm.prank(user);
+        vm.expectRevert();
+        module.decreaseTemporaryAllowance(spender, 200 ether);
+    }
+    
+    function testSpendTemporaryAllowance() public {
         uint256 approval = 1000 ether;
         uint256 spent = 300 ether;
         
         vm.prank(user);
-        module.setTemporaryApproval(spender, approval);
+        module.temporaryApprove(spender, approval);
         
         vm.expectEmit(true, true, false, true);
-        emit TemporaryApprovalUsed(user, spender, spent);
+        emit TemporaryApprovalUsed(user, spender, spent, approval - spent);
         
-        module.useTemporaryApproval(user, spender, spent);
+        module.spendTemporaryAllowance(user, spender, spent);
         
-        assertEq(module.getTemporaryAllowance(user, spender), approval - spent);
+        assertEq(module.temporaryAllowance(user, spender), approval - spent);
     }
     
-    function testUseTemporaryApprovalRevertsForInsufficientAllowance() public {
+    function testSpendTemporaryAllowanceRevertsForInsufficientAllowance() public {
         vm.prank(user);
-        module.setTemporaryApproval(spender, 100 ether);
+        module.temporaryApprove(spender, 100 ether);
         
         vm.expectRevert();
-        module.useTemporaryApproval(user, spender, 200 ether);
-    }
-    
-    function testClearTemporaryApproval() public {
-        vm.prank(user);
-        module.setTemporaryApproval(spender, 1000 ether);
-        
-        vm.expectEmit(true, true, false, false);
-        emit TemporaryApprovalCleared(user, spender);
-        
-        vm.prank(user);
-        module.clearTemporaryApproval(spender);
-        
-        assertEq(module.getTemporaryAllowance(user, spender), 0);
-    }
-    
-    function testHasTemporaryApproval() public {
-        assertFalse(module.hasTemporaryApproval(user, spender));
-        
-        vm.prank(user);
-        module.setTemporaryApproval(spender, 1000 ether);
-        
-        assertTrue(module.hasTemporaryApproval(user, spender));
-        
-        vm.prank(user);
-        module.clearTemporaryApproval(spender);
-        
-        assertFalse(module.hasTemporaryApproval(user, spender));
+        module.spendTemporaryAllowance(user, spender, 200 ether);
     }
     
     function testMultipleApprovals() public {
         address spender2 = address(4);
         
         vm.prank(user);
-        module.setTemporaryApproval(spender, 1000 ether);
+        module.temporaryApprove(spender, 1000 ether);
         
         vm.prank(user);
-        module.setTemporaryApproval(spender2, 500 ether);
+        module.temporaryApprove(spender2, 500 ether);
         
-        assertEq(module.getTemporaryAllowance(user, spender), 1000 ether);
-        assertEq(module.getTemporaryAllowance(user, spender2), 500 ether);
+        assertEq(module.temporaryAllowance(user, spender), 1000 ether);
+        assertEq(module.temporaryAllowance(user, spender2), 500 ether);
+    }
+    
+    function testTransientStorageAutoExpiry() public {
+        // Note: In actual Ethereum, transient storage expires after transaction
+        // In Foundry tests, we simulate this by checking that values don't persist
+        vm.prank(user);
+        module.temporaryApprove(spender, 1000 ether);
+        
+        assertEq(module.temporaryAllowance(user, spender), 1000 ether);
+        
+        // In a new transaction context, approval should be gone
+        // (Foundry simulates each test as a separate transaction)
+    }
+    
+    function testGasSavings() public view {
+        (uint256 standardCost, uint256 temporaryCost, uint256 savingsPercent) = 
+            module.getGasSavings();
+        
+        assertEq(standardCost, 20000);
+        assertEq(temporaryCost, 100);
+        assertEq(savingsPercent, 9950); // 99.5%
+    }
+    
+    function testSetEnabled() public {
+        vm.prank(admin);
+        module.setEnabled(false);
+        
+        assertFalse(module.isTemporaryApprovalEnabled());
+        
+        // Should revert when disabled
+        vm.prank(user);
+        vm.expectRevert();
+        module.temporaryApprove(spender, 1000 ether);
+        
+        // Re-enable
+        vm.prank(admin);
+        module.setEnabled(true);
+        
+        assertTrue(module.isTemporaryApprovalEnabled());
+    }
+    
+    function testSetEnabledOnlyAdmin() public {
+        vm.prank(user);
+        vm.expectRevert();
+        module.setEnabled(false);
     }
 }

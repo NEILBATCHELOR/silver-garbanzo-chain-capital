@@ -52,8 +52,8 @@ contract ERC20TimelockModuleTest is Test {
         uint256 lockId = module.createLock(amount, duration, reason);
         
         assertEq(lockId, 0);
-        assertEq(module.getTotalLocked(user), amount);
-        assertEq(module.getActiveLockCount(user), 1);
+        assertEq(module.getLockedBalance(user), amount);
+        assertEq(module.getActiveLocks(user).length, 1);
     }
     
     function testCreateMultipleLocks() public {
@@ -65,8 +65,8 @@ contract ERC20TimelockModuleTest is Test {
         
         assertEq(lock1, 0);
         assertEq(lock2, 1);
-        assertEq(module.getTotalLocked(user), 1500 ether);
-        assertEq(module.getActiveLockCount(user), 2);
+        assertEq(module.getLockedBalance(user), 1500 ether);
+        assertEq(module.getActiveLocks(user).length, 2);
     }
     
     function testCreateLockRevertsForZeroAmount() public {
@@ -94,8 +94,8 @@ contract ERC20TimelockModuleTest is Test {
         vm.prank(user);
         module.unlock(lockId);
         
-        assertEq(module.getTotalLocked(user), 0);
-        assertEq(module.getActiveLockCount(user), 0);
+        assertEq(module.getLockedBalance(user), 0);
+        assertEq(module.getActiveLocks(user).length, 0);
     }
     
     function testUnlockRevertsBeforeExpiry() public {

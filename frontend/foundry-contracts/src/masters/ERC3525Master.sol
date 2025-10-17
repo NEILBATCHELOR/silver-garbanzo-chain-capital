@@ -311,7 +311,8 @@ contract ERC3525Master is
         fromToken.value -= value;
         toToken.value += value;
         
-        if (_valueApprovals[fromTokenId][msg.sender] != type(uint256).max) {
+        // Only decrease approval if caller is not the owner
+        if (msg.sender != fromOwner && _valueApprovals[fromTokenId][msg.sender] != type(uint256).max) {
             _valueApprovals[fromTokenId][msg.sender] -= value;
         }
         

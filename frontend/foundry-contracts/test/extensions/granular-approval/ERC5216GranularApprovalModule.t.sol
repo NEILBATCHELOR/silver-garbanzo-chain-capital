@@ -2,10 +2,12 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC5216GranularApprovalModule} from "src/extensions/granular-approval/ERC5216GranularApprovalModule.sol";
 import {ERC1155Master} from "src/masters/ERC1155Master.sol";
 
 contract ERC5216GranularApprovalModuleTest is Test {
+    ERC5216GranularApprovalModule public implementation;
     ERC5216GranularApprovalModule public module;
     ERC1155Master public token;
     
@@ -39,11 +41,25 @@ contract ERC5216GranularApprovalModuleTest is Test {
         
         // Deploy ERC1155 token
         token = new ERC1155Master();
-        token.initialize(owner, "https://api.example.com/token/{id}.json");
+        token.initialize(
+            "Test Token",                                    // name
+            "TEST",                                          // symbol
+            "https://api.example.com/token/{id}.json",      // uri
+            owner                                            // owner
+        );
         
-        // Deploy and initialize module
-        module = new ERC5216GranularApprovalModule();
-        module.initialize(address(token), owner);
+        // Deploy implementation
+        implementation = new ERC5216GranularApprovalModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC5216GranularApprovalModule.initialize.selector,
+            address(token),
+            owner
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = ERC5216GranularApprovalModule(address(proxy));
         
         // Grant roles
         module.grantRole(module.UPGRADER_ROLE(), admin);

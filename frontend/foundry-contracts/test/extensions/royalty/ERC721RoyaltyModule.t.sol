@@ -30,15 +30,19 @@ contract ERC721RoyaltyModuleTest is Test {
         module = ERC721RoyaltyModule(clone);
         
         vm.prank(admin);
-        module.initialize(admin, nftContract, creator, DEFAULT_ROYALTY_BP);
+        module.initialize(admin, creator, DEFAULT_ROYALTY_BP);
         
         vm.prank(admin);
         module.grantRole(ROYALTY_MANAGER_ROLE, royaltyManager);
     }
     
     function testInitialization() public view {
-        assertEq(module.nftContract(), nftContract);
         assertTrue(module.hasRole(ROYALTY_MANAGER_ROLE, royaltyManager));
+        
+        // Verify default royalty was set
+        (address defaultReceiver, uint96 defaultFee) = module.getDefaultRoyalty();
+        assertEq(defaultReceiver, creator);
+        assertEq(defaultFee, DEFAULT_ROYALTY_BP);
     }
     
     function testDefaultRoyaltyInfo() public view {
@@ -90,7 +94,7 @@ contract ERC721RoyaltyModuleTest is Test {
         module.setTokenRoyalty(tokenId, creator, 1000);
         
         vm.prank(royaltyManager);
-        module.resetTokenRoyalty(tokenId);
+        module.deleteTokenRoyalty(tokenId);
         
         // Should fall back to default
         uint256 salePrice = 1 ether;

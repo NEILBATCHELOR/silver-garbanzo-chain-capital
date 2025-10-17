@@ -2,12 +2,14 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC1363PayableToken} from "src/extensions/payable/ERC1363PayableToken.sol";
 import {IERC1363Receiver} from "src/extensions/payable/interfaces/IERC1363Receiver.sol";
 import {IERC1363Spender} from "src/extensions/payable/interfaces/IERC1363Spender.sol";
 import {ERC20Master} from "src/masters/ERC20Master.sol";
 
 contract ERC1363PayableTokenTest is Test {
+    ERC1363PayableToken public implementation;
     ERC1363PayableToken public module;
     ERC20Master public token;
     
@@ -35,11 +37,21 @@ contract ERC1363PayableTokenTest is Test {
         
         // Deploy ERC20 token
         token = new ERC20Master();
-        token.initialize(owner, "Test Token", "TEST", INITIAL_SUPPLY);
+        token.initialize("Test Token", "TEST", INITIAL_SUPPLY, INITIAL_SUPPLY, owner);
         
-        // Deploy and initialize module
-        module = new ERC1363PayableToken();
-        module.initialize(owner, address(token), CALLBACK_GAS_LIMIT);
+        // Deploy implementation
+        implementation = new ERC1363PayableToken();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC1363PayableToken.initialize.selector,
+            owner,
+            address(token),
+            CALLBACK_GAS_LIMIT
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        module = ERC1363PayableToken(address(proxy));
         
         // Grant roles
         module.grantRole(module.WHITELIST_MANAGER_ROLE(), admin);

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../../src/extensions/votes/ERC20VotesModule.sol";
 import "../../../src/extensions/votes/interfaces/IERC20VotesModule.sol";
 
@@ -12,6 +13,7 @@ import "../../../src/extensions/votes/interfaces/IERC20VotesModule.sol";
  */
 contract ERC20VotesModuleTest is Test {
     
+    ERC20VotesModule public implementation;
     ERC20VotesModule public votesModule;
     
     address public admin = makeAddr("admin");
@@ -33,11 +35,22 @@ contract ERC20VotesModuleTest is Test {
     function setUp() public {
         delegatorAddress = vm.addr(delegatorPrivateKey);
         
-        vm.startPrank(admin);
-        votesModule = new ERC20VotesModule();
-        votesModule.initialize(admin, "Test Token");
+        // Deploy implementation
+        implementation = new ERC20VotesModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC20VotesModule.initialize.selector,
+            admin,
+            "Test Token"
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        votesModule = ERC20VotesModule(address(proxy));
+        
+        // Grant roles
+        vm.prank(admin);
         votesModule.grantRole(GOVERNANCE_ROLE, governance);
-        vm.stopPrank();
     }
     
     // ============ Initialization Tests ============
@@ -257,7 +270,7 @@ contract ERC20VotesModuleTest is Test {
     
     function test_UpdateVotingPowerTransfer() public {
         vm.prank(governance);
-        votesModule.updateVotingPower(user1, user1 + 1, 500);
+        votesModule.updateVotingPower(user1, delegatee1, 500);
         
         // This test verifies the transfer logic executes without error
     }

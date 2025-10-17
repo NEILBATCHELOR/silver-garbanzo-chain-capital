@@ -45,13 +45,13 @@ contract ERC721RentalModule is
     /**
      * @notice Initialize rental module
      * @param admin Admin address
-     * @param feeRecipient Platform fee recipient
-     * @param platformFeeBps Platform fee in basis points (250 = 2.5%)
+     * @param recipient Platform fee recipient
+     * @param feeBps Platform fee in basis points (250 = 2.5%)
      */
     function initialize(
         address admin,
-        address feeRecipient,
-        uint256 platformFeeBps
+        address recipient,
+        uint256 feeBps
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -61,8 +61,8 @@ contract ERC721RentalModule is
         _grantRole(RENTAL_MANAGER_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         
-        _feeRecipient = feeRecipient;
-        _platformFeeBps = platformFeeBps;
+        _feeRecipient = recipient;
+        _platformFeeBps = feeBps;
     }
     
     // ============ Rental Management ============
@@ -104,7 +104,7 @@ contract ERC721RentalModule is
         // Calculate costs
         uint256 numDays = (duration + SECONDS_PER_DAY - 1) / SECONDS_PER_DAY; // Round up
         uint256 totalPrice = listing.pricePerDay * numDays;
-        uint256 platformFee = (totalPrice * _platformFeeBps) / BASIS_POINTS;
+        uint256 feeAmount = (totalPrice * _platformFeeBps) / BASIS_POINTS;
         uint256 deposit = totalPrice / 10; // 10% security deposit
         
         if (msg.value < totalPrice + deposit) revert InsufficientPayment();
@@ -120,7 +120,7 @@ contract ERC721RentalModule is
         });
         
         // Pay platform fee and owner
-        payable(_feeRecipient).transfer(platformFee);
+        payable(_feeRecipient).transfer(feeAmount);
         // Owner payment should be handled by NFT contract
         
         emit RentalStarted(tokenId, msg.sender, duration, totalPrice);
@@ -201,6 +201,14 @@ contract ERC721RentalModule is
     
     function setFeeRecipient(address recipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _feeRecipient = recipient;
+    }
+    
+    function feeRecipient() external view returns (address) {
+        return _feeRecipient;
+    }
+    
+    function platformFee() external view returns (uint256) {
+        return _platformFeeBps;
     }
     
     // ============ UUPS Upgrade ============

@@ -17,16 +17,26 @@ contract ERC20VestingModuleTest is Test {
     
     uint256 public constant VESTING_AMOUNT = 1000 ether;
     uint256 public constant VESTING_DURATION = 365 days;
+    string public constant CATEGORY = "employee";
     
     event VestingScheduleCreated(
+        bytes32 indexed scheduleId,
         address indexed beneficiary,
         uint256 amount,
         uint256 startTime,
-        uint256 duration,
-        uint256 cliffDuration
+        uint256 cliffDuration,
+        uint256 vestingDuration
     );
-    event TokensClaimed(address indexed beneficiary, uint256 amount);
-    event VestingRevoked(address indexed beneficiary, uint256 unvestedAmount);
+    event TokensReleased(
+        bytes32 indexed scheduleId,
+        address indexed beneficiary,
+        uint256 amount
+    );
+    event VestingRevoked(
+        bytes32 indexed scheduleId,
+        address indexed beneficiary,
+        uint256 unvestedAmount
+    );
     
     function setUp() public {
         // Deploy implementation
@@ -45,19 +55,25 @@ contract ERC20VestingModuleTest is Test {
         uint256 cliffDuration = 90 days;
         
         vm.prank(admin);
-        vm.expectEmit(true, false, false, true);
-        emit VestingScheduleCreated(beneficiary, VESTING_AMOUNT, startTime, VESTING_DURATION, cliffDuration);
-        module.createVestingSchedule(beneficiary, VESTING_AMOUNT, startTime, VESTING_DURATION, cliffDuration, false);
+        bytes32 scheduleId = module.createVestingSchedule(
+            beneficiary, 
+            VESTING_AMOUNT, 
+            startTime, 
+            cliffDuration, 
+            VESTING_DURATION, 
+            false,
+            CATEGORY
+        );
         
-        (uint256 amount, uint256 start, uint256 duration, uint256 cliff, uint256 claimed, bool revoked) = 
-            module.vestingSchedules(beneficiary);
+        IERC20VestingModule.VestingSchedule memory schedule = module.getVestingSchedule(scheduleId);
         
-        assertEq(amount, VESTING_AMOUNT, "Vesting amount should match");
-        assertEq(start, startTime, "Start time should match");
-        assertEq(duration, VESTING_DURATION, "Duration should match");
-        assertEq(cliff, cliffDuration, "Cliff should match");
-        assertEq(claimed, 0, "Claimed should be zero");
-        assertFalse(revoked, "Should not be revoked");
+        assertEq(schedule.beneficiary, beneficiary, "Beneficiary should match");
+        assertEq(schedule.totalAmount, VESTING_AMOUNT, "Vesting amount should match");
+        assertEq(schedule.startTime, startTime, "Start time should match");
+        assertEq(schedule.vestingDuration, VESTING_DURATION, "Duration should match");
+        assertEq(schedule.cliffDuration, cliffDuration, "Cliff should match");
+        assertEq(schedule.released, 0, "Released should be zero");
+        assertFalse(schedule.revoked, "Should not be revoked");
     }
     
     function testClaimVestedTokensAfterCliff() public {
@@ -65,21 +81,27 @@ contract ERC20VestingModuleTest is Test {
         uint256 cliffDuration = 90 days;
         
         vm.prank(admin);
-        module.createVestingSchedule(beneficiary, VESTING_AMOUNT, startTime, VESTING_DURATION, cliffDuration, false);
+        bytes32 scheduleId = module.createVestingSchedule(
+            beneficiary, 
+            VESTING_AMOUNT, 
+            startTime, 
+            cliffDuration, 
+            VESTING_DURATION, 
+            false,
+            CATEGORY
+        );
         
         // Fast forward past cliff
         vm.warp(startTime + cliffDuration + 1 days);
         
-        uint256 vestedAmount = module.getVestedAmount(beneficiary);
-        assertTrue(vestedAmount > 0, "Should have vested tokens after cliff");
+        uint256 releasableAmount = module.getReleaseableAmount(scheduleId);
+        assertTrue(releasableAmount > 0, "Should have releaseable tokens after cliff");
         
         vm.prank(beneficiary);
-        vm.expectEmit(true, false, false, true);
-        emit TokensClaimed(beneficiary, vestedAmount);
-        module.claim();
+        uint256 released = module.release(scheduleId);
         
-        (,,,, uint256 claimed,) = module.vestingSchedules(beneficiary);
-        assertEq(claimed, vestedAmount, "Claimed amount should match vested amount");
+        assertTrue(released > 0, "Should have released tokens");
+        assertEq(released, releasableAmount, "Released amount should match releaseable amount");
     }
     
     function testCannotClaimBeforeCliff() public {
@@ -87,11 +109,21 @@ contract ERC20VestingModuleTest is Test {
         uint256 cliffDuration = 90 days;
         
         vm.prank(admin);
-        module.createVestingSchedule(beneficiary, VESTING_AMOUNT, startTime, VESTING_DURATION, cliffDuration, false);
+        bytes32 scheduleId = module.createVestingSchedule(
+            beneficiary, 
+            VESTING_AMOUNT, 
+            startTime, 
+            cliffDuration, 
+            VESTING_DURATION, 
+            false,
+            CATEGORY
+        );
         
-        // Try to claim before cliff
-        vm.prank(beneficiary);
-        uint256 vestedAmount = module.getVestedAmount(beneficiary);
+        // Check vested amount before cliff
+        uint256 vestedAmount = module.getVestedAmount(scheduleId);
         assertEq(vestedAmount, 0, "Should have no vested tokens before cliff");
+        
+        uint256 releasableAmount = module.getReleaseableAmount(scheduleId);
+        assertEq(releasableAmount, 0, "Should have no releaseable tokens before cliff");
     }
 }

@@ -46,7 +46,6 @@ contract DeployToHoodi is Script {
         address policyRegistry;
         address tokenRegistry;
         address upgradeGovernor;
-        address l2GasOptimizer;
         
         // Master Contracts
         address erc20Master;
@@ -96,16 +95,9 @@ contract DeployToHoodi is Script {
         console.log("Phase 1: Deploying Core Infrastructure...");
         deployInfrastructure(deployer);
         
-        // Phase 2: Master Contracts
-        console.log("\nPhase 2: Deploying Master Contracts...");
-        deployMasters();
-        
-        // Phase 3: Beacons
-        console.log("\nPhase 3: Deploying Beacons...");
-        deployBeacons(deployer);
-        
-        // Phase 4: Token Factory
-        console.log("\nPhase 4: Deploying Token Factory...");
+        // Phase 2: Token Factory (deploys all masters and beacons internally)
+        console.log("\nPhase 2: Deploying Token Factory...");
+        console.log("  (TokenFactory will deploy all masters and beacons internally)");
         deployFactory(deployer);
         
         vm.stopBroadcast();
@@ -137,15 +129,18 @@ contract DeployToHoodi is Script {
         console.log("  TokenRegistry:", address(tokenRegistry));
         
         // Deploy UpgradeGovernor
-        UpgradeGovernor upgradeGovernor = new UpgradeGovernor();
+        address[] memory upgraders = new address[](1);
+        upgraders[0] = deployer;
+        UpgradeGovernor upgradeGovernor = new UpgradeGovernor(
+            upgraders,
+            1, // requiredApprovals: 1 for single deployer
+            0  // timeLockDuration: 0 (no timelock)
+        );
         deployed.upgradeGovernor = address(upgradeGovernor);
-        upgradeGovernor.initialize(deployer);
         console.log("  UpgradeGovernor:", address(upgradeGovernor));
         
-        // Deploy L2GasOptimizer
-        L2GasOptimizer l2GasOptimizer = new L2GasOptimizer();
-        deployed.l2GasOptimizer = address(l2GasOptimizer);
-        console.log("  L2GasOptimizer:", address(l2GasOptimizer));
+        // Note: L2GasOptimizer is a library, not deployed
+        console.log("  L2GasOptimizer: Library (not deployed)");
     }
     
     function deployMasters() internal {
@@ -224,23 +219,18 @@ contract DeployToHoodi is Script {
     
     function deployFactory(address deployer) internal {
         TokenFactory factory = new TokenFactory(
-            deployed.erc20Master,
-            deployed.erc721Master,
-            deployed.erc1155Master,
-            deployed.erc3525Master,
-            deployed.erc4626Master,
-            deployed.erc1400Master,
-            deployed.erc20RebasingMaster,
             deployed.policyEngine,
             deployed.policyRegistry,
             deployed.tokenRegistry,
             deployed.upgradeGovernor,
-            deployed.l2GasOptimizer,
-            deployer
+            address(0) // L2GasOptimizer is a library, pass address(0)
         );
         
         deployed.tokenFactory = address(factory);
         console.log("  TokenFactory:", address(factory));
+        
+        // Note: TokenFactory deploys all masters internally
+        console.log("  (All master contracts deployed internally by TokenFactory)");
     }
     
     function saveDeployment() internal {
@@ -251,7 +241,6 @@ contract DeployToHoodi is Script {
         vm.serializeAddress(json, "policyRegistry", deployed.policyRegistry);
         vm.serializeAddress(json, "tokenRegistry", deployed.tokenRegistry);
         vm.serializeAddress(json, "upgradeGovernor", deployed.upgradeGovernor);
-        vm.serializeAddress(json, "l2GasOptimizer", deployed.l2GasOptimizer);
         
         // Masters
         vm.serializeAddress(json, "erc20Master", deployed.erc20Master);
@@ -275,7 +264,7 @@ contract DeployToHoodi is Script {
         string memory finalJson = vm.serializeAddress(json, "tokenFactory", deployed.tokenFactory);
         
         vm.writeJson(finalJson, "./deployments/hoodi-latest.json");
-        console.log("\n✅ Deployment addresses saved to: deployments/hoodi-latest.json");
+        console.log("\n[SUCCESS] Deployment addresses saved to: deployments/hoodi-latest.json");
     }
     
     function printSummary() internal view {

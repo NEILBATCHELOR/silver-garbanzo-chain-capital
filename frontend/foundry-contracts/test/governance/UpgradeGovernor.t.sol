@@ -60,6 +60,9 @@ contract UpgradeGovernorTest is Test {
         upgraders[2] = upgrader3;
         
         governor = new UpgradeGovernor(upgraders, REQUIRED_APPROVALS, TIMELOCK_DURATION);
+        
+        // Grant DEFAULT_ADMIN_ROLE to admin for role management
+        governor.grantRole(governor.DEFAULT_ADMIN_ROLE(), admin);
     }
     
     // ============ Initialization Tests ============
@@ -103,8 +106,8 @@ contract UpgradeGovernorTest is Test {
             "Test"
         );
         
-        (,,, uint256 approvals,,,,) = governor.getProposal(proposalId);
-        assertEq(approvals, 1);
+        UpgradeGovernor.UpgradeProposal memory proposal = governor.getProposal(proposalId);
+        assertEq(proposal.approvals, 1);
         assertTrue(governor.hasApprovedProposal(proposalId, upgrader1));
     }
     
@@ -126,8 +129,8 @@ contract UpgradeGovernorTest is Test {
         
         governor.approveProposal(proposalId);
         
-        (,,, uint256 approvals,,,,) = governor.getProposal(proposalId);
-        assertEq(approvals, 2);
+        UpgradeGovernor.UpgradeProposal memory proposal = governor.getProposal(proposalId);
+        assertEq(proposal.approvals, 2);
     }
     
     function testCannotApproveTwice() public {
@@ -166,8 +169,8 @@ contract UpgradeGovernorTest is Test {
         vm.prank(upgrader1);
         governor.executeProposal(proposalId);
         
-        (,,,,,, bool executed,) = governor.getProposal(proposalId);
-        assertTrue(executed);
+        UpgradeGovernor.UpgradeProposal memory proposal = governor.getProposal(proposalId);
+        assertTrue(proposal.executed);
     }
     
     function testCannotExecuteWithoutEnoughApprovals() public {
@@ -202,8 +205,8 @@ contract UpgradeGovernorTest is Test {
         vm.prank(admin);
         governor.cancelProposal(proposalId);
         
-        (,,,,,, bool executed,) = governor.getProposal(proposalId);
-        assertTrue(executed); // Cancelled proposals marked as executed
+        UpgradeGovernor.UpgradeProposal memory proposal = governor.getProposal(proposalId);
+        assertTrue(proposal.executed); // Cancelled proposals marked as executed
     }
     
     function testOnlyAdminCanCancel() public {
@@ -272,24 +275,15 @@ contract UpgradeGovernorTest is Test {
             "Test upgrade"
         );
         
-        (
-            address target,
-            address newImplementation,
-            bytes memory data,
-            uint256 approvals,
-            uint256 proposedAt,
-            ,
-            bool executed,
-            string memory description
-        ) = governor.getProposal(proposalId);
+        UpgradeGovernor.UpgradeProposal memory proposal = governor.getProposal(proposalId);
         
-        assertEq(target, address(token));
-        assertEq(newImplementation, address(newImpl));
-        assertEq(data.length, 0);
-        assertEq(approvals, 1);
-        assertTrue(proposedAt > 0);
-        assertFalse(executed);
-        assertEq(description, "Test upgrade");
+        assertEq(proposal.target, address(token));
+        assertEq(proposal.newImplementation, address(newImpl));
+        assertEq(proposal.data.length, 0);
+        assertEq(proposal.approvals, 1);
+        assertTrue(proposal.proposedAt > 0);
+        assertFalse(proposal.executed);
+        assertEq(proposal.description, "Test upgrade");
     }
     
     // ============ Multiple Proposal Tests ============

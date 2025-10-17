@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../../src/extensions/erc3525/ERC3525ValueExchangeModule.sol";
 import "../../../src/extensions/erc3525/interfaces/IERC3525ValueExchangeModule.sol";
 
@@ -12,6 +13,7 @@ import "../../../src/extensions/erc3525/interfaces/IERC3525ValueExchangeModule.s
  */
 contract ERC3525ValueExchangeModuleTest is Test {
     
+    ERC3525ValueExchangeModule public implementation;
     ERC3525ValueExchangeModule public exchangeModule;
     MockERC3525Token public tokenContract;
     
@@ -39,9 +41,18 @@ contract ERC3525ValueExchangeModuleTest is Test {
         // Deploy mock token
         tokenContract = new MockERC3525Token();
         
-        // Deploy exchange module
-        exchangeModule = new ERC3525ValueExchangeModule();
-        exchangeModule.initialize(admin, address(tokenContract));
+        // Deploy implementation
+        implementation = new ERC3525ValueExchangeModule();
+        
+        // Deploy proxy and initialize
+        bytes memory initData = abi.encodeWithSelector(
+            ERC3525ValueExchangeModule.initialize.selector,
+            admin,
+            address(tokenContract)
+        );
+        
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        exchangeModule = ERC3525ValueExchangeModule(address(proxy));
         
         // Setup roles
         vm.prank(admin);
