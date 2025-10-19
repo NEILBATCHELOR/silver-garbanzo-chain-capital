@@ -68,13 +68,14 @@ export function RoleCreationForm({
       const roleAddress = await roleAddressService.generateRoleAddress({
         roleId: tempRoleId,
         blockchain,
+        // contractRoles undefined = inherit all roles from role_contracts
         signingMethod: 'private_key'
       });
 
       setGeneratedAddress(roleAddress.address);
       
-      // Get private key for display (one-time)
-      const pk = await roleAddressService.getRolePrivateKey(tempRoleId, blockchain);
+      // Get private key for display (one-time) - use address ID not role ID
+      const pk = await roleAddressService.getRolePrivateKey(roleAddress.id);
       if (pk) {
         setPrivateKey(pk);
       }
@@ -138,6 +139,7 @@ export function RoleCreationForm({
         await roleAddressService.generateRoleAddress({
           roleId: roleData.id,
           blockchain,
+          // contractRoles undefined = inherit all roles from role_contracts
           signingMethod: 'private_key',
           existingAddress: generatedAddress,
           existingPrivateKey: privateKey

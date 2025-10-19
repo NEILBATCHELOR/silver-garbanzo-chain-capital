@@ -11,12 +11,14 @@ import {
   setRoleContracts,
 } from "@/services/user/contractRoles";
 import { roleAddressService } from "@/services/wallet/multiSig/RoleAddressService";
+import { getEVMBlockchains } from "@/utils/blockchain/blockchainOptions";
 
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -46,7 +48,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Key, Info } from "lucide-react";
+import { Key, Info, Shield, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -66,7 +69,7 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedContractRoles, setSelectedContractRoles] = useState<ContractRoleType[]>([]);
   
-  // NEW: Blockchain address generation state
+  // Blockchain address generation state
   const [generateAddress, setGenerateAddress] = useState(false);
   const [selectedBlockchain, setSelectedBlockchain] = useState<string>('ethereum');
   const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
@@ -131,7 +134,7 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
         }
       }
 
-      // NEW: Generate blockchain address if requested
+      // Generate blockchain address if requested
       if (generateAddress && selectedBlockchain && newRole) {
         try {
           setIsGeneratingAddress(true);
@@ -139,6 +142,7 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
           await roleAddressService.generateRoleAddress({
             roleId: newRole.id,
             blockchain: selectedBlockchain,
+            contractRoles: selectedContractRoles.length > 0 ? selectedContractRoles : undefined, // Pass selected contract roles
             signingMethod: 'private_key'
           });
 
@@ -188,74 +192,99 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Role</DialogTitle>
+          <DialogDescription>
+            Create a new role with smart contract permissions and optional blockchain address
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Project Manager" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Basic Information</h3>
+              
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Treasury Manager" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe the role's responsibilities"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe the role's responsibilities"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="1-10 (higher = more authority)"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Smart Contract Roles</Label>
+            {/* Smart Contract Permissions */}
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <Label className="text-lg font-semibold">Smart Contract Permissions</Label>
+              </div>
               <p className="text-sm text-muted-foreground">
-                Select which smart contract roles should be assigned to this role
+                Select which smart contract roles this role can execute. These permissions will apply to all blockchain addresses generated for this role.
               </p>
+
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Tip:</strong> You can grant these permissions to actual smart contracts after creating the role and generating blockchain addresses.
+                </AlertDescription>
+              </Alert>
 
               <Accordion type="multiple" className="w-full">
                 {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
                   <AccordionItem key={category} value={category}>
                     <AccordionTrigger className="text-sm font-medium">
                       {category}
+                      {selectedContractRoles.some(r => roles.includes(r)) && (
+                        <Badge variant="secondary" className="ml-2">
+                          {selectedContractRoles.filter(r => roles.includes(r)).length}
+                        </Badge>
+                      )}
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-2 pl-2">
@@ -284,21 +313,42 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
                   </AccordionItem>
                 ))}
               </Accordion>
+
+              {selectedContractRoles.length > 0 && (
+                <div className="p-3 bg-primary/5 rounded-md border border-primary/20 mt-3">
+                  <p className="text-sm font-medium mb-2">Selected Permissions ({selectedContractRoles.length}):</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedContractRoles.map(role => (
+                      <Badge key={role} variant="secondary" className="text-xs">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* NEW: Blockchain Address Generation Section */}
-            <div className="space-y-3 pt-4 border-t">
+            {/* Blockchain Address Generation */}
+            <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold flex items-center">
-                  <Key className="mr-2 h-4 w-4" />
-                  Blockchain Address
-                </Label>
-                <span className="text-xs text-muted-foreground">Optional</span>
+                <div className="flex items-center gap-2">
+                  <Key className="h-5 w-5 text-primary" />
+                  <Label className="text-lg font-semibold">Blockchain Address</Label>
+                </div>
+                <Badge variant="outline" className="text-xs">Optional</Badge>
               </div>
               
-              <p className="text-sm text-muted-foreground">
-                Generate a blockchain address for this role to enable multi-sig wallet ownership and transaction signing
-              </p>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  <strong>Generate a blockchain address</strong> to enable this role to:
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-xs">
+                    <li>Sign transactions with the selected smart contract permissions</li>
+                    <li>Own and manage multi-sig wallets</li>
+                    <li>Execute on-chain operations</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -316,7 +366,7 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
               </div>
 
               {generateAddress && (
-                <div className="space-y-3 pl-6">
+                <div className="space-y-4 p-4 border rounded-md bg-muted/20">
                   <div className="space-y-2">
                     <Label htmlFor="blockchain">Blockchain Network</Label>
                     <Select 
@@ -328,21 +378,33 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
                         <SelectValue placeholder="Select blockchain" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ethereum">Ethereum Mainnet</SelectItem>
-                        <SelectItem value="holesky">Holesky (Testnet)</SelectItem>
-                        <SelectItem value="polygon">Polygon</SelectItem>
-                        <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                        <SelectItem value="optimism">Optimism</SelectItem>
-                        <SelectItem value="base">Base</SelectItem>
+                        {getEVMBlockchains().map((chain) => (
+                          <SelectItem key={chain.value} value={chain.value}>
+                            {chain.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
+                  {selectedContractRoles.length > 0 && (
+                    <div className="p-3 bg-background rounded border">
+                      <p className="text-xs font-medium mb-2">This address will inherit these permissions:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedContractRoles.map(role => (
+                          <Badge key={role} variant="outline" className="text-xs">
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
-                      <strong>Note:</strong> A unique blockchain address will be generated and securely encrypted. 
-                      The private key will be stored in the KeyVault for signing transactions.
+                      <strong>Security:</strong> A unique blockchain address will be generated and the private key will be encrypted and stored securely in the KeyVault. 
+                      You can add more addresses for different blockchains later.
                     </AlertDescription>
                   </Alert>
                 </div>

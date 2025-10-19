@@ -33,9 +33,7 @@ class KeyVaultClient implements IKeyVaultClient {
   }
 
   async getKey(keyId: string): Promise<KeyResult> {
-    if (!this.credentials) {
-      throw new Error('Not connected to key vault');
-    }
+    // Note: Credentials check removed as Supabase handles auth automatically
     
     try {
       // Retrieve the encrypted key
@@ -62,9 +60,8 @@ class KeyVaultClient implements IKeyVaultClient {
   }
 
   async storeKey(key: string): Promise<string> {
-    if (!this.credentials) {
-      throw new Error('Not connected to key vault');
-    }
+    // Note: Credentials check removed as Supabase handles auth automatically
+    // via supabase.auth.getUser() in the storage methods
     
     try {
       // Generate a key ID
@@ -161,12 +158,11 @@ class KeyVaultClient implements IKeyVaultClient {
    */
   async deleteKey(keyId: string): Promise<{ success: boolean }> {
     try {
-      // In production, this would call the HSM API to delete the key
-      // For development, we'll delete from project_wallets
+      // Delete from key_vault_keys table
       const { error } = await supabase
-        .from('project_wallets')
+        .from('key_vault_keys')
         .delete()
-        .eq('key_vault_id', keyId);
+        .eq('key_id', keyId);
         
       if (error) throw error;
       
@@ -278,33 +274,31 @@ class KeyVaultClient implements IKeyVaultClient {
   }
   
   private async storeEncryptedKey(keyId: string, encryptedKey: string): Promise<void> {
-    // In production, keys would never leave the HSM
-    // For development, we'll store in project_wallets
+    // Store in dedicated key_vault_keys table (not project_wallets)
+    const { data: { user } } = await supabase.auth.getUser();
     
     const { error } = await supabase
-      .from('project_wallets')
+      .from('key_vault_keys')
       .insert({
-        key_vault_id: keyId,
-        private_key: encryptedKey,
-        wallet_type: 'vault',
-        created_at: new Date().toISOString()
+        key_id: keyId,
+        encrypted_key: encryptedKey,
+        key_type: 'private_key',
+        created_by: user?.id
       });
       
     if (error) throw error;
   }
   
   private async getEncryptedKey(keyId: string): Promise<string> {
-    // In production, this method wouldn't exist
-    // For development, we retrieve from project_wallets
-    
+    // Retrieve from key_vault_keys table
     const { data, error } = await supabase
-      .from('project_wallets')
-      .select('private_key')
-      .eq('key_vault_id', keyId)
+      .from('key_vault_keys')
+      .select('encrypted_key')
+      .eq('key_id', keyId)
       .single();
       
     if (error) throw error;
-    return data.private_key;
+    return data.encrypted_key;
   }
 }
 

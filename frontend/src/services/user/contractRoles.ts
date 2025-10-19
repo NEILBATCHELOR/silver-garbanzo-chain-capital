@@ -45,46 +45,46 @@ export const CONTRACT_ROLES = {
 export type ContractRoleType = typeof CONTRACT_ROLES[keyof typeof CONTRACT_ROLES];
 
 // Contract role categories for UI organization
-export const CONTRACT_ROLE_CATEGORIES = {
+export const CONTRACT_ROLE_CATEGORIES: Record<string, readonly ContractRoleType[]> = {
   'Master Administrator': [
     CONTRACT_ROLES.DEFAULT_ADMIN_ROLE,
     CONTRACT_ROLES.OWNER_ROLE,
-  ],
+  ] as const,
   'Upgrade & Governance': [
     CONTRACT_ROLES.UPGRADER_ROLE,
     CONTRACT_ROLES.PROPOSER_ROLE,
     CONTRACT_ROLES.APPROVER_ROLE,
     CONTRACT_ROLES.EXECUTOR_ROLE,
-  ],
+  ] as const,
   Compliance: [
     CONTRACT_ROLES.COMPLIANCE_OFFICER_ROLE,
     CONTRACT_ROLES.CONTROLLER_ROLE,
-  ],
+  ] as const,
   'Policy & Registry': [
     CONTRACT_ROLES.POLICY_ADMIN_ROLE,
     CONTRACT_ROLES.REGISTRY_ADMIN_ROLE,
     CONTRACT_ROLES.REGISTRAR_ROLE,
-  ],
+  ] as const,
   'Asset Management': [
     CONTRACT_ROLES.VAULT_MANAGER_ROLE,
     CONTRACT_ROLES.REBALANCER_ROLE,
     CONTRACT_ROLES.STRATEGY_MANAGER_ROLE,
-  ],
+  ] as const,
   Operations: [
     CONTRACT_ROLES.MINTER_ROLE,
     CONTRACT_ROLES.PAUSER_ROLE,
     CONTRACT_ROLES.FEE_MANAGER_ROLE,
     CONTRACT_ROLES.SNAPSHOT_ROLE,
-  ],
+  ] as const,
   Content: [
     CONTRACT_ROLES.DOCUMENT_MANAGER_ROLE,
     CONTRACT_ROLES.URI_MANAGER_ROLE,
     CONTRACT_ROLES.METADATA_UPDATER_ROLE,
-  ],
+  ] as const,
   Governance: [
     CONTRACT_ROLES.GOVERNANCE_ROLE,
     CONTRACT_ROLES.VESTING_MANAGER_ROLE,
-  ],
+  ] as const,
 };
 
 // Contract role descriptions

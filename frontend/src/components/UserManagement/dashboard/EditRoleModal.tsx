@@ -13,12 +13,14 @@ import {
   setRoleContracts,
 } from "@/services/user/contractRoles";
 import { roleAddressService, type RoleAddress } from "@/services/wallet/multiSig/RoleAddressService";
+import { getEVMBlockchains } from "@/utils/blockchain/blockchainOptions";
 
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -33,7 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Plus, Trash2, Key, Loader2, Copy } from "lucide-react";
+import { AlertCircle, Plus, Key, Loader2, Shield, List, Grid3x3, Layers } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -49,7 +51,29 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Import enhanced components
+import { AddressCardEnhanced } from "@/components/wallet/multisig/AddressCardEnhanced";
+import { ContractRoleInlineEditor } from "@/components/wallet/multisig/ContractRoleInlineEditor";
+import { AddressGroupedByRole } from "@/components/wallet/multisig/AddressGroupedByRole";
+import { BulkAddressOperations } from "@/components/wallet/multisig/BulkAddressOperations";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -72,13 +96,17 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
   const [selectedContractRoles, setSelectedContractRoles] = useState<ContractRoleType[]>([]);
   const [isLoadingContractRoles, setIsLoadingContractRoles] = useState(false);
   
-  // NEW: Blockchain address management state
+  // Blockchain address management state
   const [roleAddresses, setRoleAddresses] = useState<RoleAddress[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [showAddAddressForm, setShowAddAddressForm] = useState(false);
   const [newAddressBlockchain, setNewAddressBlockchain] = useState<string>('ethereum');
   const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
-  const [deletingAddressId, setDeletingAddressId] = useState<string | null>(null);
+  const [addressToDelete, setAddressToDelete] = useState<RoleAddress | null>(null);
+  
+  // Enhanced UI state
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('list');
   
   const { toast } = useToast();
 
@@ -133,7 +161,6 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
     }
   };
 
-  // NEW: Load blockchain addresses for role
   const loadRoleAddresses = async (roleId: string) => {
     setIsLoadingAddresses(true);
     try {
@@ -151,7 +178,6 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
     }
   };
 
-  // NEW: Generate new blockchain address for role
   const handleGenerateAddress = async () => {
     if (!role) return;
 
@@ -174,6 +200,7 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
       await roleAddressService.generateRoleAddress({
         roleId: role.id,
         blockchain: newAddressBlockchain,
+        contractRoles: selectedContractRoles.length > 0 ? selectedContractRoles : undefined,
         signingMethod: 'private_key'
       });
 
@@ -199,17 +226,15 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
     }
   };
 
-  // NEW: Delete blockchain address
-  const handleDeleteAddress = async (address: RoleAddress) => {
-    if (!role) return;
+  const confirmDeleteAddress = async () => {
+    if (!role || !addressToDelete) return;
 
-    setDeletingAddressId(address.id);
     try {
-      await roleAddressService.deleteRoleAddress(role.id, address.blockchain);
+      await roleAddressService.deleteRoleAddress(addressToDelete.id);
 
       toast({
         title: "Address deleted",
-        description: `Removed ${address.blockchain} address`,
+        description: `Removed ${addressToDelete.blockchain} address`,
       });
 
       // Reload addresses
@@ -223,17 +248,32 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
         variant: "destructive",
       });
     } finally {
-      setDeletingAddressId(null);
+      setAddressToDelete(null);
     }
   };
 
-  // NEW: Copy address to clipboard
-  const handleCopyAddress = async (address: string) => {
-    await navigator.clipboard.writeText(address);
-    toast({
-      title: "Copied!",
-      description: "Address copied to clipboard",
-    });
+  const handleDeleteMultiple = async (addresses: RoleAddress[]) => {
+    if (!role) return;
+    await loadRoleAddresses(role.id);
+  };
+
+  const handleEditRoles = (address: RoleAddress, roles: ContractRoleType[]) => {
+    setEditingAddressId(editingAddressId === address.id ? null : address.id);
+  };
+
+  const handleEditRolesBulk = (addresses: RoleAddress[], roles: ContractRoleType[]) => {
+    // For bulk, just toggle first address for now
+    if (addresses.length > 0) {
+      setEditingAddressId(editingAddressId === addresses[0].id ? null : addresses[0].id);
+    }
+  };
+
+  const handleRolesSaved = async (updatedAddress: RoleAddress) => {
+    // Update local state
+    setRoleAddresses(prev => 
+      prev.map(addr => addr.id === updatedAddress.id ? updatedAddress : addr)
+    );
+    setEditingAddressId(null);
   };
 
   const toggleContractRole = (contractRole: ContractRoleType) => {
@@ -314,269 +354,374 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
   if (!role) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Role: {role.name}</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Role: {role.name}</DialogTitle>
+            <DialogDescription>
+              Update role details, smart contract permissions, and blockchain addresses
+            </DialogDescription>
+          </DialogHeader>
 
-        {isSystemRole && (
-          <Alert variant="default" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              This is a system role. Editing it may affect system functionality.
-            </AlertDescription>
-          </Alert>
-        )}
+          {isSystemRole && (
+            <Alert variant="default" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                This is a system role. Editing it may affect system functionality.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Basic Information</h3>
+                
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Role Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="1"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Smart Contract Roles</Label>
-              <p className="text-sm text-muted-foreground">
-                Select which smart contract roles should be assigned to this role
-              </p>
+              {/* Smart Contract Roles */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <Label className="text-lg font-semibold">Smart Contract Permissions</Label>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Select which smart contract roles this role can execute. These permissions apply to all blockchain addresses generated for this role.
+                </p>
 
-              {isLoadingContractRoles ? (
-                <div className="text-sm text-muted-foreground">Loading contract roles...</div>
-              ) : (
-                <Accordion type="multiple" className="w-full">
-                  {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
-                    <AccordionItem key={category} value={category}>
-                      <AccordionTrigger className="text-sm font-medium">
-                        {category}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2 pl-2">
-                          {roles.map((contractRole) => (
-                            <div key={contractRole} className="flex items-start space-x-2">
-                              <Checkbox
-                                id={`contract-role-${contractRole}`}
-                                checked={selectedContractRoles.includes(contractRole)}
-                                onCheckedChange={() => toggleContractRole(contractRole)}
-                              />
-                              <div className="grid gap-1 leading-none">
-                                <label
-                                  htmlFor={`contract-role-${contractRole}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                >
-                                  {contractRole}
-                                </label>
-                                <p className="text-xs text-muted-foreground">
-                                  {CONTRACT_ROLE_DESCRIPTIONS[contractRole]}
-                                </p>
+                {isLoadingContractRoles ? (
+                  <div className="text-sm text-muted-foreground">Loading contract roles...</div>
+                ) : (
+                  <Accordion type="multiple" className="w-full">
+                    {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
+                      <AccordionItem key={category} value={category}>
+                        <AccordionTrigger className="text-sm font-medium">
+                          {category}
+                          {selectedContractRoles.some(r => roles.includes(r)) && (
+                            <Badge variant="secondary" className="ml-2">
+                              {selectedContractRoles.filter(r => roles.includes(r)).length}
+                            </Badge>
+                          )}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 pl-2">
+                            {roles.map((contractRole) => (
+                              <div key={contractRole} className="flex items-start space-x-2">
+                                <Checkbox
+                                  id={`contract-role-${contractRole}`}
+                                  checked={selectedContractRoles.includes(contractRole)}
+                                  onCheckedChange={() => toggleContractRole(contractRole)}
+                                />
+                                <div className="grid gap-1 leading-none">
+                                  <label
+                                    htmlFor={`contract-role-${contractRole}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  >
+                                    {contractRole}
+                                  </label>
+                                  <p className="text-xs text-muted-foreground">
+                                    {CONTRACT_ROLE_DESCRIPTIONS[contractRole]}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              )}
-            </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                )}
+              </div>
 
-            {/* NEW: Blockchain Addresses Section */}
-            <div className="space-y-3 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold flex items-center">
-                  <Key className="mr-2 h-4 w-4" />
-                  Blockchain Addresses
-                </Label>
+              {/* Blockchain Addresses Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Key className="h-5 w-5 text-primary" />
+                    <Label className="text-lg font-semibold">Blockchain Addresses</Label>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddAddressForm(!showAddAddressForm)}
+                    disabled={isLoadingAddresses || showAddAddressForm}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    Add Address
+                  </Button>
+                </div>
+
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>How it works:</strong> Each blockchain address inherits the smart contract permissions from this role. 
+                    You can customize permissions per address or keep them synced with the role definition.
+                  </AlertDescription>
+                </Alert>
+
+                {selectedContractRoles.length > 0 && (
+                  <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
+                    <p className="text-sm font-medium mb-2">Contract Permissions for All Addresses:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedContractRoles.map(contractRole => (
+                        <Badge key={contractRole} variant="secondary" className="text-xs">
+                          {contractRole}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isLoadingAddresses ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading addresses...</span>
+                  </div>
+                ) : roleAddresses.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-muted-foreground border-2 border-dashed rounded-md bg-muted/20">
+                    <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No blockchain addresses generated yet</p>
+                    <p className="text-xs mt-1">Generate addresses to enable multi-sig wallet ownership</p>
+                  </div>
+                ) : (
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="list" className="flex items-center gap-2">
+                        <List className="h-4 w-4" />
+                        List View
+                      </TabsTrigger>
+                      <TabsTrigger value="grouped" className="flex items-center gap-2">
+                        <Grid3x3 className="h-4 w-4" />
+                        Grouped
+                      </TabsTrigger>
+                      <TabsTrigger value="bulk" className="flex items-center gap-2">
+                        <Layers className="h-4 w-4" />
+                        Bulk Ops
+                      </TabsTrigger>
+                    </TabsList>
+
+                    {/* List View */}
+                    <TabsContent value="list" className="space-y-3 mt-4">
+                      {roleAddresses.map((addr) => (
+                        <div key={addr.id} className="space-y-3">
+                          {editingAddressId === addr.id ? (
+                            <ContractRoleInlineEditor
+                              address={addr}
+                              inheritedRoles={selectedContractRoles}
+                              onSave={handleRolesSaved}
+                              onCancel={() => setEditingAddressId(null)}
+                            />
+                          ) : (
+                            <AddressCardEnhanced
+                              address={addr}
+                              inheritedRoles={selectedContractRoles}
+                              onDelete={setAddressToDelete}
+                              onEditRoles={handleEditRoles}
+                              onViewContracts={() => {
+                                toast({
+                                  title: "Coming soon",
+                                  description: "Contract assignment UI will open here",
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </TabsContent>
+
+                    {/* Grouped View */}
+                    <TabsContent value="grouped" className="mt-4">
+                      <AddressGroupedByRole
+                        addresses={roleAddresses}
+                        inheritedRoles={selectedContractRoles}
+                        onDelete={setAddressToDelete}
+                        onEditRoles={handleEditRoles}
+                        onViewContracts={() => {
+                          toast({
+                            title: "Coming soon",
+                            description: "Contract assignment UI will open here",
+                          });
+                        }}
+                      />
+                    </TabsContent>
+
+                    {/* Bulk Operations View */}
+                    <TabsContent value="bulk" className="mt-4">
+                      <BulkAddressOperations
+                        addresses={roleAddresses}
+                        inheritedRoles={selectedContractRoles}
+                        onDelete={handleDeleteMultiple}
+                        onEditRoles={handleEditRolesBulk}
+                        onViewContracts={() => {
+                          toast({
+                            title: "Coming soon",
+                            description: "Contract assignment UI will open here",
+                          });
+                        }}
+                        onRefresh={() => role && loadRoleAddresses(role.id)}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                )}
+
+                {/* Add Address Form */}
+                {showAddAddressForm && (
+                  <div className="space-y-3 p-4 border rounded-md bg-muted/20">
+                    <Label>Generate New Address</Label>
+                    <Select 
+                      value={newAddressBlockchain} 
+                      onValueChange={setNewAddressBlockchain}
+                      disabled={isGeneratingAddress}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select blockchain" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getEVMBlockchains().map((chain) => (
+                          <SelectItem key={chain.value} value={chain.value}>
+                            {chain.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        This address will inherit all {selectedContractRoles.length} contract permission(s) from this role.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowAddAddressForm(false);
+                          setNewAddressBlockchain('ethereum');
+                        }}
+                        disabled={isGeneratingAddress}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleGenerateAddress}
+                        disabled={isGeneratingAddress}
+                      >
+                        {isGeneratingAddress ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Key className="mr-2 h-4 w-4" />
+                            Generate Address
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddAddressForm(!showAddAddressForm)}
-                  disabled={isLoadingAddresses}
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting}
                 >
-                  <Plus className="mr-1 h-3 w-3" />
-                  Add Address
+                  Cancel
                 </Button>
-              </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
-              <p className="text-sm text-muted-foreground">
-                Blockchain addresses enable this role to sign transactions and own multi-sig wallets
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!addressToDelete} onOpenChange={(open) => !open && setAddressToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Blockchain Address?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to delete the <strong>{addressToDelete?.blockchain}</strong> address?
               </p>
-
-              {isLoadingAddresses ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="ml-2 text-sm text-muted-foreground">Loading addresses...</span>
-                </div>
-              ) : roleAddresses.length === 0 ? (
-                <div className="text-center py-4 text-sm text-muted-foreground border rounded-md bg-muted/20">
-                  No blockchain addresses generated
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {roleAddresses.map((addr) => (
-                    <div 
-                      key={addr.id} 
-                      className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {addr.blockchain}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {addr.signingMethod}
-                          </Badge>
-                        </div>
-                        <code className="text-xs font-mono block truncate">
-                          {addr.address}
-                        </code>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Created: {addr.createdAt.toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 ml-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopyAddress(addr.address)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteAddress(addr)}
-                          disabled={deletingAddressId === addr.id}
-                        >
-                          {deletingAddressId === addr.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add Address Form */}
-              {showAddAddressForm && (
-                <div className="space-y-3 p-4 border rounded-md bg-muted/20">
-                  <Label>Generate New Address</Label>
-                  <Select 
-                    value={newAddressBlockchain} 
-                    onValueChange={setNewAddressBlockchain}
-                    disabled={isGeneratingAddress}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select blockchain" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ethereum">Ethereum Mainnet</SelectItem>
-                      <SelectItem value="holesky">Holesky (Testnet)</SelectItem>
-                      <SelectItem value="polygon">Polygon</SelectItem>
-                      <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                      <SelectItem value="optimism">Optimism</SelectItem>
-                      <SelectItem value="base">Base</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAddAddressForm(false)}
-                      disabled={isGeneratingAddress}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleGenerateAddress}
-                      disabled={isGeneratingAddress}
-                    >
-                      {isGeneratingAddress ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Key className="mr-2 h-4 w-4" />
-                          Generate Address
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              <code className="block text-xs bg-muted p-2 rounded">
+                {addressToDelete?.address}
+              </code>
+              <Alert variant="destructive" className="mt-3">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Warning:</strong> This action cannot be undone. The address and its private key will be permanently deleted from the KeyVault.
+                </AlertDescription>
+              </Alert>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAddress} className="bg-destructive text-destructive-foreground">
+              Delete Address
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

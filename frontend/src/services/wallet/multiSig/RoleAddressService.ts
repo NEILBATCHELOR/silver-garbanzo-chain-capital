@@ -1,6 +1,11 @@
 /**
- * Role Address Service
- * Manages blockchain addresses for roles in the multi-sig system
+ * Role Address Service - Hybrid Model with JSONB
+ * Manages blockchain addresses with optional per-contract-role permissions
+ * 
+ * HYBRID MODEL:
+ * - Default: Empty contract_roles [] = inherits ALL roles from role_contracts
+ * - Optional: Specify contract_roles = only those specific permissions
+ * - Flexible: One address can have multiple contract roles
  */
 
 import { ethers } from 'ethers';
@@ -13,6 +18,7 @@ export interface RoleAddress {
   blockchain: string;
   address: string;
   signingMethod: 'private_key' | 'hardware_wallet' | 'mpc';
+  contractRoles: string[]; // Empty array = inherits all roles from role_contracts
   encryptedPrivateKey?: string;
   keyVaultReference?: string;
   derivationPath?: string;
@@ -24,9 +30,10 @@ export interface RoleAddress {
 export interface CreateRoleAddressParams {
   roleId: string;
   blockchain: string;
+  contractRoles?: string[]; // OPTIONAL: If not provided, defaults to [] (inherit all)
   signingMethod?: 'private_key' | 'hardware_wallet' | 'mpc';
-  existingAddress?: string; // For hardware wallet or MPC
-  existingPrivateKey?: string; // For importing existing key
+  existingAddress?: string;
+  existingPrivateKey?: string;
 }
 
 export class RoleAddressService {
@@ -42,7 +49,10 @@ export class RoleAddressService {
   }
 
   /**
-   * Generate a new address for a role on a specific blockchain
+   * Generate a new address for a role
+   * HYBRID MODEL: 
+   * - If contractRoles not specified: address inherits ALL roles from role_contracts
+   * - If contractRoles specified: address only has those specific roles
    */
   async generateRoleAddress(
     params: CreateRoleAddressParams
@@ -50,6 +60,7 @@ export class RoleAddressService {
     const { 
       roleId, 
       blockchain, 
+      contractRoles = [], // Default to empty array (inherit all roles)
       signingMethod = 'private_key',
       existingAddress,
       existingPrivateKey 
@@ -57,26 +68,20 @@ export class RoleAddressService {
 
     try {
       let address: string;
-      let encryptedPrivateKey: string | undefined;
       let keyVaultReference: string | undefined;
 
+      // Generate or use existing address
       if (signingMethod === 'private_key') {
-        // Generate new wallet or use existing
         if (existingPrivateKey) {
           const wallet = new ethers.Wallet(existingPrivateKey);
           address = wallet.address;
-          
-          // Encrypt and store in KeyVault
           keyVaultReference = await keyVaultClient.storeKey(existingPrivateKey);
         } else if (existingAddress) {
-          // Use existing address (key must be provided separately)
           address = existingAddress;
         } else {
           // Generate new wallet
           const wallet = ethers.Wallet.createRandom();
           address = wallet.address;
-          
-          // Encrypt and store in KeyVault
           keyVaultReference = await keyVaultClient.storeKey(wallet.privateKey);
         }
       } else {
@@ -87,25 +92,27 @@ export class RoleAddressService {
         address = existingAddress;
       }
 
-      // Store in database
+      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { data, error } = await supabase
+      // Insert address with contract_roles JSONB column
+      const { data: addressData, error: addressError } = await supabase
         .from('role_addresses')
         .insert({
           role_id: roleId,
           blockchain,
           address,
           signing_method: signingMethod,
+          contract_roles: contractRoles, // Store directly in JSONB column
           key_vault_reference: keyVaultReference,
           created_by: user?.id
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (addressError) throw addressError;
 
-      return this.formatRoleAddress(data);
+      return this.formatRoleAddress(addressData);
 
     } catch (error: any) {
       console.error('Failed to generate role address:', error);
@@ -135,22 +142,146 @@ export class RoleAddressService {
   }
 
   /**
-   * Get address for role on specific blockchain
+   * Get addresses for a specific contract role
+   * Uses the SQL helper function we created
    */
-  async getRoleAddress(
+  async getAddressesForContractRole(
     roleId: string,
-    blockchain: string
-  ): Promise<RoleAddress | null> {
+    contractRole: string,
+    blockchain?: string
+  ): Promise<RoleAddress[]> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_addresses_for_contract_role', {
+          p_role_id: roleId,
+          p_contract_role: contractRole,
+          p_blockchain: blockchain || null
+        });
+
+      if (error) throw error;
+
+      return (data || []).map((row: any) => ({
+        id: row.address_id,
+        roleId,
+        blockchain: row.blockchain,
+        address: row.address,
+        signingMethod: row.signing_method,
+        contractRoles: Array.isArray(row.contract_roles) ? row.contract_roles : [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
+
+    } catch (error: any) {
+      console.error('Failed to get addresses for contract role:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Add contract role permission to existing address
+   * Updates the JSONB array
+   */
+  async addContractRoleToAddress(
+    addressId: string,
+    contractRole: string
+  ): Promise<void> {
+    try {
+      // Get current address
+      const address = await this.getRoleAddress(addressId);
+      if (!address) throw new Error('Address not found');
+
+      // Add role to array if not already present
+      const currentRoles = address.contractRoles || [];
+      if (currentRoles.includes(contractRole)) {
+        return; // Already has this role
+      }
+
+      const updatedRoles = [...currentRoles, contractRole];
+
+      const { error } = await supabase
+        .from('role_addresses')
+        .update({ 
+          contract_roles: updatedRoles,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', addressId);
+
+      if (error) throw error;
+
+    } catch (error: any) {
+      console.error('Failed to add contract role to address:', error);
+      throw new Error(`Failed to add contract role: ${error.message}`);
+    }
+  }
+
+  /**
+   * Remove contract role permission from address
+   * Updates the JSONB array
+   */
+  async removeContractRoleFromAddress(
+    addressId: string,
+    contractRole: string
+  ): Promise<void> {
+    try {
+      // Get current address
+      const address = await this.getRoleAddress(addressId);
+      if (!address) throw new Error('Address not found');
+
+      // Remove role from array
+      const updatedRoles = (address.contractRoles || []).filter(
+        role => role !== contractRole
+      );
+
+      const { error } = await supabase
+        .from('role_addresses')
+        .update({ 
+          contract_roles: updatedRoles,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', addressId);
+
+      if (error) throw error;
+
+    } catch (error: any) {
+      console.error('Failed to remove contract role from address:', error);
+      throw new Error(`Failed to remove contract role: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get effective contract roles for an address
+   * Uses SQL helper function to resolve inherited roles
+   */
+  async getEffectiveRoles(addressId: string): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_contract_roles_for_address', {
+          p_address_id: addressId
+        });
+
+      if (error) throw error;
+
+      return Array.isArray(data) ? data : [];
+
+    } catch (error: any) {
+      console.error('Failed to get effective roles:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get address by ID
+   */
+  async getRoleAddress(addressId: string): Promise<RoleAddress | null> {
     try {
       const { data, error } = await supabase
         .from('role_addresses')
         .select('*')
-        .eq('role_id', roleId)
-        .eq('blockchain', blockchain)
+        .eq('id', addressId)
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
+        if (error.code === 'PGRST116') return null;
         throw error;
       }
 
@@ -166,11 +297,11 @@ export class RoleAddressService {
    * Update role address
    */
   async updateRoleAddress(
-    roleId: string,
-    blockchain: string,
+    addressId: string,
     updates: Partial<{
       address: string;
       signingMethod: 'private_key' | 'hardware_wallet' | 'mpc';
+      contractRoles: string[];
       keyVaultReference: string;
     }>
   ): Promise<void> {
@@ -181,8 +312,7 @@ export class RoleAddressService {
           ...updates,
           updated_at: new Date().toISOString()
         })
-        .eq('role_id', roleId)
-        .eq('blockchain', blockchain);
+        .eq('id', addressId);
 
       if (error) throw error;
 
@@ -195,24 +325,23 @@ export class RoleAddressService {
   /**
    * Delete role address
    */
-  async deleteRoleAddress(
-    roleId: string,
-    blockchain: string
-  ): Promise<void> {
+  async deleteRoleAddress(addressId: string): Promise<void> {
     try {
       // Get address first to clean up KeyVault
-      const roleAddress = await this.getRoleAddress(roleId, blockchain);
+      const roleAddress = await this.getRoleAddress(addressId);
       
       if (roleAddress?.keyVaultReference) {
-        await keyVaultClient.deleteKey(roleAddress.keyVaultReference);
+        try {
+          await keyVaultClient.deleteKey(roleAddress.keyVaultReference);
+        } catch (keyError) {
+          console.warn('Failed to delete key from KeyVault:', keyError);
+        }
       }
 
-      // Delete from database
       const { error } = await supabase
         .from('role_addresses')
         .delete()
-        .eq('role_id', roleId)
-        .eq('blockchain', blockchain);
+        .eq('id', addressId);
 
       if (error) throw error;
 
@@ -223,23 +352,18 @@ export class RoleAddressService {
   }
 
   /**
-   * Get private key for role (requires permissions)
+   * Get private key for role address
    */
-  async getRolePrivateKey(
-    roleId: string,
-    blockchain: string
-  ): Promise<string | null> {
+  async getRolePrivateKey(addressId: string): Promise<string | null> {
     try {
-      const roleAddress = await this.getRoleAddress(roleId, blockchain);
+      const roleAddress = await this.getRoleAddress(addressId);
       
       if (!roleAddress?.keyVaultReference) {
         return null;
       }
 
-      // Retrieve from KeyVault
       const keyResult = await keyVaultClient.getKey(roleAddress.keyVaultReference);
 
-      // KeyResult can be string | KeyData, handle both cases
       if (typeof keyResult === 'string') {
         return keyResult;
       } else {
@@ -253,46 +377,43 @@ export class RoleAddressService {
   }
 
   /**
-   * Sign message with role
+   * Sign message with role address
    */
-  async signWithRole(
-    roleId: string,
-    blockchain: string,
+  async signWithAddress(
+    addressId: string,
     message: string
   ): Promise<string> {
     try {
-      const privateKey = await this.getRolePrivateKey(roleId, blockchain);
+      const privateKey = await this.getRolePrivateKey(addressId);
       
       if (!privateKey) {
-        throw new Error('Private key not available for this role');
+        throw new Error('Private key not available for this address');
       }
 
       const wallet = new ethers.Wallet(privateKey);
-      const signature = await wallet.signMessage(message);
-
-      return signature;
+      return await wallet.signMessage(message);
 
     } catch (error: any) {
-      console.error('Failed to sign with role:', error);
-      throw new Error(`Failed to sign with role: ${error.message}`);
+      console.error('Failed to sign with address:', error);
+      throw new Error(`Failed to sign with address: ${error.message}`);
     }
   }
 
   /**
-   * Export role address (for backup/migration)
+   * Export role address
    */
   async exportRoleAddress(
-    roleId: string,
-    blockchain: string,
+    addressId: string,
     includePrivateKey: boolean = false
   ): Promise<{
     address: string;
     blockchain: string;
     signingMethod: string;
+    contractRoles: string[];
     privateKey?: string;
   }> {
     try {
-      const roleAddress = await this.getRoleAddress(roleId, blockchain);
+      const roleAddress = await this.getRoleAddress(addressId);
       
       if (!roleAddress) {
         throw new Error('Role address not found');
@@ -301,11 +422,12 @@ export class RoleAddressService {
       const exportData: any = {
         address: roleAddress.address,
         blockchain: roleAddress.blockchain,
-        signingMethod: roleAddress.signingMethod
+        signingMethod: roleAddress.signingMethod,
+        contractRoles: roleAddress.contractRoles
       };
 
       if (includePrivateKey && roleAddress.signingMethod === 'private_key') {
-        const privateKey = await this.getRolePrivateKey(roleId, blockchain);
+        const privateKey = await this.getRolePrivateKey(addressId);
         if (privateKey) {
           exportData.privateKey = privateKey;
         }
@@ -326,11 +448,13 @@ export class RoleAddressService {
     roleId: string,
     blockchain: string,
     address: string,
+    contractRoles?: string[],
     privateKey?: string
   ): Promise<RoleAddress> {
     return this.generateRoleAddress({
       roleId,
       blockchain,
+      contractRoles,
       signingMethod: privateKey ? 'private_key' : 'hardware_wallet',
       existingAddress: address,
       existingPrivateKey: privateKey
@@ -341,12 +465,26 @@ export class RoleAddressService {
    * Helper: Format role address from database
    */
   private formatRoleAddress(data: any): RoleAddress {
+    let contractRoles: string[] = [];
+    if (data.contract_roles) {
+      if (typeof data.contract_roles === 'string') {
+        try {
+          contractRoles = JSON.parse(data.contract_roles);
+        } catch {
+          contractRoles = [];
+        }
+      } else if (Array.isArray(data.contract_roles)) {
+        contractRoles = data.contract_roles;
+      }
+    }
+
     return {
       id: data.id,
       roleId: data.role_id,
       blockchain: data.blockchain,
       address: data.address,
       signingMethod: data.signing_method,
+      contractRoles,
       encryptedPrivateKey: data.encrypted_private_key,
       keyVaultReference: data.key_vault_reference,
       derivationPath: data.derivation_path,

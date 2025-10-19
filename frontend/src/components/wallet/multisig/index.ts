@@ -1,16 +1,15 @@
 /**
- * Multi-Sig Wallet Components
- * Centralized exports for role-based multi-sig wallet management
+ * Multi-Sig Wallet Components Index
+ * Exports all role-based multi-sig wallet components
  */
 
-export { default as MultiSigManager } from './MultiSigManager';
-export { default as MultiSigRoleManager } from './MultiSigRoleManager';
-export { default as RoleCreationForm } from './RoleCreationForm';
-export { default as RoleOwnerManager } from './RoleOwnerManager';
-export { default as MultiSigWalletForm } from './MultiSigWalletForm';
-export { default as MultiSigTransactionProposal } from './MultiSigTransactionProposal';
-export { default as MultiSigTransactionList } from './MultiSigTransactionList';
+// Core components
+export { RoleCreationForm } from './RoleCreationForm';
+export { RoleOwnerManager } from './RoleOwnerManager';
+export { MultiSigRoleManager } from './MultiSigRoleManager';
 
-// Re-export types
-export type { RoleAddress } from '@/services/wallet/multiSig/RoleAddressService';
-export type { WalletRoleOwner, RoleAssignment } from '@/services/wallet/multiSig/RoleManagementService';
+// Enhanced UI components (Option B & C)
+export { AddressCardEnhanced } from './AddressCardEnhanced';
+export { ContractRoleInlineEditor } from './ContractRoleInlineEditor';
+export { AddressGroupedByRole } from './AddressGroupedByRole';
+export { BulkAddressOperations } from './BulkAddressOperations';

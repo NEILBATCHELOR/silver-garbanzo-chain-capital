@@ -58,13 +58,9 @@ import { abiManager, type ContractType } from '@/services/wallet/ABI';
 
 // Import only existing multi-sig components
 import {
-  MultiSigManager,
   MultiSigRoleManager,
   RoleCreationForm,
   RoleOwnerManager,
-  MultiSigWalletForm,
-  MultiSigTransactionProposal,
-  MultiSigTransactionList
 } from '@/components/wallet/multisig';
 
 // Supported blockchains for MultiSig wallet creation (EVM chains only)
@@ -1077,133 +1073,102 @@ const NewWalletPage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        {/* NEW Multi-sig Management Tab with ALL Components */}
+        {/* Multi-sig Management Tab - Role-Based System */}
         <TabsContent value="multisig">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Shield className="mr-2 h-5 w-5" />
-                Multi-Signature Wallet Management
+                Role-Based Multi-Signature Management
               </CardTitle>
               <CardDescription>
-                Comprehensive multi-sig wallet tools - Create, Manage Transactions, and Assign Roles
+                Create roles with blockchain addresses and manage wallet ownership
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="create">Create Wallet</TabsTrigger>
-                  <TabsTrigger value="propose">Propose Transaction</TabsTrigger>
-                  <TabsTrigger value="transactions">Transaction List</TabsTrigger>
-                  <TabsTrigger value="roles">Role Manager</TabsTrigger>
+              <Tabs defaultValue="create-role" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="create-role">Create Role</TabsTrigger>
+                  <TabsTrigger value="manage-owners">Manage Owners</TabsTrigger>
+                  <TabsTrigger value="contract-roles">Contract Roles</TabsTrigger>
                 </TabsList>
 
-                {/* Overview Tab */}
-                <TabsContent value="overview" className="space-y-6">
-                  <MultiSigManager 
-                    defaultTab="create"
-                  />
-                </TabsContent>
-
-                {/* Create Wallet Tab */}
-                <TabsContent value="create" className="space-y-6">
+                {/* Create Role Tab */}
+                <TabsContent value="create-role" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Create Multi-Signature Wallet</CardTitle>
+                      <CardTitle>Create Role with Blockchain Address</CardTitle>
                       <CardDescription>
-                        Deploy a new multi-sig wallet with custom owners and threshold
+                        Generate a new role with optional blockchain signing address
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <MultiSigWalletForm
-                        onSuccess={(address, txHash) => {
+                      <RoleCreationForm
+                        defaultBlockchain="ethereum"
+                        onSuccess={(roleId) => {
                           toast({
-                            title: "Wallet Created",
-                            description: `Deployed to ${address}`,
+                            title: "Role Created",
+                            description: "Role with blockchain address created successfully",
                           });
-                          setCurrentMultiSigWallet({
-                            walletId: 'pending', // Will be set after DB query
-                            address,
-                            blockchain: 'ethereum'
-                          });
+                        }}
+                        onCancel={() => {
+                          // Optional: handle cancel
                         }}
                       />
                     </CardContent>
                   </Card>
                 </TabsContent>
 
-                {/* Propose Transaction Tab */}
-                <TabsContent value="propose" className="space-y-6">
+                {/* Manage Role Owners Tab */}
+                <TabsContent value="manage-owners" className="space-y-6">
                   {currentMultiSigWallet ? (
                     <Card>
                       <CardHeader>
-                        <CardTitle>Create Transaction Proposal</CardTitle>
+                        <CardTitle>Manage Wallet Owners</CardTitle>
                         <CardDescription>
-                          Propose a new transaction for multi-sig approval
+                          Add or remove role-based owners for this multi-sig wallet
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <MultiSigTransactionProposal
+                        <RoleOwnerManager
                           walletId={currentMultiSigWallet.walletId}
-                          walletAddress={currentMultiSigWallet.address}
+                          walletName={newWalletForm.getValues().name}
+                          threshold={multiSigThreshold}
                           blockchain={currentMultiSigWallet.blockchain}
-                          onSuccess={(proposalId) => {
-                            toast({
-                              title: "Proposal Created",
-                              description: "Transaction proposal submitted successfully",
-                            });
+                          autoRefresh={true}
+                        />
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <p className="text-muted-foreground">
+                          Please create a multi-sig wallet first to manage owners
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => {
+                            // Switch to create wallet tab
+                            const createTab = document.querySelector('[value="create"]') as HTMLElement;
+                            createTab?.click();
                           }}
-                        />
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">
-                          Please create or select a multi-sig wallet first
-                        </p>
+                        >
+                          Create Multi-Sig Wallet
+                        </Button>
                       </CardContent>
                     </Card>
                   )}
                 </TabsContent>
 
-                {/* Transaction List Tab */}
-                <TabsContent value="transactions" className="space-y-6">
+                {/* Contract Roles Tab */}
+                <TabsContent value="contract-roles" className="space-y-6">
                   {currentMultiSigWallet ? (
                     <Card>
                       <CardHeader>
-                        <CardTitle>Transaction History</CardTitle>
+                        <CardTitle>Grant Contract Roles</CardTitle>
                         <CardDescription>
-                          View and manage pending and completed transactions
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <MultiSigTransactionList
-                          walletId={currentMultiSigWallet.walletId}
-                          walletAddress={currentMultiSigWallet.address}
-                        />
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">
-                          Please create or select a multi-sig wallet first
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-
-                {/* Role Manager Tab */}
-                <TabsContent value="roles" className="space-y-6">
-                  {currentMultiSigWallet ? (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Contract Role Management</CardTitle>
-                        <CardDescription>
-                          Grant and manage roles for Foundry smart contracts
+                          Grant smart contract roles to this wallet address
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -1217,8 +1182,19 @@ const NewWalletPage: React.FC = () => {
                     <Card>
                       <CardContent className="p-6 text-center">
                         <p className="text-muted-foreground">
-                          Please create or select a multi-sig wallet first
+                          Please create a multi-sig wallet first to grant contract roles
                         </p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => {
+                            // Switch to create wallet tab
+                            const createTab = document.querySelector('[value="create"]') as HTMLElement;
+                            createTab?.click();
+                          }}
+                        >
+                          Create Multi-Sig Wallet
+                        </Button>
                       </CardContent>
                     </Card>
                   )}
