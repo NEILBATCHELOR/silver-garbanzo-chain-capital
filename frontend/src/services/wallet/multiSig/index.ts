@@ -11,6 +11,12 @@ export {
 export { SignatureAggregator } from './SignatureAggregator';
 export { LocalSigner } from './LocalSigner';
 
+export {
+  RoleManagementService,
+  roleManagementService,
+  COMMON_ROLES
+} from './RoleManagementService';
+
 // Re-export types
 export type {
   MultiSigProposal,
@@ -32,3 +38,7 @@ export type {
   LocalSignatureResult,
   HardwareWalletConfig
 } from './LocalSigner';
+
+export type {
+  RoleAssignment
+} from './RoleManagementService';

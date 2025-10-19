@@ -180,6 +180,10 @@ contract ERC20VotesModuleTest is Test {
     // ============ Voting Power Tests ============
     
     function test_GetVotes() public {
+        // Must delegate to have voting power
+        vm.prank(delegatee1);
+        votesModule.delegate(delegatee1);
+        
         vm.prank(governance);
         votesModule.updateVotingPower(address(0), delegatee1, 1000);
         
@@ -200,13 +204,20 @@ contract ERC20VotesModuleTest is Test {
     }
     
     function test_GetPastVotes() public {
+        // Must delegate to have voting power
+        vm.prank(delegatee1);
+        votesModule.delegate(delegatee1);
+        
+        // Roll to block 1 to create checkpoint
+        vm.roll(1);
+        
         vm.prank(governance);
         votesModule.updateVotingPower(address(0), delegatee1, 1000);
         
-        uint256 blockNumber = block.number;
-        vm.roll(block.number + 10);
+        // Roll forward to query past block
+        vm.roll(11);
         
-        assertEq(votesModule.getPastVotes(delegatee1, blockNumber), 1000);
+        assertEq(votesModule.getPastVotes(delegatee1, 1), 1000);
     }
     
     function test_RevertWhen_GetPastVotesFutureBlock() public {
@@ -215,13 +226,16 @@ contract ERC20VotesModuleTest is Test {
     }
     
     function test_GetPastTotalSupply() public {
+        // Roll to block 1 to create checkpoint
+        vm.roll(1);
+        
         vm.prank(governance);
         votesModule.updateVotingPower(address(0), user1, 1000);
         
-        uint256 blockNumber = block.number;
-        vm.roll(block.number + 10);
+        // Roll forward to query past block
+        vm.roll(11);
         
-        assertEq(votesModule.getPastTotalSupply(blockNumber), 1000);
+        assertEq(votesModule.getPastTotalSupply(1), 1000);
     }
     
     function test_RevertWhen_GetPastTotalSupplyFutureBlock() public {
@@ -232,6 +246,10 @@ contract ERC20VotesModuleTest is Test {
     // ============ Checkpoint Tests ============
     
     function test_NumCheckpoints() public {
+        // Must delegate to have voting power
+        vm.prank(delegatee1);
+        votesModule.delegate(delegatee1);
+        
         vm.startPrank(governance);
         votesModule.updateVotingPower(address(0), delegatee1, 1000);
         vm.roll(block.number + 1);
@@ -242,6 +260,10 @@ contract ERC20VotesModuleTest is Test {
     }
     
     function test_Checkpoints() public {
+        // Must delegate to have voting power
+        vm.prank(delegatee1);
+        votesModule.delegate(delegatee1);
+        
         vm.prank(governance);
         votesModule.updateVotingPower(address(0), delegatee1, 1000);
         
@@ -269,8 +291,12 @@ contract ERC20VotesModuleTest is Test {
     }
     
     function test_UpdateVotingPowerTransfer() public {
-        vm.prank(governance);
+        vm.startPrank(governance);
+        // First mint to user1
+        votesModule.updateVotingPower(address(0), user1, 1000);
+        // Then transfer to delegatee1
         votesModule.updateVotingPower(user1, delegatee1, 500);
+        vm.stopPrank();
         
         // This test verifies the transfer logic executes without error
     }
@@ -284,6 +310,9 @@ contract ERC20VotesModuleTest is Test {
     // ============ Complex Scenario Tests ============
     
     function test_CompleteVotingLifecycle() public {
+        // Roll to block 1
+        vm.roll(1);
+        
         // 1. User1 delegates to delegatee1
         vm.prank(user1);
         votesModule.delegate(delegatee1);
@@ -303,35 +332,36 @@ contract ERC20VotesModuleTest is Test {
         assertEq(votesModule.getVotes(delegatee1), 0);
         assertEq(votesModule.getVotes(delegatee2), 1000);
         
-        // 6. Historical votes preserved
-        uint256 historicalBlock = block.number;
-        vm.roll(block.number + 10);
+        // 6. Historical votes preserved - roll forward to query past
+        vm.roll(11);
         
-        assertEq(votesModule.getPastVotes(delegatee2, historicalBlock), 1000);
+        assertEq(votesModule.getPastVotes(delegatee2, 1), 1000);
     }
     
     function test_MultipleCheckpointsAndQueries() public {
+        // Must delegate to have voting power
+        vm.prank(delegatee1);
+        votesModule.delegate(delegatee1);
+        
         vm.startPrank(governance);
         
-        // Create multiple checkpoints
+        // Create multiple checkpoints at different blocks
+        vm.roll(1);
         votesModule.updateVotingPower(address(0), delegatee1, 100);
-        uint256 block1 = block.number;
         
-        vm.roll(block.number + 1);
+        vm.roll(2);
         votesModule.updateVotingPower(address(0), delegatee1, 200);
-        uint256 block2 = block.number;
         
-        vm.roll(block.number + 1);
+        vm.roll(3);
         votesModule.updateVotingPower(address(0), delegatee1, 300);
-        uint256 block3 = block.number;
         
         vm.stopPrank();
         
-        // Query historical votes
-        vm.roll(block.number + 10);
-        assertEq(votesModule.getPastVotes(delegatee1, block1), 100);
-        assertEq(votesModule.getPastVotes(delegatee1, block2), 300);
-        assertEq(votesModule.getPastVotes(delegatee1, block3), 600);
+        // Query historical votes from future block
+        vm.roll(13);
+        assertEq(votesModule.getPastVotes(delegatee1, 1), 100);
+        assertEq(votesModule.getPastVotes(delegatee1, 2), 300);
+        assertEq(votesModule.getPastVotes(delegatee1, 3), 600);
     }
     
     // ============ Fuzz Tests ============
@@ -345,6 +375,10 @@ contract ERC20VotesModuleTest is Test {
     
     function testFuzz_UpdateVotingPower(uint256 amount) public {
         vm.assume(amount > 0 && amount < type(uint224).max);
+        
+        // Must delegate to have voting power
+        vm.prank(delegatee1);
+        votesModule.delegate(delegatee1);
         
         vm.prank(governance);
         votesModule.updateVotingPower(address(0), delegatee1, amount);

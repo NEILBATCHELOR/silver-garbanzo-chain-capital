@@ -5,6 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Wallet, 
   Shield, 
@@ -17,10 +19,13 @@ import {
   Network,
   Key,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  Users,
+  MinusCircle
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { ProjectWalletResult, enhancedProjectWalletService } from '@/services/project/project-wallet-service';
+import { multiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
 import { 
   getAllChains, 
   getChainConfig, 
@@ -64,6 +69,13 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   const [selectedNetworks, setSelectedNetworks] = useState<string[]>(['ethereum']);
   const [hasRequiredPermissions, setHasRequiredPermissions] = useState<boolean | null>(null);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  
+  // Multi-sig wallet state
+  const [createMultiSig, setCreateMultiSig] = useState(false);
+  const [multiSigName, setMultiSigName] = useState('');
+  const [multiSigOwners, setMultiSigOwners] = useState<string[]>(['', '', '']);
+  const [multiSigThreshold, setMultiSigThreshold] = useState(2);
+  const [generatedMultiSigAddress, setGeneratedMultiSigAddress] = useState<string | null>(null);
   
   const generationInProgressRef = useRef(false);
   const lastGenerationIdRef = useRef<string>('');
@@ -122,6 +134,96 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
         : prev.filter(n => n !== network)
     );
   }, []);
+
+  // Multi-sig wallet helpers
+  const addMultiSigOwner = useCallback(() => {
+    setMultiSigOwners(prev => [...prev, '']);
+  }, []);
+
+  const removeMultiSigOwner = useCallback((index: number) => {
+    if (multiSigOwners.length > 2) {
+      setMultiSigOwners(prev => prev.filter((_, i) => i !== index));
+      if (multiSigThreshold > multiSigOwners.length - 1) {
+        setMultiSigThreshold(multiSigOwners.length - 1);
+      }
+    }
+  }, [multiSigOwners.length, multiSigThreshold]);
+
+  const updateMultiSigOwner = useCallback((index: number, value: string) => {
+    setMultiSigOwners(prev => {
+      const newOwners = [...prev];
+      newOwners[index] = value;
+      return newOwners;
+    });
+  }, []);
+
+  const deployMultiSigWallet = useCallback(async () => {
+    if (!selectedNetwork) {
+      toast({
+        title: "Error",
+        description: "Please select a network first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!multiSigName || multiSigName.trim() === '') {
+      toast({
+        title: "Error",
+        description: "Please enter a wallet name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const validOwners = multiSigOwners.filter(o => o.trim() !== '');
+    if (validOwners.length < 2) {
+      toast({
+        title: "Error",
+        description: "At least 2 owners required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (multiSigThreshold < 1 || multiSigThreshold > validOwners.length) {
+      toast({
+        title: "Error",
+        description: `Threshold must be between 1 and ${validOwners.length}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratedMultiSigAddress(null);
+
+    try {
+      const result = await multiSigTransactionService.deployMultiSigWallet(
+        multiSigName,
+        validOwners,
+        multiSigThreshold,
+        selectedNetwork,
+        projectId
+      );
+
+      setGeneratedMultiSigAddress(result.address);
+      
+      toast({
+        title: "Success",
+        description: `Multi-sig wallet deployed at ${result.address.slice(0, 10)}...`,
+      });
+    } catch (error: any) {
+      console.error('Error deploying multi-sig wallet:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deploy multi-sig wallet",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedNetwork, multiSigName, multiSigOwners, multiSigThreshold, projectId, toast]);
 
   // Generate a unique identifier for each generation request
   const generateRequestId = useCallback(() => {
@@ -424,14 +526,169 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
               id="multi-network"
               checked={multiNetworkMode}
               onCheckedChange={(checked) => setMultiNetworkMode(checked === true)}
+              disabled={createMultiSig}
             />
             <label htmlFor="multi-network" className="text-sm font-medium">
               Generate for multiple networks simultaneously
             </label>
           </div>
 
-          {/* Single Network Selection */}
-          {!multiNetworkMode && (
+          {/* Multi-sig wallet toggle */}
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="create-multisig"
+              checked={createMultiSig}
+              onCheckedChange={(checked) => {
+                setCreateMultiSig(checked === true);
+                if (checked) {
+                  setMultiNetworkMode(false); // Disable multi-network when multi-sig is enabled
+                }
+              }}
+            />
+            <label htmlFor="create-multisig" className="text-sm font-medium flex items-center">
+              <Users className="mr-1 h-4 w-4" />
+              Create Multi-Signature Wallet
+            </label>
+          </div>
+
+          {/* Multi-sig Wallet Configuration */}
+          {createMultiSig && (
+            <Card className="border-2 border-primary">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Multi-Sig Wallet Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Wallet Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="multisig-name">Wallet Name</Label>
+                  <Input
+                    id="multisig-name"
+                    value={multiSigName}
+                    onChange={(e) => setMultiSigName(e.target.value)}
+                    placeholder="e.g., Treasury Wallet"
+                  />
+                </div>
+
+                {/* Network Selection (required for multi-sig) */}
+                <div className="space-y-2">
+                  <Label>Network</Label>
+                  <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a blockchain network" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allChains.map((chain) => (
+                        <SelectItem key={chain.name} value={chain.name}>
+                          <span className="flex items-center gap-2">
+                            <span>{chain.icon}</span>
+                            <span>{chain.label}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Owners */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Owners ({multiSigOwners.filter(o => o).length})</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addMultiSigOwner}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Owner
+                    </Button>
+                  </div>
+                  {multiSigOwners.map((owner, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={owner}
+                        onChange={(e) => updateMultiSigOwner(index, e.target.value)}
+                        placeholder="0x..."
+                        className="flex-1"
+                      />
+                      {multiSigOwners.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeMultiSigOwner(index)}
+                        >
+                          <MinusCircle className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Threshold */}
+                <div className="space-y-2">
+                  <Label htmlFor="multisig-threshold">
+                    Required Signatures ({multiSigThreshold} of {multiSigOwners.filter(o => o).length})
+                  </Label>
+                  <Input
+                    id="multisig-threshold"
+                    type="number"
+                    min="1"
+                    max={multiSigOwners.filter(o => o).length}
+                    value={multiSigThreshold}
+                    onChange={(e) => setMultiSigThreshold(parseInt(e.target.value))}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Number of signatures required to execute transactions
+                  </p>
+                </div>
+
+                {/* Deploy Button */}
+                <Button
+                  onClick={deployMultiSigWallet}
+                  disabled={isGenerating || !multiSigName || multiSigOwners.filter(o => o).length < 2}
+                  className="w-full"
+                >
+                  {isGenerating ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Shield className="mr-2 h-4 w-4" />
+                  )}
+                  {isGenerating ? 'Deploying...' : 'Deploy Multi-Sig Wallet'}
+                </Button>
+
+                {/* Success Message */}
+                {generatedMultiSigAddress && (
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-medium">Multi-sig wallet deployed successfully!</p>
+                        <div className="flex items-center space-x-2">
+                          <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                            {generatedMultiSigAddress}
+                          </code>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(generatedMultiSigAddress, 'Multi-sig wallet address')}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Single Network Selection (only if not creating multi-sig) */}
+          {!multiNetworkMode && !createMultiSig && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Network:</label>
@@ -527,51 +784,55 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
             </div>
           )}
 
-          {/* Generation Options */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Generation Options:</label>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="include-private-key"
-                  checked={includePrivateKey}
-                  onCheckedChange={(checked) => setIncludePrivateKey(checked === true)}
-                />
-                <label htmlFor="include-private-key" className="text-sm">
-                  Include private key in response (required for vault storage)
-                </label>
+          {/* Generation Options (only show for regular wallets) */}
+          {!createMultiSig && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Generation Options:</label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="include-private-key"
+                      checked={includePrivateKey}
+                      onCheckedChange={(checked) => setIncludePrivateKey(checked === true)}
+                    />
+                    <label htmlFor="include-private-key" className="text-sm">
+                      Include private key in response (required for vault storage)
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="include-mnemonic"
+                      checked={includeMnemonic}
+                      onCheckedChange={(checked) => setIncludeMnemonic(checked === true)}
+                    />
+                    <label htmlFor="include-mnemonic" className="text-sm">
+                      Include mnemonic phrase (for HD wallet backup)
+                    </label>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="include-mnemonic"
-                  checked={includeMnemonic}
-                  onCheckedChange={(checked) => setIncludeMnemonic(checked === true)}
-                />
-                <label htmlFor="include-mnemonic" className="text-sm">
-                  Include mnemonic phrase (for HD wallet backup)
-                </label>
-              </div>
-            </div>
-          </div>
 
-          {/* Generate Button - Using the debounced click handler */}
-          <Button 
-            onClick={() => onGenerateClick(multiNetworkMode)}
-            disabled={isGenerating || isCheckingPermissions || hasRequiredPermissions === false || !user}
-            className="w-full"
-          >
-            {isGenerating ? (
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Wallet className="mr-2 h-4 w-4" />
-            )}
-            {isGenerating 
-              ? 'Generating...' 
-              : multiNetworkMode 
-                ? `Generate ${selectedNetworks.length} Wallets`
-                : 'Generate Wallet'
-            }
-          </Button>
+              {/* Generate Button - Using the debounced click handler */}
+              <Button 
+                onClick={() => onGenerateClick(multiNetworkMode)}
+                disabled={isGenerating || isCheckingPermissions || hasRequiredPermissions === false || !user}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Wallet className="mr-2 h-4 w-4" />
+                )}
+                {isGenerating 
+                  ? 'Generating...' 
+                  : multiNetworkMode 
+                    ? `Generate ${selectedNetworks.length} Wallets`
+                    : 'Generate Wallet'
+                }
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
       {/* Generated Wallets Display */}

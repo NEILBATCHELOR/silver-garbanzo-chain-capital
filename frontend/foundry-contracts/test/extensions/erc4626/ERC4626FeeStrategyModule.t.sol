@@ -172,8 +172,8 @@ contract ERC4626FeeStrategyModuleTest is Test {
         // Collect initial fees to set high water mark
         vm.warp(block.timestamp + 365 days);
         
-        // Fund module with assets for fee collection
-        asset.transfer(address(module), 100000 * 10**18);
+        // Fund module with assets for fee collection (need enough for management + performance fees)
+        asset.transfer(address(module), 300000 * 10**18);
         module.collectFees();
         
         // Increase vault assets (simulate profit)
@@ -189,7 +189,7 @@ contract ERC4626FeeStrategyModuleTest is Test {
     function testNoPerformanceFeeWhenBelowHighWaterMark() public {
         // Set high water mark
         vm.warp(block.timestamp + 365 days);
-        asset.transfer(address(module), 100000 * 10**18);
+        asset.transfer(address(module), 300000 * 10**18);
         module.collectFees();
         
         // Decrease vault assets
@@ -236,7 +236,7 @@ contract ERC4626FeeStrategyModuleTest is Test {
         vm.warp(block.timestamp + 365 days);
         
         // Fund module with enough assets for fee collection
-        asset.transfer(address(module), 100000 * 10**18);
+        asset.transfer(address(module), 300000 * 10**18);
         
         uint256 balanceBefore = asset.balanceOf(feeRecipient);
         
@@ -256,7 +256,7 @@ contract ERC4626FeeStrategyModuleTest is Test {
     function testHighWaterMarkUpdates() public {
         // Initial collection
         vm.warp(block.timestamp + 365 days);
-        asset.transfer(address(module), 100000 * 10**18);
+        asset.transfer(address(module), 300000 * 10**18);
         module.collectFees();
         
         uint256 initialHWM = module.getHighWaterMark();

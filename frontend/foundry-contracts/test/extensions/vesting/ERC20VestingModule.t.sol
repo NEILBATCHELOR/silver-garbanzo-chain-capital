@@ -2,18 +2,30 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "../../../src/extensions/vesting/ERC20VestingModule.sol";
+
+// Simple mock token for testing
+contract MockToken is ERC20 {
+    constructor() ERC20("Mock Token", "MOCK") {
+        _mint(msg.sender, 1000000 ether);
+    }
+    
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
 
 contract ERC20VestingModuleTest is Test {
     using Clones for address;
     
     ERC20VestingModule public implementation;
     ERC20VestingModule public module;
+    MockToken public token;
     
     address public admin = address(1);
     address public beneficiary = address(2);
-    address public tokenContract = address(3);
     
     uint256 public constant VESTING_AMOUNT = 1000 ether;
     uint256 public constant VESTING_DURATION = 365 days;
@@ -39,6 +51,10 @@ contract ERC20VestingModuleTest is Test {
     );
     
     function setUp() public {
+        // Deploy mock token with admin as initial holder
+        vm.prank(admin);
+        token = new MockToken();
+        
         // Deploy implementation
         implementation = new ERC20VestingModule();
         
@@ -47,7 +63,11 @@ contract ERC20VestingModuleTest is Test {
         module = ERC20VestingModule(clone);
         
         vm.prank(admin);
-        module.initialize(admin, tokenContract);
+        module.initialize(admin, address(token));
+        
+        // Approve module to spend admin's tokens
+        vm.prank(admin);
+        token.approve(address(module), type(uint256).max);
     }
     
     function testCreateVestingSchedule() public {

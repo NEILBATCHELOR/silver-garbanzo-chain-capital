@@ -287,6 +287,16 @@ const LEGACY_FALLBACK_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
       chainId: 'injective-888',
       nativeCurrency: { name: 'Injective', symbol: 'INJ', decimals: 18 }
     }
+  ],
+  hoodi: [
+    {
+      chain: 'hoodi',
+      networkType: 'testnet',
+      rpcUrl: 'https://ethereum-hoodi-rpc.publicnode.com', // Free public RPC
+      explorerUrl: 'https://hoodi.etherscan.io',
+      chainId: '560048',
+      nativeCurrency: { name: 'Hoodi Ether', symbol: 'ETH', decimals: 18 }
+    }
   ]
 };
 
@@ -330,6 +340,7 @@ export class BlockchainFactory {
       case 'ethereum':
       case 'sepolia':
       case 'holesky':
+      case 'hoodi':
         adapter = new EthereumAdapter(networkType);
         break;
         
@@ -579,6 +590,12 @@ export class BlockchainFactory {
         testnet: 'https://testnet.explorer.injective.network', 
         devnet: 'https://testnet.explorer.injective.network',
         regtest: 'https://testnet.explorer.injective.network'
+      },
+      hoodi: {
+        mainnet: 'https://hoodi.etherscan.io',
+        testnet: 'https://hoodi.etherscan.io',
+        devnet: 'https://hoodi.etherscan.io',
+        regtest: 'https://hoodi.etherscan.io'
       }
     };
 
@@ -605,7 +622,8 @@ export class BlockchainFactory {
       stellar: { mainnet: 'stellar-mainnet', testnet: 'stellar-testnet', devnet: 'stellar-testnet', regtest: 'stellar-testnet' },
       sui: { mainnet: 'sui-mainnet', testnet: 'sui-testnet', devnet: 'sui-testnet', regtest: 'sui-testnet' },
       aptos: { mainnet: 'aptos-mainnet', testnet: 'aptos-testnet', devnet: 'aptos-testnet', regtest: 'aptos-testnet' },
-      injective: { mainnet: 'injective-1', testnet: 'injective-888', devnet: 'injective-888', regtest: 'injective-888' }
+      injective: { mainnet: 'injective-1', testnet: 'injective-888', devnet: 'injective-888', regtest: 'injective-888' },
+      hoodi: { mainnet: '560048', testnet: '560048', devnet: '560048', regtest: '560048' }
     };
 
     return chainIds[chain]?.[networkType] || `${chain}-${networkType}`;
@@ -631,7 +649,8 @@ export class BlockchainFactory {
       stellar: { name: 'Stellar Lumens', symbol: 'XLM', decimals: 7 },
       sui: { name: 'Sui', symbol: 'SUI', decimals: 9 },
       aptos: { name: 'Aptos', symbol: 'APT', decimals: 8 },
-      injective: { name: 'Injective', symbol: 'INJ', decimals: 18 }
+      injective: { name: 'Injective', symbol: 'INJ', decimals: 18 },
+      hoodi: { name: 'Hoodi Ether', symbol: 'ETH', decimals: 18 }
     };
 
     return currencies[chain];

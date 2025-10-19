@@ -32,6 +32,9 @@ const RPC_ENV_MAPPING: Record<SupportedChain, EnvironmentRPCMapping> = {
   holesky: {
     testnet: import.meta.env.VITE_HOLESKY_RPC_URL
   },
+  hoodi: {
+    testnet: import.meta.env.VITE_HOODI_RPC_URL
+  },
   polygon: {
     mainnet: import.meta.env.VITE_POLYGON_RPC_URL,
     testnet: import.meta.env.VITE_AMOY_RPC_URL

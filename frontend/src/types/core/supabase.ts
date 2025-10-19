@@ -5907,6 +5907,65 @@ export type Database = {
           },
         ]
       }
+      contract_role_assignments: {
+        Row: {
+          assigned_by: string | null
+          blockchain: string
+          contract_address: string
+          contract_type: string
+          created_at: string | null
+          id: string
+          multi_sig_wallet_address: string
+          multi_sig_wallet_id: string | null
+          revoked_tx_hash: string | null
+          role_bytes32: string
+          role_name: string
+          status: string
+          transaction_hash: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          blockchain: string
+          contract_address: string
+          contract_type: string
+          created_at?: string | null
+          id?: string
+          multi_sig_wallet_address: string
+          multi_sig_wallet_id?: string | null
+          revoked_tx_hash?: string | null
+          role_bytes32: string
+          role_name: string
+          status?: string
+          transaction_hash: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          blockchain?: string
+          contract_address?: string
+          contract_type?: string
+          created_at?: string | null
+          id?: string
+          multi_sig_wallet_address?: string
+          multi_sig_wallet_id?: string | null
+          revoked_tx_hash?: string | null
+          role_bytes32?: string
+          role_name?: string
+          status?: string
+          transaction_hash?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_role_assignments_multi_sig_wallet_id_fkey"
+            columns: ["multi_sig_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       corporate_actions: {
         Row: {
           acquiring_company: string | null
@@ -14751,6 +14810,106 @@ export type Database = {
           },
         ]
       }
+      multi_sig_on_chain_confirmations: {
+        Row: {
+          confirmation_tx_hash: string
+          confirmed_at_timestamp: number
+          created_at: string | null
+          id: string
+          on_chain_transaction_id: string | null
+          signer_address: string
+        }
+        Insert: {
+          confirmation_tx_hash: string
+          confirmed_at_timestamp: number
+          created_at?: string | null
+          id?: string
+          on_chain_transaction_id?: string | null
+          signer_address: string
+        }
+        Update: {
+          confirmation_tx_hash?: string
+          confirmed_at_timestamp?: number
+          created_at?: string | null
+          id?: string
+          on_chain_transaction_id?: string | null
+          signer_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_on_chain_confirmations_on_chain_transaction_id_fkey"
+            columns: ["on_chain_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_on_chain_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multi_sig_on_chain_transactions: {
+        Row: {
+          created_at: string | null
+          created_at_timestamp: number
+          data: string | null
+          executed: boolean | null
+          executed_at: string | null
+          executed_by: string | null
+          execution_tx_hash: string | null
+          expires_at_timestamp: number | null
+          id: string
+          num_confirmations: number | null
+          on_chain_tx_id: number
+          submission_tx_hash: string
+          submitted_by: string
+          to_address: string
+          value: string
+          wallet_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_at_timestamp: number
+          data?: string | null
+          executed?: boolean | null
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_tx_hash?: string | null
+          expires_at_timestamp?: number | null
+          id?: string
+          num_confirmations?: number | null
+          on_chain_tx_id: number
+          submission_tx_hash: string
+          submitted_by: string
+          to_address: string
+          value?: string
+          wallet_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_at_timestamp?: number
+          data?: string | null
+          executed?: boolean | null
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_tx_hash?: string | null
+          expires_at_timestamp?: number | null
+          id?: string
+          num_confirmations?: number | null
+          on_chain_tx_id?: number
+          submission_tx_hash?: string
+          submitted_by?: string
+          to_address?: string
+          value?: string
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_on_chain_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       multi_sig_proposals: {
         Row: {
           chain_type: string
@@ -14760,10 +14919,13 @@ export type Database = {
           execution_hash: string | null
           expires_at: string
           id: string
+          on_chain_tx_hash: string | null
+          on_chain_tx_id: number | null
           raw_transaction: Json
           signatures_collected: number | null
           signatures_required: number
           status: string | null
+          submitted_on_chain: boolean | null
           transaction_hash: string
           updated_at: string | null
           wallet_id: string | null
@@ -14776,10 +14938,13 @@ export type Database = {
           execution_hash?: string | null
           expires_at: string
           id?: string
+          on_chain_tx_hash?: string | null
+          on_chain_tx_id?: number | null
           raw_transaction: Json
           signatures_collected?: number | null
           signatures_required: number
           status?: string | null
+          submitted_on_chain?: boolean | null
           transaction_hash: string
           updated_at?: string | null
           wallet_id?: string | null
@@ -14792,10 +14957,13 @@ export type Database = {
           execution_hash?: string | null
           expires_at?: string
           id?: string
+          on_chain_tx_hash?: string | null
+          on_chain_tx_id?: number | null
           raw_transaction?: Json
           signatures_collected?: number | null
           signatures_required?: number
           status?: string | null
+          submitted_on_chain?: boolean | null
           transaction_hash?: string
           updated_at?: string | null
           wallet_id?: string | null
@@ -14887,11 +15055,16 @@ export type Database = {
           block_reason: string | null
           blockchain: string
           blocked_at: string | null
+          contract_type: string | null
           created_at: string | null
           created_by: string | null
+          deployment_tx: string | null
+          factory_address: string | null
           id: string
+          investor_id: string | null
           name: string
           owners: string[]
+          project_id: string | null
           status: string | null
           threshold: number
           updated_at: string | null
@@ -14901,11 +15074,16 @@ export type Database = {
           block_reason?: string | null
           blockchain: string
           blocked_at?: string | null
+          contract_type?: string | null
           created_at?: string | null
           created_by?: string | null
+          deployment_tx?: string | null
+          factory_address?: string | null
           id?: string
+          investor_id?: string | null
           name: string
           owners: string[]
+          project_id?: string | null
           status?: string | null
           threshold: number
           updated_at?: string | null
@@ -14915,16 +15093,29 @@ export type Database = {
           block_reason?: string | null
           blockchain?: string
           blocked_at?: string | null
+          contract_type?: string | null
           created_at?: string | null
           created_by?: string | null
+          deployment_tx?: string | null
+          factory_address?: string | null
           id?: string
+          investor_id?: string | null
           name?: string
           owners?: string[]
+          project_id?: string | null
           status?: string | null
           threshold?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_wallets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       nav_approvals: {
         Row: {
@@ -18915,8 +19106,10 @@ export type Database = {
       }
       proposal_signatures: {
         Row: {
+          confirmed_on_chain: boolean | null
           id: string
           is_valid: boolean | null
+          on_chain_confirmation_tx: string | null
           proposal_id: string | null
           signature: string
           signature_type: string
@@ -18925,8 +19118,10 @@ export type Database = {
           validation_error: string | null
         }
         Insert: {
+          confirmed_on_chain?: boolean | null
           id?: string
           is_valid?: boolean | null
+          on_chain_confirmation_tx?: string | null
           proposal_id?: string | null
           signature: string
           signature_type: string
@@ -18935,8 +19130,10 @@ export type Database = {
           validation_error?: string | null
         }
         Update: {
+          confirmed_on_chain?: boolean | null
           id?: string
           is_valid?: boolean | null
+          on_chain_confirmation_tx?: string | null
           proposal_id?: string | null
           signature?: string
           signature_type?: string
@@ -31603,6 +31800,7 @@ export type Database = {
           name: string
           parity: number | null
           product_id: string | null
+          product_type: string | null
           project_id: string
           ratio: number | null
           reviewers: string[] | null
@@ -31640,6 +31838,7 @@ export type Database = {
           name: string
           parity?: number | null
           product_id?: string | null
+          product_type?: string | null
           project_id: string
           ratio?: number | null
           reviewers?: string[] | null
@@ -31677,6 +31876,7 @@ export type Database = {
           name?: string
           parity?: number | null
           product_id?: string | null
+          product_type?: string | null
           project_id?: string
           ratio?: number | null
           reviewers?: string[] | null
@@ -31687,13 +31887,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "tokens_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "bond_products"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tokens_project_id_fkey"
             columns: ["project_id"]

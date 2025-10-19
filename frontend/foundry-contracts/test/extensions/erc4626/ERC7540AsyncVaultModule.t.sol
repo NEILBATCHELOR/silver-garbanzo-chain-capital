@@ -532,7 +532,8 @@ contract ERC7540AsyncVaultModuleTest is Test {
         vm.prank(user1);
         uint256 redeemReqId = module.requestRedeem(shares, user1, user1);
         
-        vm.warp(block.timestamp + MINIMUM_DELAY + 1);
+        uint256 fulfillTime = block.timestamp + MINIMUM_DELAY + 1;
+        vm.warp(fulfillTime);
         
         vm.prank(operator);
         module.fulfillRedeemRequest(redeemReqId);

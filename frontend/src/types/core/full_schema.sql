@@ -6814,8 +6814,8 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$;
 
@@ -9564,7 +9564,9 @@ CREATE TABLE public.tokens (
     initial_owner text,
     product_id uuid,
     ratio numeric,
-    parity numeric
+    parity numeric,
+    product_type character varying(50),
+    CONSTRAINT tokens_product_type_check CHECK (((product_type)::text = ANY ((ARRAY['asset_backed'::character varying, 'bond'::character varying, 'collectible'::character varying, 'commodity'::character varying, 'digital_tokenized_fund'::character varying, 'energy'::character varying, 'equity'::character varying, 'fund'::character varying, 'mmf'::character varying, 'infrastructure'::character varying, 'private_debt'::character varying, 'private_equity'::character varying, 'quant_strategy'::character varying, 'real_estate'::character varying, 'stablecoin'::character varying, 'structured_product'::character varying])::text[])))
 );
 
 
@@ -9580,6 +9582,20 @@ COMMENT ON COLUMN public.tokens.config_mode IS 'Indicates if token uses minimal 
 --
 
 COMMENT ON COLUMN public.tokens.deployment_status IS 'Status of contract deployment and initialization. Values: pending, deployed, FAILED_INITIALIZATION, failed';
+
+
+--
+-- Name: COLUMN tokens.product_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.tokens.product_id IS 'References either bond_products.id or fund_products.id depending on product_type';
+
+
+--
+-- Name: COLUMN tokens.product_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.tokens.product_type IS 'Type of product: bond (bond_products), mmf (fund_products), or fund (fund_products)';
 
 
 --
@@ -10514,6 +10530,57 @@ COMMENT ON COLUMN public.contract_masters.abi_hash IS 'SHA-256 hash of ABI for v
 --
 
 COMMENT ON COLUMN public.contract_masters.is_active IS 'Whether this is the currently active version (for upgrades)';
+
+
+--
+-- Name: contract_role_assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contract_role_assignments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    multi_sig_wallet_id uuid,
+    multi_sig_wallet_address text NOT NULL,
+    contract_address text NOT NULL,
+    contract_type text NOT NULL,
+    role_name text NOT NULL,
+    role_bytes32 text NOT NULL,
+    blockchain text NOT NULL,
+    transaction_hash text NOT NULL,
+    status text DEFAULT 'assigned'::text NOT NULL,
+    revoked_tx_hash text,
+    assigned_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT contract_role_assignments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'assigned'::text, 'revoked'::text])))
+);
+
+
+--
+-- Name: TABLE contract_role_assignments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.contract_role_assignments IS 'Tracks role assignments to multi-sig wallets on smart contracts';
+
+
+--
+-- Name: COLUMN contract_role_assignments.contract_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_role_assignments.contract_type IS 'Type of contract (ERC20Master, TokenFactory, PolicyEngine, etc.)';
+
+
+--
+-- Name: COLUMN contract_role_assignments.role_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_role_assignments.role_name IS 'Human-readable role name (DEFAULT_ADMIN_ROLE, UPGRADER_ROLE, etc.)';
+
+
+--
+-- Name: COLUMN contract_role_assignments.role_bytes32; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_role_assignments.role_bytes32 IS 'keccak256 hash of role name for on-chain use';
 
 
 --
@@ -14784,6 +14851,58 @@ CREATE TABLE public.multi_sig_confirmations (
 
 
 --
+-- Name: multi_sig_on_chain_confirmations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.multi_sig_on_chain_confirmations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    on_chain_transaction_id uuid,
+    signer_address text NOT NULL,
+    confirmation_tx_hash text NOT NULL,
+    confirmed_at_timestamp bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE multi_sig_on_chain_confirmations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.multi_sig_on_chain_confirmations IS 'Tracks individual confirmations for on-chain multi-sig transactions';
+
+
+--
+-- Name: multi_sig_on_chain_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.multi_sig_on_chain_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_id uuid,
+    on_chain_tx_id integer NOT NULL,
+    to_address text NOT NULL,
+    value text DEFAULT '0'::text NOT NULL,
+    data text,
+    executed boolean DEFAULT false,
+    num_confirmations integer DEFAULT 0,
+    created_at_timestamp bigint NOT NULL,
+    expires_at_timestamp bigint,
+    submission_tx_hash text NOT NULL,
+    execution_tx_hash text,
+    submitted_by text NOT NULL,
+    executed_by text,
+    created_at timestamp with time zone DEFAULT now(),
+    executed_at timestamp with time zone
+);
+
+
+--
+-- Name: TABLE multi_sig_on_chain_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.multi_sig_on_chain_transactions IS 'Tracks multi-sig transactions that have been submitted on-chain';
+
+
+--
 -- Name: multi_sig_proposals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -14802,6 +14921,9 @@ CREATE TABLE public.multi_sig_proposals (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    on_chain_tx_id integer,
+    on_chain_tx_hash text,
+    submitted_on_chain boolean DEFAULT false,
     CONSTRAINT multi_sig_proposals_signatures_required_check CHECK ((signatures_required > 0)),
     CONSTRAINT multi_sig_proposals_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'signed'::text, 'executed'::text, 'expired'::text, 'rejected'::text])))
 );
@@ -14850,7 +14972,13 @@ CREATE TABLE public.multi_sig_wallets (
     status text DEFAULT 'active'::text,
     blocked_at timestamp with time zone,
     block_reason text,
+    project_id uuid,
+    investor_id uuid,
+    contract_type text DEFAULT 'custom'::text,
+    deployment_tx text,
+    factory_address text,
     CONSTRAINT multi_sig_wallets_blockchain_check CHECK ((blockchain = ANY (ARRAY['ethereum'::text, 'polygon'::text, 'avalanche'::text, 'optimism'::text, 'solana'::text, 'bitcoin'::text, 'ripple'::text, 'aptos'::text, 'sui'::text, 'mantle'::text, 'stellar'::text, 'hedera'::text, 'base'::text, 'zksync'::text, 'arbitrum'::text, 'near'::text]))),
+    CONSTRAINT multi_sig_wallets_contract_type_check CHECK ((contract_type = ANY (ARRAY['custom'::text, 'gnosis_safe'::text]))),
     CONSTRAINT multi_sig_wallets_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'blocked'::text])))
 );
 
@@ -17365,6 +17493,8 @@ CREATE TABLE public.proposal_signatures (
     signed_at timestamp with time zone DEFAULT now(),
     is_valid boolean DEFAULT true,
     validation_error text,
+    on_chain_confirmation_tx text,
+    confirmed_on_chain boolean DEFAULT false,
     CONSTRAINT proposal_signatures_signature_type_check CHECK ((signature_type = ANY (ARRAY['ecdsa'::text, 'schnorr'::text, 'eddsa'::text, 'other'::text])))
 );
 
@@ -24736,6 +24866,22 @@ ALTER TABLE ONLY public.contract_masters
 
 
 --
+-- Name: contract_role_assignments contract_role_assignments_multi_sig_wallet_address_contract_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_role_assignments
+    ADD CONSTRAINT contract_role_assignments_multi_sig_wallet_address_contract_key UNIQUE (multi_sig_wallet_address, contract_address, role_name);
+
+
+--
+-- Name: contract_role_assignments contract_role_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_role_assignments
+    ADD CONSTRAINT contract_role_assignments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: corporate_actions corporate_actions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -26513,6 +26659,38 @@ ALTER TABLE ONLY public.multi_sig_configurations
 
 ALTER TABLE ONLY public.multi_sig_confirmations
     ADD CONSTRAINT multi_sig_confirmations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_on_chain_confirmations multi_sig_on_chain_confirmati_on_chain_transaction_id_signe_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_on_chain_confirmations
+    ADD CONSTRAINT multi_sig_on_chain_confirmati_on_chain_transaction_id_signe_key UNIQUE (on_chain_transaction_id, signer_address);
+
+
+--
+-- Name: multi_sig_on_chain_confirmations multi_sig_on_chain_confirmations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_on_chain_confirmations
+    ADD CONSTRAINT multi_sig_on_chain_confirmations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_on_chain_transactions multi_sig_on_chain_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_on_chain_transactions
+    ADD CONSTRAINT multi_sig_on_chain_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_on_chain_transactions multi_sig_on_chain_transactions_wallet_id_on_chain_tx_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_on_chain_transactions
+    ADD CONSTRAINT multi_sig_on_chain_transactions_wallet_id_on_chain_tx_id_key UNIQUE (wallet_id, on_chain_tx_id);
 
 
 --
@@ -33710,10 +33888,38 @@ CREATE INDEX idx_multi_sig_proposals_chain_type ON public.multi_sig_proposals US
 
 
 --
+-- Name: idx_multi_sig_wallets_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_wallets_address ON public.multi_sig_wallets USING btree (address);
+
+
+--
+-- Name: idx_multi_sig_wallets_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_wallets_blockchain ON public.multi_sig_wallets USING btree (blockchain);
+
+
+--
+-- Name: idx_multi_sig_wallets_investor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_wallets_investor ON public.multi_sig_wallets USING btree (investor_id);
+
+
+--
 -- Name: idx_multi_sig_wallets_owners; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_multi_sig_wallets_owners ON public.multi_sig_wallets USING gin (owners);
+
+
+--
+-- Name: idx_multi_sig_wallets_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_wallets_project ON public.multi_sig_wallets USING btree (project_id);
 
 
 --
@@ -34071,6 +34277,27 @@ CREATE INDEX idx_notification_settings_project_id ON public.notification_setting
 --
 
 CREATE INDEX idx_notification_settings_user_id ON public.notification_settings USING btree (user_id);
+
+
+--
+-- Name: idx_on_chain_confirmations_tx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_chain_confirmations_tx ON public.multi_sig_on_chain_confirmations USING btree (on_chain_transaction_id);
+
+
+--
+-- Name: idx_on_chain_tx_executed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_chain_tx_executed ON public.multi_sig_on_chain_transactions USING btree (executed);
+
+
+--
+-- Name: idx_on_chain_tx_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_chain_tx_wallet ON public.multi_sig_on_chain_transactions USING btree (wallet_id);
 
 
 --
@@ -34918,6 +35145,13 @@ CREATE INDEX idx_proposals_created_by ON public.multi_sig_proposals USING btree 
 --
 
 CREATE INDEX idx_proposals_expires_at ON public.multi_sig_proposals USING btree (expires_at);
+
+
+--
+-- Name: idx_proposals_on_chain_tx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_on_chain_tx ON public.multi_sig_proposals USING btree (on_chain_tx_id);
 
 
 --
@@ -35898,6 +36132,34 @@ CREATE INDEX idx_risk_assessments_user_id ON public.risk_assessments USING btree
 --
 
 CREATE INDEX idx_risk_assessments_wallet_address ON public.risk_assessments USING btree (wallet_address);
+
+
+--
+-- Name: idx_role_assignments_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_assignments_blockchain ON public.contract_role_assignments USING btree (blockchain);
+
+
+--
+-- Name: idx_role_assignments_contract; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_assignments_contract ON public.contract_role_assignments USING btree (contract_address);
+
+
+--
+-- Name: idx_role_assignments_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_assignments_status ON public.contract_role_assignments USING btree (status);
+
+
+--
+-- Name: idx_role_assignments_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_assignments_wallet ON public.contract_role_assignments USING btree (multi_sig_wallet_id);
 
 
 --
@@ -36948,6 +37210,13 @@ CREATE INDEX idx_tokens_deployment_status ON public.tokens USING btree (deployme
 --
 
 CREATE INDEX idx_tokens_product_id ON public.tokens USING btree (product_id) WHERE (product_id IS NOT NULL);
+
+
+--
+-- Name: idx_tokens_product_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tokens_product_type ON public.tokens USING btree (product_type);
 
 
 --
@@ -38596,6 +38865,13 @@ CREATE TRIGGER update_commodities_products_updated_at BEFORE UPDATE ON public.co
 
 
 --
+-- Name: contract_role_assignments update_contract_role_assignments_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_contract_role_assignments_updated_at BEFORE UPDATE ON public.contract_role_assignments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: dfns_policies update_dfns_policies_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -39588,6 +39864,22 @@ ALTER TABLE ONLY public.compliance_violations
 
 ALTER TABLE ONLY public.contract_masters
     ADD CONSTRAINT contract_masters_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES public.users(id);
+
+
+--
+-- Name: contract_role_assignments contract_role_assignments_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_role_assignments
+    ADD CONSTRAINT contract_role_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: contract_role_assignments contract_role_assignments_multi_sig_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_role_assignments
+    ADD CONSTRAINT contract_role_assignments_multi_sig_wallet_id_fkey FOREIGN KEY (multi_sig_wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
 
 
 --
@@ -40759,6 +41051,22 @@ ALTER TABLE ONLY public.multi_sig_confirmations
 
 
 --
+-- Name: multi_sig_on_chain_confirmations multi_sig_on_chain_confirmations_on_chain_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_on_chain_confirmations
+    ADD CONSTRAINT multi_sig_on_chain_confirmations_on_chain_transaction_id_fkey FOREIGN KEY (on_chain_transaction_id) REFERENCES public.multi_sig_on_chain_transactions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: multi_sig_on_chain_transactions multi_sig_on_chain_transactions_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_on_chain_transactions
+    ADD CONSTRAINT multi_sig_on_chain_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: multi_sig_proposals multi_sig_proposals_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -40788,6 +41096,14 @@ ALTER TABLE ONLY public.multi_sig_transactions
 
 ALTER TABLE ONLY public.multi_sig_wallets
     ADD CONSTRAINT multi_sig_wallets_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: multi_sig_wallets multi_sig_wallets_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallets
+    ADD CONSTRAINT multi_sig_wallets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
 
 
 --
@@ -42150,21 +42466,6 @@ ALTER TABLE ONLY public.tokens
 
 
 --
--- Name: tokens tokens_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tokens
-    ADD CONSTRAINT tokens_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.bond_products(id) ON UPDATE CASCADE ON DELETE SET NULL;
-
-
---
--- Name: CONSTRAINT tokens_product_id_fkey ON tokens; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON CONSTRAINT tokens_product_id_fkey ON public.tokens IS 'Foreign key linking tokens to their underlying bond products for NAV calculations and token valuations';
-
-
---
 -- Name: tokens tokens_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -42566,6 +42867,16 @@ CREATE POLICY "Super Admins can manage all sidebar sections" ON public.sidebar_s
 
 
 --
+-- Name: multi_sig_wallets Users can create multi-sig wallets for their projects; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can create multi-sig wallets for their projects" ON public.multi_sig_wallets FOR INSERT WITH CHECK ((project_id IN ( SELECT p.id
+   FROM (public.projects p
+     JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
+  WHERE (uor.user_id = auth.uid()))));
+
+
+--
 -- Name: project_organization_assignments Users can create project organization assignments; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -42628,6 +42939,20 @@ CREATE POLICY "Users can update project organization assignments" ON public.proj
 
 
 --
+-- Name: multi_sig_on_chain_transactions Users can view on-chain transactions for their wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view on-chain transactions for their wallets" ON public.multi_sig_on_chain_transactions FOR SELECT USING ((wallet_id IN ( SELECT msw.id
+   FROM public.multi_sig_wallets msw
+  WHERE ((msw.investor_id IN ( SELECT msw.id
+           FROM public.investors
+          WHERE (investors.user_id = auth.uid()))) OR (msw.project_id IN ( SELECT p.id
+           FROM (public.projects p
+             JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
+          WHERE (uor.user_id = auth.uid())))))));
+
+
+--
 -- Name: project_organization_assignments Users can view project organization assignments; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -42637,6 +42962,20 @@ CREATE POLICY "Users can view project organization assignments" ON public.projec
   WHERE ((p.id = project_organization_assignments.project_id) AND (uor.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
    FROM public.user_organization_roles uor
   WHERE ((uor.organization_id = project_organization_assignments.organization_id) AND (uor.user_id = auth.uid())))))));
+
+
+--
+-- Name: contract_role_assignments Users can view role assignments for their wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view role assignments for their wallets" ON public.contract_role_assignments FOR SELECT USING ((multi_sig_wallet_id IN ( SELECT msw.id
+   FROM public.multi_sig_wallets msw
+  WHERE ((msw.investor_id IN ( SELECT msw.id
+           FROM public.investors
+          WHERE (investors.user_id = auth.uid()))) OR (msw.project_id IN ( SELECT p.id
+           FROM (public.projects p
+             JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
+          WHERE (uor.user_id = auth.uid())))))));
 
 
 --
@@ -42674,6 +43013,18 @@ CREATE POLICY "Users can view their organization's sidebar items" ON public.side
 CREATE POLICY "Users can view their organization's sidebar sections" ON public.sidebar_sections FOR SELECT USING ((organization_id IN ( SELECT user_organization_roles.organization_id
    FROM public.user_organization_roles
   WHERE (user_organization_roles.user_id = auth.uid()))));
+
+
+--
+-- Name: multi_sig_wallets Users can view their own multi-sig wallets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their own multi-sig wallets" ON public.multi_sig_wallets FOR SELECT USING (((investor_id IN ( SELECT multi_sig_wallets.id
+   FROM public.investors
+  WHERE (investors.user_id = auth.uid()))) OR (project_id IN ( SELECT p.id
+   FROM (public.projects p
+     JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
+  WHERE (uor.user_id = auth.uid())))));
 
 
 --
@@ -42767,6 +43118,12 @@ CREATE POLICY climate_user_data_sources_user_policy ON public.climate_user_data_
 ALTER TABLE public.compliance_alerts ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: contract_role_assignments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.contract_role_assignments ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: critical_alerts; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -42812,10 +43169,28 @@ ALTER TABLE public.multi_sig_audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.multi_sig_configurations ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: multi_sig_on_chain_confirmations; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_on_chain_confirmations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: multi_sig_on_chain_transactions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_on_chain_transactions ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: multi_sig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: multi_sig_wallets; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_wallets ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: operation_metadata; Type: ROW SECURITY; Schema: public; Owner: -
@@ -46123,6 +46498,16 @@ GRANT ALL ON TABLE public.contract_masters TO prisma;
 
 
 --
+-- Name: TABLE contract_role_assignments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.contract_role_assignments TO anon;
+GRANT ALL ON TABLE public.contract_role_assignments TO authenticated;
+GRANT ALL ON TABLE public.contract_role_assignments TO service_role;
+GRANT ALL ON TABLE public.contract_role_assignments TO prisma;
+
+
+--
 -- Name: TABLE corporate_actions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -47450,6 +47835,26 @@ GRANT ALL ON TABLE public.multi_sig_confirmations TO anon;
 GRANT ALL ON TABLE public.multi_sig_confirmations TO authenticated;
 GRANT ALL ON TABLE public.multi_sig_confirmations TO service_role;
 GRANT ALL ON TABLE public.multi_sig_confirmations TO prisma;
+
+
+--
+-- Name: TABLE multi_sig_on_chain_confirmations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.multi_sig_on_chain_confirmations TO anon;
+GRANT ALL ON TABLE public.multi_sig_on_chain_confirmations TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_on_chain_confirmations TO service_role;
+GRANT ALL ON TABLE public.multi_sig_on_chain_confirmations TO prisma;
+
+
+--
+-- Name: TABLE multi_sig_on_chain_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.multi_sig_on_chain_transactions TO anon;
+GRANT ALL ON TABLE public.multi_sig_on_chain_transactions TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_on_chain_transactions TO service_role;
+GRANT ALL ON TABLE public.multi_sig_on_chain_transactions TO prisma;
 
 
 --

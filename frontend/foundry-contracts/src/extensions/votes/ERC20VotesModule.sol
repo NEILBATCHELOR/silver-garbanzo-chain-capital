@@ -151,12 +151,24 @@ contract ERC20VotesModule is
     }
     
     function _transferVotingUnits(address from, address to, uint256 amount) internal {
+        // Update voting units tracking
+        if (from != address(0)) {
+            require(_votingUnits[from] >= amount, "Insufficient voting units");
+            _votingUnits[from] -= amount;
+        }
+        if (to != address(0)) {
+            _votingUnits[to] += amount;
+        }
+        
+        // Update total supply checkpoints
         if (from == address(0)) {
             _totalSupplyCheckpoints.push(_add(_getTotalSupply(), amount));
         }
         if (to == address(0)) {
             _totalSupplyCheckpoints.push(_subtract(_getTotalSupply(), amount));
         }
+        
+        // Move delegate votes
         _moveDelegateVotes(_delegates[from], _delegates[to], amount);
     }
     
@@ -200,9 +212,7 @@ contract ERC20VotesModule is
     }
     
     function _getVotingUnits(address account) internal view returns (uint256) {
-        // This should be implemented by the token contract
-        // For now, return 0 as placeholder
-        return 0;
+        return _votingUnits[account];
     }
     
     function _getTotalSupply() internal view returns (uint256) {

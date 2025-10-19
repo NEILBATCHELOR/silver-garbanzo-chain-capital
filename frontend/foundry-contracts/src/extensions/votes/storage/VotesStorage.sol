@@ -16,6 +16,10 @@ contract VotesStorage {
     // account => delegate
     mapping(address => address) internal _delegates;
     
+    // ============ Voting Units Tracking ============
+    // account => voting units (token balance)
+    mapping(address => uint256) internal _votingUnits;
+    
     // ============ Checkpoint Storage ============
     // account => checkpoints array
     mapping(address => Checkpoint[]) internal _checkpoints;

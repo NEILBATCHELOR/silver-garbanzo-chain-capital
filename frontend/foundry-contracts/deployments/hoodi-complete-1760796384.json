@@ -1,0 +1,13 @@
+{
+  "beaconProxyFactory": "0xCc4E531C0bF28C0e071f728755D1fb5927f66b8c",
+  "create2Deployer": "0x99c012A0723D9F8b7B759082a3393dfF87e19c86",
+  "extensionModuleFactory": "0xFb63ce50BC17B7A7e873AC013ac8aD40A4B95184",
+  "multiSigFactory": "0x9E9b43BB6396DE240b66FC83B3f1517dDEB5379B",
+  "policyEngine": "0x781d9B85c989d9CA691955E4352a666D7D4aC85c",
+  "policyRegistry": "0xC77b041FCBCefd8267e6739A0c0c565f958aA358",
+  "tokenFactory": "0xAE21da994Eb972C27C96e2E81A54FBa4Df65D3dD",
+  "tokenRegistry": "0x1D049d5450348D1194cF0bf53C6fF1C6E5ADe31B",
+  "universalDeployer": "0x9397cb807BF97F653eE8f4e31fC101a7BD97aa71",
+  "upgradeGovernance": "0x1Fa1bB0B23FDd7abd9286dbC2Fa806cAc2789ce4",
+  "upgradeGovernor": "0xbbd3e140A6031c59FC45d27270D82a7aB7256779"
+}

@@ -1,14 +1,10 @@
-/**
- * Safe Wallet Components Index
- * 
- * Exports safe versions of wallet components that work without AppKit
- */
+// Multi-Sig Wallet Components
+export { MultiSigWalletForm } from '@/components/wallet/multisig/MultiSigWalletForm';
+export { MultiSigTransactionProposal } from '@/components/wallet/multisig/MultiSigTransactionProposal';
+export { MultiSigTransactionList } from '@/components/wallet/multisig/MultiSigTransactionList';
+export { MultiSigRoleManager } from '@/components/wallet/multisig/MultiSigRoleManager';
+export { MultiSigManager } from '@/components/wallet/multisig/MultiSigManager';
 
-// Re-export the safe components with simpler names for easier usage
-export { 
-  SafeConnectWalletButton as ConnectWalletButton
-} from './SafeConnectWalletButton';
-
-// TODO: Implement these components when needed
-// export { SafeWalletAccount as WalletAccount } from './SafeConnectWalletButton';
-// export { SafeNetworkSelector as NetworkSelector } from './SafeConnectWalletButton';
+// Re-export types
+export type { RoleAssignment } from '@/services/wallet/multiSig/RoleManagementService';
+export type { MultiSigProposal } from '@/services/wallet/multiSig/MultiSigTransactionService';

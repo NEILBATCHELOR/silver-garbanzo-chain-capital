@@ -103,6 +103,7 @@ export const WEB3_UTILS = {
       ethereum: 'Ethereum',
       sepolia: 'Sepolia Testnet',
       holesky: 'Holesky Testnet',
+      hoodi: 'Hoodi Testnet',
       polygon: 'Polygon',
       arbitrum: 'Arbitrum',
       optimism: 'Optimism',

@@ -49,22 +49,34 @@ contract MockWETHVault is ERC20 {
     
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
         shares = previewWithdraw(assets);
+        
+        // Check allowance if caller is not owner
         if (msg.sender != owner) {
-            _burn(owner, shares);
-        } else {
-            _burn(msg.sender, shares);
+            uint256 allowed = allowance(owner, msg.sender);
+            if (allowed != type(uint256).max) {
+                require(allowed >= shares, "ERC20: insufficient allowance");
+                _approve(owner, msg.sender, allowed - shares);
+            }
         }
+        
+        _burn(owner, shares);
         asset.transfer(receiver, assets);
         totalAssets_ -= assets;
     }
     
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
         assets = previewRedeem(shares);
+        
+        // Check allowance if caller is not owner
         if (msg.sender != owner) {
-            _burn(owner, shares);
-        } else {
-            _burn(msg.sender, shares);
+            uint256 allowed = allowance(owner, msg.sender);
+            if (allowed != type(uint256).max) {
+                require(allowed >= shares, "ERC20: insufficient allowance");
+                _approve(owner, msg.sender, allowed - shares);
+            }
         }
+        
+        _burn(owner, shares);
         asset.transfer(receiver, assets);
         totalAssets_ -= assets;
     }

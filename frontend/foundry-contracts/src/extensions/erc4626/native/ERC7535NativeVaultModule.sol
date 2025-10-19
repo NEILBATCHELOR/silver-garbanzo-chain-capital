@@ -149,9 +149,11 @@ contract ERC7535NativeVaultModule is
         address receiver,
         address owner
     ) external override returns (uint256 shares) {
+        // Calculate shares required
+        shares = vault.previewWithdraw(ethAmount);
+        
         // If not owner, transfer shares to this contract first
         if (msg.sender != owner) {
-            shares = vault.previewWithdraw(ethAmount);
             IERC20(address(vault)).safeTransferFrom(owner, address(this), shares);
         }
         
