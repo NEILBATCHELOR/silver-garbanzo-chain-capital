@@ -326,27 +326,67 @@ export class RoleAddressService {
    * Delete role address
    */
   async deleteRoleAddress(addressId: string): Promise<void> {
+    console.log('🗑️ RoleAddressService.deleteRoleAddress called with ID:', addressId);
+    
     try {
       // Get address first to clean up KeyVault
+      console.log('📖 Fetching address details before deletion...');
       const roleAddress = await this.getRoleAddress(addressId);
       
-      if (roleAddress?.keyVaultReference) {
-        try {
-          await keyVaultClient.deleteKey(roleAddress.keyVaultReference);
-        } catch (keyError) {
-          console.warn('Failed to delete key from KeyVault:', keyError);
-        }
+      if (!roleAddress) {
+        console.warn('⚠️  Address not found:', addressId);
+        throw new Error('Address not found');
       }
 
-      const { error } = await supabase
+      console.log('📖 Address found:', {
+        id: roleAddress.id,
+        blockchain: roleAddress.blockchain,
+        address: roleAddress.address,
+        hasKeyVaultRef: !!roleAddress.keyVaultReference
+      });
+      
+      // Delete from KeyVault first
+      if (roleAddress.keyVaultReference) {
+        console.log('🔐 Deleting key from KeyVault:', roleAddress.keyVaultReference);
+        try {
+          await keyVaultClient.deleteKey(roleAddress.keyVaultReference);
+          console.log('✅ KeyVault key deleted');
+        } catch (keyError) {
+          console.warn('⚠️  Failed to delete key from KeyVault:', keyError);
+          // Continue with database deletion even if KeyVault fails
+        }
+      } else {
+        console.log('ℹ️  No KeyVault reference to delete');
+      }
+
+      // Delete from database
+      console.log('🗄️  Deleting from database with ID:', addressId);
+      const { data, error, count } = await supabase
         .from('role_addresses')
         .delete()
-        .eq('id', addressId);
+        .eq('id', addressId)
+        .select(); // Add select to see what was deleted
 
-      if (error) throw error;
+      console.log('📊 Delete operation result:', {
+        error: error ? error.message : null,
+        deletedCount: data?.length || 0,
+        deletedData: data
+      });
+
+      if (error) {
+        console.error('❌ Database deletion failed:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️  No rows were deleted - possible RLS policy blocking deletion');
+        throw new Error('Failed to delete address - no rows affected. This may be a permissions issue.');
+      }
+
+      console.log('✅ Successfully deleted role address from database');
 
     } catch (error: any) {
-      console.error('Failed to delete role address:', error);
+      console.error('❌ Failed to delete role address:', error);
       throw new Error(`Failed to delete role address: ${error.message}`);
     }
   }

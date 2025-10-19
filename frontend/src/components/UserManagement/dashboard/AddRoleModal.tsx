@@ -276,16 +276,21 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
               </Alert>
 
               <Accordion type="multiple" className="w-full">
-                {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
-                  <AccordionItem key={category} value={category}>
-                    <AccordionTrigger className="text-sm font-medium">
-                      {category}
-                      {selectedContractRoles.some(r => roles.includes(r)) && (
-                        <Badge variant="secondary" className="ml-2">
-                          {selectedContractRoles.filter(r => roles.includes(r)).length}
-                        </Badge>
-                      )}
-                    </AccordionTrigger>
+                {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => {
+                  const selectedInCategory = selectedContractRoles.filter(r => roles.includes(r)).length;
+                  
+                  return (
+                    <AccordionItem key={category} value={category}>
+                      <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                        <div className="flex items-center justify-between w-full pr-4">
+                          <span>{category}</span>
+                          {selectedInCategory > 0 && (
+                            <Badge variant="secondary" className="ml-auto">
+                              {selectedInCategory}
+                            </Badge>
+                          )}
+                        </div>
+                      </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-2 pl-2">
                         {roles.map((role) => (
@@ -311,7 +316,8 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                ))}
+                );
+              })}
               </Accordion>
 
               {selectedContractRoles.length > 0 && (

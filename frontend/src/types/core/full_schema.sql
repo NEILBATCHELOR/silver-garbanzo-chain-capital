@@ -621,6 +621,22 @@ $$;
 
 
 --
+-- Name: address_has_contract_role(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.address_has_contract_role(p_address_id uuid, p_contract_role text) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  v_roles JSONB;
+BEGIN
+  v_roles := get_contract_roles_for_address(p_address_id);
+  RETURN v_roles @> jsonb_build_array(p_contract_role);
+END;
+$$;
+
+
+--
 -- Name: admin_set_profile_type(uuid, public.profile_type); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2897,6 +2913,35 @@ $$;
 
 
 --
+-- Name: get_addresses_for_contract_role(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_addresses_for_contract_role(p_role_id uuid, p_contract_role text, p_blockchain text DEFAULT NULL::text) RETURNS TABLE(address_id uuid, blockchain text, address text, signing_method text, contract_roles jsonb)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    ra.id,
+    ra.blockchain,
+    ra.address,
+    ra.signing_method,
+    ra.contract_roles
+  FROM role_addresses ra
+  WHERE ra.role_id = p_role_id
+    AND (
+      -- Address has empty contract_roles (inherits all from role_contracts)
+      jsonb_array_length(ra.contract_roles) = 0
+      OR 
+      -- Address explicitly has this contract role
+      ra.contract_roles @> jsonb_build_array(p_contract_role)
+    )
+    AND (p_blockchain IS NULL OR ra.blockchain = p_blockchain);
+END;
+$$;
+
+
+--
 -- Name: get_all_table_schemas(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3082,6 +3127,40 @@ $$;
 --
 
 COMMENT ON FUNCTION public.get_audit_statistics(p_hours_back integer) IS 'Returns comprehensive audit statistics for the specified time period';
+
+
+--
+-- Name: get_contract_roles_for_address(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_contract_roles_for_address(p_address_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  v_role_id UUID;
+  v_address_roles JSONB;
+  v_all_role_contracts JSONB;
+BEGIN
+  -- Get the address's role_id and contract_roles
+  SELECT role_id, contract_roles 
+  INTO v_role_id, v_address_roles
+  FROM role_addresses 
+  WHERE id = p_address_id;
+
+  -- If address has specific contract roles, return them
+  IF jsonb_array_length(v_address_roles) > 0 THEN
+    RETURN v_address_roles;
+  END IF;
+
+  -- Otherwise, return all contract roles from role_contracts
+  SELECT contract_roles 
+  INTO v_all_role_contracts
+  FROM role_contracts 
+  WHERE role_id = v_role_id;
+
+  RETURN COALESCE(v_all_role_contracts, '[]'::jsonb);
+END;
+$$;
 
 
 --
@@ -3991,6 +4070,27 @@ EXCEPTION
         RAISE NOTICE 'Error in get_users_with_permission_simple: %', SQLERRM;
         -- Return empty result set on error
         RETURN;
+END;
+$$;
+
+
+--
+-- Name: get_wallet_signers(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_wallet_signers(p_wallet_id uuid) RETURNS text[]
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN (
+    SELECT ARRAY_AGG(ra.address)
+    FROM multi_sig_wallet_owners mwo
+    JOIN roles r ON r.id = mwo.role_id
+    JOIN role_addresses ra ON ra.role_id = r.id
+    JOIN multi_sig_wallets msw ON msw.id = mwo.wallet_id
+    WHERE mwo.wallet_id = p_wallet_id
+      AND ra.blockchain = msw.blockchain
+  );
 END;
 $$;
 
@@ -5840,6 +5940,37 @@ BEGIN
   CLOSE groups_cursor;
 END;
 $$;
+
+
+--
+-- Name: sync_multisig_owners(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_multisig_owners() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  UPDATE multi_sig_wallets
+  SET owners = (
+    SELECT ARRAY_AGG(ra.address)
+    FROM multi_sig_wallet_owners mwo
+    JOIN role_addresses ra ON ra.role_id = mwo.role_id
+    WHERE mwo.wallet_id = NEW.wallet_id
+      AND ra.blockchain = multi_sig_wallets.blockchain
+  ),
+  updated_at = NOW()
+  WHERE id = NEW.wallet_id;
+  
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION sync_multisig_owners(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.sync_multisig_owners() IS 'Maintains backward compatibility by syncing owners array from role addresses';
 
 
 --
@@ -10486,7 +10617,7 @@ CREATE TABLE public.contract_masters (
     contract_address text NOT NULL,
     version text DEFAULT '1.0.0'::text NOT NULL,
     abi_version text DEFAULT '1.0.0'::text NOT NULL,
-    abi json NOT NULL,
+    abi json,
     abi_hash text,
     deployed_at timestamp with time zone DEFAULT now(),
     deployed_by uuid,
@@ -10498,9 +10629,7 @@ CREATE TABLE public.contract_masters (
     updated_at timestamp with time zone DEFAULT now(),
     contract_details jsonb,
     initial_owner text,
-    CONSTRAINT contract_masters_contract_type_check CHECK ((contract_type = ANY (ARRAY['factory'::text, 'erc20_master'::text, 'erc721_master'::text, 'erc1155_master'::text, 'erc3525_master'::text, 'erc4626_master'::text, 'erc1400_master'::text, 'erc20_rebasing_master'::text, 'compliance_module'::text, 'vesting_module'::text, 'royalty_module'::text, 'fee_module'::text]))),
-    CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text]))),
-    CONSTRAINT contract_masters_network_check CHECK ((network = ANY (ARRAY['ethereum'::text, 'polygon'::text, 'arbitrum'::text, 'optimism'::text, 'base'::text, 'avalanche'::text, 'bsc'::text])))
+    CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text, 'local'::text])))
 );
 
 
@@ -10508,14 +10637,21 @@ CREATE TABLE public.contract_masters (
 -- Name: TABLE contract_masters; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.contract_masters IS 'Master contract templates deployed on various networks. These are infrastructure contracts that can create/manage tokens.';
+COMMENT ON TABLE public.contract_masters IS 'Stores deployed smart contract master implementations, beacons, extension modules, and infrastructure contracts';
+
+
+--
+-- Name: COLUMN contract_masters.network; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters.network IS 'Blockchain network identifier - no enum constraint to allow new networks. Examples: ethereum, polygon, arbitrum, hoodi, base, optimism, avalanche, bsc, etc.';
 
 
 --
 -- Name: COLUMN contract_masters.contract_type; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.contract_masters.contract_type IS 'Type of master contract or module (factory, erc20_master, compliance_module, etc.)';
+COMMENT ON COLUMN public.contract_masters.contract_type IS 'Contract type identifier - no enum constraint to allow flexibility for new contract types. Examples: erc20_master, erc721_beacon, compliance_module, policy_engine, multi_sig_wallet, etc.';
 
 
 --
@@ -10530,6 +10666,13 @@ COMMENT ON COLUMN public.contract_masters.abi_hash IS 'SHA-256 hash of ABI for v
 --
 
 COMMENT ON COLUMN public.contract_masters.is_active IS 'Whether this is the currently active version (for upgrades)';
+
+
+--
+-- Name: COLUMN contract_masters.deployment_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters.deployment_data IS 'JSONB field for additional metadata: source_file, implementation_address, features, category, etherscan_link, etc.';
 
 
 --
@@ -13905,6 +14048,29 @@ COMMENT ON COLUMN public.issuer_documents.is_public IS 'Indicates whether the do
 
 
 --
+-- Name: key_vault_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.key_vault_keys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key_id text NOT NULL,
+    encrypted_key text NOT NULL,
+    key_type text DEFAULT 'private_key'::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE key_vault_keys; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.key_vault_keys IS 'Secure key storage for KeyVault - not tied to projects, supports roles and future KMS integration';
+
+
+--
 -- Name: kyc_screening_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -14956,6 +15122,26 @@ CREATE TABLE public.multi_sig_transactions (
 
 
 --
+-- Name: multi_sig_wallet_owners; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.multi_sig_wallet_owners (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_id uuid NOT NULL,
+    role_id uuid NOT NULL,
+    added_at timestamp with time zone DEFAULT now() NOT NULL,
+    added_by uuid
+);
+
+
+--
+-- Name: TABLE multi_sig_wallet_owners; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.multi_sig_wallet_owners IS 'Junction table linking roles to multi-sig wallets for role-based ownership';
+
+
+--
 -- Name: multi_sig_wallets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -14977,10 +15163,97 @@ CREATE TABLE public.multi_sig_wallets (
     contract_type text DEFAULT 'custom'::text,
     deployment_tx text,
     factory_address text,
+    ownership_type text DEFAULT 'address_based'::text,
+    migrated_to_roles boolean DEFAULT false,
+    migration_date timestamp with time zone,
     CONSTRAINT multi_sig_wallets_blockchain_check CHECK ((blockchain = ANY (ARRAY['ethereum'::text, 'polygon'::text, 'avalanche'::text, 'optimism'::text, 'solana'::text, 'bitcoin'::text, 'ripple'::text, 'aptos'::text, 'sui'::text, 'mantle'::text, 'stellar'::text, 'hedera'::text, 'base'::text, 'zksync'::text, 'arbitrum'::text, 'near'::text]))),
     CONSTRAINT multi_sig_wallets_contract_type_check CHECK ((contract_type = ANY (ARRAY['custom'::text, 'gnosis_safe'::text]))),
+    CONSTRAINT multi_sig_wallets_ownership_type_check CHECK ((ownership_type = ANY (ARRAY['address_based'::text, 'role_based'::text]))),
     CONSTRAINT multi_sig_wallets_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'blocked'::text])))
 );
+
+
+--
+-- Name: COLUMN multi_sig_wallets.ownership_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallets.ownership_type IS 'Whether wallet uses address_based (legacy) or role_based ownership';
+
+
+--
+-- Name: role_addresses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.role_addresses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    role_id uuid NOT NULL,
+    blockchain text NOT NULL,
+    address text NOT NULL,
+    signing_method text DEFAULT 'private_key'::text NOT NULL,
+    encrypted_private_key text,
+    key_vault_reference text,
+    derivation_path text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    contract_roles jsonb DEFAULT '[]'::jsonb,
+    CONSTRAINT role_addresses_signing_method_check CHECK ((signing_method = ANY (ARRAY['private_key'::text, 'hardware_wallet'::text, 'mpc'::text])))
+);
+
+
+--
+-- Name: TABLE role_addresses; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.role_addresses IS 'Stores blockchain addresses for roles, supporting multi-chain deployments';
+
+
+--
+-- Name: COLUMN role_addresses.signing_method; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.role_addresses.signing_method IS 'Method used for signing: private_key (software), hardware_wallet, or mpc';
+
+
+--
+-- Name: COLUMN role_addresses.contract_roles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.role_addresses.contract_roles IS 'Array of contract role names this address can use. Empty array means address inherits all roles from role_contracts table.';
+
+
+--
+-- Name: multi_sig_wallet_roles; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.multi_sig_wallet_roles AS
+ SELECT msw.id AS wallet_id,
+    msw.name AS wallet_name,
+    msw.address AS wallet_address,
+    msw.blockchain,
+    msw.threshold,
+    msw.ownership_type,
+    r.id AS role_id,
+    r.name AS role_name,
+    r.description AS role_description,
+    r.priority AS role_priority,
+    ra.address AS role_address,
+    ra.signing_method,
+    mwo.added_at,
+    mwo.added_by
+   FROM (((public.multi_sig_wallets msw
+     JOIN public.multi_sig_wallet_owners mwo ON ((mwo.wallet_id = msw.id)))
+     JOIN public.roles r ON ((r.id = mwo.role_id)))
+     LEFT JOIN public.role_addresses ra ON (((ra.role_id = r.id) AND (ra.blockchain = msw.blockchain))))
+  WHERE (msw.ownership_type = 'role_based'::text)
+  ORDER BY msw.name, r.priority DESC;
+
+
+--
+-- Name: VIEW multi_sig_wallet_roles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.multi_sig_wallet_roles IS 'Complete view of multi-sig wallets with their role-based owners and addresses';
 
 
 --
@@ -19204,6 +19477,33 @@ CREATE TABLE public.role_contracts (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+
+--
+-- Name: role_addresses_with_resolved_roles; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.role_addresses_with_resolved_roles AS
+ SELECT ra.id AS address_id,
+    ra.role_id,
+    r.name AS role_name,
+    ra.blockchain,
+    ra.address,
+    ra.signing_method,
+    ra.contract_roles AS explicit_roles,
+        CASE
+            WHEN (jsonb_array_length(ra.contract_roles) > 0) THEN ra.contract_roles
+            ELSE COALESCE(rc.contract_roles, '[]'::jsonb)
+        END AS effective_roles,
+        CASE
+            WHEN (jsonb_array_length(ra.contract_roles) > 0) THEN 'explicit'::text
+            ELSE 'inherited'::text
+        END AS role_assignment_type,
+    ra.created_at,
+    ra.updated_at
+   FROM ((public.role_addresses ra
+     JOIN public.roles r ON ((r.id = ra.role_id)))
+     LEFT JOIN public.role_contracts rc ON ((rc.role_id = ra.role_id)));
 
 
 --
@@ -24850,11 +25150,11 @@ ALTER TABLE ONLY public.contract_master_versions
 
 
 --
--- Name: contract_masters contract_masters_network_environment_contract_type_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: contract_masters contract_masters_network_environment_address_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.contract_masters
-    ADD CONSTRAINT contract_masters_network_environment_contract_type_version_key UNIQUE (network, environment, contract_type, version);
+    ADD CONSTRAINT contract_masters_network_environment_address_unique UNIQUE (network, environment, contract_address);
 
 
 --
@@ -26310,6 +26610,22 @@ ALTER TABLE ONLY public.issuer_documents
 
 
 --
+-- Name: key_vault_keys key_vault_keys_key_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT key_vault_keys_key_id_key UNIQUE (key_id);
+
+
+--
+-- Name: key_vault_keys key_vault_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT key_vault_keys_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: kyc_screening_logs kyc_screening_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -26707,6 +27023,22 @@ ALTER TABLE ONLY public.multi_sig_proposals
 
 ALTER TABLE ONLY public.multi_sig_transactions
     ADD CONSTRAINT multi_sig_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_wallet_id_role_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_wallet_id_role_id_key UNIQUE (wallet_id, role_id);
 
 
 --
@@ -27943,6 +28275,22 @@ ALTER TABLE ONLY public.risk_assessments
 
 ALTER TABLE ONLY public.risk_thresholds
     ADD CONSTRAINT risk_thresholds_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: role_addresses role_addresses_blockchain_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_addresses
+    ADD CONSTRAINT role_addresses_blockchain_address_key UNIQUE (blockchain, address);
+
+
+--
+-- Name: role_addresses role_addresses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_addresses
+    ADD CONSTRAINT role_addresses_pkey PRIMARY KEY (id);
 
 
 --
@@ -30969,6 +31317,13 @@ CREATE INDEX idx_config_wallet_id ON public.multi_sig_configurations USING btree
 
 
 --
+-- Name: idx_contract_masters_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_active ON public.contract_masters USING btree (is_active) WHERE (is_active = true);
+
+
+--
 -- Name: idx_contract_masters_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -30980,6 +31335,13 @@ CREATE INDEX idx_contract_masters_address ON public.contract_masters USING btree
 --
 
 CREATE INDEX idx_contract_masters_lookup ON public.contract_masters USING btree (network, environment, contract_type, is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_contract_masters_network_env; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_network_env ON public.contract_masters USING btree (network, environment);
 
 
 --
@@ -33234,6 +33596,20 @@ CREATE INDEX idx_jurisdictions_region ON public.geographic_jurisdictions USING b
 --
 
 CREATE INDEX idx_jurisdictions_sanctions ON public.geographic_jurisdictions USING btree (is_ofac_sanctioned, is_eu_sanctioned, is_un_sanctioned);
+
+
+--
+-- Name: idx_key_vault_keys_created_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_created_by ON public.key_vault_keys USING btree (created_by);
+
+
+--
+-- Name: idx_key_vault_keys_key_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_key_id ON public.key_vault_keys USING btree (key_id);
 
 
 --
@@ -36135,6 +36511,48 @@ CREATE INDEX idx_risk_assessments_wallet_address ON public.risk_assessments USIN
 
 
 --
+-- Name: idx_role_addresses_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_addresses_address ON public.role_addresses USING btree (address);
+
+
+--
+-- Name: idx_role_addresses_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_addresses_blockchain ON public.role_addresses USING btree (blockchain);
+
+
+--
+-- Name: idx_role_addresses_blockchain_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_role_addresses_blockchain_address ON public.role_addresses USING btree (blockchain, address);
+
+
+--
+-- Name: idx_role_addresses_contract_roles; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_addresses_contract_roles ON public.role_addresses USING gin (contract_roles);
+
+
+--
+-- Name: idx_role_addresses_role_blockchain_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_role_addresses_role_blockchain_address ON public.role_addresses USING btree (role_id, blockchain, address);
+
+
+--
+-- Name: idx_role_addresses_role_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_addresses_role_id ON public.role_addresses USING btree (role_id);
+
+
+--
 -- Name: idx_role_assignments_blockchain; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -37570,6 +37988,20 @@ CREATE INDEX idx_wallet_locks_wallet_id ON public.wallet_locks USING btree (wall
 
 
 --
+-- Name: idx_wallet_owners_role_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_owners_role_id ON public.multi_sig_wallet_owners USING btree (role_id);
+
+
+--
+-- Name: idx_wallet_owners_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_owners_wallet_id ON public.multi_sig_wallet_owners USING btree (wallet_id);
+
+
+--
 -- Name: idx_wallet_restriction_rules_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38358,6 +38790,13 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.moonpay_webhook_config FOR
 --
 
 CREATE TRIGGER set_updated_at_timestamp BEFORE UPDATE ON public.security_events FOR EACH ROW EXECUTE FUNCTION public.update_security_events_updated_at();
+
+
+--
+-- Name: multi_sig_wallet_owners sync_owners_on_role_add; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER sync_owners_on_role_add AFTER INSERT OR DELETE ON public.multi_sig_wallet_owners FOR EACH ROW EXECUTE FUNCTION public.sync_multisig_owners();
 
 
 --
@@ -39863,7 +40302,7 @@ ALTER TABLE ONLY public.compliance_violations
 --
 
 ALTER TABLE ONLY public.contract_masters
-    ADD CONSTRAINT contract_masters_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES public.users(id);
+    ADD CONSTRAINT contract_masters_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES public.users(id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -40939,6 +41378,14 @@ ALTER TABLE ONLY public.issuer_documents
 
 
 --
+-- Name: key_vault_keys key_vault_keys_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT key_vault_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
 -- Name: kyc_screening_logs kyc_screening_logs_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -41088,6 +41535,30 @@ ALTER TABLE ONLY public.multi_sig_proposals
 
 ALTER TABLE ONLY public.multi_sig_transactions
     ADD CONSTRAINT multi_sig_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_added_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_added_by_fkey FOREIGN KEY (added_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
 
 
 --
@@ -41663,6 +42134,22 @@ ALTER TABLE ONLY public.ripple_multisig_proposals
 
 ALTER TABLE ONLY public.ripple_trust_lines
     ADD CONSTRAINT ripple_trust_lines_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: role_addresses role_addresses_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_addresses
+    ADD CONSTRAINT role_addresses_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: role_addresses role_addresses_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_addresses
+    ADD CONSTRAINT role_addresses_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
 
 
 --
@@ -42714,793 +43201,6 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
--- Name: regulatory_exemptions Allow read access to regulatory exemptions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow read access to regulatory exemptions" ON public.regulatory_exemptions FOR SELECT USING ((auth.role() = 'authenticated'::text));
-
-
---
--- Name: regulatory_exemptions Allow write access to regulatory exemptions for authorized user; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow write access to regulatory exemptions for authorized user" ON public.regulatory_exemptions USING ((EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
-  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['manage_regulatory_data'::text, 'admin_access'::text]))))));
-
-
---
--- Name: climate_risk_calculations Authenticated users can create risk calculations; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can create risk calculations" ON public.climate_risk_calculations FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
-
-
---
--- Name: climate_risk_calculations Authenticated users can delete risk calculations; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can delete risk calculations" ON public.climate_risk_calculations FOR DELETE USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: climate_risk_calculations Authenticated users can update risk calculations; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can update risk calculations" ON public.climate_risk_calculations FOR UPDATE USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: climate_risk_calculations Authenticated users can view risk calculations; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can view risk calculations" ON public.climate_risk_calculations FOR SELECT USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: project_wallets Authorized users can insert wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authorized users can insert wallets" ON public.project_wallets FOR INSERT WITH CHECK ((((auth.jwt() ->> 'role'::text) = 'service_role'::text) OR (EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.role_permissions rp ON ((rp.role_id = uor.role_id)))
-  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['wallet.create'::text, 'wallets.create'::text])))))));
-
-
---
--- Name: project_wallets Authorized users can update wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authorized users can update wallets" ON public.project_wallets FOR UPDATE USING ((((auth.jwt() ->> 'role'::text) = 'service_role'::text) OR (project_id IN ( SELECT p.id
-   FROM public.projects p
-  WHERE (p.organization_id IN ( SELECT uor.organization_id
-           FROM (public.user_organization_roles uor
-             JOIN public.role_permissions rp ON ((rp.role_id = uor.role_id)))
-          WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['wallet.edit'::text, 'wallets.edit'::text])))))))));
-
-
---
--- Name: project_wallets Organization members can delete wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Organization members can delete wallets" ON public.project_wallets FOR DELETE USING ((project_id IN ( SELECT p.id
-   FROM public.projects p
-  WHERE (p.organization_id IN ( SELECT uor.organization_id
-           FROM public.user_organization_roles uor
-          WHERE (uor.user_id = auth.uid()))))));
-
-
---
--- Name: wallet_access_logs Service role can insert access logs; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Service role can insert access logs" ON public.wallet_access_logs FOR INSERT WITH CHECK (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
-
-
---
--- Name: signer_keys Signer keys delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Signer keys delete" ON public.signer_keys FOR DELETE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: signer_keys Signer keys insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Signer keys insert" ON public.signer_keys FOR INSERT TO authenticated WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: signer_keys Signer keys select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Signer keys select" ON public.signer_keys FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: signer_keys Signer keys update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Signer keys update" ON public.signer_keys FOR UPDATE TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid))) WITH CHECK ((user_id = ( SELECT auth.uid() AS uid)));
-
-
---
--- Name: sidebar_configurations Super Admins can manage all sidebar configurations; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Super Admins can manage all sidebar configurations" ON public.sidebar_configurations USING ((EXISTS ( SELECT 1
-   FROM (public.user_roles ur
-     JOIN public.roles r ON ((ur.role_id = r.id)))
-  WHERE ((ur.user_id = auth.uid()) AND (r.name = 'Super Admin'::text) AND (r.priority >= 100)))));
-
-
---
--- Name: sidebar_configurations Super Admins can manage all sidebar configurations v2; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Super Admins can manage all sidebar configurations v2" ON public.sidebar_configurations USING ((EXISTS ( SELECT 1
-   FROM (public.user_roles ur
-     JOIN public.roles r ON ((ur.role_id = r.id)))
-  WHERE ((ur.user_id = auth.uid()) AND (r.name = 'Super Admin'::text) AND (r.priority >= 100)))));
-
-
---
--- Name: sidebar_items Super Admins can manage all sidebar items; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Super Admins can manage all sidebar items" ON public.sidebar_items USING ((EXISTS ( SELECT 1
-   FROM (public.user_roles ur
-     JOIN public.roles r ON ((ur.role_id = r.id)))
-  WHERE ((ur.user_id = auth.uid()) AND (r.name = 'Super Admin'::text) AND (r.priority >= 100)))));
-
-
---
--- Name: sidebar_sections Super Admins can manage all sidebar sections; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Super Admins can manage all sidebar sections" ON public.sidebar_sections USING ((EXISTS ( SELECT 1
-   FROM (public.user_roles ur
-     JOIN public.roles r ON ((ur.role_id = r.id)))
-  WHERE ((ur.user_id = auth.uid()) AND (r.name = 'Super Admin'::text) AND (r.priority >= 100)))));
-
-
---
--- Name: multi_sig_wallets Users can create multi-sig wallets for their projects; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can create multi-sig wallets for their projects" ON public.multi_sig_wallets FOR INSERT WITH CHECK ((project_id IN ( SELECT p.id
-   FROM (public.projects p
-     JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
-  WHERE (uor.user_id = auth.uid()))));
-
-
---
--- Name: project_organization_assignments Users can create project organization assignments; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can create project organization assignments" ON public.project_organization_assignments FOR INSERT WITH CHECK (((auth.uid() IS NOT NULL) AND ((EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.projects p ON ((p.organization_id = uor.organization_id)))
-  WHERE ((p.id = project_organization_assignments.project_id) AND (uor.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
-   FROM public.user_organization_roles uor
-  WHERE ((uor.organization_id = project_organization_assignments.organization_id) AND (uor.user_id = auth.uid())))))));
-
-
---
--- Name: multi_sig_proposals Users can create proposals for their wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can create proposals for their wallets" ON public.multi_sig_proposals FOR INSERT TO authenticated WITH CHECK ((wallet_id IN ( SELECT multi_sig_wallets.id
-   FROM public.multi_sig_wallets
-  WHERE ((( SELECT auth.uid() AS uid))::text = ANY (multi_sig_wallets.owners)))));
-
-
---
--- Name: project_organization_assignments Users can delete project organization assignments; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can delete project organization assignments" ON public.project_organization_assignments FOR DELETE USING (((auth.uid() IS NOT NULL) AND ((assigned_by = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.projects p ON ((p.organization_id = uor.organization_id)))
-  WHERE ((p.id = project_organization_assignments.project_id) AND (uor.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
-   FROM public.user_organization_roles uor
-  WHERE ((uor.organization_id = project_organization_assignments.organization_id) AND (uor.user_id = auth.uid())))))));
-
-
---
--- Name: user_sidebar_preferences Users can manage their own sidebar preferences; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can manage their own sidebar preferences" ON public.user_sidebar_preferences USING ((user_id = auth.uid()));
-
-
---
--- Name: proposal_signatures Users can sign proposals; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can sign proposals" ON public.proposal_signatures FOR INSERT TO authenticated WITH CHECK ((proposal_id IN ( SELECT p.id
-   FROM (public.multi_sig_proposals p
-     JOIN public.multi_sig_wallets w ON ((p.wallet_id = w.id)))
-  WHERE ((( SELECT auth.uid() AS uid))::text = ANY (w.owners)))));
-
-
---
--- Name: project_organization_assignments Users can update project organization assignments; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can update project organization assignments" ON public.project_organization_assignments FOR UPDATE USING (((auth.uid() IS NOT NULL) AND ((assigned_by = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.projects p ON ((p.organization_id = uor.organization_id)))
-  WHERE ((p.id = project_organization_assignments.project_id) AND (uor.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
-   FROM public.user_organization_roles uor
-  WHERE ((uor.organization_id = project_organization_assignments.organization_id) AND (uor.user_id = auth.uid())))))));
-
-
---
--- Name: multi_sig_on_chain_transactions Users can view on-chain transactions for their wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view on-chain transactions for their wallets" ON public.multi_sig_on_chain_transactions FOR SELECT USING ((wallet_id IN ( SELECT msw.id
-   FROM public.multi_sig_wallets msw
-  WHERE ((msw.investor_id IN ( SELECT msw.id
-           FROM public.investors
-          WHERE (investors.user_id = auth.uid()))) OR (msw.project_id IN ( SELECT p.id
-           FROM (public.projects p
-             JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
-          WHERE (uor.user_id = auth.uid())))))));
-
-
---
--- Name: project_organization_assignments Users can view project organization assignments; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view project organization assignments" ON public.project_organization_assignments FOR SELECT USING (((auth.uid() IS NOT NULL) AND ((EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.projects p ON ((p.organization_id = uor.organization_id)))
-  WHERE ((p.id = project_organization_assignments.project_id) AND (uor.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
-   FROM public.user_organization_roles uor
-  WHERE ((uor.organization_id = project_organization_assignments.organization_id) AND (uor.user_id = auth.uid())))))));
-
-
---
--- Name: contract_role_assignments Users can view role assignments for their wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view role assignments for their wallets" ON public.contract_role_assignments FOR SELECT USING ((multi_sig_wallet_id IN ( SELECT msw.id
-   FROM public.multi_sig_wallets msw
-  WHERE ((msw.investor_id IN ( SELECT msw.id
-           FROM public.investors
-          WHERE (investors.user_id = auth.uid()))) OR (msw.project_id IN ( SELECT p.id
-           FROM (public.projects p
-             JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
-          WHERE (uor.user_id = auth.uid())))))));
-
-
---
--- Name: proposal_signatures Users can view signatures; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view signatures" ON public.proposal_signatures FOR SELECT TO authenticated USING ((proposal_id IN ( SELECT p.id
-   FROM (public.multi_sig_proposals p
-     JOIN public.multi_sig_wallets w ON ((p.wallet_id = w.id)))
-  WHERE (((( SELECT auth.uid() AS uid))::text = ANY (w.owners)) OR (w.created_by = ( SELECT auth.uid() AS uid))))));
-
-
---
--- Name: sidebar_configurations Users can view their organization's sidebar configurations; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their organization's sidebar configurations" ON public.sidebar_configurations FOR SELECT USING ((organization_id IN ( SELECT user_organization_roles.organization_id
-   FROM public.user_organization_roles
-  WHERE (user_organization_roles.user_id = auth.uid()))));
-
-
---
--- Name: sidebar_items Users can view their organization's sidebar items; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their organization's sidebar items" ON public.sidebar_items FOR SELECT USING ((organization_id IN ( SELECT user_organization_roles.organization_id
-   FROM public.user_organization_roles
-  WHERE (user_organization_roles.user_id = auth.uid()))));
-
-
---
--- Name: sidebar_sections Users can view their organization's sidebar sections; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their organization's sidebar sections" ON public.sidebar_sections FOR SELECT USING ((organization_id IN ( SELECT user_organization_roles.organization_id
-   FROM public.user_organization_roles
-  WHERE (user_organization_roles.user_id = auth.uid()))));
-
-
---
--- Name: multi_sig_wallets Users can view their own multi-sig wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their own multi-sig wallets" ON public.multi_sig_wallets FOR SELECT USING (((investor_id IN ( SELECT multi_sig_wallets.id
-   FROM public.investors
-  WHERE (investors.user_id = auth.uid()))) OR (project_id IN ( SELECT p.id
-   FROM (public.projects p
-     JOIN public.user_organization_roles uor ON ((p.organization_id = uor.organization_id)))
-  WHERE (uor.user_id = auth.uid())))));
-
-
---
--- Name: wallet_access_logs Users can view their own wallet access logs; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their own wallet access logs" ON public.wallet_access_logs FOR SELECT USING (((accessed_by = auth.uid()) OR (wallet_id IN ( SELECT pw.id
-   FROM (public.project_wallets pw
-     JOIN public.projects p ON ((pw.project_id = p.id)))
-  WHERE (p.organization_id IN ( SELECT uor.organization_id
-           FROM public.user_organization_roles uor
-          WHERE (uor.user_id = auth.uid())))))));
-
-
---
--- Name: project_wallets Users can view their project wallets; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their project wallets" ON public.project_wallets FOR SELECT USING ((project_id IN ( SELECT p.id
-   FROM public.projects p
-  WHERE (p.organization_id IN ( SELECT uor.organization_id
-           FROM public.user_organization_roles uor
-          WHERE (uor.user_id = auth.uid()))))));
-
-
---
--- Name: multi_sig_proposals Users can view their wallet proposals; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their wallet proposals" ON public.multi_sig_proposals FOR SELECT TO authenticated USING ((wallet_id IN ( SELECT multi_sig_wallets.id
-   FROM public.multi_sig_wallets
-  WHERE (((( SELECT auth.uid() AS uid))::text = ANY (multi_sig_wallets.owners)) OR (multi_sig_wallets.created_by = ( SELECT auth.uid() AS uid))))));
-
-
---
--- Name: authorized_activities; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.authorized_activities ENABLE ROW LEVEL SECURITY;
-
---
--- Name: authorized_signatories; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.authorized_signatories ENABLE ROW LEVEL SECURITY;
-
---
--- Name: blacklisted_addresses; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.blacklisted_addresses ENABLE ROW LEVEL SECURITY;
-
---
--- Name: climate_risk_calculations; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.climate_risk_calculations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: climate_user_data_cache; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.climate_user_data_cache ENABLE ROW LEVEL SECURITY;
-
---
--- Name: climate_user_data_cache climate_user_data_cache_user_policy; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY climate_user_data_cache_user_policy ON public.climate_user_data_cache USING ((source_id IN ( SELECT climate_user_data_sources.source_id
-   FROM public.climate_user_data_sources
-  WHERE (climate_user_data_sources.user_id = auth.uid()))));
-
-
---
--- Name: climate_user_data_sources; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.climate_user_data_sources ENABLE ROW LEVEL SECURITY;
-
---
--- Name: climate_user_data_sources climate_user_data_sources_user_policy; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY climate_user_data_sources_user_policy ON public.climate_user_data_sources USING ((auth.uid() = user_id));
-
-
---
--- Name: compliance_alerts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.compliance_alerts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: contract_role_assignments; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.contract_role_assignments ENABLE ROW LEVEL SECURITY;
-
---
--- Name: critical_alerts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.critical_alerts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: dashboard_updates; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.dashboard_updates ENABLE ROW LEVEL SECURITY;
-
---
--- Name: data_source_mappings; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.data_source_mappings ENABLE ROW LEVEL SECURITY;
-
---
--- Name: data_source_mappings data_source_mappings_user_policy; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY data_source_mappings_user_policy ON public.data_source_mappings USING ((source_id IN ( SELECT climate_user_data_sources.source_id
-   FROM public.climate_user_data_sources
-  WHERE (climate_user_data_sources.user_id = auth.uid()))));
-
-
---
--- Name: ml_baseline_statistics; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ml_baseline_statistics ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_audit_log; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_audit_log ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_configurations; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_configurations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_on_chain_confirmations; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_on_chain_confirmations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_on_chain_transactions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_on_chain_transactions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_wallets; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_wallets ENABLE ROW LEVEL SECURITY;
-
---
--- Name: operation_metadata; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.operation_metadata ENABLE ROW LEVEL SECURITY;
-
---
--- Name: operator_status; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.operator_status ENABLE ROW LEVEL SECURITY;
-
---
--- Name: organization_details; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.organization_details ENABLE ROW LEVEL SECURITY;
-
---
--- Name: project_organization_assignments; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.project_organization_assignments ENABLE ROW LEVEL SECURITY;
-
---
--- Name: project_wallets; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.project_wallets ENABLE ROW LEVEL SECURITY;
-
---
--- Name: proposal_signatures; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
-
---
--- Name: regulatory_exemptions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.regulatory_exemptions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: regulatory_registrations; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.regulatory_registrations ENABLE ROW LEVEL SECURITY;
-
---
--- Name: regulatory_reports; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.regulatory_reports ENABLE ROW LEVEL SECURITY;
-
---
--- Name: remediation_actions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.remediation_actions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_dex_orders; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_dex_orders ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_dex_orders ripple_dex_owner_all; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_dex_owner_all ON public.ripple_dex_orders USING ((owner_id = auth.uid()));
-
-
---
--- Name: ripple_escrows ripple_escrow_owner_all; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_escrow_owner_all ON public.ripple_escrows USING ((owner_id = auth.uid()));
-
-
---
--- Name: ripple_escrows ripple_escrow_participant_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_escrow_participant_read ON public.ripple_escrows FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM public.signer_keys
-  WHERE ((signer_keys.user_id = auth.uid()) AND ((signer_keys.address = (ripple_escrows.account)::text) OR (signer_keys.address = (ripple_escrows.destination)::text))))) OR (EXISTS ( SELECT 1
-   FROM public.wallets
-  WHERE ((wallets.user_id = auth.uid()) AND ((wallets.wallet_address = (ripple_escrows.account)::text) OR (wallets.wallet_address = (ripple_escrows.destination)::text)))))));
-
-
---
--- Name: ripple_escrows; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_escrows ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_issuers; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_issuers ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_issuers ripple_issuers_admin_write; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_issuers_admin_write ON public.ripple_issuers USING ((EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
-  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = 'system.configure'::text)))));
-
-
---
--- Name: ripple_issuers ripple_issuers_public_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_issuers_public_read ON public.ripple_issuers FOR SELECT USING (true);
-
-
---
--- Name: ripple_multisig_accounts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_multisig_accounts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_multisig_accounts ripple_multisig_owner_all; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_multisig_owner_all ON public.ripple_multisig_accounts USING ((owner_id = auth.uid()));
-
-
---
--- Name: ripple_multisig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_multisig_proposals ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_multisig_accounts ripple_multisig_signer_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_multisig_signer_read ON public.ripple_multisig_accounts FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM public.signer_keys
-  WHERE ((signer_keys.user_id = auth.uid()) AND (signer_keys.address = ANY (ripple_multisig_accounts.signers))))) OR (EXISTS ( SELECT 1
-   FROM public.wallets
-  WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ANY (ripple_multisig_accounts.signers)))))));
-
-
---
--- Name: ripple_multisig_accounts ripple_multisig_wallet_create; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_multisig_wallet_create ON public.ripple_multisig_accounts FOR INSERT WITH CHECK (((owner_id = auth.uid()) AND (EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
-  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = ANY (ARRAY['wallets.create'::text, 'system.configure'::text])))))));
-
-
---
--- Name: ripple_payments; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_payments ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_payments ripple_payments_participant_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_payments_participant_read ON public.ripple_payments FOR SELECT USING ((EXISTS ( SELECT 1
-   FROM public.wallets
-  WHERE ((wallets.user_id = auth.uid()) AND ((wallets.wallet_address = ripple_payments.from_account) OR (wallets.wallet_address = ripple_payments.to_account))))));
-
-
---
--- Name: ripple_payments ripple_payments_user_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_payments_user_insert ON public.ripple_payments FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.wallets
-  WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ripple_payments.from_account)))));
-
-
---
--- Name: ripple_payments ripple_payments_user_update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_payments_user_update ON public.ripple_payments FOR UPDATE USING ((EXISTS ( SELECT 1
-   FROM public.wallets
-  WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ripple_payments.from_account)))));
-
-
---
--- Name: ripple_multisig_proposals ripple_proposals_creator_all; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_proposals_creator_all ON public.ripple_multisig_proposals USING ((created_by = auth.uid()));
-
-
---
--- Name: ripple_multisig_proposals ripple_proposals_signer_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_proposals_signer_read ON public.ripple_multisig_proposals FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM public.ripple_multisig_accounts rma
-  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
-           FROM public.signer_keys
-          WHERE ((signer_keys.user_id = auth.uid()) AND (signer_keys.address = ANY (rma.signers)))))))) OR (EXISTS ( SELECT 1
-   FROM public.ripple_multisig_accounts rma
-  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
-           FROM public.wallets
-          WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ANY (rma.signers))))))))));
-
-
---
--- Name: ripple_multisig_proposals ripple_proposals_signer_sign; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_proposals_signer_sign ON public.ripple_multisig_proposals FOR UPDATE USING (((EXISTS ( SELECT 1
-   FROM public.ripple_multisig_accounts rma
-  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
-           FROM public.signer_keys
-          WHERE ((signer_keys.user_id = auth.uid()) AND (signer_keys.address = ANY (rma.signers)))))))) OR (EXISTS ( SELECT 1
-   FROM public.ripple_multisig_accounts rma
-  WHERE (((rma.address)::text = (ripple_multisig_proposals.account)::text) AND (EXISTS ( SELECT 1
-           FROM public.wallets
-          WHERE ((wallets.user_id = auth.uid()) AND (wallets.wallet_address = ANY (rma.signers))))))))));
-
-
---
--- Name: ripple_tokens; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_tokens ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_tokens ripple_tokens_admin_write; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_tokens_admin_write ON public.ripple_tokens USING ((EXISTS ( SELECT 1
-   FROM (public.user_organization_roles uor
-     JOIN public.role_permissions rp ON ((uor.role_id = rp.role_id)))
-  WHERE ((uor.user_id = auth.uid()) AND (rp.permission_name = 'system.configure'::text)))));
-
-
---
--- Name: ripple_tokens ripple_tokens_public_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_tokens_public_read ON public.ripple_tokens FOR SELECT USING (true);
-
-
---
--- Name: ripple_trust_lines; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.ripple_trust_lines ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ripple_trust_lines ripple_trust_owner_all; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ripple_trust_owner_all ON public.ripple_trust_lines USING ((owner_id = auth.uid()));
-
-
---
--- Name: risk_thresholds; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.risk_thresholds ENABLE ROW LEVEL SECURITY;
-
---
--- Name: signer_keys; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.signer_keys ENABLE ROW LEVEL SECURITY;
-
---
--- Name: suspicious_activity_reports; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.suspicious_activity_reports ENABLE ROW LEVEL SECURITY;
-
---
--- Name: threshold_breaches; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.threshold_breaches ENABLE ROW LEVEL SECURITY;
-
---
--- Name: user_verifications; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;
-
---
--- Name: violation_patterns; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.violation_patterns ENABLE ROW LEVEL SECURITY;
-
---
--- Name: wallet_access_logs; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.wallet_access_logs ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
 --
 
@@ -43586,6 +43286,16 @@ GRANT ALL ON FUNCTION public.add_template_to_approval_queue() TO anon;
 GRANT ALL ON FUNCTION public.add_template_to_approval_queue() TO authenticated;
 GRANT ALL ON FUNCTION public.add_template_to_approval_queue() TO service_role;
 GRANT ALL ON FUNCTION public.add_template_to_approval_queue() TO prisma;
+
+
+--
+-- Name: FUNCTION address_has_contract_role(p_address_id uuid, p_contract_role text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.address_has_contract_role(p_address_id uuid, p_contract_role text) TO anon;
+GRANT ALL ON FUNCTION public.address_has_contract_role(p_address_id uuid, p_contract_role text) TO authenticated;
+GRANT ALL ON FUNCTION public.address_has_contract_role(p_address_id uuid, p_contract_role text) TO service_role;
+GRANT ALL ON FUNCTION public.address_has_contract_role(p_address_id uuid, p_contract_role text) TO prisma;
 
 
 --
@@ -44098,6 +43808,16 @@ GRANT ALL ON FUNCTION public.get_activity_hierarchy(root_id uuid) TO prisma;
 
 
 --
+-- Name: FUNCTION get_addresses_for_contract_role(p_role_id uuid, p_contract_role text, p_blockchain text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_addresses_for_contract_role(p_role_id uuid, p_contract_role text, p_blockchain text) TO anon;
+GRANT ALL ON FUNCTION public.get_addresses_for_contract_role(p_role_id uuid, p_contract_role text, p_blockchain text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_addresses_for_contract_role(p_role_id uuid, p_contract_role text, p_blockchain text) TO service_role;
+GRANT ALL ON FUNCTION public.get_addresses_for_contract_role(p_role_id uuid, p_contract_role text, p_blockchain text) TO prisma;
+
+
+--
 -- Name: FUNCTION get_all_table_schemas(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -44125,6 +43845,16 @@ GRANT ALL ON FUNCTION public.get_audit_statistics(p_hours_back integer) TO anon;
 GRANT ALL ON FUNCTION public.get_audit_statistics(p_hours_back integer) TO authenticated;
 GRANT ALL ON FUNCTION public.get_audit_statistics(p_hours_back integer) TO service_role;
 GRANT ALL ON FUNCTION public.get_audit_statistics(p_hours_back integer) TO prisma;
+
+
+--
+-- Name: FUNCTION get_contract_roles_for_address(p_address_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_contract_roles_for_address(p_address_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_contract_roles_for_address(p_address_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_contract_roles_for_address(p_address_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_contract_roles_for_address(p_address_id uuid) TO prisma;
 
 
 --
@@ -44375,6 +44105,16 @@ GRANT ALL ON FUNCTION public.get_users_with_permission_simple(p_permission_id te
 GRANT ALL ON FUNCTION public.get_users_with_permission_simple(p_permission_id text) TO authenticated;
 GRANT ALL ON FUNCTION public.get_users_with_permission_simple(p_permission_id text) TO service_role;
 GRANT ALL ON FUNCTION public.get_users_with_permission_simple(p_permission_id text) TO prisma;
+
+
+--
+-- Name: FUNCTION get_wallet_signers(p_wallet_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_wallet_signers(p_wallet_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_wallet_signers(p_wallet_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_wallet_signers(p_wallet_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_wallet_signers(p_wallet_id uuid) TO prisma;
 
 
 --
@@ -44815,6 +44555,16 @@ GRANT ALL ON FUNCTION public.sync_investor_group_memberships() TO anon;
 GRANT ALL ON FUNCTION public.sync_investor_group_memberships() TO authenticated;
 GRANT ALL ON FUNCTION public.sync_investor_group_memberships() TO service_role;
 GRANT ALL ON FUNCTION public.sync_investor_group_memberships() TO prisma;
+
+
+--
+-- Name: FUNCTION sync_multisig_owners(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.sync_multisig_owners() TO anon;
+GRANT ALL ON FUNCTION public.sync_multisig_owners() TO authenticated;
+GRANT ALL ON FUNCTION public.sync_multisig_owners() TO service_role;
+GRANT ALL ON FUNCTION public.sync_multisig_owners() TO prisma;
 
 
 --
@@ -47538,6 +47288,16 @@ GRANT ALL ON TABLE public.issuer_documents TO prisma;
 
 
 --
+-- Name: TABLE key_vault_keys; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.key_vault_keys TO anon;
+GRANT ALL ON TABLE public.key_vault_keys TO authenticated;
+GRANT ALL ON TABLE public.key_vault_keys TO service_role;
+GRANT ALL ON TABLE public.key_vault_keys TO prisma;
+
+
+--
 -- Name: TABLE kyc_screening_logs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -47878,6 +47638,16 @@ GRANT ALL ON TABLE public.multi_sig_transactions TO prisma;
 
 
 --
+-- Name: TABLE multi_sig_wallet_owners; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.multi_sig_wallet_owners TO anon;
+GRANT ALL ON TABLE public.multi_sig_wallet_owners TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_wallet_owners TO service_role;
+GRANT ALL ON TABLE public.multi_sig_wallet_owners TO prisma;
+
+
+--
 -- Name: TABLE multi_sig_wallets; Type: ACL; Schema: public; Owner: -
 --
 
@@ -47885,6 +47655,26 @@ GRANT ALL ON TABLE public.multi_sig_wallets TO anon;
 GRANT ALL ON TABLE public.multi_sig_wallets TO authenticated;
 GRANT ALL ON TABLE public.multi_sig_wallets TO service_role;
 GRANT ALL ON TABLE public.multi_sig_wallets TO prisma;
+
+
+--
+-- Name: TABLE role_addresses; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.role_addresses TO anon;
+GRANT ALL ON TABLE public.role_addresses TO authenticated;
+GRANT ALL ON TABLE public.role_addresses TO service_role;
+GRANT ALL ON TABLE public.role_addresses TO prisma;
+
+
+--
+-- Name: TABLE multi_sig_wallet_roles; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.multi_sig_wallet_roles TO anon;
+GRANT ALL ON TABLE public.multi_sig_wallet_roles TO authenticated;
+GRANT ALL ON TABLE public.multi_sig_wallet_roles TO service_role;
+GRANT ALL ON TABLE public.multi_sig_wallet_roles TO prisma;
 
 
 --
@@ -49105,6 +48895,16 @@ GRANT ALL ON TABLE public.role_contracts TO anon;
 GRANT ALL ON TABLE public.role_contracts TO authenticated;
 GRANT ALL ON TABLE public.role_contracts TO service_role;
 GRANT ALL ON TABLE public.role_contracts TO prisma;
+
+
+--
+-- Name: TABLE role_addresses_with_resolved_roles; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.role_addresses_with_resolved_roles TO anon;
+GRANT ALL ON TABLE public.role_addresses_with_resolved_roles TO authenticated;
+GRANT ALL ON TABLE public.role_addresses_with_resolved_roles TO service_role;
+GRANT ALL ON TABLE public.role_addresses_with_resolved_roles TO prisma;
 
 
 --

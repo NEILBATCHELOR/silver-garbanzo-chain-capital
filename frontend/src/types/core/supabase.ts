@@ -804,6 +804,13 @@ export type Database = {
             foreignKeyName: "approval_config_approvers_approver_role_id_fkey"
             columns: ["approver_role_id"]
             isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "approval_config_approvers_approver_role_id_fkey"
+            columns: ["approver_role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -5835,7 +5842,7 @@ export type Database = {
       }
       contract_masters: {
         Row: {
-          abi: Json
+          abi: Json | null
           abi_hash: string | null
           abi_version: string
           contract_address: string
@@ -5856,7 +5863,7 @@ export type Database = {
           version: string
         }
         Insert: {
-          abi: Json
+          abi?: Json | null
           abi_hash?: string | null
           abi_version?: string
           contract_address: string
@@ -5877,7 +5884,7 @@ export type Database = {
           version?: string
         }
         Update: {
-          abi?: Json
+          abi?: Json | null
           abi_hash?: string | null
           abi_version?: string
           contract_address?: string
@@ -5957,6 +5964,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contract_role_assignments_multi_sig_wallet_id_fkey"
+            columns: ["multi_sig_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
           {
             foreignKeyName: "contract_role_assignments_multi_sig_wallet_id_fkey"
             columns: ["multi_sig_wallet_id"]
@@ -8830,6 +8844,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subscriptions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributions_wallet_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
           },
           {
             foreignKeyName: "distributions_wallet_fkey"
@@ -12884,6 +12905,39 @@ export type Database = {
         }
         Relationships: []
       }
+      key_vault_keys: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          encrypted_key: string
+          id: string
+          key_id: string
+          key_type: string
+          metadata: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          encrypted_key: string
+          id?: string
+          key_id: string
+          key_type?: string
+          metadata?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          encrypted_key?: string
+          id?: string
+          key_id?: string
+          key_type?: string
+          metadata?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       kyc_screening_logs: {
         Row: {
           created_at: string | null
@@ -14714,6 +14768,13 @@ export type Database = {
             foreignKeyName: "multi_sig_audit_log_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "multi_sig_audit_log_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "multi_sig_wallets"
             referencedColumns: ["id"]
           },
@@ -14760,6 +14821,13 @@ export type Database = {
           wallet_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "multi_sig_configurations_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: true
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
           {
             foreignKeyName: "multi_sig_configurations_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -14905,6 +14973,13 @@ export type Database = {
             foreignKeyName: "multi_sig_on_chain_transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "multi_sig_on_chain_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "multi_sig_wallets"
             referencedColumns: ["id"]
           },
@@ -14969,6 +15044,13 @@ export type Database = {
           wallet_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "multi_sig_proposals_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
           {
             foreignKeyName: "multi_sig_proposals_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -15044,6 +15126,66 @@ export type Database = {
             foreignKeyName: "multi_sig_transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "multi_sig_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multi_sig_wallet_owners: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          id: string
+          role_id: string
+          wallet_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          role_id: string
+          wallet_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          role_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multi_sig_wallet_owners_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "multi_sig_wallet_owners_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multi_sig_wallet_owners_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "multi_sig_wallet_owners_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "multi_sig_wallets"
             referencedColumns: ["id"]
           },
@@ -15062,8 +15204,11 @@ export type Database = {
           factory_address: string | null
           id: string
           investor_id: string | null
+          migrated_to_roles: boolean | null
+          migration_date: string | null
           name: string
           owners: string[]
+          ownership_type: string | null
           project_id: string | null
           status: string | null
           threshold: number
@@ -15081,8 +15226,11 @@ export type Database = {
           factory_address?: string | null
           id?: string
           investor_id?: string | null
+          migrated_to_roles?: boolean | null
+          migration_date?: string | null
           name: string
           owners: string[]
+          ownership_type?: string | null
           project_id?: string | null
           status?: string | null
           threshold: number
@@ -15100,8 +15248,11 @@ export type Database = {
           factory_address?: string | null
           id?: string
           investor_id?: string | null
+          migrated_to_roles?: boolean | null
+          migration_date?: string | null
           name?: string
           owners?: string[]
+          ownership_type?: string | null
           project_id?: string | null
           status?: string | null
           threshold?: number
@@ -21929,6 +22080,66 @@ export type Database = {
         }
         Relationships: []
       }
+      role_addresses: {
+        Row: {
+          address: string
+          blockchain: string
+          contract_roles: Json | null
+          created_at: string
+          created_by: string | null
+          derivation_path: string | null
+          encrypted_private_key: string | null
+          id: string
+          key_vault_reference: string | null
+          role_id: string
+          signing_method: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          blockchain: string
+          contract_roles?: Json | null
+          created_at?: string
+          created_by?: string | null
+          derivation_path?: string | null
+          encrypted_private_key?: string | null
+          id?: string
+          key_vault_reference?: string | null
+          role_id: string
+          signing_method?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          blockchain?: string
+          contract_roles?: Json | null
+          created_at?: string
+          created_by?: string | null
+          derivation_path?: string | null
+          encrypted_private_key?: string | null
+          id?: string
+          key_vault_reference?: string | null
+          role_id?: string
+          signing_method?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_addresses_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "role_addresses_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_contracts: {
         Row: {
           contract_roles: Json
@@ -21952,6 +22163,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "role_contracts_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
           {
             foreignKeyName: "role_contracts_role_id_fkey"
             columns: ["role_id"]
@@ -21984,6 +22202,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "permissions"
             referencedColumns: ["name"]
+          },
+          {
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
           },
           {
             foreignKeyName: "role_permissions_role_id_fkey"
@@ -32022,6 +32247,13 @@ export type Database = {
             foreignKeyName: "transaction_proposals_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
+          {
+            foreignKeyName: "transaction_proposals_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "multi_sig_wallets"
             referencedColumns: ["id"]
           },
@@ -32364,6 +32596,13 @@ export type Database = {
             foreignKeyName: "user_organization_roles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "user_organization_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["id"]
           },
@@ -32396,6 +32635,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
           {
             foreignKeyName: "user_roles_role_id_fkey"
             columns: ["role_id"]
@@ -32748,6 +32994,13 @@ export type Database = {
           wallet_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "wallet_details_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["wallet_id"]
+          },
           {
             foreignKeyName: "wallet_details_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -33734,6 +33987,25 @@ export type Database = {
         }
         Relationships: []
       }
+      multi_sig_wallet_roles: {
+        Row: {
+          added_at: string | null
+          added_by: string | null
+          blockchain: string | null
+          ownership_type: string | null
+          role_address: string | null
+          role_description: string | null
+          role_id: string | null
+          role_name: string | null
+          role_priority: number | null
+          signing_method: string | null
+          threshold: number | null
+          wallet_address: string | null
+          wallet_id: string | null
+          wallet_name: string | null
+        }
+        Relationships: []
+      }
       nav_data_with_status: {
         Row: {
           approval_comments: string | null
@@ -33946,6 +34218,37 @@ export type Database = {
           total_rules: number | null
         }
         Relationships: []
+      }
+      role_addresses_with_resolved_roles: {
+        Row: {
+          address: string | null
+          address_id: string | null
+          blockchain: string | null
+          created_at: string | null
+          effective_roles: Json | null
+          explicit_roles: Json | null
+          role_assignment_type: string | null
+          role_id: string | null
+          role_name: string | null
+          signing_method: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_addresses_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_wallet_roles"
+            referencedColumns: ["role_id"]
+          },
+          {
+            foreignKeyName: "role_addresses_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settlement_summary: {
         Row: {
@@ -34788,6 +35091,10 @@ export type Database = {
         Args: { table_name: string }
         Returns: undefined
       }
+      address_has_contract_role: {
+        Args: { p_address_id: string; p_contract_role: string }
+        Returns: boolean
+      }
       admin_set_profile_type: {
         Args: {
           new_profile_type: Database["public"]["Enums"]["profile_type"]
@@ -34999,6 +35306,20 @@ export type Database = {
           status: string
         }[]
       }
+      get_addresses_for_contract_role: {
+        Args: {
+          p_blockchain?: string
+          p_contract_role: string
+          p_role_id: string
+        }
+        Returns: {
+          address: string
+          address_id: string
+          blockchain: string
+          contract_roles: Json
+          signing_method: string
+        }[]
+      }
       get_all_table_schemas: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -35018,6 +35339,10 @@ export type Database = {
       }
       get_audit_statistics: {
         Args: { p_hours_back?: number }
+        Returns: Json
+      }
+      get_contract_roles_for_address: {
+        Args: { p_address_id: string }
         Returns: Json
       }
       get_enhanced_risk_assessment: {
@@ -35205,6 +35530,10 @@ export type Database = {
       }
       get_users_with_permission_simple: {
         Args: { p_permission_id: string }
+        Returns: string[]
+      }
+      get_wallet_signers: {
+        Args: { p_wallet_id: string }
         Returns: string[]
       }
       insert_energy_asset_safe: {

@@ -108,6 +108,11 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('list');
   
+  // NEW: Generate per-permission state
+  const [showPermissionGenerator, setShowPermissionGenerator] = useState(false);
+  const [selectedPermissionBlockchain, setSelectedPermissionBlockchain] = useState<string>('ethereum');
+  const [generatingPermissions, setGeneratingPermissions] = useState<Set<string>>(new Set());
+  
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -226,11 +231,94 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
     }
   };
 
+  // NEW: Generate address for specific permission
+  const handleGenerateAddressForPermission = async (permission: ContractRoleType) => {
+    if (!role) return;
+
+    setGeneratingPermissions(prev => new Set(prev).add(permission));
+
+    try {
+      await roleAddressService.generateRoleAddress({
+        roleId: role.id,
+        blockchain: selectedPermissionBlockchain,
+        contractRoles: [permission], // Only this ONE permission
+        signingMethod: 'private_key'
+      });
+
+      toast({
+        title: "Address generated",
+        description: `Created ${selectedPermissionBlockchain} address for ${permission}`,
+      });
+
+      // Reload addresses
+      await loadRoleAddresses(role.id);
+
+    } catch (error: any) {
+      console.error("Error generating address:", error);
+      toast({
+        title: "Error generating address",
+        description: error.message || "Failed to generate address",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPermissions(prev => {
+        const next = new Set(prev);
+        next.delete(permission);
+        return next;
+      });
+    }
+  };
+
+  // NEW: Generate addresses for ALL permissions
+  const handleGenerateAddressForAllPermissions = async () => {
+    if (!role) return;
+
+    setGeneratingPermissions(new Set(selectedContractRoles));
+
+    try {
+      for (const permission of selectedContractRoles) {
+        await roleAddressService.generateRoleAddress({
+          roleId: role.id,
+          blockchain: selectedPermissionBlockchain,
+          contractRoles: [permission],
+          signingMethod: 'private_key'
+        });
+      }
+
+      toast({
+        title: "Addresses generated",
+        description: `Created ${selectedContractRoles.length} addresses on ${selectedPermissionBlockchain}`,
+      });
+
+      await loadRoleAddresses(role.id);
+      setShowPermissionGenerator(false);
+
+    } catch (error: any) {
+      console.error("Error generating addresses:", error);
+      toast({
+        title: "Error generating addresses",
+        description: error.message || "Failed to generate addresses",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPermissions(new Set());
+    }
+  };
+
   const confirmDeleteAddress = async () => {
-    if (!role || !addressToDelete) return;
+    console.log('🗑️ confirmDeleteAddress called', { role, addressToDelete });
+    
+    if (!role || !addressToDelete) {
+      console.error('❌ Cannot delete: missing role or addressToDelete', { role, addressToDelete });
+      return;
+    }
+
+    console.log('🗑️ Attempting to delete address:', addressToDelete.id);
 
     try {
       await roleAddressService.deleteRoleAddress(addressToDelete.id);
+
+      console.log('✅ Address deleted successfully');
 
       toast({
         title: "Address deleted",
@@ -238,10 +326,11 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
       });
 
       // Reload addresses
+      console.log('🔄 Reloading addresses for role:', role.id);
       await loadRoleAddresses(role.id);
 
     } catch (error: any) {
-      console.error("Error deleting address:", error);
+      console.error("❌ Error deleting address:", error);
       toast({
         title: "Error deleting address",
         description: error.message || "Failed to delete blockchain address",
@@ -262,14 +351,12 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
   };
 
   const handleEditRolesBulk = (addresses: RoleAddress[], roles: ContractRoleType[]) => {
-    // For bulk, just toggle first address for now
     if (addresses.length > 0) {
       setEditingAddressId(editingAddressId === addresses[0].id ? null : addresses[0].id);
     }
   };
 
   const handleRolesSaved = async (updatedAddress: RoleAddress) => {
-    // Update local state
     setRoleAddresses(prev => 
       prev.map(addr => addr.id === updatedAddress.id ? updatedAddress : addr)
     );
@@ -336,7 +423,6 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
         }`,
       });
 
-      // Close modal and refresh roles
       onOpenChange(false);
       onRoleUpdated();
     } catch (error: any) {
@@ -441,42 +527,48 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                   <div className="text-sm text-muted-foreground">Loading contract roles...</div>
                 ) : (
                   <Accordion type="multiple" className="w-full">
-                    {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => (
-                      <AccordionItem key={category} value={category}>
-                        <AccordionTrigger className="text-sm font-medium">
-                          {category}
-                          {selectedContractRoles.some(r => roles.includes(r)) && (
-                            <Badge variant="secondary" className="ml-2">
-                              {selectedContractRoles.filter(r => roles.includes(r)).length}
-                            </Badge>
-                          )}
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="space-y-2 pl-2">
-                            {roles.map((contractRole) => (
-                              <div key={contractRole} className="flex items-start space-x-2">
-                                <Checkbox
-                                  id={`contract-role-${contractRole}`}
-                                  checked={selectedContractRoles.includes(contractRole)}
-                                  onCheckedChange={() => toggleContractRole(contractRole)}
-                                />
-                                <div className="grid gap-1 leading-none">
-                                  <label
-                                    htmlFor={`contract-role-${contractRole}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                  >
-                                    {contractRole}
-                                  </label>
-                                  <p className="text-xs text-muted-foreground">
-                                    {CONTRACT_ROLE_DESCRIPTIONS[contractRole]}
-                                  </p>
+                    {Object.entries(CONTRACT_ROLE_CATEGORIES).map(([category, roles]) => {
+                      const selectedInCategory = selectedContractRoles.filter(r => roles.includes(r)).length;
+                      
+                      return (
+                        <AccordionItem key={category} value={category}>
+                          <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                            <div className="flex items-center justify-between w-full pr-4">
+                              <span>{category}</span>
+                              {selectedInCategory > 0 && (
+                                <Badge variant="secondary" className="ml-auto">
+                                  {selectedInCategory}
+                                </Badge>
+                              )}
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-2 pl-2">
+                              {roles.map((contractRole) => (
+                                <div key={contractRole} className="flex items-start space-x-2">
+                                  <Checkbox
+                                    id={`contract-role-${contractRole}`}
+                                    checked={selectedContractRoles.includes(contractRole)}
+                                    onCheckedChange={() => toggleContractRole(contractRole)}
+                                  />
+                                  <div className="grid gap-1 leading-none">
+                                    <label
+                                      htmlFor={`contract-role-${contractRole}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      {contractRole}
+                                    </label>
+                                    <p className="text-xs text-muted-foreground">
+                                      {CONTRACT_ROLE_DESCRIPTIONS[contractRole]}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
                   </Accordion>
                 )}
               </div>
@@ -488,16 +580,30 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                     <Key className="h-5 w-5 text-primary" />
                     <Label className="text-lg font-semibold">Blockchain Addresses</Label>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddAddressForm(!showAddAddressForm)}
-                    disabled={isLoadingAddresses || showAddAddressForm}
-                  >
-                    <Plus className="mr-1 h-3 w-3" />
-                    Add Address
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {selectedContractRoles.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPermissionGenerator(!showPermissionGenerator)}
+                        disabled={isLoadingAddresses || showAddAddressForm}
+                      >
+                        <Shield className="mr-1 h-3 w-3" />
+                        Per Permission
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddAddressForm(!showAddAddressForm)}
+                      disabled={isLoadingAddresses || showAddAddressForm || showPermissionGenerator}
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add Address
+                    </Button>
+                  </div>
                 </div>
 
                 <Alert>
@@ -518,6 +624,112 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                         </Badge>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* NEW: Generate Per Permission Form */}
+                {showPermissionGenerator && (
+                  <div className="space-y-3 p-4 border rounded-md bg-blue-50/50 border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-semibold">Generate Address for Each Permission</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowPermissionGenerator(false)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                    
+                    <Select 
+                      value={selectedPermissionBlockchain} 
+                      onValueChange={setSelectedPermissionBlockchain}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select blockchain" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getEVMBlockchains().map((chain) => (
+                          <SelectItem key={chain.value} value={chain.value}>
+                            {chain.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        This will create <strong>one separate address per permission</strong> on {selectedPermissionBlockchain}. 
+                        Each address will have only ONE specific permission.
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {selectedContractRoles.map(permission => {
+                        const isGenerating = generatingPermissions.has(permission);
+                        const existingAddress = roleAddresses.find(
+                          a => a.blockchain === selectedPermissionBlockchain && 
+                               a.contractRoles?.length === 1 && 
+                               a.contractRoles[0] === permission
+                        );
+
+                        return (
+                          <div key={permission} className="flex items-center justify-between p-2 bg-background rounded border">
+                            <div className="flex items-center gap-2 flex-1">
+                              <Shield className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-medium truncate">{permission}</span>
+                            </div>
+                            {existingAddress ? (
+                              <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                                Address Exists
+                              </Badge>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleGenerateAddressForPermission(permission)}
+                                disabled={isGenerating}
+                                className="h-7 text-xs"
+                              >
+                                {isGenerating ? (
+                                  <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="mr-1 h-3 w-3" />
+                                    Generate
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={handleGenerateAddressForAllPermissions}
+                      disabled={generatingPermissions.size > 0}
+                    >
+                      {generatingPermissions.size > 0 ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating {generatingPermissions.size} of {selectedContractRoles.length}...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Generate All {selectedContractRoles.length} Addresses
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
 
@@ -549,7 +761,6 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                       </TabsTrigger>
                     </TabsList>
 
-                    {/* List View */}
                     <TabsContent value="list" className="space-y-3 mt-4">
                       {roleAddresses.map((addr) => (
                         <div key={addr.id} className="space-y-3">
@@ -578,7 +789,6 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                       ))}
                     </TabsContent>
 
-                    {/* Grouped View */}
                     <TabsContent value="grouped" className="mt-4">
                       <AddressGroupedByRole
                         addresses={roleAddresses}
@@ -594,7 +804,6 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
                       />
                     </TabsContent>
 
-                    {/* Bulk Operations View */}
                     <TabsContent value="bulk" className="mt-4">
                       <BulkAddressOperations
                         addresses={roleAddresses}
@@ -698,21 +907,21 @@ const EditRoleModal = ({ role, open, onOpenChange, onRoleUpdated }: EditRoleModa
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Blockchain Address?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                Are you sure you want to delete the <strong>{addressToDelete?.blockchain}</strong> address?
-              </p>
-              <code className="block text-xs bg-muted p-2 rounded">
-                {addressToDelete?.address}
-              </code>
-              <Alert variant="destructive" className="mt-3">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  <strong>Warning:</strong> This action cannot be undone. The address and its private key will be permanently deleted from the KeyVault.
-                </AlertDescription>
-              </Alert>
+            <AlertDialogDescription>
+              Are you sure you want to delete the <strong>{addressToDelete?.blockchain}</strong> address?
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3">
+            <code className="block text-xs bg-muted p-2 rounded">
+              {addressToDelete?.address}
+            </code>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>Warning:</strong> This action cannot be undone. The address and its private key will be permanently deleted from the KeyVault.
+              </AlertDescription>
+            </Alert>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteAddress} className="bg-destructive text-destructive-foreground">
