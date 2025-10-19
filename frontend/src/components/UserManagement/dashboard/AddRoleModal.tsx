@@ -10,6 +10,7 @@ import {
   ContractRoleType,
   setRoleContracts,
 } from "@/services/user/contractRoles";
+import { roleAddressService } from "@/services/wallet/multiSig/RoleAddressService";
 
 import {
   Dialog,
@@ -32,11 +33,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Key, Info } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -55,6 +65,12 @@ interface AddRoleModalProps {
 const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedContractRoles, setSelectedContractRoles] = useState<ContractRoleType[]>([]);
+  
+  // NEW: Blockchain address generation state
+  const [generateAddress, setGenerateAddress] = useState(false);
+  const [selectedBlockchain, setSelectedBlockchain] = useState<string>('ethereum');
+  const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
+  
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -115,18 +131,47 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
         }
       }
 
-      toast({
-        title: "Role created",
-        description: `Role "${values.name}" has been created successfully${
-          selectedContractRoles.length > 0 
-            ? ` with ${selectedContractRoles.length} contract role(s).` 
-            : '.'
-        }`,
-      });
+      // NEW: Generate blockchain address if requested
+      if (generateAddress && selectedBlockchain && newRole) {
+        try {
+          setIsGeneratingAddress(true);
+          
+          await roleAddressService.generateRoleAddress({
+            roleId: newRole.id,
+            blockchain: selectedBlockchain,
+            signingMethod: 'private_key'
+          });
+
+          toast({
+            title: "Role created with blockchain address",
+            description: `Role "${values.name}" has been created successfully with ${selectedContractRoles.length} contract role(s) and a ${selectedBlockchain} address.`,
+          });
+        } catch (addressError: any) {
+          console.error("Failed to generate blockchain address:", addressError);
+          toast({
+            title: "Role created (address generation failed)",
+            description: `Role "${values.name}" was created but address generation failed: ${addressError.message}`,
+            variant: "destructive",
+          });
+        } finally {
+          setIsGeneratingAddress(false);
+        }
+      } else {
+        toast({
+          title: "Role created",
+          description: `Role "${values.name}" has been created successfully${
+            selectedContractRoles.length > 0 
+              ? ` with ${selectedContractRoles.length} contract role(s).` 
+              : '.'
+          }`,
+        });
+      }
 
       // Reset form and close modal
       form.reset();
       setSelectedContractRoles([]);
+      setGenerateAddress(false);
+      setSelectedBlockchain('ethereum');
       onOpenChange(false);
       onRoleAdded();
     } catch (error: any) {
@@ -241,6 +286,69 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
               </Accordion>
             </div>
 
+            {/* NEW: Blockchain Address Generation Section */}
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold flex items-center">
+                  <Key className="mr-2 h-4 w-4" />
+                  Blockchain Address
+                </Label>
+                <span className="text-xs text-muted-foreground">Optional</span>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Generate a blockchain address for this role to enable multi-sig wallet ownership and transaction signing
+              </p>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="generate-address"
+                  checked={generateAddress}
+                  onCheckedChange={(checked) => setGenerateAddress(checked as boolean)}
+                  disabled={isSubmitting}
+                />
+                <label 
+                  htmlFor="generate-address" 
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Generate blockchain address for this role
+                </label>
+              </div>
+
+              {generateAddress && (
+                <div className="space-y-3 pl-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="blockchain">Blockchain Network</Label>
+                    <Select 
+                      value={selectedBlockchain} 
+                      onValueChange={setSelectedBlockchain}
+                      disabled={isSubmitting}
+                    >
+                      <SelectTrigger id="blockchain">
+                        <SelectValue placeholder="Select blockchain" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ethereum">Ethereum Mainnet</SelectItem>
+                        <SelectItem value="holesky">Holesky (Testnet)</SelectItem>
+                        <SelectItem value="polygon">Polygon</SelectItem>
+                        <SelectItem value="arbitrum">Arbitrum</SelectItem>
+                        <SelectItem value="optimism">Optimism</SelectItem>
+                        <SelectItem value="base">Base</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      <strong>Note:</strong> A unique blockchain address will be generated and securely encrypted. 
+                      The private key will be stored in the KeyVault for signing transactions.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </div>
+
             <DialogFooter>
               <Button
                 type="button"
@@ -248,12 +356,23 @@ const AddRoleModal = ({ open, onOpenChange, onRoleAdded }: AddRoleModalProps) =>
                 onClick={() => {
                   onOpenChange(false);
                   setSelectedContractRoles([]);
+                  setGenerateAddress(false);
+                  setSelectedBlockchain('ethereum');
                 }}
+                disabled={isSubmitting || isGeneratingAddress}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Role"}
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || isGeneratingAddress}
+              >
+                {isSubmitting 
+                  ? isGeneratingAddress 
+                    ? "Creating & Generating Address..." 
+                    : "Creating..."
+                  : "Create Role"
+                }
               </Button>
             </DialogFooter>
           </form>

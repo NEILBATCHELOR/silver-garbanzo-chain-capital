@@ -1,6 +1,6 @@
 /**
  * Role Management Service
- * Manages role assignments to multi-sig wallets
+ * Manages role assignments to multi-sig wallets AND role-based ownership
  */
 
 import { ethers } from 'ethers';
@@ -22,6 +22,18 @@ export interface RoleAssignment {
   assignedAt: Date;
   transactionHash: string;
   status: 'pending' | 'assigned' | 'revoked';
+}
+
+export interface WalletRoleOwner {
+  id: string;
+  walletId: string;
+  roleId: string;
+  roleName: string;
+  roleDescription: string;
+  rolePriority: number;
+  roleAddress?: string; // Address on wallet's blockchain
+  addedAt: Date;
+  addedBy?: string;
 }
 
 /**
@@ -50,12 +62,16 @@ export class RoleManagementService {
 
   private constructor() {}
 
-  public static getInstance(): RoleManagementService {
+  static getInstance(): RoleManagementService {
     if (!RoleManagementService.instance) {
       RoleManagementService.instance = new RoleManagementService();
     }
     return RoleManagementService.instance;
   }
+
+  // ============================================================================
+  // CONTRACT ROLE ASSIGNMENT METHODS (Existing)
+  // ============================================================================
 
   /**
    * Grant role to multi-sig wallet
@@ -64,16 +80,17 @@ export class RoleManagementService {
     multiSigWalletAddress: string,
     contractAddress: string,
     roleName: string,
-    blockchain: string = 'ethereum'
+    blockchain: string
   ): Promise<string> {
     try {
       // Convert role name to bytes32
       const roleBytes32 = roleName === 'DEFAULT_ADMIN_ROLE' 
-        ? COMMON_ROLES.DEFAULT_ADMIN_ROLE
+        ? COMMON_ROLES.DEFAULT_ADMIN_ROLE 
         : ethers.id(roleName);
       
       // Get provider and signer
-      const provider = new ethers.JsonRpcProvider(this.getRpcUrl(blockchain));
+      const rpcUrl = this.getRpcUrl(blockchain);
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
       const signer = await this.getAdminSigner(provider);
       
       // Load contract ABI
@@ -84,10 +101,20 @@ export class RoleManagementService {
       const tx = await contract.grantRole(roleBytes32, multiSigWalletAddress);
       const receipt = await tx.wait();
       
+      // Get wallet ID from address
+      const { data: walletData } = await supabase
+        .from('multi_sig_wallets')
+        .select('id, contract_type')
+        .eq('address', multiSigWalletAddress)
+        .eq('blockchain', blockchain)
+        .single();
+      
       // Store in database
       await supabase.from('contract_role_assignments').insert({
+        multi_sig_wallet_id: walletData?.id,
         multi_sig_wallet_address: multiSigWalletAddress,
         contract_address: contractAddress,
+        contract_type: await this.getContractType(contractAddress),
         role_name: roleName,
         role_bytes32: roleBytes32,
         transaction_hash: receipt.hash,
@@ -110,14 +137,15 @@ export class RoleManagementService {
     multiSigWalletAddress: string,
     contractAddress: string,
     roleName: string,
-    blockchain: string = 'ethereum'
+    blockchain: string
   ): Promise<string> {
     try {
       const roleBytes32 = roleName === 'DEFAULT_ADMIN_ROLE'
         ? COMMON_ROLES.DEFAULT_ADMIN_ROLE
         : ethers.id(roleName);
       
-      const provider = new ethers.JsonRpcProvider(this.getRpcUrl(blockchain));
+      const rpcUrl = this.getRpcUrl(blockchain);
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
       const signer = await this.getAdminSigner(provider);
       
       const contractAbi = await this.getContractAbi(contractAddress);
@@ -134,7 +162,8 @@ export class RoleManagementService {
         })
         .eq('multi_sig_wallet_address', multiSigWalletAddress)
         .eq('contract_address', contractAddress)
-        .eq('role_name', roleName);
+        .eq('role_name', roleName)
+        .eq('blockchain', blockchain);
       
       return receipt.hash;
       
@@ -151,21 +180,22 @@ export class RoleManagementService {
     multiSigWalletAddress: string,
     contractAddress: string,
     roleName: string,
-    blockchain: string = 'ethereum'
+    blockchain: string
   ): Promise<boolean> {
     try {
       const roleBytes32 = roleName === 'DEFAULT_ADMIN_ROLE'
         ? COMMON_ROLES.DEFAULT_ADMIN_ROLE
         : ethers.id(roleName);
       
-      const provider = new ethers.JsonRpcProvider(this.getRpcUrl(blockchain));
+      const rpcUrl = this.getRpcUrl(blockchain);
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
       
       const contractAbi = await this.getContractAbi(contractAddress);
       const contract = new ethers.Contract(contractAddress, contractAbi, provider);
       
       return await contract.hasRole(roleBytes32, multiSigWalletAddress);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to check role:', error);
       return false;
     }
@@ -186,7 +216,7 @@ export class RoleManagementService {
       
       if (error) throw error;
       
-      return data.map(this.formatRoleAssignment);
+      return (data || []).map(this.formatRoleAssignment);
       
     } catch (error) {
       console.error('Failed to get roles:', error);
@@ -194,28 +224,210 @@ export class RoleManagementService {
     }
   }
 
+  // ============================================================================
+  // ROLE-BASED OWNERSHIP METHODS (New)
+  // ============================================================================
+
   /**
-   * Get all role assignments for a contract
+   * Add role as owner to multi-sig wallet
    */
-  async getRolesForContract(
-    contractAddress: string
-  ): Promise<RoleAssignment[]> {
+  async addRoleOwner(
+    walletId: string,
+    roleId: string
+  ): Promise<WalletRoleOwner> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { data, error } = await supabase
-        .from('contract_role_assignments')
-        .select('*')
-        .eq('contract_address', contractAddress)
-        .eq('status', 'assigned');
-      
+        .from('multi_sig_wallet_owners')
+        .insert({
+          wallet_id: walletId,
+          role_id: roleId,
+          added_by: user?.id
+        })
+        .select(`
+          *,
+          role:roles!inner(
+            id,
+            name,
+            description,
+            priority
+          )
+        `)
+        .single();
+
       if (error) throw error;
-      
-      return data.map(this.formatRoleAssignment);
-      
-    } catch (error) {
-      console.error('Failed to get roles:', error);
+
+      // Get wallet blockchain to fetch role address
+      const { data: walletData } = await supabase
+        .from('multi_sig_wallets')
+        .select('blockchain')
+        .eq('id', walletId)
+        .single();
+
+      if (walletData) {
+        // Get role address for this blockchain
+        const { data: roleAddressData } = await supabase
+          .from('role_addresses')
+          .select('address')
+          .eq('role_id', roleId)
+          .eq('blockchain', walletData.blockchain)
+          .single();
+
+        return {
+          id: data.id,
+          walletId: data.wallet_id,
+          roleId: data.role_id,
+          roleName: data.role.name,
+          roleDescription: data.role.description,
+          rolePriority: data.role.priority,
+          roleAddress: roleAddressData?.address,
+          addedAt: new Date(data.added_at),
+          addedBy: data.added_by
+        };
+      }
+
+      return this.formatWalletRoleOwner(data);
+
+    } catch (error: any) {
+      console.error('Failed to add role owner:', error);
+      throw new Error(`Failed to add role owner: ${error.message}`);
+    }
+  }
+
+  /**
+   * Remove role from wallet owners
+   */
+  async removeRoleOwner(
+    walletId: string,
+    roleId: string
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('multi_sig_wallet_owners')
+        .delete()
+        .eq('wallet_id', walletId)
+        .eq('role_id', roleId);
+
+      if (error) throw error;
+
+    } catch (error: any) {
+      console.error('Failed to remove role owner:', error);
+      throw new Error(`Failed to remove role owner: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all role-based owners for a wallet
+   */
+  async getWalletRoleOwners(
+    walletId: string
+  ): Promise<WalletRoleOwner[]> {
+    try {
+      // Get wallet blockchain first
+      const { data: walletData } = await supabase
+        .from('multi_sig_wallets')
+        .select('blockchain')
+        .eq('id', walletId)
+        .single();
+
+      if (!walletData) {
+        throw new Error('Wallet not found');
+      }
+
+      // Get role owners with role details and addresses
+      const { data, error } = await supabase
+        .from('multi_sig_wallet_owners')
+        .select(`
+          *,
+          role:roles!inner(
+            id,
+            name,
+            description,
+            priority
+          )
+        `)
+        .eq('wallet_id', walletId)
+        .order('role(priority)', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch role addresses for the wallet's blockchain
+      const roleIds = (data || []).map(d => d.role_id);
+      const { data: addressData } = await supabase
+        .from('role_addresses')
+        .select('role_id, address')
+        .in('role_id', roleIds)
+        .eq('blockchain', walletData.blockchain);
+
+      const addressMap = new Map(
+        (addressData || []).map(a => [a.role_id, a.address])
+      );
+
+      return (data || []).map(d => ({
+        id: d.id,
+        walletId: d.wallet_id,
+        roleId: d.role_id,
+        roleName: d.role.name,
+        roleDescription: d.role.description,
+        rolePriority: d.role.priority,
+        roleAddress: addressMap.get(d.role_id),
+        addedAt: new Date(d.added_at),
+        addedBy: d.added_by
+      }));
+
+    } catch (error: any) {
+      console.error('Failed to get wallet role owners:', error);
       return [];
     }
   }
+
+  /**
+   * Get signing addresses for a wallet (from role owners)
+   */
+  async getWalletSigningAddresses(
+    walletId: string
+  ): Promise<string[]> {
+    try {
+      const owners = await this.getWalletRoleOwners(walletId);
+      return owners
+        .map(o => o.roleAddress)
+        .filter((addr): addr is string => !!addr);
+
+    } catch (error: any) {
+      console.error('Failed to get signing addresses:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update wallet to use role-based ownership
+   */
+  async convertToRoleBasedOwnership(
+    walletId: string
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('multi_sig_wallets')
+        .update({
+          ownership_type: 'role_based',
+          migrated_to_roles: true,
+          migration_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', walletId);
+
+      if (error) throw error;
+
+    } catch (error: any) {
+      console.error('Failed to convert to role-based ownership:', error);
+      throw new Error(`Failed to convert: ${error.message}`);
+    }
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
 
   /**
    * Helper: Format role assignment
@@ -237,13 +449,39 @@ export class RoleManagementService {
   }
 
   /**
+   * Helper: Format wallet role owner
+   */
+  private formatWalletRoleOwner(data: any): WalletRoleOwner {
+    return {
+      id: data.id,
+      walletId: data.wallet_id,
+      roleId: data.role_id,
+      roleName: data.role?.name || '',
+      roleDescription: data.role?.description || '',
+      rolePriority: data.role?.priority || 0,
+      roleAddress: undefined,
+      addedAt: new Date(data.added_at),
+      addedBy: data.added_by
+    };
+  }
+
+  /**
+   * Helper: Get contract type from address
+   */
+  private async getContractType(contractAddress: string): Promise<string> {
+    const { data } = await supabase
+      .from('deployed_contracts')
+      .select('contract_type')
+      .eq('address', contractAddress)
+      .single();
+    
+    return data?.contract_type || 'Unknown';
+  }
+
+  /**
    * Helper: Get contract ABI using centralized ABI Manager
-   * 
-   * Uses ABIManager for single source of truth instead of maintaining
-   * a separate ABI mapping in this service
    */
   private async getContractAbi(contractAddress: string): Promise<any[]> {
-    // Query database to find contract type
     const { data, error } = await supabase
       .from('deployed_contracts')
       .select('contract_type')
@@ -256,7 +494,6 @@ export class RoleManagementService {
       );
     }
     
-    // Use centralized ABI Manager to get ABI
     try {
       const abi = await abiManager.getABI(data.contract_type as ContractType);
       return abi;
@@ -269,25 +506,19 @@ export class RoleManagementService {
 
   /**
    * Helper: Get RPC URL from centralized RPC manager
-   * 
-   * Uses BlockchainValidator for type-safe blockchain validation
-   * instead of maintaining a separate chainMap
    */
   private getRpcUrl(blockchain: string): string {
-    // Validate and convert blockchain string to SupportedChain type
-    // This will throw a helpful error if the blockchain is not supported
     const chain = validateBlockchain(blockchain);
     
-    // Determine network type (testnet for development, mainnet for production)
-    const isDevelopment = import.meta.env.DEV || (typeof window !== 'undefined' && window.location.hostname === 'localhost');
+    const isDevelopment = import.meta.env.DEV || 
+      (typeof window !== 'undefined' && window.location.hostname === 'localhost');
     const isTestnetChain = ['holesky', 'hoodi', 'sepolia'].includes(chain);
     const networkType = isTestnetChain ? 'testnet' : (isDevelopment ? 'testnet' : 'mainnet');
     
-    // Get RPC URL from manager
     const rpcUrl = rpcManager.getRPCUrl(chain, networkType);
     if (!rpcUrl) {
       throw new Error(
-        `No RPC URL configured for ${blockchain} (${networkType}). Please check your .env configuration.`
+        `No RPC URL configured for ${blockchain} (${networkType}). Check .env.`
       );
     }
     
@@ -295,10 +526,9 @@ export class RoleManagementService {
   }
 
   /**
-   * Helper: Get admin signer (requires admin private key)
+   * Helper: Get admin signer
    */
   private async getAdminSigner(provider: ethers.JsonRpcProvider): Promise<ethers.Signer> {
-    // Get admin private key from environment
     const privateKey = import.meta.env.VITE_ADMIN_PRIVATE_KEY;
     if (!privateKey) {
       throw new Error('Admin private key not configured in environment');
