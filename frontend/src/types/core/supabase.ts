@@ -14,24 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _migrations: {
-        Row: {
-          executed_at: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          executed_at?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          executed_at?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
       abs_cash_flows: {
         Row: {
           abs_tranche_id: string | null
@@ -18402,6 +18384,21 @@ export type Database = {
           },
         ]
       }
+      project_members: {
+        Row: {
+          project_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          project_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          project_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       project_organization_assignments: {
         Row: {
           assigned_at: string | null
@@ -32440,6 +32437,45 @@ export type Database = {
           type?: string
           updated_at?: string | null
           value?: number
+        }
+        Relationships: []
+      }
+      user_addresses: {
+        Row: {
+          address: string | null
+          blockchain: string | null
+          created_at: string | null
+          encrypted_private_key: string | null
+          id: string
+          is_active: boolean | null
+          key_vault_reference: string | null
+          signing_method: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          blockchain?: string | null
+          created_at?: string | null
+          encrypted_private_key?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_vault_reference?: string | null
+          signing_method?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          blockchain?: string | null
+          created_at?: string | null
+          encrypted_private_key?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_vault_reference?: string | null
+          signing_method?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

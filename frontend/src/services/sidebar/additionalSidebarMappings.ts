@@ -42,7 +42,7 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
       {
         id: 'new-wallet',
         label: 'New Wallet',
-        href: '/wallet/new',
+        href: '/wallet/{projectId}/new',
         icon: Plus,
         permissions: ['wallet.create']
       },
@@ -95,7 +95,7 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
       {
         id: 'wallet-operations',
         label: 'Wallet Operations',
-        href: '/compliance/operations/investor/wallets',
+        href: '/compliance/operations/investor/{projectId}/wallets',
         icon: Wallet,
         permissions: ['wallet.view', 'wallet.bulk', 'investor.view']
       },

@@ -615,6 +615,7 @@ function App() {
 
               {/* Wallet Routes */}
               <Route path="wallet/new" element={<NewWalletPage />} />
+              <Route path="wallet/:projectId/new" element={<NewWalletPage />} />
               <Route path="wallet/dashboard" element={<WalletDashboardPage />} />
               <Route path="wallet/demo" element={<WalletDemoPage />} />
               
@@ -799,6 +800,7 @@ function App() {
               <Route path="compliance/rules" element={<RuleManagementDashboard />} />
               <Route path="compliance/restrictions" element={<RestrictionManager />} />
               <Route path="compliance/operations/investor/wallets" element={<WalletOperationsPage />} />
+              <Route path="compliance/operations/investor/:projectId/wallets" element={<WalletOperationsPage />} />
               
               {/* Issuer Onboarding */}
               <Route path="compliance/issuer/onboarding/*" element={<IssuerOnboardingFlow />} />

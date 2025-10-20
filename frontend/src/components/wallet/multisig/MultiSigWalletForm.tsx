@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,13 +6,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PlusIcon, MinusIcon, Shield, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { PlusIcon, MinusIcon, Shield, AlertTriangle, CheckCircle, User, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { MultiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
+import { userAddressService } from '@/services/wallet/multiSig/UserAddressService';
+import { supabase } from '@/infrastructure/database/client';
 import { getAllChains } from '@/config/chains';
 
+interface SystemUser {
+  userId: string;
+  email: string;
+  roleName?: string;
+  organizationName?: string;
+  address?: string;
+  hasAddress: boolean;
+}
+
+interface ProjectWalletOption {
+  id: string;
+  projectId: string;
+  projectName?: string;
+  walletAddress: string;
+  chainId: string;
+  balance?: string;
+}
+
 interface MultiSigWalletFormProps {
-  projectId?: string;
+  projectId?: string; // OPTIONAL - service provider selects which project wallet funds deployment
   onSuccess?: (address: string, txHash: string) => void;
   onCancel?: () => void;
 }
@@ -20,37 +41,193 @@ interface MultiSigWalletFormProps {
 export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigWalletFormProps) {
   const { toast } = useToast();
   const [name, setName] = useState('');
-  const [owners, setOwners] = useState<string[]>(['', '', '']);
   const [threshold, setThreshold] = useState(2);
   const [blockchain, setBlockchain] = useState('ethereum');
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [deploymentResult, setDeploymentResult] = useState<{
     address: string;
     transactionHash: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // User selection mode
+  const [ownerMode, setOwnerMode] = useState<'users' | 'manual'>('users');
+  const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [manualOwners, setManualOwners] = useState<string[]>(['', '', '']);
+  
+  // Project wallet selection (for funding)
+  const [projectWallets, setProjectWallets] = useState<ProjectWalletOption[]>([]);
+  const [selectedProjectWallet, setSelectedProjectWallet] = useState<string>(''); // wallet ID
+  const [projectName, setProjectName] = useState<string>('');
+
   const multiSigService = MultiSigTransactionService.getInstance();
   const allChains = getAllChains();
 
+  // Load ALL system users with their addresses (service provider level)
+  // AND load project wallets for funding selection
+  useEffect(() => {
+    const loadSystemUsers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Validate projectId before making database queries
+        if (!projectId || projectId.trim() === '') {
+          setError('Please select a project to fund the multi-sig wallet deployment');
+          setIsLoading(false);
+          return;
+        }
+
+        // Load project details
+        const { data: project, error: projectError } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('id', projectId)
+          .single();
+        
+        if (projectError) throw projectError;
+        if (project) {
+          setProjectName(project.name);
+        }
+
+        // Load project wallets for funding selection
+        const { data: wallets, error: walletsError } = await supabase
+          .from('project_wallets')
+          .select('id, address, chain_id')
+          .eq('project_id', projectId)
+          .eq('chain_id', blockchain); // Only show wallets for selected blockchain
+        
+        if (walletsError) throw walletsError;
+
+        if (!wallets || wallets.length === 0) {
+          setError(`No project wallets found for ${blockchain}. Please create a project wallet first.`);
+          return;
+        }
+
+        // Map to ProjectWalletOption format
+        const walletOptions: ProjectWalletOption[] = wallets.map(w => ({
+          id: w.id,
+          projectId: projectId,
+          projectName: project?.name,
+          walletAddress: w.address,
+          chainId: w.chain_id
+        }));
+
+        setProjectWallets(walletOptions);
+        
+        // Auto-select first wallet
+        if (walletOptions.length > 0) {
+          setSelectedProjectWallet(walletOptions[0].id);
+        }
+
+        // Get ALL users in the system with their roles and organizations
+        const { data: userRoles, error: rolesError } = await supabase
+          .from('user_organization_roles')
+          .select(`
+            user_id,
+            users!inner(id, email),
+            roles(name),
+            organizations(name)
+          `);
+
+        if (rolesError) throw rolesError;
+
+        if (!userRoles || userRoles.length === 0) {
+          setError('No users found in the system');
+          return;
+        }
+
+        // Get unique users (a user may have multiple roles/organizations)
+        const uniqueUsers = new Map<string, any>();
+        userRoles.forEach((ur: any) => {
+          if (!uniqueUsers.has(ur.user_id)) {
+            uniqueUsers.set(ur.user_id, {
+              userId: ur.user_id,
+              email: ur.users.email,
+              roleName: ur.roles?.name,
+              organizationName: ur.organizations?.name
+            });
+          }
+        });
+
+        const userIds = Array.from(uniqueUsers.keys());
+
+        // Get user addresses for the selected blockchain
+        const usersWithAddresses = await userAddressService.getUsersWithAddresses(
+          userIds,
+          blockchain
+        );
+
+        // Map to SystemUser format
+        const users: SystemUser[] = Array.from(uniqueUsers.values()).map((user) => {
+          const addressInfo = usersWithAddresses.find(ua => ua.userId === user.userId);
+          return {
+            ...user,
+            address: addressInfo?.address || undefined,
+            hasAddress: !!addressInfo?.address
+          };
+        });
+
+        // Sort by email
+        users.sort((a, b) => a.email.localeCompare(b.email));
+
+        setSystemUsers(users);
+
+        // Auto-select users who have addresses (first 3)
+        const usersWithAddr = users.filter(u => u.hasAddress).map(u => u.userId);
+        if (usersWithAddr.length >= 2) {
+          setSelectedUserIds(usersWithAddr.slice(0, 3));
+          setThreshold(Math.min(2, usersWithAddr.length));
+        }
+      } catch (err: any) {
+        console.error('Failed to load data:', err);
+        setError(err.message || 'Failed to load data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSystemUsers();
+  }, [blockchain, projectId]); // Reload when blockchain or projectId changes
+
+  // Handle user selection toggle
+  const toggleUserSelection = useCallback((userId: string) => {
+    setSelectedUserIds(prev => {
+      const isSelected = prev.includes(userId);
+      if (isSelected) {
+        const newSelection = prev.filter(id => id !== userId);
+        // Adjust threshold if needed
+        if (threshold > newSelection.length) {
+          setThreshold(Math.max(1, newSelection.length));
+        }
+        return newSelection;
+      } else {
+        return [...prev, userId];
+      }
+    });
+  }, [threshold]);
+
+  // Manual owner management (fallback mode)
   const addOwner = useCallback(() => {
-    setOwners([...owners, '']);
-  }, [owners]);
+    setManualOwners([...manualOwners, '']);
+  }, [manualOwners]);
 
   const removeOwner = useCallback((index: number) => {
-    if (owners.length > 2) {
-      setOwners(owners.filter((_, i) => i !== index));
-      if (threshold > owners.length - 1) {
-        setThreshold(owners.length - 1);
+    if (manualOwners.length > 2) {
+      setManualOwners(manualOwners.filter((_, i) => i !== index));
+      if (threshold > manualOwners.length - 1) {
+        setThreshold(manualOwners.length - 1);
       }
     }
-  }, [owners, threshold]);
+  }, [manualOwners, threshold]);
 
   const updateOwner = useCallback((index: number, value: string) => {
-    const newOwners = [...owners];
+    const newOwners = [...manualOwners];
     newOwners[index] = value;
-    setOwners(newOwners);
-  }, [owners]);
+    setManualOwners(newOwners);
+  }, [manualOwners]);
 
   const validateForm = useCallback(() => {
     // Validate name
@@ -59,26 +236,52 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
       return false;
     }
 
-    // Validate owners
-    const validOwners = owners.filter(o => o.trim() !== '');
-    if (validOwners.length < 2) {
-      setError('At least 2 owners are required');
+    // Validate project wallet selected
+    if (!selectedProjectWallet) {
+      setError('Please select a project wallet to fund the deployment');
       return false;
     }
 
-    // Check for valid Ethereum addresses
-    const addressPattern = /^0x[a-fA-F0-9]{40}$/;
-    const invalidOwners = validOwners.filter(o => !addressPattern.test(o));
-    if (invalidOwners.length > 0) {
-      setError('All owner addresses must be valid Ethereum addresses (0x...)');
-      return false;
-    }
+    // Validate owners based on mode
+    let validOwners: string[];
+    if (ownerMode === 'users') {
+      const selectedUsers = systemUsers.filter(u => selectedUserIds.includes(u.userId));
+      validOwners = selectedUsers.map(u => u.address).filter(addr => addr) as string[];
 
-    // Check for duplicate owners
-    const uniqueOwners = new Set(validOwners.map(o => o.toLowerCase()));
-    if (uniqueOwners.size !== validOwners.length) {
-      setError('Owner addresses must be unique');
-      return false;
+      if (validOwners.length < 2) {
+        setError('Please select at least 2 users with blockchain addresses');
+        return false;
+      }
+
+      // Check if selected users have addresses
+      const usersWithoutAddr = selectedUsers.filter(u => !u.hasAddress);
+      if (usersWithoutAddr.length > 0) {
+        setError(
+          `Some selected users don't have ${blockchain} addresses: ${usersWithoutAddr.map(u => u.email).join(', ')}`
+        );
+        return false;
+      }
+    } else {
+      validOwners = manualOwners.filter(o => o.trim() !== '');
+      if (validOwners.length < 2) {
+        setError('At least 2 owners are required');
+        return false;
+      }
+
+      // Check for valid Ethereum addresses
+      const addressPattern = /^0x[a-fA-F0-9]{40}$/;
+      const invalidOwners = validOwners.filter(o => !addressPattern.test(o));
+      if (invalidOwners.length > 0) {
+        setError('All owner addresses must be valid Ethereum addresses (0x...)');
+        return false;
+      }
+
+      // Check for duplicate owners
+      const uniqueOwners = new Set(validOwners.map(o => o.toLowerCase()));
+      if (uniqueOwners.size !== validOwners.length) {
+        setError('Owner addresses must be unique');
+        return false;
+      }
     }
 
     // Validate threshold
@@ -88,7 +291,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
     }
 
     return true;
-  }, [name, owners, threshold]);
+  }, [name, selectedProjectWallet, ownerMode, systemUsers, selectedUserIds, manualOwners, threshold, blockchain]);
 
   const handleDeploy = async () => {
     try {
@@ -101,14 +304,22 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
 
       setIsDeploying(true);
 
-      const validOwners = owners.filter(o => o.trim() !== '');
+      // Get owner addresses based on mode
+      let validOwners: string[];
+      if (ownerMode === 'users') {
+        const selectedUsers = systemUsers.filter(u => selectedUserIds.includes(u.userId));
+        validOwners = selectedUsers.map(u => u.address).filter(addr => addr) as string[];
+      } else {
+        validOwners = manualOwners.filter(o => o.trim() !== '');
+      }
 
-      // Deploy multi-sig wallet
+      // Deploy multi-sig wallet (service provider level - no project association)
       const result = await multiSigService.deployMultiSigWallet(
         name,
         validOwners,
         threshold,
-        blockchain
+        blockchain,
+        projectId // Optional - for tracking association
       );
 
       setDeploymentResult(result);
@@ -138,11 +349,12 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
 
   const handleReset = () => {
     setName('');
-    setOwners(['', '', '']);
     setThreshold(2);
     setBlockchain('ethereum');
     setDeploymentResult(null);
     setError(null);
+    setSelectedUserIds([]);
+    setManualOwners(['', '', '']);
   };
 
   // Show success screen if deployed
@@ -218,17 +430,29 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
 
           {/* Actions */}
           <div className="flex gap-2 justify-end">
-            <Button
-              variant="outline"
-              onClick={handleReset}
-            >
+            <Button variant="outline" onClick={handleReset}>
               Create Another
             </Button>
-            <Button
-              onClick={onCancel}
-            >
+            <Button onClick={onCancel}>
               Done
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading...</CardTitle>
+          <CardDescription>Fetching system users</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         </CardContent>
       </Card>
@@ -243,7 +467,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           Create Multi-Sig Wallet
         </CardTitle>
         <CardDescription>
-          Deploy a new multi-signature wallet with custom owners and threshold
+          Deploy a new multi-signature wallet with any system users. Select which project wallet will fund the deployment.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -291,61 +515,177 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           </p>
         </div>
 
-        {/* Owners */}
+        {/* Project Wallet Funding Selection */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Owners ({owners.filter(o => o).length}) *</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addOwner}
-              disabled={isDeploying || owners.length >= 10}
-            >
-              <PlusIcon className="w-4 h-4 mr-1" />
-              Add Owner
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {owners.map((owner, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  value={owner}
-                  onChange={(e) => updateOwner(index, e.target.value)}
-                  placeholder="0x..."
-                  className="flex-1 font-mono text-sm"
-                  disabled={isDeploying}
-                />
-                {owners.length > 2 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeOwner(index)}
-                    disabled={isDeploying}
-                  >
-                    <MinusIcon className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
+          <Label htmlFor="funding-wallet">Funding Source *</Label>
+          <Select
+            value={selectedProjectWallet}
+            onValueChange={setSelectedProjectWallet}
+            disabled={isDeploying || projectWallets.length === 0}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select project wallet to fund deployment" />
+            </SelectTrigger>
+            <SelectContent>
+              {projectWallets.map(wallet => (
+                <SelectItem key={wallet.id} value={wallet.id}>
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {wallet.walletAddress.slice(0, 10)}...{wallet.walletAddress.slice(-8)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {projectName || 'Project'} Wallet
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="text-xs text-muted-foreground">
-            Ethereum addresses that can sign transactions (minimum 2 owners)
+            Select which project wallet will pay for deployment gas costs (~0.01 ETH)
           </p>
         </div>
+
+        {/* Owner Mode Selection */}
+        <div className="space-y-2">
+          <Label>Owner Selection Mode</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={ownerMode === 'users' ? 'default' : 'outline'}
+              onClick={() => setOwnerMode('users')}
+              disabled={isDeploying}
+              className="flex-1"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              System Users
+            </Button>
+            <Button
+              type="button"
+              variant={ownerMode === 'manual' ? 'default' : 'outline'}
+              onClick={() => setOwnerMode('manual')}
+              disabled={isDeploying}
+              className="flex-1"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Manual Addresses
+            </Button>
+          </div>
+        </div>
+
+        {/* Project Users Mode */}
+        {ownerMode === 'users' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Select Owners ({selectedUserIds.length}) *</Label>
+              <Badge variant="outline">
+                {systemUsers.filter(u => u.hasAddress).length} users with {blockchain} address
+              </Badge>
+            </div>
+            <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
+              {systemUsers.map(user => (
+                <label
+                  key={user.userId}
+                  className={`flex items-center p-3 hover:bg-muted cursor-pointer ${
+                    !user.hasAddress ? 'opacity-50' : ''
+                  }`}
+                >
+                  <Checkbox
+                    checked={selectedUserIds.includes(user.userId)}
+                    onCheckedChange={() => toggleUserSelection(user.userId)}
+                    disabled={isDeploying || !user.hasAddress}
+                  />
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{user.email}</span>
+                      {user.roleName && (
+                        <Badge variant="secondary" className="text-xs">
+                          {user.roleName}
+                        </Badge>
+                      )}
+                    </div>
+                    {user.organizationName && (
+                      <span className="text-xs text-muted-foreground">
+                        {user.organizationName}
+                      </span>
+                    )}
+                    {user.hasAddress ? (
+                      <span className="text-xs text-muted-foreground font-mono block mt-1">
+                        {user.address?.slice(0, 10)}...{user.address?.slice(-8)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-destructive">
+                        No {blockchain} address
+                      </span>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select users who will be owners of this multi-sig wallet (must have blockchain addresses)
+            </p>
+          </div>
+        )}
+
+        {/* Manual Owners Mode */}
+        {ownerMode === 'manual' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Owners ({manualOwners.filter(o => o).length}) *</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addOwner}
+                disabled={isDeploying || manualOwners.length >= 10}
+              >
+                <PlusIcon className="w-4 h-4 mr-1" />
+                Add Owner
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {manualOwners.map((owner, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={owner}
+                    onChange={(e) => updateOwner(index, e.target.value)}
+                    placeholder="0x..."
+                    className="flex-1 font-mono text-sm"
+                    disabled={isDeploying}
+                  />
+                  {manualOwners.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeOwner(index)}
+                      disabled={isDeploying}
+                    >
+                      <MinusIcon className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ethereum addresses that can sign transactions (minimum 2 owners)
+            </p>
+          </div>
+        )}
 
         {/* Threshold */}
         <div className="space-y-2">
           <Label htmlFor="threshold">
-            Required Signatures ({threshold} of {owners.filter(o => o).length}) *
+            Required Signatures ({threshold} of{' '}
+            {ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length}) *
           </Label>
           <div className="flex items-center gap-4">
             <Input
               id="threshold"
               type="number"
               min="1"
-              max={owners.filter(o => o).length}
+              max={ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length}
               value={threshold}
               onChange={(e) => setThreshold(parseInt(e.target.value) || 1)}
               className="w-24"
@@ -353,14 +693,18 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             />
             <div className="flex-1">
               <div className="flex gap-1">
-                {Array.from({ length: owners.filter(o => o).length }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`h-2 flex-1 rounded ${
-                      i < threshold ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  />
-                ))}
+                {Array.from(
+                  {
+                    length:
+                      ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length,
+                  },
+                  (_, i) => (
+                    <div
+                      key={i}
+                      className={`h-2 flex-1 rounded ${i < threshold ? 'bg-primary' : 'bg-muted'}`}
+                    />
+                  )
+                )}
               </div>
             </div>
           </div>
@@ -370,15 +714,23 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         </div>
 
         {/* Threshold Warning */}
-        {threshold === owners.filter(o => o).length && owners.filter(o => o).length > 2 && (
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Requiring all owners to sign may make the wallet difficult to use if any owner becomes unavailable.
-              Consider using a lower threshold (e.g., {Math.ceil(owners.filter(o => o).length * 0.6)} of {owners.filter(o => o).length}).
-            </AlertDescription>
-          </Alert>
-        )}
+        {threshold ===
+          (ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length) &&
+          (ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length) > 2 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Requiring all owners to sign may make the wallet difficult to use if any owner becomes
+                unavailable. Consider using a lower threshold (e.g.,{' '}
+                {Math.ceil(
+                  (ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length) *
+                    0.6
+                )}{' '}
+                of{' '}
+                {ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length}).
+              </AlertDescription>
+            </Alert>
+          )}
 
         {/* Summary */}
         <div className="rounded-md border p-4 space-y-2">
@@ -390,12 +742,29 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Owners:</span>
-              <span className="font-medium">{owners.filter(o => o).length}</span>
+              <span className="font-medium">
+                {ownerMode === 'users' ? selectedUserIds.length : manualOwners.filter(o => o).length}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Required Signatures:</span>
               <span className="font-medium">{threshold}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Funded By:</span>
+              <Badge variant="secondary">
+                {projectName || 'Project'} Wallet
+              </Badge>
+            </div>
+            {selectedProjectWallet && projectWallets.length > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Funding Address:</span>
+                <span className="text-xs font-mono">
+                  {projectWallets.find(w => w.id === selectedProjectWallet)?.walletAddress.slice(0, 10)}...
+                  {projectWallets.find(w => w.id === selectedProjectWallet)?.walletAddress.slice(-8)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Estimated Gas:</span>
               <span className="text-muted-foreground">~0.01 ETH</span>
@@ -414,20 +783,11 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         {/* Actions */}
         <div className="flex gap-2 justify-end">
           {onCancel && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              disabled={isDeploying}
-            >
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isDeploying}>
               Cancel
             </Button>
           )}
-          <Button
-            type="button"
-            onClick={handleDeploy}
-            disabled={isDeploying}
-          >
+          <Button type="button" onClick={handleDeploy} disabled={isDeploying}>
             {isDeploying ? 'Deploying...' : 'Deploy Multi-Sig Wallet'}
           </Button>
         </div>

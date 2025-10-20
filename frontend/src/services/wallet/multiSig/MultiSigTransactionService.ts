@@ -1,7 +1,8 @@
 /**
- * Multi-Signature Transaction Service
+ * Multi-Signature Transaction Service - ENHANCED
  * Core service for managing multi-sig transaction workflows
  * Supports threshold signatures across EVM and non-EVM chains
+ * UPDATED: Uses project_wallets for deployment funding
  */
 
 import { ethers } from 'ethers';
@@ -70,6 +71,18 @@ export interface MultiSigWallet {
   investorId?: string;
 }
 
+export interface ProjectWallet {
+  id: string;
+  projectId: string;
+  walletType: string;
+  walletAddress: string;
+  publicKey: string;
+  privateKey?: string;
+  keyVaultId?: string;
+  chainId?: string;
+  net?: string;
+}
+
 export interface SignatureRequirement {
   required: number;
   collected: number;
@@ -124,6 +137,96 @@ export class MultiSigTransactionService {
   }
 
   // ============================================================================
+  // PROJECT WALLET METHODS (NEW)
+  // ============================================================================
+
+  /**
+   * Get project wallet for funding deployments
+   * Uses any available wallet from project_wallets table
+   */
+  async getProjectWallet(projectId: string, blockchain?: string): Promise<ProjectWallet> {
+    try {
+      const query = supabase
+        .from('project_wallets')
+        .select('*')
+        .eq('project_id', projectId);
+
+      // Filter by chain if provided
+      if (blockchain) {
+        // Map blockchain to chain_id (e.g., 'ethereum' -> '1', 'polygon' -> '137')
+        const chainId = this.getChainId(blockchain);
+        query.eq('chain_id', chainId);
+      }
+
+      const { data, error } = await query.limit(1).maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error(
+          `No wallet found for project ${projectId}${blockchain ? ` on ${blockchain}` : ''}`
+        );
+      }
+
+      return {
+        id: data.id,
+        projectId: data.project_id,
+        walletType: data.wallet_type,
+        walletAddress: data.wallet_address,
+        publicKey: data.public_key,
+        privateKey: data.private_key,
+        keyVaultId: data.key_vault_id,
+        chainId: data.chain_id,
+        net: data.net
+      };
+    } catch (error: any) {
+      console.error('Failed to get project wallet:', error);
+      throw new Error(`Failed to get project wallet: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get private key from project wallet (KeyVault or direct)
+   */
+  private async getProjectWalletPrivateKey(projectWallet: ProjectWallet): Promise<string> {
+    try {
+      // Try KeyVault first
+      if (projectWallet.keyVaultId) {
+        const keyResult = await keyVaultClient.getKey(projectWallet.keyVaultId);
+        return typeof keyResult === 'string' ? keyResult : keyResult.privateKey;
+      }
+
+      // Fall back to direct private key (if stored)
+      if (projectWallet.privateKey) {
+        return projectWallet.privateKey;
+      }
+
+      throw new Error('No private key available for project wallet');
+    } catch (error: any) {
+      console.error('Failed to get project wallet private key:', error);
+      throw new Error(`Failed to get private key: ${error.message}`);
+    }
+  }
+
+  /**
+   * Map blockchain name to chain ID
+   */
+  private getChainId(blockchain: string): string {
+    const chainMap: Record<string, string> = {
+      'ethereum': '1',
+      'holesky': '17000',
+      'hoodi': '8899',
+      'polygon': '137',
+      'arbitrum': '42161',
+      'optimism': '10',
+      'base': '8453',
+      'bsc': '56',
+      'avalanche': '43114'
+    };
+
+    return chainMap[blockchain.toLowerCase()] || '1';
+  }
+
+  // ============================================================================
   // PROPOSAL MANAGEMENT
   // ============================================================================
 
@@ -174,7 +277,7 @@ export class MultiSigTransactionService {
 
       return this.formatProposal(data);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create multi-sig proposal:', error);
       throw new Error(`Proposal creation failed: ${error.message}`);
     }
@@ -235,7 +338,7 @@ export class MultiSigTransactionService {
 
       return this.formatSignature(data);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to sign proposal:', error);
       throw new Error(`Proposal signing failed: ${error.message}`);
     }
@@ -282,11 +385,12 @@ export class MultiSigTransactionService {
         readyToBroadcast: true
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to aggregate signatures:', error);
       throw new Error(`Signature aggregation failed: ${error.message}`);
     }
   }
+
   /**
    * Broadcast multi-sig transaction to blockchain
    */
@@ -347,7 +451,7 @@ export class MultiSigTransactionService {
         proposalId: signedTx.proposalId
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to broadcast multi-sig transaction:', error);
       return {
         success: false,
@@ -356,6 +460,7 @@ export class MultiSigTransactionService {
       };
     }
   }
+
   // ============================================================================
   // VALIDATION & REQUIREMENTS
   // ============================================================================
@@ -422,23 +527,28 @@ export class MultiSigTransactionService {
   }
 
   // ============================================================================
-  // ON-CHAIN MULTI-SIG METHODS
+  // ON-CHAIN MULTI-SIG METHODS (UPDATED)
   // ============================================================================
 
   /**
    * Deploy a new multi-sig wallet contract
+   * Service provider selects which project wallet funds deployment
    */
   async deployMultiSigWallet(
     name: string,
     owners: string[],
     threshold: number,
     blockchain: string = 'ethereum',
-    projectId?: string
+    projectId: string  // REQUIRED - service provider selects which project wallet funds deployment
   ): Promise<WalletDeploymentResult> {
     try {
       // Validate inputs
       if (!name || name.trim() === '') {
         throw new Error('Wallet name is required');
+      }
+
+      if (!projectId) {
+        throw new Error('Project ID is required to fund deployment');
       }
 
       const validOwners = owners.filter(o => o.trim() !== '');
@@ -455,10 +565,17 @@ export class MultiSigTransactionService {
       if (!factoryAddress) {
         throw new Error(`No factory address configured for ${blockchain}`);
       }
+
+      // Get project wallet to fund deployment (REQUIRED)
+      const deployerWallet = await this.getProjectWallet(projectId, blockchain);
+      console.log(`Using project wallet ${deployerWallet.walletAddress} to fund deployment`);
       
-      // Get provider and signer
+      // Get provider
       const provider = new ethers.JsonRpcProvider(this.getRpcUrl(blockchain));
-      const signer = await this.getSigner(provider);
+      
+      // Get signer from deployer wallet
+      const privateKey = await this.getProjectWalletPrivateKey(deployerWallet);
+      const signer = new ethers.Wallet(privateKey, provider);
       
       // Load factory contract
       const factory = new ethers.Contract(
@@ -467,7 +584,8 @@ export class MultiSigTransactionService {
         signer
       );
       
-      // Create wallet
+      // Create wallet (gas paid by project wallet)
+      console.log(`Deploying multi-sig wallet from project wallet ${deployerWallet.walletAddress}`);
       const tx = await factory.createWallet(name, validOwners, threshold);
       const receipt = await tx.wait();
       
@@ -509,8 +627,11 @@ export class MultiSigTransactionService {
         deployment_tx: receipt.hash,
         factory_address: factoryAddress,
         project_id: projectId,
+        funded_by_wallet_id: deployerWallet.id, // Track which wallet funded deployment
         created_by: user?.id
       });
+      
+      console.log(`Multi-sig wallet deployed at ${walletAddress} by project wallet ${deployerWallet.walletAddress}`);
       
       return {
         address: walletAddress,

@@ -396,7 +396,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
               <h3 className="text-lg font-semibold">Multi-Signature Transactions</h3>
               <p className="text-sm text-muted-foreground">Manage proposals, collect signatures, and execute multi-sig transactions</p>
             </div>
-            <MultiSigWalletWizard />
+            <MultiSigWalletWizard projectId={projectId || undefined} />
           </div>
           <SignatureCollectionDashboard />
         </TabsContent>

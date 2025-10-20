@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -28,7 +28,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Wallet, Key, ChevronsUpDown, Copy, Lock, AlertTriangle, Plus, Minus, UserPlus, Shield } from "lucide-react";
+import { Wallet, Key, ChevronsUpDown, Copy, Lock, AlertTriangle, Plus, Minus, UserPlus, Shield, RefreshCw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,13 +55,20 @@ import type { SupportedChain } from "@/infrastructure/web3/adapters/IBlockchainA
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { validateBlockchain, BLOCKCHAIN_CATEGORIES } from '@/infrastructure/web3/utils/BlockchainValidator';
 import { abiManager, type ContractType } from '@/services/wallet/ABI';
+import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
 
-// Import only existing multi-sig components
+// Import ALL multi-sig components
 import {
+  MultiSigManager,
+  MultiSigWalletForm,
+  MultiSigTransactionProposal,
+  MultiSigTransactionList,
   MultiSigRoleManager,
   RoleCreationForm,
   RoleOwnerManager,
 } from '@/components/wallet/multisig';
+import { ProjectSelector } from '@/components/wallet/components/ProjectSelector';
+import { OrganizationSelector, useOrganizationContext } from "@/components/organizations";
 
 // Supported blockchains for MultiSig wallet creation (EVM chains only)
 const SUPPORTED_BLOCKCHAINS = BLOCKCHAIN_CATEGORIES.evm;
@@ -84,6 +91,8 @@ const NewWalletPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { createWallet, importWallet, generateNewAddress } = useWallet();
+  const { shouldShowSelector } = useOrganizationContext();
+  const { projectId: routeProjectId } = useParams<{ projectId?: string }>();
   const [generatedWallet, setGeneratedWallet] = useState<{
     address: string;
     privateKey: string;
@@ -115,6 +124,46 @@ const NewWalletPage: React.FC = () => {
     address: string;
     blockchain: string;
   } | null>(null);
+
+  // Project selection for multi-sig funding
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(routeProjectId || "");
+  
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Update selected project when route changes
+  useEffect(() => {
+    if (routeProjectId) {
+      setSelectedProjectId(routeProjectId);
+    }
+  }, [routeProjectId]);
+
+  // Auto-redirect to project-specific URL if no projectId in route
+  useEffect(() => {
+    const redirectToProject = async () => {
+      // Only redirect if no projectId in URL
+      if (!routeProjectId) {
+        try {
+          const project = await getPrimaryOrFirstProject();
+          if (project) {
+            // Redirect to project-specific URL
+            navigate(`/wallet/${project.id}/new`, { replace: true });
+          } else {
+            // No projects available - let user stay on page but show message
+            toast({
+              title: "No Projects Found",
+              description: "Please create a project first or select one from the dropdown.",
+              variant: "default",
+            });
+          }
+        } catch (error) {
+          console.error("Error finding primary project:", error);
+        }
+      }
+    };
+
+    redirectToProject();
+  }, [routeProjectId, navigate, toast]);
 
   // Form for creating a new wallet
   const newWalletForm = useForm<z.infer<typeof newWalletSchema>>({
@@ -197,6 +246,16 @@ const NewWalletPage: React.FC = () => {
   // Handle MultiSig wallet creation
   const handleMultiSigWalletCreation = async () => {
     try {
+      // Validate project selected
+      if (!selectedProjectId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please select a project to fund the deployment",
+        });
+        return;
+      }
+
       setDeploymentStatus({ processing: true, message: "Simulating transaction..." });
       
       // First simulate the transaction
@@ -215,7 +274,8 @@ const NewWalletPage: React.FC = () => {
         newWalletForm.getValues().name,
         multiSigAddresses,
         multiSigThreshold,
-        newWalletForm.getValues().network
+        newWalletForm.getValues().network,
+        selectedProjectId // REQUIRED: Project wallet to fund deployment
       );
       
       toast({
@@ -417,6 +477,46 @@ const NewWalletPage: React.FC = () => {
     fetchInvestorsWithoutWallets();
   }, [toast]);
 
+  // Handle page refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Reset forms
+      newWalletForm.reset();
+      importWalletForm.reset();
+      setGeneratedWallet(null);
+      setCopySecured(false);
+      setWalletCreated(false);
+      setSelectedInvestors([]);
+      setMultiSigAddresses([]);
+      setMultiSigThreshold(1);
+      
+      // Reload investors
+      const { data, error } = await supabase
+        .from('investors')
+        .select('investor_id, name, email, type, kyc_status, company')
+        .is('wallet_address', null)
+        .order('name');
+
+      if (error) throw error;
+      setInvestors(data || []);
+      
+      toast({
+        title: "Page Refreshed",
+        description: "Data has been reloaded successfully",
+      });
+    } catch (error) {
+      console.error("Error refreshing page:", error);
+      toast({
+        variant: "destructive",
+        title: "Refresh Failed",
+        description: "Failed to refresh page data. Please try again.",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Handle selecting all investors
   const handleSelectAllInvestors = () => {
     if (selectedInvestors.length === investors.length) {
@@ -518,10 +618,50 @@ const NewWalletPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Create or Import Wallet</h1>
-      
-      <Tabs defaultValue="create">
+    <div className="w-full h-full bg-gray-50">
+      {/* Header with project selector */}
+      <div className="flex flex-col md:flex-row justify-between items-center p-6 pb-3 bg-white border-b">
+        <div className="flex items-center space-x-2 w-full justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Create or Import Wallet</h1>
+              <p className="text-muted-foreground">
+                Manage wallet operations for your project
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            {shouldShowSelector && (
+              <OrganizationSelector 
+                compact={true}
+                showIcon={true}
+                className="w-64"
+              />
+            )}
+            <ProjectSelector
+              value={selectedProjectId}
+              onChange={setSelectedProjectId}
+              compact={true}
+              className="w-64"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="container mx-auto py-8">
+        <Tabs defaultValue="create">
         <TabsList className="mb-4">
           <TabsTrigger value="create">Create New Wallet</TabsTrigger>
           <TabsTrigger value="import">Import Existing Wallet</TabsTrigger>
@@ -1073,28 +1213,171 @@ const NewWalletPage: React.FC = () => {
           </Card>
         </TabsContent>
 
-        {/* Multi-sig Management Tab - Role-Based System */}
+        {/* Multi-sig Management Tab - Complete System */}
         <TabsContent value="multisig">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Shield className="mr-2 h-5 w-5" />
-                Role-Based Multi-Signature Management
+                Complete Multi-Signature Management
               </CardTitle>
               <CardDescription>
-                Create roles with blockchain addresses and manage wallet ownership
+                Create wallets, manage transactions, roles, and contract permissions
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="create-role" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="create-role">Create Role</TabsTrigger>
-                  <TabsTrigger value="manage-owners">Manage Owners</TabsTrigger>
-                  <TabsTrigger value="contract-roles">Contract Roles</TabsTrigger>
+              <Tabs defaultValue="overview" className="w-full">
+                <TabsList className="grid w-full grid-cols-5">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="create-wallet">Create Wallet</TabsTrigger>
+                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                  <TabsTrigger value="roles">Roles</TabsTrigger>
+                  <TabsTrigger value="contract-roles">Permissions</TabsTrigger>
                 </TabsList>
 
-                {/* Create Role Tab */}
-                <TabsContent value="create-role" className="space-y-6">
+                {/* 1. Overview Tab - MultiSigManager */}
+                <TabsContent value="overview" className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Multi-Sig Wallet Overview</CardTitle>
+                      <CardDescription>
+                        View and manage all your multi-signature wallets
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <MultiSigManager />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* 2. Create Wallet Tab - MultiSigWalletForm */}
+                <TabsContent value="create-wallet" className="space-y-6">
+                  {/* Project Selector for Funding */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Select Funding Source</CardTitle>
+                      <CardDescription>
+                        Choose which project's wallet will pay for deployment gas costs
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ProjectSelector
+                        value={selectedProjectId}
+                        onChange={setSelectedProjectId}
+                        label="Funding Project"
+                        description="The selected project's wallet will pay approximately 0.01 ETH in gas fees"
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Multi-Sig Wallet Creation Form */}
+                  {selectedProjectId ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Create New Multi-Sig Wallet</CardTitle>
+                        <CardDescription>
+                          Deploy a new multi-signature wallet contract
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <MultiSigWalletForm
+                          projectId={selectedProjectId}
+                          onSuccess={(address) => {
+                            setCurrentMultiSigWallet({
+                              walletId: address, // Use address as ID initially
+                              address: address,
+                              blockchain: newWalletForm.getValues().network
+                            });
+                            toast({
+                              title: "Multi-Sig Wallet Created",
+                              description: `Deployed to ${address}`,
+                            });
+                          }}
+                          onCancel={() => {
+                            // Optional: handle cancel
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <p className="text-muted-foreground">
+                          Please select a project to fund the deployment
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+
+                {/* 3. Transactions Tab - Proposal + List */}
+                <TabsContent value="transactions" className="space-y-6">
+                  {currentMultiSigWallet ? (
+                    <>
+                      {/* Transaction Proposal */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Propose Transaction</CardTitle>
+                          <CardDescription>
+                            Create a new transaction proposal for multi-sig approval
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <MultiSigTransactionProposal
+                            walletId={currentMultiSigWallet.walletId}
+                            walletAddress={currentMultiSigWallet.address}
+                            blockchain={currentMultiSigWallet.blockchain}
+                            onSuccess={(proposalId) => {
+                              toast({
+                                title: "Transaction Proposed",
+                                description: "Proposal created successfully",
+                              });
+                            }}
+                          />
+                        </CardContent>
+                      </Card>
+
+                      {/* Transaction List */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Pending Transactions</CardTitle>
+                          <CardDescription>
+                            View and manage multi-sig transaction proposals
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <MultiSigTransactionList
+                            walletId={currentMultiSigWallet.walletId}
+                            walletAddress={currentMultiSigWallet.address}
+                          />
+                        </CardContent>
+                      </Card>
+                    </>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <p className="text-muted-foreground">
+                          Please create or select a multi-sig wallet first
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => {
+                            // Switch to create wallet tab
+                            const tab = document.querySelector('[value="create-wallet"]') as HTMLElement;
+                            tab?.click();
+                          }}
+                        >
+                          Create Multi-Sig Wallet
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+
+                {/* 4. Roles Tab - Role Creation + Owner Management */}
+                <TabsContent value="roles" className="space-y-6">
+                  {/* Create Role */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Create Role with Blockchain Address</CardTitle>
@@ -1117,11 +1400,9 @@ const NewWalletPage: React.FC = () => {
                       />
                     </CardContent>
                   </Card>
-                </TabsContent>
 
-                {/* Manage Role Owners Tab */}
-                <TabsContent value="manage-owners" className="space-y-6">
-                  {currentMultiSigWallet ? (
+                  {/* Manage Role Owners */}
+                  {currentMultiSigWallet && (
                     <Card>
                       <CardHeader>
                         <CardTitle>Manage Wallet Owners</CardTitle>
@@ -1139,29 +1420,10 @@ const NewWalletPage: React.FC = () => {
                         />
                       </CardContent>
                     </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">
-                          Please create a multi-sig wallet first to manage owners
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-4"
-                          onClick={() => {
-                            // Switch to create wallet tab
-                            const createTab = document.querySelector('[value="create"]') as HTMLElement;
-                            createTab?.click();
-                          }}
-                        >
-                          Create Multi-Sig Wallet
-                        </Button>
-                      </CardContent>
-                    </Card>
                   )}
                 </TabsContent>
 
-                {/* Contract Roles Tab */}
+                {/* 5. Contract Roles Tab - MultiSigRoleManager */}
                 <TabsContent value="contract-roles" className="space-y-6">
                   {currentMultiSigWallet ? (
                     <Card>
@@ -1182,15 +1444,15 @@ const NewWalletPage: React.FC = () => {
                     <Card>
                       <CardContent className="p-6 text-center">
                         <p className="text-muted-foreground">
-                          Please create a multi-sig wallet first to grant contract roles
+                          Please create or select a multi-sig wallet first
                         </p>
                         <Button 
                           variant="outline" 
                           className="mt-4"
                           onClick={() => {
                             // Switch to create wallet tab
-                            const createTab = document.querySelector('[value="create"]') as HTMLElement;
-                            createTab?.click();
+                            const tab = document.querySelector('[value="create-wallet"]') as HTMLElement;
+                            tab?.click();
                           }}
                         >
                           Create Multi-Sig Wallet
@@ -1246,6 +1508,7 @@ const NewWalletPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };

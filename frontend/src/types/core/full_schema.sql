@@ -6952,6 +6952,20 @@ $$;
 
 
 --
+-- Name: update_user_addresses_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_user_addresses_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_user_role(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7484,17 +7498,6 @@ COMMENT ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) IS
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: _migrations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public._migrations (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    executed_at timestamp with time zone DEFAULT now()
-);
-
 
 --
 -- Name: abs_cash_flows; Type: TABLE; Schema: public; Owner: -
@@ -17226,6 +17229,16 @@ COMMENT ON COLUMN public.profiles.profile_type IS 'User role type in the system'
 
 
 --
+-- Name: project_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_members (
+    project_id uuid,
+    user_id uuid
+);
+
+
+--
 -- Name: project_organization_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -23521,6 +23534,53 @@ CREATE MATERIALIZED VIEW public.user_activity_summary AS
 
 
 --
+-- Name: user_addresses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_addresses (
+    user_id uuid,
+    blockchain text,
+    address text,
+    encrypted_private_key text,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    signing_method text DEFAULT 'private_key'::text,
+    key_vault_reference text,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT user_addresses_signing_method_check CHECK ((signing_method = ANY (ARRAY['private_key'::text, 'hardware_wallet'::text, 'mpc'::text])))
+);
+
+
+--
+-- Name: TABLE user_addresses; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_addresses IS 'Blockchain addresses for users to be multi-sig wallet owners';
+
+
+--
+-- Name: COLUMN user_addresses.signing_method; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_addresses.signing_method IS 'How the user signs transactions: private_key, hardware_wallet, or mpc';
+
+
+--
+-- Name: COLUMN user_addresses.key_vault_reference; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_addresses.key_vault_reference IS 'Reference to encrypted private key in KeyVault';
+
+
+--
+-- Name: COLUMN user_addresses.is_active; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_addresses.is_active IS 'Whether this address is active (soft delete flag)';
+
+
+--
 -- Name: user_mfa_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -24254,22 +24314,6 @@ CREATE TABLE public.workflow_stages (
 --
 
 ALTER TABLE ONLY public.nav_calculation_history ALTER COLUMN id SET DEFAULT nextval('public.nav_calculation_history_id_seq'::regclass);
-
-
---
--- Name: _migrations _migrations_name_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public._migrations
-    ADD CONSTRAINT _migrations_name_key UNIQUE (name);
-
-
---
--- Name: _migrations _migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public._migrations
-    ADD CONSTRAINT _migrations_pkey PRIMARY KEY (id);
 
 
 --
@@ -27760,6 +27804,14 @@ ALTER TABLE ONLY public.profiles
 
 
 --
+-- Name: project_members project_members_project_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_members
+    ADD CONSTRAINT project_members_project_id_user_id_key UNIQUE (project_id, user_id);
+
+
+--
 -- Name: project_organization_assignments project_organization_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -29441,6 +29493,38 @@ ALTER TABLE ONLY public.token_whitelists
 
 ALTER TABLE ONLY public.project_wallets
     ADD CONSTRAINT uq_project_wallets_wallet_address UNIQUE (wallet_address);
+
+
+--
+-- Name: user_addresses user_addresses_blockchain_address_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_addresses
+    ADD CONSTRAINT user_addresses_blockchain_address_unique UNIQUE (blockchain, address);
+
+
+--
+-- Name: user_addresses user_addresses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_addresses
+    ADD CONSTRAINT user_addresses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_addresses user_addresses_user_blockchain_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_addresses
+    ADD CONSTRAINT user_addresses_user_blockchain_unique UNIQUE (user_id, blockchain);
+
+
+--
+-- Name: user_addresses user_addresses_user_id_blockchain_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_addresses
+    ADD CONSTRAINT user_addresses_user_id_blockchain_key UNIQUE (user_id, blockchain);
 
 
 --
@@ -37757,6 +37841,27 @@ CREATE INDEX idx_transactions_to_address ON public.transactions USING btree (to_
 
 
 --
+-- Name: idx_user_addresses_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_addresses_active ON public.user_addresses USING btree (is_active);
+
+
+--
+-- Name: idx_user_addresses_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_addresses_blockchain ON public.user_addresses USING btree (blockchain);
+
+
+--
+-- Name: idx_user_addresses_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_addresses_user_id ON public.user_addresses USING btree (user_id);
+
+
+--
 -- Name: idx_user_mfa_settings_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -39679,6 +39784,13 @@ CREATE TRIGGER update_tokens_updated_at BEFORE UPDATE ON public.tokens FOR EACH 
 --
 
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: user_addresses update_user_addresses_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_user_addresses_updated_at BEFORE UPDATE ON public.user_addresses FOR EACH ROW EXECUTE FUNCTION public.update_user_addresses_updated_at();
 
 
 --
@@ -43001,6 +43113,14 @@ ALTER TABLE ONLY public.transaction_validations
 
 
 --
+-- Name: user_addresses user_addresses_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_addresses
+    ADD CONSTRAINT user_addresses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: user_mfa_settings user_mfa_settings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -43199,6 +43319,40 @@ ALTER TABLE ONLY public.whitelist_settings
 ALTER TABLE ONLY public.whitelist_signatories
     ADD CONSTRAINT whitelist_signatories_whitelist_id_fkey FOREIGN KEY (whitelist_id) REFERENCES public.whitelist_settings(id) ON DELETE CASCADE;
 
+
+--
+-- Name: user_addresses Users can create their own addresses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can create their own addresses" ON public.user_addresses FOR INSERT WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: user_addresses Users can delete their own addresses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can delete their own addresses" ON public.user_addresses FOR DELETE USING ((user_id = auth.uid()));
+
+
+--
+-- Name: user_addresses Users can update their own addresses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can update their own addresses" ON public.user_addresses FOR UPDATE USING ((user_id = auth.uid()));
+
+
+--
+-- Name: user_addresses Users can view their own addresses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their own addresses" ON public.user_addresses FOR SELECT USING ((user_id = auth.uid()));
+
+
+--
+-- Name: user_addresses; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_addresses ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -45028,6 +45182,16 @@ GRANT ALL ON FUNCTION public.update_updated_at_column() TO prisma;
 
 
 --
+-- Name: FUNCTION update_user_addresses_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_user_role(p_user_id uuid, p_role text); Type: ACL; Schema: public; Owner: -
 --
 
@@ -45185,16 +45349,6 @@ GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) 
 GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) TO authenticated;
 GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) TO service_role;
 GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) TO prisma;
-
-
---
--- Name: TABLE _migrations; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public._migrations TO anon;
-GRANT ALL ON TABLE public._migrations TO authenticated;
-GRANT ALL ON TABLE public._migrations TO service_role;
-GRANT ALL ON TABLE public._migrations TO prisma;
 
 
 --
@@ -48348,6 +48502,16 @@ GRANT ALL ON TABLE public.profiles TO prisma;
 
 
 --
+-- Name: TABLE project_members; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.project_members TO anon;
+GRANT ALL ON TABLE public.project_members TO authenticated;
+GRANT ALL ON TABLE public.project_members TO service_role;
+GRANT ALL ON TABLE public.project_members TO prisma;
+
+
+--
 -- Name: TABLE project_organization_assignments; Type: ACL; Schema: public; Owner: -
 --
 
@@ -49995,6 +50159,16 @@ GRANT ALL ON TABLE public.user_activity_summary TO anon;
 GRANT ALL ON TABLE public.user_activity_summary TO authenticated;
 GRANT ALL ON TABLE public.user_activity_summary TO service_role;
 GRANT ALL ON TABLE public.user_activity_summary TO prisma;
+
+
+--
+-- Name: TABLE user_addresses; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.user_addresses TO anon;
+GRANT ALL ON TABLE public.user_addresses TO authenticated;
+GRANT ALL ON TABLE public.user_addresses TO service_role;
+GRANT ALL ON TABLE public.user_addresses TO prisma;
 
 
 --

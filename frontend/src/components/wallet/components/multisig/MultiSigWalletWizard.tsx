@@ -82,11 +82,15 @@ interface WalletConfig {
   autoExecute: boolean;
 }
 
+interface MultiSigWalletWizardProps {
+  projectId?: string;
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
-export const MultiSigWalletWizard: React.FC = () => {
+export const MultiSigWalletWizard: React.FC<MultiSigWalletWizardProps> = ({ projectId }) => {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -212,6 +216,11 @@ export const MultiSigWalletWizard: React.FC = () => {
       if (!validateStep(currentStep)) {
         throw new Error('Invalid configuration');
       }
+
+      // Validate project ID is provided
+      if (!projectId) {
+        throw new Error('Project ID is required to create a multi-sig wallet');
+      }
       
       const validSigners = config.signers.filter(s => s.isValid);
       
@@ -226,6 +235,7 @@ export const MultiSigWalletWizard: React.FC = () => {
           owners: validSigners.map(s => s.address),
           threshold: config.threshold,
           status: 'active',
+          project_id: projectId,
           created_by: (await supabase.auth.getUser()).data.user?.id,
         })
         .select()
@@ -600,11 +610,29 @@ export const MultiSigWalletWizard: React.FC = () => {
 
   return (
     <>
+      {/* Warning when no project is selected */}
+      {!projectId && (
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No Project Selected</AlertTitle>
+          <AlertDescription>
+            Please select a project from the dropdown at the top right before creating a multi-sig wallet. 
+            All wallets must be associated with a project.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
           <CardTitle>Create Multi-Sig Wallet</CardTitle>
           <CardDescription>
             Set up a new multi-signature wallet with customizable security settings
+            {projectId && (
+              <span className="block mt-1 text-xs">
+                <Badge variant="outline" className="mr-1">Project</Badge>
+                Creating wallet for selected project
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         
@@ -647,18 +675,18 @@ export const MultiSigWalletWizard: React.FC = () => {
           <Button
             variant="outline"
             onClick={handlePrevious}
-            disabled={currentStep === 0}
+            disabled={currentStep === 0 || !projectId}
           >
             <ChevronLeft className="mr-2 h-4 w-4" />
             Previous
           </Button>
           
           {currentStep === steps.length - 1 ? (
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? "Creating..." : "Create Wallet"}
+            <Button onClick={handleCreate} disabled={creating || !projectId}>
+              {creating ? "Creating..." : !projectId ? "Select Project First" : "Create Wallet"}
             </Button>
           ) : (
-            <Button onClick={handleNext}>
+            <Button onClick={handleNext} disabled={!projectId}>
               Next
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
