@@ -4,11 +4,12 @@
 
 import { BaseEVMBalanceService } from './BaseEVMBalanceService';
 import type { BalanceServiceConfig } from '../types';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 export class PolygonBalanceService extends BaseEVMBalanceService {
   constructor() {
     const config: BalanceServiceConfig = {
-      chainId: 137,
+      chainId: CHAIN_IDS.polygon,
       chainName: 'Polygon',
       name: 'Polygon',
       symbol: 'POL',

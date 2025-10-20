@@ -12,12 +12,12 @@ import { useToast } from '@/components/ui/use-toast';
 import { MultiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
 import { userAddressService } from '@/services/wallet/multiSig/UserAddressService';
 import { supabase } from '@/infrastructure/database/client';
-import { getAllChains } from '@/config/chains';
 
 interface SystemUser {
   userId: string;
   email: string;
   roleName?: string;
+  organizationId?: string;  // The project's organization
   organizationName?: string;
   address?: string;
   hasAddress: boolean;
@@ -42,7 +42,13 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [threshold, setThreshold] = useState(2);
-  const [blockchain, setBlockchain] = useState('ethereum');
+  const [blockchain, setBlockchain] = useState('');
+  const [availableBlockchains, setAvailableBlockchains] = useState<Array<{
+    walletType: string;
+    chainId: string;
+    net: string;
+    count: number;
+  }>>([]);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [deploymentResult, setDeploymentResult] = useState<{
@@ -63,7 +69,67 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const [projectName, setProjectName] = useState<string>('');
 
   const multiSigService = MultiSigTransactionService.getInstance();
-  const allChains = getAllChains();
+
+  // Load available blockchains for this project
+  useEffect(() => {
+    const loadAvailableBlockchains = async () => {
+      if (!projectId || projectId.trim() === '') {
+        return;
+      }
+
+      try {
+        // Query distinct wallet types from project_wallets
+        const { data: wallets, error: walletsError } = await supabase
+          .from('project_wallets')
+          .select('wallet_type, chain_id, net')
+          .eq('project_id', projectId);
+
+        if (walletsError) throw walletsError;
+
+        if (!wallets || wallets.length === 0) {
+          setAvailableBlockchains([]);
+          return;
+        }
+
+        // Group by net + wallet_type (to distinguish mainnet from testnets)
+        const blockchainMap = new Map<string, { chainId: string; net: string; count: number }>();
+        
+        wallets.forEach(w => {
+          // Use net as the key (e.g., "mainnet", "holesky", "testnet")
+          const key = w.net || w.wallet_type;
+          const existing = blockchainMap.get(key);
+          if (existing) {
+            existing.count++;
+          } else {
+            blockchainMap.set(key, {
+              chainId: w.chain_id || '',
+              net: w.net || '',
+              count: 1
+            });
+          }
+        });
+
+        // Convert to array (use net as walletType for display)
+        const blockchains = Array.from(blockchainMap.entries()).map(([walletType, info]) => ({
+          walletType,
+          chainId: info.chainId,
+          net: info.net,
+          count: info.count
+        }));
+
+        setAvailableBlockchains(blockchains);
+
+        // Auto-select first blockchain
+        if (blockchains.length > 0 && !blockchain) {
+          setBlockchain(blockchains[0].walletType);
+        }
+      } catch (err) {
+        console.error('Failed to load available blockchains:', err);
+      }
+    };
+
+    loadAvailableBlockchains();
+  }, [projectId]); // Only reload when projectId changes
 
   // Load ALL system users with their addresses (service provider level)
   // AND load project wallets for funding selection
@@ -80,29 +146,43 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           return;
         }
 
-        // Load project details
+        // Load project details and organization
         const { data: project, error: projectError } = await supabase
           .from('projects')
-          .select('name')
+          .select('name, organization_id, organizations(name)')
           .eq('id', projectId)
           .single();
         
         if (projectError) throw projectError;
-        if (project) {
-          setProjectName(project.name);
+        if (!project) {
+          setError('Project not found');
+          return;
         }
 
-        // Load project wallets for funding selection
+        setProjectName(project.name);
+        const organizationId = project.organization_id;
+        const organizationName = (project.organizations as any)?.name || '';
+
+        console.log(`Loading users for organization: ${organizationName} (${organizationId})`);
+
+        // Load project wallets for the selected blockchain (using net for filtering)
         const { data: wallets, error: walletsError } = await supabase
           .from('project_wallets')
-          .select('id, address, chain_id')
+          .select('id, wallet_address, chain_id, wallet_type, net')
           .eq('project_id', projectId)
-          .eq('chain_id', blockchain); // Only show wallets for selected blockchain
+          .eq('net', blockchain); // Filter by net (e.g., "mainnet", "holesky")
         
-        if (walletsError) throw walletsError;
+        if (walletsError) {
+          console.error('Failed to load project wallets:', walletsError);
+          throw walletsError;
+        }
+
+        console.log(`Loaded ${wallets?.length || 0} project wallets for ${blockchain}:`, wallets);
 
         if (!wallets || wallets.length === 0) {
-          setError(`No project wallets found for ${blockchain}. Please create a project wallet first.`);
+          setError(
+            `No ${blockchain} wallets found for this project. Please create a ${blockchain} wallet first.`
+          );
           return;
         }
 
@@ -110,36 +190,41 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         const walletOptions: ProjectWalletOption[] = wallets.map(w => ({
           id: w.id,
           projectId: projectId,
-          projectName: project?.name,
-          walletAddress: w.address,
+          projectName: project.name,
+          walletAddress: w.wallet_address,
           chainId: w.chain_id
         }));
+
+        console.log('Mapped wallet options:', walletOptions);
 
         setProjectWallets(walletOptions);
         
         // Auto-select first wallet
         if (walletOptions.length > 0) {
           setSelectedProjectWallet(walletOptions[0].id);
+          console.log('Auto-selected wallet:', walletOptions[0].id);
         }
 
-        // Get ALL users in the system with their roles and organizations
+        // Get users who have rights to THIS organization
         const { data: userRoles, error: rolesError } = await supabase
           .from('user_organization_roles')
           .select(`
             user_id,
             users!inner(id, email),
-            roles(name),
-            organizations(name)
-          `);
+            roles(name)
+          `)
+          .eq('organization_id', organizationId); // Filter by project's organization
 
         if (rolesError) throw rolesError;
 
         if (!userRoles || userRoles.length === 0) {
-          setError('No users found in the system');
+          setError('No users found for this organization');
           return;
         }
 
-        // Get unique users (a user may have multiple roles/organizations)
+        console.log(`Found ${userRoles.length} users for organization ${organizationId}`);
+
+        // Get unique users (a user may have multiple roles in same organization)
         const uniqueUsers = new Map<string, any>();
         userRoles.forEach((ur: any) => {
           if (!uniqueUsers.has(ur.user_id)) {
@@ -147,18 +232,21 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
               userId: ur.user_id,
               email: ur.users.email,
               roleName: ur.roles?.name,
-              organizationName: ur.organizations?.name
+              organizationId: organizationId,
+              organizationName: organizationName
             });
           }
         });
 
         const userIds = Array.from(uniqueUsers.keys());
 
-        // Get user addresses for the selected blockchain
+        // Get user addresses for the selected blockchain from user_addresses table
         const usersWithAddresses = await userAddressService.getUsersWithAddresses(
           userIds,
           blockchain
         );
+
+        console.log(`Found ${usersWithAddresses.filter(ua => ua.address).length} users with ${blockchain} addresses`);
 
         // Map to SystemUser format
         const users: SystemUser[] = Array.from(uniqueUsers.values()).map((user) => {
@@ -233,6 +321,12 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
     // Validate name
     if (!name.trim()) {
       setError('Please enter a wallet name');
+      return false;
+    }
+
+    // Validate blockchain selected
+    if (!blockchain || blockchain.trim() === '') {
+      setError('Please select a blockchain');
       return false;
     }
 
@@ -319,7 +413,8 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         validOwners,
         threshold,
         blockchain,
-        projectId // Optional - for tracking association
+        projectId, // For tracking association
+        selectedProjectWallet // Pass the specific wallet ID user selected
       );
 
       setDeploymentResult(result);
@@ -350,7 +445,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const handleReset = () => {
     setName('');
     setThreshold(2);
-    setBlockchain('ethereum');
+    setBlockchain(availableBlockchains.length > 0 ? availableBlockchains[0].walletType : '');
     setDeploymentResult(null);
     setError(null);
     setSelectedUserIds([]);
@@ -486,32 +581,43 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           </p>
         </div>
 
-        {/* Blockchain */}
+        {/* Blockchain - NOW DYNAMICALLY GENERATED FROM PROJECT WALLETS */}
         <div className="space-y-2">
           <Label htmlFor="blockchain">Blockchain *</Label>
           <Select
             value={blockchain}
             onValueChange={setBlockchain}
-            disabled={isDeploying}
+            disabled={isDeploying || availableBlockchains.length === 0}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select blockchain" />
+              <SelectValue placeholder={
+                availableBlockchains.length === 0 
+                  ? "No wallets available for this project"
+                  : "Select blockchain"
+              } />
             </SelectTrigger>
             <SelectContent>
-              {allChains
-                .filter(chain => ['ethereum', 'holesky', 'polygon', 'arbitrum'].includes(chain.name))
-                .map(chain => (
-                  <SelectItem key={chain.name} value={chain.name}>
-                    <span className="flex items-center gap-2">
-                      <span>{chain.icon}</span>
-                      <span>{chain.label}</span>
-                    </span>
+              {availableBlockchains.map(bc => {
+                // Display network name with proper capitalization
+                const networkName = bc.net.charAt(0).toUpperCase() + bc.net.slice(1);
+                return (
+                  <SelectItem key={bc.walletType} value={bc.walletType}>
+                    <div className="flex items-center gap-2">
+                      <span>{networkName}</span>
+                      <Badge variant="outline" className="text-xs">
+                        Chain ID: {bc.chainId} • {bc.count} wallet{bc.count !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
                   </SelectItem>
-                ))}
+                );
+              })}
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Network where the wallet will be deployed
+            {availableBlockchains.length === 0
+              ? 'Create a project wallet first to enable multi-sig deployment'
+              : 'Network where the wallet will be deployed (showing only available project wallets)'
+            }
           </p>
         </div>
 

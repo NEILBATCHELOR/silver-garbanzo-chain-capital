@@ -6966,6 +6966,20 @@ $$;
 
 
 --
+-- Name: update_user_contract_roles_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_user_contract_roles_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_user_role(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -15169,6 +15183,7 @@ CREATE TABLE public.multi_sig_wallets (
     ownership_type text DEFAULT 'address_based'::text,
     migrated_to_roles boolean DEFAULT false,
     migration_date timestamp with time zone,
+    funded_by_wallet_id uuid,
     CONSTRAINT multi_sig_wallets_blockchain_check CHECK ((blockchain = ANY (ARRAY['ethereum'::text, 'polygon'::text, 'avalanche'::text, 'optimism'::text, 'solana'::text, 'bitcoin'::text, 'ripple'::text, 'aptos'::text, 'sui'::text, 'mantle'::text, 'stellar'::text, 'hedera'::text, 'base'::text, 'zksync'::text, 'arbitrum'::text, 'near'::text]))),
     CONSTRAINT multi_sig_wallets_contract_type_check CHECK ((contract_type = ANY (ARRAY['custom'::text, 'gnosis_safe'::text]))),
     CONSTRAINT multi_sig_wallets_ownership_type_check CHECK ((ownership_type = ANY (ARRAY['address_based'::text, 'role_based'::text]))),
@@ -15181,6 +15196,13 @@ CREATE TABLE public.multi_sig_wallets (
 --
 
 COMMENT ON COLUMN public.multi_sig_wallets.ownership_type IS 'Whether wallet uses address_based (legacy) or role_based ownership';
+
+
+--
+-- Name: COLUMN multi_sig_wallets.funded_by_wallet_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallets.funded_by_wallet_id IS 'Project wallet that funded the multi-sig wallet deployment';
 
 
 --
@@ -23548,6 +23570,7 @@ CREATE TABLE public.user_addresses (
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    role_contracts_id uuid,
     CONSTRAINT user_addresses_signing_method_check CHECK ((signing_method = ANY (ARRAY['private_key'::text, 'hardware_wallet'::text, 'mpc'::text])))
 );
 
@@ -23578,6 +23601,19 @@ COMMENT ON COLUMN public.user_addresses.key_vault_reference IS 'Reference to enc
 --
 
 COMMENT ON COLUMN public.user_addresses.is_active IS 'Whether this address is active (soft delete flag)';
+
+
+--
+-- Name: user_contract_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_contract_roles (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    contract_roles jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -29528,6 +29564,22 @@ ALTER TABLE ONLY public.user_addresses
 
 
 --
+-- Name: user_contract_roles user_contract_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_contract_roles
+    ADD CONSTRAINT user_contract_roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_contract_roles user_contract_roles_user_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_contract_roles
+    ADD CONSTRAINT user_contract_roles_user_id_unique UNIQUE (user_id);
+
+
+--
 -- Name: user_mfa_settings user_mfa_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -34362,6 +34414,13 @@ CREATE INDEX idx_multi_sig_wallets_blockchain ON public.multi_sig_wallets USING 
 
 
 --
+-- Name: idx_multi_sig_wallets_funded_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_wallets_funded_by ON public.multi_sig_wallets USING btree (funded_by_wallet_id);
+
+
+--
 -- Name: idx_multi_sig_wallets_investor; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -37862,6 +37921,13 @@ CREATE INDEX idx_user_addresses_user_id ON public.user_addresses USING btree (us
 
 
 --
+-- Name: idx_user_contract_roles_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_contract_roles_user_id ON public.user_contract_roles USING btree (user_id);
+
+
+--
 -- Name: idx_user_mfa_settings_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -39794,6 +39860,13 @@ CREATE TRIGGER update_user_addresses_updated_at BEFORE UPDATE ON public.user_add
 
 
 --
+-- Name: user_contract_roles update_user_contract_roles_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_user_contract_roles_updated_at BEFORE UPDATE ON public.user_contract_roles FOR EACH ROW EXECUTE FUNCTION public.update_user_contract_roles_updated_at();
+
+
+--
 -- Name: user_sidebar_preferences update_user_sidebar_preferences_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -41682,6 +41755,14 @@ ALTER TABLE ONLY public.multi_sig_wallets
 
 
 --
+-- Name: multi_sig_wallets multi_sig_wallets_funded_by_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallets
+    ADD CONSTRAINT multi_sig_wallets_funded_by_wallet_id_fkey FOREIGN KEY (funded_by_wallet_id) REFERENCES public.project_wallets(id) ON DELETE SET NULL;
+
+
+--
 -- Name: multi_sig_wallets multi_sig_wallets_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -43118,6 +43199,14 @@ ALTER TABLE ONLY public.transaction_validations
 
 ALTER TABLE ONLY public.user_addresses
     ADD CONSTRAINT user_addresses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_contract_roles user_contract_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_contract_roles
+    ADD CONSTRAINT user_contract_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -45189,6 +45278,16 @@ GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_user_addresses_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_user_contract_roles_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_user_contract_roles_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_user_contract_roles_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_user_contract_roles_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_user_contract_roles_updated_at() TO prisma;
 
 
 --
@@ -50169,6 +50268,16 @@ GRANT ALL ON TABLE public.user_addresses TO anon;
 GRANT ALL ON TABLE public.user_addresses TO authenticated;
 GRANT ALL ON TABLE public.user_addresses TO service_role;
 GRANT ALL ON TABLE public.user_addresses TO prisma;
+
+
+--
+-- Name: TABLE user_contract_roles; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.user_contract_roles TO anon;
+GRANT ALL ON TABLE public.user_contract_roles TO authenticated;
+GRANT ALL ON TABLE public.user_contract_roles TO service_role;
+GRANT ALL ON TABLE public.user_contract_roles TO prisma;
 
 
 --

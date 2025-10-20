@@ -9,6 +9,7 @@ import type {
 import type { Wallet } from '@/types/core/centralModels';
 import { WalletType } from '@/types/core/centralModels';
 import { supabase } from '@/infrastructure/database/client';
+import { CHAIN_IDS, getChainId } from '@/infrastructure/web3/utils/chainIds';
 
 /**
  * GuardianWalletService - Integration layer between Guardian API and Chain Capital wallet system
@@ -50,7 +51,7 @@ class GuardianWalletService {
       address: walletData.accounts?.[0]?.address || '', // Primary address
       userId: walletData.user_id,
       blockchain: walletData.blockchain,
-      chainId: walletData.blockchain === 'ethereum' ? 1 : 80002, // Ethereum mainnet or Polygon Amoy
+      chainId: getChainId(walletData.blockchain) ?? CHAIN_IDS.polygonAmoy,
       isDefault: false,
       guardianWalletId: walletData.guardian_wallet_id,
       guardianMetadata: {
@@ -202,7 +203,7 @@ class GuardianWalletService {
         address: walletData.accounts?.[0]?.address || '',
         userId: walletData.user_id,
         blockchain: walletData.blockchain || 'polygon',
-        chainId: walletData.blockchain === 'ethereum' ? 1 : 80002,
+        chainId: getChainId(walletData.blockchain || 'polygon') ?? CHAIN_IDS.polygonAmoy,
         isDefault: false,
         guardianWalletId: walletData.guardian_wallet_id,
         guardianMetadata: {
@@ -340,7 +341,7 @@ class GuardianWalletService {
         address: walletData.accounts?.[0]?.address || '',
         userId: walletData.user_id,
         blockchain: walletData.blockchain || 'polygon',
-        chainId: walletData.blockchain === 'ethereum' ? 1 : 80002,
+        chainId: getChainId(walletData.blockchain || 'polygon') ?? CHAIN_IDS.polygonAmoy,
         isDefault: false,
         guardianWalletId: walletData.guardian_wallet_id,
         guardianMetadata: {

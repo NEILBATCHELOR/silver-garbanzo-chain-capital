@@ -4,11 +4,12 @@
 
 import { BaseEVMBalanceService } from './BaseEVMBalanceService';
 import type { BalanceServiceConfig } from '../types';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 export class BaseBalanceService extends BaseEVMBalanceService {
   constructor() {
     const config: BalanceServiceConfig = {
-      chainId: 8453,
+      chainId: CHAIN_IDS.base,
       chainName: 'Base',
       name: 'Base',
       symbol: 'ETH',

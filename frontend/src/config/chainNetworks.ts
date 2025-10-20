@@ -10,6 +10,8 @@
  * Based on: https://docs.etherscan.io/supported-chains, https://chainlist.org
  */
 
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
+
 export interface NetworkIdentifier {
   chainId: string | null;  // null for non-EVM chains that don't use numeric chain IDs
   net: string;             // Human-readable network identifier
@@ -26,81 +28,81 @@ export const CHAIN_NETWORKS: Record<string, ChainNetworkConfig> = {
   // EVM Chains
   ethereum: {
     mainnet: {
-      chainId: '1',
+      chainId: String(CHAIN_IDS.ethereum),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '11155111',  // Sepolia
+      chainId: String(CHAIN_IDS.sepolia),  // Sepolia
       net: 'Testnet',
     },
   },
   polygon: {
     mainnet: {
-      chainId: '137',
+      chainId: String(CHAIN_IDS.polygon),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '80002',  // Amoy testnet
+      chainId: String(CHAIN_IDS.polygonAmoy),  // Amoy testnet
       net: 'Testnet',
     },
   },
   optimism: {
     mainnet: {
-      chainId: '10',
+      chainId: String(CHAIN_IDS.optimism),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '11155420',  // Sepolia
+      chainId: String(CHAIN_IDS.optimismSepolia),  // Sepolia
       net: 'Testnet',
     },
   },
   arbitrum: {
     mainnet: {
-      chainId: '42161',
+      chainId: String(CHAIN_IDS.arbitrumOne),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '421614',  // Sepolia
+      chainId: String(CHAIN_IDS.arbitrumSepolia),  // Sepolia
       net: 'Testnet',
     },
   },
   base: {
     mainnet: {
-      chainId: '8453',
+      chainId: String(CHAIN_IDS.base),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '84532',  // Sepolia
+      chainId: String(CHAIN_IDS.baseSepolia),  // Sepolia
       net: 'Testnet',
     },
   },
   bsc: {
     mainnet: {
-      chainId: '56',
+      chainId: String(CHAIN_IDS.bnb),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '97',
+      chainId: String(CHAIN_IDS.bnbTestnet),
       net: 'Testnet',
     },
   },
   avalanche: {
     mainnet: {
-      chainId: '43114',  // C-Chain
+      chainId: String(CHAIN_IDS.avalanche),  // C-Chain
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '43113',  // Fuji
+      chainId: String(CHAIN_IDS.avalancheFuji),  // Fuji
       net: 'Testnet',
     },
   },
   zksync: {
     mainnet: {
-      chainId: '324',
+      chainId: String(CHAIN_IDS.zkSync),
       net: 'Mainnet',
     },
     testnet: {
-      chainId: '300',  // Sepolia
+      chainId: String(CHAIN_IDS.zkSyncSepolia),  // Sepolia
       net: 'Testnet',
     },
   },

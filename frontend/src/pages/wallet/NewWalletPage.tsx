@@ -1226,31 +1226,15 @@ const NewWalletPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
+              <Tabs defaultValue="create-wallet" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="create-wallet">Create Wallet</TabsTrigger>
                   <TabsTrigger value="transactions">Transactions</TabsTrigger>
                   <TabsTrigger value="roles">Roles</TabsTrigger>
                   <TabsTrigger value="contract-roles">Permissions</TabsTrigger>
                 </TabsList>
 
-                {/* 1. Overview Tab - MultiSigManager */}
-                <TabsContent value="overview" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Multi-Sig Wallet Overview</CardTitle>
-                      <CardDescription>
-                        View and manage all your multi-signature wallets
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <MultiSigManager />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* 2. Create Wallet Tab - MultiSigWalletForm */}
+                {/* 1. Create Wallet Tab - MultiSigWalletForm */}
                 <TabsContent value="create-wallet" className="space-y-6">
                   {/* Project Selector for Funding */}
                   <Card>
@@ -1310,7 +1294,7 @@ const NewWalletPage: React.FC = () => {
                   )}
                 </TabsContent>
 
-                {/* 3. Transactions Tab - Proposal + List */}
+                {/* 2. Transactions Tab - Proposal + List */}
                 <TabsContent value="transactions" className="space-y-6">
                   {currentMultiSigWallet ? (
                     <>
@@ -1375,7 +1359,7 @@ const NewWalletPage: React.FC = () => {
                   )}
                 </TabsContent>
 
-                {/* 4. Roles Tab - Role Creation + Owner Management */}
+                {/* 3. Roles Tab - Role Creation + Owner Management */}
                 <TabsContent value="roles" className="space-y-6">
                   {/* Create Role */}
                   <Card>
@@ -1423,7 +1407,7 @@ const NewWalletPage: React.FC = () => {
                   )}
                 </TabsContent>
 
-                {/* 5. Contract Roles Tab - MultiSigRoleManager */}
+                {/* 4. Contract Roles Tab - MultiSigRoleManager */}
                 <TabsContent value="contract-roles" className="space-y-6">
                   {currentMultiSigWallet ? (
                     <Card>

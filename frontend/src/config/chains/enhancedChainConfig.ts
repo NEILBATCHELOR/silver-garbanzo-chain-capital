@@ -6,6 +6,8 @@
  * - https://chainlist.org
  */
 
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
+
 export interface NetworkEnvironment {
   name: string;           // Network name (e.g., 'Sepolia', 'Holesky', 'Mainnet')
   chainId: string | null; // Chain ID for EVM chains, null for non-EVM
@@ -41,7 +43,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '1',
+        chainId: String(CHAIN_IDS.ethereum),
         net: 'mainnet',
         displayName: 'Ethereum Mainnet',
         isTestnet: false,
@@ -55,7 +57,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'sepolia',
-        chainId: '11155111',
+        chainId: String(CHAIN_IDS.sepolia),
         net: 'sepolia',
         displayName: 'Sepolia Testnet',
         isTestnet: true,
@@ -69,7 +71,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'holesky',
-        chainId: '17000',
+        chainId: String(CHAIN_IDS.holesky),
         net: 'holesky',
         displayName: 'Holesky Testnet',
         isTestnet: true,
@@ -83,7 +85,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'hoodi',
-        chainId: '560048',
+        chainId: String(CHAIN_IDS.hoodi),
         net: 'hoodi',
         displayName: 'Hoodi Testnet',
         isTestnet: true,
@@ -107,7 +109,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '137',
+        chainId: String(CHAIN_IDS.polygon),
         net: 'polygon',
         displayName: 'Polygon Mainnet',
         isTestnet: false,
@@ -121,7 +123,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'amoy',
-        chainId: '80002',
+        chainId: String(CHAIN_IDS.polygonAmoy),
         net: 'amoy',
         displayName: 'Polygon Amoy Testnet',
         isTestnet: true,
@@ -144,7 +146,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '10',
+        chainId: String(CHAIN_IDS.optimism),
         net: 'optimism',
         displayName: 'Optimism Mainnet',
         isTestnet: false,
@@ -158,7 +160,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'sepolia',
-        chainId: '11155420',
+        chainId: String(CHAIN_IDS.optimismSepolia),
         net: 'optimism-sepolia',
         displayName: 'Optimism Sepolia',
         isTestnet: true,
@@ -181,7 +183,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '42161',
+        chainId: String(CHAIN_IDS.arbitrumOne),
         net: 'arbitrum',
         displayName: 'Arbitrum One',
         isTestnet: false,
@@ -195,7 +197,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'sepolia',
-        chainId: '421614',
+        chainId: String(CHAIN_IDS.arbitrumSepolia),
         net: 'arbitrum-sepolia',
         displayName: 'Arbitrum Sepolia',
         isTestnet: true,
@@ -218,7 +220,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '8453',
+        chainId: String(CHAIN_IDS.base),
         net: 'base',
         displayName: 'Base Mainnet',
         isTestnet: false,
@@ -232,7 +234,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'sepolia',
-        chainId: '84532',
+        chainId: String(CHAIN_IDS.baseSepolia),
         net: 'base-sepolia',
         displayName: 'Base Sepolia',
         isTestnet: true,
@@ -255,7 +257,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '56',
+        chainId: String(CHAIN_IDS.bnb),
         net: 'bsc',
         displayName: 'BNB Chain Mainnet',
         isTestnet: false,
@@ -269,7 +271,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'testnet',
-        chainId: '97',
+        chainId: String(CHAIN_IDS.bnbTestnet),
         net: 'bsc-testnet',
         displayName: 'BNB Chain Testnet',
         isTestnet: true,
@@ -292,7 +294,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '43114',
+        chainId: String(CHAIN_IDS.avalanche),
         net: 'avalanche',
         displayName: 'Avalanche C-Chain',
         isTestnet: false,
@@ -306,7 +308,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'fuji',
-        chainId: '43113',
+        chainId: String(CHAIN_IDS.avalancheFuji),
         net: 'fuji',
         displayName: 'Avalanche Fuji Testnet',
         isTestnet: true,
@@ -329,7 +331,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
     environments: [
       {
         name: 'mainnet',
-        chainId: '324',
+        chainId: String(CHAIN_IDS.zkSync),
         net: 'zksync',
         displayName: 'zkSync Era Mainnet',
         isTestnet: false,
@@ -343,7 +345,7 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
       },
       {
         name: 'sepolia',
-        chainId: '300',
+        chainId: String(CHAIN_IDS.zkSyncSepolia),
         net: 'zksync-sepolia',
         displayName: 'zkSync Era Sepolia',
         isTestnet: true,

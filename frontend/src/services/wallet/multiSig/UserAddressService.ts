@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import { supabase } from '@/infrastructure/database/client';
 import { keyVaultClient } from '@/infrastructure/keyVault/KeyVaultClient';
 import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
+import { ContractRoleType } from '@/services/user/contractRoles';
 
 export interface UserAddress {
   id: string;
@@ -16,6 +17,7 @@ export interface UserAddress {
   signingMethod: 'private_key' | 'hardware_wallet' | 'mpc';
   keyVaultReference: string | null;
   encryptedPrivateKey: string | null;
+  contractRoles?: ContractRoleType[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -24,6 +26,7 @@ export interface UserAddress {
 export interface GenerateAddressParams {
   userId: string;
   blockchain: string;
+  contractRoles?: ContractRoleType[];
   signingMethod?: 'private_key' | 'hardware_wallet' | 'mpc';
 }
 
@@ -51,13 +54,23 @@ export class UserAddressService {
    * Generate a new blockchain address for a user
    */
   async generateAddress(params: GenerateAddressParams): Promise<UserAddress> {
+    console.log('🚀 UserAddressService.generateAddress() called with params:', params);
+    
     try {
-      const { userId, blockchain, signingMethod = 'private_key' } = params;
+      const { userId, blockchain, contractRoles, signingMethod = 'private_key' } = params;
 
-      // Check if user already has an address for this blockchain
-      const existing = await this.getUserAddress(userId, blockchain);
-      if (existing) {
-        throw new Error(`User already has an address for ${blockchain}`);
+      console.log('📋 Checking for existing addresses...');
+      // For per-permission addresses, allow multiple addresses per blockchain
+      // Only check for duplicates if no contractRoles specified (legacy behavior)
+      if (!contractRoles || contractRoles.length === 0) {
+        const existing = await this.getUserAddress(userId, blockchain);
+        if (existing) {
+          console.error('❌ User already has an address for this blockchain');
+          throw new Error(`User already has an address for ${blockchain}`);
+        }
+        console.log('✅ No existing address found');
+      } else {
+        console.log('ℹ️ Skipping duplicate check (per-permission address)');
       }
 
       let address: string;
@@ -65,18 +78,73 @@ export class UserAddressService {
       let keyVaultReference: string | null = null;
 
       if (signingMethod === 'private_key') {
+        console.log('🔐 Generating new wallet...');
         // Generate new wallet
         const wallet = ethers.Wallet.createRandom();
         address = wallet.address;
+        console.log('✅ Wallet generated:', address);
 
-        // Encrypt and store private key
-        keyVaultReference = `user_${userId}_${blockchain}`;
-        encryptedPrivateKey = await WalletEncryptionClient.encrypt(wallet.privateKey);
+        // Create key vault reference
+        const suffix = contractRoles && contractRoles.length > 0 
+          ? `_${contractRoles[0]}` 
+          : '';
+        keyVaultReference = `user_${userId}_${blockchain}${suffix}`;
+        console.log('📝 Key vault reference:', keyVaultReference);
+        
+        // Encrypt private key
+        console.log('🔒 Encrypting private key...');
+        try {
+          encryptedPrivateKey = await WalletEncryptionClient.encrypt(wallet.privateKey);
+          console.log('✅ Private key encrypted successfully');
+        } catch (encryptError) {
+          console.error('❌ Failed to encrypt private key:', encryptError);
+          throw new Error(`Encryption failed: ${encryptError instanceof Error ? encryptError.message : 'Unknown error'}`);
+        }
+
+        // ✅ Store encrypted key in key_vault_keys table with matching reference
+        console.log('💾 Storing in key_vault_keys table...');
+        try {
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
+          
+          if (authError) {
+            console.warn('⚠️ Could not get authenticated user:', authError);
+          }
+          
+          const { data: keyVaultData, error: keyVaultError } = await supabase
+            .from('key_vault_keys')
+            .insert({
+              key_id: keyVaultReference,
+              encrypted_key: encryptedPrivateKey,
+              key_type: 'private_key',
+              metadata: {
+                user_id: userId,
+                blockchain,
+                contract_roles: contractRoles || [],
+                address
+              },
+              created_by: user?.id
+            })
+            .select()
+            .single();
+          
+          if (keyVaultError) {
+            console.error('❌ Failed to insert into key_vault_keys:', keyVaultError);
+            console.error('❌ Error details:', JSON.stringify(keyVaultError, null, 2));
+          } else {
+            console.log('✅ Successfully stored in key_vault_keys:', keyVaultData);
+          }
+        } catch (keyVaultError: any) {
+          console.error('❌ Exception storing in key_vault_keys:', keyVaultError);
+          console.error('❌ Error stack:', keyVaultError.stack);
+          // Continue - user_addresses has the encrypted key as fallback
+        }
       } else {
+        console.error('❌ Unsupported signing method:', signingMethod);
         throw new Error(`Signing method '${signingMethod}' not yet implemented`);
       }
 
       // Store in database
+      console.log('💾 Storing in user_addresses table...');
       const { data, error } = await supabase
         .from('user_addresses')
         .insert({
@@ -86,18 +154,27 @@ export class UserAddressService {
           signing_method: signingMethod,
           key_vault_reference: keyVaultReference,
           encrypted_private_key: encryptedPrivateKey,
+          contract_roles: contractRoles || [],
           is_active: true
         })
         .select()
         .single();
 
       if (error) {
+        console.error('❌ Failed to insert into user_addresses:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         throw new Error(`Failed to store address: ${error.message}`);
       }
 
+      console.log('✅ Successfully stored in user_addresses:', data);
+      console.log('✅ UserAddressService.generateAddress() completed successfully');
+
       return this.formatUserAddress(data);
     } catch (error) {
-      console.error('Failed to generate user address:', error);
+      console.error('❌ FATAL ERROR in generateAddress():', error);
+      console.error('❌ Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('❌ Error message:', error instanceof Error ? error.message : String(error));
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       throw error;
     }
   }
@@ -131,9 +208,36 @@ export class UserAddressService {
       let keyVaultReference: string | null = null;
 
       if (signingMethod === 'private_key' && privateKey) {
-        // Encrypt and store private key
+        // Create key vault reference
         keyVaultReference = `user_${userId}_${blockchain}`;
+        
+        // Encrypt private key
         encryptedPrivateKey = await WalletEncryptionClient.encrypt(privateKey);
+
+        // ✅ NEW: Store encrypted key in key_vault_keys table with matching reference
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          await supabase
+            .from('key_vault_keys')
+            .insert({
+              key_id: keyVaultReference,  // Use same ID as reference
+              encrypted_key: encryptedPrivateKey,
+              key_type: 'private_key',
+              metadata: {
+                user_id: userId,
+                blockchain,
+                address,
+                imported: true
+              },
+              created_by: user?.id
+            });
+          
+          console.log(`✅ Stored imported key in key_vault_keys with reference: ${keyVaultReference}`);
+        } catch (keyVaultError: any) {
+          console.error('Failed to store in key_vault_keys (non-blocking):', keyVaultError);
+          // Continue - user_addresses has the encrypted key as fallback
+        }
       }
 
       // Store in database
@@ -353,12 +457,22 @@ export class UserAddressService {
         throw new Error('Address not found');
       }
 
-      // Delete from KeyVault
+      // ✅ Delete from key_vault_keys table if reference exists
       if (address.keyVaultReference) {
-        await keyVaultClient.deleteKey(address.keyVaultReference);
+        try {
+          await supabase
+            .from('key_vault_keys')
+            .delete()
+            .eq('key_id', address.keyVaultReference);
+          
+          console.log(`✅ Deleted key from key_vault_keys: ${address.keyVaultReference}`);
+        } catch (keyVaultError: any) {
+          console.error('Failed to delete from key_vault_keys (non-blocking):', keyVaultError);
+          // Continue - will still delete from user_addresses
+        }
       }
 
-      // Delete from database
+      // Delete from user_addresses database
       const { error } = await supabase
         .from('user_addresses')
         .delete()
@@ -386,6 +500,7 @@ export class UserAddressService {
       signingMethod: data.signing_method,
       keyVaultReference: data.key_vault_reference,
       encryptedPrivateKey: data.encrypted_private_key,
+      contractRoles: data.contract_roles || [],
       isActive: data.is_active,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at)

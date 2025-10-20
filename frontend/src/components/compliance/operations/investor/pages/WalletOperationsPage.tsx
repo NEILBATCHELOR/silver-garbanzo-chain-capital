@@ -227,31 +227,15 @@ export function WalletOperationsPage() {
               </AlertDescription>
             </Alert>
 
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
+            <Tabs defaultValue="create-wallet" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="create-wallet">Create Wallet</TabsTrigger>
                 <TabsTrigger value="transactions">Transactions</TabsTrigger>
                 <TabsTrigger value="roles">Roles</TabsTrigger>
                 <TabsTrigger value="permissions">Permissions</TabsTrigger>
               </TabsList>
 
-              {/* 1. Overview Tab - MultiSigManager */}
-              <TabsContent value="overview" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Multi-Sig Wallet Overview</CardTitle>
-                    <CardDescription>
-                      View and manage all multi-signature wallets
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <MultiSigManager />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* 2. Create Wallet Tab - MultiSigWalletForm */}
+              {/* 1. Create Wallet Tab - MultiSigWalletForm */}
               <TabsContent value="create-wallet" className="space-y-6">
                 {/* Project Selector for Funding */}
                 <Card>

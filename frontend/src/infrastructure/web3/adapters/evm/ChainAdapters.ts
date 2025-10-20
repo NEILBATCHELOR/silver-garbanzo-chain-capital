@@ -7,17 +7,18 @@
 
 import { EVMAdapter } from './EVMAdapter';
 import type { SupportedChain, NetworkType } from '../IBlockchainAdapter';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 export class PolygonAdapter extends EVMAdapter {
   constructor(networkType: NetworkType = 'mainnet') {
     const configs = {
       mainnet: {
-        chainId: '137',
+        chainId: String(CHAIN_IDS.polygon),
         explorerUrl: 'https://polygonscan.com',
         nativeCurrency: { name: 'Polygon', symbol: 'MATIC', decimals: 18 }
       },
       testnet: {
-        chainId: '80002',
+        chainId: String(CHAIN_IDS.polygonAmoy),
         explorerUrl: 'https://amoy.polygonscan.com',
         nativeCurrency: { name: 'Polygon', symbol: 'MATIC', decimals: 18 }
       }
@@ -59,12 +60,12 @@ export class ArbitrumAdapter extends EVMAdapter {
   constructor(networkType: NetworkType = 'mainnet') {
     const configs = {
       mainnet: {
-        chainId: '42161',
+        chainId: String(CHAIN_IDS.arbitrumOne),
         explorerUrl: 'https://arbiscan.io',
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
       },
       testnet: {
-        chainId: '421614',
+        chainId: String(CHAIN_IDS.arbitrumSepolia),
         explorerUrl: 'https://sepolia.arbiscan.io',
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
       }
@@ -99,12 +100,12 @@ export class OptimismAdapter extends EVMAdapter {
   constructor(networkType: NetworkType = 'mainnet') {
     const configs = {
       mainnet: {
-        chainId: '10',
+        chainId: String(CHAIN_IDS.optimism),
         explorerUrl: 'https://optimistic.etherscan.io',
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
       },
       testnet: {
-        chainId: '11155420',
+        chainId: String(CHAIN_IDS.optimismSepolia),
         explorerUrl: 'https://sepolia-optimism.etherscan.io',
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
       }
@@ -139,12 +140,12 @@ export class BaseAdapter extends EVMAdapter {
   constructor(networkType: NetworkType = 'mainnet') {
     const configs = {
       mainnet: {
-        chainId: '8453',
+        chainId: String(CHAIN_IDS.base),
         explorerUrl: 'https://basescan.org',
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
       },
       testnet: {
-        chainId: '84532',
+        chainId: String(CHAIN_IDS.baseSepolia),
         explorerUrl: 'https://sepolia.basescan.org',
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }
       }
@@ -179,12 +180,12 @@ export class AvalancheAdapter extends EVMAdapter {
   constructor(networkType: NetworkType = 'mainnet') {
     const configs = {
       mainnet: {
-        chainId: '43114',
+        chainId: String(CHAIN_IDS.avalanche),
         explorerUrl: 'https://snowtrace.io',
         nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 }
       },
       testnet: {
-        chainId: '43113',
+        chainId: String(CHAIN_IDS.avalancheFuji),
         explorerUrl: 'https://testnet.snowtrace.io',
         nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 }
       }

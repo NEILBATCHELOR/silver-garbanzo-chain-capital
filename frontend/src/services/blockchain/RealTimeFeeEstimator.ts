@@ -13,6 +13,8 @@
  * - Get API Key: https://etherscan.io/myapikey
  */
 
+import { CHAIN_IDS as CENTRAL_CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
+
 export enum FeePriority {
   LOW = 'low',
   MEDIUM = 'medium', 
@@ -97,149 +99,149 @@ const CHAINS_WITHOUT_GASTRACKER = new Set([
  * Supports 60+ EVM chains
  */
 const CHAIN_IDS: Record<string, number> = {
-  'eth': 1,
+  'eth': CENTRAL_CHAIN_IDS.ethereum,
   
   // Ethereum Testnets
-  'sepolia': 11155111,
-  'holesky': 17000,
-  'hoodi': 560048,
+  'sepolia': CENTRAL_CHAIN_IDS.sepolia,
+  'holesky': CENTRAL_CHAIN_IDS.holesky,
+  'hoodi': CENTRAL_CHAIN_IDS.hoodi,
   
   // Abstract
-  'abstract': 2741,
-  'abstract-sepolia': 11124,
+  'abstract': CENTRAL_CHAIN_IDS.abstract,
+  'abstract-sepolia': CENTRAL_CHAIN_IDS.abstractSepolia,
   
   // ApeChain
-  'apechain': 33139,
-  'apechain-curtis': 33111,
+  'apechain': CENTRAL_CHAIN_IDS.apeChain,
+  'apechain-curtis': CENTRAL_CHAIN_IDS.apeChainCurtis,
   
   // Arbitrum
-  'arbitrum': 42161,
-  'arbitrum-one': 42161,
-  'arbitrum-nova': 42170,
-  'arbitrum-sepolia': 421614,
+  'arbitrum': CENTRAL_CHAIN_IDS.arbitrumOne,
+  'arbitrum-one': CENTRAL_CHAIN_IDS.arbitrumOne,
+  'arbitrum-nova': CENTRAL_CHAIN_IDS.arbitrumNova,
+  'arbitrum-sepolia': CENTRAL_CHAIN_IDS.arbitrumSepolia,
   
   // Avalanche
-  'avalanche': 43114,
-  'avax': 43114,
-  'avalanche-fuji': 43113,
-  'avax-fuji': 43113,
+  'avalanche': CENTRAL_CHAIN_IDS.avalanche,
+  'avax': CENTRAL_CHAIN_IDS.avalanche,
+  'avalanche-fuji': CENTRAL_CHAIN_IDS.avalancheFuji,
+  'avax-fuji': CENTRAL_CHAIN_IDS.avalancheFuji,
   
   // Base
-  'base': 8453,
-  'base-sepolia': 84532,
+  'base': CENTRAL_CHAIN_IDS.base,
+  'base-sepolia': CENTRAL_CHAIN_IDS.baseSepolia,
   
   // Berachain
-  'berachain': 80094,
-  'berachain-bepolia': 80069,
+  'berachain': CENTRAL_CHAIN_IDS.berachain,
+  'berachain-bepolia': CENTRAL_CHAIN_IDS.berachainBepolia,
   
   // BitTorrent Chain
-  'bttc': 199,
-  'bttc-testnet': 1029,
+  'bttc': CENTRAL_CHAIN_IDS.bitTorrent,
+  'bttc-testnet': CENTRAL_CHAIN_IDS.bitTorrentTestnet,
   
   // Blast
-  'blast': 81457,
-  'blast-sepolia': 168587773,
+  'blast': CENTRAL_CHAIN_IDS.blast,
+  'blast-sepolia': CENTRAL_CHAIN_IDS.blastSepolia,
   
   // BNB Smart Chain
-  'bsc': 56,
-  'bnb': 56,
-  'bsc-testnet': 97,
-  'bnb-testnet': 97,
+  'bsc': CENTRAL_CHAIN_IDS.bnb,
+  'bnb': CENTRAL_CHAIN_IDS.bnb,
+  'bsc-testnet': CENTRAL_CHAIN_IDS.bnbTestnet,
+  'bnb-testnet': CENTRAL_CHAIN_IDS.bnbTestnet,
   
   // Celo
-  'celo': 42220,
-  'celo-alfajores': 44787,
+  'celo': CENTRAL_CHAIN_IDS.celo,
+  'celo-alfajores': CENTRAL_CHAIN_IDS.celoAlfajores,
   
   // Fraxtal
-  'fraxtal': 252,
-  'fraxtal-testnet': 2522,
+  'fraxtal': CENTRAL_CHAIN_IDS.fraxtal,
+  'fraxtal-testnet': CENTRAL_CHAIN_IDS.fraxtalTestnet,
   
   // Gnosis
-  'gnosis': 100,
-  'gno': 100,
+  'gnosis': CENTRAL_CHAIN_IDS.gnosis,
+  'gno': CENTRAL_CHAIN_IDS.gnosis,
   
   // HyperEVM
-  'hyperevm': 999,
+  'hyperevm': CENTRAL_CHAIN_IDS.hyperEvm,
   
   // Linea
-  'linea': 59144,
-  'linea-sepolia': 59141,
+  'linea': CENTRAL_CHAIN_IDS.linea,
+  'linea-sepolia': CENTRAL_CHAIN_IDS.lineaSepolia,
   
   // Mantle
-  'mantle': 5000,
-  'mantle-sepolia': 5003,
+  'mantle': CENTRAL_CHAIN_IDS.mantle,
+  'mantle-sepolia': CENTRAL_CHAIN_IDS.mantleSepolia,
   
   // Memecore
-  'memecore': 43521,
+  'memecore': CENTRAL_CHAIN_IDS.memecore,
   
   // Moonbeam/Moonriver
-  'moonbeam': 1284,
-  'moonriver': 1285,
-  'moonbase': 1287,
+  'moonbeam': CENTRAL_CHAIN_IDS.moonbeam,
+  'moonriver': CENTRAL_CHAIN_IDS.moonriver,
+  'moonbase': CENTRAL_CHAIN_IDS.moonbaseAlpha,
   
   // Monad
-  'monad': 10143,
+  'monad': CENTRAL_CHAIN_IDS.monad,
   
   // Optimism
-  'optimism': 10,
-  'op': 10,
-  'optimism-sepolia': 11155420,
-  'op-sepolia': 11155420,
+  'optimism': CENTRAL_CHAIN_IDS.optimism,
+  'op': CENTRAL_CHAIN_IDS.optimism,
+  'optimism-sepolia': CENTRAL_CHAIN_IDS.optimismSepolia,
+  'op-sepolia': CENTRAL_CHAIN_IDS.optimismSepolia,
   
   // Polygon
-  'polygon': 137,
-  'matic': 137,
-  'polygon-amoy': 80002,
-  'polygon-zkevm': 1101,
-  'polygon-zkevm-cardona': 2442,
+  'polygon': CENTRAL_CHAIN_IDS.polygon,
+  'matic': CENTRAL_CHAIN_IDS.polygon,
+  'polygon-amoy': CENTRAL_CHAIN_IDS.polygonAmoy,
+  'polygon-zkevm': CENTRAL_CHAIN_IDS.polygonZkEvm,
+  'polygon-zkevm-cardona': CENTRAL_CHAIN_IDS.polygonZkEvmCardona,
   
   // Katana
-  'katana': 747474,
+  'katana': CENTRAL_CHAIN_IDS.katana,
   
   // Sei
-  'sei': 1329,
-  'sei-testnet': 1328,
+  'sei': CENTRAL_CHAIN_IDS.sei,
+  'sei-testnet': CENTRAL_CHAIN_IDS.seiTestnet,
   
   // Scroll
-  'scroll': 534352,
-  'scroll-sepolia': 534351,
+  'scroll': CENTRAL_CHAIN_IDS.scroll,
+  'scroll-sepolia': CENTRAL_CHAIN_IDS.scrollSepolia,
   
   // Sonic
-  'sonic': 146,
-  'sonic-testnet': 14601,
+  'sonic': CENTRAL_CHAIN_IDS.sonic,
+  'sonic-testnet': CENTRAL_CHAIN_IDS.sonicTestnet,
   
   // Sophon
-  'sophon': 50104,
-  'sophon-sepolia': 531050104,
+  'sophon': CENTRAL_CHAIN_IDS.sophon,
+  'sophon-sepolia': CENTRAL_CHAIN_IDS.sophonSepolia,
   
   // Swellchain
-  'swell': 1923,
-  'swell-testnet': 1924,
+  'swell': CENTRAL_CHAIN_IDS.swellchain,
+  'swell-testnet': CENTRAL_CHAIN_IDS.swellchainTestnet,
   
   // Taiko
-  'taiko': 167000,
-  'taiko-hekla': 167009,
+  'taiko': CENTRAL_CHAIN_IDS.taiko,
+  'taiko-hekla': CENTRAL_CHAIN_IDS.taikoHekla,
   
   // Unichain
-  'unichain': 130,
-  'unichain-sepolia': 1301,
+  'unichain': CENTRAL_CHAIN_IDS.unichain,
+  'unichain-sepolia': CENTRAL_CHAIN_IDS.unichainSepolia,
   
   // World
-  'world': 480,
-  'world-sepolia': 4801,
+  'world': CENTRAL_CHAIN_IDS.world,
+  'world-sepolia': CENTRAL_CHAIN_IDS.worldSepolia,
   
   // XDC
-  'xdc': 50,
-  'xdc-apothem': 51,
+  'xdc': CENTRAL_CHAIN_IDS.xdc,
+  'xdc-apothem': CENTRAL_CHAIN_IDS.xdcApothem,
   
   // zkSync
-  'zksync': 324,
-  'zksync-era': 324,
-  'zksync-sepolia': 300,
+  'zksync': CENTRAL_CHAIN_IDS.zkSync,
+  'zksync-era': CENTRAL_CHAIN_IDS.zkSync,
+  'zksync-sepolia': CENTRAL_CHAIN_IDS.zkSyncSepolia,
   
   // opBNB
-  'opbnb': 204,
-  'opbnb-testnet': 5611,
+  'opbnb': CENTRAL_CHAIN_IDS.opBnb,
+  'opbnb-testnet': CENTRAL_CHAIN_IDS.opBnbTestnet,
   
   // DEPRECATED CHAINS (will be removed)
   // 'cronos': 25, // Deprecated Oct 6

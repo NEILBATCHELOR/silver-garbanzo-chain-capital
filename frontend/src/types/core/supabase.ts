@@ -15184,6 +15184,7 @@ export type Database = {
           created_by: string | null
           deployment_tx: string | null
           factory_address: string | null
+          funded_by_wallet_id: string | null
           id: string
           investor_id: string | null
           migrated_to_roles: boolean | null
@@ -15206,6 +15207,7 @@ export type Database = {
           created_by?: string | null
           deployment_tx?: string | null
           factory_address?: string | null
+          funded_by_wallet_id?: string | null
           id?: string
           investor_id?: string | null
           migrated_to_roles?: boolean | null
@@ -15228,6 +15230,7 @@ export type Database = {
           created_by?: string | null
           deployment_tx?: string | null
           factory_address?: string | null
+          funded_by_wallet_id?: string | null
           id?: string
           investor_id?: string | null
           migrated_to_roles?: boolean | null
@@ -15241,6 +15244,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "multi_sig_wallets_funded_by_wallet_id_fkey"
+            columns: ["funded_by_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "project_wallets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "multi_sig_wallets_project_id_fkey"
             columns: ["project_id"]
@@ -32449,6 +32459,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           key_vault_reference: string | null
+          role_contracts_id: string | null
           signing_method: string | null
           updated_at: string | null
           user_id: string | null
@@ -32461,6 +32472,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           key_vault_reference?: string | null
+          role_contracts_id?: string | null
           signing_method?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -32473,9 +32485,34 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           key_vault_reference?: string | null
+          role_contracts_id?: string | null
           signing_method?: string | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_contract_roles: {
+        Row: {
+          contract_roles: Json
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contract_roles?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contract_roles?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

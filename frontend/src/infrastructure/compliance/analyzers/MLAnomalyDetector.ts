@@ -6,6 +6,7 @@
 import type { OperationResult } from '../../gateway/types';
 import type { Anomaly } from './TransactionAnalyzer';
 import { supabase } from '@/infrastructure/database/client';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 export interface MLAnomalyDetectorConfig {
   modelType?: 'isolation-forest' | 'autoencoder' | 'statistical';
@@ -296,7 +297,7 @@ export class MLAnomalyDetector {
       dayOfWeek: this.calculateStats(days),
       timeSinceLastOp: { mean: 3600, stdDev: 1800 }, // Default: 1 hour average
       operationType: { mean: 0, stdDev: 1 },
-      chainId: { mean: 1, stdDev: 0.5 }
+      chainId: { mean: CHAIN_IDS.ethereum, stdDev: 0.5 }
     };
   }
 
@@ -326,7 +327,7 @@ export class MLAnomalyDetector {
       dayOfWeek: { mean: 3, stdDev: 2 },
       timeSinceLastOp: { mean: 3600, stdDev: 1800 },
       operationType: { mean: 0, stdDev: 1 },
-      chainId: { mean: 1, stdDev: 0.5 }
+      chainId: { mean: CHAIN_IDS.ethereum, stdDev: 0.5 }
     };
   }
 

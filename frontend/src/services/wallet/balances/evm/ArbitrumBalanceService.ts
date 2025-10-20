@@ -4,11 +4,12 @@
 
 import { BaseEVMBalanceService } from './BaseEVMBalanceService';
 import type { BalanceServiceConfig } from '../types';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 export class ArbitrumBalanceService extends BaseEVMBalanceService {
   constructor() {
     const config: BalanceServiceConfig = {
-      chainId: 42161,
+      chainId: CHAIN_IDS.arbitrumOne,
       chainName: 'Arbitrum',
       name: 'Arbitrum',
       symbol: 'ETH',

@@ -4,11 +4,12 @@
 
 import { BaseEVMBalanceService } from './BaseEVMBalanceService';
 import type { BalanceServiceConfig } from '../types';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 export class AvalancheBalanceService extends BaseEVMBalanceService {
   constructor() {
     const config: BalanceServiceConfig = {
-      chainId: 43114,
+      chainId: CHAIN_IDS.avalanche,
       chainName: 'Avalanche',
       name: 'Avalanche',
       symbol: 'AVAX',

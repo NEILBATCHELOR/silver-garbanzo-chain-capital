@@ -3,6 +3,7 @@
 
 import { stripeClient } from './StripeClient';
 import { conversionService } from './ConversionService';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils';
 import type { 
   FiatToStablecoinParams,
   FiatToStablecoinResponse,
@@ -207,7 +208,7 @@ export class OnrampService {
     const networkInfo = {
       ethereum: {
         name: 'Ethereum',
-        chainId: 1,
+        chainId: CHAIN_IDS.ethereum,
         blockTime: 12, // seconds
         avgConfirmations: 12,
         estimatedFees: { low: 10, medium: 15, high: 25 }
@@ -220,7 +221,7 @@ export class OnrampService {
       },
       polygon: {
         name: 'Polygon',
-        chainId: 137,
+        chainId: CHAIN_IDS.polygon,
         blockTime: 2, // seconds
         avgConfirmations: 128,
         estimatedFees: { low: 0.01, medium: 0.1, high: 0.5 }

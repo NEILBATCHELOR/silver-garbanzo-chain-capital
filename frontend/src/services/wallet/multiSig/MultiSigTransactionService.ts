@@ -14,6 +14,7 @@ import { SignatureAggregator } from './SignatureAggregator';
 import { LocalSigner } from './LocalSigner';
 import { rpcManager } from '@/infrastructure/web3/rpc';
 import { validateBlockchain } from '@/infrastructure/web3/utils/BlockchainValidator';
+import { getChainId, isValidChainId } from '@/infrastructure/web3/utils';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
 // Import ABIs from foundry-contracts
@@ -143,6 +144,8 @@ export class MultiSigTransactionService {
   /**
    * Get project wallet for funding deployments
    * Uses any available wallet from project_wallets table
+   * @param projectId - The project ID
+   * @param blockchain - The blockchain network (e.g., 'ethereum', 'hoodi', 'mainnet')
    */
   async getProjectWallet(projectId: string, blockchain?: string): Promise<ProjectWallet> {
     try {
@@ -151,11 +154,12 @@ export class MultiSigTransactionService {
         .select('*')
         .eq('project_id', projectId);
 
-      // Filter by chain if provided
+      // Filter by blockchain if provided
+      // Try matching by 'net' field first (e.g., 'mainnet', 'hoodi', 'testnet')
+      // Fall back to 'chain_id' if net doesn't match
       if (blockchain) {
-        // Map blockchain to chain_id (e.g., 'ethereum' -> '1', 'polygon' -> '137')
-        const chainId = this.getChainId(blockchain);
-        query.eq('chain_id', chainId);
+        // First try: Match by net field (preferred)
+        query.or(`net.eq.${blockchain},chain_id.eq.${this.getChainIdString(blockchain)}`);
       }
 
       const { data, error } = await query.limit(1).maybeSingle();
@@ -185,6 +189,40 @@ export class MultiSigTransactionService {
   }
 
   /**
+   * Get project wallet by specific wallet ID
+   * Used when user has explicitly selected which wallet to use for funding
+   */
+  async getProjectWalletById(walletId: string): Promise<ProjectWallet> {
+    try {
+      const { data, error } = await supabase
+        .from('project_wallets')
+        .select('*')
+        .eq('id', walletId)
+        .single();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error(`No wallet found with ID ${walletId}`);
+      }
+
+      return {
+        id: data.id,
+        projectId: data.project_id,
+        walletType: data.wallet_type,
+        walletAddress: data.wallet_address,
+        publicKey: data.public_key,
+        privateKey: data.private_key,
+        keyVaultId: data.key_vault_id,
+        chainId: data.chain_id,
+        net: data.net
+      };
+    } catch (error: any) {
+      console.error('Failed to get project wallet by ID:', error);
+      throw new Error(`Failed to get wallet by ID: ${error.message}`);
+    }
+  }
+
+  /**
    * Get private key from project wallet (KeyVault or direct)
    */
   private async getProjectWalletPrivateKey(projectWallet: ProjectWallet): Promise<string> {
@@ -208,22 +246,16 @@ export class MultiSigTransactionService {
   }
 
   /**
-   * Map blockchain name to chain ID
+   * Map blockchain name to chain ID using centralized utility
+   * Based on https://docs.etherscan.io/supported-chains
    */
-  private getChainId(blockchain: string): string {
-    const chainMap: Record<string, string> = {
-      'ethereum': '1',
-      'holesky': '17000',
-      'hoodi': '8899',
-      'polygon': '137',
-      'arbitrum': '42161',
-      'optimism': '10',
-      'base': '8453',
-      'bsc': '56',
-      'avalanche': '43114'
-    };
-
-    return chainMap[blockchain.toLowerCase()] || '1';
+  private getChainIdString(blockchain: string): string {
+    const chainId = getChainId(blockchain.toLowerCase());
+    if (!chainId) {
+      console.warn(`Unknown blockchain: ${blockchain}, defaulting to Ethereum`);
+      return '1'; // Default to Ethereum
+    }
+    return chainId.toString();
   }
 
   // ============================================================================
@@ -539,7 +571,8 @@ export class MultiSigTransactionService {
     owners: string[],
     threshold: number,
     blockchain: string = 'ethereum',
-    projectId: string  // REQUIRED - service provider selects which project wallet funds deployment
+    projectId: string,  // REQUIRED - for tracking association
+    fundingWalletId?: string  // OPTIONAL - specific wallet ID selected by user for funding
   ): Promise<WalletDeploymentResult> {
     try {
       // Validate inputs
@@ -566,8 +599,11 @@ export class MultiSigTransactionService {
         throw new Error(`No factory address configured for ${blockchain}`);
       }
 
-      // Get project wallet to fund deployment (REQUIRED)
-      const deployerWallet = await this.getProjectWallet(projectId, blockchain);
+      // Get project wallet to fund deployment
+      // If specific wallet ID provided, use that; otherwise search by project + blockchain
+      const deployerWallet = fundingWalletId 
+        ? await this.getProjectWalletById(fundingWalletId)
+        : await this.getProjectWallet(projectId, blockchain);
       console.log(`Using project wallet ${deployerWallet.walletAddress} to fund deployment`);
       
       // Get provider

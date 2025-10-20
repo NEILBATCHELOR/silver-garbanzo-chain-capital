@@ -10,6 +10,7 @@
 
 import { rpcManager } from '../../infrastructure/web3/rpc/RPCConnectionManager';
 import type { SupportedChain, NetworkType } from '../../infrastructure/web3/adapters/IBlockchainAdapter';
+import { CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
 
 // Chain type enumeration
 export enum ChainType {
@@ -67,37 +68,37 @@ export interface AddressValidationResult {
 // Chain configurations
 const CHAIN_CONFIGS: ChainAddressConfig[] = [
   // Ethereum Mainnet & Testnets
-  { chainId: 1, chainName: 'Ethereum', chainType: ChainType.ETHEREUM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 11155111, chainName: 'Sepolia', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 17000, chainName: 'Holesky', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.ethereum, chainName: 'Ethereum', chainType: ChainType.ETHEREUM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.sepolia, chainName: 'Sepolia', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.holesky, chainName: 'Holesky', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Polygon Mainnet & Testnet  
-  { chainId: 137, chainName: 'Polygon', chainType: ChainType.POLYGON, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 80002, chainName: 'Amoy', chainType: ChainType.POLYGON, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.polygon, chainName: 'Polygon', chainType: ChainType.POLYGON, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.polygonAmoy, chainName: 'Amoy', chainType: ChainType.POLYGON, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Optimism Mainnet & Testnet
-  { chainId: 10, chainName: 'Optimism', chainType: ChainType.OPTIMISM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 11155420, chainName: 'Optimism Sepolia', chainType: ChainType.OPTIMISM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.optimism, chainName: 'Optimism', chainType: ChainType.OPTIMISM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.optimismSepolia, chainName: 'Optimism Sepolia', chainType: ChainType.OPTIMISM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Arbitrum Mainnet & Testnet
-  { chainId: 42161, chainName: 'Arbitrum', chainType: ChainType.ARBITRUM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 421614, chainName: 'Arbitrum Sepolia', chainType: ChainType.ARBITRUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.arbitrumOne, chainName: 'Arbitrum', chainType: ChainType.ARBITRUM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.arbitrumSepolia, chainName: 'Arbitrum Sepolia', chainType: ChainType.ARBITRUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Base Mainnet & Testnet
-  { chainId: 8453, chainName: 'Base', chainType: ChainType.BASE, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 84532, chainName: 'Base Sepolia', chainType: ChainType.BASE, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.base, chainName: 'Base', chainType: ChainType.BASE, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.baseSepolia, chainName: 'Base Sepolia', chainType: ChainType.BASE, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // BSC Mainnet & Testnet
-  { chainId: 56, chainName: 'BSC', chainType: ChainType.BSC, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 97, chainName: 'BSC Testnet', chainType: ChainType.BSC, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.bnb, chainName: 'BSC', chainType: ChainType.BSC, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.bnbTestnet, chainName: 'BSC Testnet', chainType: ChainType.BSC, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // ZkSync Mainnet & Testnet
-  { chainId: 324, chainName: 'zkSync Era', chainType: ChainType.ZKSYNC, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 300, chainName: 'zkSync Sepolia', chainType: ChainType.ZKSYNC, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.zkSync, chainName: 'zkSync Era', chainType: ChainType.ZKSYNC, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.zkSyncSepolia, chainName: 'zkSync Sepolia', chainType: ChainType.ZKSYNC, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Avalanche Mainnet & Testnet
-  { chainId: 43114, chainName: 'Avalanche', chainType: ChainType.AVALANCHE, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
-  { chainId: 43113, chainName: 'Avalanche Testnet', chainType: ChainType.AVALANCHE, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.avalanche, chainName: 'Avalanche', chainType: ChainType.AVALANCHE, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.avalancheFuji, chainName: 'Avalanche Testnet', chainType: ChainType.AVALANCHE, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Bitcoin Mainnet & Testnet
   { chainId: 0, chainName: 'Bitcoin', chainType: ChainType.BITCOIN, networkType: 'mainnet', addressFormat: 'bitcoin', addressLength: [26, 27, 34, 35, 42, 62], prefix: undefined },

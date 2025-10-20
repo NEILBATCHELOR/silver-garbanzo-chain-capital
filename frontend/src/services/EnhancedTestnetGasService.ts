@@ -6,6 +6,8 @@
  * Uses premium RPCs (Alchemy/QuickNode) for accurate estimation
  */
 
+import { CHAIN_IDS } from '@/infrastructure/web3/utils';
+
 export type GasEstimation = {
   gasLimit: bigint;               // Estimated gas limit from eth_estimateGas
   baseFeePerGas: bigint;          // Current base fee from latest block
@@ -31,12 +33,12 @@ type ChainConfig = {
 const CHAINS: Record<string, ChainConfig> = {
   sepolia: {
     rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || "",
-    chainId: 11155111,
+    chainId: CHAIN_IDS.sepolia,
     name: "Sepolia"
   },
   holesky: {
     rpcUrl: import.meta.env.VITE_HOLESKY_RPC_URL || "",
-    chainId: 17000,
+    chainId: CHAIN_IDS.holesky,
     name: "Holesky"
   }
 };

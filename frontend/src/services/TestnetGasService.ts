@@ -5,6 +5,8 @@
  * we use JSON-RPC calls to get gas prices directly from the chain.
  */
 
+import { CHAIN_IDS, getChainInfo } from '@/infrastructure/web3/utils';
+
 export type GasOracle = {
   lastBlock: string;
   safe: number;      // priority fee (Gwei)
@@ -23,12 +25,12 @@ type ChainConfig = {
 const CHAINS: Record<string, ChainConfig> = {
   sepolia: {
     rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
-    chainId: 11155111,
+    chainId: CHAIN_IDS.sepolia,
     name: "Sepolia"
   },
   holesky: {
     rpcUrl: import.meta.env.VITE_HOLESKY_RPC_URL || "https://ethereum-holesky-rpc.publicnode.com",
-    chainId: 17000,
+    chainId: CHAIN_IDS.holesky,
     name: "Holesky"
   }
 };
