@@ -109,7 +109,7 @@ export class FoundryDeploymentService {
     try {
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('key_vault_id')
+        .select('private_key_vault_id')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -118,7 +118,7 @@ export class FoundryDeploymentService {
         throw new Error('No keys found in vault');
       }
       
-      return data.key_vault_id;
+      return data.private_key_vault_id;
     } catch (error) {
       console.error('Failed to get latest key ID:', error);
       throw new Error('Failed to retrieve key from vault');
@@ -204,7 +204,7 @@ export class FoundryDeploymentService {
     try {
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('id, private_key, key_vault_id, wallet_address')
+        .select('id, private_key, private_key_vault_id, wallet_address')
         .eq('project_id', projectId)
         .eq('wallet_type', blockchain)
         .order('created_at', { ascending: false })
@@ -221,11 +221,11 @@ export class FoundryDeploymentService {
       
       let privateKey: string;
       
-      // If wallet has key_vault_id, fetch from vault
-      if (data.key_vault_id) {
-        console.log(`Retrieving key from vault: ${data.key_vault_id}`);
+      // If wallet has private_key_vault_id, fetch from vault
+      if (data.private_key_vault_id) {
+        console.log(`Retrieving key from vault: ${data.private_key_vault_id}`);
         await this.initializeKeyVault();
-        const keyData = await keyVaultClient.getKey(data.key_vault_id);
+        const keyData = await keyVaultClient.getKey(data.private_key_vault_id);
         privateKey = typeof keyData === 'string' ? keyData : keyData.privateKey;
       } else if (data.private_key) {
         // Check if the private key is encrypted

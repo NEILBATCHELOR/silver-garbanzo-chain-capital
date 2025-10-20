@@ -182,7 +182,7 @@ export const tokenProjectWalletIntegrationService = {
         publicKey: walletResult.publicKey,
         network: normalizedNetwork,
         isNewWallet: true,
-        walletId: walletResult.keyVaultId
+        walletId: walletResult.privateKeyVaultId
       };
       
     } catch (error) {

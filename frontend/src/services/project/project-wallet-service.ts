@@ -12,7 +12,8 @@ export interface ProjectWalletResult {
   publicKey: string;
   privateKey?: string;
   mnemonic?: string;
-  keyVaultId?: string;
+  privateKeyVaultId?: string;
+  mnemonicVaultId?: string;
   vaultStorageId?: string;
   network: string;
   chainId?: string | null;
@@ -28,7 +29,8 @@ export interface ProjectWalletData {
   public_key: string;
   private_key?: string;
   mnemonic?: string;
-  key_vault_id?: string;
+  private_key_vault_id?: string;
+  mnemonic_vault_id?: string;
   vault_storage_id?: string;
   chain_id?: string | null;
   net?: string;
@@ -251,9 +253,6 @@ export const enhancedProjectWalletService = {
       
       console.log(`[ProjectWalletService] Network identifiers - chain_id: ${finalChainId}, net: ${finalNet}`);
       
-      // Create a key vault ID (simulated for now)
-      const keyVaultId = `kv-${uuidv4()}`;
-      
       // Generate a new wallet using the WalletGeneratorFactory for consistency
       console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
       
@@ -301,17 +300,81 @@ export const enhancedProjectWalletService = {
         }
       }
       
-      // In a real implementation, we would store the private key in a secure vault
-      // For now, we're storing it encrypted in the database
+      // PHASE 2: Dual-Write Implementation
+      // Create key_vault_keys records FIRST (for proper FK)
+      let privateKeyVaultId: string | undefined;
+      let mnemonicVaultId: string | undefined;
+      
+      if (encryptedPrivateKey) {
+        const { data: privateKeyRecord, error: pkError } = await supabase
+          .from('key_vault_keys')
+          .insert({
+            key_id: `project_${projectId}_${walletAddress}_private`,
+            encrypted_key: encryptedPrivateKey,
+            key_type: 'project_private_key',
+            metadata: {
+              project_id: projectId,
+              wallet_address: walletAddress,
+              network: network,
+              chain_id: finalChainId,
+              net: finalNet
+            },
+            created_by: params.userId || null
+          })
+          .select('id')
+          .single();
+          
+        if (pkError) {
+          console.error('[ProjectWalletService] Failed to create private key vault record:', pkError);
+          throw new Error('Failed to create private key vault record');
+        }
+        
+        privateKeyVaultId = privateKeyRecord.id;
+        console.log(`[ProjectWalletService] Created private_key vault record: ${privateKeyVaultId}`);
+      }
+      
+      if (encryptedMnemonic) {
+        const { data: mnemonicRecord, error: mnError } = await supabase
+          .from('key_vault_keys')
+          .insert({
+            key_id: `project_${projectId}_${walletAddress}_mnemonic`,
+            encrypted_key: encryptedMnemonic,
+            key_type: 'project_mnemonic',
+            metadata: {
+              project_id: projectId,
+              wallet_address: walletAddress,
+              network: network,
+              chain_id: finalChainId,
+              net: finalNet
+            },
+            created_by: params.userId || null
+          })
+          .select('id')
+          .single();
+          
+        if (mnError) {
+          console.error('[ProjectWalletService] Failed to create mnemonic vault record:', mnError);
+          throw new Error('Failed to create mnemonic vault record');
+        }
+        
+        mnemonicVaultId = mnemonicRecord.id;
+        console.log(`[ProjectWalletService] Created mnemonic vault record: ${mnemonicVaultId}`);
+      }
+      
+      // Create project_wallets record with dual FK references
+      // - private_key_vault_id → key_vault_keys(project_private_key)
+      // - mnemonic_vault_id → key_vault_keys(project_mnemonic)
+      // - Encrypted copies in private_key and mnemonic columns (backward compatibility)
       const walletData: ProjectWalletData = {
         project_id: projectId,
         wallet_type: network,
         wallet_address: walletAddress,
         public_key: publicKey,
-        key_vault_id: keyVaultId,
+        private_key_vault_id: privateKeyVaultId, // FK to private key record
+        mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
         chain_id: finalChainId,
         net: finalNet,
-        // Store encrypted sensitive data
+        // Store encrypted data for backward compatibility
         private_key: encryptedPrivateKey,
         mnemonic: encryptedMnemonic,
       };
@@ -321,6 +384,35 @@ export const enhancedProjectWalletService = {
       // Pass the request ID to track duplicates
       const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
       console.log(`[ProjectWalletService] Wallet saved successfully: ${savedWallet.id}`);
+      
+      // Update key_vault_keys with project_wallet_id reference (bidirectional link)
+      if (privateKeyVaultId) {
+        const { error: updatePkError } = await supabase
+          .from('key_vault_keys')
+          .update({ project_wallet_id: savedWallet.id })
+          .eq('id', privateKeyVaultId);
+          
+        if (updatePkError) {
+          console.error('[ProjectWalletService] Failed to update private key vault record with project_wallet_id:', updatePkError);
+          // Non-fatal - record still created
+        } else {
+          console.log(`[ProjectWalletService] Updated private_key vault record with project_wallet_id`);
+        }
+      }
+      
+      if (mnemonicVaultId) {
+        const { error: updateMnError } = await supabase
+          .from('key_vault_keys')
+          .update({ project_wallet_id: savedWallet.id })
+          .eq('id', mnemonicVaultId);
+          
+        if (updateMnError) {
+          console.error('[ProjectWalletService] Failed to update mnemonic vault record with project_wallet_id:', updateMnError);
+          // Non-fatal - record still created
+        } else {
+          console.log(`[ProjectWalletService] Updated mnemonic vault record with project_wallet_id`);
+        }
+      }
       
       // Log wallet creation
       if (params.userId) {
@@ -347,7 +439,8 @@ export const enhancedProjectWalletService = {
         publicKey: savedWallet.public_key,
         privateKey: includePrivateKey ? privateKey : undefined,
         mnemonic: includeMnemonic ? mnemonic : undefined,
-        keyVaultId: savedWallet.key_vault_id,
+        privateKeyVaultId: privateKeyVaultId,
+        mnemonicVaultId: mnemonicVaultId,
         vaultStorageId: savedWallet.vault_storage_id,
         network: savedWallet.wallet_type,
         chainId: savedWallet.chain_id,
@@ -389,8 +482,6 @@ export const enhancedProjectWalletService = {
     const walletPromises = networksWithEnvironments.map(async ({ network, environment }) => {
       const requestId = `req-${uuidv4()}`;
       try {
-        const keyVaultId = `kv-${uuidv4()}`;
-        
         // Use WalletGeneratorFactory consistently for all chains
         console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
         const generator = WalletGeneratorFactory.getGenerator(network);
@@ -433,20 +524,105 @@ export const enhancedProjectWalletService = {
           }
         }
         
+        // PHASE 2: Dual-Write Implementation
+        // Create key_vault_keys records FIRST (for proper FK)
+        let privateKeyVaultId: string | undefined;
+        let mnemonicVaultId: string | undefined;
+        
+        if (encryptedPrivateKey) {
+          const { data: privateKeyRecord, error: pkError } = await supabase
+            .from('key_vault_keys')
+            .insert({
+              key_id: `project_${projectId}_${walletAddress}_private`,
+              encrypted_key: encryptedPrivateKey,
+              key_type: 'project_private_key',
+              metadata: {
+                project_id: projectId,
+                wallet_address: walletAddress,
+                network: network,
+                chain_id: environment.chainId,
+                net: environment.net
+              },
+              created_by: params.userId || null
+            })
+            .select('id')
+            .single();
+            
+          if (pkError) {
+            console.error(`[ProjectWalletService] Failed to create private key vault record for ${network}:`, pkError);
+            throw new Error('Failed to create private key vault record');
+          }
+          
+          privateKeyVaultId = privateKeyRecord.id;
+          console.log(`[ProjectWalletService] Created private_key vault record for ${network}: ${privateKeyVaultId}`);
+        }
+        
+        if (encryptedMnemonic) {
+          const { data: mnemonicRecord, error: mnError } = await supabase
+            .from('key_vault_keys')
+            .insert({
+              key_id: `project_${projectId}_${walletAddress}_mnemonic`,
+              encrypted_key: encryptedMnemonic,
+              key_type: 'project_mnemonic',
+              metadata: {
+                project_id: projectId,
+                wallet_address: walletAddress,
+                network: network,
+                chain_id: environment.chainId,
+                net: environment.net
+              },
+              created_by: params.userId || null
+            })
+            .select('id')
+            .single();
+            
+          if (mnError) {
+            console.error(`[ProjectWalletService] Failed to create mnemonic vault record for ${network}:`, mnError);
+            throw new Error('Failed to create mnemonic vault record');
+          }
+          
+          mnemonicVaultId = mnemonicRecord.id;
+          console.log(`[ProjectWalletService] Created mnemonic vault record for ${network}: ${mnemonicVaultId}`);
+        }
+        
         const walletData: ProjectWalletData = {
           project_id: projectId,
           wallet_type: network,
           wallet_address: walletAddress,
           public_key: publicKey,
-          key_vault_id: keyVaultId,
+          private_key_vault_id: privateKeyVaultId, // FK to private key record
+          mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
           chain_id: environment.chainId,
           net: environment.net,
-          // Store encrypted sensitive data
+          // Store encrypted data for backward compatibility
           private_key: encryptedPrivateKey,
           mnemonic: encryptedMnemonic,
         };
 
         const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
+        
+        // Update key_vault_keys with project_wallet_id reference (bidirectional link)
+        if (privateKeyVaultId) {
+          const { error: updatePkError } = await supabase
+            .from('key_vault_keys')
+            .update({ project_wallet_id: savedWallet.id })
+            .eq('id', privateKeyVaultId);
+            
+          if (updatePkError) {
+            console.error(`[ProjectWalletService] Failed to update private key vault record with project_wallet_id for ${network}:`, updatePkError);
+          }
+        }
+        
+        if (mnemonicVaultId) {
+          const { error: updateMnError } = await supabase
+            .from('key_vault_keys')
+            .update({ project_wallet_id: savedWallet.id })
+            .eq('id', mnemonicVaultId);
+            
+          if (updateMnError) {
+            console.error(`[ProjectWalletService] Failed to update mnemonic vault record with project_wallet_id for ${network}:`, updateMnError);
+          }
+        }
         
         // Log wallet creation
         if (params.userId) {
@@ -472,7 +648,6 @@ export const enhancedProjectWalletService = {
           publicKey: savedWallet.public_key,
           privateKey: includePrivateKey ? privateKey : undefined,
           mnemonic: includeMnemonic ? mnemonic : undefined,
-          keyVaultId: savedWallet.key_vault_id,
           vaultStorageId: savedWallet.vault_storage_id,
           network: savedWallet.wallet_type,
           chainId: savedWallet.chain_id,

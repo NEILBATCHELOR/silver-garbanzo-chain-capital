@@ -14076,7 +14076,8 @@ CREATE TABLE public.key_vault_keys (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    project_wallet_id uuid
 );
 
 
@@ -14085,6 +14086,13 @@ CREATE TABLE public.key_vault_keys (
 --
 
 COMMENT ON TABLE public.key_vault_keys IS 'Secure key storage for KeyVault - not tied to projects, supports roles and future KMS integration';
+
+
+--
+-- Name: COLUMN key_vault_keys.project_wallet_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.key_vault_keys.project_wallet_id IS 'Foreign key to project_wallets. NULL for user-level signer keys, populated for project wallet keys';
 
 
 --
@@ -17519,12 +17527,27 @@ CREATE TABLE public.project_wallets (
     public_key text NOT NULL,
     private_key text,
     mnemonic text,
-    key_vault_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     chain_id text,
-    net text
+    net text,
+    private_key_vault_id uuid,
+    mnemonic_vault_id uuid
 );
+
+
+--
+-- Name: COLUMN project_wallets.private_key_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets.private_key_vault_id IS 'Foreign key to key_vault_keys.id for the private key record (key_type = project_private_key)';
+
+
+--
+-- Name: COLUMN project_wallets.mnemonic_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets.mnemonic_vault_id IS 'Foreign key to key_vault_keys.id for the mnemonic record (key_type = project_mnemonic)';
 
 
 --
@@ -23571,6 +23594,7 @@ CREATE TABLE public.user_addresses (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     role_contracts_id uuid,
+    contract_roles jsonb DEFAULT '[]'::jsonb,
     CONSTRAINT user_addresses_signing_method_check CHECK ((signing_method = ANY (ARRAY['private_key'::text, 'hardware_wallet'::text, 'mpc'::text])))
 );
 
@@ -23601,6 +23625,13 @@ COMMENT ON COLUMN public.user_addresses.key_vault_reference IS 'Reference to enc
 --
 
 COMMENT ON COLUMN public.user_addresses.is_active IS 'Whether this address is active (soft delete flag)';
+
+
+--
+-- Name: COLUMN user_addresses.contract_roles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.user_addresses.contract_roles IS 'Array of contract role names (JSONB) assigned to this specific address';
 
 
 --
@@ -33749,6 +33780,20 @@ CREATE INDEX idx_key_vault_keys_key_id ON public.key_vault_keys USING btree (key
 
 
 --
+-- Name: idx_key_vault_keys_key_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_key_type ON public.key_vault_keys USING btree (key_type);
+
+
+--
+-- Name: idx_key_vault_keys_project_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_project_wallet_id ON public.key_vault_keys USING btree (project_wallet_id);
+
+
+--
 -- Name: idx_lease_agreements_end_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35475,6 +35520,20 @@ CREATE INDEX idx_project_organization_assignments_project_id ON public.project_o
 --
 
 CREATE INDEX idx_project_organization_assignments_relationship_type ON public.project_organization_assignments USING btree (relationship_type);
+
+
+--
+-- Name: idx_project_wallets_mnemonic_vault_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_wallets_mnemonic_vault_id ON public.project_wallets USING btree (mnemonic_vault_id);
+
+
+--
+-- Name: idx_project_wallets_private_key_vault_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_wallets_private_key_vault_id ON public.project_wallets USING btree (private_key_vault_id);
 
 
 --
@@ -37911,6 +37970,13 @@ CREATE INDEX idx_user_addresses_active ON public.user_addresses USING btree (is_
 --
 
 CREATE INDEX idx_user_addresses_blockchain ON public.user_addresses USING btree (blockchain);
+
+
+--
+-- Name: idx_user_addresses_contract_roles; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_addresses_contract_roles ON public.user_addresses USING gin (contract_roles);
 
 
 --
@@ -41571,6 +41637,14 @@ ALTER TABLE ONLY public.key_vault_keys
 
 
 --
+-- Name: key_vault_keys key_vault_keys_project_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT key_vault_keys_project_wallet_id_fkey FOREIGN KEY (project_wallet_id) REFERENCES public.project_wallets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: kyc_screening_logs kyc_screening_logs_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -42103,6 +42177,22 @@ ALTER TABLE ONLY public.project_organization_assignments
 
 ALTER TABLE ONLY public.project_organization_assignments
     ADD CONSTRAINT project_organization_assignments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_wallets project_wallets_mnemonic_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets
+    ADD CONSTRAINT project_wallets_mnemonic_vault_id_fkey FOREIGN KEY (mnemonic_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: project_wallets project_wallets_private_key_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets
+    ADD CONSTRAINT project_wallets_private_key_vault_id_fkey FOREIGN KEY (private_key_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE RESTRICT;
 
 
 --
@@ -43408,40 +43498,6 @@ ALTER TABLE ONLY public.whitelist_settings
 ALTER TABLE ONLY public.whitelist_signatories
     ADD CONSTRAINT whitelist_signatories_whitelist_id_fkey FOREIGN KEY (whitelist_id) REFERENCES public.whitelist_settings(id) ON DELETE CASCADE;
 
-
---
--- Name: user_addresses Users can create their own addresses; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can create their own addresses" ON public.user_addresses FOR INSERT WITH CHECK ((user_id = auth.uid()));
-
-
---
--- Name: user_addresses Users can delete their own addresses; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can delete their own addresses" ON public.user_addresses FOR DELETE USING ((user_id = auth.uid()));
-
-
---
--- Name: user_addresses Users can update their own addresses; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can update their own addresses" ON public.user_addresses FOR UPDATE USING ((user_id = auth.uid()));
-
-
---
--- Name: user_addresses Users can view their own addresses; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can view their own addresses" ON public.user_addresses FOR SELECT USING ((user_id = auth.uid()));
-
-
---
--- Name: user_addresses; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.user_addresses ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -

@@ -973,10 +973,18 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Vault Information:</label>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Key Vault ID:</span>
-                      <p className="font-mono text-xs break-all">{wallet.keyVaultId}</p>
-                    </div>
+                    {wallet.privateKeyVaultId && (
+                      <div>
+                        <span className="text-muted-foreground">Private Key Vault ID:</span>
+                        <p className="font-mono text-xs break-all">{wallet.privateKeyVaultId}</p>
+                      </div>
+                    )}
+                    {wallet.mnemonicVaultId && (
+                      <div>
+                        <span className="text-muted-foreground">Mnemonic Vault ID:</span>
+                        <p className="font-mono text-xs break-all">{wallet.mnemonicVaultId}</p>
+                      </div>
+                    )}
                     {wallet.vaultStorageId && (
                       <div>
                         <span className="text-muted-foreground">Vault Storage ID:</span>

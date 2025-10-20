@@ -8,7 +8,7 @@
 import { ethers } from 'ethers';
 import { supabase } from '@/infrastructure/database/client';
 import { universalTransactionBuilder } from '../builders/TransactionBuilder';
-import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
+import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
 import { ChainType, addressUtils } from '../AddressUtils';
 import { SignatureAggregator } from './SignatureAggregator';
 import { LocalSigner } from './LocalSigner';
@@ -79,7 +79,8 @@ export interface ProjectWallet {
   walletAddress: string;
   publicKey: string;
   privateKey?: string;
-  keyVaultId?: string;
+  privateKeyVaultId?: string;
+  mnemonicVaultId?: string;
   chainId?: string;
   net?: string;
 }
@@ -151,7 +152,7 @@ export class MultiSigTransactionService {
     try {
       const query = supabase
         .from('project_wallets')
-        .select('*')
+        .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
         .eq('project_id', projectId);
 
       // Filter by blockchain if provided
@@ -171,6 +172,10 @@ export class MultiSigTransactionService {
         );
       }
 
+      if (!data.private_key) {
+        throw new Error(`Project wallet has no private key stored`);
+      }
+
       return {
         id: data.id,
         projectId: data.project_id,
@@ -178,7 +183,8 @@ export class MultiSigTransactionService {
         walletAddress: data.wallet_address,
         publicKey: data.public_key,
         privateKey: data.private_key,
-        keyVaultId: data.key_vault_id,
+        privateKeyVaultId: data.private_key_vault_id,
+        mnemonicVaultId: data.mnemonic_vault_id,
         chainId: data.chain_id,
         net: data.net
       };
@@ -196,13 +202,17 @@ export class MultiSigTransactionService {
     try {
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('*')
+        .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
         .eq('id', walletId)
         .single();
 
       if (error) throw error;
       if (!data) {
         throw new Error(`No wallet found with ID ${walletId}`);
+      }
+
+      if (!data.private_key) {
+        throw new Error(`Project wallet ${walletId} has no private key stored`);
       }
 
       return {
@@ -212,7 +222,8 @@ export class MultiSigTransactionService {
         walletAddress: data.wallet_address,
         publicKey: data.public_key,
         privateKey: data.private_key,
-        keyVaultId: data.key_vault_id,
+        privateKeyVaultId: data.private_key_vault_id,
+        mnemonicVaultId: data.mnemonic_vault_id,
         chainId: data.chain_id,
         net: data.net
       };
@@ -223,22 +234,27 @@ export class MultiSigTransactionService {
   }
 
   /**
-   * Get private key from project wallet (KeyVault or direct)
+   * Get private key from project wallet (using WalletEncryptionClient like ProjectWalletList)
    */
   private async getProjectWalletPrivateKey(projectWallet: ProjectWallet): Promise<string> {
     try {
-      // Try KeyVault first
-      if (projectWallet.keyVaultId) {
-        const keyResult = await keyVaultClient.getKey(projectWallet.keyVaultId);
-        return typeof keyResult === 'string' ? keyResult : keyResult.privateKey;
+      if (!projectWallet.privateKey) {
+        throw new Error('No private key available for project wallet');
       }
 
-      // Fall back to direct private key (if stored)
-      if (projectWallet.privateKey) {
+      // Check if encrypted (using same pattern as ProjectWalletList)
+      const isEncrypted = WalletEncryptionClient.isEncrypted(projectWallet.privateKey);
+      
+      if (isEncrypted) {
+        // Decrypt via backend API
+        console.log('Decrypting project wallet private key via WalletEncryptionClient');
+        const decrypted = await WalletEncryptionClient.decrypt(projectWallet.privateKey);
+        return decrypted;
+      } else {
+        // Not encrypted, return as-is
+        console.log('Project wallet private key is not encrypted, using directly');
         return projectWallet.privateKey;
       }
-
-      throw new Error('No private key available for project wallet');
     } catch (error: any) {
       console.error('Failed to get project wallet private key:', error);
       throw new Error(`Failed to get private key: ${error.message}`);
@@ -713,7 +729,16 @@ export class MultiSigTransactionService {
       
       // Get provider and signer
       const provider = new ethers.JsonRpcProvider(this.getRpcUrl(wallet.blockchain));
-      const signer = await this.getSigner(provider);
+      
+      // Get signer using project wallet (for gas and transaction submission)
+      if (!wallet.projectId) {
+        throw new Error('Multi-sig wallet must be associated with a project for automated operations');
+      }
+      
+      const signer = await this.getSigner(provider, {
+        projectId: wallet.projectId,
+        blockchain: wallet.blockchain
+      });
       
       // Load multi-sig contract
       const multiSig = new ethers.Contract(
@@ -797,6 +822,9 @@ export class MultiSigTransactionService {
       
       // Get provider and signer
       const provider = new ethers.JsonRpcProvider(this.getRpcUrl(wallet.blockchain));
+      
+      // Get signer for the specific owner address
+      // This looks up the project wallet that matches the signer's address
       const signer = await this.getSigner(provider, signerAddress);
       
       // Load multi-sig contract
@@ -899,14 +927,166 @@ export class MultiSigTransactionService {
   }
 
   /**
-   * Helper: Get signer
+   * Helper: Get signer for multi-sig operations
+   * Uses project wallet with WalletEncryptionClient for secure key management
+   * Supports both project wallets and specific address signing
+   * 
+   * @param provider - The JSON RPC provider
+   * @param addressOrOptions - Either a specific signer address OR an options object
+   * @returns ethers.Signer connected to provider
+   * 
+   * Usage examples:
+   * - getSigner(provider) - throws error, requires context
+   * - getSigner(provider, { projectId, blockchain }) - uses project wallet
+   * - getSigner(provider, { walletAddress }) - uses specific project wallet
+   * - getSigner(provider, signerAddress) - looks up wallet by address (backward compatible)
    */
-  private async getSigner(provider: ethers.JsonRpcProvider, address?: string): Promise<ethers.Signer> {
-    // Use KeyVault to get private key
-    const keyResult = await keyVaultClient.getKey(address || 'default');
-    // KeyResult can be either string or KeyData object
-    const privateKey = typeof keyResult === 'string' ? keyResult : keyResult.privateKey;
-    return new ethers.Wallet(privateKey, provider);
+  private async getSigner(
+    provider: ethers.JsonRpcProvider, 
+    addressOrOptions?: string | {
+      projectId?: string;
+      blockchain?: string;
+      walletAddress?: string;
+    }
+  ): Promise<ethers.Signer> {
+    try {
+      let projectWallet: ProjectWallet;
+      
+      // Parse parameters - support both old string signature and new options object
+      if (typeof addressOrOptions === 'string') {
+        // Backward compatible: address provided as string
+        // Look up project wallet by address
+        const { data, error } = await supabase
+          .from('project_wallets')
+          .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
+          .eq('wallet_address', addressOrOptions)
+          .single();
+          
+        if (error || !data) {
+          throw new Error(`No project wallet found for address ${addressOrOptions}`);
+        }
+        
+        projectWallet = {
+          id: data.id,
+          projectId: data.project_id,
+          walletType: data.wallet_type,
+          walletAddress: data.wallet_address,
+          publicKey: data.public_key,
+          privateKey: data.private_key,
+          privateKeyVaultId: data.private_key_vault_id,
+          mnemonicVaultId: data.mnemonic_vault_id,
+          chainId: data.chain_id,
+          net: data.net
+        };
+        
+      } else if (addressOrOptions?.walletAddress) {
+        // New: specific wallet address provided
+        const { data, error } = await supabase
+          .from('project_wallets')
+          .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
+          .eq('wallet_address', addressOrOptions.walletAddress)
+          .single();
+          
+        if (error || !data) {
+          throw new Error(`No project wallet found for address ${addressOrOptions.walletAddress}`);
+        }
+        
+        projectWallet = {
+          id: data.id,
+          projectId: data.project_id,
+          walletType: data.wallet_type,
+          walletAddress: data.wallet_address,
+          publicKey: data.public_key,
+          privateKey: data.private_key,
+          privateKeyVaultId: data.private_key_vault_id,
+          mnemonicVaultId: data.mnemonic_vault_id,
+          chainId: data.chain_id,
+          net: data.net
+        };
+        
+      } else if (addressOrOptions?.projectId) {
+        // New: project ID (and optionally blockchain) provided
+        projectWallet = await this.getProjectWallet(
+          addressOrOptions.projectId, 
+          addressOrOptions.blockchain
+        );
+        
+      } else {
+        // No valid parameters provided
+        throw new Error(
+          'getSigner requires either:\n' +
+          '- { projectId, blockchain } to use a project wallet\n' +
+          '- { walletAddress } to use a specific wallet\n' +
+          '- address string for backward compatibility'
+        );
+      }
+      
+      // Decrypt private key using WalletEncryptionClient (same as deployment)
+      const privateKey = await this.getProjectWalletPrivateKey(projectWallet);
+      
+      // Create ethers.Wallet signer with provider
+      const signer = new ethers.Wallet(privateKey, provider);
+      
+      console.log(`Created signer for address: ${signer.address}`);
+      return signer;
+      
+    } catch (error: any) {
+      console.error('Failed to get signer:', error);
+      throw new Error(`Failed to get signer: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Get signer with LocalSigner for advanced signing scenarios
+   * Supports hardware wallets, session keys, and multi-chain signing
+   * 
+   * @param provider - The JSON RPC provider
+   * @param options - Advanced signing options
+   * @returns ethers.Signer or custom signer for non-EVM chains
+   * 
+   * Future enhancement: Use for hardware wallet support, session keys, etc.
+   */
+  private async getAdvancedSigner(
+    provider: ethers.JsonRpcProvider,
+    options: {
+      projectId?: string;
+      blockchain?: string;
+      walletAddress?: string;
+      signingMethod?: 'local' | 'hardware' | 'keyVault' | 'session';
+      chainType?: ChainType;
+    }
+  ): Promise<ethers.Signer> {
+    // TODO: Future enhancement for LocalSigner integration
+    // This method is a placeholder for when we need:
+    // - Hardware wallet support (Ledger, Trezor, MetaMask)
+    // - Session key signing
+    // - Multi-chain support beyond EVM
+    // - KeyVault direct signing
+    
+    // For now, delegate to standard getSigner
+    return await this.getSigner(provider, {
+      projectId: options.projectId,
+      blockchain: options.blockchain,
+      walletAddress: options.walletAddress
+    });
+    
+    // Future implementation example:
+    // const localSigner = new LocalSigner();
+    // const projectWallet = await this.getProjectWallet(options.projectId!, options.blockchain);
+    // const privateKey = await this.getProjectWalletPrivateKey(projectWallet);
+    // 
+    // if (options.signingMethod === 'hardware') {
+    //   await localSigner.connectHardwareWallet(projectWallet.walletAddress, 'metamask');
+    //   // Sign with hardware wallet...
+    // } else {
+    //   const signature = await localSigner.signTransaction(
+    //     message, 
+    //     projectWallet.walletAddress,
+    //     privateKey,
+    //     options.chainType || ChainType.ETHEREUM
+    //   );
+    //   // Convert to ethers.Signer...
+    // }
   }
 
   // ============================================================================

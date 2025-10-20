@@ -12896,6 +12896,7 @@ export type Database = {
           key_id: string
           key_type: string
           metadata: Json | null
+          project_wallet_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -12906,6 +12907,7 @@ export type Database = {
           key_id: string
           key_type?: string
           metadata?: Json | null
+          project_wallet_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -12916,9 +12918,18 @@ export type Database = {
           key_id?: string
           key_type?: string
           metadata?: Json | null
+          project_wallet_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "key_vault_keys_project_wallet_id_fkey"
+            columns: ["project_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "project_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kyc_screening_logs: {
         Row: {
@@ -18468,10 +18479,11 @@ export type Database = {
           chain_id: string | null
           created_at: string
           id: string
-          key_vault_id: string | null
           mnemonic: string | null
+          mnemonic_vault_id: string | null
           net: string | null
           private_key: string | null
+          private_key_vault_id: string | null
           project_id: string
           public_key: string
           updated_at: string
@@ -18482,10 +18494,11 @@ export type Database = {
           chain_id?: string | null
           created_at?: string
           id?: string
-          key_vault_id?: string | null
           mnemonic?: string | null
+          mnemonic_vault_id?: string | null
           net?: string | null
           private_key?: string | null
+          private_key_vault_id?: string | null
           project_id: string
           public_key: string
           updated_at?: string
@@ -18496,10 +18509,11 @@ export type Database = {
           chain_id?: string | null
           created_at?: string
           id?: string
-          key_vault_id?: string | null
           mnemonic?: string | null
+          mnemonic_vault_id?: string | null
           net?: string | null
           private_key?: string | null
+          private_key_vault_id?: string | null
           project_id?: string
           public_key?: string
           updated_at?: string
@@ -18507,6 +18521,20 @@ export type Database = {
           wallet_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "project_wallets_mnemonic_vault_id_fkey"
+            columns: ["mnemonic_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_wallets_private_key_vault_id_fkey"
+            columns: ["private_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_wallets_project_id_fkey"
             columns: ["project_id"]
@@ -32454,6 +32482,7 @@ export type Database = {
         Row: {
           address: string | null
           blockchain: string | null
+          contract_roles: Json | null
           created_at: string | null
           encrypted_private_key: string | null
           id: string
@@ -32467,6 +32496,7 @@ export type Database = {
         Insert: {
           address?: string | null
           blockchain?: string | null
+          contract_roles?: Json | null
           created_at?: string | null
           encrypted_private_key?: string | null
           id?: string
@@ -32480,6 +32510,7 @@ export type Database = {
         Update: {
           address?: string | null
           blockchain?: string | null
+          contract_roles?: Json | null
           created_at?: string | null
           encrypted_private_key?: string | null
           id?: string

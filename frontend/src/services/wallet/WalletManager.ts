@@ -113,7 +113,7 @@ export class WalletManager {
     try {
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('key_vault_id')
+        .select('private_key_vault_id')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -122,7 +122,7 @@ export class WalletManager {
         throw new Error('No keys found in vault');
       }
       
-      return data.key_vault_id;
+      return data.private_key_vault_id;
     } catch (error) {
       console.error('Failed to get latest key ID:', error);
       throw new Error('Failed to retrieve key from vault');
