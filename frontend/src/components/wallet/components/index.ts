@@ -6,7 +6,6 @@ export { default as MoonpayIntegration } from './moonpay/MoonpayIntegration';
 // Export existing components
 export { TransactionConfirmation } from './TransactionConfirmation';
 export { TransactionDetails } from './TransactionDetails';
-export { TransactionHistory } from './TransactionHistory';
 export { TransactionNotifications } from './TransactionNotifications';
 export { TokenSelector } from './TokenSelector';
 export { WalletRiskCheck } from './WalletRiskCheck';

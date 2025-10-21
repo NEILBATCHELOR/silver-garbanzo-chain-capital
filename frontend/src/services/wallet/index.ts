@@ -123,6 +123,16 @@ export type {
 // Multi-signature services
 export * from './multiSig';
 
+// Multi-sig wallet management (avoiding duplicate MultiSigWallet export)
+export { 
+  MultiSigWalletService,
+  type MultiSigWallet,
+  type MultiSigWalletWithOwners,
+  type MultiSigWalletOwner,
+  type MultiSigTransaction,
+  type MultiSigConfirmation
+} from './MultiSigWalletService';
+
 // Other wallet services
 export * from './WalletManager';
 export * from './WalletGenerator';
@@ -130,7 +140,6 @@ export * from './WalletTransactionService';
 export * from './WalletApiService';
 export * from './SecurityService';
 export * from './LightningNetworkService';
-export * from './MultiSigWalletService';
 
 // Import and re-export the service instances
 import { BalanceService } from './balances/BalanceService';

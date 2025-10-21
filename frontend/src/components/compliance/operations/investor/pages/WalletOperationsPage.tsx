@@ -200,7 +200,7 @@ export function WalletOperationsPage() {
             <TabsTrigger value="bulk">Bulk Wallet Generation</TabsTrigger>
             <TabsTrigger value="multisig" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Role-Based Multi-sig
+              Multi-sig Management
             </TabsTrigger>
           </TabsList>
 

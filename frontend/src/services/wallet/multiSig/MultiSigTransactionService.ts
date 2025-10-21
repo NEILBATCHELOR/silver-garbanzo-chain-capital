@@ -14,7 +14,7 @@ import { SignatureAggregator } from './SignatureAggregator';
 import { LocalSigner } from './LocalSigner';
 import { rpcManager } from '@/infrastructure/web3/rpc';
 import { validateBlockchain } from '@/infrastructure/web3/utils/BlockchainValidator';
-import { getChainId, isValidChainId } from '@/infrastructure/web3/utils';
+import { getChainId, getChainName, isValidChainId, CHAIN_IDS } from '@/infrastructure/web3/utils';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
 // Import ABIs from foundry-contracts
@@ -579,8 +579,81 @@ export class MultiSigTransactionService {
   // ============================================================================
 
   /**
+   * Normalize blockchain/network name using chainIds.ts as source of truth
+   * 
+   * Uses centralized chain ID utilities to ensure consistent naming:
+   * - "ethereum" = Ethereum mainnet only (chain ID 1)
+   * - "hoodi" = Hoodi testnet (chain ID 560048)
+   * - "holesky" = Holesky testnet (chain ID 17000)
+   * - "sepolia" = Sepolia testnet (chain ID 11155111)
+   * - etc.
+   * 
+   * @param networkOrChainName - Network name, chain name, or "mainnet"
+   * @param chainId - Optional chain ID for disambiguating "mainnet"
+   * @returns Proper chain name from chainIds.ts (e.g., 'ethereum', 'hoodi', 'polygon', 'arbitrumOne')
+   */
+  private normalizeBlockchainName(networkOrChainName: string, chainId?: string): string {
+    const input = networkOrChainName.toLowerCase().trim();
+
+    // Case 1: Input is already a valid chain name from CHAIN_IDS
+    // Examples: 'ethereum', 'hoodi', 'holesky', 'sepolia', 'polygon', 'arbitrumOne'
+    if (input in CHAIN_IDS) {
+      return input;
+    }
+
+    // Case 2: Handle "mainnet" - need chainId to determine WHICH mainnet
+    if (input === 'mainnet') {
+      if (chainId) {
+        const numericChainId = parseInt(chainId, 10);
+        if (!isNaN(numericChainId)) {
+          const name = getChainName(numericChainId);
+          if (name) {
+            console.log(`Resolved "mainnet" with chain ID ${chainId} → "${name}"`);
+            return name;
+          }
+        }
+      }
+      // Fallback: assume Ethereum mainnet if chainId not provided
+      console.warn(`"mainnet" without chainId, defaulting to "ethereum". Provide chainId for accuracy.`);
+      return 'ethereum';
+    }
+
+    // Case 3: Input is a numeric string (chain ID)
+    // Examples: "1" → "ethereum", "137" → "polygon", "560048" → "hoodi"
+    const numericChainId = parseInt(input, 10);
+    if (!isNaN(numericChainId) && isValidChainId(numericChainId)) {
+      const name = getChainName(numericChainId);
+      if (name) {
+        console.log(`Resolved chain ID ${input} → "${name}"`);
+        return name;
+      }
+    }
+
+    // Case 4: Check common aliases and map to proper names
+    const aliases: Record<string, string> = {
+      'eth': 'ethereum',
+      'matic': 'polygon',
+      'arb': 'arbitrumOne',
+      'op': 'optimism',
+      'avax': 'avalanche',
+      'bnb': 'bnb',
+      'bsc': 'bnb'
+    };
+    if (input in aliases) {
+      const resolved = aliases[input];
+      console.log(`Resolved alias "${input}" → "${resolved}"`);
+      return resolved;
+    }
+
+    // Case 5: No match - use as-is (backward compatible, allow future networks)
+    console.warn(`Unknown network name "${input}", using as-is. Add to chainIds.ts if this is a new network.`);
+    return input;
+  }
+
+  /**
    * Deploy a new multi-sig wallet contract
    * Service provider selects which project wallet funds deployment
+   * Populates both multi_sig_wallets and multi_sig_wallet_owners tables
    */
   async deployMultiSigWallet(
     name: string,
@@ -588,7 +661,8 @@ export class MultiSigTransactionService {
     threshold: number,
     blockchain: string = 'ethereum',
     projectId: string,  // REQUIRED - for tracking association
-    fundingWalletId?: string  // OPTIONAL - specific wallet ID selected by user for funding
+    fundingWalletId?: string,  // OPTIONAL - specific wallet ID selected by user for funding
+    ownerUsers?: Array<{ userId: string; roleId: string; address: string }>  // OPTIONAL - user info for multi_sig_wallet_owners
   ): Promise<WalletDeploymentResult> {
     try {
       // Validate inputs
@@ -667,23 +741,91 @@ export class MultiSigTransactionService {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Store in database
-      await supabase.from('multi_sig_wallets').insert({
-        name,
+      // Normalize blockchain name using chainIds.ts as source of truth
+      // Pass deployerWallet.chainId to intelligently resolve "mainnet"
+      // Examples:
+      //   "hoodi" + chainId 560048 → "hoodi" (already correct)
+      //   "mainnet" + chainId 1 → "ethereum"
+      //   "mainnet" + chainId 137 → "polygon"
+      const normalizedBlockchain = this.normalizeBlockchainName(
         blockchain,
+        deployerWallet.chainId
+      );
+      
+      console.log(`Normalizing blockchain name: "${blockchain}" → "${normalizedBlockchain}" (chain ID: ${deployerWallet.chainId || 'none'})`);
+      
+      // Store in database with error handling
+      // Owner relationships are tracked in multi_sig_wallet_owners table
+      // and actual addresses are stored in user_addresses table
+      const { data: insertedWallet, error: insertError } = await supabase
+        .from('multi_sig_wallets')
+        .insert({
+          name,
+          blockchain: normalizedBlockchain,  // Use normalized name
+          address: walletAddress,
+          // owners column dropped - using multi_sig_wallet_owners table instead
+          threshold,
+          status: 'active',
+          contract_type: 'custom',
+          deployment_tx: receipt.hash,
+          factory_address: factoryAddress,
+          project_id: projectId,
+          funded_by_wallet_id: deployerWallet.id, // Track which wallet funded deployment
+          created_by: user?.id
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('❌ CRITICAL: Multi-sig wallet deployed on-chain but failed to save to database:', insertError);
+        console.error('Deployment details:', {
+          walletAddress,
+          transactionHash: receipt.hash,
+          blockchain,
+          normalizedBlockchain,
+          projectId,
+          deployerWalletId: deployerWallet.id
+        });
+        throw new Error(
+          `Wallet deployed on-chain at ${walletAddress} but failed to save to database: ${insertError.message}. ` +
+          `Transaction hash: ${receipt.hash}. Please contact support to manually record this wallet.`
+        );
+      }
+      
+      console.log(`✅ Multi-sig wallet deployed and saved to database:`, {
+        id: insertedWallet.id,
         address: walletAddress,
-        owners: validOwners,
-        threshold,
-        status: 'active',
-        contract_type: 'custom',
-        deployment_tx: receipt.hash,
-        factory_address: factoryAddress,
-        project_id: projectId,
-        funded_by_wallet_id: deployerWallet.id, // Track which wallet funded deployment
-        created_by: user?.id
+        blockchain: normalizedBlockchain,
+        transactionHash: receipt.hash,
+        fundedBy: deployerWallet.walletAddress
       });
       
-      console.log(`Multi-sig wallet deployed at ${walletAddress} by project wallet ${deployerWallet.walletAddress}`);
+      // Insert owner records into multi_sig_wallet_owners (if user info provided)
+      if (ownerUsers && ownerUsers.length > 0) {
+        console.log(`Inserting ${ownerUsers.length} owner records into multi_sig_wallet_owners...`);
+        
+        const ownerRecords = ownerUsers.map(owner => ({
+          wallet_id: insertedWallet.id,
+          user_id: owner.userId,
+          role_id: owner.roleId,
+          added_by: user?.id
+        }));
+        
+        const { error: ownersError } = await supabase
+          .from('multi_sig_wallet_owners')
+          .insert(ownerRecords);
+        
+        if (ownersError) {
+          console.error('⚠️ WARNING: Wallet deployed but failed to insert owner records:', ownersError);
+          console.error('Owner records that failed:', ownerRecords);
+          // Don't throw - wallet is deployed, owners can be added manually later
+          // But log the issue for support
+        } else {
+          console.log(`✅ Successfully inserted ${ownerUsers.length} owner records`);
+        }
+      } else {
+        console.log('ℹ️ No owner user info provided (manual mode or legacy), skipping multi_sig_wallet_owners insertion');
+      }
       
       return {
         address: walletAddress,
@@ -1104,7 +1246,42 @@ export class MultiSigTransactionService {
       throw new Error(`Failed to get wallet: ${error?.message}`);
     }
 
-    return data;
+    // Get actual owner addresses from multi_sig_wallet_owners table
+    const { data: ownersData, error: ownersError } = await supabase
+      .from('multi_sig_wallet_owners')
+      .select('user_id')
+      .eq('wallet_id', walletId);
+
+    if (ownersError) {
+      console.error(`Error fetching owners for wallet ${walletId}:`, ownersError);
+    }
+
+    // Get actual owner addresses from user_addresses table
+    const ownerAddresses: string[] = [];
+    if (ownersData && ownersData.length > 0) {
+      const userIds = ownersData.map(o => o.user_id).filter(id => id !== null);
+      if (userIds.length > 0) {
+        // Query user_addresses table matching wallet's blockchain
+        const { data: addressesData, error: addressesError } = await supabase
+          .from('user_addresses')
+          .select('user_id, address, blockchain, is_active')
+          .in('user_id', userIds)
+          .eq('blockchain', data.blockchain)
+          .eq('is_active', true);
+
+        if (!addressesError && addressesData) {
+          ownerAddresses.push(...addressesData
+            .map(ua => ua.address)
+            .filter(addr => addr !== null && addr !== undefined));
+        }
+      }
+    }
+
+    // Return wallet data with accurate owner addresses from user_addresses
+    return {
+      ...data,
+      owners: ownerAddresses
+    };
   }
 
   async getProposal(proposalId: string): Promise<MultiSigProposal> {

@@ -10,7 +10,6 @@ import {
   Wallet, 
   TrendingUp, 
   Send, 
-  History, 
   Settings,
   Plus,
   RefreshCw,
@@ -25,7 +24,6 @@ import { EnhancedWalletList } from './components/dashboard/EnhancedWalletList';
 import { PortfolioOverview } from './components/dashboard/PortfolioOverview';
 import { TokenBalances } from './components/dashboard/TokenBalances';
 import { TransferTab } from './components/dashboard/TransferTab';
-import { RecentTransactions } from './components/dashboard/RecentTransactions';
 import { TestnetBalanceChecker } from './TestnetBalanceChecker';
 
 // Import wallet connection utilities
@@ -297,14 +295,13 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="wallets">Internal Wallets</TabsTrigger>
           <TabsTrigger value="external">Connect External</TabsTrigger>
           <TabsTrigger value="tokens">Tokens</TabsTrigger>
           <TabsTrigger value="transfer">Transfer</TabsTrigger>
           <TabsTrigger value="multisig">Multi-Sig</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="testnet">Testnet Testing</TabsTrigger>
         </TabsList>
 
@@ -321,7 +318,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
               />
             </div>
           </div>
-          <RecentTransactions limit={5} />
         </TabsContent>
 
         <TabsContent value="wallets" className="space-y-6">
@@ -399,10 +395,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
             <MultiSigWalletWizard projectId={projectId || undefined} />
           </div>
           <SignatureCollectionDashboard />
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-6">
-          <RecentTransactions limit={50} showFilters={true} />
         </TabsContent>
 
         <TabsContent value="testnet" className="space-y-6">

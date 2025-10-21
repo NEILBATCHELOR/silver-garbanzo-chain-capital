@@ -7,18 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusIcon, MinusIcon, Shield, AlertTriangle, CheckCircle, User, Users } from 'lucide-react';
+import { PlusIcon, MinusIcon, Shield, AlertTriangle, CheckCircle, User, Users, Zap } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { MultiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
 import { userAddressService } from '@/services/wallet/multiSig/UserAddressService';
 import { supabase } from '@/infrastructure/database/client';
+import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
+import { FeePriority } from '@/services/blockchain/FeeEstimator';
 
 interface SystemUser {
   userId: string;
   email: string;
+  roleId: string;  // The role_id from user_organization_roles
   roleName?: string;
   organizationId?: string;  // The project's organization
-  organizationName?: string;
   address?: string;
   hasAddress: boolean;
 }
@@ -67,6 +69,11 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const [projectWallets, setProjectWallets] = useState<ProjectWalletOption[]>([]);
   const [selectedProjectWallet, setSelectedProjectWallet] = useState<string>(''); // wallet ID
   const [projectName, setProjectName] = useState<string>('');
+
+  // Gas estimation state
+  const [estimatedGasData, setEstimatedGasData] = useState<EIP1559FeeData | null>(null);
+  const [showGasConfig, setShowGasConfig] = useState<boolean>(false);
+  const MULTISIG_GAS_LIMIT = 1500000; // Multi-sig deployments need ~1.5M gas (based on actual transaction)
 
   const multiSigService = MultiSigTransactionService.getInstance();
 
@@ -149,7 +156,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         // Load project details and organization
         const { data: project, error: projectError } = await supabase
           .from('projects')
-          .select('name, organization_id, organizations(name)')
+          .select('name, organization_id')
           .eq('id', projectId)
           .single();
         
@@ -161,9 +168,8 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
 
         setProjectName(project.name);
         const organizationId = project.organization_id;
-        const organizationName = (project.organizations as any)?.name || '';
 
-        console.log(`Loading users for organization: ${organizationName} (${organizationId})`);
+        console.log(`Loading users for organization: ${organizationId}`);
 
         // Load project wallets for the selected blockchain (using net for filtering)
         const { data: wallets, error: walletsError } = await supabase
@@ -210,6 +216,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           .from('user_organization_roles')
           .select(`
             user_id,
+            role_id,
             users!inner(id, email),
             roles(name)
           `)
@@ -225,15 +232,16 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         console.log(`Found ${userRoles.length} users for organization ${organizationId}`);
 
         // Get unique users (a user may have multiple roles in same organization)
+        // If user has multiple roles, use the first one found
         const uniqueUsers = new Map<string, any>();
         userRoles.forEach((ur: any) => {
           if (!uniqueUsers.has(ur.user_id)) {
             uniqueUsers.set(ur.user_id, {
               userId: ur.user_id,
+              roleId: ur.role_id,  // Store role_id for multi_sig_wallet_owners
               email: ur.users.email,
               roleName: ur.roles?.name,
-              organizationId: organizationId,
-              organizationName: organizationName
+              organizationId: organizationId
             });
           }
         });
@@ -317,6 +325,27 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
     setManualOwners(newOwners);
   }, [manualOwners]);
 
+  /**
+   * Handle gas estimation from GasEstimatorEIP1559 component
+   */
+  const handleGasEstimate = useCallback((feeData: EIP1559FeeData) => {
+    setEstimatedGasData(feeData);
+  }, []);
+
+  /**
+   * Calculate estimated deployment cost in ETH
+   */
+  const calculateEstimatedCost = useCallback(() => {
+    if (!estimatedGasData) return '~0.003 ETH'; // Realistic fallback based on actual transaction
+    
+    const gasLimit = MULTISIG_GAS_LIMIT;
+    const maxFeeWei = estimatedGasData.maxFeePerGas || estimatedGasData.gasPrice || '0';
+    const costWei = BigInt(gasLimit) * BigInt(maxFeeWei);
+    const costEth = Number(costWei) / 1e18;
+    
+    return `~${costEth.toFixed(4)} ETH`;
+  }, [estimatedGasData, MULTISIG_GAS_LIMIT]);
+
   const validateForm = useCallback(() => {
     // Validate name
     if (!name.trim()) {
@@ -398,23 +427,36 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
 
       setIsDeploying(true);
 
-      // Get owner addresses based on mode
+      // Get owner addresses and user info based on mode
       let validOwners: string[];
+      let ownerUsers: Array<{ userId: string; roleId: string; address: string }> | undefined;
+      
       if (ownerMode === 'users') {
         const selectedUsers = systemUsers.filter(u => selectedUserIds.includes(u.userId));
         validOwners = selectedUsers.map(u => u.address).filter(addr => addr) as string[];
+        
+        // Prepare user info for database insertion (multi_sig_wallet_owners)
+        ownerUsers = selectedUsers
+          .filter(u => u.address) // Only users with addresses
+          .map(u => ({
+            userId: u.userId,
+            roleId: u.roleId,
+            address: u.address!
+          }));
       } else {
         validOwners = manualOwners.filter(o => o.trim() !== '');
+        // Manual mode doesn't have user IDs, so ownerUsers stays undefined
       }
 
-      // Deploy multi-sig wallet (service provider level - no project association)
+      // Deploy multi-sig wallet with owner user information
       const result = await multiSigService.deployMultiSigWallet(
         name,
         validOwners,
         threshold,
         blockchain,
         projectId, // For tracking association
-        selectedProjectWallet // Pass the specific wallet ID user selected
+        selectedProjectWallet, // Pass the specific wallet ID user selected
+        ownerUsers // Pass user info for multi_sig_wallet_owners table
       );
 
       setDeploymentResult(result);
@@ -710,11 +752,6 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
                         </Badge>
                       )}
                     </div>
-                    {user.organizationName && (
-                      <span className="text-xs text-muted-foreground">
-                        {user.organizationName}
-                      </span>
-                    )}
                     {user.hasAddress ? (
                       <span className="text-xs text-muted-foreground font-mono block mt-1">
                         {user.address?.slice(0, 10)}...{user.address?.slice(-8)}
@@ -838,6 +875,40 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             </Alert>
           )}
 
+        {/* Gas Configuration */}
+        {blockchain && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Gas Estimation
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowGasConfig(!showGasConfig)}
+                >
+                  {showGasConfig ? 'Hide Details' : 'Show Details'}
+                </Button>
+              </div>
+              <CardDescription className="text-xs">
+                Real-time gas estimation for {blockchain} network
+              </CardDescription>
+            </CardHeader>
+            {showGasConfig && (
+              <CardContent>
+                <GasEstimatorEIP1559
+                  blockchain={blockchain}
+                  onSelectFeeData={handleGasEstimate}
+                  defaultPriority={FeePriority.MEDIUM}
+                  showAdvanced={false}
+                />
+              </CardContent>
+            )}
+          </Card>
+        )}
+
         {/* Summary */}
         <div className="rounded-md border p-4 space-y-2">
           <h4 className="font-semibold text-sm">Deployment Summary</h4>
@@ -873,8 +944,14 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Estimated Gas:</span>
-              <span className="text-muted-foreground">~0.01 ETH</span>
+              <span className="font-medium">{calculateEstimatedCost()}</span>
             </div>
+            {estimatedGasData && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Gas Limit:</span>
+                <span className="text-muted-foreground">{MULTISIG_GAS_LIMIT.toLocaleString()}</span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -15155,7 +15155,8 @@ CREATE TABLE public.multi_sig_wallet_owners (
     wallet_id uuid NOT NULL,
     role_id uuid NOT NULL,
     added_at timestamp with time zone DEFAULT now() NOT NULL,
-    added_by uuid
+    added_by uuid,
+    user_id uuid
 );
 
 
@@ -15167,6 +15168,20 @@ COMMENT ON TABLE public.multi_sig_wallet_owners IS 'Junction table linking roles
 
 
 --
+-- Name: COLUMN multi_sig_wallet_owners.role_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallet_owners.role_id IS 'The role through which the user was granted ownership. Links to roles table. Used for tracking and permissions.';
+
+
+--
+-- Name: COLUMN multi_sig_wallet_owners.user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallet_owners.user_id IS 'The specific user who is an owner of this multi-sig wallet. Links to auth.users. A user can only be an owner once per wallet.';
+
+
+--
 -- Name: multi_sig_wallets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15175,7 +15190,6 @@ CREATE TABLE public.multi_sig_wallets (
     name text NOT NULL,
     blockchain text NOT NULL,
     address text NOT NULL,
-    owners text[] NOT NULL,
     threshold integer NOT NULL,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now(),
@@ -15192,11 +15206,17 @@ CREATE TABLE public.multi_sig_wallets (
     migrated_to_roles boolean DEFAULT false,
     migration_date timestamp with time zone,
     funded_by_wallet_id uuid,
-    CONSTRAINT multi_sig_wallets_blockchain_check CHECK ((blockchain = ANY (ARRAY['ethereum'::text, 'polygon'::text, 'avalanche'::text, 'optimism'::text, 'solana'::text, 'bitcoin'::text, 'ripple'::text, 'aptos'::text, 'sui'::text, 'mantle'::text, 'stellar'::text, 'hedera'::text, 'base'::text, 'zksync'::text, 'arbitrum'::text, 'near'::text]))),
     CONSTRAINT multi_sig_wallets_contract_type_check CHECK ((contract_type = ANY (ARRAY['custom'::text, 'gnosis_safe'::text]))),
     CONSTRAINT multi_sig_wallets_ownership_type_check CHECK ((ownership_type = ANY (ARRAY['address_based'::text, 'role_based'::text]))),
     CONSTRAINT multi_sig_wallets_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'blocked'::text])))
 );
+
+
+--
+-- Name: COLUMN multi_sig_wallets.blockchain; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallets.blockchain IS 'Network name from chainIds.ts (e.g., ethereum, hoodi, holesky, sepolia, polygon, arbitrumOne). No constraint to allow new networks to be added via chainIds.ts without migrations.';
 
 
 --
@@ -27145,11 +27165,11 @@ ALTER TABLE ONLY public.multi_sig_wallet_owners
 
 
 --
--- Name: multi_sig_wallet_owners multi_sig_wallet_owners_wallet_id_role_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_wallet_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.multi_sig_wallet_owners
-    ADD CONSTRAINT multi_sig_wallet_owners_wallet_id_role_id_key UNIQUE (wallet_id, role_id);
+    ADD CONSTRAINT multi_sig_wallet_owners_wallet_id_user_id_key UNIQUE (wallet_id, user_id);
 
 
 --
@@ -34473,13 +34493,6 @@ CREATE INDEX idx_multi_sig_wallets_investor ON public.multi_sig_wallets USING bt
 
 
 --
--- Name: idx_multi_sig_wallets_owners; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_multi_sig_wallets_owners ON public.multi_sig_wallets USING gin (owners);
-
-
---
 -- Name: idx_multi_sig_wallets_project; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38232,6 +38245,13 @@ CREATE INDEX idx_wallet_owners_role_id ON public.multi_sig_wallet_owners USING b
 
 
 --
+-- Name: idx_wallet_owners_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_owners_user_id ON public.multi_sig_wallet_owners USING btree (user_id);
+
+
+--
 -- Name: idx_wallet_owners_wallet_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41810,6 +41830,14 @@ ALTER TABLE ONLY public.multi_sig_wallet_owners
 
 ALTER TABLE ONLY public.multi_sig_wallet_owners
     ADD CONSTRAINT multi_sig_wallet_owners_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --

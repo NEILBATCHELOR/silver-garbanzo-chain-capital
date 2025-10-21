@@ -57,15 +57,11 @@ import { validateBlockchain, BLOCKCHAIN_CATEGORIES } from '@/infrastructure/web3
 import { abiManager, type ContractType } from '@/services/wallet/ABI';
 import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
 
-// Import ALL multi-sig components
+// Import multi-sig components
 import {
-  MultiSigManager,
   MultiSigWalletForm,
   MultiSigTransactionProposal,
   MultiSigTransactionList,
-  MultiSigRoleManager,
-  RoleCreationForm,
-  RoleOwnerManager,
 } from '@/components/wallet/multisig';
 import { ProjectSelector } from '@/components/wallet/components/ProjectSelector';
 import { OrganizationSelector, useOrganizationContext } from "@/components/organizations";
@@ -124,6 +120,19 @@ const NewWalletPage: React.FC = () => {
     address: string;
     blockchain: string;
   } | null>(null);
+
+  // Available multi-sig wallets from database
+  const [availableMultiSigWallets, setAvailableMultiSigWallets] = useState<Array<{
+    id: string;
+    name: string;
+    address: string;
+    blockchain: string;
+    threshold: number;
+    owners: string[];
+  }>>([]);
+  
+  // Loading state for multi-sig wallets
+  const [loadingWallets, setLoadingWallets] = useState(false);
 
   // Project selection for multi-sig funding
   const [selectedProjectId, setSelectedProjectId] = useState<string>(routeProjectId || "");
@@ -477,6 +486,90 @@ const NewWalletPage: React.FC = () => {
     fetchInvestorsWithoutWallets();
   }, [toast]);
 
+  // Load available multi-sig wallets with accurate owner counts from multi_sig_wallet_owners table
+  useEffect(() => {
+    const loadMultiSigWallets = async () => {
+      setLoadingWallets(true);
+      try {
+        // Fetch wallets with owner counts from multi_sig_wallet_owners table
+        const { data: walletsData, error: walletsError } = await supabase
+          .from('multi_sig_wallets')
+          .select('id, name, address, blockchain, threshold')
+          .order('created_at', { ascending: false });
+
+        if (walletsError) throw walletsError;
+
+        // For each wallet, get the accurate owner count and addresses from multi_sig_wallet_owners
+        const walletsWithOwners = await Promise.all(
+          (walletsData || []).map(async (wallet) => {
+            // Get owner count from multi_sig_wallet_owners table
+            const { data: ownersData, error: ownersError } = await supabase
+              .from('multi_sig_wallet_owners')
+              .select('user_id')
+              .eq('wallet_id', wallet.id);
+
+            if (ownersError) {
+              console.error(`Error fetching owners for wallet ${wallet.id}:`, ownersError);
+              return {
+                ...wallet,
+                owners: [], // No owners found
+              };
+            }
+
+            // Get the actual user addresses from user_addresses table
+            const userIds = ownersData.map(o => o.user_id).filter(id => id !== null);
+            let ownerAddresses: string[] = [];
+            
+            if (userIds.length > 0) {
+              // Query user_addresses table matching wallet's blockchain
+              const { data: addressesData, error: addressesError } = await supabase
+                .from('user_addresses')
+                .select('user_id, address, blockchain, is_active')
+                .in('user_id', userIds)
+                .eq('blockchain', wallet.blockchain)
+                .eq('is_active', true);
+
+              if (addressesError) {
+                console.error(`Error fetching user addresses for wallet ${wallet.id}:`, addressesError);
+              }
+
+              ownerAddresses = (addressesData || [])
+                .map(ua => ua.address)
+                .filter(addr => addr !== null && addr !== undefined);
+            }
+
+            return {
+              ...wallet,
+              owners: ownerAddresses,
+            };
+          })
+        );
+        
+        setAvailableMultiSigWallets(walletsWithOwners);
+        
+        // If there's only one wallet, auto-select it
+        if (walletsWithOwners && walletsWithOwners.length === 1) {
+          setCurrentMultiSigWallet({
+            walletId: walletsWithOwners[0].id,
+            address: walletsWithOwners[0].address,
+            blockchain: walletsWithOwners[0].blockchain
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching multi-sig wallets:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load multi-sig wallets. Please try again.",
+        });
+      } finally {
+        setLoadingWallets(false);
+      }
+    };
+
+    loadMultiSigWallets();
+  }, [toast]);
+
   // Handle page refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -492,14 +585,65 @@ const NewWalletPage: React.FC = () => {
       setMultiSigThreshold(1);
       
       // Reload investors
-      const { data, error } = await supabase
+      const { data: investorData, error: investorError } = await supabase
         .from('investors')
         .select('investor_id, name, email, type, kyc_status, company')
         .is('wallet_address', null)
         .order('name');
 
-      if (error) throw error;
-      setInvestors(data || []);
+      if (investorError) throw investorError;
+      setInvestors(investorData || []);
+      
+      // Reload multi-sig wallets with accurate owner counts
+      const { data: walletsData, error: walletsError } = await supabase
+        .from('multi_sig_wallets')
+        .select('id, name, address, blockchain, threshold')
+        .order('created_at', { ascending: false });
+
+      if (walletsError) throw walletsError;
+
+      // For each wallet, get the accurate owner count from multi_sig_wallet_owners
+      const walletsWithOwners = await Promise.all(
+        (walletsData || []).map(async (wallet) => {
+          const { data: ownersData, error: ownersError } = await supabase
+            .from('multi_sig_wallet_owners')
+            .select('user_id')
+            .eq('wallet_id', wallet.id);
+
+          if (ownersError) {
+            console.error(`Error fetching owners for wallet ${wallet.id}:`, ownersError);
+            return { ...wallet, owners: [] };
+          }
+
+          const userIds = ownersData.map(o => o.user_id).filter(id => id !== null);
+          let ownerAddresses: string[] = [];
+          
+          if (userIds.length > 0) {
+            // Query user_addresses table matching wallet's blockchain
+            const { data: addressesData, error: addressesError } = await supabase
+              .from('user_addresses')
+              .select('user_id, address, blockchain, is_active')
+              .in('user_id', userIds)
+              .eq('blockchain', wallet.blockchain)
+              .eq('is_active', true);
+
+            if (addressesError) {
+              console.error(`Error fetching user addresses:`, addressesError);
+            }
+
+            ownerAddresses = (addressesData || [])
+              .map(ua => ua.address)
+              .filter(addr => addr !== null && addr !== undefined);
+          }
+
+          return { ...wallet, owners: ownerAddresses };
+        })
+      );
+
+      setAvailableMultiSigWallets(walletsWithOwners);
+      
+      // Clear current wallet selection
+      setCurrentMultiSigWallet(null);
       
       toast({
         title: "Page Refreshed",
@@ -1227,11 +1371,9 @@ const NewWalletPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="create-wallet" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="create-wallet">Create Wallet</TabsTrigger>
                   <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                  <TabsTrigger value="roles">Roles</TabsTrigger>
-                  <TabsTrigger value="contract-roles">Permissions</TabsTrigger>
                 </TabsList>
 
                 {/* 1. Create Wallet Tab - MultiSigWalletForm */}
@@ -1266,12 +1408,69 @@ const NewWalletPage: React.FC = () => {
                       <CardContent>
                         <MultiSigWalletForm
                           projectId={selectedProjectId}
-                          onSuccess={(address) => {
-                            setCurrentMultiSigWallet({
-                              walletId: address, // Use address as ID initially
-                              address: address,
-                              blockchain: newWalletForm.getValues().network
-                            });
+                          onSuccess={async (address) => {
+                            // Reload the multi-sig wallets list with accurate owner counts
+                            try {
+                              const { data: walletsData, error: walletsError } = await supabase
+                                .from('multi_sig_wallets')
+                                .select('id, name, address, blockchain, threshold')
+                                .order('created_at', { ascending: false });
+
+                              if (walletsError) throw walletsError;
+
+                              // For each wallet, get accurate owner count
+                              const walletsWithOwners = await Promise.all(
+                                (walletsData || []).map(async (wallet) => {
+                                  const { data: ownersData, error: ownersError } = await supabase
+                                    .from('multi_sig_wallet_owners')
+                                    .select('user_id')
+                                    .eq('wallet_id', wallet.id);
+
+                                  if (ownersError) {
+                                    console.error(`Error fetching owners:`, ownersError);
+                                    return { ...wallet, owners: [] };
+                                  }
+
+                                  const userIds = ownersData.map(o => o.user_id).filter(id => id !== null);
+                                  let ownerAddresses: string[] = [];
+                                  
+                                  if (userIds.length > 0) {
+                                    // Query user_addresses table matching wallet's blockchain
+                                    const { data: addressesData, error: addressesError } = await supabase
+                                      .from('user_addresses')
+                                      .select('user_id, address, blockchain, is_active')
+                                      .in('user_id', userIds)
+                                      .eq('blockchain', wallet.blockchain)
+                                      .eq('is_active', true);
+
+                                    if (addressesError) {
+                                      console.error(`Error fetching user addresses:`, addressesError);
+                                    }
+
+                                    ownerAddresses = (addressesData || [])
+                                      .map(ua => ua.address)
+                                      .filter(addr => addr !== null && addr !== undefined);
+                                  }
+
+                                  return { ...wallet, owners: ownerAddresses };
+                                })
+                              );
+
+                              setAvailableMultiSigWallets(walletsWithOwners);
+                              
+                              // Find and set the newly created wallet
+                              const newWallet = walletsWithOwners?.find(w => w.address === address);
+                              if (newWallet) {
+                                setCurrentMultiSigWallet({
+                                  walletId: newWallet.id,
+                                  address: newWallet.address,
+                                  blockchain: newWallet.blockchain
+                                });
+                              }
+                            } catch (error) {
+                              console.error("Error reloading wallets:", error);
+                            }
+                            
                             toast({
                               title: "Multi-Sig Wallet Created",
                               description: `Deployed to ${address}`,
@@ -1294,8 +1493,96 @@ const NewWalletPage: React.FC = () => {
                   )}
                 </TabsContent>
 
-                {/* 2. Transactions Tab - Proposal + List */}
+                {/* 2. Transactions Tab - Wallet Selector + Proposal + List */}
                 <TabsContent value="transactions" className="space-y-6">
+                  {/* Wallet Selector */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Select Multi-Sig Wallet</CardTitle>
+                      <CardDescription>
+                        Choose a wallet to view and manage transactions
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {loadingWallets ? (
+                        <div className="flex items-center justify-center p-4">
+                          <RefreshCw className="h-6 w-6 animate-spin text-primary mr-2" />
+                          <span>Loading wallets...</span>
+                        </div>
+                      ) : availableMultiSigWallets.length === 0 ? (
+                        <div className="text-center p-4">
+                          <p className="text-muted-foreground mb-4">
+                            No multi-sig wallets found. Create one first.
+                          </p>
+                          <Button 
+                            variant="outline"
+                            onClick={() => {
+                              const tab = document.querySelector('[value="create-wallet"]') as HTMLElement;
+                              tab?.click();
+                            }}
+                          >
+                            Create Multi-Sig Wallet
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <Select
+                            value={currentMultiSigWallet?.walletId || ''}
+                            onValueChange={(value) => {
+                              const wallet = availableMultiSigWallets.find(w => w.id === value);
+                              if (wallet) {
+                                setCurrentMultiSigWallet({
+                                  walletId: wallet.id,
+                                  address: wallet.address,
+                                  blockchain: wallet.blockchain
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a wallet" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableMultiSigWallets.map((wallet) => (
+                                <SelectItem key={wallet.id} value={wallet.id}>
+                                  {wallet.name} ({wallet.address.slice(0, 10)}...{wallet.address.slice(-8)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {currentMultiSigWallet && (
+                            <div className="bg-muted p-4 rounded-md space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Address:</span>
+                                <span className="font-mono">{currentMultiSigWallet.address}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Blockchain:</span>
+                                <span className="capitalize">{currentMultiSigWallet.blockchain}</span>
+                              </div>
+                              {(() => {
+                                const wallet = availableMultiSigWallets.find(w => w.id === currentMultiSigWallet.walletId);
+                                return wallet ? (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Owners:</span>
+                                      <span>{wallet.owners.length}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Threshold:</span>
+                                      <span>{wallet.threshold} / {wallet.owners.length}</span>
+                                    </div>
+                                  </>
+                                ) : null;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   {currentMultiSigWallet ? (
                     <>
                       {/* Transaction Proposal */}
@@ -1337,113 +1624,7 @@ const NewWalletPage: React.FC = () => {
                         </CardContent>
                       </Card>
                     </>
-                  ) : (
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">
-                          Please create or select a multi-sig wallet first
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-4"
-                          onClick={() => {
-                            // Switch to create wallet tab
-                            const tab = document.querySelector('[value="create-wallet"]') as HTMLElement;
-                            tab?.click();
-                          }}
-                        >
-                          Create Multi-Sig Wallet
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-
-                {/* 3. Roles Tab - Role Creation + Owner Management */}
-                <TabsContent value="roles" className="space-y-6">
-                  {/* Create Role */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Create Role with Blockchain Address</CardTitle>
-                      <CardDescription>
-                        Generate a new role with optional blockchain signing address
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <RoleCreationForm
-                        defaultBlockchain="ethereum"
-                        onSuccess={(roleId) => {
-                          toast({
-                            title: "Role Created",
-                            description: "Role with blockchain address created successfully",
-                          });
-                        }}
-                        onCancel={() => {
-                          // Optional: handle cancel
-                        }}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  {/* Manage Role Owners */}
-                  {currentMultiSigWallet && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Manage Wallet Owners</CardTitle>
-                        <CardDescription>
-                          Add or remove role-based owners for this multi-sig wallet
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <RoleOwnerManager
-                          walletId={currentMultiSigWallet.walletId}
-                          walletName={newWalletForm.getValues().name}
-                          threshold={multiSigThreshold}
-                          blockchain={currentMultiSigWallet.blockchain}
-                          autoRefresh={true}
-                        />
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-
-                {/* 4. Contract Roles Tab - MultiSigRoleManager */}
-                <TabsContent value="contract-roles" className="space-y-6">
-                  {currentMultiSigWallet ? (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Grant Contract Roles</CardTitle>
-                        <CardDescription>
-                          Grant smart contract roles to this wallet address
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <MultiSigRoleManager
-                          walletAddress={currentMultiSigWallet.address}
-                          blockchain={currentMultiSigWallet.blockchain}
-                        />
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">
-                          Please create or select a multi-sig wallet first
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-4"
-                          onClick={() => {
-                            // Switch to create wallet tab
-                            const tab = document.querySelector('[value="create-wallet"]') as HTMLElement;
-                            tab?.click();
-                          }}
-                        >
-                          Create Multi-Sig Wallet
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
+                  ) : null}
                 </TabsContent>
               </Tabs>
             </CardContent>

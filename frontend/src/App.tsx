@@ -60,7 +60,6 @@ import InternalWalletDashboard from "@/components/wallet/InternalWalletDashboard
 // Enhanced Wallet Pages (Production-Ready with Real Blockchain Integration)
 import RipplePaymentsPage from "@/pages/wallet/RipplePaymentsPage";
 import MoonpayPage from "@/pages/wallet/MoonpayPage";
-import TransactionHistoryPage from "@/pages/wallet/TransactionHistoryPage";
 import GuardianTestPageRedesigned from "@/pages/wallet/GuardianTestPageRedesigned";
 
 // Import Enhanced Activity Service for performance monitoring
@@ -622,7 +621,6 @@ function App() {
               {/* Enhanced Wallet Routes (Production-Ready) */}
               <Route path="wallet/enhanced/ripple" element={<RipplePaymentsPage />} />
               <Route path="wallet/enhanced/moonpay" element={<MoonpayPage />} />
-              <Route path="wallet/enhanced/history" element={<TransactionHistoryPage />} />
               
               {/* Guardian Wallet Routes */}
               <Route path="wallet/guardian/test" element={<GuardianTestPageRedesigned />} />

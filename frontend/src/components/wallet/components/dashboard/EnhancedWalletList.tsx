@@ -7,8 +7,8 @@ import { Wallet as WalletType } from "@/services/wallet/WalletContext";
 import { ChevronRight, UserPlus, Copy, Info, Wallet, Users, Shield, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GuardianWalletManagement } from "../guardian";
-import { GuardianWalletDatabaseService, type WalletDetailsRecord } from "@/services/guardian/GuardianWalletDatabaseService";
+import { MultiSigWalletsList } from "./MultiSigWalletsList";
+import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
 
 interface EnhancedWalletListProps {
   wallets: WalletType[];
@@ -26,37 +26,35 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
   userId
 }) => {
   const { toast } = useToast();
-  const [guardianWallets, setGuardianWallets] = useState<WalletDetailsRecord[]>([]);
-  const [guardianLoading, setGuardianLoading] = useState(true);
-  const [guardianError, setGuardianError] = useState<string | null>(null);
+  const [multiSigWallets, setMultiSigWallets] = useState<any[]>([]);
+  const [multiSigLoading, setMultiSigLoading] = useState(true);
+  const [multiSigError, setMultiSigError] = useState<string | null>(null);
   const [totalWalletCount, setTotalWalletCount] = useState(0);
 
-  const guardianService = new GuardianWalletDatabaseService();
-
-  // Load Guardian wallets
-  const loadGuardianWallets = async () => {
+  // Load Multi-sig wallets
+  const loadMultiSigWallets = async () => {
     try {
-      setGuardianLoading(true);
-      setGuardianError(null);
-      const userWallets = await guardianService.listGuardianWallets(userId);
-      setGuardianWallets(userWallets);
+      setMultiSigLoading(true);
+      setMultiSigError(null);
+      const userWallets = await MultiSigWalletService.getMultiSigWalletsForUser(userId);
+      setMultiSigWallets(userWallets);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load Guardian wallets';
-      setGuardianError(message);
-      console.error('Failed to load Guardian wallets:', err);
+      const message = err instanceof Error ? err.message : 'Failed to load multi-sig wallets';
+      setMultiSigError(message);
+      console.error('Failed to load multi-sig wallets:', err);
     } finally {
-      setGuardianLoading(false);
+      setMultiSigLoading(false);
     }
   };
 
   useEffect(() => {
-    loadGuardianWallets();
+    loadMultiSigWallets();
   }, [userId]);
 
   // Update total wallet count
   useEffect(() => {
-    setTotalWalletCount(wallets.length + guardianWallets.length);
-  }, [wallets.length, guardianWallets.length]);
+    setTotalWalletCount(wallets.length + multiSigWallets.length);
+  }, [wallets.length, multiSigWallets.length]);
 
   // Function to copy wallet address to clipboard
   const copyAddress = (address: string, e: React.MouseEvent) => {
@@ -182,21 +180,19 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
     );
   };
 
-  // Render Guardian wallets with Guardian management component
-  const renderGuardianWallets = () => {
+  // Render Multi-sig wallets
+  const renderMultiSigWallets = () => {
     return (
-      <GuardianWalletManagement 
+      <MultiSigWalletsList 
         userId={userId}
-        onWalletCount={(count) => {
-          // This will update the Guardian wallet count
-          // and trigger a re-render to update the total count
-        }}
+        selectedWalletId={selectedWalletId}
+        onSelectWallet={onSelectWallet}
       />
     );
   };
 
   // Show empty state if no wallets at all
-  if (!loading && !guardianLoading && wallets.length === 0 && guardianWallets.length === 0) {
+  if (!loading && !multiSigLoading && wallets.length === 0 && multiSigWallets.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -216,7 +212,7 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
               </Button>
               <Button variant="outline">
                 <Shield className="mr-2 h-4 w-4" />
-                Create Guardian Wallet
+                Create Multi-Sig Wallet
               </Button>
             </div>
           </div>
@@ -236,7 +232,7 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
             </Badge>
           </CardTitle>
           <div className="text-sm text-muted-foreground">
-            {wallets.length} Standard • {guardianWallets.length} Guardian
+            {wallets.length} Standard • {multiSigWallets.length} Multi-Sig
           </div>
         </div>
       </CardHeader>
@@ -247,9 +243,9 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
               <Wallet className="h-4 w-4" />
               Standard Wallets ({wallets.length})
             </TabsTrigger>
-            <TabsTrigger value="guardian" className="flex items-center gap-2">
+            <TabsTrigger value="multisig" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Guardian Wallets ({guardianWallets.length})
+              Multi-Sig Wallets ({multiSigWallets.length})
             </TabsTrigger>
           </TabsList>
           
@@ -257,8 +253,8 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
             {renderRegularWallets()}
           </TabsContent>
           
-          <TabsContent value="guardian" className="mt-6">
-            {renderGuardianWallets()}
+          <TabsContent value="multisig" className="mt-6">
+            {renderMultiSigWallets()}
           </TabsContent>
         </Tabs>
       </CardContent>

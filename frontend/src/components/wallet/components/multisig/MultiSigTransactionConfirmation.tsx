@@ -31,7 +31,7 @@ import {
   Loader2
 } from "lucide-react";
 import { TransactionConfirmation, TransactionConfirmationProps } from "../TransactionConfirmation";
-import * as MultiSigWalletManager from "@/services/wallet/MultiSigWalletService";
+import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
 // Define types locally based on Tables from database
 type Transaction = {
   id: string;
@@ -101,7 +101,7 @@ export function MultiSigTransactionConfirmation({
       setIsLoading(true);
       
       // Fetch transaction by ID directly
-      const txData = await MultiSigWalletManager.getTransactionById(transactionId);
+      const txData = await MultiSigWalletService.getTransactionById(transactionId);
       
       if (!txData) {
         throw new Error("Transaction not found");

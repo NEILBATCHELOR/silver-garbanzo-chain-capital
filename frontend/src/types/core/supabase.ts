@@ -15137,6 +15137,7 @@ export type Database = {
           added_by: string | null
           id: string
           role_id: string
+          user_id: string | null
           wallet_id: string
         }
         Insert: {
@@ -15144,6 +15145,7 @@ export type Database = {
           added_by?: string | null
           id?: string
           role_id: string
+          user_id?: string | null
           wallet_id: string
         }
         Update: {
@@ -15151,6 +15153,7 @@ export type Database = {
           added_by?: string | null
           id?: string
           role_id?: string
+          user_id?: string | null
           wallet_id?: string
         }
         Relationships: [
@@ -15201,7 +15204,6 @@ export type Database = {
           migrated_to_roles: boolean | null
           migration_date: string | null
           name: string
-          owners: string[]
           ownership_type: string | null
           project_id: string | null
           status: string | null
@@ -15224,7 +15226,6 @@ export type Database = {
           migrated_to_roles?: boolean | null
           migration_date?: string | null
           name: string
-          owners: string[]
           ownership_type?: string | null
           project_id?: string | null
           status?: string | null
@@ -15247,7 +15248,6 @@ export type Database = {
           migrated_to_roles?: boolean | null
           migration_date?: string | null
           name?: string
-          owners?: string[]
           ownership_type?: string | null
           project_id?: string | null
           status?: string | null

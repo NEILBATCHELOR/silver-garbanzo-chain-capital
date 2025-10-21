@@ -45,7 +45,7 @@ import { RecentAddresses } from "@/components/wallet/components/transfer/RecentA
 import { TransactionConfirmation } from "@/components/wallet/components/TransactionConfirmation";
 import { ErrorDisplay } from "@/components/wallet/components/ErrorDisplay";
 import { MultiSigTransactionConfirmation } from "@/components/wallet/components/multisig/MultiSigTransactionConfirmation";
-import * as MultiSigWalletManager from "@/services/wallet/MultiSigWalletService";
+import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
 
 // Schema for the transfer form
 const transferSchema = z.object({
@@ -102,7 +102,7 @@ export const TransferTab: React.FC = () => {
       
       try {
         // Check if this is a multisig wallet
-        const wallets = await MultiSigWalletManager.getMultiSigWallets();
+        const wallets = await MultiSigWalletService.getMultiSigWallets();
         const multiSigWallet = wallets.find(w => w.address === walletId);
         
         if (multiSigWallet) {
@@ -134,7 +134,7 @@ export const TransferTab: React.FC = () => {
         const values = form.getValues();
         
         // Propose a transaction to the multisig wallet
-        const transactionId = await MultiSigWalletManager.proposeTransaction(
+        const transactionId = await MultiSigWalletService.proposeTransaction(
           multiSigWallet.id,
           values.toAddress,
           values.amount,
@@ -190,7 +190,7 @@ export const TransferTab: React.FC = () => {
       const signature = "0x" + Array(130).fill("0").join("");
       
       // Submit signature
-      await MultiSigWalletManager.confirmTransaction(multiSigTxId, signature);
+      await MultiSigWalletService.confirmTransaction(multiSigTxId, signature);
       
       toast({
         title: "Transaction Signed",

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,10 +6,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { FileText, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { FileText, AlertTriangle, CheckCircle, Loader2, Calculator } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { MultiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
 import { ChainType } from '@/services/wallet/AddressUtils';
+import { supabase } from '@/infrastructure/database/client';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { buildEip1559Fees, getHoleskyGas, getSepoliaGas, type GasOracle } from '@/services/TestnetGasService';
 
 interface TransactionProposalProps {
   walletId: string;
@@ -28,10 +37,23 @@ export function MultiSigTransactionProposal({
 }: TransactionProposalProps) {
   const { toast } = useToast();
   const [to, setTo] = useState('');
+  const [addressInputMode, setAddressInputMode] = useState<'select' | 'manual'>('manual');
+  const [selectedWalletId, setSelectedWalletId] = useState<string>('');
+  const [availableAddresses, setAvailableAddresses] = useState<Array<{
+    address: string;
+    name: string;
+    id: string;
+  }>>([]);
   const [value, setValue] = useState('0');
   const [data, setData] = useState('');
   const [expiryHours, setExpiryHours] = useState(24);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEstimatingGas, setIsEstimatingGas] = useState(false);
+  const [gasEstimate, setGasEstimate] = useState<{
+    maxFeePerGas: string;
+    maxPriorityFeePerGas: string;
+    estimatedCost: string;
+  } | null>(null);
   const [proposalResult, setProposalResult] = useState<{
     proposalId: string;
     onChainTxId: number;
@@ -40,6 +62,87 @@ export function MultiSigTransactionProposal({
   const [error, setError] = useState<string | null>(null);
 
   const multiSigService = MultiSigTransactionService.getInstance();
+
+  // Load available multi-sig wallet addresses (excluding current wallet)
+  useEffect(() => {
+    const loadAddresses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('multi_sig_wallets')
+          .select('id, name, address')
+          .neq('address', walletAddress)
+          .order('name');
+
+        if (error) throw error;
+
+        setAvailableAddresses(data || []);
+      } catch (err) {
+        console.error('Error loading addresses:', err);
+      }
+    };
+
+    loadAddresses();
+  }, [walletAddress]);
+
+  // Estimate gas using EIP-1559 for Ethereum mainnet/testnets
+  const estimateGas = useCallback(async () => {
+    if (!to || !value) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please enter destination address and value to estimate gas',
+        variant: 'default',
+      });
+      return;
+    }
+
+    setIsEstimatingGas(true);
+    setGasEstimate(null);
+    
+    try {
+      let gasOracle: GasOracle;
+      
+      // Determine which network to use for gas estimation
+      const normalizedBlockchain = blockchain.toLowerCase();
+      
+      if (normalizedBlockchain.includes('sepolia')) {
+        gasOracle = await getSepoliaGas();
+      } else if (normalizedBlockchain.includes('holesky') || normalizedBlockchain.includes('hoodi')) {
+        gasOracle = await getHoleskyGas();
+      } else {
+        // For Ethereum mainnet and other Ethereum testnets, use Holesky as substitute
+        gasOracle = await getHoleskyGas();
+      }
+
+      const fees = buildEip1559Fees(gasOracle, 'propose');
+      
+      // Estimate gas limit (basic estimation for transfers/calls)
+      const isContractCall = data && data !== '0x' && data.length > 2;
+      const baseGasLimit = isContractCall ? 150000n : 21000n;
+      
+      // Calculate estimated cost
+      const estimatedCost = (baseGasLimit * fees.maxFeePerGasWei) / BigInt(1e18);
+      
+      setGasEstimate({
+        maxFeePerGas: (Number(fees.maxFeePerGasWei) / 1e9).toFixed(2) + ' Gwei',
+        maxPriorityFeePerGas: (Number(fees.maxPriorityFeePerGasWei) / 1e9).toFixed(2) + ' Gwei',
+        estimatedCost: estimatedCost.toString() + ' ETH',
+      });
+
+      toast({
+        title: 'Gas Estimated',
+        description: `Estimated cost: ${estimatedCost.toString()} ETH`,
+      });
+    } catch (err: any) {
+      console.error('Gas estimation error:', err);
+      toast({
+        title: 'Gas Estimation Failed',
+        description: err.message || 'Failed to estimate gas',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsEstimatingGas(false);
+    }
+  }, [to, value, data, blockchain, toast]);
 
   const validateForm = useCallback(() => {
     // Validate destination address
@@ -266,22 +369,102 @@ export function MultiSigTransactionProposal({
         {/* To Address */}
         <div className="space-y-2">
           <Label htmlFor="to">To Address *</Label>
-          <Input
-            id="to"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="0x..."
-            className="font-mono"
-            disabled={isCreating}
-          />
+          
+          {/* Mode Selector */}
+          <div className="flex gap-2 mb-2">
+            <Button
+              type="button"
+              variant={addressInputMode === 'select' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setAddressInputMode('select');
+                setTo(''); // Clear manual input
+              }}
+              disabled={isCreating}
+            >
+              Select Wallet
+            </Button>
+            <Button
+              type="button"
+              variant={addressInputMode === 'manual' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setAddressInputMode('manual');
+                setSelectedWalletId(''); // Clear selection
+                setTo(''); // Clear manual input
+              }}
+              disabled={isCreating}
+            >
+              Bespoke Address
+            </Button>
+          </div>
+
+          {addressInputMode === 'select' ? (
+            <Select
+              value={selectedWalletId}
+              onValueChange={(value) => {
+                setSelectedWalletId(value);
+                const wallet = availableAddresses.find(w => w.id === value);
+                if (wallet) {
+                  setTo(wallet.address);
+                }
+              }}
+              disabled={isCreating || availableAddresses.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a multi-sig wallet" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableAddresses.map((wallet) => (
+                  <SelectItem key={wallet.id} value={wallet.id}>
+                    {wallet.name} ({wallet.address.slice(0, 10)}...{wallet.address.slice(-8)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              id="to"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="0x..."
+              className="font-mono"
+              disabled={isCreating}
+            />
+          )}
+          
           <p className="text-xs text-muted-foreground">
-            Destination address for the transaction
+            {addressInputMode === 'select' 
+              ? 'Select another multi-sig wallet from your organization'
+              : 'Enter any destination address for the transaction'
+            }
           </p>
         </div>
 
         {/* Value */}
         <div className="space-y-2">
-          <Label htmlFor="value">Value (ETH) *</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="value">Value (ETH) *</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={estimateGas}
+              disabled={isEstimatingGas || isCreating || !to || !value}
+            >
+              {isEstimatingGas ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Estimating...
+                </>
+              ) : (
+                <>
+                  <Calculator className="mr-2 h-3 w-3" />
+                  Estimate Gas
+                </>
+              )}
+            </Button>
+          </div>
           <Input
             id="value"
             type="number"
@@ -295,6 +478,24 @@ export function MultiSigTransactionProposal({
           <p className="text-xs text-muted-foreground">
             Amount of ETH to send (0 for contract calls)
           </p>
+          
+          {/* Gas Estimate Display */}
+          {gasEstimate && (
+            <div className="rounded-md border p-3 space-y-1 text-sm bg-muted/50">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Max Fee Per Gas:</span>
+                <span className="font-mono">{gasEstimate.maxFeePerGas}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Max Priority Fee:</span>
+                <span className="font-mono">{gasEstimate.maxPriorityFeePerGas}</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span className="text-muted-foreground">Estimated Cost:</span>
+                <span className="font-mono">{gasEstimate.estimatedCost}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Data */}
