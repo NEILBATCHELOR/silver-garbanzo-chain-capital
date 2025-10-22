@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet as WalletType } from "@/services/wallet/WalletContext";
+import { Wallet as WalletType } from "@/services/wallet/UnifiedWalletContext";
 import { ChevronRight, UserPlus, Copy, Info, Wallet, Users, Shield, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";

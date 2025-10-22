@@ -281,10 +281,5 @@ export {
   WalletType,
   WalletConnectionStatus
 } from './UnifiedWalletContext';
-
-// Deprecated contexts (will be removed in future release)
-// Use UnifiedWalletContext instead
-export { WalletProvider } from './WalletContext';
-export { EnhancedWalletProvider } from './EnhancedWalletContext';
 export * from './TransferService';
 

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ArrowRight, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { transferService, type TransferParams as ServiceTransferParams, type GasEstimate, type TransferResult as ServiceTransferResult } from "@/services/wallet/TransferService";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { TransferConfirmation } from "./TransferConfirmation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 

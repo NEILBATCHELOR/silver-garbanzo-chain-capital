@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";

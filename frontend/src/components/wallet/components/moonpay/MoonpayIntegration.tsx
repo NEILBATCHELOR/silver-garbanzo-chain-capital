@@ -38,7 +38,7 @@ import {
 } from "@/services/wallet/moonpay/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 
 // Import the new enhanced components
 import SwapInterface from "./SwapInterface";

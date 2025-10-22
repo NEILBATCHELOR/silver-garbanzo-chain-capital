@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Wallet as WalletType } from "@/services/wallet/WalletContext";
+import { Wallet as WalletType } from "@/services/wallet/UnifiedWalletContext";
 import { ChevronRight, UserPlus, Copy, Info, Wallet, Users, Shield } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";

@@ -19,7 +19,7 @@ import {
   Clock
 } from "lucide-react";
 import { useUser } from "@/hooks/auth/user/useUser";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { transactionMonitorService } from "@/services/wallet/TransactionMonitorService";
 import type { WalletTransactionsTable } from "@/types/core/database";
 

@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, ArrowRight } from "lucide-react";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 
 // Add appropriate props type for WalletRiskCheck
 interface WalletRiskCheckProps {

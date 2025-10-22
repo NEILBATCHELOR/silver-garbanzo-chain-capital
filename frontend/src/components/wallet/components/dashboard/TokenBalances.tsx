@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { MoreHorizontal, Search, ArrowUpDown, ExternalLink, Plus, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 
 // Function to get network tokens based on wallet data
 const getNetworkTokens = (network: string, balance: string, index: number) => {

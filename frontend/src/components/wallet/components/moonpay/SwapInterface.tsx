@@ -40,7 +40,7 @@ import {
   MoonpaySwapTransaction,
   MoonpayService 
 } from '@/services/wallet/MoonpayService';
-import { useWallet } from '@/services/wallet/WalletContext';
+import { useWallet } from '@/services/wallet/UnifiedWalletContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SwapInterfaceProps {
@@ -52,10 +52,8 @@ type SwapStep = 'input' | 'route' | 'confirm' | 'executing' | 'complete';
 const POPULAR_TOKENS = [
   { symbol: 'BTC', name: 'Bitcoin', icon: '₿' },
   { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
-  { symbol: 'USDC', name: 'USD Coin', icon: '💵' },
+  { symbol: 'USDC', name: 'USDCoin', icon: '💵' },
   { symbol: 'USDT', name: 'Tether', icon: '💰' },
-  { symbol: 'ADA', name: 'Cardano', icon: '🟦' },
-  { symbol: 'DOT', name: 'Polkadot', icon: '🔴' },
   { symbol: 'MATIC', name: 'Polygon', icon: '🟣' },
   { symbol: 'SOL', name: 'Solana', icon: '🟡' }
 ];

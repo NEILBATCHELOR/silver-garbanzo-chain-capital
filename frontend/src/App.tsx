@@ -112,7 +112,7 @@ import { WagmiRouteWrapper } from "@/infrastructure/web3/conditional";
 import { ConditionalDfnsWrapper } from "@/infrastructure/dfns/ConditionalDfnsProvider";
 
 // Import Wallet Provider for cryptocurrency wallet functionality
-import { WalletProvider } from "@/services/wallet/WalletContext";
+import { UnifiedWalletProvider } from "@/services/wallet/UnifiedWalletContext";
 
 // DFNS Components
 import { DfnsWalletDashboard } from "@/components/dfns";
@@ -554,7 +554,7 @@ function App() {
         <OrganizationProvider>
           <AuditProvider enableAutoTracking={true}>
             <WagmiRouteWrapper>
-              <WalletProvider>
+              <UnifiedWalletProvider>
                 <NotificationProvider>
             
             <Suspense fallback={<div>Loading...</div>}>
@@ -826,7 +826,7 @@ function App() {
             </Routes>
           </Suspense>
           </NotificationProvider>
-        </WalletProvider>
+        </UnifiedWalletProvider>
         </WagmiRouteWrapper>
       </AuditProvider>
       </OrganizationProvider>

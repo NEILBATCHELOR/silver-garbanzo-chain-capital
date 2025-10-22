@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useWallet } from "@/services/wallet/WalletContext";
+import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { useUser } from "@/hooks/auth/user/useUser";
 import { Wallet, Shield, ArrowUpDown, BarChart3, CreditCard, ArrowLeftRight, RefreshCw, Globe, DollarSign } from "lucide-react";
 import { PortfolioOverview } from "@/components/wallet/components/dashboard/PortfolioOverview";
