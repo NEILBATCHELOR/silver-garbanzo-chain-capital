@@ -10,14 +10,14 @@
  * Key Features:
  * - Dual storage support (direct encrypted + vault reference)
  * - Unified key decryption using WalletEncryptionClient
- * - Balance management across all wallet types
+ * - Balance management across all wallet types using BalanceService
  */
 
 import { supabase } from '@/infrastructure/database/client';
 import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
-import { BalanceService } from './balances/BalanceService';
+import { BalanceService, type WalletBalance } from './balances/BalanceService';
 
-// Wallet Type Interfaces
+// Wallet Type Interfaces with proper WalletBalance support
 export interface ProjectWallet {
   id: string;
   projectId: string;
@@ -26,7 +26,7 @@ export interface ProjectWallet {
   publicKey: string;
   chainId: string | null;
   network: string | null;
-  balance?: string;
+  balance?: WalletBalance; // Full balance object with network info
   createdAt: Date;
   updatedAt: Date;
   // Private storage references
@@ -41,13 +41,17 @@ export interface UserWallet {
   address: string;
   signingMethod: string;
   isActive: boolean;
-  balance?: string;
+  balance?: WalletBalance; // Full balance object with network info
   contractRoles?: string[];
   createdAt: Date;
   updatedAt: Date;
   // Private storage references
   hasDirectKey: boolean;
   hasVaultKey: boolean;
+  // User details
+  userName?: string; // User's full name
+  userEmail?: string; // User's email
+  userRole?: string; // User's role name
 }
 
 export interface MultiSigWallet {
@@ -59,7 +63,7 @@ export interface MultiSigWallet {
   ownerCount: number;
   status: string;
   projectId: string | null;
-  balance?: string;
+  balance?: WalletBalance; // Full balance object with network info
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,6 +87,84 @@ export class InternalWalletService {
       InternalWalletService.instance = new InternalWalletService();
     }
     return InternalWalletService.instance;
+  }
+
+  /**
+   * Map chain ID to balance service key
+   * Copied from ProjectWalletList for consistency
+   */
+  private chainIdToBalanceKey(chainId: string | null, network: string | null, walletType: string): string {
+    const chainIdToNetwork: Record<string, string> = {
+      // Ethereum networks
+      '1': 'ethereum',
+      '11155111': 'sepolia',
+      '17000': 'holesky',
+      '560048': 'hoodi',
+      
+      // Polygon networks
+      '137': 'polygon',
+      '80002': 'amoy',
+      
+      // Arbitrum networks
+      '42161': 'arbitrum',
+      '421614': 'arbitrum-sepolia',
+      
+      // Avalanche networks
+      '43114': 'avalanche',
+      '43113': 'avalanche-testnet', // Fuji
+      
+      // Optimism networks
+      '10': 'optimism',
+      '11155420': 'optimism-sepolia',
+      
+      // Base networks
+      '8453': 'base',
+      '84532': 'base-sepolia',
+      
+      // BSC networks
+      '56': 'bsc',
+      '97': 'bsc-testnet',
+      
+      // zkSync networks
+      '324': 'zksync',
+      '300': 'zksync-sepolia',
+      
+      // Injective networks
+      '888': 'injective',
+      '1776': 'injective-testnet',
+    };
+    
+    // Use chain_id if available
+    if (chainId) {
+      const chainIdStr = String(chainId);
+      if (chainIdToNetwork[chainIdStr]) {
+        return chainIdToNetwork[chainIdStr];
+      }
+    }
+    
+    // If we have a net field, use it to get more specific network info
+    if (network) {
+      const netToServiceKey: Record<string, string> = {
+        'sepolia': 'sepolia',
+        'holesky': 'holesky',
+        'hoodi': 'hoodi',
+        'amoy': 'amoy',
+        'optimism-sepolia': 'optimism-sepolia',
+        'arbitrum-sepolia': 'arbitrum-sepolia',
+        'base-sepolia': 'base-sepolia',
+        'fuji': 'avalanche-testnet',
+        'zksync-sepolia': 'zksync-sepolia',
+        'injective-888': 'injective-testnet',
+        'injective-testnet': 'injective-testnet',
+      };
+      
+      if (netToServiceKey[network]) {
+        return netToServiceKey[network];
+      }
+    }
+    
+    // Fall back to wallet type
+    return walletType.toLowerCase();
   }
 
   /**
@@ -155,9 +237,9 @@ export class InternalWalletService {
   /**
    * Fetch user EOA wallets
    */
-  async fetchUserEOAWallets(userId: string): Promise<UserWallet[]> {
+  async fetchUserEOAWallets(userId: string, includeInactive: boolean = false): Promise<UserWallet[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('user_addresses')
         .select(`
           id,
@@ -172,9 +254,14 @@ export class InternalWalletService {
           created_at,
           updated_at
         `)
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .eq('user_id', userId);
+
+      // Only filter by active if not including inactive
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         throw new Error(`Failed to fetch user wallets: ${error.message}`);
@@ -196,6 +283,145 @@ export class InternalWalletService {
     } catch (error) {
       console.error('Failed to fetch user EOA wallets:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Fetch ALL user EOA wallets (across all users) - for internal dashboard
+   */
+  async fetchAllUserEOAWallets(includeInactive: boolean = false): Promise<UserWallet[]> {
+    try {
+      // Step 1: Fetch user addresses
+      let query = supabase
+        .from('user_addresses')
+        .select(`
+          id,
+          user_id,
+          blockchain,
+          address,
+          signing_method,
+          is_active,
+          contract_roles,
+          encrypted_private_key,
+          key_vault_reference,
+          created_at,
+          updated_at
+        `);
+
+      // Only filter by active if not including inactive
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data: addresses, error: addressError } = await query.order('created_at', { ascending: false });
+
+      if (addressError) {
+        throw new Error(`Failed to fetch all user wallets: ${addressError.message}`);
+      }
+
+      if (!addresses || addresses.length === 0) {
+        return [];
+      }
+
+      // Step 2: Get unique user IDs
+      const userIds = [...new Set(addresses.map(a => a.user_id))];
+
+      // Step 3: Fetch user details for all user IDs
+      const { data: users, error: userError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .in('id', userIds);
+
+      if (userError) {
+        console.error('Failed to fetch user details:', userError);
+      }
+
+      // Step 4: Fetch user roles
+      const { data: userRoles, error: userRolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role_id')
+        .in('user_id', userIds);
+
+      if (userRolesError) {
+        console.error('Failed to fetch user roles:', userRolesError);
+      }
+
+      // Step 5: Fetch role details if we have role IDs
+      const roleIds = [...new Set((userRoles || []).map((ur: any) => ur.role_id))];
+      const { data: roles, error: rolesError } = await supabase
+        .from('roles')
+        .select('id, name')
+        .in('id', roleIds);
+
+      if (rolesError) {
+        console.error('Failed to fetch roles:', rolesError);
+      }
+
+      // Step 6: Create lookup maps
+      const userMap = new Map<string, { name: string; email: string }>(
+        (users || []).map((u: any) => [u.id, { name: u.name, email: u.email }])
+      );
+
+      const roleMap = new Map<string, string>(
+        (roles || []).map((r: any) => [r.id, r.name])
+      );
+
+      const userRoleMap = new Map<string, string>(
+        (userRoles || []).map((ur: any) => [ur.user_id, roleMap.get(ur.role_id) || 'No Role'])
+      );
+
+      // Step 7: Combine the data
+      return addresses.map(wallet => {
+        const userDetails = userMap.get(wallet.user_id);
+        const userRole = userRoleMap.get(wallet.user_id);
+        return {
+          id: wallet.id,
+          userId: wallet.user_id,
+          blockchain: wallet.blockchain,
+          address: wallet.address,
+          signingMethod: wallet.signing_method,
+          isActive: wallet.is_active,
+          contractRoles: wallet.contract_roles || [],
+          createdAt: new Date(wallet.created_at),
+          updatedAt: new Date(wallet.updated_at),
+          hasDirectKey: !!wallet.encrypted_private_key,
+          hasVaultKey: !!wallet.key_vault_reference,
+          userName: userDetails?.name,
+          userEmail: userDetails?.email,
+          userRole: userRole
+        };
+      });
+    } catch (error) {
+      console.error('Failed to fetch all user EOA wallets:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get total count of user wallets for a specific user (including inactive)
+   */
+  async getTotalUserWalletCount(userId?: string): Promise<number> {
+    try {
+      let query = supabase
+        .from('user_addresses')
+        .select('*', { count: 'exact', head: true });
+      
+      // If userId provided, filter by it
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error('Failed to count user wallets:', error);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
+      console.error('Failed to count user wallets:', error);
+      return 0;
     }
   }
 
@@ -361,52 +587,51 @@ export class InternalWalletService {
   }
 
   /**
-   * Fetch balance for a wallet address
+   * Refresh balances for all wallets in a project using BalanceService
+   * RETURNS the updated wallets with balance data populated
    */
-  async fetchWalletBalance(
-    address: string,
-    blockchain: string
-  ): Promise<string> {
-    try {
-      const walletBalance = await this.balanceService.fetchWalletBalance(address, blockchain);
-      return walletBalance.nativeBalance;
-    } catch (error) {
-      console.error(`Failed to fetch balance for ${address}:`, error);
-      return '0';
-    }
-  }
-
-  /**
-   * Refresh balances for all wallets in a project
-   */
-  async refreshAllBalances(projectId: string): Promise<void> {
+  async refreshAllBalances(projectId: string): Promise<AllWallets> {
     try {
       const allWallets = await this.fetchAllWalletsForProject(projectId);
 
-      // Fetch balances for project wallets
-      const projectBalancePromises = allWallets.projectWallets.map(async wallet => {
-        wallet.balance = await this.fetchWalletBalance(
-          wallet.address,
-          wallet.network || wallet.chainId || 'ethereum'
-        );
-        return wallet;
+      // Prepare wallets for balance fetching with proper network mapping
+      const projectWalletsToFetch = allWallets.projectWallets.map(w => ({
+        address: w.address.toLowerCase(),
+        walletType: this.chainIdToBalanceKey(w.chainId, w.network, w.walletType)
+      }));
+
+      const multiSigWalletsToFetch = allWallets.multiSigWallets.map(w => ({
+        address: w.address.toLowerCase(),
+        walletType: w.blockchain.toLowerCase()
+      }));
+
+      const walletsToFetch = [...projectWalletsToFetch, ...multiSigWalletsToFetch];
+
+      console.log(`🔄 Fetching balances for ${walletsToFetch.length} wallet(s)`);
+
+      // Fetch all balances using the balance service
+      const balances = await this.balanceService.fetchBalancesForWallets(walletsToFetch);
+
+      // Create a map of address -> balance
+      const balanceMap = new Map<string, WalletBalance>();
+      balances.forEach(balance => {
+        balanceMap.set(balance.address.toLowerCase(), balance);
       });
 
-      // Fetch balances for multi-sig wallets
-      const multiSigBalancePromises = allWallets.multiSigWallets.map(
-        async wallet => {
-          wallet.balance = await this.fetchWalletBalance(
-            wallet.address,
-            wallet.blockchain
-          );
-          return wallet;
-        }
-      );
+      // Update project wallets with balances
+      allWallets.projectWallets.forEach(wallet => {
+        wallet.balance = balanceMap.get(wallet.address.toLowerCase());
+      });
 
-      await Promise.all([
-        ...projectBalancePromises,
-        ...multiSigBalancePromises
-      ]);
+      // Update multi-sig wallets with balances
+      allWallets.multiSigWallets.forEach(wallet => {
+        wallet.balance = balanceMap.get(wallet.address.toLowerCase());
+      });
+
+      console.log(`✅ Updated ${balances.length} wallet balance(s)`);
+      
+      // Return the updated wallets
+      return allWallets;
     } catch (error) {
       console.error('Failed to refresh all balances:', error);
       throw error;
@@ -414,23 +639,79 @@ export class InternalWalletService {
   }
 
   /**
-   * Refresh balances for user wallets
+   * Refresh balances for user wallets (specific user)
+   * Includes both active and inactive wallets
    */
-  async refreshUserWalletBalances(userId: string): Promise<UserWallet[]> {
+  async refreshUserWalletBalances(userId: string, includeInactive: boolean = true): Promise<UserWallet[]> {
     try {
-      const userWallets = await this.fetchUserEOAWallets(userId);
+      const userWallets = await this.fetchUserEOAWallets(userId, includeInactive);
 
-      const balancePromises = userWallets.map(async wallet => {
-        wallet.balance = await this.fetchWalletBalance(
-          wallet.address,
-          wallet.blockchain
-        );
-        return wallet;
+      // Prepare wallets for balance fetching
+      const walletsToFetch = userWallets.map(w => ({
+        address: w.address.toLowerCase(),
+        walletType: w.blockchain.toLowerCase()
+      }));
+
+      console.log(`🔄 Fetching balances for ${walletsToFetch.length} user wallet(s)`);
+
+      // Fetch all balances using the balance service
+      const balances = await this.balanceService.fetchBalancesForWallets(walletsToFetch);
+
+      // Create a map of address -> balance
+      const balanceMap = new Map<string, WalletBalance>();
+      balances.forEach(balance => {
+        balanceMap.set(balance.address.toLowerCase(), balance);
       });
 
-      return await Promise.all(balancePromises);
+      // Update user wallets with balances
+      userWallets.forEach(wallet => {
+        wallet.balance = balanceMap.get(wallet.address.toLowerCase());
+      });
+
+      console.log(`✅ Updated ${balances.length} user wallet balance(s)`);
+
+      return userWallets;
     } catch (error) {
       console.error('Failed to refresh user wallet balances:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh balances for ALL user wallets (across all users)
+   * Includes both active and inactive wallets
+   */
+  async refreshAllUserWalletBalances(includeInactive: boolean = true): Promise<UserWallet[]> {
+    try {
+      const userWallets = await this.fetchAllUserEOAWallets(includeInactive);
+
+      // Prepare wallets for balance fetching
+      const walletsToFetch = userWallets.map(w => ({
+        address: w.address.toLowerCase(),
+        walletType: w.blockchain.toLowerCase()
+      }));
+
+      console.log(`🔄 Fetching balances for ${walletsToFetch.length} user wallet(s) across all users`);
+
+      // Fetch all balances using the balance service
+      const balances = await this.balanceService.fetchBalancesForWallets(walletsToFetch);
+
+      // Create a map of address -> balance
+      const balanceMap = new Map<string, WalletBalance>();
+      balances.forEach(balance => {
+        balanceMap.set(balance.address.toLowerCase(), balance);
+      });
+
+      // Update user wallets with balances
+      userWallets.forEach(wallet => {
+        wallet.balance = balanceMap.get(wallet.address.toLowerCase());
+      });
+
+      console.log(`✅ Updated ${balances.length} user wallet balance(s) across all users`);
+
+      return userWallets;
+    } catch (error) {
+      console.error('Failed to refresh all user wallet balances:', error);
       throw error;
     }
   }

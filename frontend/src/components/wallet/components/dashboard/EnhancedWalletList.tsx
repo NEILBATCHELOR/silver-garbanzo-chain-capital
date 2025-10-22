@@ -36,6 +36,14 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
     try {
       setMultiSigLoading(true);
       setMultiSigError(null);
+      
+      // Validate userId before querying
+      if (!userId || userId.trim() === '') {
+        console.warn('EnhancedWalletList: userId is empty, skipping multi-sig wallet load');
+        setMultiSigWallets([]);
+        return;
+      }
+      
       const userWallets = await MultiSigWalletService.getMultiSigWalletsForUser(userId);
       setMultiSigWallets(userWallets);
     } catch (err) {

@@ -352,7 +352,9 @@ export const TransferTab: React.FC = () => {
                                     {wallet.network}
                                   </Badge>
                                   <span className="ml-2 text-sm text-muted-foreground">
-                                    {wallet.balance ? `${parseFloat(wallet.balance).toFixed(4)}` : 'Loading...'}
+                                    {wallet.balance 
+                                      ? `${parseFloat(wallet.balance.nativeBalance).toFixed(4)}` 
+                                      : 'Loading...'}
                                   </span>
                                 </div>
                               </SelectItem>

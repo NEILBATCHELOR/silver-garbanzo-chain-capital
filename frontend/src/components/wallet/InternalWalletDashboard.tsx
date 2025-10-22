@@ -41,6 +41,9 @@ import {
   type AllWallets 
 } from '@/services/wallet/InternalWalletService';
 
+// Import WalletBalance type for proper balance display
+import type { WalletBalance } from '@/services/wallet/balances';
+
 // Import existing wallet components
 import { useWallet } from '@/services/wallet/UnifiedWalletContext';
 import { EnhancedWalletList } from './components/dashboard/EnhancedWalletList';
@@ -110,6 +113,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   // Multi-sig specific state
   const [selectedMultiSigWallet, setSelectedMultiSigWallet] = useState<string | null>(null);
   const [userAddressId, setUserAddressId] = useState<string | null>(null);
+  const [totalUserWalletCount, setTotalUserWalletCount] = useState<number>(0);
 
   // Initialize project on component mount
   useEffect(() => {
@@ -123,20 +127,25 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
     }
   }, [projectId]);
 
-  // Load user wallets when user changes
+  // Load user wallets when component mounts (not dependent on current user)
+  useEffect(() => {
+    loadUserWallets();
+  }, []);
+
+  // Load current user's address ID for multi-sig approvals when user is available
   useEffect(() => {
     if (user?.id) {
-      loadUserWallets();
       loadUserAddressId();
     }
   }, [user?.id]);
 
-  // NEW: Load user address ID for multi-sig approvals
+  // NEW: Load user address ID for multi-sig approvals (current user only)
   const loadUserAddressId = async () => {
     if (!user?.id) return;
 
     try {
-      const userWallets = await internalWalletService.fetchUserEOAWallets(user.id);
+      // Fetch CURRENT user's wallets specifically for approval purposes
+      const userWallets = await internalWalletService.fetchUserEOAWallets(user.id, true);
       
       // Get the first active wallet for approvals
       const activeWallet = userWallets.find(w => w.isActive);
@@ -157,9 +166,18 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
     try {
       setLoadingInternalWallets(true);
-      const allWallets = await internalWalletService.fetchAllWalletsForProject(projectId);
-      setInternalWallets(allWallets);
-      setWalletBalancesLoaded(false); // Mark that balances need loading
+      // Fetch wallets WITH balances in one go
+      const allWallets = await internalWalletService.refreshAllBalances(projectId);
+      
+      // IMPORTANT: Only update project and multisig wallets, preserve user wallets
+      setInternalWallets(prev => ({
+        ...prev,
+        projectWallets: allWallets.projectWallets,
+        multiSigWallets: allWallets.multiSigWallets
+        // userWallets: keep existing user wallets from loadUserWallets()
+      }));
+      
+      setWalletBalancesLoaded(true);
     } catch (error) {
       console.error('Failed to load project wallets:', error);
       toast({
@@ -172,16 +190,20 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
     }
   };
 
-  // NEW: Load user wallets
+  // NEW: Load user wallets (ALL users, not just current user)
   const loadUserWallets = async () => {
-    if (!user?.id) return;
-
     try {
-      const userWallets = await internalWalletService.fetchUserEOAWallets(user.id);
+      // Load ALL user wallets WITH balances
+      const [userWallets, totalCount] = await Promise.all([
+        internalWalletService.refreshAllUserWalletBalances(true), // Get ALL user wallets WITH balances
+        internalWalletService.getTotalUserWalletCount() // Get total count across all users
+      ]);
+      
       setInternalWallets(prev => ({
         ...prev,
         userWallets
       }));
+      setTotalUserWalletCount(totalCount);
     } catch (error) {
       console.error('Failed to load user wallets:', error);
     }
@@ -193,18 +215,22 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
     try {
       setRefreshing(true);
-      await internalWalletService.refreshAllBalances(projectId);
+      // Get updated wallets WITH balances from the service
+      const updatedWallets = await internalWalletService.refreshAllBalances(projectId);
       
-      // Reload wallets to get updated balances
-      await loadProjectWallets();
+      // Update state with wallets that now have balance data
+      setInternalWallets(prev => ({
+        ...prev,
+        projectWallets: updatedWallets.projectWallets,
+        multiSigWallets: updatedWallets.multiSigWallets
+      }));
       
-      if (user?.id) {
-        const updatedUserWallets = await internalWalletService.refreshUserWalletBalances(user.id);
-        setInternalWallets(prev => ({
-          ...prev,
-          userWallets: updatedUserWallets
-        }));
-      }
+      // Refresh ALL user wallets (not just current user)
+      const updatedUserWallets = await internalWalletService.refreshAllUserWalletBalances();
+      setInternalWallets(prev => ({
+        ...prev,
+        userWallets: updatedUserWallets
+      }));
 
       setWalletBalancesLoaded(true);
       
@@ -290,24 +316,24 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   const calculatePortfolioTotal = () => {
     let total = 0;
     
-    // Add project wallet balances
+    // Add project wallet balances (USD values only for mainnets)
     internalWallets.projectWallets.forEach(wallet => {
-      if (wallet.balance) {
-        total += parseFloat(wallet.balance);
+      if (wallet.balance && !wallet.balance.isTestnet) {
+        total += wallet.balance.totalValueUsd;
       }
     });
     
-    // Add user wallet balances
+    // Add user wallet balances (USD values only for mainnets)
     internalWallets.userWallets.forEach(wallet => {
-      if (wallet.balance) {
-        total += parseFloat(wallet.balance);
+      if (wallet.balance && !wallet.balance.isTestnet) {
+        total += wallet.balance.totalValueUsd;
       }
     });
     
-    // Add multi-sig wallet balances
+    // Add multi-sig wallet balances (USD values only for mainnets)
     internalWallets.multiSigWallets.forEach(wallet => {
-      if (wallet.balance) {
-        total += parseFloat(wallet.balance);
+      if (wallet.balance && !wallet.balance.isTestnet) {
+        total += wallet.balance.totalValueUsd;
       }
     });
     
@@ -334,15 +360,24 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
 
-  const formatBalance = (balance: string | undefined) => {
+  const formatBalance = (balance: WalletBalance | undefined) => {
+    if (!balance) return "0";
+    
+    // Show native balance with symbol from network name
+    const nativeSymbol = balance.network.toUpperCase();
+    return `${parseFloat(balance.nativeBalance).toFixed(4)} ${nativeSymbol}`;
+  };
+
+  const formatBalanceWithUsd = (balance: WalletBalance | undefined) => {
     if (!balance) return "$0.00";
-    const numericBalance = parseFloat(balance);
-    return numericBalance.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    
+    // For testnets, just show native balance
+    if (balance.isTestnet) {
+      return formatBalance(balance);
+    }
+    
+    // For mainnets, show USD value
+    return `$${balance.totalValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const copyAddress = (address: string, e: React.MouseEvent) => {
@@ -453,10 +488,10 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {showBalances ? `$${portfolioTotal.toLocaleString()}` : '••••••'}
+              {showBalances ? `$${portfolioTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
             </div>
             <p className="text-xs text-muted-foreground">
-              +2.5% from last month
+              USD Value (Mainnet Only)
             </p>
           </CardContent>
         </Card>
@@ -469,7 +504,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
           <CardContent>
             <div className="text-2xl font-bold">{totalWalletCount}</div>
             <p className="text-xs text-muted-foreground">
-              {internalWallets.projectWallets.length} Project, {internalWallets.userWallets.length} User, {internalWallets.multiSigWallets.length} Multi-sig
+              {internalWallets.projectWallets.length} Project, {totalUserWalletCount} User, {internalWallets.multiSigWallets.length} Multi-sig
             </p>
           </CardContent>
         </Card>
@@ -531,13 +566,29 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
           <div className="grid gap-6 lg:grid-cols-2">
             <PortfolioOverview />
             <div className="space-y-6">
-              <EnhancedWalletList
-                wallets={contextWallets}
-                selectedWalletId={selectedWallet?.id}
-                onSelectWallet={selectWallet}
-                loading={contextLoading}
-                userId={user?.id || ''}
-              />
+              {user?.id ? (
+                <EnhancedWalletList
+                  wallets={contextWallets}
+                  selectedWalletId={selectedWallet?.id}
+                  onSelectWallet={selectWallet}
+                  loading={contextLoading}
+                  userId={user.id}
+                />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Wallets</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center space-y-2">
+                        <Skeleton className="h-4 w-48 mx-auto" />
+                        <Skeleton className="h-4 w-32 mx-auto" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -616,7 +667,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
                               : '••••••'}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {wallet.hasVaultKey ? '🔐 Vault' : wallet.hasDirectKey ? '🔑 Direct' : '⚠️  No key'}
+                            {wallet.hasVaultKey ? ' Vault' : wallet.hasDirectKey ? ' Direct' : '⚠️  No key'}
                           </p>
                         </div>
                       </div>
@@ -625,13 +676,13 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
                 </Card>
               )}
 
-              {/* User Wallets */}
+              {/* User EOA Wallets */}
               {internalWallets.userWallets.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="h-5 w-5" />
-                      User Wallets ({internalWallets.userWallets.length})
+                      User EOA Wallets ({internalWallets.userWallets.length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -642,9 +693,18 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{wallet.signingMethod}</span>
+                            <span className="font-medium">{wallet.userName || 'Unknown User'}</span>
+                            {wallet.userRole && (
+                              <Badge variant="outline" className="text-xs">
+                                {wallet.userRole}
+                              </Badge>
+                            )}
                             <Badge variant="outline">{wallet.blockchain}</Badge>
-                            {wallet.isActive && <Badge variant="default">Active</Badge>}
+                            {wallet.isActive ? (
+                              <Badge variant="default">Active</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inactive</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <code className="text-sm text-muted-foreground">
@@ -658,6 +718,9 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
                               <Copy className="h-3 w-3" />
                             </Button>
                           </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            User: {wallet.userEmail || formatAddress(wallet.userId)}
+                          </div>
                         </div>
                         <div className="text-right">
                           <div className="font-semibold">
@@ -666,7 +729,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
                               : '••••••'}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {wallet.hasVaultKey ? '🔐 Vault' : wallet.hasDirectKey ? '🔑 Direct' : '⚠️  No key'}
+                            {wallet.hasVaultKey ? ' Vault' : wallet.hasDirectKey ? ' Direct' : '  No key'}
                           </p>
                         </div>
                       </div>

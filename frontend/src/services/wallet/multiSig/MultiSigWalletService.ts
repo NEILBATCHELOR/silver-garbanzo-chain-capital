@@ -137,22 +137,57 @@ class MultiSigWalletServiceClass {
    */
   async getMultiSigWalletsForUser(userId: string): Promise<MultiSigWalletWithOwners[]> {
     try {
-      const { data, error } = await supabase
+      // Validate userId
+      if (!userId || userId.trim() === '') {
+        console.warn('getMultiSigWalletsForUser called with empty userId, returning empty array');
+        return [];
+      }
+
+      // Query 1: Wallets created by the user
+      const { data: createdWallets, error: createdError } = await supabase
         .from('multi_sig_wallets')
         .select(`
           *,
           owners:multi_sig_wallet_owners(*)
         `)
-        .or(`created_by.eq.${userId},multi_sig_wallet_owners.user_id.eq.${userId}`)
+        .eq('created_by', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (createdError) throw createdError;
 
-      return (data || []).map(wallet => ({
-        ...wallet,
-        owners: wallet.owners || [],
-        owner_count: (wallet.owners || []).length
-      }));
+      // Query 2: Wallets where user is an owner
+      const { data: ownedWallets, error: ownedError } = await supabase
+        .from('multi_sig_wallets')
+        .select(`
+          *,
+          owners:multi_sig_wallet_owners!inner(*)
+        `)
+        .eq('owners.user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (ownedError) throw ownedError;
+
+      // Combine and deduplicate by wallet ID
+      const walletMap = new Map<string, MultiSigWalletWithOwners>();
+      
+      const processWallets = (wallets: any[]) => {
+        wallets?.forEach(wallet => {
+          if (!walletMap.has(wallet.id)) {
+            walletMap.set(wallet.id, {
+              ...wallet,
+              owners: wallet.owners || [],
+              owner_count: (wallet.owners || []).length
+            });
+          }
+        });
+      };
+
+      processWallets(createdWallets || []);
+      processWallets(ownedWallets || []);
+
+      // Convert back to array and sort by created_at
+      return Array.from(walletMap.values())
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch (error) {
       console.error('Error fetching multi-sig wallets:', error);
       throw error;

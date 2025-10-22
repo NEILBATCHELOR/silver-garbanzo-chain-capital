@@ -35,7 +35,7 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
       {
         id: 'wallet-dashboard',
         label: 'Wallet Dashboard',
-        href: '/wallet/dashboard',
+        href: '/wallet/Internal',
         icon: LayoutDashboard,
         permissions: ['wallet.view']
       },
