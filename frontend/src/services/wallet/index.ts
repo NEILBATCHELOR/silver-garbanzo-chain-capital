@@ -1,6 +1,5 @@
 // Main wallet services
 export * from './balances/BalanceService';
-export * from './TransactionHistoryService';
 export * from './PriceFeedService';
 
 // Enhanced Wallet Services - Full SDK Integration
@@ -131,19 +130,18 @@ export {
   type MultiSigWalletOwner,
   type MultiSigTransaction,
   type MultiSigConfirmation
-} from './MultiSigWalletService';
+} from './multiSig/MultiSigWalletService';
 
 // Other wallet services
 export * from './WalletManager';
 export * from './WalletGenerator';
-export * from './WalletTransactionService';
+// export * from './WalletTransactionService'; // DEPRECATED - Use TransactionMonitorService instead
 export * from './WalletApiService';
 export * from './SecurityService';
 export * from './LightningNetworkService';
 
 // Import and re-export the service instances
 import { BalanceService } from './balances/BalanceService';
-import { transactionHistoryService } from './TransactionHistoryService';
 import { priceFeedService } from './PriceFeedService';
 import { enhancedTokenDetectionService } from './EnhancedTokenDetectionService';
 import { walletApiService } from './WalletApiService';
@@ -161,7 +159,6 @@ import { injectiveWalletService } from './injective';
 
 export {   
   BalanceService,
-  transactionHistoryService,
   priceFeedService,
   enhancedTokenDetectionService,
   walletApiService,
@@ -269,3 +266,7 @@ export type {
   InjectiveMarketOrder,
   InjectiveTransferParams
 } from './injective';
+// New wallet management services
+export * from './InternalWalletService';
+export * from './TransferService';
+

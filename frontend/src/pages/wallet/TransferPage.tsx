@@ -57,7 +57,7 @@ import { RecentAddresses } from "@/components/wallet/components/transfer/RecentA
 import { TransactionConfirmation } from "@/components/wallet/components/TransactionConfirmation";
 import { ErrorDisplay } from "@/components/wallet/components/ErrorDisplay";
 import { MultiSigTransactionConfirmation } from "@/components/wallet/components/multisig/MultiSigTransactionConfirmation";
-import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
+import { MultiSigWalletService } from "@/services/wallet/multiSig/MultiSigWalletService";
 
 // Schema for the transfer form
 const transferSchema = z.object({

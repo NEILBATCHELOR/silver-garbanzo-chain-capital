@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { Users, Copy, Info, ChevronRight, Shield, Wallet } from 'lucide-react';
-import { MultiSigWalletService, MultiSigWalletWithOwners } from '@/services/wallet/MultiSigWalletService';
+import { MultiSigWalletService, MultiSigWalletWithOwners } from '@/services/wallet/multiSig/MultiSigWalletService';
 
 interface MultiSigWalletsListProps {
   userId: string;

@@ -626,7 +626,7 @@ export const MultiSigWalletWizard: React.FC<MultiSigWalletWizardProps> = ({ proj
         <CardHeader>
           <CardTitle>Create Multi-Sig Wallet</CardTitle>
           <CardDescription>
-            Set up a new multi-signature wallet with customizable security settings
+            Set up a new multi-signature wallet, manage proposals, collect signatures, and execute multi-sig transactions.
             {projectId && (
               <span className="block mt-1 text-xs">
                 <Badge variant="outline" className="mr-1">Project</Badge>

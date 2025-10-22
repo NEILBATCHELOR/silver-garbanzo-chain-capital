@@ -38,14 +38,20 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
+
+// Import new services
+import { internalWalletService, ProjectWallet } from "@/services/wallet/InternalWalletService";
+import { transferService, type TransferParams, type GasEstimate } from "@/services/wallet/TransferService";
+import { useUser } from "@/hooks/auth/user/useUser";
+import { getPrimaryOrFirstProject } from "@/services/project/primaryProjectService";
+
+// Import existing components
 import { TransferGasSettings } from "@/components/wallet/components/transfer/TransferGasSettings";
 import { TransferConfirmation } from "@/components/wallet/components/transfer/TransferConfirmation";
 import { QrCodeScanner } from "@/components/wallet/components/transfer/QrCodeScanner";
 import { RecentAddresses } from "@/components/wallet/components/transfer/RecentAddresses";
 import { TransactionConfirmation } from "@/components/wallet/components/TransactionConfirmation";
 import { ErrorDisplay } from "@/components/wallet/components/ErrorDisplay";
-import { MultiSigTransactionConfirmation } from "@/components/wallet/components/multisig/MultiSigTransactionConfirmation";
-import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
 
 // Schema for the transfer form
 const transferSchema = z.object({
@@ -61,19 +67,25 @@ const transferSchema = z.object({
 type TransferFormValues = z.infer<typeof transferSchema>;
 
 // Transfer page states
-type TransferState = "input" | "confirmation" | "processing" | "success" | "error" | "multisig_pending";
+type TransferState = "input" | "confirmation" | "processing" | "success" | "error";
 
 export const TransferTab: React.FC = () => {
   const { toast } = useToast();
-  const { wallets, selectedWallet } = useWallet();
+  const { user } = useUser();
+  const { wallets: contextWallets, selectedWallet } = useWallet();
   
+  // State
   const [transferState, setTransferState] = useState<TransferState>("input");
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isMultiSig, setIsMultiSig] = useState(false);
-  const [multiSigTxId, setMultiSigTxId] = useState<string | null>(null);
-  const [multiSigWallet, setMultiSigWallet] = useState<any>(null);
+  const [gasEstimate, setGasEstimate] = useState<GasEstimate | null>(null);
+  const [isEstimating, setIsEstimating] = useState(false);
+  
+  // Project wallets from InternalWalletService
+  const [projectWallets, setProjectWallets] = useState<ProjectWallet[]>([]);
+  const [loadingWallets, setLoadingWallets] = useState(true);
+  const [projectId, setProjectId] = useState<string | null>(null);
   
   // Form for transfer
   const form = useForm<TransferFormValues>({
@@ -87,6 +99,48 @@ export const TransferTab: React.FC = () => {
     },
   });
 
+  // Load project and wallets on mount
+  useEffect(() => {
+    loadProjectWallets();
+  }, []);
+
+  const loadProjectWallets = async () => {
+    try {
+      setLoadingWallets(true);
+      
+      // Get primary project
+      const project = await getPrimaryOrFirstProject();
+      if (!project) {
+        toast({
+          variant: "destructive",
+          title: "No Project Found",
+          description: "Please create a project first to use transfers",
+        });
+        return;
+      }
+      
+      setProjectId(project.id);
+      
+      // Fetch project wallets
+      const wallets = await internalWalletService.fetchProjectEOAWallets(project.id);
+      setProjectWallets(wallets);
+      
+      // Set first wallet as default if none selected
+      if (wallets.length > 0 && !form.getValues("fromWallet")) {
+        form.setValue("fromWallet", wallets[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load project wallets:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load wallets",
+      });
+    } finally {
+      setLoadingWallets(false);
+    }
+  };
+
   // Update form when selectedWallet changes
   useEffect(() => {
     if (selectedWallet?.id && form.getValues("fromWallet") !== selectedWallet.id) {
@@ -94,82 +148,146 @@ export const TransferTab: React.FC = () => {
     }
   }, [selectedWallet, form]);
 
-  // Check if selected wallet is a multisig wallet
+  // Estimate gas when form values change
   useEffect(() => {
-    const checkWalletType = async () => {
-      const walletId = form.getValues("fromWallet");
-      if (!walletId) return;
-      
-      try {
-        // Check if this is a multisig wallet
-        const wallets = await MultiSigWalletService.getMultiSigWallets();
-        const multiSigWallet = wallets.find(w => w.address === walletId);
-        
-        if (multiSigWallet) {
-          setIsMultiSig(true);
-          setMultiSigWallet(multiSigWallet);
-        } else {
-          setIsMultiSig(false);
-          setMultiSigWallet(null);
-        }
-      } catch (error) {
-        console.error("Error checking wallet type:", error);
-        setIsMultiSig(false);
+    const subscription = form.watch((value, { name }) => {
+      if (name && ['fromWallet', 'toAddress', 'amount'].includes(name)) {
+        estimateGasForTransfer();
       }
-    };
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
+
+  // Estimate gas for transfer
+  const estimateGasForTransfer = async () => {
+    const values = form.getValues();
     
-    checkWalletType();
-  }, [form.watch("fromWallet")]);
+    // Only estimate if all required fields are filled
+    if (!values.fromWallet || !values.toAddress || !values.amount || values.amount === '0') {
+      setGasEstimate(null);
+      return;
+    }
+
+    // Find wallet details
+    const wallet = projectWallets.find(w => w.id === values.fromWallet);
+    if (!wallet) return;
+
+    try {
+      setIsEstimating(true);
+      
+      const transferParams: TransferParams = {
+        from: wallet.address,
+        to: values.toAddress,
+        amount: values.amount,
+        blockchain: wallet.network || wallet.chainId || 'ethereum',
+        walletId: wallet.id,
+        walletType: 'project'
+      };
+
+      const estimate = await transferService.estimateGas(transferParams);
+      setGasEstimate(estimate);
+    } catch (error) {
+      console.error('Gas estimation error:', error);
+      setGasEstimate(null);
+    } finally {
+      setIsEstimating(false);
+    }
+  };
 
   // Handle form submission
   const onSubmit = async (values: TransferFormValues) => {
+    // Validate first
+    const wallet = projectWallets.find(w => w.id === values.fromWallet);
+    if (!wallet) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Selected wallet not found",
+      });
+      return;
+    }
+
+    const transferParams: TransferParams = {
+      from: wallet.address,
+      to: values.toAddress,
+      amount: values.amount,
+      blockchain: wallet.network || wallet.chainId || 'ethereum',
+      walletId: wallet.id,
+      walletType: 'project'
+    };
+
+    // Validate transfer
+    const validation = await transferService.validateTransfer(transferParams);
+    
+    if (!validation.valid) {
+      toast({
+        variant: "destructive",
+        title: "Validation Failed",
+        description: validation.errors.join(', '),
+      });
+      return;
+    }
+
+    // Show warnings if any
+    if (validation.warnings.length > 0) {
+      toast({
+        title: "Warning",
+        description: validation.warnings.join(', '),
+      });
+    }
+
+    // Move to confirmation
     setTransferState("confirmation");
   };
 
-  // Handle transfer confirmation
+  // Handle transfer confirmation and execution
   const handleConfirmTransfer = async () => {
     try {
-      // If this is a multisig wallet, create a transaction proposal
-      if (isMultiSig && multiSigWallet) {
-        const values = form.getValues();
-        
-        // Propose a transaction to the multisig wallet
-        const transactionId = await MultiSigWalletService.proposeTransaction(
-          multiSigWallet.id,
-          values.toAddress,
-          values.amount,
-          "0x" // empty data for simple transfer
-        );
-        
-        // Set the multisig transaction ID
-        setMultiSigTxId(transactionId);
-        setTransferState("multisig_pending");
-        
-        toast({
-          title: "Transaction Proposed",
-          description: "Your transfer has been proposed and requires additional signatures",
-        });
-        
-        return;
-      }
-      
-      // For regular wallets, process normally
       setTransferState("processing");
       
-      // In a real app, this would call the wallet service to submit the transaction
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const values = form.getValues();
+      const wallet = projectWallets.find(w => w.id === values.fromWallet);
       
-      // Set mock transaction hash
-      setTransactionHash("0x3d016d979f9e5a9f96ed9e4eb0c6cd16e3731e89562f92d4623a21030c5c7f1a");
-      
-      // Show success
-      setTransferState("success");
-      
-      toast({
-        title: "Transaction Submitted",
-        description: "Your transfer has been submitted to the network",
-      });
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      // Create transfer params
+      const transferParams: TransferParams = {
+        from: wallet.address,
+        to: values.toAddress,
+        amount: values.amount,
+        blockchain: wallet.network || wallet.chainId || 'ethereum',
+        walletId: wallet.id,
+        walletType: 'project',
+        // Apply gas settings based on user selection
+        ...(gasEstimate && {
+          gasLimit: gasEstimate.gasLimit,
+          ...(gasEstimate.maxFeePerGas ? {
+            maxFeePerGas: gasEstimate.maxFeePerGas,
+            maxPriorityFeePerGas: gasEstimate.maxPriorityFeePerGas
+          } : {
+            gasPrice: gasEstimate.gasPrice
+          })
+        })
+      };
+
+      // Execute transfer
+      const result = await transferService.executeTransfer(transferParams);
+
+      if (result.success) {
+        setTransactionHash(result.transactionHash || null);
+        setTransferState("success");
+        
+        toast({
+          title: "Transfer Successful",
+          description: `Transaction hash: ${result.transactionHash}`,
+        });
+      } else {
+        throw new Error(result.error || 'Transfer failed');
+      }
     } catch (error) {
+      console.error('Transfer error:', error);
       setErrorMessage(error instanceof Error ? error.message : "An error occurred while processing your transaction");
       setTransferState("error");
       
@@ -181,51 +299,22 @@ export const TransferTab: React.FC = () => {
     }
   };
 
-  // Handle multisig transaction signing
-  const handleSignTransaction = async () => {
-    if (!multiSigTxId) return;
-    
-    try {
-      // In a real implementation, this would generate a signature using the wallet
-      const signature = "0x" + Array(130).fill("0").join("");
-      
-      // Submit signature
-      await MultiSigWalletService.confirmTransaction(multiSigTxId, signature);
-      
-      toast({
-        title: "Transaction Signed",
-        description: "Your signature has been added to the transaction",
-      });
-    } catch (error) {
-      console.error("Error signing transaction:", error);
-      toast({
-        variant: "destructive",
-        title: "Signature Failed",
-        description: error instanceof Error ? error.message : "Failed to sign transaction",
-      });
-    }
-  };
-
   // Handle QR code scanning
   const handleQrScan = (address: string) => {
     form.setValue("toAddress", address);
     setShowQrScanner(false);
   };
 
-  // Share multisig transaction
-  const handleShareTransaction = (txId: string) => {
-    // In a real implementation, this would generate a shareable link
-    navigator.clipboard.writeText(`https://app.chaincapital.com/multisig/tx/${txId}`);
-  };
-
   // Function to handle back button click based on state
   const handleBack = () => {
     if (transferState === "confirmation") {
       setTransferState("input");
-    } else if (transferState === "success" || transferState === "error" || transferState === "multisig_pending") {
+    } else if (transferState === "success" || transferState === "error") {
       // Reset the form and go back to input state
       form.reset();
       setTransferState("input");
+      setTransactionHash(null);
+      setErrorMessage(null);
     }
   };
 
@@ -246,6 +335,7 @@ export const TransferTab: React.FC = () => {
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        disabled={loadingWallets}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -253,25 +343,25 @@ export const TransferTab: React.FC = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {wallets.length > 0 ? (
-                          wallets.map((wallet) => (
-                          <SelectItem key={wallet.id} value={wallet.id}>
-                          <div className="flex items-center">
-                            <span className="mr-2">{wallet.name}</span>
-                          <Badge variant="outline" className="ml-2">
-                              {wallet.network}
-                              </Badge>
-                                <span className="ml-2 text-sm text-muted-foreground">
-                                    {parseFloat(wallet.balance) > 0 ? `${parseFloat(wallet.balance).toFixed(4)}` : '0'}
-                                </span>
-                              </div>
+                          {projectWallets.length > 0 ? (
+                            projectWallets.map((wallet) => (
+                              <SelectItem key={wallet.id} value={wallet.id}>
+                                <div className="flex items-center">
+                                  <span className="mr-2">{wallet.walletType}</span>
+                                  <Badge variant="outline" className="ml-2">
+                                    {wallet.network}
+                                  </Badge>
+                                  <span className="ml-2 text-sm text-muted-foreground">
+                                    {wallet.balance ? `${parseFloat(wallet.balance).toFixed(4)}` : 'Loading...'}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no-wallets" disabled>
+                              No wallets available - create one first
                             </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="no-wallets" disabled>
-                            No wallets available - create one first
-                          </SelectItem>
-                        )}
+                          )}
                         </SelectContent>
                       </Select>
                       <FormDescription>
@@ -340,12 +430,7 @@ export const TransferTab: React.FC = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
-                            <SelectItem value="USDC">USD Coin (USDC)</SelectItem>
-                            <SelectItem value="MATIC">Polygon (MATIC)</SelectItem>
-                            <SelectItem value="AVAX">Avalanche (AVAX)</SelectItem>
-                            <SelectItem value="LINK">Chainlink (LINK)</SelectItem>
-                            <SelectItem value="UNI">Uniswap (UNI)</SelectItem>
+                            <SelectItem value="ETH">Native Token</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -356,8 +441,32 @@ export const TransferTab: React.FC = () => {
 
                 <TransferGasSettings form={form} />
 
+                {/* Gas Estimate Display */}
+                {gasEstimate && (
+                  <div className="p-4 border rounded-lg bg-muted/50">
+                    <h4 className="text-sm font-medium mb-2">Estimated Gas Cost</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Gas Limit:</span>
+                        <span>{gasEstimate.gasLimit}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Estimated Cost:</span>
+                        <span>{gasEstimate.estimatedCost} ETH</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isEstimating && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Estimating gas...</span>
+                  </div>
+                )}
+
                 <div className="pt-4">
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={loadingWallets || isEstimating}>
                     Continue
                   </Button>
                 </div>
@@ -367,7 +476,6 @@ export const TransferTab: React.FC = () => {
         );
       
       case "confirmation":
-        // Get the form values but ensure they're all defined for the required props
         const formValues = form.getValues();
         const formData = {
           fromWallet: formValues.fromWallet || "",
@@ -436,41 +544,13 @@ export const TransferTab: React.FC = () => {
           />
         );
       
-      case "multisig_pending":
-        if (!multiSigTxId || !multiSigWallet) {
-          return <div>Error loading multisig transaction</div>;
-        }
-        
-        return (
-          <MultiSigTransactionConfirmation
-            transactionId={multiSigTxId}
-            walletId={multiSigWallet.id}
-            txHash={null}
-            title="Multisig Transfer"
-            description="This transfer requires multiple signatures"
-            details={{
-              from: multiSigWallet.name,
-              to: form.getValues("toAddress"),
-              amount: form.getValues("amount"),
-              asset: form.getValues("asset"),
-              timestamp: new Date().toISOString(),
-            }}
-            threshold={multiSigWallet.threshold}
-            owners={multiSigWallet.owners}
-            canSign={true} // This would be determined by checking if the current user is an owner
-            onSignTransaction={handleSignTransaction}
-            onShareTransaction={handleShareTransaction}
-            onBack={handleBack}
-          />
-        );
-      
       default:
         return null;
     }
   };
 
   // Show message if no wallets available
-  if (!wallets.length && transferState === "input") {
+  if (!projectWallets.length && !loadingWallets && transferState === "input") {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -496,7 +576,6 @@ export const TransferTab: React.FC = () => {
               {transferState === "processing" && "Processing Transaction"}
               {transferState === "success" && "Transaction Successful"}
               {transferState === "error" && "Transaction Failed"}
-              {transferState === "multisig_pending" && "Multisig Transfer"}
             </CardTitle>
             <CardDescription>
               {transferState === "input" && "Send assets to another wallet address"}
@@ -504,7 +583,6 @@ export const TransferTab: React.FC = () => {
               {transferState === "processing" && "Your transaction is being processed"}
               {transferState === "success" && "Your transfer has been completed"}
               {transferState === "error" && "There was an error processing your transaction"}
-              {transferState === "multisig_pending" && "This transfer requires multiple signatures"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -549,13 +627,14 @@ export const TransferTab: React.FC = () => {
                 </span>
               </div>
               
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Gas Price</span>
-                <span className="text-sm">
-                  {form.watch("gasOption") === "slow" ? "25 Gwei" : 
-                   form.watch("gasOption") === "standard" ? "35 Gwei" : "50 Gwei"}
-                </span>
-              </div>
+              {gasEstimate && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Estimated Cost</span>
+                  <span className="text-sm font-medium">
+                    {gasEstimate.estimatedCost} ETH
+                  </span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

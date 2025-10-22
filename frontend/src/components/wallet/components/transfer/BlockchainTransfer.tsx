@@ -5,10 +5,35 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ArrowRight, AlertCircle, CheckCircle, Clock } from "lucide-react";
-import { transferService, TransferParams, TransferEstimate, TransferResult } from "@/services/wallet/TransferService";
+import { transferService, type TransferParams as ServiceTransferParams, type GasEstimate, type TransferResult as ServiceTransferResult } from "@/services/wallet/TransferService";
 import { useWallet } from "@/services/wallet/WalletContext";
 import { TransferConfirmation } from "./TransferConfirmation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Legacy interface for backward compatibility
+interface LegacyTransferParams {
+  fromWallet: string;
+  toAddress: string;
+  amount: string;
+  asset: string;
+  blockchain: string;
+  gasOption: 'slow' | 'standard' | 'fast';
+  memo: string;
+}
+
+// Adapter types for backward compatibility
+interface TransferEstimate extends GasEstimate {
+  gasFee?: string;
+  gasFeeUsd?: string;
+  totalAmount?: string;
+  estimatedConfirmationTime?: string;
+  networkCongestion?: 'low' | 'medium' | 'high';
+}
+
+interface TransferResult extends ServiceTransferResult {
+  txHash?: string;
+  status?: string;
+}
 
 interface BlockchainTransferProps {
   onTransferComplete?: (result: TransferResult) => void;
@@ -21,7 +46,7 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
 }) => {
   const { wallets } = useWallet();
   const [step, setStep] = useState<TransferStep>('form');
-  const [transferParams, setTransferParams] = useState<TransferParams>({
+  const [transferParams, setTransferParams] = useState<LegacyTransferParams>({
     fromWallet: '',
     toAddress: '',
     amount: '',
@@ -37,7 +62,7 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Available assets per blockchain
-  const assetsByBlockchain = {
+  const assetsByBlockchain: Record<string, string[]> = {
     ethereum: ['ETH', 'USDC', 'USDT', 'WBTC', 'UNI', 'LINK'],
     polygon: ['MATIC', 'USDC', 'USDT', 'WETH', 'AAVE'],
     arbitrum: ['ETH', 'USDC', 'ARB', 'GMX'],
@@ -71,6 +96,23 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
     }
   }, [transferParams.blockchain]);
 
+  // Convert legacy params to service params
+  const convertToServiceParams = (legacy: LegacyTransferParams): ServiceTransferParams | null => {
+    // Find wallet to get its ID
+    const wallet = wallets.find(w => w.address === legacy.fromWallet);
+    if (!wallet) return null;
+
+    return {
+      from: legacy.fromWallet,
+      to: legacy.toAddress,
+      amount: legacy.amount,
+      blockchain: legacy.blockchain,
+      walletId: wallet.id,
+      walletType: 'project', // Assume project wallet for now
+      // Note: token/asset selection not yet supported in new service (only native tokens)
+    };
+  };
+
   const handleGetEstimate = async () => {
     if (!transferParams.fromWallet || !transferParams.toAddress || !transferParams.amount) {
       setError('Please fill all required fields');
@@ -81,11 +123,28 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
     setError('');
 
     try {
-      const estimateResult = await transferService.estimateTransfer(transferParams);
-      setEstimate(estimateResult);
+      const serviceParams = convertToServiceParams(transferParams);
+      if (!serviceParams) {
+        throw new Error('Could not find wallet');
+      }
+
+      const gasEstimate = await transferService.estimateGas(serviceParams);
+      
+      // Adapt GasEstimate to TransferEstimate
+      const adaptedEstimate: TransferEstimate = {
+        ...gasEstimate,
+        gasFee: gasEstimate.estimatedCost,
+        gasFeeUsd: undefined, // Not provided by new service
+        totalAmount: (parseFloat(transferParams.amount) + parseFloat(gasEstimate.estimatedCost || '0')).toString(),
+        estimatedConfirmationTime: transferParams.gasOption === 'slow' ? '5-10 min' : 
+                                    transferParams.gasOption === 'standard' ? '1-3 min' : '< 30 sec',
+        networkCongestion: 'medium' // Default for now
+      };
+      
+      setEstimate(adaptedEstimate);
       setStep('estimate');
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Estimation failed');
       setStep('error');
     } finally {
       setIsLoading(false);
@@ -97,15 +156,34 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
     setStep('executing');
 
     try {
-      const transferResult = await transferService.executeTransfer(transferParams);
-      setResult(transferResult);
-      setStep('success');
+      const serviceParams = convertToServiceParams(transferParams);
+      if (!serviceParams) {
+        throw new Error('Could not find wallet');
+      }
+
+      const transferResult = await transferService.executeTransfer(serviceParams);
+      
+      // Adapt ServiceTransferResult to TransferResult
+      const adaptedResult: TransferResult = {
+        ...transferResult,
+        txHash: transferResult.transactionHash,
+        status: transferResult.success ? 'confirmed' : 'failed'
+      };
+      
+      setResult(adaptedResult);
+      
+      if (transferResult.success) {
+        setStep('success');
+      } else {
+        setError(transferResult.error || 'Transfer failed');
+        setStep('error');
+      }
       
       if (onTransferComplete) {
-        onTransferComplete(transferResult);
+        onTransferComplete(adaptedResult);
       }
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Transfer failed');
       setStep('error');
     } finally {
       setIsLoading(false);
@@ -301,7 +379,7 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Network Fee</span>
-            <span className="font-medium">{estimate?.gasFee} ETH (${estimate?.gasFeeUsd})</span>
+            <span className="font-medium">{estimate?.gasFee} ETH {estimate?.gasFeeUsd ? `($${estimate.gasFeeUsd})` : ''}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total</span>
@@ -383,11 +461,11 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
             <span className="text-muted-foreground">Transaction Hash</span>
           </div>
           <div className="font-mono text-sm break-all">
-            {result?.txHash}
+            {result?.txHash || result?.transactionHash}
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Status</span>
-            <span className="font-medium capitalize">{result?.status}</span>
+            <span className="font-medium capitalize">{result?.status || (result?.success ? 'confirmed' : 'failed')}</span>
           </div>
         </div>
 

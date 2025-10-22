@@ -19,7 +19,7 @@ import {
 import { JsonRpcProvider, Wallet, Contract, JsonRpcSigner } from "ethers";
 import { supabase } from "@/infrastructure/database/client";
 import { logActivity } from "@/infrastructure/activityLogger";
-import { MultiSigWalletService } from "./MultiSigWalletService";
+import { MultiSigWalletService } from "./multiSig/MultiSigWalletService";
 import { TokenType } from '@/types/core/centralModels';
 import { providerManager, NetworkEnvironment } from "@/infrastructure/web3/ProviderManager";
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';

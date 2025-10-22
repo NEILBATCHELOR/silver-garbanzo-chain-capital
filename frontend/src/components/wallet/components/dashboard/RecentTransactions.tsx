@@ -20,9 +20,11 @@ import {
 } from "lucide-react";
 import { useUser } from "@/hooks/auth/user/useUser";
 import { useWallet } from "@/services/wallet/WalletContext";
-import WalletTransactionService, { WalletTransaction } from "@/services/wallet/WalletTransactionService";
+import { transactionMonitorService } from "@/services/wallet/TransactionMonitorService";
+import type { WalletTransactionsTable } from "@/types/core/database";
 
-const transactionService = WalletTransactionService.getInstance();
+// Type alias for backward compatibility
+type WalletTransaction = WalletTransactionsTable;
 
 interface RecentTransactionsProps {
   limit?: number;
@@ -60,22 +62,26 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
       
       let txData: WalletTransaction[] = [];
       
-      if (user) {
-        console.log('🔍 DEBUG: Fetching transactions for user:', user.id);
-        // Fetch transactions for user's wallets (both regular and guardian)
-        txData = await transactionService.getTransactionsForUser(user.id, limit);
-        console.log('🔍 DEBUG: User transactions found:', txData.length);
-      } else if (wallets.length > 0) {
+      if (wallets.length > 0) {
         console.log('🔍 DEBUG: Fetching transactions for wallet addresses:', wallets.map(w => w.address));
-        // Fallback to wallet context addresses
+        // Fetch transactions for all wallet addresses
         const addresses = wallets.map(w => w.address);
-        txData = await transactionService.getTransactionsForWallets(addresses, limit);
+        const allTxs = await Promise.all(
+          addresses.map(address => transactionMonitorService.getWalletTransactionHistory(address, limit))
+        );
+        // Flatten and deduplicate by transaction_hash
+        txData = Array.from(
+          new Map(
+            allTxs.flat().map(tx => [tx.transaction_hash || tx.tx_hash, tx])
+          ).values()
+        );
+        // Sort by created_at descending
+        txData.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        // Limit to requested amount
+        txData = txData.slice(0, limit);
         console.log('🔍 DEBUG: Wallet transactions found:', txData.length);
       } else {
-        console.log('🔍 DEBUG: No user or wallets, fetching recent transactions across all wallets');
-        // Show recent transactions across all wallets if no user/wallets
-        txData = await transactionService.getRecentTransactions(limit);
-        console.log('🔍 DEBUG: Recent transactions found:', txData.length);
+        console.log('🔍 DEBUG: No wallets available');
       }
       
       console.log('🔍 DEBUG: Transaction data sample:', txData.slice(0, 2));
@@ -118,6 +124,22 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
+  const formatTransactionAmount = (value: number, symbol?: string | null): string => {
+    const amount = (value / 1e18).toFixed(4);
+    return `${amount} ${symbol || 'ETH'}`;
+  };
+
+  const getNetworkName = (chainId: string): string => {
+    const networks: Record<string, string> = {
+      '1': 'Ethereum',
+      '137': 'Polygon',
+      '43114': 'Avalanche',
+      '42161': 'Arbitrum',
+      '10': 'Optimism'
+    };
+    return networks[chainId] || `Chain ${chainId}`;
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case 'success':
@@ -154,7 +176,7 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
   const getTransactionTypeIcon = (transaction: WalletTransaction) => {
     // Determine if this is a send or receive based on wallet addresses
     const userAddresses = wallets.map(w => w.address.toLowerCase());
-    const isFromUser = userAddresses.includes(transaction.fromAddress.toLowerCase());
+    const isFromUser = userAddresses.includes(transaction.from_address.toLowerCase());
     
     if (isFromUser) {
       return <ArrowUpRight className="h-4 w-4 text-red-500" />;
@@ -252,7 +274,7 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
                       <div className="flex items-center gap-2">
                         {getTransactionTypeIcon(transaction)}
                         <span className="text-sm font-medium">
-                          {wallets.some(w => w.address.toLowerCase() === transaction.fromAddress.toLowerCase()) 
+                          {wallets.some(w => w.address.toLowerCase() === transaction.from_address.toLowerCase()) 
                             ? 'Send' 
                             : 'Receive'}
                         </span>
@@ -260,21 +282,21 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="font-medium">From: {formatAddress(transaction.fromAddress)}</div>
-                        <div className="text-muted-foreground">To: {formatAddress(transaction.toAddress)}</div>
+                        <div className="font-medium">From: {formatAddress(transaction.from_address)}</div>
+                        <div className="text-muted-foreground">To: {formatAddress(transaction.to_address)}</div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        {transactionService.formatTransactionAmount(
+                        {formatTransactionAmount(
                           transaction.value, 
-                          transaction.tokenSymbol
+                          transaction.token_symbol
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
-                        {transactionService.getNetworkName(transaction.chainId)}
+                        {getNetworkName(transaction.chain_id)}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -282,15 +304,15 @@ export const RecentTransactions: React.FC<RecentTransactionsProps> = ({
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {formatTimeAgo(transaction.createdAt)}
+                        {formatTimeAgo(transaction.created_at)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      {transaction.txHash && (
+                      {transaction.tx_hash && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openInExplorer(transaction.txHash, transaction.chainId)}
+                          onClick={() => openInExplorer(transaction.tx_hash, transaction.chain_id)}
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>

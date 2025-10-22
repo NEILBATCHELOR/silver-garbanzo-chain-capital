@@ -8,7 +8,7 @@ import { ChevronRight, UserPlus, Copy, Info, Wallet, Users, Shield, Plus } from 
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSigWalletsList } from "./MultiSigWalletsList";
-import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
+import { MultiSigWalletService } from "@/services/wallet/multiSig/MultiSigWalletService";
 
 interface EnhancedWalletListProps {
   wallets: WalletType[];

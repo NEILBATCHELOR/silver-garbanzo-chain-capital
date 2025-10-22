@@ -4,8 +4,20 @@
  */
 
 import { ChainType } from '../AddressUtils';
-import type { Transaction, TransactionFilter } from '../TransactionHistoryService';
+import type { Transaction } from '@/types/core/centralModels';
 
+// Ripple-specific transaction filter
+export interface RippleTransactionFilter {
+  limit?: number;
+  types?: Array<'send' | 'receive'>;
+  status?: string[];
+  fromDate?: Date;
+  toDate?: Date;
+  minAmount?: number;
+  maxAmount?: number;
+}
+
+// Raw Ripple transaction from XRP Ledger
 export interface RippleTransaction {
   Account: string;
   Amount: string | { currency: string; value: string; issuer: string };
@@ -45,7 +57,7 @@ export class RippleTransactionHistoryService {
    */
   async fetchTransactionHistory(
     address: string,
-    filter: TransactionFilter = {}
+    filter: RippleTransactionFilter = {}
   ): Promise<Transaction[]> {
     try {
       // Fetch account transactions from XRP Ledger
@@ -87,7 +99,7 @@ export class RippleTransactionHistoryService {
   }
   
   /**
-   * Parse a Ripple transaction into standard format
+   * Parse a Ripple transaction into standard Transaction format
    */
   private parseRippleTransaction(
     txData: any,
@@ -124,27 +136,43 @@ export class RippleTransactionHistoryService {
     
     // Get timestamp
     const timestamp = tx.date 
-      ? new Date((tx.date + 946684800) * 1000) // Ripple epoch starts at 2000-01-01
-      : new Date();
+      ? new Date((tx.date + 946684800) * 1000).toISOString() // Ripple epoch starts at 2000-01-01
+      : new Date().toISOString();
     
+    // Determine status
+    const status = meta.TransactionResult === 'tesSUCCESS' ? 'confirmed' : 'failed';
+    
+    // Create Transaction object matching centralModels interface
     return {
       id: `ripple-${tx.hash}`,
       hash: tx.hash,
+      txHash: tx.hash,
       type: isOutgoing ? 'send' : 'receive',
       chainId: this.networkType === 'mainnet' ? 0 : 1,
       chainName: this.networkType === 'mainnet' ? 'Ripple' : 'Ripple Testnet',
+      from: tx.Account,
       fromAddress: tx.Account,
+      to: tx.Destination,
       toAddress: tx.Destination,
       amount,
       symbol,
-      tokenAddress,
+      value: amount,
       usdValue: 0, // Would need price feed
-      gasFee,
+      gasPrice: gasFee,
       gasFeeUsd: 0, // Would need price feed
-      status: meta.TransactionResult === 'tesSUCCESS' ? 'confirmed' : 'failed',
-      confirmationCount: txData.validated ? 1 : 0,
+      status: status as 'pending' | 'confirmed' | 'failed',
       blockNumber: tx.ledger_index,
-      timestamp
+      timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      walletId: '', // Not applicable for Ripple
+      blockchain: this.networkType === 'mainnet' ? 'ripple' : 'ripple-testnet',
+      metadata: {
+        destinationTag: tx.DestinationTag,
+        sourceTag: tx.SourceTag,
+        memos: tx.Memos,
+        tokenAddress
+      }
     };
   }
   
@@ -188,7 +216,7 @@ export class RippleTransactionHistoryService {
     currency?: string,
     limit: number = 50
   ): Promise<Transaction[]> {
-    const filter: TransactionFilter = {
+    const filter: RippleTransactionFilter = {
       limit,
       types: ['send', 'receive']
     };
@@ -297,12 +325,12 @@ export class RippleTransactionHistoryService {
    */
   private applyFilters(
     transactions: Transaction[],
-    filter: TransactionFilter
+    filter: RippleTransactionFilter
   ): Transaction[] {
     let filtered = transactions;
     
     if (filter.types && filter.types.length > 0) {
-      filtered = filtered.filter(tx => filter.types!.includes(tx.type));
+      filtered = filtered.filter(tx => filter.types!.includes(tx.type as 'send' | 'receive'));
     }
     
     if (filter.status && filter.status.length > 0) {
@@ -310,19 +338,27 @@ export class RippleTransactionHistoryService {
     }
     
     if (filter.fromDate) {
-      filtered = filtered.filter(tx => tx.timestamp >= filter.fromDate!);
+      filtered = filtered.filter(tx => 
+        tx.timestamp && new Date(tx.timestamp) >= filter.fromDate!
+      );
     }
     
     if (filter.toDate) {
-      filtered = filtered.filter(tx => tx.timestamp <= filter.toDate!);
+      filtered = filtered.filter(tx => 
+        tx.timestamp && new Date(tx.timestamp) <= filter.toDate!
+      );
     }
     
     if (filter.minAmount !== undefined) {
-      filtered = filtered.filter(tx => parseFloat(tx.amount) >= filter.minAmount!);
+      filtered = filtered.filter(tx => 
+        tx.amount && parseFloat(tx.amount) >= filter.minAmount!
+      );
     }
     
     if (filter.maxAmount !== undefined) {
-      filtered = filtered.filter(tx => parseFloat(tx.amount) <= filter.maxAmount!);
+      filtered = filtered.filter(tx => 
+        tx.amount && parseFloat(tx.amount) <= filter.maxAmount!
+      );
     }
     
     return filtered;

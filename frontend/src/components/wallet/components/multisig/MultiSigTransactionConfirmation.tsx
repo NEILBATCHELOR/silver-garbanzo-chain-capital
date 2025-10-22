@@ -31,7 +31,7 @@ import {
   Loader2
 } from "lucide-react";
 import { TransactionConfirmation, TransactionConfirmationProps } from "../TransactionConfirmation";
-import { MultiSigWalletService } from "@/services/wallet/MultiSigWalletService";
+import { MultiSigWalletService } from "@/services/wallet/multiSig/MultiSigWalletService";
 // Define types locally based on Tables from database
 type Transaction = {
   id: string;
