@@ -266,7 +266,25 @@ export type {
   InjectiveMarketOrder,
   InjectiveTransferParams
 } from './injective';
+
 // New wallet management services
 export * from './InternalWalletService';
+
+// Unified Wallet Context (combines WalletContext + EnhancedWalletContext)
+export {
+  UnifiedWalletProvider,
+  useWallet,
+  type Wallet,
+  type WalletTypeCompat,
+  type UnifiedWalletContextProps,
+  type WalletConnection,
+  WalletType,
+  WalletConnectionStatus
+} from './UnifiedWalletContext';
+
+// Deprecated contexts (will be removed in future release)
+// Use UnifiedWalletContext instead
+export { WalletProvider } from './WalletContext';
+export { EnhancedWalletProvider } from './EnhancedWalletContext';
 export * from './TransferService';
 

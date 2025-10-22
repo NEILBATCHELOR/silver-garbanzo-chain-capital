@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { nftService, NFTCollectionStats } from '@/services/wallet/moonpay/core/NFTService';
 import { MoonpayPass, MoonpayAssetInfo, MoonpayProject } from '@/services/wallet/MoonpayService';
-import { useWallet } from '@/services/wallet/WalletContext';
+import { useWallet } from '@/services/wallet/UnifiedWalletContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NFTMarketplaceProps {

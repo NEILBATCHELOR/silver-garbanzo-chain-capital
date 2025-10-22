@@ -42,7 +42,7 @@ import {
 } from '@/services/wallet/InternalWalletService';
 
 // Import existing wallet components
-import { useWallet } from '@/services/wallet/WalletContext';
+import { useWallet } from '@/services/wallet/UnifiedWalletContext';
 import { EnhancedWalletList } from './components/dashboard/EnhancedWalletList';
 import { PortfolioOverview } from './components/dashboard/PortfolioOverview';
 import { TokenBalances } from './components/dashboard/TokenBalances';
