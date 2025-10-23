@@ -28,6 +28,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { transactionMonitorService } from "@/services/wallet/TransactionMonitorService";
 import { ExplorerService } from "@/services/blockchain/ExplorerService";
+import { FeeBumpButton } from "@/components/wallet/components/transfer/FeeBumpButton";
 
 export interface TransactionConfirmationProps {
   txHash?: string;
@@ -35,6 +36,12 @@ export interface TransactionConfirmationProps {
   title: string;
   description: string;
   blockchain?: string; // Add blockchain parameter
+  gasEstimate?: {
+    maxFeePerGas?: string;
+    maxPriorityFeePerGas?: string;
+    gasPrice?: string;
+  };
+  onFeeBump?: (newMaxFeePerGas: string, newMaxPriorityFeePerGas: string) => Promise<void>;
   details?: {
     from?: string;
     to?: string;
@@ -56,6 +63,8 @@ export function TransactionConfirmation({
   title,
   description,
   blockchain,
+  gasEstimate,
+  onFeeBump,
   details,
   errorMessage,
   onBack,
@@ -244,6 +253,28 @@ export function TransactionConfirmation({
                       </Button>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Fee Bump Button - Show for pending transactions with EIP-1559 support */}
+            {status === 'pending' && txHash && blockchain && gasEstimate && onFeeBump && (
+              gasEstimate.maxFeePerGas && gasEstimate.maxPriorityFeePerGas
+            ) && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Transaction taking longer than expected?
+                    </p>
+                  </div>
+                  <FeeBumpButton
+                    transactionHash={txHash}
+                    blockchain={blockchain}
+                    currentMaxFeePerGas={gasEstimate.maxFeePerGas}
+                    currentMaxPriorityFeePerGas={gasEstimate.maxPriorityFeePerGas}
+                    onBump={onFeeBump}
+                  />
                 </div>
               </div>
             )}

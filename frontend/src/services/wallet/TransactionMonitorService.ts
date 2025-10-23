@@ -14,13 +14,20 @@ class TransactionMonitorService {
    */
   async getTransactionDetails(txHash: string) {
     try {
+      // Try both tx_hash and transaction_hash columns for backwards compatibility
       const { data, error } = await supabase
         .from('wallet_transactions')
         .select('*')
-        .eq('tx_hash', txHash)
-        .single();
+        .or(`tx_hash.eq.${txHash},transaction_hash.eq.${txHash}`)
+        .maybeSingle();
         
       if (error) throw error;
+      
+      if (!data) {
+        console.warn(`Transaction ${txHash} not found in database`);
+        return null;
+      }
+      
       return data;
     } catch (error) {
       console.error('Error fetching transaction:', error);

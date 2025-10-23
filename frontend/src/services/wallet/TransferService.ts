@@ -3,6 +3,7 @@ import { supabase } from '@/infrastructure/database/client';
 import { internalWalletService } from './InternalWalletService';
 import { universalTransactionBuilder } from './builders/TransactionBuilder';
 import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { nonceManager } from './NonceManager';
 import { 
   getChainName, 
   getChainId, 
@@ -25,6 +26,7 @@ export interface TransferParams {
   gasPrice?: string; // Optional gas price override
   maxFeePerGas?: string; // Optional EIP-1559
   maxPriorityFeePerGas?: string; // Optional EIP-1559
+  nonce?: number; // Optional nonce override (for fee bumping - replaces stuck transactions)
 }
 
 export interface ValidationResult {
@@ -38,11 +40,13 @@ export interface GasEstimate {
   gasPrice: string;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
+  baseFeePerGas?: string; // EIP-1559 base fee (read-only, set by protocol)
   estimatedCost: string; // In native token
   estimatedCostUSD?: string;
 }
 
 export interface UnsignedTransaction {
+  from?: string; // Sender address (for nonce tracking)
   to: string;
   value: string;
   data: string;
@@ -65,6 +69,7 @@ export interface TransferResult {
 export interface TransactionDiagnostics {
   step: string;
   timestamp: number;
+  broadcastTimestamp?: number; // When transaction was broadcast to network
   chainId: number;
   nonce: number;
   gasEstimate?: GasEstimate;
@@ -83,14 +88,11 @@ export interface TransactionDiagnostics {
     found: boolean;
     timestamp?: number;
   };
+  note?: string; // Optional descriptive note about transaction status
 }
 
 export class TransferService {
   private static instance: TransferService;
-  
-  // Nonce queue manager for concurrent transactions
-  private nonceQueues: Map<string, number> = new Map();
-  private nonceQueueLocks: Map<string, Promise<void>> = new Map();
 
   private constructor() {}
 
@@ -102,54 +104,85 @@ export class TransferService {
   }
 
   /**
-   * Get next available nonce with queue management
-   * Prevents nonce conflicts in concurrent transactions
+   * Get next available nonce with gap detection and prevention
+   * Uses enhanced NonceManager to prevent nonce gaps
    * @private
    */
-  private async getNextNonce(address: string, provider: ethers.JsonRpcProvider): Promise<number> {
-    const key = address.toLowerCase();
-    
-    // Wait for any pending nonce operations on this address
-    while (this.nonceQueueLocks.has(key)) {
-      await this.nonceQueueLocks.get(key);
-    }
-    
-    // Lock this address for nonce assignment
-    let resolveLock: () => void;
-    const lockPromise = new Promise<void>(resolve => { resolveLock = resolve; });
-    this.nonceQueueLocks.set(key, lockPromise);
-    
-    try {
-      // Get pending nonce from network (includes pending txs)
-      const networkNonce = await provider.getTransactionCount(address, 'pending');
-      
-      // Get tracked nonce from our queue
-      const trackedNonce = this.nonceQueues.get(key);
-      
-      // Use whichever is higher (network nonce or our tracked nonce)
-      const nextNonce = trackedNonce !== undefined ? Math.max(networkNonce, trackedNonce) : networkNonce;
-      
-      // Reserve this nonce for the caller
-      this.nonceQueues.set(key, nextNonce + 1);
-      
-      console.log(`📊 Nonce assigned: Network=${networkNonce}, Tracked=${trackedNonce || 'none'}, Using=${nextNonce}`);
-      
-      return nextNonce;
-    } finally {
-      // Release the lock
-      this.nonceQueueLocks.delete(key);
-      resolveLock!();
-    }
+  private async getNextNonce(
+    address: string, 
+    provider: ethers.JsonRpcProvider,
+    forceNonce?: number
+  ): Promise<number> {
+    return await nonceManager.getNextNonce(address, provider, {
+      forceNonce,
+      allowGaps: false // Never allow gaps - force explicit handling
+    });
   }
 
   /**
    * Clear nonce tracking for an address (call after confirmed tx or on error)
+   * Uses enhanced NonceManager
    * @private
    */
   private clearNonceTracking(address: string): void {
-    const key = address.toLowerCase();
-    this.nonceQueues.delete(key);
-    console.log(`🗑️  Cleared nonce tracking for ${address}`);
+    nonceManager.clearNonceTracking(address);
+  }
+
+  /**
+   * Diagnose nonce issues for an address
+   * PUBLIC method for troubleshooting stuck transactions
+   * @public
+   */
+  async diagnoseNonceIssues(
+    address: string,
+    chainId: number
+  ): Promise<{
+    hasGap: boolean;
+    status: any;
+    recommendations: string[];
+  }> {
+    try {
+      const provider = await this.getProviderFromChainId(chainId);
+      const validation = await nonceManager.getNonceStatus(address, provider);
+      
+      const recommendations: string[] = [];
+      
+      if (validation.hasGap) {
+        recommendations.push(
+          `⚠️  NONCE GAP DETECTED: ${validation.gapSize} transaction(s) stuck between ` +
+          `nonce ${validation.confirmed} (confirmed) and ${validation.pending} (pending)`
+        );
+        recommendations.push(
+          '📝 Solutions:\n' +
+          '   1. Wait for pending transactions to confirm (may take hours on testnets)\n' +
+          '   2. Cancel stuck transactions by sending 0 ETH to self with same nonce but higher gas\n' +
+          '   3. Use the nonce gap fixer script at /scripts/fix-nonce-gap.ts'
+        );
+      } else if (validation.pending === validation.confirmed) {
+        recommendations.push('✅ No nonce issues detected - all transactions confirmed');
+      } else {
+        recommendations.push(
+          `⏳ ${validation.pending - validation.confirmed} transaction(s) pending confirmation`
+        );
+      }
+      
+      const pendingNonces = nonceManager.getPendingNonces(address);
+      if (pendingNonces.length > 0) {
+        recommendations.push(
+          `📋 Tracked pending nonces: ${pendingNonces.join(', ')}`
+        );
+      }
+      
+      return {
+        hasGap: validation.hasGap,
+        status: validation,
+        recommendations
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to diagnose nonce issues: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   /**
@@ -373,10 +406,13 @@ export class TransferService {
       let maxPriorityFeePerGas: string | undefined;
 
       if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
-        // CRITICAL FIX #3: Add 25% buffer to EIP-1559 fees for volatility
+        // CRITICAL FIX #3: Add buffer to EIP-1559 fees for volatility
         // Per documentation: "Fees can spike 10x in minutes"
-        // Buffer prevents "replacement underpriced" errors
-        const feeBuffer = 125n; // 25% increase
+        // Use higher buffer for testnets due to higher volatility
+        const chainInfo = getChainInfo(params.chainId);
+        const isTestnetChain = chainInfo?.type === 'testnet';
+        const feeBuffer = isTestnetChain ? 150n : 125n; // 50% for testnet, 25% for mainnet
+        
         maxFeePerGas = ((feeData.maxFeePerGas * feeBuffer) / 100n).toString();
         maxPriorityFeePerGas = ((feeData.maxPriorityFeePerGas * feeBuffer) / 100n).toString();
         
@@ -384,7 +420,7 @@ export class TransferService {
         estimatedCost = gasLimit * ((feeData.maxFeePerGas * feeBuffer) / 100n);
         
         console.log(
-          `⛽ Gas estimate (EIP-1559 with 25% buffer): ` +
+          `⛽ Gas estimate (EIP-1559 with ${feeBuffer-100n}% buffer for ${isTestnetChain ? 'testnet' : 'mainnet'}): ` +
           `Limit=${gasLimit}, MaxFee=${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei, ` +
           `Priority=${ethers.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`
         );
@@ -441,6 +477,7 @@ export class TransferService {
       const gasEstimate = await this.estimateGas(params);
 
       const tx: UnsignedTransaction = {
+        from: params.from, // Track sender for nonce management
         to: params.to,
         value: ethers.parseEther(params.amount).toString(),
         data: '0x',
@@ -474,7 +511,8 @@ export class TransferService {
       return tx;
     } catch (error) {
       console.error('❌ Transaction creation error:', error);
-      // Clear nonce tracking on error to allow retry
+      // On error during creation, don't mark as failed yet - just clear tracking
+      // The nonce was assigned but transaction wasn't created, so we need to reset
       this.clearNonceTracking(params.from);
       throw new Error(
         `Failed to create transaction: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -538,7 +576,10 @@ export class TransferService {
       const txResponse = await provider.broadcastTransaction(signedTx);
       const broadcastTime = Date.now() - broadcastStart;
       
+      // Get chain info once for reuse
       const chainInfo = getChainInfo(transaction.chainId);
+      const isTestnetChain = chainInfo?.type === 'testnet';
+      
       console.log(
         `📡 Transaction broadcast successful for chain ${transaction.chainId} ` +
         `(${chainInfo?.name}) in ${broadcastTime}ms: ${txResponse.hash}`
@@ -587,27 +628,83 @@ export class TransferService {
       }
 
       // Step 6: Wait for 1 confirmation (with timeout)
+      // ENHANCED: Longer timeout for testnets (300s) vs mainnet (60s) - Hoodi testnet is VERY slow
+      const confirmationTimeout = isTestnetChain ? 300000 : 60000; // 5min for testnet, 1min for mainnet
+      
       diagnostics.step = 'waiting_confirmation';
-      console.log(`⏳ Waiting for transaction confirmation...`);
+      console.log(
+        `⏳ Waiting for transaction confirmation (timeout: ${confirmationTimeout/1000}s)...\n` +
+        `   Network: ${chainInfo?.name} (${isTestnetChain ? 'TESTNET' : 'MAINNET'})\n` +
+        `   Hash: ${txResponse.hash}\n` +
+        `   Check status: ${chainInfo?.explorer}/tx/${txResponse.hash}`
+      );
       
       try {
-        // Wait for 1 confirmation with 60 second timeout
+        // Poll for receipt with detailed logging
+        const startTime = Date.now();
+        let pollCount = 0;
+        
+        // Wait for 1 confirmation with dynamic timeout
         const receipt = await Promise.race([
-          txResponse.wait(1),
+          (async () => {
+            // Custom polling with logging every 30 seconds
+            const pollInterval = 30000; // 30 seconds
+            let lastLogTime = startTime;
+            
+            while (true) {
+              try {
+                const receipt = await provider.getTransactionReceipt(txResponse.hash);
+                if (receipt && receipt.blockNumber) {
+                  return receipt;
+                }
+                
+                pollCount++;
+                const elapsed = Date.now() - startTime;
+                
+                // Log every 30 seconds
+                if (Date.now() - lastLogTime >= pollInterval) {
+                  console.log(
+                    `⏳ Still waiting for confirmation... ` +
+                    `Elapsed: ${Math.floor(elapsed/1000)}s, ` +
+                    `Polls: ${pollCount}`
+                  );
+                  lastLogTime = Date.now();
+                }
+                
+                // Wait 3 seconds before next poll
+                await new Promise(resolve => setTimeout(resolve, 3000));
+              } catch (pollError) {
+                console.warn(`⚠️  Polling error (will retry):`, pollError);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+              }
+            }
+          })(),
           new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Confirmation timeout after 60 seconds')), 60000)
+            setTimeout(() => reject(new Error(`Confirmation timeout after ${confirmationTimeout/1000} seconds`)), confirmationTimeout)
           )
         ]);
         
         // Check if transaction reverted
         if (receipt.status === 0) {
+          // Mark nonce as failed (reverted on-chain)
+          if (transaction.from) {
+            nonceManager.failNonce(transaction.from, transaction.nonce);
+          }
           throw new Error('Transaction reverted on-chain');
         }
         
+        // Mark nonce as confirmed
+        if (transaction.from) {
+          nonceManager.confirmNonce(transaction.from, transaction.nonce);
+        }
+        
         diagnostics.step = 'confirmed';
+        const confirmTime = Date.now() - startTime;
         console.log(
-          `✅ Transaction confirmed: Block ${receipt.blockNumber}, ` +
-          `Gas used: ${receipt.gasUsed}, Status: ${receipt.status}`
+          `✅ Transaction confirmed after ${Math.floor(confirmTime/1000)}s: ` +
+          `Block ${receipt.blockNumber}, ` +
+          `Gas used: ${receipt.gasUsed}, ` +
+          `Status: ${receipt.status}`
         );
         
         return {
@@ -619,8 +716,14 @@ export class TransferService {
         
       } catch (confirmError) {
         // Transaction is in mempool but not yet confirmed
-        // This is acceptable - return success with pending status
-        console.warn(`⚠️  Confirmation timeout (tx still pending): ${confirmError instanceof Error ? confirmError.message : 'Unknown error'}`);
+        // This is acceptable for testnets - return success with pending status
+        const elapsed = Date.now() - diagnostics.broadcastTimestamp!;
+        console.warn(
+          `⚠️  Confirmation timeout after ${Math.floor(elapsed/1000)}s (tx still pending)\n` +
+          `   This is NORMAL for slow testnets like Hoodi.\n` +
+          `   Check explorer: ${chainInfo?.explorer}/tx/${txResponse.hash}\n` +
+          `   Error: ${confirmError instanceof Error ? confirmError.message : 'Unknown error'}`
+        );
         
         return {
           success: true,
@@ -628,7 +731,8 @@ export class TransferService {
           receipt: null,
           diagnostics: {
             ...diagnostics,
-            step: 'pending_confirmation'
+            step: 'pending_confirmation',
+            note: 'Transaction broadcast successfully but confirmation pending due to testnet delays'
           }
         };
       }
@@ -636,22 +740,9 @@ export class TransferService {
     } catch (error) {
       console.error(`❌ Transaction failed at step '${diagnostics.step}':`, error);
       
-      // Clear nonce tracking on failure to allow retry
-      if (transaction.chainId && walletType === 'project') {
-        // Get wallet address to clear nonce
-        try {
-          const { data } = await supabase
-            .from('project_wallets')
-            .select('wallet_address')
-            .eq('id', walletId)
-            .single();
-          
-          if (data?.wallet_address) {
-            this.clearNonceTracking(data.wallet_address);
-          }
-        } catch {
-          // Ignore error in cleanup
-        }
+      // Mark nonce as failed on error to allow proper retry
+      if (transaction.from && transaction.nonce !== undefined) {
+        nonceManager.failNonce(transaction.from, transaction.nonce);
       }
       
       return {
@@ -746,6 +837,11 @@ export class TransferService {
 
   /**
    * Record transaction in database with proper status tracking
+   * 
+   * IMPORTANT: wallet_id is nullable because transactions can come from:
+   * - wallets table (user/investor wallets)
+   * - project_wallets table (project wallets)
+   * We use from_address as the primary identifier instead
    */
   private async recordTransaction(data: {
     transactionHash: string;
@@ -760,14 +856,24 @@ export class TransferService {
       const chainInfo = getChainInfo(data.chainId);
       const chainName = getChainName(data.chainId);
       
+      // Check if wallet exists in wallets table, if not set wallet_id to null
+      // (it might be in project_wallets instead)
+      const { data: walletExists } = await supabase
+        .from('wallets')
+        .select('id')
+        .eq('id', data.walletId)
+        .single();
+      
       const { error } = await supabase.from('wallet_transactions').insert({
         transaction_hash: data.transactionHash,
+        tx_hash: data.transactionHash, // Also populate legacy field for backwards compatibility
         from_address: data.fromAddress,
         to_address: data.toAddress,
         amount: data.amount,
+        value: data.amount, // Also populate legacy numeric field
         blockchain: chainName || `chain-${data.chainId}`,
         chain_id: data.chainId.toString(),
-        wallet_id: data.walletId,
+        wallet_id: walletExists ? data.walletId : null, // Only set if wallet exists in wallets table
         status: data.status,
         transaction_type: 'transfer',
         created_at: new Date().toISOString()
@@ -779,7 +885,10 @@ export class TransferService {
       } else {
         console.log(
           `📊 Recorded transaction in database: ` +
-          `Chain ${data.chainId} (${chainInfo?.name}), Status: ${data.status}`
+          `Chain ${data.chainId} (${chainInfo?.name}), ` +
+          `From: ${data.fromAddress.substring(0, 10)}..., ` +
+          `Status: ${data.status}, ` +
+          `Hash: ${data.transactionHash}`
         );
       }
     } catch (error) {
@@ -831,11 +940,131 @@ export class TransferService {
 
   /**
    * Clear all nonce tracking (useful for testing or reset)
+   * Uses NonceManager for centralized nonce management
    */
   clearAllNonceTracking(): void {
-    this.nonceQueues.clear();
-    this.nonceQueueLocks.clear();
+    nonceManager.clearAllNonceTracking();
     console.log('🗑️  Cleared all nonce tracking');
+  }
+  /**
+   * Bump fees for a stuck transaction by broadcasting a replacement with same nonce
+   * Requires 10%+ fee increase to be accepted by nodes
+   */
+  async bumpTransactionFees(
+    originalTxHash: string,
+    walletId: string,
+    walletType: 'project' | 'user',
+    newMaxFeePerGas: string,
+    newMaxPriorityFeePerGas: string
+  ): Promise<TransferResult> {
+    try {
+      console.log(`🚀 Bumping fees for transaction: ${originalTxHash}`);
+
+      // Get original transaction
+      const { data: txRecord } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('transaction_hash', originalTxHash)
+        .single();
+
+      if (!txRecord) {
+        throw new Error('Transaction not found in database');
+      }
+
+      // Get wallet info
+      const table = walletType === 'project' ? 'project_wallets' : 'user_wallets';
+      const { data: wallet } = await supabase
+        .from(table)
+        .select('*')
+        .eq('id', walletId)
+        .single();
+
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      // Verify transaction is pending
+      const provider = await this.getProviderFromChainId(wallet.chain_id);
+      const receipt = await provider.getTransactionReceipt(originalTxHash);
+      
+      if (receipt && receipt.blockNumber) {
+        throw new Error('Transaction already confirmed - cannot bump fees');
+      }
+
+      // Get the original transaction from network
+      const originalTx = await provider.getTransaction(originalTxHash);
+      if (!originalTx) {
+        throw new Error('Original transaction not found on network');
+      }
+
+      // Verify fee increase is sufficient (10% minimum)
+      const originalMaxFee = BigInt(originalTx.maxFeePerGas || 0);
+      const originalPriorityFee = BigInt(originalTx.maxPriorityFeePerGas || 0);
+      const newMaxFee = BigInt(newMaxFeePerGas);
+      const newPriorityFee = BigInt(newMaxPriorityFeePerGas);
+
+      if (newMaxFee < (originalMaxFee * 110n) / 100n) {
+        throw new Error('New max fee must be at least 10% higher than original');
+      }
+      if (newPriorityFee < (originalPriorityFee * 110n) / 100n) {
+        throw new Error('New priority fee must be at least 10% higher than original');
+      }
+
+      // Create replacement transaction with SAME NONCE
+      const replacementTx: UnsignedTransaction = {
+        to: originalTx.to!,
+        value: originalTx.value.toString(),
+        data: originalTx.data,
+        chainId: wallet.chain_id,
+        nonce: originalTx.nonce, // CRITICAL: Same nonce to replace
+        gasLimit: originalTx.gasLimit.toString(),
+        maxFeePerGas: newMaxFeePerGas,
+        maxPriorityFeePerGas: newMaxPriorityFeePerGas
+      };
+
+      console.log(`📝 Replacement transaction:`, {
+        nonce: replacementTx.nonce,
+        originalMaxFee: ethers.formatUnits(originalMaxFee, 'gwei') + ' Gwei',
+        newMaxFee: ethers.formatUnits(newMaxFee, 'gwei') + ' Gwei',
+        increase: ((Number(newMaxFee - originalMaxFee) / Number(originalMaxFee)) * 100).toFixed(1) + '%'
+      });
+
+      // Sign and broadcast replacement
+      const result = await this.signAndBroadcast(replacementTx, walletId, walletType);
+
+      if (result.success) {
+        // Update database with new transaction hash
+        await supabase
+          .from('wallet_transactions')
+          .update({
+            transaction_hash: result.transactionHash,
+            status: 'pending',
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...txRecord.metadata,
+              fee_bump: {
+                original_hash: originalTxHash,
+                bumped_at: new Date().toISOString(),
+                fee_increase: {
+                  maxFee: ethers.formatUnits(newMaxFee - originalMaxFee, 'gwei') + ' Gwei',
+                  priority: ethers.formatUnits(newPriorityFee - originalPriorityFee, 'gwei') + ' Gwei'
+                }
+              }
+            }
+          })
+          .eq('transaction_hash', originalTxHash);
+
+        console.log(`✅ Fee bump successful! New hash: ${result.transactionHash}`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('❌ Fee bump failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to bump transaction fees'
+      };
+    }
   }
 }
 

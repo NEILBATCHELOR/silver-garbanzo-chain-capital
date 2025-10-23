@@ -20,6 +20,7 @@ export interface ChainInfo {
   deprecationDate?: string;
   explorer?: string;
   rpcUrl?: string;
+  eip1559?: boolean; // Explicitly mark EIP-1559 support
 }
 
 /**
@@ -195,23 +196,28 @@ export const CHAIN_INFO: Record<number, ChainInfo> = {
     name: 'Ethereum Mainnet',
     type: 'mainnet',
     explorer: 'https://etherscan.io',
+    eip1559: true, // London hard fork Aug 2021
   },
   11155111: {
     id: 11155111,
     name: 'Sepolia Testnet',
     type: 'testnet',
     explorer: 'https://sepolia.etherscan.io',
+    eip1559: true,
   },
   17000: {
     id: 17000,
     name: 'Holesky Testnet',
     type: 'testnet',
     explorer: 'https://holesky.etherscan.io',
+    eip1559: true,
   },
   560048: {
     id: 560048,
     name: 'Hoodi Testnet',
     type: 'testnet',
+    explorer: 'https://hoodi.etherscan.io',
+    eip1559: true, // Modern testnet with EIP-1559 support
   },
 
   // Layer 2 Networks - Arbitrum
@@ -752,4 +758,22 @@ export function getChainsByCategory(): Record<string, number[]> {
       1328, 747474, 480, 4801, 50104, 531050104, 10143,
     ],
   };
+}
+
+/**
+ * Check if chain supports EIP-1559
+ */
+export function isEIP1559Supported(chainId: number): boolean {
+  const info = getChainInfo(chainId);
+  // Default to true for modern chains if not explicitly set
+  // EIP-1559 was introduced in August 2021, most chains support it
+  return info?.eip1559 ?? true;
+}
+
+/**
+ * Check if chain explicitly has EIP-1559 marked in metadata
+ */
+export function hasExplicitEIP1559Flag(chainId: number): boolean {
+  const info = getChainInfo(chainId);
+  return info?.eip1559 === true;
 }

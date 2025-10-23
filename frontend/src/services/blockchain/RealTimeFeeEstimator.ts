@@ -13,7 +13,14 @@
  * - Get API Key: https://etherscan.io/myapikey
  */
 
-import { CHAIN_IDS as CENTRAL_CHAIN_IDS } from '@/infrastructure/web3/utils/chainIds';
+import { 
+  CHAIN_IDS,
+  getChainId as getChainIdFromName,
+  isTestnet,
+  isEIP1559Supported as checkChainEIP1559Support,
+  getAllChainIds
+} from '@/infrastructure/web3/utils/chainIds';
+import { fallbackRPCService } from '@/infrastructure/web3/utils/FallbackRPCService';
 
 export enum FeePriority {
   LOW = 'low',
@@ -56,283 +63,38 @@ export interface GasEstimate {
 const ETHERSCAN_V2_API_URL = 'https://api.etherscan.io/v2/api';
 
 /**
- * Chains where Etherscan gastracker module is NOT supported
- * These chains will skip Etherscan and go directly to RPC
- * 
- * Note: Testnets typically don't support gastracker API
- * Source: https://stackoverflow.com/questions/70797186/etherscan-gas-tracker-api-for-testnets
+ * Create a reverse mapping for all supported chain name variations
+ * This ensures we can look up chains by any of their common names
+ * (e.g., 'eth', 'ethereum', 'arbitrum-one', 'arbitrum', etc.)
  */
-const CHAINS_WITHOUT_GASTRACKER = new Set([
-  11155111, // Sepolia
-  17000,    // Holesky
-  560048,   // Hoodi
-  421614,   // Arbitrum Sepolia
-  11155420, // OP Sepolia
-  84532,    // Base Sepolia
-  80002,    // Polygon Amoy
-  2442,     // Polygon zkEVM Cardona
-  43113,    // Avalanche Fuji
-  97,       // BSC Testnet
-  5611,     // opBNB Testnet
-  534351,   // Scroll Sepolia
-  168587773, // Blast Sepolia
-  59141,    // Linea Sepolia
-  300,      // zkSync Sepolia
-  2522,     // Fraxtal Testnet
-  44787,    // Celo Alfajores
-  1287,     // Moonbase Alpha
-  167009,   // Taiko Hekla
-  1301,     // Unichain Sepolia
-  4801,     // World Sepolia
-  80069,    // Berachain Bepolia
-  14601,    // Sonic Testnet
-  1924,     // Swellchain Testnet
-  11124,    // Abstract Sepolia
-  33111,    // ApeChain Curtis
-  1328,     // Sei Testnet
-  5003,     // Mantle Sepolia
-  // Add more testnets as needed
-]);
-
-/**
- * Chain IDs by blockchain name
- * Supports 60+ EVM chains
- */
-const CHAIN_IDS: Record<string, number> = {
-  'eth': CENTRAL_CHAIN_IDS.ethereum,
+const CHAIN_NAME_TO_ID = (() => {
+  const mapping: Record<string, number> = {};
   
-  // Ethereum Testnets
-  'sepolia': CENTRAL_CHAIN_IDS.sepolia,
-  'holesky': CENTRAL_CHAIN_IDS.holesky,
-  'hoodi': CENTRAL_CHAIN_IDS.hoodi,
+  // Direct mappings from CHAIN_IDS
+  Object.entries(CHAIN_IDS).forEach(([name, id]) => {
+    mapping[name.toLowerCase()] = id;
+  });
   
-  // Abstract
-  'abstract': CENTRAL_CHAIN_IDS.abstract,
-  'abstract-sepolia': CENTRAL_CHAIN_IDS.abstractSepolia,
+  // Add common aliases
+  const aliases: Record<string, string> = {
+    'eth': 'ethereum',
+    'arb': 'arbitrumOne',
+    'op': 'optimism',
+    'avax': 'avalanche',
+    'matic': 'polygon',
+    'gno': 'gnosis',
+    'bnb': 'bnb'
+  };
   
-  // ApeChain
-  'apechain': CENTRAL_CHAIN_IDS.apeChain,
-  'apechain-curtis': CENTRAL_CHAIN_IDS.apeChainCurtis,
+  Object.entries(aliases).forEach(([alias, canonical]) => {
+    const chainId = CHAIN_IDS[canonical as keyof typeof CHAIN_IDS];
+    if (chainId) {
+      mapping[alias.toLowerCase()] = chainId;
+    }
+  });
   
-  // Arbitrum
-  'arbitrum': CENTRAL_CHAIN_IDS.arbitrumOne,
-  'arbitrum-one': CENTRAL_CHAIN_IDS.arbitrumOne,
-  'arbitrum-nova': CENTRAL_CHAIN_IDS.arbitrumNova,
-  'arbitrum-sepolia': CENTRAL_CHAIN_IDS.arbitrumSepolia,
-  
-  // Avalanche
-  'avalanche': CENTRAL_CHAIN_IDS.avalanche,
-  'avax': CENTRAL_CHAIN_IDS.avalanche,
-  'avalanche-fuji': CENTRAL_CHAIN_IDS.avalancheFuji,
-  'avax-fuji': CENTRAL_CHAIN_IDS.avalancheFuji,
-  
-  // Base
-  'base': CENTRAL_CHAIN_IDS.base,
-  'base-sepolia': CENTRAL_CHAIN_IDS.baseSepolia,
-  
-  // Berachain
-  'berachain': CENTRAL_CHAIN_IDS.berachain,
-  'berachain-bepolia': CENTRAL_CHAIN_IDS.berachainBepolia,
-  
-  // BitTorrent Chain
-  'bttc': CENTRAL_CHAIN_IDS.bitTorrent,
-  'bttc-testnet': CENTRAL_CHAIN_IDS.bitTorrentTestnet,
-  
-  // Blast
-  'blast': CENTRAL_CHAIN_IDS.blast,
-  'blast-sepolia': CENTRAL_CHAIN_IDS.blastSepolia,
-  
-  // BNB Smart Chain
-  'bsc': CENTRAL_CHAIN_IDS.bnb,
-  'bnb': CENTRAL_CHAIN_IDS.bnb,
-  'bsc-testnet': CENTRAL_CHAIN_IDS.bnbTestnet,
-  'bnb-testnet': CENTRAL_CHAIN_IDS.bnbTestnet,
-  
-  // Celo
-  'celo': CENTRAL_CHAIN_IDS.celo,
-  'celo-alfajores': CENTRAL_CHAIN_IDS.celoAlfajores,
-  
-  // Fraxtal
-  'fraxtal': CENTRAL_CHAIN_IDS.fraxtal,
-  'fraxtal-testnet': CENTRAL_CHAIN_IDS.fraxtalTestnet,
-  
-  // Gnosis
-  'gnosis': CENTRAL_CHAIN_IDS.gnosis,
-  'gno': CENTRAL_CHAIN_IDS.gnosis,
-  
-  // HyperEVM
-  'hyperevm': CENTRAL_CHAIN_IDS.hyperEvm,
-  
-  // Linea
-  'linea': CENTRAL_CHAIN_IDS.linea,
-  'linea-sepolia': CENTRAL_CHAIN_IDS.lineaSepolia,
-  
-  // Mantle
-  'mantle': CENTRAL_CHAIN_IDS.mantle,
-  'mantle-sepolia': CENTRAL_CHAIN_IDS.mantleSepolia,
-  
-  // Memecore
-  'memecore': CENTRAL_CHAIN_IDS.memecore,
-  
-  // Moonbeam/Moonriver
-  'moonbeam': CENTRAL_CHAIN_IDS.moonbeam,
-  'moonriver': CENTRAL_CHAIN_IDS.moonriver,
-  'moonbase': CENTRAL_CHAIN_IDS.moonbaseAlpha,
-  
-  // Monad
-  'monad': CENTRAL_CHAIN_IDS.monad,
-  
-  // Optimism
-  'optimism': CENTRAL_CHAIN_IDS.optimism,
-  'op': CENTRAL_CHAIN_IDS.optimism,
-  'optimism-sepolia': CENTRAL_CHAIN_IDS.optimismSepolia,
-  'op-sepolia': CENTRAL_CHAIN_IDS.optimismSepolia,
-  
-  // Polygon
-  'polygon': CENTRAL_CHAIN_IDS.polygon,
-  'matic': CENTRAL_CHAIN_IDS.polygon,
-  'polygon-amoy': CENTRAL_CHAIN_IDS.polygonAmoy,
-  'polygon-zkevm': CENTRAL_CHAIN_IDS.polygonZkEvm,
-  'polygon-zkevm-cardona': CENTRAL_CHAIN_IDS.polygonZkEvmCardona,
-  
-  // Katana
-  'katana': CENTRAL_CHAIN_IDS.katana,
-  
-  // Sei
-  'sei': CENTRAL_CHAIN_IDS.sei,
-  'sei-testnet': CENTRAL_CHAIN_IDS.seiTestnet,
-  
-  // Scroll
-  'scroll': CENTRAL_CHAIN_IDS.scroll,
-  'scroll-sepolia': CENTRAL_CHAIN_IDS.scrollSepolia,
-  
-  // Sonic
-  'sonic': CENTRAL_CHAIN_IDS.sonic,
-  'sonic-testnet': CENTRAL_CHAIN_IDS.sonicTestnet,
-  
-  // Sophon
-  'sophon': CENTRAL_CHAIN_IDS.sophon,
-  'sophon-sepolia': CENTRAL_CHAIN_IDS.sophonSepolia,
-  
-  // Swellchain
-  'swell': CENTRAL_CHAIN_IDS.swellchain,
-  'swell-testnet': CENTRAL_CHAIN_IDS.swellchainTestnet,
-  
-  // Taiko
-  'taiko': CENTRAL_CHAIN_IDS.taiko,
-  'taiko-hekla': CENTRAL_CHAIN_IDS.taikoHekla,
-  
-  // Unichain
-  'unichain': CENTRAL_CHAIN_IDS.unichain,
-  'unichain-sepolia': CENTRAL_CHAIN_IDS.unichainSepolia,
-  
-  // World
-  'world': CENTRAL_CHAIN_IDS.world,
-  'world-sepolia': CENTRAL_CHAIN_IDS.worldSepolia,
-  
-  // XDC
-  'xdc': CENTRAL_CHAIN_IDS.xdc,
-  'xdc-apothem': CENTRAL_CHAIN_IDS.xdcApothem,
-  
-  // zkSync
-  'zksync': CENTRAL_CHAIN_IDS.zkSync,
-  'zksync-era': CENTRAL_CHAIN_IDS.zkSync,
-  'zksync-sepolia': CENTRAL_CHAIN_IDS.zkSyncSepolia,
-  
-  // opBNB
-  'opbnb': CENTRAL_CHAIN_IDS.opBnb,
-  'opbnb-testnet': CENTRAL_CHAIN_IDS.opBnbTestnet,
-  
-  // DEPRECATED CHAINS (will be removed)
-  // 'cronos': 25, // Deprecated Oct 6
-  // 'xai': 660279, // Deprecated Sept 3
-  // 'wemix': 1111, // Deprecated Sept 3
-};
-
-/**
- * Fallback RPC endpoints (public, no API key needed)
- * Used when Etherscan API is unavailable
- */
-const FALLBACK_RPC: Record<string, string> = {
-  ethereum: 'https://eth.llamarpc.com',
-  polygon: 'https://polygon-rpc.com',
-  arbitrum: 'https://arb1.arbitrum.io/rpc',
-  'arbitrum-nova': 'https://nova.arbitrum.io/rpc',
-  optimism: 'https://mainnet.optimism.io',
-  avalanche: 'https://api.avax.network/ext/bc/C/rpc',
-  bsc: 'https://bsc-dataseed.binance.org',
-  base: 'https://mainnet.base.org',
-  scroll: 'https://rpc.scroll.io',
-  blast: 'https://rpc.blast.io',
-  linea: 'https://rpc.linea.build',
-  zksync: 'https://mainnet.era.zksync.io',
-  gnosis: 'https://rpc.gnosischain.com',
-  mantle: 'https://rpc.mantle.xyz',
-  celo: 'https://forno.celo.org',
-  moonbeam: 'https://rpc.api.moonbeam.network',
-  sepolia: 'https://rpc.sepolia.org',
-  holesky: 'https://ethereum-holesky.publicnode.com'
-};
-
-/**
- * EIP-1559 support by chain ID
- * Source: Chains that support EIP-1559 transaction format
- */
-const EIP1559_SUPPORTED = new Set([
-  1,      // Ethereum
-  11155111, // Sepolia
-  17000,  // Holesky
-  42161,  // Arbitrum One
-  42170,  // Arbitrum Nova
-  421614, // Arbitrum Sepolia
-  10,     // Optimism
-  11155420, // OP Sepolia
-  8453,   // Base
-  84532,  // Base Sepolia
-  137,    // Polygon
-  80002,  // Polygon Amoy
-  1101,   // Polygon zkEVM
-  43114,  // Avalanche
-  43113,  // Avalanche Fuji
-  534352, // Scroll
-  534351, // Scroll Sepolia
-  81457,  // Blast
-  168587773, // Blast Sepolia
-  59144,  // Linea
-  59141,  // Linea Sepolia
-  5000,   // Mantle
-  5003,   // Mantle Sepolia
-  324,    // zkSync Era
-  300,    // zkSync Sepolia
-  252,    // Fraxtal
-  2522,   // Fraxtal Testnet
-  42220,  // Celo
-  44787,  // Celo Alfajores
-  1284,   // Moonbeam
-  1285,   // Moonriver
-  1287,   // Moonbase Alpha
-  100,    // Gnosis
-  167000, // Taiko
-  167009, // Taiko Hekla
-  130,    // Unichain
-  1301,   // Unichain Sepolia
-  480,    // World
-  4801,   // World Sepolia
-  80094,  // Berachain
-  80069,  // Berachain Bepolia
-  146,    // Sonic
-  14601,  // Sonic Testnet
-  50104,  // Sophon
-  1923,   // Swellchain
-  1924,   // Swellchain Testnet
-  2741,   // Abstract
-  11124,  // Abstract Sepolia
-  33139,  // ApeChain
-  33111,  // ApeChain Curtis
-  747474, // Katana
-  1329,   // Sei
-  204,    // opBNB
-]);
+  return mapping;
+})();
 
 export class RealTimeFeeEstimator {
   private static instance: RealTimeFeeEstimator;
@@ -392,6 +154,7 @@ export class RealTimeFeeEstimator {
 
   /**
    * Get RPC URL for blockchain, preferring environment variables over fallbacks
+   * Uses centralized FallbackRPCService for fallback URLs
    */
   private getRpcUrl(blockchain: string): string {
     // Try to get from environment first
@@ -401,10 +164,15 @@ export class RealTimeFeeEstimator {
       return envUrl;
     }
 
-    // Fall back to hardcoded public RPCs
-    const fallbackUrl = FALLBACK_RPC[blockchain.toLowerCase()];
+    // Get chain ID and use FallbackRPCService
+    const chainId = this.getChainId(blockchain);
+    const fallbackUrl = fallbackRPCService.getFirstFallbackRPC(chainId);
+    
     if (!fallbackUrl) {
-      throw new Error(`No RPC endpoint configured for ${blockchain}`);
+      throw new Error(
+        `No RPC endpoint configured for ${blockchain} (chain ID: ${chainId}). ` +
+        `Configure VITE_${blockchain.toUpperCase()}_RPC_URL in .env or add fallback RPC to FallbackRPCService.`
+      );
     }
     
     return fallbackUrl;
@@ -436,26 +204,40 @@ export class RealTimeFeeEstimator {
 
   /**
    * Get chain ID from blockchain name
+   * Uses centralized chain ID mapping from chainIds.ts
    * Supports multiple name variations (e.g., 'ethereum', 'eth')
    */
   private getChainId(blockchain: string): number {
-    const chainId = CHAIN_IDS[blockchain.toLowerCase()];
+    const chainId = CHAIN_NAME_TO_ID[blockchain.toLowerCase()];
+    
     if (!chainId) {
-      const available = Object.keys(CHAIN_IDS).slice(0, 10).join(', ');
+      // Get list of supported chains for error message
+      const supportedChains = Object.keys(CHAIN_NAME_TO_ID).slice(0, 20).join(', ');
       throw new Error(
         `Unsupported blockchain: "${blockchain}". ` +
-        `Supported chains include: ${available}... (60+ total). ` +
-        `See: https://docs.etherscan.io/supported-chains`
+        `Supported chains include: ${supportedChains}... (60+ total). ` +
+        `See chainIds.ts for full list or https://docs.etherscan.io/supported-chains`
       );
     }
+    
     return chainId;
   }
 
   /**
    * Check if chain supports EIP-1559 (Type 2 transactions)
+   * Uses centralized detection from chainIds.ts for single source of truth
    */
   private supportsEIP1559(chainId: number): boolean {
-    return EIP1559_SUPPORTED.has(chainId);
+    return checkChainEIP1559Support(chainId);
+  }
+
+  /**
+   * Check if chain supports Etherscan gastracker module
+   * Testnets typically don't support gastracker API
+   * Source: https://stackoverflow.com/questions/70797186/etherscan-gas-tracker-api-for-testnets
+   */
+  private supportsGastracker(chainId: number): boolean {
+    return !isTestnet(chainId);
   }
 
   /**
@@ -479,27 +261,28 @@ export class RealTimeFeeEstimator {
     const chainId = this.getChainId(blockchain);
     console.log(`[RealTimeFeeEstimator] Fetching fee data for ${blockchain} (chain ${chainId}), priority: ${priority}`);
 
-    // Check if this chain supports gastracker module
-    const supportsGastracker = !CHAINS_WITHOUT_GASTRACKER.has(chainId);
+    // Check if this chain supports gastracker module (mainnet only)
+    const hasGastracker = this.supportsGastracker(chainId);
     
     // Check if premium RPC is available
     const hasPremiumRpc = this.hasPremiumRpcProvider(blockchain);
     
     // NO FALLBACKS - Require premium RPC for testnets
-    if (!supportsGastracker && !hasPremiumRpc) {
+    if (!hasGastracker && !hasPremiumRpc) {
+      const isTestnetChain = isTestnet(chainId);
       throw new Error(
-        `Testnet ${blockchain} requires premium RPC provider (Alchemy/QuickNode) for gas estimation. ` +
-        `Etherscan gastracker is not supported on testnets. ` +
+        `${isTestnetChain ? 'Testnet' : 'Chain'} ${blockchain} requires premium RPC provider (Alchemy/QuickNode) for gas estimation. ` +
+        `${isTestnetChain ? 'Etherscan gastracker is not supported on testnets. ' : ''}` +
         `Configure VITE_${blockchain.toUpperCase()}_RPC_URL with premium provider in .env`
       );
     }
     
-    if (!supportsGastracker && hasPremiumRpc) {
+    if (!hasGastracker && hasPremiumRpc) {
       console.log(`[RealTimeFeeEstimator] 🔗 Testnet detected (${blockchain}) with premium RPC (Alchemy/Infura) - fetching real gas prices`);
     }
 
     // Try Etherscan API first (only for mainnet chains with gastracker support)
-    if (supportsGastracker) {
+    if (hasGastracker) {
       try {
         console.log(`[RealTimeFeeEstimator] Trying Etherscan API...`);
         const explorerData = await this.fetchFromEtherscanV2(blockchain);
@@ -780,22 +563,6 @@ export class RealTimeFeeEstimator {
   }
 
   /**
-   * DEPRECATED: Get fallback fee data when all API calls fail
-   * 
-   * This method is no longer used. The service now throws errors
-   * instead of using static fallbacks.
-   * 
-   * Chain-specific base fees for major networks
-   */
-  private getFallbackFeeData(chainId: number, priority: FeePriority): FeeData {
-    throw new Error(
-      'getFallbackFeeData() is deprecated. ' +
-      'Service now requires real-time gas price data from RPC providers. ' +
-      'Configure premium RPC providers (Alchemy/QuickNode) in .env file.'
-    );
-  }
-
-  /**
    * Get estimated confirmation time by priority
    */
   private getEstimatedTime(priority: FeePriority): number {
@@ -867,24 +634,26 @@ export class RealTimeFeeEstimator {
 
   /**
    * Get all supported chains
-   * Returns array of chain names (60+ chains)
+   * Returns array of chain names from centralized chainIds.ts
    */
   getSupportedChains(): string[] {
-    return Object.keys(CHAIN_IDS);
+    return Object.keys(CHAIN_NAME_TO_ID);
   }
 
   /**
-   * Check if blockchain is supported by Etherscan V2
+   * Check if blockchain is supported
+   * Uses centralized chain mapping
    */
   isChainSupported(blockchain: string): boolean {
-    return blockchain.toLowerCase() in CHAIN_IDS;
+    return blockchain.toLowerCase() in CHAIN_NAME_TO_ID;
   }
 
   /**
    * Get chain ID for a blockchain name
+   * Public method that uses centralized mapping
    */
   getChainIdFor(blockchain: string): number | null {
-    return CHAIN_IDS[blockchain.toLowerCase()] || null;
+    return CHAIN_NAME_TO_ID[blockchain.toLowerCase()] || null;
   }
 
   /**

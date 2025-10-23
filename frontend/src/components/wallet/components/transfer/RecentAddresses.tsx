@@ -5,14 +5,9 @@ import { Clock, Copy, User, Users, Building2, Shield } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/infrastructure/database/client";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface RecentAddress {
-  address: string;
-  lastUsed: Date;
-  count: number; // Number of times used
-  label?: string; // Optional label (wallet name if known)
-  type?: 'project' | 'user' | 'multisig' | 'external';
-}
+import { addressSelectionTracker, type RecentAddress } from "@/services/wallet/AddressSelectionTracker";
+import { useUser } from "@/hooks/auth/user/useUser";
+import { getPrimaryOrFirstProject } from "@/services/project/primaryProjectService";
 
 interface RecentAddressesProps {
   onSelectAddress: (address: string) => void;
@@ -24,60 +19,45 @@ export const RecentAddresses: React.FC<RecentAddressesProps> = ({
   currentWalletId 
 }) => {
   const { toast } = useToast();
+  const { user } = useUser();
   const [recentAddresses, setRecentAddresses] = useState<RecentAddress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecentAddresses();
-  }, [currentWalletId]);
+  }, [currentWalletId, user]);
 
   const loadRecentAddresses = async () => {
     try {
       setLoading(true);
 
-      // Query wallet_transactions for recent recipient addresses
-      const { data: transactions, error } = await supabase
-        .from('wallet_transactions')
-        .select('to_address, created_at')
-        .not('to_address', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(100); // Get last 100 transactions
+      if (!user?.id) {
+        console.warn('No user ID available for loading recent addresses');
+        setRecentAddresses([]);
+        return;
+      }
 
-      if (error) throw error;
+      // Get current project
+      const project = await getPrimaryOrFirstProject();
+      const currentProjectId = project?.id || null;
+      setProjectId(currentProjectId);
 
-      // Aggregate addresses by frequency and recency
-      const addressMap = new Map<string, RecentAddress>();
-      
-      transactions?.forEach((tx) => {
-        const address = tx.to_address!.toLowerCase();
-        
-        // Skip if this is the current wallet's address
-        if (currentWalletId && address === currentWalletId.toLowerCase()) {
-          return;
-        }
+      // Get recent address selections from tracker
+      let addresses = await addressSelectionTracker.getRecentAddresses(
+        user.id,
+        currentProjectId,
+        8
+      );
 
-        if (addressMap.has(address)) {
-          const existing = addressMap.get(address)!;
-          existing.count++;
-          // Keep the most recent date
-          if (new Date(tx.created_at) > existing.lastUsed) {
-            existing.lastUsed = new Date(tx.created_at);
-          }
-        } else {
-          addressMap.set(address, {
-            address: tx.to_address!,
-            lastUsed: new Date(tx.created_at),
-            count: 1
-          });
-        }
-      });
+      // Filter out current wallet if provided
+      if (currentWalletId) {
+        addresses = addresses.filter(
+          addr => addr.address.toLowerCase() !== currentWalletId.toLowerCase()
+        );
+      }
 
-      // Convert to array and sort by most recent first
-      let addresses = Array.from(addressMap.values())
-        .sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())
-        .slice(0, 8); // Top 8 most recent
-
-      // Try to enrich with wallet names from our database
+      // Enrich with wallet names
       addresses = await enrichWithWalletNames(addresses);
 
       setRecentAddresses(addresses);
@@ -225,7 +205,7 @@ export const RecentAddresses: React.FC<RecentAddressesProps> = ({
       <div className="text-center py-8 text-muted-foreground">
         <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
         <p className="text-sm">No recent addresses</p>
-        <p className="text-xs mt-1">Your sent transactions will appear here</p>
+        <p className="text-xs mt-1">Select addresses in the transfer form and they'll appear here</p>
       </div>
     );
   }
@@ -249,7 +229,7 @@ export const RecentAddresses: React.FC<RecentAddressesProps> = ({
                   {item.address.substring(0, 6)}...{item.address.substring(item.address.length - 4)}
                 </span>
                 <span>•</span>
-                <span>{formatTimeAgo(item.lastUsed)}</span>
+                <span>{formatTimeAgo(item.lastSelected)}</span>
                 {item.count > 1 && (
                   <>
                     <span>•</span>
