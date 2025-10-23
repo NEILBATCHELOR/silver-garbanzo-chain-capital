@@ -484,6 +484,106 @@ export class RPCConnectionManager {
   }
 
   /**
+   * Get RPC URL with fallback support
+   * Attempts to get URL from primary providers, falls back to free public RPCs if none available
+   * @param chainId - The chain ID (numeric identifier)
+   * @param networkType - Network type (mainnet/testnet)
+   * @returns RPC URL or null if neither primary nor fallback available
+   */
+  async getRPCUrlWithFallback(chainId: number, networkType: NetworkType = 'mainnet'): Promise<string | null> {
+    // Import FallbackRPCService dynamically to avoid circular dependencies
+    const { fallbackRPCService } = await import('@/infrastructure/web3/utils/FallbackRPCService');
+    const { getChainName } = await import('@/infrastructure/web3/utils/chainIds');
+    
+    // Try to get primary RPC first
+    const chainName = getChainName(chainId);
+    if (chainName) {
+      const primaryUrl = this.getRPCUrl(chainName as SupportedChain, networkType);
+      if (primaryUrl) {
+        return primaryUrl;
+      }
+    }
+    
+    // If primary failed, try fallback RPCs
+    const fallbackUrl = fallbackRPCService.getFirstFallbackRPC(chainId);
+    if (fallbackUrl) {
+      console.log(`Using fallback RPC for chain ${chainId}: ${fallbackUrl}`);
+      return fallbackUrl;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get working RPC URL with connectivity testing
+   * Tests primary RPC first, then tries fallback RPCs if primary fails
+   * @param chainId - The chain ID (numeric identifier)
+   * @param networkType - Network type (mainnet/testnet)
+   * @param timeoutMs - Timeout for connectivity tests
+   * @returns Working RPC URL or null if all attempts fail
+   */
+  async getWorkingRPCUrl(
+    chainId: number, 
+    networkType: NetworkType = 'mainnet',
+    timeoutMs: number = 5000
+  ): Promise<string | null> {
+    const { fallbackRPCService } = await import('@/infrastructure/web3/utils/FallbackRPCService');
+    const { getChainName } = await import('@/infrastructure/web3/utils/chainIds');
+    
+    // Try primary RPC first
+    const chainName = getChainName(chainId);
+    if (chainName) {
+      const provider = this.getOptimalProvider(chainName as SupportedChain, networkType);
+      if (provider && provider.healthStatus.isHealthy) {
+        return this.getRPCUrl(chainName as SupportedChain, networkType);
+      }
+    }
+    
+    // If primary failed, try to find a working fallback
+    const result = await fallbackRPCService.getWorkingFallbackRPC(chainId, timeoutMs);
+    
+    if (result.url) {
+      console.log(`Found working fallback RPC for chain ${chainId}: ${result.url}`);
+      return result.url;
+    }
+    
+    if (result.error) {
+      console.warn(result.error);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get all available RPC URLs for a chain (primary + fallbacks)
+   * Useful for implementing custom retry logic or load balancing
+   * @param chainId - The chain ID (numeric identifier)
+   * @param networkType - Network type (mainnet/testnet)
+   * @returns Array of RPC URLs (primary first, then fallbacks)
+   */
+  async getAllAvailableRPCUrls(chainId: number, networkType: NetworkType = 'mainnet'): Promise<string[]> {
+    const { fallbackRPCService } = await import('@/infrastructure/web3/utils/FallbackRPCService');
+    const { getChainName } = await import('@/infrastructure/web3/utils/chainIds');
+    
+    const urls: string[] = [];
+    
+    // Add primary RPC if available
+    const chainName = getChainName(chainId);
+    if (chainName) {
+      const primaryUrl = this.getRPCUrl(chainName as SupportedChain, networkType);
+      if (primaryUrl) {
+        urls.push(primaryUrl);
+      }
+    }
+    
+    // Add all fallback RPCs
+    const fallbackUrls = fallbackRPCService.getFallbackRPCs(chainId);
+    urls.push(...fallbackUrls);
+    
+    return urls;
+  }
+
+  /**
    * Clean up resources
    */
   dispose(): void {

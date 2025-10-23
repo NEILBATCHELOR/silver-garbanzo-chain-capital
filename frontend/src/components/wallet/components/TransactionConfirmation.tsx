@@ -64,6 +64,7 @@ export function TransactionConfirmation({
 }: TransactionConfirmationProps) {
   const [progress, setProgress] = useState(0);
   const [transaction, setTransaction] = useState<any | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date()); // For re-rendering timestamps
   const { toast } = useToast();
   
   // Copy to clipboard
@@ -121,6 +122,15 @@ export function TransactionConfirmation({
       };
     }
   }, [txHash, status]);
+  
+  // Update current time every 10 seconds to re-render relative timestamps
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 10000); // Update every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
   
   const getStatusBadge = () => {
     switch (status) {
@@ -270,12 +280,22 @@ export function TransactionConfirmation({
                 )}
                 
                 {details.timestamp && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Time</span>
-                    <span className="font-medium">
-                      {formatDistanceToNow(new Date(details.timestamp), { addSuffix: true })}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Time</span>
+                      <span className="font-medium">
+                        {formatDistanceToNow(new Date(details.timestamp), { addSuffix: true })}
+                      </span>
+                    </div>
+                    {status === 'pending' && (
+                      <div className="flex justify-between items-center border-t pt-2 mt-2">
+                        <span className="text-muted-foreground font-semibold">Elapsed Time</span>
+                        <span className="font-medium text-amber-600">
+                          {formatDistanceToNow(new Date(details.timestamp))}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
                 
                 {/* Extra custom fields */}

@@ -9,6 +9,7 @@ import { transferService, type TransferParams as ServiceTransferParams, type Gas
 import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { TransferConfirmation } from "./TransferConfirmation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getChainId } from "@/infrastructure/web3/utils/chainIds";
 
 // Legacy interface for backward compatibility
 interface LegacyTransferParams {
@@ -102,11 +103,18 @@ export const BlockchainTransfer: React.FC<BlockchainTransferProps> = ({
     const wallet = wallets.find(w => w.address === legacy.fromWallet);
     if (!wallet) return null;
 
+    // Convert blockchain name to chain ID
+    const chainId = getChainId(legacy.blockchain);
+    if (!chainId) {
+      console.error(`Invalid blockchain: ${legacy.blockchain}`);
+      return null;
+    }
+
     return {
       from: legacy.fromWallet,
       to: legacy.toAddress,
       amount: legacy.amount,
-      blockchain: legacy.blockchain,
+      chainId: chainId, // Use numeric chain ID instead of blockchain name
       walletId: wallet.id,
       walletType: 'project', // Assume project wallet for now
       // Note: token/asset selection not yet supported in new service (only native tokens)

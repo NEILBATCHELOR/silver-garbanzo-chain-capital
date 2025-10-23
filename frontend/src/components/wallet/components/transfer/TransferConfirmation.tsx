@@ -43,12 +43,14 @@ interface TransferConfirmationProps {
   };
   onConfirm: () => void;
   onBack: () => void;
+  isProcessing?: boolean;  // Add processing state
 }
 
 export const TransferConfirmation: React.FC<TransferConfirmationProps> = ({
   formData,
   onConfirm,
   onBack,
+  isProcessing = false,  // Default to false
 }) => {
   const { wallets } = useWallet();
   const fromWallet = wallets.find((w) => w.id === formData.fromWallet);
@@ -156,11 +158,20 @@ export const TransferConfirmation: React.FC<TransferConfirmationProps> = ({
       </div>
       
       <div className="flex gap-4 pt-2">
-        <Button variant="outline" className="flex-1" onClick={onBack}>
+        <Button 
+          variant="outline" 
+          className="flex-1" 
+          onClick={onBack}
+          disabled={isProcessing}
+        >
           Go Back
         </Button>
-        <Button className="flex-1" onClick={onConfirm}>
-          Confirm Transfer
+        <Button 
+          className="flex-1" 
+          onClick={onConfirm}
+          disabled={isProcessing}
+        >
+          {isProcessing ? 'Processing...' : 'Confirm Transfer'}
         </Button>
       </div>
     </div>

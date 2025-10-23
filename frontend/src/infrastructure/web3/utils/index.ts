@@ -11,3 +11,9 @@ export * from './CryptoUtils';
 
 // Chain ID utilities and mappings
 export * from './chainIds';
+
+// Eligible assets mappings and utilities
+export * from './eligibleAssets';
+
+// Fallback RPC service for resilient RPC connections
+export * from './FallbackRPCService';
