@@ -57,9 +57,9 @@ async function test() {
 
   const { data, error } = await supabase
     .from('project_wallets')
-    .select('wallet_address, net, chain_id')
+    .select('wallet_address, chain_id')
     .eq('project_id', 'cdc4f92c-8da1-4d80-a917-a94eb8cafaf0')
-    .eq('net', 'hoodi')
+    .eq('chain_id', '560048')
     .maybeSingle();
 
   if (error) {
@@ -75,8 +75,7 @@ async function test() {
   console.log('✅ Supabase connection successful');
   console.log('\n📋 Wallet Info:');
   console.log(`   Address: ${data.wallet_address}`);
-  console.log(`   Network: ${data.net}`);
-  console.log(`   Chain ID: ${data.chain_id || '560048'}`);
+  console.log(`   Chain ID: ${data.chain_id} (Hoodi testnet)`);
 
   console.log('\n✅ All checks passed! Ready to run pre-flight check.');
   console.log('\nNext step:');

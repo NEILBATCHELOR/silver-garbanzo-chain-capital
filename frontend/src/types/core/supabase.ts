@@ -6306,7 +6306,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           metadata: Json | null
           organization_id: string | null
           status: string
@@ -6321,7 +6321,7 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           metadata?: Json | null
           organization_id?: string | null
           status: string
@@ -6336,7 +6336,7 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           metadata?: Json | null
           organization_id?: string | null
           status?: string
@@ -14339,7 +14339,7 @@ export type Database = {
           follow_up_date: string | null
           follow_up_required: boolean | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           log_id: string | null
           metadata: Json | null
           notes: string | null
@@ -14379,7 +14379,7 @@ export type Database = {
           follow_up_date?: string | null
           follow_up_required?: boolean | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           log_id?: string | null
           metadata?: Json | null
           notes?: string | null
@@ -14419,7 +14419,7 @@ export type Database = {
           follow_up_date?: string | null
           follow_up_required?: boolean | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           log_id?: string | null
           metadata?: Json | null
           notes?: string | null
@@ -14720,7 +14720,7 @@ export type Database = {
           created_at: string | null
           details: Json | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           proposal_id: string | null
           user_agent: string | null
           wallet_id: string | null
@@ -14732,7 +14732,7 @@ export type Database = {
           created_at?: string | null
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           proposal_id?: string | null
           user_agent?: string | null
           wallet_id?: string | null
@@ -14744,7 +14744,7 @@ export type Database = {
           created_at?: string | null
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           proposal_id?: string | null
           user_agent?: string | null
           wallet_id?: string | null
@@ -14836,6 +14836,7 @@ export type Database = {
           created_at: string | null
           id: string
           owner: string
+          project_id: string | null
           signature: string
           signer: string | null
           timestamp: string | null
@@ -14846,6 +14847,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           owner: string
+          project_id?: string | null
           signature: string
           signer?: string | null
           timestamp?: string | null
@@ -14856,6 +14858,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           owner?: string
+          project_id?: string | null
           signature?: string
           signer?: string | null
           timestamp?: string | null
@@ -14878,6 +14881,7 @@ export type Database = {
           created_at: string | null
           id: string
           on_chain_transaction_id: string | null
+          project_id: string | null
           signer_address: string
         }
         Insert: {
@@ -14886,6 +14890,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           on_chain_transaction_id?: string | null
+          project_id?: string | null
           signer_address: string
         }
         Update: {
@@ -14894,6 +14899,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           on_chain_transaction_id?: string | null
+          project_id?: string | null
           signer_address?: string
         }
         Relationships: [
@@ -14919,6 +14925,7 @@ export type Database = {
           id: string
           num_confirmations: number | null
           on_chain_tx_id: number
+          project_id: string | null
           submission_tx_hash: string
           submitted_by: string
           to_address: string
@@ -14937,6 +14944,7 @@ export type Database = {
           id?: string
           num_confirmations?: number | null
           on_chain_tx_id: number
+          project_id?: string | null
           submission_tx_hash: string
           submitted_by: string
           to_address: string
@@ -14955,6 +14963,7 @@ export type Database = {
           id?: string
           num_confirmations?: number | null
           on_chain_tx_id?: number
+          project_id?: string | null
           submission_tx_hash?: string
           submitted_by?: string
           to_address?: string
@@ -14989,6 +14998,7 @@ export type Database = {
           id: string
           on_chain_tx_hash: string | null
           on_chain_tx_id: number | null
+          project_id: string | null
           raw_transaction: Json
           signatures_collected: number | null
           signatures_required: number
@@ -15008,6 +15018,7 @@ export type Database = {
           id?: string
           on_chain_tx_hash?: string | null
           on_chain_tx_id?: number | null
+          project_id?: string | null
           raw_transaction: Json
           signatures_collected?: number | null
           signatures_required: number
@@ -15027,6 +15038,7 @@ export type Database = {
           id?: string
           on_chain_tx_hash?: string | null
           on_chain_tx_id?: number | null
+          project_id?: string | null
           raw_transaction?: Json
           signatures_collected?: number | null
           signatures_required?: number
@@ -15066,6 +15078,7 @@ export type Database = {
           hash: string
           id: string
           nonce: number
+          project_id: string | null
           required: number | null
           to: string | null
           token_address: string | null
@@ -15086,6 +15099,7 @@ export type Database = {
           hash: string
           id?: string
           nonce: number
+          project_id?: string | null
           required?: number | null
           to?: string | null
           token_address?: string | null
@@ -15106,6 +15120,7 @@ export type Database = {
           hash?: string
           id?: string
           nonce?: number
+          project_id?: string | null
           required?: number | null
           to?: string | null
           token_address?: string | null
@@ -18476,49 +18491,52 @@ export type Database = {
       }
       project_wallets: {
         Row: {
+          bitcoin_network_type: string | null
           chain_id: string | null
           created_at: string
           id: string
           mnemonic: string | null
           mnemonic_vault_id: string | null
-          net: string | null
+          non_evm_network: string | null
           private_key: string | null
           private_key_vault_id: string | null
           project_id: string
+          project_wallet_name: string | null
           public_key: string
           updated_at: string
           wallet_address: string
-          wallet_type: string
         }
         Insert: {
+          bitcoin_network_type?: string | null
           chain_id?: string | null
           created_at?: string
           id?: string
           mnemonic?: string | null
           mnemonic_vault_id?: string | null
-          net?: string | null
+          non_evm_network?: string | null
           private_key?: string | null
           private_key_vault_id?: string | null
           project_id: string
+          project_wallet_name?: string | null
           public_key: string
           updated_at?: string
           wallet_address: string
-          wallet_type: string
         }
         Update: {
+          bitcoin_network_type?: string | null
           chain_id?: string | null
           created_at?: string
           id?: string
           mnemonic?: string | null
           mnemonic_vault_id?: string | null
-          net?: string | null
+          non_evm_network?: string | null
           private_key?: string | null
           private_key_vault_id?: string | null
           project_id?: string
+          project_wallet_name?: string | null
           public_key?: string
           updated_at?: string
           wallet_address?: string
-          wallet_type?: string
         }
         Relationships: [
           {
@@ -18537,6 +18555,79 @@ export type Database = {
           },
           {
             foreignKeyName: "project_wallets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_wallets_backup_do_not_use: {
+        Row: {
+          chain_id: string | null
+          created_at: string
+          id: string
+          mnemonic: string | null
+          mnemonic_vault_id: string | null
+          net: string | null
+          private_key: string | null
+          private_key_vault_id: string | null
+          project_id: string
+          project_wallet_name: string | null
+          public_key: string
+          updated_at: string
+          wallet_address: string
+          wallet_type: string
+        }
+        Insert: {
+          chain_id?: string | null
+          created_at?: string
+          id?: string
+          mnemonic?: string | null
+          mnemonic_vault_id?: string | null
+          net?: string | null
+          private_key?: string | null
+          private_key_vault_id?: string | null
+          project_id: string
+          project_wallet_name?: string | null
+          public_key: string
+          updated_at?: string
+          wallet_address: string
+          wallet_type: string
+        }
+        Update: {
+          chain_id?: string | null
+          created_at?: string
+          id?: string
+          mnemonic?: string | null
+          mnemonic_vault_id?: string | null
+          net?: string | null
+          private_key?: string | null
+          private_key_vault_id?: string | null
+          project_id?: string
+          project_wallet_name?: string | null
+          public_key?: string
+          updated_at?: string
+          wallet_address?: string
+          wallet_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_wallets_duplicate_mnemonic_vault_id_fkey"
+            columns: ["mnemonic_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_wallets_duplicate_private_key_vault_id_fkey"
+            columns: ["private_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_wallets_duplicate_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -18641,291 +18732,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      projects_backup: {
-        Row: {
-          audit_frequency: string | null
-          authorized_shares: number | null
-          barrier_level: number | null
-          blockchain_network: string | null
-          business_continuity_plan: boolean | null
-          call_date: string | null
-          call_price: number | null
-          callable_features: boolean | null
-          capital_protection_level: number | null
-          carbon_offset_potential: number | null
-          collateral_type: string | null
-          collection_period_days: number | null
-          company_valuation: number | null
-          complexity_indicator: string | null
-          compliance_framework: string[] | null
-          consensus_mechanism: string | null
-          coupon_frequency: string | null
-          created_at: string | null
-          credit_rating: string | null
-          cross_border_implications: string | null
-          currency: string | null
-          custodian_name: string | null
-          custody_arrangements: string | null
-          cybersecurity_framework: string[] | null
-          data_processing_basis: string | null
-          data_retention_policy: string | null
-          debtor_credit_quality: string | null
-          depeg_risk_mitigation: string[] | null
-          description: string | null
-          development_stage: string | null
-          dilution_protection: string[] | null
-          disaster_recovery_procedures: string | null
-          diversification_metrics: Json | null
-          dividend_policy: string | null
-          duration: Database["public"]["Enums"]["project_duration"] | null
-          environmental_certifications: string[] | null
-          esg_risk_rating: string | null
-          estimated_yield_percentage: number | null
-          exit_strategy: string | null
-          fee_structure_summary: string | null
-          fund_vintage_year: number | null
-          gas_fee_structure: string | null
-          geographic_focus: string[] | null
-          geographic_location: string | null
-          governance_structure: string | null
-          id: string | null
-          investment_stage: string | null
-          investment_status: string | null
-          is_primary: boolean | null
-          jurisdiction: string | null
-          legal_entity: string | null
-          liquidity_terms: string | null
-          maturity_date: string | null
-          minimum_investment: number | null
-          name: string | null
-          oracle_dependencies: string[] | null
-          payoff_structure: string | null
-          power_purchase_agreements: string | null
-          principal_adverse_impacts: string | null
-          privacy_policy_link: string | null
-          project_capacity_mw: number | null
-          project_type: string | null
-          property_type: string | null
-          recovery_rate_percentage: number | null
-          redemption_mechanism: string | null
-          regulatory_approvals: string[] | null
-          regulatory_permissions: string[] | null
-          reserve_management_policy: string | null
-          risk_profile: string | null
-          sector_focus: string[] | null
-          security_collateral: string | null
-          share_price: number | null
-          smart_contract_address: string | null
-          smart_contract_audit_status: string | null
-          status: string | null
-          subscription_end_date: string | null
-          subscription_start_date: string | null
-          sustainability_classification: string | null
-          target_investor_type: string | null
-          target_raise: number | null
-          tax_id: string | null
-          tax_reporting_obligations: string[] | null
-          taxonomy_alignment_percentage: number | null
-          third_party_custodian: boolean | null
-          token_economics: string | null
-          token_symbol: string | null
-          total_notional: number | null
-          transaction_start_date: string | null
-          underlying_assets: string[] | null
-          updated_at: string | null
-          upgrade_governance: string | null
-          voting_rights: string | null
-        }
-        Insert: {
-          audit_frequency?: string | null
-          authorized_shares?: number | null
-          barrier_level?: number | null
-          blockchain_network?: string | null
-          business_continuity_plan?: boolean | null
-          call_date?: string | null
-          call_price?: number | null
-          callable_features?: boolean | null
-          capital_protection_level?: number | null
-          carbon_offset_potential?: number | null
-          collateral_type?: string | null
-          collection_period_days?: number | null
-          company_valuation?: number | null
-          complexity_indicator?: string | null
-          compliance_framework?: string[] | null
-          consensus_mechanism?: string | null
-          coupon_frequency?: string | null
-          created_at?: string | null
-          credit_rating?: string | null
-          cross_border_implications?: string | null
-          currency?: string | null
-          custodian_name?: string | null
-          custody_arrangements?: string | null
-          cybersecurity_framework?: string[] | null
-          data_processing_basis?: string | null
-          data_retention_policy?: string | null
-          debtor_credit_quality?: string | null
-          depeg_risk_mitigation?: string[] | null
-          description?: string | null
-          development_stage?: string | null
-          dilution_protection?: string[] | null
-          disaster_recovery_procedures?: string | null
-          diversification_metrics?: Json | null
-          dividend_policy?: string | null
-          duration?: Database["public"]["Enums"]["project_duration"] | null
-          environmental_certifications?: string[] | null
-          esg_risk_rating?: string | null
-          estimated_yield_percentage?: number | null
-          exit_strategy?: string | null
-          fee_structure_summary?: string | null
-          fund_vintage_year?: number | null
-          gas_fee_structure?: string | null
-          geographic_focus?: string[] | null
-          geographic_location?: string | null
-          governance_structure?: string | null
-          id?: string | null
-          investment_stage?: string | null
-          investment_status?: string | null
-          is_primary?: boolean | null
-          jurisdiction?: string | null
-          legal_entity?: string | null
-          liquidity_terms?: string | null
-          maturity_date?: string | null
-          minimum_investment?: number | null
-          name?: string | null
-          oracle_dependencies?: string[] | null
-          payoff_structure?: string | null
-          power_purchase_agreements?: string | null
-          principal_adverse_impacts?: string | null
-          privacy_policy_link?: string | null
-          project_capacity_mw?: number | null
-          project_type?: string | null
-          property_type?: string | null
-          recovery_rate_percentage?: number | null
-          redemption_mechanism?: string | null
-          regulatory_approvals?: string[] | null
-          regulatory_permissions?: string[] | null
-          reserve_management_policy?: string | null
-          risk_profile?: string | null
-          sector_focus?: string[] | null
-          security_collateral?: string | null
-          share_price?: number | null
-          smart_contract_address?: string | null
-          smart_contract_audit_status?: string | null
-          status?: string | null
-          subscription_end_date?: string | null
-          subscription_start_date?: string | null
-          sustainability_classification?: string | null
-          target_investor_type?: string | null
-          target_raise?: number | null
-          tax_id?: string | null
-          tax_reporting_obligations?: string[] | null
-          taxonomy_alignment_percentage?: number | null
-          third_party_custodian?: boolean | null
-          token_economics?: string | null
-          token_symbol?: string | null
-          total_notional?: number | null
-          transaction_start_date?: string | null
-          underlying_assets?: string[] | null
-          updated_at?: string | null
-          upgrade_governance?: string | null
-          voting_rights?: string | null
-        }
-        Update: {
-          audit_frequency?: string | null
-          authorized_shares?: number | null
-          barrier_level?: number | null
-          blockchain_network?: string | null
-          business_continuity_plan?: boolean | null
-          call_date?: string | null
-          call_price?: number | null
-          callable_features?: boolean | null
-          capital_protection_level?: number | null
-          carbon_offset_potential?: number | null
-          collateral_type?: string | null
-          collection_period_days?: number | null
-          company_valuation?: number | null
-          complexity_indicator?: string | null
-          compliance_framework?: string[] | null
-          consensus_mechanism?: string | null
-          coupon_frequency?: string | null
-          created_at?: string | null
-          credit_rating?: string | null
-          cross_border_implications?: string | null
-          currency?: string | null
-          custodian_name?: string | null
-          custody_arrangements?: string | null
-          cybersecurity_framework?: string[] | null
-          data_processing_basis?: string | null
-          data_retention_policy?: string | null
-          debtor_credit_quality?: string | null
-          depeg_risk_mitigation?: string[] | null
-          description?: string | null
-          development_stage?: string | null
-          dilution_protection?: string[] | null
-          disaster_recovery_procedures?: string | null
-          diversification_metrics?: Json | null
-          dividend_policy?: string | null
-          duration?: Database["public"]["Enums"]["project_duration"] | null
-          environmental_certifications?: string[] | null
-          esg_risk_rating?: string | null
-          estimated_yield_percentage?: number | null
-          exit_strategy?: string | null
-          fee_structure_summary?: string | null
-          fund_vintage_year?: number | null
-          gas_fee_structure?: string | null
-          geographic_focus?: string[] | null
-          geographic_location?: string | null
-          governance_structure?: string | null
-          id?: string | null
-          investment_stage?: string | null
-          investment_status?: string | null
-          is_primary?: boolean | null
-          jurisdiction?: string | null
-          legal_entity?: string | null
-          liquidity_terms?: string | null
-          maturity_date?: string | null
-          minimum_investment?: number | null
-          name?: string | null
-          oracle_dependencies?: string[] | null
-          payoff_structure?: string | null
-          power_purchase_agreements?: string | null
-          principal_adverse_impacts?: string | null
-          privacy_policy_link?: string | null
-          project_capacity_mw?: number | null
-          project_type?: string | null
-          property_type?: string | null
-          recovery_rate_percentage?: number | null
-          redemption_mechanism?: string | null
-          regulatory_approvals?: string[] | null
-          regulatory_permissions?: string[] | null
-          reserve_management_policy?: string | null
-          risk_profile?: string | null
-          sector_focus?: string[] | null
-          security_collateral?: string | null
-          share_price?: number | null
-          smart_contract_address?: string | null
-          smart_contract_audit_status?: string | null
-          status?: string | null
-          subscription_end_date?: string | null
-          subscription_start_date?: string | null
-          sustainability_classification?: string | null
-          target_investor_type?: string | null
-          target_raise?: number | null
-          tax_id?: string | null
-          tax_reporting_obligations?: string[] | null
-          taxonomy_alignment_percentage?: number | null
-          third_party_custodian?: boolean | null
-          token_economics?: string | null
-          token_symbol?: string | null
-          total_notional?: number | null
-          transaction_start_date?: string | null
-          underlying_assets?: string[] | null
-          updated_at?: string | null
-          upgrade_governance?: string | null
-          voting_rights?: string | null
-        }
-        Relationships: []
       }
       property_expenses: {
         Row: {
@@ -20265,7 +20071,7 @@ export type Database = {
           event_data: Json
           event_type: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           ramp_event_id: string | null
           session_id: string | null
           timestamp: string
@@ -20276,7 +20082,7 @@ export type Database = {
           event_data: Json
           event_type: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           ramp_event_id?: string | null
           session_id?: string | null
           timestamp?: string
@@ -20287,7 +20093,7 @@ export type Database = {
           event_data?: Json
           event_type?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           ramp_event_id?: string | null
           session_id?: string | null
           timestamp?: string
@@ -20489,9 +20295,50 @@ export type Database = {
         }
         Relationships: []
       }
+      recent_address_selections: {
+        Row: {
+          address: string
+          context: string | null
+          created_at: string
+          id: string
+          project_id: string | null
+          selected_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          selected_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          selected_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recent_address_selections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       redemption_analytics: {
         Row: {
-          average_processing_time: unknown | null
+          average_processing_time: unknown
           average_request_size: number | null
           calculated_at: string | null
           eligible_investors: number | null
@@ -20507,7 +20354,7 @@ export type Database = {
           total_requested_tokens: number | null
         }
         Insert: {
-          average_processing_time?: unknown | null
+          average_processing_time?: unknown
           average_request_size?: number | null
           calculated_at?: string | null
           eligible_investors?: number | null
@@ -20523,7 +20370,7 @@ export type Database = {
           total_requested_tokens?: number | null
         }
         Update: {
-          average_processing_time?: unknown | null
+          average_processing_time?: unknown
           average_request_size?: number | null
           calculated_at?: string | null
           eligible_investors?: number | null
@@ -20657,7 +20504,7 @@ export type Database = {
       }
       redemption_requests: {
         Row: {
-          actual_processing_time: unknown | null
+          actual_processing_time: unknown
           approved_by: string | null
           business_rules_version: string | null
           compliance_status: string | null
@@ -20669,7 +20516,7 @@ export type Database = {
           distribution_ids: string[] | null
           distribution_tx_hash: string | null
           eligibility_check_id: string | null
-          estimated_processing_time: unknown | null
+          estimated_processing_time: unknown
           id: string
           investor_count: number | null
           investor_id: string | null
@@ -20700,7 +20547,7 @@ export type Database = {
           window_id: string | null
         }
         Insert: {
-          actual_processing_time?: unknown | null
+          actual_processing_time?: unknown
           approved_by?: string | null
           business_rules_version?: string | null
           compliance_status?: string | null
@@ -20712,7 +20559,7 @@ export type Database = {
           distribution_ids?: string[] | null
           distribution_tx_hash?: string | null
           eligibility_check_id?: string | null
-          estimated_processing_time?: unknown | null
+          estimated_processing_time?: unknown
           id?: string
           investor_count?: number | null
           investor_id?: string | null
@@ -20743,7 +20590,7 @@ export type Database = {
           window_id?: string | null
         }
         Update: {
-          actual_processing_time?: unknown | null
+          actual_processing_time?: unknown
           approved_by?: string | null
           business_rules_version?: string | null
           compliance_status?: string | null
@@ -20755,7 +20602,7 @@ export type Database = {
           distribution_ids?: string[] | null
           distribution_tx_hash?: string | null
           eligibility_check_id?: string | null
-          estimated_processing_time?: unknown | null
+          estimated_processing_time?: unknown
           id?: string
           investor_count?: number | null
           investor_id?: string | null
@@ -23166,7 +23013,7 @@ export type Database = {
       }
       settlement_metrics: {
         Row: {
-          average_processing_time: unknown | null
+          average_processing_time: unknown
           created_at: string | null
           date: string
           failed_settlements: number | null
@@ -23180,7 +23027,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          average_processing_time?: unknown | null
+          average_processing_time?: unknown
           created_at?: string | null
           date: string
           failed_settlements?: number | null
@@ -23194,7 +23041,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          average_processing_time?: unknown | null
+          average_processing_time?: unknown
           created_at?: string | null
           date?: string
           failed_settlements?: number | null
@@ -32399,7 +32246,7 @@ export type Database = {
           confirmations: number | null
           created_at: string | null
           destination_tag: number | null
-          estimated_confirmation_time: unknown | null
+          estimated_confirmation_time: unknown
           from_address: string
           gas_limit: number | null
           gas_price: number | null
@@ -32409,6 +32256,7 @@ export type Database = {
           max_priority_fee_per_gas: number | null
           memo: string | null
           network_fee: number | null
+          project_id: string | null
           status: string
           to_address: string
           token_address: string | null
@@ -32427,7 +32275,7 @@ export type Database = {
           confirmations?: number | null
           created_at?: string | null
           destination_tag?: number | null
-          estimated_confirmation_time?: unknown | null
+          estimated_confirmation_time?: unknown
           from_address: string
           gas_limit?: number | null
           gas_price?: number | null
@@ -32437,6 +32285,7 @@ export type Database = {
           max_priority_fee_per_gas?: number | null
           memo?: string | null
           network_fee?: number | null
+          project_id?: string | null
           status?: string
           to_address: string
           token_address?: string | null
@@ -32455,7 +32304,7 @@ export type Database = {
           confirmations?: number | null
           created_at?: string | null
           destination_tag?: number | null
-          estimated_confirmation_time?: unknown | null
+          estimated_confirmation_time?: unknown
           from_address?: string
           gas_limit?: number | null
           gas_price?: number | null
@@ -32465,6 +32314,7 @@ export type Database = {
           max_priority_fee_per_gas?: number | null
           memo?: string | null
           network_fee?: number | null
+          project_id?: string | null
           status?: string
           to_address?: string
           token_address?: string | null
@@ -33408,6 +33258,8 @@ export type Database = {
       }
       wallet_transactions: {
         Row: {
+          amount: string | null
+          blockchain: string | null
           chain_id: string | null
           confirmation_count: number | null
           created_at: string | null
@@ -33417,15 +33269,21 @@ export type Database = {
           gas_price: number | null
           id: string
           nonce: number | null
+          project_id: string | null
           status: string | null
           to_address: string | null
           token_address: string | null
           token_symbol: string | null
+          transaction_hash: string | null
+          transaction_type: string | null
           tx_hash: string | null
           updated_at: string | null
           value: number | null
+          wallet_id: string | null
         }
         Insert: {
+          amount?: string | null
+          blockchain?: string | null
           chain_id?: string | null
           confirmation_count?: number | null
           created_at?: string | null
@@ -33435,15 +33293,21 @@ export type Database = {
           gas_price?: number | null
           id?: string
           nonce?: number | null
+          project_id?: string | null
           status?: string | null
           to_address?: string | null
           token_address?: string | null
           token_symbol?: string | null
+          transaction_hash?: string | null
+          transaction_type?: string | null
           tx_hash?: string | null
           updated_at?: string | null
           value?: number | null
+          wallet_id?: string | null
         }
         Update: {
+          amount?: string | null
+          blockchain?: string | null
           chain_id?: string | null
           confirmation_count?: number | null
           created_at?: string | null
@@ -33453,15 +33317,27 @@ export type Database = {
           gas_price?: number | null
           id?: string
           nonce?: number | null
+          project_id?: string | null
           status?: string | null
           to_address?: string | null
           token_address?: string | null
           token_symbol?: string | null
+          transaction_hash?: string | null
+          transaction_type?: string | null
           tx_hash?: string | null
           updated_at?: string | null
           value?: number | null
+          wallet_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallets: {
         Row: {
@@ -33962,10 +33838,10 @@ export type Database = {
       }
       audit_coverage: {
         Row: {
-          function_name: unknown | null
-          schema_name: unknown | null
-          table_name: unknown | null
-          trigger_name: unknown | null
+          function_name: unknown
+          schema_name: unknown
+          table_name: unknown
+          trigger_name: unknown
         }
         Relationships: []
       }
@@ -34074,7 +33950,7 @@ export type Database = {
           has_recent_audit: boolean | null
           last_audit_event: string | null
           recent_event_count: number | null
-          table_name: unknown | null
+          table_name: unknown
         }
         Relationships: []
       }
@@ -35176,17 +35052,24 @@ export type Database = {
         Args: { p_group_id: string; p_investor_ids: string[] }
         Returns: undefined
       }
-      add_policy_approver: {
-        Args:
-          | {
+      add_policy_approver:
+        | {
+            Args: {
+              p_created_by: string
+              p_policy_id: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
               created_by: string
               policy_id: string
               status_val?: string
               user_id: string
             }
-          | { p_created_by: string; p_policy_id: string; p_user_id: string }
-        Returns: undefined
-      }
+            Returns: undefined
+          }
       add_policy_approver_with_cast: {
         Args: { created_by_id: string; policy_id: string; user_id: string }
         Returns: boolean
@@ -35207,7 +35090,7 @@ export type Database = {
         Returns: undefined
       }
       analyze_activity_indexes: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           index_name: string
           scans: number
@@ -35227,22 +35110,13 @@ export type Database = {
           table_name: string
         }[]
       }
-      archive_old_moonpay_compliance_alerts: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      archive_old_moonpay_compliance_alerts: { Args: never; Returns: number }
       assign_redemption_approvers: {
         Args: { p_approval_config_id: string; p_redemption_request_id: string }
         Returns: boolean
       }
-      backup_trigger_definitions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      begin_transaction: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      backup_trigger_definitions: { Args: never; Returns: undefined }
+      begin_transaction: { Args: never; Returns: boolean }
       calculate_batch_climate_risk: {
         Args: { p_calculation_metadata?: Json; p_receivable_ids: string[] }
         Returns: {
@@ -35276,10 +35150,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      check_expired_proposals: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      check_expired_proposals: { Args: never; Returns: undefined }
       check_permission: {
         Args: { p_action: string; p_resource: string; p_role_name: string }
         Returns: boolean
@@ -35305,42 +35176,15 @@ export type Database = {
         Args: { permission: string; user_id: string }
         Returns: boolean
       }
-      cleanup_expired_asset_cache: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_expired_cache: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_expired_cache_data: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_expired_transaction_drafts: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_old_moonpay_policy_logs: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_old_validation_logs: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_old_webhook_events: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_orphaned_policy_approvers: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      climate_receivables_health_check: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      cleanup_expired_asset_cache: { Args: never; Returns: number }
+      cleanup_expired_cache: { Args: never; Returns: number }
+      cleanup_expired_cache_data: { Args: never; Returns: number }
+      cleanup_expired_transaction_drafts: { Args: never; Returns: number }
+      cleanup_old_moonpay_policy_logs: { Args: never; Returns: number }
+      cleanup_old_validation_logs: { Args: never; Returns: number }
+      cleanup_old_webhook_events: { Args: never; Returns: number }
+      cleanup_orphaned_policy_approvers: { Args: never; Returns: number }
+      climate_receivables_health_check: { Args: never; Returns: Json }
       column_exists: {
         Args: {
           p_column_name: string
@@ -35349,10 +35193,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      commit_transaction: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      commit_transaction: { Args: never; Returns: boolean }
       create_audit_trigger: {
         Args: { is_high_volume?: boolean; table_name: string }
         Returns: undefined
@@ -35365,10 +35206,7 @@ export type Database = {
         Args: { p_condition?: string; p_table: string }
         Returns: undefined
       }
-      create_transaction_events_table: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      create_transaction_events_table: { Args: never; Returns: undefined }
       delete_project_cascade: {
         Args: { project_id: string }
         Returns: undefined
@@ -35377,14 +35215,8 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
-      exec: {
-        Args: { query: string }
-        Returns: Json
-      }
-      execute_safely: {
-        Args: { p_statement: string }
-        Returns: boolean
-      }
+      exec: { Args: { query: string }; Returns: Json }
+      execute_safely: { Args: { p_statement: string }; Returns: boolean }
       get_activity_counts_by_timeframe: {
         Args: { p_end_time: string; p_interval?: string; p_start_time: string }
         Returns: {
@@ -35425,7 +35257,7 @@ export type Database = {
         }[]
       }
       get_all_table_schemas: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           column_default: string
           column_name: string
@@ -35435,16 +35267,13 @@ export type Database = {
         }[]
       }
       get_audit_repopulation_summary: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           metric: string
           value: string
         }[]
       }
-      get_audit_statistics: {
-        Args: { p_hours_back?: number }
-        Returns: Json
-      }
+      get_audit_statistics: { Args: { p_hours_back?: number }; Returns: Json }
       get_contract_roles_for_address: {
         Args: { p_address_id: string }
         Returns: Json
@@ -35462,7 +35291,7 @@ export type Database = {
         Returns: string
       }
       get_moonpay_webhook_stats: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active_webhooks: number
           avg_success_rate: number
@@ -35470,10 +35299,7 @@ export type Database = {
           total_webhooks: number
         }[]
       }
-      get_payer_risk_assessment: {
-        Args: { p_payer_id: string }
-        Returns: Json
-      }
+      get_payer_risk_assessment: { Args: { p_payer_id: string }; Returns: Json }
       get_payer_risk_assessment_with_user_data: {
         Args: { p_payer_id: string }
         Returns: Json
@@ -35543,7 +35369,7 @@ export type Database = {
         }[]
       }
       get_table_row_counts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           row_count: number
           table_name: string
@@ -35568,7 +35394,7 @@ export type Database = {
         }[]
       }
       get_total_redemption_capacity: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active_rules_count: number
           overall_usage_percentage: number
@@ -35636,10 +35462,7 @@ export type Database = {
         Args: { p_permission_id: string }
         Returns: string[]
       }
-      get_wallet_signers: {
-        Args: { p_wallet_id: string }
-        Returns: string[]
-      }
+      get_wallet_signers: { Args: { p_wallet_id: string }; Returns: string[] }
       insert_energy_asset_safe: {
         Args: {
           p_capacity: number
@@ -35663,7 +35486,7 @@ export type Database = {
         Returns: boolean
       }
       list_tables: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           table_name: string
         }[]
@@ -35707,16 +35530,10 @@ export type Database = {
         }
         Returns: string
       }
-      migrate_token_json_to_tables: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      purge_duplicate_lifecycle_events: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      migrate_token_json_to_tables: { Args: never; Returns: undefined }
+      purge_duplicate_lifecycle_events: { Args: never; Returns: number }
       reconcile_redemption_statistics: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           after_requests: number
           after_value: number
@@ -35726,14 +35543,8 @@ export type Database = {
           window_name: string
         }[]
       }
-      refresh_activity_metrics: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      refresh_all_redemption_window_statistics: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      refresh_activity_metrics: { Args: never; Returns: string }
+      refresh_all_redemption_window_statistics: { Args: never; Returns: number }
       remove_investors_from_group: {
         Args: { p_group_id: string; p_investor_ids: string[] }
         Returns: undefined
@@ -35742,18 +35553,9 @@ export type Database = {
         Args: { p_distribution_ids: string[]; p_total_amount: number }
         Returns: boolean
       }
-      rollback_transaction: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      safe_cast_to_uuid: {
-        Args: { input: string }
-        Returns: string
-      }
-      safe_uuid_cast: {
-        Args: { text_id: string }
-        Returns: string
-      }
+      rollback_transaction: { Args: never; Returns: boolean }
+      safe_cast_to_uuid: { Args: { input: string }; Returns: string }
+      safe_uuid_cast: { Args: { text_id: string }; Returns: string }
       save_consensus_config: {
         Args: {
           p_consensus_type: string
@@ -35791,10 +35593,7 @@ export type Database = {
         Args: { group_id_param: string }
         Returns: undefined
       }
-      sync_investor_group_memberships: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      sync_investor_group_memberships: { Args: never; Returns: undefined }
       table_exists: {
         Args: { p_schema_name: string; p_table_name: string }
         Returns: boolean
@@ -35836,6 +35635,15 @@ export type Database = {
       }
       update_user_role: {
         Args: { p_role: string; p_user_id: string }
+        Returns: undefined
+      }
+      upsert_address_selection: {
+        Args: {
+          p_address: string
+          p_context?: string
+          p_project_id: string
+          p_user_id: string
+        }
         Returns: undefined
       }
       upsert_policy_template_approver: {

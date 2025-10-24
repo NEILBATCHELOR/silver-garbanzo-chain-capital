@@ -23,6 +23,7 @@ import {
 } from "@/utils/compliance/investorTypes";
 import { supabase } from "@/infrastructure/database/client";
 import { useToast } from "@/components/ui/use-toast";
+import { ETHWalletGenerator } from "@/services/wallet/generators/ETHWalletGenerator";
 
 import {
   Dialog,
@@ -392,15 +393,12 @@ const InvestorDialog = ({
                           type="button"
                           variant="outline"
                           onClick={() => {
-                            // Generate random ETH wallet address
-                            const hexChars = "0123456789abcdef";
-                            let address = "0x";
-                            for (let i = 0; i < 40; i++) {
-                              address += hexChars.charAt(
-                                Math.floor(Math.random() * hexChars.length),
-                              );
-                            }
-                            field.onChange(address);
+                            // Generate a real Ethereum wallet address
+                            const wallet = ETHWalletGenerator.generateWallet({
+                              includePrivateKey: false,
+                              includeMnemonic: false,
+                            });
+                            field.onChange(wallet.address);
                           }}
                         >
                           Generate
@@ -408,7 +406,7 @@ const InvestorDialog = ({
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Ethereum wallet address for token distribution
+                      Ethereum wallet address for token distribution. Use "Generate" for a new address, or use Bulk Wallet Generation for secure key storage.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

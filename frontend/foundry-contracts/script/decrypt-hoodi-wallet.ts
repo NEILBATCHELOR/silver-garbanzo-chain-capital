@@ -126,12 +126,12 @@ async function main() {
   console.log(`   Project ID: ${PROJECT_ID}`);
   console.log('');
 
-  // Query for Hoodi wallet
+  // Query for Hoodi wallet (chain_id 560048)
   const { data: wallet, error } = await supabase
     .from('project_wallets')
     .select('*')
     .eq('project_id', PROJECT_ID)
-    .eq('net', 'hoodi')
+    .eq('chain_id', '560048')
     .maybeSingle();
 
   if (error) {
@@ -143,7 +143,7 @@ async function main() {
     console.error('❌ No Hoodi wallet found for project');
     console.error('   Make sure you have a wallet with:');
     console.error('   - project_id: cdc4f92c-8da1-4d80-a917-a94eb8cafaf0');
-    console.error('   - net: hoodi');
+    console.error('   - chain_id: 560048 (Hoodi)');
     process.exit(1);
   }
 

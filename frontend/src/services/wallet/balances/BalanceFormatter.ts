@@ -151,7 +151,12 @@ export class BalanceFormatter {
   /**
    * Format network name for display
    */
-  static formatNetworkName(network: string): string {
+  static formatNetworkName(network: string | undefined | null): string {
+    // Guard clause: return 'Unknown' if network is undefined or null
+    if (!network) {
+      return 'Unknown';
+    }
+    
     const networkMap: Record<string, string> = {
       'ethereum': 'Ethereum',
       'eth': 'Ethereum',
@@ -204,7 +209,12 @@ export class BalanceFormatter {
   /**
    * Get network icon/emoji
    */
-  static getNetworkIcon(network: string): string {
+  static getNetworkIcon(network: string | undefined | null): string {
+    // Guard clause: return default icon if network is undefined or null
+    if (!network) {
+      return '🔗';
+    }
+    
     const iconMap: Record<string, string> = {
       'ethereum': '⟠',
       'eth': '⟠',

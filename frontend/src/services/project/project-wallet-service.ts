@@ -34,6 +34,7 @@ export interface ProjectWalletData {
   vault_storage_id?: string;
   chain_id?: string | null;
   net?: string;
+  project_wallet_name?: string | null;
 }
 
 export interface WalletGenerationParams {

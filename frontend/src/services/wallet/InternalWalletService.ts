@@ -21,11 +21,13 @@ import { BalanceService, type WalletBalance } from './balances/BalanceService';
 export interface ProjectWallet {
   id: string;
   projectId: string;
-  walletType: string;
+  projectWalletName: string | null; // Custom name for the wallet
   address: string;
   publicKey: string;
-  chainId: string | null;
-  network: string | null;
+  // Network identification - one of these will be populated based on network type
+  chainId: string | null; // For EVM networks - numeric chain ID as string
+  nonEvmNetwork: string | null; // For non-EVM networks (e.g., 'solana', 'near')
+  bitcoinNetworkType: string | null; // For Bitcoin networks (e.g., 'mainnet', 'testnet')
   balance?: WalletBalance; // Full balance object with network info
   createdAt: Date;
   updatedAt: Date;
@@ -93,7 +95,7 @@ export class InternalWalletService {
    * Map chain ID to balance service key
    * Copied from ProjectWalletList for consistency
    */
-  private chainIdToBalanceKey(chainId: string | null, network: string | null, walletType: string): string {
+  private chainIdToBalanceKey(chainId: string | null): string {
     const chainIdToNetwork: Record<string, string> = {
       // Ethereum networks
       '1': 'ethereum',
@@ -142,29 +144,8 @@ export class InternalWalletService {
       }
     }
     
-    // If we have a net field, use it to get more specific network info
-    if (network) {
-      const netToServiceKey: Record<string, string> = {
-        'sepolia': 'sepolia',
-        'holesky': 'holesky',
-        'hoodi': 'hoodi',
-        'amoy': 'amoy',
-        'optimism-sepolia': 'optimism-sepolia',
-        'arbitrum-sepolia': 'arbitrum-sepolia',
-        'base-sepolia': 'base-sepolia',
-        'fuji': 'avalanche-testnet',
-        'zksync-sepolia': 'zksync-sepolia',
-        'injective-888': 'injective-testnet',
-        'injective-testnet': 'injective-testnet',
-      };
-      
-      if (netToServiceKey[network]) {
-        return netToServiceKey[network];
-      }
-    }
-    
-    // Fall back to wallet type
-    return walletType.toLowerCase();
+    // Fall back to ethereum if chain ID not recognized
+    return 'ethereum';
   }
 
   /**
@@ -198,11 +179,12 @@ export class InternalWalletService {
         .select(`
           id,
           project_id,
-          wallet_type,
+          project_wallet_name,
           wallet_address,
           public_key,
           chain_id,
-          net,
+          non_evm_network,
+          bitcoin_network_type,
           private_key,
           private_key_vault_id,
           created_at,
@@ -218,11 +200,12 @@ export class InternalWalletService {
       return (data || []).map(wallet => ({
         id: wallet.id,
         projectId: wallet.project_id,
-        walletType: wallet.wallet_type,
+        projectWalletName: wallet.project_wallet_name,
         address: wallet.wallet_address,
         publicKey: wallet.public_key,
         chainId: wallet.chain_id,
-        network: wallet.net,
+        nonEvmNetwork: wallet.non_evm_network,
+        bitcoinNetworkType: wallet.bitcoin_network_type,
         createdAt: new Date(wallet.created_at),
         updatedAt: new Date(wallet.updated_at),
         hasDirectKey: !!wallet.private_key,
@@ -597,7 +580,7 @@ export class InternalWalletService {
       // Prepare wallets for balance fetching with proper network mapping
       const projectWalletsToFetch = allWallets.projectWallets.map(w => ({
         address: w.address.toLowerCase(),
-        walletType: this.chainIdToBalanceKey(w.chainId, w.network, w.walletType)
+        walletType: this.chainIdToBalanceKey(w.chainId)
       }));
 
       const multiSigWalletsToFetch = allWallets.multiSigWallets.map(w => ({

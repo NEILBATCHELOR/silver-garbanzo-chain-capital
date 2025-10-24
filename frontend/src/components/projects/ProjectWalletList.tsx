@@ -33,13 +33,16 @@ import {
   X,
   SortAsc,
   SortDesc,
-  Loader2
+  Loader2,
+  Edit,
+  Check
 } from "lucide-react";
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
 import { BalanceFormatter, balanceService } from "@/services/wallet/balances";
 import type { WalletBalance } from "@/services/wallet/balances";
 import { getChainEnvironment, getExplorerUrl } from "@/config/chains";
 import { WalletEncryptionClient } from "@/services/security/walletEncryptionService";
+import { getChainInfo, getChainName, isTestnet } from '@/infrastructure/web3/utils/chainIds';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +97,11 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
+  
+  // Wallet name editing state
+  const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
+  const [editingWalletName, setEditingWalletName] = useState('');
+  const [savingWalletName, setSavingWalletName] = useState(false);
   
   // Debounced search
   useEffect(() => {
@@ -340,9 +348,9 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'network_asc':
-          return a.wallet_type.localeCompare(b.wallet_type);
+          return (a.wallet_type || '').localeCompare(b.wallet_type || '');
         case 'network_desc':
-          return b.wallet_type.localeCompare(a.wallet_type);
+          return (b.wallet_type || '').localeCompare(a.wallet_type || '');
         case 'balance_desc':
           return (b.balance?.totalValueUsd || 0) - (a.balance?.totalValueUsd || 0);
         case 'balance_asc':
@@ -542,6 +550,57 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
         description: "Failed to copy to clipboard",
         variant: "destructive"
       });
+    }
+  };
+
+  // Handle editing wallet name
+  const startEditingWalletName = (walletId: string, currentName: string | null) => {
+    setEditingWalletId(walletId);
+    setEditingWalletName(currentName || '');
+  };
+
+  const cancelEditingWalletName = () => {
+    setEditingWalletId(null);
+    setEditingWalletName('');
+  };
+
+  const saveWalletName = async (walletId: string) => {
+    if (!editingWalletName.trim()) {
+      toast({
+        title: "Invalid Name",
+        description: "Wallet name cannot be empty",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSavingWalletName(true);
+    try {
+      await projectWalletService.updateProjectWallet(walletId, { 
+        project_wallet_name: editingWalletName.trim() 
+      });
+      
+      // Update local state
+      setWallets(prev => prev.map(w => 
+        w.id === walletId ? { ...w, project_wallet_name: editingWalletName.trim() } : w
+      ));
+      
+      setEditingWalletId(null);
+      setEditingWalletName('');
+      
+      toast({
+        title: "Success",
+        description: "Wallet name updated successfully",
+      });
+    } catch (error) {
+      console.error('Failed to update wallet name:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update wallet name",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingWalletName(false);
     }
   };
 
@@ -777,6 +836,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Name</TableHead>
                   <TableHead>Network</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead>Balance</TableHead>
@@ -786,27 +846,90 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedAndFilteredWallets.map(wallet => (
-                  <TableRow key={wallet.id}>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal flex items-center space-x-1">
-                        <span>{BalanceFormatter.getNetworkIcon(wallet.balance?.network || wallet.wallet_type)}</span>
-                        <span className="capitalize">{BalanceFormatter.formatNetworkName(wallet.balance?.network || wallet.wallet_type)}</span>
-                        {wallet.balance?.isTestnet && (
-                          <Badge variant="outline" className="ml-1 text-xs">Test</Badge>
+                {sortedAndFilteredWallets.map(wallet => {
+                  // Get chain info from chain_id
+                  const chainId = wallet.chain_id ? parseInt(wallet.chain_id, 10) : null;
+                  const chainInfo = chainId ? getChainInfo(chainId) : null;
+                  const chainName = chainInfo?.name || wallet.wallet_type;
+                  const isTestnetChain = chainId ? isTestnet(chainId) : false;
+                  
+                  return (
+                    <TableRow key={wallet.id}>
+                      {/* Wallet Name Cell with Edit Functionality */}
+                      <TableCell>
+                        {editingWalletId === wallet.id ? (
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              value={editingWalletName}
+                              onChange={(e) => setEditingWalletName(e.target.value)}
+                              className="h-8 text-sm"
+                              placeholder="Enter wallet name"
+                              disabled={savingWalletName}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  saveWalletName(wallet.id || '');
+                                } else if (e.key === 'Escape') {
+                                  cancelEditingWalletName();
+                                }
+                              }}
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => saveWalletName(wallet.id || '')}
+                              disabled={savingWalletName}
+                            >
+                              {savingWalletName ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Check className="h-3 w-3 text-green-600" />
+                              )}
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={cancelEditingWalletName}
+                              disabled={savingWalletName}
+                            >
+                              <X className="h-3 w-3 text-red-600" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium">
+                              {wallet.project_wallet_name || chainName}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => startEditingWalletName(wallet.id || '', wallet.project_wallet_name)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          </div>
                         )}
-                      </Badge>
-                      {wallet.net && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Environment: {wallet.net}
-                        </div>
-                      )}
-                      {wallet.chain_id && (
-                        <div className="text-xs text-muted-foreground">
-                          Chain ID: {wallet.chain_id}
-                        </div>
-                      )}
-                    </TableCell>
+                      </TableCell>
+                      
+                      {/* Network Cell with Chain ID Mapping */}
+                      <TableCell>
+                        <Badge variant="outline" className="font-normal flex items-center space-x-1">
+                          <span>{BalanceFormatter.getNetworkIcon(wallet.balance?.network || chainName)}</span>
+                          <span className="capitalize">{chainName}</span>
+                        </Badge>
+                        {isTestnetChain && (
+                          <Badge variant="outline" className="ml-1 text-xs bg-amber-50 text-amber-600 mt-1">
+                            Testnet
+                          </Badge>
+                        )}
+                        {chainId && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Chain ID: {chainId}
+                          </div>
+                        )}
+                      </TableCell>
                     <TableCell className="font-mono text-xs">
                       <div className="flex items-center space-x-2">
                         <span className="truncate max-w-[150px]">
@@ -932,7 +1055,8 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                );
+              })}
               </TableBody>
             </Table>
           </div>

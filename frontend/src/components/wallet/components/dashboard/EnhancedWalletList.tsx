@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet as WalletType } from "@/services/wallet/UnifiedWalletContext";
-import { ChevronRight, UserPlus, Copy, Info, Wallet, Users, Shield, Plus } from "lucide-react";
+import { ChevronRight, UserPlus, Copy, Info, Wallet, Users, Shield, Plus, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSigWalletsList } from "./MultiSigWalletsList";
 import { MultiSigWalletService } from "@/services/wallet/multiSig/MultiSigWalletService";
+import { 
+  internalWalletService, 
+  type ProjectWallet, 
+  type UserWallet 
+} from '@/services/wallet/InternalWalletService';
+import type { WalletBalance } from '@/services/wallet/balances';
+import { getChainInfo, getChainName, isTestnet } from '@/infrastructure/web3/utils/chainIds';
 
 interface EnhancedWalletListProps {
   wallets: WalletType[];
@@ -16,6 +23,7 @@ interface EnhancedWalletListProps {
   onSelectWallet: (walletId: string) => void;
   loading?: boolean;
   userId: string;
+  projectId?: string; // Add projectId prop
 }
 
 export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
@@ -23,13 +31,43 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
   selectedWalletId,
   onSelectWallet,
   loading = false,
-  userId
+  userId,
+  projectId // Add projectId to destructured props
 }) => {
   const { toast } = useToast();
   const [multiSigWallets, setMultiSigWallets] = useState<any[]>([]);
   const [multiSigLoading, setMultiSigLoading] = useState(true);
   const [multiSigError, setMultiSigError] = useState<string | null>(null);
   const [totalWalletCount, setTotalWalletCount] = useState(0);
+  
+  // Internal wallets state (project + user EOA wallets)
+  const [projectWallets, setProjectWallets] = useState<ProjectWallet[]>([]);
+  const [userWallets, setUserWallets] = useState<UserWallet[]>([]);
+  const [internalLoading, setInternalLoading] = useState(false);
+
+  // Load Internal wallets (Project + User EOA)
+  const loadInternalWallets = async () => {
+    try {
+      setInternalLoading(true);
+      
+      // Fetch ALL user wallets (across all users) with balances
+      const allUserWallets = await internalWalletService.refreshAllUserWalletBalances(true);
+      setUserWallets(allUserWallets);
+      
+      // Fetch project wallets if projectId is available
+      if (projectId) {
+        const allWallets = await internalWalletService.refreshAllBalances(projectId);
+        setProjectWallets(allWallets.projectWallets);
+      } else {
+        setProjectWallets([]);
+      }
+      
+    } catch (err) {
+      console.error('Failed to load internal wallets:', err);
+    } finally {
+      setInternalLoading(false);
+    }
+  };
 
   // Load Multi-sig wallets
   const loadMultiSigWallets = async () => {
@@ -55,14 +93,20 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
     }
   };
 
+  // Load internal wallets on mount and when projectId changes
+  useEffect(() => {
+    loadInternalWallets();
+  }, [projectId]);
+
   useEffect(() => {
     loadMultiSigWallets();
   }, [userId]);
 
-  // Update total wallet count
+  // Update total wallet count including all wallet types
   useEffect(() => {
-    setTotalWalletCount(wallets.length + multiSigWallets.length);
-  }, [wallets.length, multiSigWallets.length]);
+    const standardCount = wallets.length + projectWallets.length + userWallets.length;
+    setTotalWalletCount(standardCount + multiSigWallets.length);
+  }, [wallets.length, projectWallets.length, userWallets.length, multiSigWallets.length]);
 
   // Function to copy wallet address to clipboard
   const copyAddress = (address: string, e: React.MouseEvent) => {
@@ -93,9 +137,30 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
     });
   };
 
+  // Format balance from WalletBalance object
+  const formatWalletBalance = (balance: WalletBalance | undefined) => {
+    if (!balance) return "$0";
+    
+    // For testnets, show native balance with network symbol
+    if (balance.isTestnet) {
+      const nativeSymbol = balance.network.toUpperCase();
+      return `${parseFloat(balance.nativeBalance).toFixed(4)} ${nativeSymbol}`;
+    }
+    
+    // For mainnets, show USD value
+    return balance.totalValueUsd.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   // Render regular wallets
   const renderRegularWallets = () => {
-    if (loading) {
+    const isLoadingAny = loading || internalLoading;
+    
+    if (isLoadingAny) {
       return (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -114,7 +179,9 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
       );
     }
 
-    if (wallets.length === 0) {
+    const hasAnyWallets = wallets.length > 0 || projectWallets.length > 0 || userWallets.length > 0;
+    
+    if (!hasAnyWallets) {
       return (
         <div className="text-center py-6">
           <Wallet className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -127,63 +194,189 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
     }
 
     return (
-      <div className="space-y-3">
-        {wallets.map((wallet) => (
-          <div
-            key={wallet.id}
-            className={`flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
-              wallet.id === selectedWalletId ? "bg-muted/50 border-primary" : ""
-            }`}
-            onClick={() => onSelectWallet(wallet.id)}
-          >
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-medium">{wallet.name}</h3>
-                {wallet.type === "multisig" && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-600 hover:bg-blue-50">
-                    <Users className="h-3 w-3 mr-1" />
-                    MultiSig
-                  </Badge>
-                )}
-                {wallet.type === "eoa" && (
-                  <Badge variant="outline" className="bg-green-50 text-green-600 hover:bg-green-50">
-                    <Shield className="h-3 w-3 mr-1" />
-                    EOA
-                  </Badge>
-                )}
-                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600">
-                  Standard
-                </Badge>
-              </div>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <p className="mr-2">{formatAddress(wallet.address)}</p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5"
-                  onClick={(e) => copyAddress(wallet.address, e)}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground capitalize">
-                {wallet.network}
-              </p>
+      <div className="space-y-4">
+        {/* Context Wallets (from UnifiedWalletContext) */}
+        {wallets.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Wallet className="h-4 w-4" />
+              Connected Wallets ({wallets.length})
             </div>
-            <div className="mt-4 md:mt-0 flex justify-between items-end md:flex-col md:items-end">
-              <div className="text-xl font-bold">
-                {formatBalance(wallet.balance)}
+            {wallets.map((wallet) => (
+              <div
+                key={wallet.id}
+                className={`flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
+                  wallet.id === selectedWalletId ? "bg-muted/50 border-primary" : ""
+                }`}
+                onClick={() => onSelectWallet(wallet.id)}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-medium">{wallet.name}</h3>
+                    {wallet.type === "multisig" && (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-600 hover:bg-blue-50">
+                        <Users className="h-3 w-3 mr-1" />
+                        MultiSig
+                      </Badge>
+                    )}
+                    {wallet.type === "eoa" && (
+                      <Badge variant="outline" className="bg-green-50 text-green-600 hover:bg-green-50">
+                        <Shield className="h-3 w-3 mr-1" />
+                        EOA
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600">
+                      Connected
+                    </Badge>
+                  </div>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <p className="mr-2">{formatAddress(wallet.address)}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5"
+                      onClick={(e) => copyAddress(wallet.address, e)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {wallet.network}
+                  </p>
+                </div>
+                <div className="mt-4 md:mt-0 flex justify-between items-end md:flex-col md:items-end">
+                  <div className="text-xl font-bold">
+                    {formatBalance(wallet.balance)}
+                  </div>
+                  <div className="flex items-center">
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center">
-                <Button variant="ghost" size="sm" className="h-8 px-2">
-                  <Info className="h-4 w-4 mr-1" />
-                  Details
-                </Button>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </div>
+            ))}
           </div>
-        ))}
+        )}
+
+        {/* Project Wallets */}
+        {projectWallets.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Wallet className="h-4 w-4" />
+              Project Wallets ({projectWallets.length})
+            </div>
+            {projectWallets.map((wallet) => {
+              // Get chain info from chain_id if available
+              const chainId = wallet.chainId ? parseInt(wallet.chainId, 10) : null;
+              const chainInfo = chainId ? getChainInfo(chainId) : null;
+              const chainName = chainInfo?.name || 'Unknown Chain';
+              const isTestnetChain = chainId ? isTestnet(chainId) : false;
+              
+              // Use projectWalletName if available, otherwise use chain name
+              const displayName = wallet.projectWalletName || chainName;
+              
+              return (
+                <div
+                  key={wallet.id}
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-medium">{displayName}</h3>
+                      <Badge variant="outline" className="bg-purple-50 text-purple-600">
+                        Project
+                      </Badge>
+                      {chainInfo && (
+                        <Badge variant="outline" className="text-xs">
+                          {chainName}
+                        </Badge>
+                      )}
+                      {isTestnetChain && (
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-600">
+                          Testnet
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <p className="mr-2">{formatAddress(wallet.address)}</p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={(e) => copyAddress(wallet.address, e)}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {wallet.hasVaultKey ? 'Vault' : wallet.hasDirectKey ? '🔑 Direct' : '⚠️ No key'}
+                      {chainId && <span className="ml-2">• Chain ID: {chainId}</span>}
+                    </p>
+                  </div>
+                  <div className="mt-4 md:mt-0 text-right">
+                    <div className="text-xl font-bold">
+                      {formatWalletBalance(wallet.balance)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* User EOA Wallets */}
+        {userWallets.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Users className="h-4 w-4" />
+              User EOA Wallets ({userWallets.length})
+            </div>
+            {userWallets.map((wallet) => (
+              <div
+                key={wallet.id}
+                className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-medium">{wallet.userName || 'Unknown User'}</h3>
+                    {wallet.userRole && (
+                      <Badge variant="outline" className="text-xs">
+                        {wallet.userRole}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="bg-green-50 text-green-600">
+                      User EOA
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {wallet.blockchain}
+                    </Badge>
+                    {wallet.isActive && (
+                      <Badge variant="default" className="text-xs">Active</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <p className="mr-2">{formatAddress(wallet.address)}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5"
+                      onClick={(e) => copyAddress(wallet.address, e)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {wallet.userEmail || formatAddress(wallet.userId)} • {wallet.hasVaultKey ? 'Vault' : wallet.hasDirectKey ? '🔑 Direct' : '⚠️ No key'}
+                  </p>
+                </div>
+                <div className="mt-4 md:mt-0 text-right">
+                  <div className="text-xl font-bold">
+                    {formatWalletBalance(wallet.balance)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -200,7 +393,9 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
   };
 
   // Show empty state if no wallets at all
-  if (!loading && !multiSigLoading && wallets.length === 0 && multiSigWallets.length === 0) {
+  if (!loading && !multiSigLoading && !internalLoading && 
+      wallets.length === 0 && multiSigWallets.length === 0 && 
+      projectWallets.length === 0 && userWallets.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -229,27 +424,47 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
     );
   }
 
+  const standardWalletCount = wallets.length + projectWallets.length + userWallets.length;
+
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            Your Wallets
-            <Badge variant="outline" className="text-xs">
-              {totalWalletCount} Total
-            </Badge>
-          </CardTitle>
-          <div className="text-sm text-muted-foreground">
-            {wallets.length} Standard • {multiSigWallets.length} Multi-Sig
+          <div className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2">
+              Your Wallets
+              <Badge variant="outline" className="text-xs">
+                {totalWalletCount} Total
+              </Badge>
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm font-medium text-muted-foreground">
+              {standardWalletCount} Standard • {multiSigWallets.length} Multi-Sig
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                loadInternalWallets();
+                loadMultiSigWallets();
+              }}
+              disabled={loading || internalLoading || multiSigLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${(loading || internalLoading || multiSigLoading) ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </div>
+        <CardDescription>
+          Manage your EOA, project, and multi-signature wallets
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="standard" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="standard" className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
-              Standard Wallets ({wallets.length})
+              Standard Wallets ({standardWalletCount})
             </TabsTrigger>
             <TabsTrigger value="multisig" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />

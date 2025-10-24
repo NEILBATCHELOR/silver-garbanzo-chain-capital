@@ -91,6 +91,8 @@ export const CHAIN_IDS = {
   berachainBepolia: 80069,
   sei: 1329,
   seiTestnet: 1328,
+  injective: 1776, // EVM Chain ID (native: injective-1)
+  injectiveTestnet: 1439, // EVM Chain ID (native: injective-888)
   katana: 747474,
   world: 480,
   worldSepolia: 4801,
@@ -169,6 +171,8 @@ export const CHAIN_ID_TO_NAME: Record<number, string> = {
   80069: 'berachainBepolia',
   1329: 'sei',
   1328: 'seiTestnet',
+  1776: 'injective',
+  1439: 'injectiveTestnet',
   747474: 'katana',
   480: 'world',
   4801: 'worldSepolia',
@@ -538,6 +542,22 @@ export const CHAIN_INFO: Record<number, ChainInfo> = {
     name: 'Sei Testnet',
     type: 'testnet',
   },
+  1776: {
+    id: 1776,
+    name: 'Injective Mainnet',
+    type: 'mainnet',
+    explorer: 'https://explorer.injective.network',
+    rpcUrl: 'https://sentry.tm.injective.network:443',
+    eip1559: true, // Note: EVM Chain ID 1776 maps to native chain ID 'injective-1'
+  },
+  1439: {
+    id: 1439,
+    name: 'Injective Testnet',
+    type: 'testnet',
+    explorer: 'https://testnet.explorer.injective.network',
+    rpcUrl: 'https://testnet.sentry.tm.injective.network:443',
+    eip1559: true, // Note: EVM Chain ID 1439 maps to native chain ID 'injective-888'
+  },
   747474: {
     id: 747474,
     name: 'Katana Mainnet',
@@ -753,6 +773,7 @@ export function getChainsByCategory(): Record<string, number[]> {
     avalanche: [43114, 43113],
     celo: [42220, 44787],
     moonbeam: [1284, 1285, 1287],
+    injective: [1776, 1439],
     other: [
       100, 199, 1029, 50, 51, 999, 33139, 33111, 43521, 80094, 80069, 1329,
       1328, 747474, 480, 4801, 50104, 531050104, 10143,
