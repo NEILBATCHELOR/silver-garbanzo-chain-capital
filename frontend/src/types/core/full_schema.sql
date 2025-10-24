@@ -7073,6 +7073,32 @@ $$;
 
 
 --
+-- Name: upsert_address_selection(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text DEFAULT 'transfer_tab'::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  INSERT INTO recent_address_selections (user_id, project_id, address, selected_at, context)
+  VALUES (p_user_id, p_project_id, LOWER(p_address), now(), p_context)
+  ON CONFLICT (user_id, COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid), LOWER(address))
+  DO UPDATE SET 
+    selected_at = now(),
+    context = p_context,
+    updated_at = now();
+END;
+$$;
+
+
+--
+-- Name: FUNCTION upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text) IS 'Upserts address selection, updating selected_at timestamp if already exists';
+
+
+--
 -- Name: upsert_policy_template_approver(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -15037,7 +15063,8 @@ CREATE TABLE public.multi_sig_confirmations (
     created_at timestamp with time zone DEFAULT now(),
     confirmed boolean,
     signer text,
-    "timestamp" timestamp with time zone
+    "timestamp" timestamp with time zone,
+    project_id uuid
 );
 
 
@@ -15051,7 +15078,8 @@ CREATE TABLE public.multi_sig_on_chain_confirmations (
     signer_address text NOT NULL,
     confirmation_tx_hash text NOT NULL,
     confirmed_at_timestamp bigint NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
@@ -15082,7 +15110,8 @@ CREATE TABLE public.multi_sig_on_chain_transactions (
     submitted_by text NOT NULL,
     executed_by text,
     created_at timestamp with time zone DEFAULT now(),
-    executed_at timestamp with time zone
+    executed_at timestamp with time zone,
+    project_id uuid
 );
 
 
@@ -15115,6 +15144,7 @@ CREATE TABLE public.multi_sig_proposals (
     on_chain_tx_id integer,
     on_chain_tx_hash text,
     submitted_on_chain boolean DEFAULT false,
+    project_id uuid,
     CONSTRAINT multi_sig_proposals_signatures_required_check CHECK ((signatures_required > 0)),
     CONSTRAINT multi_sig_proposals_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'signed'::text, 'executed'::text, 'expired'::text, 'rejected'::text])))
 );
@@ -15142,7 +15172,8 @@ CREATE TABLE public.multi_sig_transactions (
     blockchain_specific_data jsonb,
     description text,
     required integer,
-    "to" text
+    "to" text,
+    project_id uuid
 );
 
 
@@ -17542,7 +17573,6 @@ CREATE VIEW public.project_type_stats AS
 CREATE TABLE public.project_wallets (
     id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
     project_id uuid NOT NULL,
-    wallet_type text NOT NULL,
     wallet_address text NOT NULL,
     public_key text NOT NULL,
     private_key text,
@@ -17550,10 +17580,19 @@ CREATE TABLE public.project_wallets (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     chain_id text,
-    net text,
     private_key_vault_id uuid,
-    mnemonic_vault_id uuid
+    mnemonic_vault_id uuid,
+    project_wallet_name text,
+    non_evm_network text,
+    bitcoin_network_type text
 );
+
+
+--
+-- Name: COLUMN project_wallets.chain_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets.chain_id IS 'Numeric chain ID for EVM chains (e.g., 1 for Ethereum, 137 for Polygon). NULL for non-EVM chains.';
 
 
 --
@@ -17571,103 +17610,60 @@ COMMENT ON COLUMN public.project_wallets.mnemonic_vault_id IS 'Foreign key to ke
 
 
 --
--- Name: projects_backup; Type: TABLE; Schema: public; Owner: -
+-- Name: COLUMN project_wallets.non_evm_network; Type: COMMENT; Schema: public; Owner: -
 --
 
-CREATE TABLE public.projects_backup (
-    id uuid,
-    name text,
-    description text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    project_type text,
-    token_symbol text,
-    target_raise numeric,
-    authorized_shares integer,
-    share_price numeric,
-    company_valuation numeric,
-    legal_entity text,
-    jurisdiction text,
-    tax_id text,
-    status text,
-    is_primary boolean,
-    investment_status text,
-    estimated_yield_percentage numeric,
-    duration public.project_duration,
-    subscription_start_date timestamp with time zone,
-    subscription_end_date timestamp with time zone,
-    transaction_start_date timestamp with time zone,
-    maturity_date timestamp with time zone,
-    currency character varying(3),
-    minimum_investment numeric,
-    total_notional numeric,
-    sustainability_classification character varying(50),
-    esg_risk_rating character varying(20),
-    principal_adverse_impacts character varying(20),
-    taxonomy_alignment_percentage numeric(5,2),
-    risk_profile character varying(20),
-    governance_structure text,
-    compliance_framework text[],
-    third_party_custodian boolean,
-    custodian_name text,
-    target_investor_type character varying(20),
-    complexity_indicator character varying(20),
-    liquidity_terms character varying(50),
-    fee_structure_summary text,
-    capital_protection_level numeric(5,2),
-    underlying_assets text[],
-    barrier_level numeric(10,2),
-    payoff_structure character varying(50),
-    voting_rights character varying(50),
-    dividend_policy text,
-    dilution_protection text[],
-    exit_strategy character varying(50),
-    credit_rating character varying(10),
-    coupon_frequency character varying(20),
-    callable_features boolean,
-    call_date timestamp with time zone,
-    call_price numeric(10,2),
-    security_collateral text,
-    fund_vintage_year integer,
-    investment_stage character varying(50),
-    sector_focus text[],
-    geographic_focus text[],
-    property_type character varying(50),
-    geographic_location text,
-    development_stage character varying(50),
-    environmental_certifications text[],
-    debtor_credit_quality character varying(20),
-    collection_period_days integer,
-    recovery_rate_percentage numeric(5,2),
-    diversification_metrics jsonb,
-    project_capacity_mw numeric(10,2),
-    power_purchase_agreements text,
-    regulatory_approvals text[],
-    carbon_offset_potential numeric(10,2),
-    blockchain_network character varying(50),
-    smart_contract_audit_status character varying(20),
-    consensus_mechanism character varying(50),
-    gas_fee_structure text,
-    oracle_dependencies text[],
-    collateral_type character varying(20),
-    reserve_management_policy text,
-    audit_frequency character varying(20),
-    redemption_mechanism text,
-    depeg_risk_mitigation text[],
-    token_economics text,
-    custody_arrangements text,
-    smart_contract_address character varying(42),
-    upgrade_governance text,
-    data_processing_basis character varying(30),
-    privacy_policy_link text,
-    data_retention_policy text,
-    business_continuity_plan boolean,
-    cybersecurity_framework text[],
-    disaster_recovery_procedures text,
-    tax_reporting_obligations text[],
-    regulatory_permissions text[],
-    cross_border_implications text
+COMMENT ON COLUMN public.project_wallets.non_evm_network IS 'Network identifier for non-EVM chains (e.g., solana, near, injective, bitcoin)';
+
+
+--
+-- Name: COLUMN project_wallets.bitcoin_network_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets.bitcoin_network_type IS 'Bitcoin network type: mainnet, testnet, regtest';
+
+
+--
+-- Name: project_wallets_backup_do_not_use; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_wallets_backup_do_not_use (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    project_id uuid NOT NULL,
+    wallet_type text NOT NULL,
+    wallet_address text NOT NULL,
+    public_key text NOT NULL,
+    private_key text,
+    mnemonic text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    chain_id text,
+    net text,
+    private_key_vault_id uuid,
+    mnemonic_vault_id uuid,
+    project_wallet_name text
 );
+
+
+--
+-- Name: TABLE project_wallets_backup_do_not_use; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.project_wallets_backup_do_not_use IS 'This is a backup of project_wallets DO NOT USE';
+
+
+--
+-- Name: COLUMN project_wallets_backup_do_not_use.private_key_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets_backup_do_not_use.private_key_vault_id IS 'Foreign key to key_vault_keys.id for the private key record (key_type = project_private_key)';
+
+
+--
+-- Name: COLUMN project_wallets_backup_do_not_use.mnemonic_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets_backup_do_not_use.mnemonic_vault_id IS 'Foreign key to key_vault_keys.id for the mnemonic record (key_type = project_mnemonic)';
 
 
 --
@@ -18359,6 +18355,30 @@ CREATE TABLE public.rec_price_cache (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: recent_address_selections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.recent_address_selections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    project_id uuid,
+    address text NOT NULL,
+    selected_at timestamp with time zone DEFAULT now() NOT NULL,
+    context text DEFAULT 'transfer_tab'::text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT recent_address_selections_address_check CHECK ((address ~* '^0x[a-fA-F0-9]{40}$'::text))
+);
+
+
+--
+-- Name: TABLE recent_address_selections; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.recent_address_selections IS 'Tracks addresses selected by users in transfer UI for showing recent addresses';
 
 
 --
@@ -23524,6 +23544,7 @@ CREATE TABLE public.transactions (
     transfer_type text DEFAULT 'standard'::text,
     network_fee numeric,
     estimated_confirmation_time interval,
+    project_id uuid,
     CONSTRAINT transactions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'failed'::text]))),
     CONSTRAINT transactions_transfer_type_check CHECK ((transfer_type = ANY (ARRAY['standard'::text, 'token'::text, 'nft'::text, 'multisig'::text]))),
     CONSTRAINT transactions_type_check CHECK ((type = ANY (ARRAY['transfer'::text, 'token_transfer'::text, 'nft_transfer'::text])))
@@ -23916,7 +23937,7 @@ COMMENT ON TABLE public.violation_patterns IS 'Detected patterns in compliance v
 CREATE VIEW public.wallet_access_summary AS
  SELECT wal.wallet_id,
     pw.wallet_address,
-    pw.wallet_type AS network,
+    COALESCE(pw.chain_id, pw.non_evm_network) AS network,
     p.name AS project_name,
     count(*) AS access_count,
     count(*) FILTER (WHERE (wal.success = false)) AS failed_count,
@@ -23925,14 +23946,7 @@ CREATE VIEW public.wallet_access_summary AS
    FROM ((public.wallet_access_logs wal
      JOIN public.project_wallets pw ON ((wal.wallet_id = pw.id)))
      JOIN public.projects p ON ((pw.project_id = p.id)))
-  GROUP BY wal.wallet_id, pw.wallet_address, pw.wallet_type, p.name;
-
-
---
--- Name: VIEW wallet_access_summary; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON VIEW public.wallet_access_summary IS 'Summary of wallet access patterns for monitoring';
+  GROUP BY wal.wallet_id, pw.wallet_address, pw.chain_id, pw.non_evm_network, p.name;
 
 
 --
@@ -24156,8 +24170,49 @@ CREATE TABLE public.wallet_transactions (
     token_symbol text,
     token_address text,
     confirmation_count integer DEFAULT 0,
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    project_id uuid,
+    amount text,
+    blockchain text,
+    wallet_id uuid,
+    transaction_hash text,
+    transaction_type text
 );
+
+
+--
+-- Name: COLUMN wallet_transactions.amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallet_transactions.amount IS 'Human-readable amount (string format), use value for numeric calculations';
+
+
+--
+-- Name: COLUMN wallet_transactions.blockchain; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallet_transactions.blockchain IS 'Blockchain network name (e.g., ethereum, polygon)';
+
+
+--
+-- Name: COLUMN wallet_transactions.wallet_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallet_transactions.wallet_id IS 'Reference to wallets table - nullable because transactions can come from project_wallets. Use from_address as primary identifier.';
+
+
+--
+-- Name: COLUMN wallet_transactions.transaction_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallet_transactions.transaction_hash IS 'Alias for tx_hash to support both naming conventions';
+
+
+--
+-- Name: COLUMN wallet_transactions.transaction_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallet_transactions.transaction_type IS 'Type of transaction (e.g., transfer, deployment, contract_call)';
 
 
 --
@@ -27907,6 +27962,22 @@ ALTER TABLE ONLY public.project_organization_assignments
 
 
 --
+-- Name: project_wallets_backup_do_not_use project_wallets_duplicate_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets_backup_do_not_use
+    ADD CONSTRAINT project_wallets_duplicate_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_wallets_backup_do_not_use project_wallets_duplicate_wallet_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets_backup_do_not_use
+    ADD CONSTRAINT project_wallets_duplicate_wallet_address_key UNIQUE (wallet_address);
+
+
+--
 -- Name: project_wallets project_wallets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -28134,6 +28205,14 @@ COMMENT ON CONSTRAINT real_estate_products_project_id_key ON public.real_estate_
 
 ALTER TABLE ONLY public.rec_price_cache
     ADD CONSTRAINT rec_price_cache_pkey PRIMARY KEY (cache_id);
+
+
+--
+-- Name: recent_address_selections recent_address_selections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.recent_address_selections
+    ADD CONSTRAINT recent_address_selections_pkey PRIMARY KEY (id);
 
 
 --
@@ -35557,13 +35636,6 @@ CREATE INDEX idx_project_wallets_project_id ON public.project_wallets USING btre
 
 
 --
--- Name: idx_project_wallets_wallet_type; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_project_wallets_wallet_type ON public.project_wallets USING btree (wallet_type);
-
-
---
 -- Name: idx_projects_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36030,6 +36102,20 @@ CREATE INDEX idx_rec_price_cache_market_type ON public.rec_price_cache USING btr
 --
 
 CREATE INDEX idx_rec_price_cache_region ON public.rec_price_cache USING btree (region);
+
+
+--
+-- Name: idx_recent_address_selections_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_recent_address_selections_unique ON public.recent_address_selections USING btree (user_id, COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(address));
+
+
+--
+-- Name: idx_recent_address_selections_user_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_recent_address_selections_user_project ON public.recent_address_selections USING btree (user_id, project_id, selected_at DESC);
 
 
 --
@@ -38315,6 +38401,13 @@ CREATE INDEX idx_wallet_transaction_drafts_wallet_id ON public.wallet_transactio
 
 
 --
+-- Name: idx_wallet_transactions_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_transactions_blockchain ON public.wallet_transactions USING btree (blockchain);
+
+
+--
 -- Name: idx_wallet_transactions_from_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38329,10 +38422,24 @@ CREATE INDEX idx_wallet_transactions_status ON public.wallet_transactions USING 
 
 
 --
+-- Name: idx_wallet_transactions_transaction_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_transactions_transaction_hash ON public.wallet_transactions USING btree (transaction_hash);
+
+
+--
 -- Name: idx_wallet_transactions_tx_hash; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_wallet_transactions_tx_hash ON public.wallet_transactions USING btree (tx_hash);
+
+
+--
+-- Name: idx_wallet_transactions_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallet_transactions_wallet_id ON public.wallet_transactions USING btree (wallet_id);
 
 
 --
@@ -38466,6 +38573,34 @@ CREATE INDEX profiles_profile_type_idx ON public.profiles USING btree (profile_t
 --
 
 CREATE INDEX profiles_user_id_idx ON public.profiles USING btree (user_id);
+
+
+--
+-- Name: project_wallets_duplicate_mnemonic_vault_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX project_wallets_duplicate_mnemonic_vault_id_idx ON public.project_wallets_backup_do_not_use USING btree (mnemonic_vault_id);
+
+
+--
+-- Name: project_wallets_duplicate_private_key_vault_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX project_wallets_duplicate_private_key_vault_id_idx ON public.project_wallets_backup_do_not_use USING btree (private_key_vault_id);
+
+
+--
+-- Name: project_wallets_duplicate_project_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX project_wallets_duplicate_project_id_idx ON public.project_wallets_backup_do_not_use USING btree (project_id);
+
+
+--
+-- Name: project_wallets_duplicate_wallet_type_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX project_wallets_duplicate_wallet_type_idx ON public.project_wallets_backup_do_not_use USING btree (wallet_type);
 
 
 --
@@ -42208,6 +42343,30 @@ ALTER TABLE ONLY public.project_organization_assignments
 
 
 --
+-- Name: project_wallets_backup_do_not_use project_wallets_duplicate_mnemonic_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets_backup_do_not_use
+    ADD CONSTRAINT project_wallets_duplicate_mnemonic_vault_id_fkey FOREIGN KEY (mnemonic_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: project_wallets_backup_do_not_use project_wallets_duplicate_private_key_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets_backup_do_not_use
+    ADD CONSTRAINT project_wallets_duplicate_private_key_vault_id_fkey FOREIGN KEY (private_key_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: project_wallets_backup_do_not_use project_wallets_duplicate_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_wallets_backup_do_not_use
+    ADD CONSTRAINT project_wallets_duplicate_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: project_wallets project_wallets_mnemonic_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -42317,6 +42476,22 @@ ALTER TABLE ONLY public.quantitative_investment_strategies_products
 
 ALTER TABLE ONLY public.ramp_transaction_events
     ADD CONSTRAINT ramp_transaction_events_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.fiat_transactions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: recent_address_selections recent_address_selections_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.recent_address_selections
+    ADD CONSTRAINT recent_address_selections_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: recent_address_selections recent_address_selections_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.recent_address_selections
+    ADD CONSTRAINT recent_address_selections_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -43477,6 +43652,14 @@ ALTER TABLE ONLY public.wallet_locks
 
 ALTER TABLE ONLY public.wallet_restriction_rules
     ADD CONSTRAINT wallet_restriction_rules_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: wallet_transactions wallet_transactions_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallet_transactions
+    ADD CONSTRAINT wallet_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id);
 
 
 --
@@ -45432,6 +45615,16 @@ GRANT ALL ON FUNCTION public.update_whitelist_entries_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_whitelist_entries_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_whitelist_entries_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_whitelist_entries_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text) TO anon;
+GRANT ALL ON FUNCTION public.upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text) TO authenticated;
+GRANT ALL ON FUNCTION public.upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text) TO service_role;
+GRANT ALL ON FUNCTION public.upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text) TO prisma;
 
 
 --
@@ -48735,13 +48928,13 @@ GRANT ALL ON TABLE public.project_wallets TO prisma;
 
 
 --
--- Name: TABLE projects_backup; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE project_wallets_backup_do_not_use; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON TABLE public.projects_backup TO anon;
-GRANT ALL ON TABLE public.projects_backup TO authenticated;
-GRANT ALL ON TABLE public.projects_backup TO service_role;
-GRANT ALL ON TABLE public.projects_backup TO prisma;
+GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO anon;
+GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO authenticated;
+GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO service_role;
+GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO prisma;
 
 
 --
@@ -48942,6 +49135,16 @@ GRANT ALL ON TABLE public.rec_price_cache TO anon;
 GRANT ALL ON TABLE public.rec_price_cache TO authenticated;
 GRANT ALL ON TABLE public.rec_price_cache TO service_role;
 GRANT ALL ON TABLE public.rec_price_cache TO prisma;
+
+
+--
+-- Name: TABLE recent_address_selections; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.recent_address_selections TO anon;
+GRANT ALL ON TABLE public.recent_address_selections TO authenticated;
+GRANT ALL ON TABLE public.recent_address_selections TO service_role;
+GRANT ALL ON TABLE public.recent_address_selections TO prisma;
 
 
 --

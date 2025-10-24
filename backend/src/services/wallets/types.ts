@@ -49,8 +49,7 @@ export interface StoredKeyData {
 // Request/Response Types
 export interface CreateWalletRequest {
   investor_id: string
-  wallet_type: WalletType
-  blockchains: BlockchainNetwork[]
+  chain_id: string // Numeric chain ID as string (e.g., "1" for Ethereum mainnet)
   name?: string
 }
 
@@ -60,8 +59,10 @@ export interface WalletResponse {
   name: string
   primary_address: string
   addresses: Record<string, string>
-  wallet_type: WalletType
-  blockchains: string[]
+  chain_id: string // Numeric chain ID as string
+  chain_name: string // Derived from chain_id using getChainName()
+  is_testnet: boolean // Derived from chain_id using isTestnet()
+  explorer_url?: string // Derived from chain_id using getExplorerUrl()
   status: string
   is_multi_sig_enabled: boolean
   guardian_policy?: any

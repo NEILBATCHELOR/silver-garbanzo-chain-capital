@@ -44,14 +44,6 @@ export class WalletValidationService extends BaseService {
         })
       }
 
-      if (walletData.wallet_type && !this.isValidWalletType(walletData.wallet_type)) {
-        errors.push({
-          field: 'wallet_type',
-          message: 'Invalid wallet type',
-          code: 'INVALID_VALUE'
-        })
-      }
-
       return {
         isValid: errors.length === 0,
         errors,
@@ -95,51 +87,13 @@ export class WalletValidationService extends BaseService {
         })
       }
 
-      // Validate wallet_type
-      if (!request.wallet_type) {
+      // Validate chain_id
+      if (!request.chain_id) {
         errors.push({
-          field: 'wallet_type',
-          message: 'Wallet type is required',
+          field: 'chain_id',
+          message: 'Chain ID is required',
           code: 'REQUIRED_FIELD'
         })
-      } else if (!this.isValidWalletType(request.wallet_type)) {
-        errors.push({
-          field: 'wallet_type',
-          message: 'Invalid wallet type',
-          code: 'INVALID_VALUE'
-        })
-      }
-
-      // Validate blockchains
-      if (!request.blockchains || request.blockchains.length === 0) {
-        errors.push({
-          field: 'blockchains',
-          message: 'At least one blockchain is required',
-          code: 'REQUIRED_FIELD'
-        })
-      } else {
-        const invalidBlockchains = request.blockchains.filter(
-          blockchain => !this.isValidBlockchain(blockchain)
-        )
-        
-        if (invalidBlockchains.length > 0) {
-          errors.push({
-            field: 'blockchains',
-            message: `Invalid blockchains: ${invalidBlockchains.join(', ')}`,
-            code: 'INVALID_VALUE'
-          })
-        }
-
-        // Check for duplicate blockchains
-        const uniqueBlockchains = new Set(request.blockchains)
-        if (uniqueBlockchains.size !== request.blockchains.length) {
-          warnings.push('Duplicate blockchains found and will be removed')
-        }
-
-        // Warn about complex multi-chain setups
-        if (request.blockchains.length > 5) {
-          warnings.push('Large number of blockchains may impact performance')
-        }
       }
 
       // Validate name (optional)

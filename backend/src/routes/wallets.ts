@@ -38,7 +38,6 @@ import {
   BroadcastTransactionRequest,
   SigningRequest,
   BlockchainNetwork,
-  WalletType,
   TransactionPriority
 } from '../services/wallets/types'
 import {
@@ -89,12 +88,7 @@ const BlockchainNetworkSchema = Type.Union([
   Type.Literal('near')
 ])
 
-const WalletTypeSchema = Type.Union([
-  Type.Literal('hd_wallet'),
-  Type.Literal('multi_sig'),
-  Type.Literal('custodial'),
-  Type.Literal('external')
-])
+// Note: WalletTypeSchema removed - use chain_id instead
 
 const TransactionPrioritySchema = Type.Union([
   Type.Literal('low'),
@@ -106,8 +100,7 @@ const TransactionPrioritySchema = Type.Union([
 // Phase 1 Schemas
 const CreateWalletSchema = Type.Object({
   investor_id: Type.String({ format: 'uuid' }),
-  wallet_type: WalletTypeSchema,
-  blockchains: Type.Array(BlockchainNetworkSchema),
+  chain_id: Type.String(), // Numeric chain ID as string (e.g., "1" for Ethereum mainnet)
   name: Type.Optional(Type.String())
 })
 
@@ -117,8 +110,10 @@ const WalletResponseSchema = Type.Object({
   name: Type.String(),
   primary_address: Type.String(),
   addresses: Type.Record(Type.String(), Type.String()),
-  wallet_type: WalletTypeSchema,
-  blockchains: Type.Array(Type.String()),
+  chain_id: Type.String(), // Numeric chain ID as string
+  chain_name: Type.String(), // Derived from chain_id using getChainName()
+  is_testnet: Type.Boolean(), // Derived from chain_id using isTestnet()
+  explorer_url: Type.Optional(Type.String()), // Derived from chain_id
   status: Type.String(),
   is_multi_sig_enabled: Type.Boolean(),
   created_at: Type.String({ format: 'date-time' }),
@@ -155,7 +150,7 @@ const ListWalletsQuerySchema = Type.Object({
   investor_id: Type.String({ format: 'uuid' }),
   page: Type.Optional(Type.Number({ minimum: 1 })),
   limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-  wallet_type: Type.Optional(WalletTypeSchema)
+  chain_id: Type.Optional(Type.String()) // Optional filter by chain_id
 })
 
 const SignMessageSchema = Type.Object({
@@ -491,15 +486,15 @@ export async function walletRoutes(fastify: FastifyInstance) {
     investor_id: string
     page?: number
     limit?: number
-    wallet_type?: WalletType 
+    chain_id?: string 
   } }>, reply: FastifyReply) => {
     try {
-      const { investor_id, page = 1, limit = 20, wallet_type } = request.query
+      const { investor_id, page = 1, limit = 20, chain_id } = request.query
       
       const result = await walletService.instance.listWallets(investor_id, {
         page,
         limit,
-        wallet_type
+        chain_id
       })
       
       if (!result.success) {
@@ -1045,8 +1040,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       // Create a base wallet first if needed
       const baseWalletResult = await walletService.instance.createWallet({
         investor_id,
-        wallet_type: 'hd_wallet',
-        blockchains: ['ethereum'], // Default to Ethereum for smart contracts
+        chain_id: '1', // Ethereum mainnet - default for smart contracts
         name
       })
       

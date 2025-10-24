@@ -47,7 +47,6 @@ import type { WalletBalance } from '@/services/wallet/balances';
 // Import existing wallet components
 import { useWallet } from '@/services/wallet/UnifiedWalletContext';
 import { EnhancedWalletList } from './components/dashboard/EnhancedWalletList';
-import { PortfolioOverview } from './components/dashboard/PortfolioOverview';
 import { TokenBalances } from './components/dashboard/TokenBalances';
 import { TransferTab } from './components/dashboard/TransferTab';
 import { TestnetBalanceChecker } from './TestnetBalanceChecker';
@@ -60,11 +59,11 @@ import { useAccount } from 'wagmi';
 import { CombinedOrgProjectSelector } from '@/components/organizations';
 import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
 
-// Import multi-sig components
-import { SignatureCollectionDashboard } from './components/multisig/SignatureCollectionDashboard';
-import { MultiSigWalletWizard } from './components/multisig/MultiSigWalletWizard';
-import { MultiSigTransferForm } from './components/multisig/MultiSigTransferForm';
-import { PendingProposalsCard } from './components/multisig/PendingProposalsCard';
+// Import multi-sig wizard components
+import { SignatureCollectionWizard } from './components/multisig/SignatureCollectionWizard';
+import { MultiSigWalletFormWizard } from './components/multisig/MultiSigWalletFormWizard';
+import { MultiSigTransferFormWizard } from './components/multisig/MultiSigTransferFormWizard';
+import { PendingProposalsWizard } from './components/multisig/PendingProposalsWizard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface InternalWalletDashboardProps {
@@ -92,6 +91,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
   // Dashboard state
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [multiSigSubTab, setMultiSigSubTab] = useState<string>('create-wallet');
   const [showBalances, setShowBalances] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateWallet, setShowCreateWallet] = useState(false);
@@ -348,10 +348,16 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   };
 
   const portfolioTotal = calculatePortfolioTotal();
-  const totalWalletCount = 
+  
+  // Calculate wallet counts for "Standard • Multi-Sig" format
+  const standardWalletCount = 
     internalWallets.projectWallets.length + 
-    internalWallets.userWallets.length + 
-    internalWallets.multiSigWallets.length +
+    internalWallets.userWallets.length;
+  const multiSigCount = internalWallets.multiSigWallets.length;
+  
+  const totalWalletCount = 
+    standardWalletCount + 
+    multiSigCount +
     contextWallets.length;
 
   // Helper functions
@@ -378,6 +384,34 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
     
     // For mainnets, show USD value
     return `$${balance.totalValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  // Helper to get network display for a project wallet
+  const getNetworkDisplay = (wallet: ProjectWallet): string => {
+    if (wallet.chainId) {
+      return `Chain ${wallet.chainId}`;
+    }
+    if (wallet.nonEvmNetwork) {
+      return wallet.nonEvmNetwork.charAt(0).toUpperCase() + wallet.nonEvmNetwork.slice(1);
+    }
+    if (wallet.bitcoinNetworkType) {
+      return `Bitcoin ${wallet.bitcoinNetworkType}`;
+    }
+    return 'Unknown Network';
+  };
+
+  // Helper to get wallet type display
+  const getWalletTypeDisplay = (wallet: ProjectWallet): string => {
+    if (wallet.chainId) {
+      return 'EVM';
+    }
+    if (wallet.nonEvmNetwork) {
+      return 'Non-EVM';
+    }
+    if (wallet.bitcoinNetworkType) {
+      return 'Bitcoin';
+    }
+    return 'EOA';
   };
 
   const copyAddress = (address: string, e: React.MouseEvent) => {
@@ -472,10 +506,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
             {showBalances ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             {showBalances ? 'Hide' : 'Show'} Balances
           </Button>
-          <Button onClick={handleCreateWallet}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Wallet
-          </Button>
         </div>
       </div>
 
@@ -504,7 +534,10 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
           <CardContent>
             <div className="text-2xl font-bold">{totalWalletCount}</div>
             <p className="text-xs text-muted-foreground">
-              {internalWallets.projectWallets.length} Project, {totalUserWalletCount} User, {internalWallets.multiSigWallets.length} Multi-sig
+              {standardWalletCount} Standard • {multiSigCount} Multi-Sig
+            </p>
+            <p className="text-xs text-muted-foreground/80 mt-1">
+              ({internalWallets.projectWallets.length} Project, {internalWallets.userWallets.length} User EOA)
             </p>
           </CardContent>
         </Card>
@@ -520,7 +553,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
             <div className="text-2xl font-bold">
               {(() => {
                 const networks = new Set([
-                  ...internalWallets.projectWallets.map(w => w.network || w.chainId || 'unknown'),
+                  ...internalWallets.projectWallets.map(w => w.chainId || 'unknown'),
                   ...internalWallets.userWallets.map(w => w.blockchain),
                   ...internalWallets.multiSigWallets.map(w => w.blockchain),
                   ...contextWallets.map(w => w.network)
@@ -537,44 +570,41 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="wallets">Internal Wallets</TabsTrigger>
           <TabsTrigger value="external">Connect External</TabsTrigger>
           <TabsTrigger value="tokens">Tokens</TabsTrigger>
           <TabsTrigger value="transfer">Transfer</TabsTrigger>
           <TabsTrigger value="multisig">Multi-Sig</TabsTrigger>
-          <TabsTrigger value="testnet">Testnet Testing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <PortfolioOverview />
-            <div className="space-y-6">
-              {user?.id ? (
-                <EnhancedWalletList
-                  wallets={contextWallets}
-                  selectedWalletId={selectedWallet?.id}
-                  onSelectWallet={selectWallet}
-                  loading={contextLoading}
-                  userId={user.id}
-                />
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Wallets</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-center py-8">
-                      <div className="text-center space-y-2">
-                        <Skeleton className="h-4 w-48 mx-auto" />
-                        <Skeleton className="h-4 w-32 mx-auto" />
-                      </div>
+          <div className="max-w-4xl mx-auto">
+            {user?.id ? (
+              <EnhancedWalletList
+                wallets={contextWallets}
+                selectedWalletId={selectedWallet?.id}
+                onSelectWallet={selectWallet}
+                loading={contextLoading}
+                userId={user.id}
+                projectId={projectId || undefined}
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Wallets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center space-y-2">
+                      <Skeleton className="h-4 w-48 mx-auto" />
+                      <Skeleton className="h-4 w-32 mx-auto" />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -584,16 +614,10 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
               <h3 className="text-lg font-semibold">Internal Wallets</h3>
               <p className="text-sm text-muted-foreground">Project, user, and multi-sig wallets</p>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={refreshAllBalances} size="sm" variant="outline" disabled={refreshing}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh Balances
-              </Button>
-              <Button onClick={handleCreateWallet} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Wallet
-              </Button>
-            </div>
+            <Button onClick={refreshAllBalances} size="sm" variant="outline" disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh Balances
+            </Button>
           </div>
 
           {loadingInternalWallets ? (
@@ -612,167 +636,199 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Project Wallets */}
-              {internalWallets.projectWallets.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Wallet className="h-5 w-5" />
-                      Project Wallets ({internalWallets.projectWallets.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {internalWallets.projectWallets.map((wallet) => (
-                      <div
-                        key={wallet.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{wallet.walletType}</span>
-                            <Badge variant="outline">{wallet.network || wallet.chainId}</Badge>
+              {/* Standard EOA Wallets Section */}
+              {(internalWallets.projectWallets.length > 0 || internalWallets.userWallets.length > 0) && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Wallet className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Standard EOA Wallets</h3>
+                    <Badge variant="secondary" className="ml-2">
+                      {standardWalletCount} Total
+                    </Badge>
+                  </div>
+
+                  {/* Project Wallets */}
+                  {internalWallets.projectWallets.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Wallet className="h-5 w-5" />
+                          Project Wallets ({internalWallets.projectWallets.length})
+                        </CardTitle>
+                        <CardDescription>
+                          Wallets owned by the project for operational use
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {internalWallets.projectWallets.map((wallet) => (
+                          <div
+                            key={wallet.id}
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{getWalletTypeDisplay(wallet)}</span>
+                                <Badge variant="outline">{getNetworkDisplay(wallet)}</Badge>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <code className="text-sm text-muted-foreground">
+                                  {formatAddress(wallet.address)}
+                                </code>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => copyAddress(wallet.address, e)}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold">
+                                {showBalances
+                                  ? formatBalance(wallet.balance)
+                                  : '••••••'}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {wallet.hasVaultKey ? 'Vault' : wallet.hasDirectKey ? 'Direct' : '⚠️ No key'}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="text-sm text-muted-foreground">
-                              {formatAddress(wallet.address)}
-                            </code>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => copyAddress(wallet.address, e)}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* User EOA Wallets */}
+                  {internalWallets.userWallets.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Users className="h-5 w-5" />
+                          User EOA Wallets ({internalWallets.userWallets.length})
+                        </CardTitle>
+                        <CardDescription>
+                          Externally Owned Accounts assigned to individual users
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {internalWallets.userWallets.map((wallet) => (
+                          <div
+                            key={wallet.id}
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{wallet.userName || 'Unknown User'}</span>
+                                {wallet.userRole && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {wallet.userRole}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline">{wallet.blockchain}</Badge>
+                                {wallet.isActive ? (
+                                  <Badge variant="default">Active</Badge>
+                                ) : (
+                                  <Badge variant="secondary">Inactive</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <code className="text-sm text-muted-foreground">
+                                  {formatAddress(wallet.address)}
+                                </code>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => copyAddress(wallet.address, e)}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                User: {wallet.userEmail || formatAddress(wallet.userId)}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold">
+                                {showBalances
+                                  ? formatBalance(wallet.balance)
+                                  : '••••••'}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {wallet.hasVaultKey ? 'Vault' : wallet.hasDirectKey ? 'Direct' : '⚠️ No key'}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold">
-                            {showBalances
-                              ? formatBalance(wallet.balance)
-                              : '••••••'}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {wallet.hasVaultKey ? ' Vault' : wallet.hasDirectKey ? ' Direct' : '⚠️  No key'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
 
-              {/* User EOA Wallets */}
-              {internalWallets.userWallets.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      User EOA Wallets ({internalWallets.userWallets.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {internalWallets.userWallets.map((wallet) => (
-                      <div
-                        key={wallet.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{wallet.userName || 'Unknown User'}</span>
-                            {wallet.userRole && (
-                              <Badge variant="outline" className="text-xs">
-                                {wallet.userRole}
-                              </Badge>
-                            )}
-                            <Badge variant="outline">{wallet.blockchain}</Badge>
-                            {wallet.isActive ? (
-                              <Badge variant="default">Active</Badge>
-                            ) : (
-                              <Badge variant="secondary">Inactive</Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="text-sm text-muted-foreground">
-                              {formatAddress(wallet.address)}
-                            </code>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => copyAddress(wallet.address, e)}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            User: {wallet.userEmail || formatAddress(wallet.userId)}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold">
-                            {showBalances
-                              ? formatBalance(wallet.balance)
-                              : '••••••'}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {wallet.hasVaultKey ? ' Vault' : wallet.hasDirectKey ? ' Direct' : '  No key'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Multi-Sig Wallets */}
+              {/* Multi-Sig Wallets Section */}
               {internalWallets.multiSigWallets.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Shield className="h-5 w-5" />
-                      Multi-Sig Wallets ({internalWallets.multiSigWallets.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {internalWallets.multiSigWallets.map((wallet) => (
-                      <div
-                        key={wallet.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{wallet.name}</span>
-                            <Badge variant="outline">{wallet.blockchain}</Badge>
-                            <Badge variant="secondary">
-                              {wallet.threshold}/{wallet.ownerCount} signatures
-                            </Badge>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b">
+                    <Shield className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Multi-Signature Wallets</h3>
+                    <Badge variant="secondary" className="ml-2">
+                      {multiSigCount} Total
+                    </Badge>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5" />
+                        Multi-Sig Wallets ({internalWallets.multiSigWallets.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Wallets requiring multiple signatures for transactions
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {internalWallets.multiSigWallets.map((wallet) => (
+                        <div
+                          key={wallet.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{wallet.name}</span>
+                              <Badge variant="outline">{wallet.blockchain}</Badge>
+                              <Badge variant="secondary">
+                                {wallet.threshold}/{wallet.ownerCount} signatures
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <code className="text-sm text-muted-foreground">
+                                {formatAddress(wallet.address)}
+                              </code>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => copyAddress(wallet.address, e)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="text-sm text-muted-foreground">
-                              {formatAddress(wallet.address)}
-                            </code>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => copyAddress(wallet.address, e)}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
+                          <div className="text-right">
+                            <div className="font-semibold">
+                              {showBalances
+                                ? formatBalance(wallet.balance)
+                                : '••••••'}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {wallet.status}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold">
-                            {showBalances
-                              ? formatBalance(wallet.balance)
-                              : '••••••'}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {wallet.status}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
               )}
 
               {/* Empty state */}
@@ -844,163 +900,177 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
         <TabsContent value="multisig" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h3 className="text-lg font-semibold">Multi-Sig Wallets</h3>
+              <h3 className="text-lg font-semibold">Multi-Signature Wallets</h3>
               <p className="text-sm text-muted-foreground">
                 Create wallets, initiate transfers, and manage proposals
               </p>
             </div>
           </div>
 
-          {/* Multi-Sig Wallet Creation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Create New Multi-Sig Wallet
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MultiSigWalletWizard projectId={projectId || undefined} />
-            </CardContent>
-          </Card>
+          {/* Nested Tabs for Multi-Sig Components */}
+          <Tabs value={multiSigSubTab} onValueChange={setMultiSigSubTab} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="create-wallet">Create Wallet</TabsTrigger>
+              <TabsTrigger value="transfer">Transfer Proposal</TabsTrigger>
+              <TabsTrigger value="proposals">Pending Proposals</TabsTrigger>
+              <TabsTrigger value="overview">Signature Overview</TabsTrigger>
+            </TabsList>
 
-          {/* Multi-Sig Transfer Form */}
-          {internalWallets.multiSigWallets.length > 0 && (
-            <MultiSigTransferForm
-              wallets={internalWallets.multiSigWallets.map(w => ({
-                id: w.id,
-                name: w.name,
-                address: w.address,
-                blockchain: w.blockchain,
-                threshold: w.threshold
-              }))}
-              onSuccess={(proposalId) => {
-                toast({
-                  title: 'Proposal Created',
-                  description: `Transfer proposal ${proposalId} created successfully`,
-                });
-                // Refresh the selected wallet's proposals if set
-                if (selectedMultiSigWallet) {
-                  // Trigger a refresh of the pending proposals
-                }
-              }}
-            />
-          )}
+            {/* Create Wallet Tab */}
+            <TabsContent value="create-wallet" className="space-y-6">
+              <MultiSigWalletFormWizard 
+                projectId={projectId || undefined}
+                onSuccess={(address, txHash) => {
+                  toast({
+                    title: 'Multi-Sig Wallet Created',
+                    description: `Wallet deployed at ${address}`,
+                  });
+                  loadProjectWallets();
+                }}
+              />
+            </TabsContent>
 
-          {/* Multi-Sig Wallet Selector for Proposals */}
-          {internalWallets.multiSigWallets.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Pending Proposals
-                </CardTitle>
-                <CardDescription>
-                  Review and approve transfer proposals
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Wallet Selector */}
-                <div className="space-y-2">
-                  <Label>Select Multi-Sig Wallet</Label>
-                  <Select
-                    value={selectedMultiSigWallet || undefined}
-                    onValueChange={setSelectedMultiSigWallet}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a multi-sig wallet..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {internalWallets.multiSigWallets.map((wallet) => (
-                        <SelectItem key={wallet.id} value={wallet.id}>
-                          {wallet.name} - {wallet.threshold}/{wallet.ownerCount} signatures
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            {/* Transfer Proposal Tab */}
+            <TabsContent value="transfer" className="space-y-6">
+              {internalWallets.multiSigWallets.length > 0 ? (
+                <MultiSigTransferFormWizard
+                  wallets={internalWallets.multiSigWallets.map(w => ({
+                    id: w.id,
+                    name: w.name,
+                    address: w.address,
+                    blockchain: w.blockchain,
+                    threshold: w.threshold
+                  }))}
+                  onSuccess={(proposalId) => {
+                    toast({
+                      title: 'Proposal Created',
+                      description: `Transfer proposal ${proposalId} created successfully`,
+                    });
+                    // Switch to proposals tab to see the new proposal
+                    setMultiSigSubTab('proposals');
+                  }}
+                />
+              ) : (
+                <Card className="p-8 text-center">
+                  <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Multi-Sig Wallets</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create a multi-sig wallet first to propose transfers
+                  </p>
+                  <Button onClick={() => setMultiSigSubTab('create-wallet')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Multi-Sig Wallet
+                  </Button>
+                </Card>
+              )}
+            </TabsContent>
 
-                {/* Pending Proposals Card */}
-                {selectedMultiSigWallet && userAddressId && (
-                  <PendingProposalsCard
-                    walletId={selectedMultiSigWallet}
-                    userAddressId={userAddressId}
-                    onProposalExecuted={(proposalId, txHash) => {
-                      toast({
-                        title: 'Proposal Executed',
-                        description: (
-                          <div className="space-y-1">
-                            <p>Transaction executed successfully!</p>
-                            <a
-                              href={`https://etherscan.io/tx/${txHash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-500 hover:underline flex items-center gap-1"
-                            >
-                              View on Explorer
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-                        ),
-                      });
-                      refreshAllBalances();
-                    }}
-                    refreshInterval={30000}
-                  />
-                )}
+            {/* Pending Proposals Tab */}
+            <TabsContent value="proposals" className="space-y-6">
+              {internalWallets.multiSigWallets.length > 0 ? (
+                <>
+                  {/* Wallet Selector */}
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="space-y-2">
+                        <Label>Select Multi-Sig Wallet</Label>
+                        <Select
+                          value={selectedMultiSigWallet || undefined}
+                          onValueChange={setSelectedMultiSigWallet}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a multi-sig wallet..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {internalWallets.multiSigWallets.map((wallet) => (
+                              <SelectItem key={wallet.id} value={wallet.id}>
+                                {wallet.name} - {wallet.threshold}/{wallet.ownerCount} signatures
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                {!selectedMultiSigWallet && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Select a multi-sig wallet to view pending proposals
-                  </div>
-                )}
+                  {/* Pending Proposals Wizard */}
+                  {selectedMultiSigWallet && userAddressId ? (
+                    <PendingProposalsWizard
+                      walletId={selectedMultiSigWallet}
+                      userAddressId={userAddressId}
+                      onProposalExecuted={(proposalId, txHash) => {
+                        toast({
+                          title: 'Proposal Executed',
+                          description: (
+                            <div className="space-y-1">
+                              <p>Transaction executed successfully!</p>
+                              <a
+                                href={`https://etherscan.io/tx/${txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-500 hover:underline flex items-center gap-1"
+                              >
+                                View on Explorer
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          ),
+                        });
+                        refreshAllBalances();
+                      }}
+                      refreshInterval={30000}
+                    />
+                  ) : !selectedMultiSigWallet ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Select a multi-sig wallet above to view pending proposals
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        No user address found. Please create a user wallet to approve proposals.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              ) : (
+                <Card className="p-8 text-center">
+                  <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Multi-Sig Wallets</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create a multi-sig wallet first to manage proposals
+                  </p>
+                  <Button onClick={() => setMultiSigSubTab('create-wallet')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Multi-Sig Wallet
+                  </Button>
+                </Card>
+              )}
+            </TabsContent>
 
-                {selectedMultiSigWallet && !userAddressId && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      No user address found. Please create a user wallet to approve proposals.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          )}
+            {/* Signature Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
+              <SignatureCollectionWizard />
+            </TabsContent>
+          </Tabs>
 
-          {/* Signature Collection Dashboard (existing) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Signature Collection Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SignatureCollectionDashboard />
-            </CardContent>
-          </Card>
-
-          {/* Empty State */}
+          {/* Empty State for No Multi-Sig Wallets */}
           {internalWallets.multiSigWallets.length === 0 && (
-            <Card className="p-8 text-center">
+            <Card className="p-8 text-center mt-6">
               <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Multi-Sig Wallets</h3>
               <p className="text-muted-foreground mb-4">
-                Create your first multi-sig wallet to enable shared control
+                Create your first multi-sig wallet to enable shared control and collaborative transaction management
               </p>
-              <MultiSigWalletWizard projectId={projectId || undefined} />
+              <Button onClick={() => setMultiSigSubTab('create-wallet')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Get Started
+              </Button>
             </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="testnet" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Testnet Balance Testing</h3>
-              <p className="text-sm text-muted-foreground">Test wallet balance fetching on Sepolia and Holesky testnets</p>
-            </div>
-          </div>
-          <TestnetBalanceChecker />
         </TabsContent>
       </Tabs>
 

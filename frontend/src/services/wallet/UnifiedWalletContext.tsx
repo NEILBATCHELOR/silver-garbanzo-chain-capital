@@ -47,7 +47,7 @@ export interface Wallet {
   createdAt: Date;
 }
 
-// Unified context interface combining both contexts
+  // Unified context interface combining both contexts
 interface UnifiedWalletContextProps {
   // Core wallet management (from both contexts)
   wallets: Wallet[];
@@ -71,6 +71,7 @@ interface UnifiedWalletContextProps {
   connectWeb3Wallet: (type: WalletType, userInitiated?: boolean) => Promise<boolean>;
   disconnectWeb3Wallet: () => Promise<void>;
   refreshBalances: () => Promise<void>;
+  cleanupStaleWallets: () => Promise<void>; // New cleanup function
 }
 
 // Default context value
@@ -97,6 +98,7 @@ const defaultContextValue: UnifiedWalletContextProps = {
   connectWeb3Wallet: async () => false,
   disconnectWeb3Wallet: async () => {},
   refreshBalances: async () => {},
+  cleanupStaleWallets: async () => {},
 };
 
 // Create the unified context
@@ -265,6 +267,18 @@ export const UnifiedWalletProvider: React.FC<{ children: ReactNode }> = ({ child
     
     loadWallets();
   }, []); // Only run once on mount
+
+  // Auto-cleanup stale wallets after initial load
+  useEffect(() => {
+    if (!loading && wallets.length > 0) {
+      // Small delay to ensure all initial loading is complete
+      const timer = setTimeout(() => {
+        cleanupStaleWallets();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading]); // Run when loading completes
 
   // Helper function to save wallets to localStorage
   const saveWalletsToStorage = (wallets: Wallet[]) => {
@@ -541,6 +555,63 @@ export const UnifiedWalletProvider: React.FC<{ children: ReactNode }> = ({ child
     }
   };
 
+  // Clean up stale wallets that don't exist in the database
+  const cleanupStaleWallets = async () => {
+    console.log('[UnifiedWallet] Cleaning up stale wallets...');
+    
+    try {
+      // Get all wallet IDs from current state
+      const walletIds = wallets.map(w => w.id);
+      
+      if (walletIds.length === 0) {
+        console.log('[UnifiedWallet] No wallets to verify');
+        return;
+      }
+      
+      // Query database to verify which wallets actually exist
+      const { data: existingWallets, error } = await supabase
+        .from('wallets')
+        .select('id, wallet_address')
+        .in('id', walletIds);
+      
+      if (error) {
+        console.error('[UnifiedWallet] Failed to verify wallets:', error);
+        return;
+      }
+      
+      // Create set of existing wallet IDs and addresses
+      const existingIds = new Set(existingWallets?.map(w => w.id) || []);
+      const existingAddresses = new Set(existingWallets?.map(w => w.wallet_address.toLowerCase()) || []);
+      
+      // Filter out wallets that don't exist in database (by ID or address)
+      const validWallets = wallets.filter(wallet => 
+        existingIds.has(wallet.id) || existingAddresses.has(wallet.address.toLowerCase())
+      );
+      
+      const removedCount = wallets.length - validWallets.length;
+      
+      if (removedCount > 0) {
+        console.log(`[UnifiedWallet] Removed ${removedCount} stale wallet(s)`);
+        setWallets(validWallets);
+        saveWalletsToStorage(validWallets);
+        
+        // Update selected wallet if it was removed
+        if (selectedWallet && !validWallets.find(w => w.id === selectedWallet.id)) {
+          setSelectedWallet(validWallets.length > 0 ? validWallets[0] : null);
+        }
+        
+        toast({
+          title: "Stale Wallets Removed",
+          description: `Cleaned up ${removedCount} wallet(s) that no longer exist`,
+        });
+      } else {
+        console.log('[UnifiedWallet] No stale wallets found');
+      }
+    } catch (err) {
+      console.error('[UnifiedWallet] Cleanup failed:', err);
+    }
+  };
+
   // Context value
   const contextValue: UnifiedWalletContextProps = {
     wallets,
@@ -560,6 +631,7 @@ export const UnifiedWalletProvider: React.FC<{ children: ReactNode }> = ({ child
     connectWeb3Wallet,
     disconnectWeb3Wallet,
     refreshBalances,
+    cleanupStaleWallets,
   };
 
   return (

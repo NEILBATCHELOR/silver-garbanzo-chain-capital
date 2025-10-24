@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 40px;
+      margin: 20px 0;
+    }
+    h1 {
+      color: #1a1a1a;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    .button {
+      display: inline-block;
+      background: #0066ff;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    .button:hover {
+      background: #0052cc;
+    }
+    .info {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 6px;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    .footer {
+      color: #666;
+      font-size: 12px;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Reset Your Password</h1>
+    
+    <p>Hello {{ .Email }},</p>
+    
+    <p>You recently requested to reset your password for your Chain Capital account. Click the button below to reset it:</p>
+    
+    <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery" class="button">
+      Reset Your Password
+    </a>
+    
+    <div class="info">
+      <strong>⏰ This link expires in 1 hour</strong> for your security.
+      <br><br>
+      If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+    </div>
+    
+    <p>Alternatively, you can copy and paste this link into your browser:</p>
+    <p style="word-break: break-all; color: #666; font-size: 12px;">
+      {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery
+    </p>
+    
+    <div class="footer">
+      <p>
+        <strong>Chain Capital</strong><br>
+        This is an automated message, please do not reply.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

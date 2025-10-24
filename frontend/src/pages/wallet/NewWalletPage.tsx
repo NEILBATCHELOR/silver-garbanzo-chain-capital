@@ -37,6 +37,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { WalletGeneratorFactory } from "@/services/wallet/generators/WalletGeneratorFactory";
 import { ETHWalletGenerator } from "@/services/wallet/generators/ETHWalletGenerator";
+import { InvestorWalletService, BulkGenerationProgress } from "@/services/wallet/InvestorWalletService";
 import { WalletRiskCheck } from "@/components/wallet/components/WalletRiskCheck";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -99,11 +100,13 @@ const NewWalletPage: React.FC = () => {
   const [investors, setInvestors] = useState<any[]>([]);
   const [selectedInvestors, setSelectedInvestors] = useState<string[]>([]);
   const [investorsLoading, setInvestorsLoading] = useState(false);
-  const [walletCreationStatus, setWalletCreationStatus] = useState<{
-    processing: boolean;
-    total: number;
-    completed: number;
-  }>({ processing: false, total: 0, completed: 0 });
+  const [walletCreationStatus, setWalletCreationStatus] = useState<BulkGenerationProgress>({
+    total: 0,
+    completed: 0,
+    failed: 0,
+    results: [],
+  });
+  const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [multiSigAddresses, setMultiSigAddresses] = useState<string[]>([]);
   const [multiSigThreshold, setMultiSigThreshold] = useState<number>(1);
   const [showMultiSigDialog, setShowMultiSigDialog] = useState(false);
@@ -679,7 +682,7 @@ const NewWalletPage: React.FC = () => {
     }
   };
 
-  // Generate wallets for selected investors
+  // Generate wallets for selected investors using secure service
   const handleBulkWalletGeneration = async () => {
     if (selectedInvestors.length === 0) {
       toast({
@@ -690,75 +693,68 @@ const NewWalletPage: React.FC = () => {
       return;
     }
 
-    setWalletCreationStatus({
-      processing: true,
-      total: selectedInvestors.length,
-      completed: 0
-    });
-    
-    const updatedInvestors = [];
-
-    for (const investorId of selectedInvestors) {
-      try {
-        // Use ETHWalletGenerator consistently to generate a new Ethereum wallet
-        const wallet = ETHWalletGenerator.generateWallet({
-          includePrivateKey: true,
-          includeMnemonic: true
-        });
-        
-        // Update the investor record in the database
-        const { error } = await supabase
-          .from('investors')
-          .update({ 
-            wallet_address: wallet.address,
-            updated_at: new Date().toISOString()
-          })
-          .eq('investor_id', investorId);
-
-        if (error) throw error;
-        updatedInvestors.push({
-          investorId,
-          address: wallet.address,
-          privateKey: wallet.privateKey,
-          mnemonic: wallet.mnemonic
-        });
-        
-        // Update status
-        setWalletCreationStatus(prev => ({
-          ...prev,
-          completed: prev.completed + 1
-        }));
-      } catch (error) {
-        console.error(`Error creating wallet for investor ${investorId}:`, error);
-      }
-    }
-
-    // Save wallet backup data if needed (in a real app, this could be more secure)
-    if (updatedInvestors.length > 0) {
-      const backupData = JSON.stringify(updatedInvestors, null, 2);
-      const blob = new Blob([backupData], { type: 'application/json' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `investor-wallets-backup-${new Date().toISOString()}.json`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-
+    if (!selectedProjectId) {
       toast({
-        title: "Wallets Generated Successfully",
-        description: `Created ${updatedInvestors.length} Ethereum wallets. Backup file downloaded.`,
+        variant: "destructive",
+        title: "No project selected",
+        description: "Please select a project first.",
       });
+      return;
     }
 
-    // Refresh the investor list
-    const { data } = await supabase
-      .from('investors')
-      .select('investor_id, name, email, type, kyc_status, company')
-      .is('wallet_address', null)
-      .order('name');
-    
-    setInvestors(data || []);
-    setSelectedInvestors([]);
-    setWalletCreationStatus({ processing: false, total: 0, completed: 0 });
+    setIsGeneratingBulk(true);
+
+    try {
+      // Use InvestorWalletService for secure wallet generation
+      const progress = await InvestorWalletService.generateWalletsForInvestors(
+        selectedInvestors,
+        selectedProjectId,
+        'ethereum',
+        (currentProgress) => {
+          // Update progress in real-time
+          setWalletCreationStatus(currentProgress);
+        }
+      );
+
+      // Show results
+      const successCount = progress.completed;
+      const failCount = progress.failed;
+
+      if (successCount > 0) {
+        toast({
+          title: "Wallets Generated Successfully",
+          description: `✅ Created ${successCount} wallet${successCount !== 1 ? 's' : ''} with secure key storage. ${failCount > 0 ? `❌ ${failCount} failed.` : ''}`,
+        });
+      }
+
+      if (failCount > 0 && successCount === 0) {
+        toast({
+          variant: "destructive",
+          title: "Wallet Generation Failed",
+          description: `Failed to create ${failCount} wallet${failCount !== 1 ? 's' : ''}. Check console for details.`,
+        });
+      }
+
+      // Refresh the investor list
+      const { data } = await supabase
+        .from('investors')
+        .select('investor_id, name, email, type, kyc_status, company')
+        .is('wallet_address', null)
+        .order('name');
+      
+      setInvestors(data || []);
+      setSelectedInvestors([]);
+    } catch (error) {
+      console.error("Error in bulk wallet generation:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate wallets",
+      });
+    } finally {
+      setIsGeneratingBulk(false);
+      setWalletCreationStatus({ total: 0, completed: 0, failed: 0, results: [] });
+    }
   };
 
   return (
@@ -1101,19 +1097,9 @@ const NewWalletPage: React.FC = () => {
             <CardFooter>
               <Button
                 onClick={newWalletForm.handleSubmit(onCreateWallet)}
-                disabled={walletCreationStatus.processing}
                 className="w-full"
               >
-                {walletCreationStatus.processing ? (
-                  <>
-                    <span className="mr-2">Creating Wallet...</span>
-                    <Progress value={
-                      (walletCreationStatus.completed / walletCreationStatus.total) * 100
-                    } className="w-20 h-2" />
-                  </>
-                ) : (
-                  "Create Wallet"
-                )}
+                Create Wallet
               </Button>
             </CardFooter>
           </Card>
@@ -1229,7 +1215,7 @@ const NewWalletPage: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleSelectAllInvestors}
-                      disabled={investorsLoading || walletCreationStatus.processing}
+                      disabled={investorsLoading || isGeneratingBulk}
                     >
                       {selectedInvestors.length === investors.length
                         ? "Deselect All"
@@ -1241,7 +1227,7 @@ const NewWalletPage: React.FC = () => {
                       disabled={
                         selectedInvestors.length === 0 ||
                         investorsLoading ||
-                        walletCreationStatus.processing
+                        isGeneratingBulk
                       }
                     >
                       Generate Wallets for Selected
@@ -1249,16 +1235,16 @@ const NewWalletPage: React.FC = () => {
                   </div>
                 </div>
 
-                {walletCreationStatus.processing && (
+                {isGeneratingBulk && (
                   <div className="bg-blue-50 p-4 rounded-md text-blue-700 mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium">Generating wallets...</div>
+                      <div className="font-medium">Generating wallets securely...</div>
                       <div>
-                        {walletCreationStatus.completed} / {walletCreationStatus.total}
+                        {walletCreationStatus.completed + walletCreationStatus.failed} / {walletCreationStatus.total}
                       </div>
                     </div>
                     <Progress 
-                      value={(walletCreationStatus.completed / walletCreationStatus.total) * 100} 
+                      value={((walletCreationStatus.completed + walletCreationStatus.failed) / walletCreationStatus.total) * 100} 
                       className="h-2"
                     />
                   </div>
@@ -1288,7 +1274,7 @@ const NewWalletPage: React.FC = () => {
                                   investors.length > 0
                                 }
                                 onCheckedChange={handleSelectAllInvestors}
-                                disabled={investorsLoading || walletCreationStatus.processing}
+                                disabled={investorsLoading || isGeneratingBulk}
                                 aria-label="Select all investors"
                               />
                             </TableHead>
@@ -1310,7 +1296,7 @@ const NewWalletPage: React.FC = () => {
                                   onCheckedChange={() =>
                                     handleSelectInvestor(investor.investor_id)
                                   }
-                                  disabled={walletCreationStatus.processing}
+                                  disabled={isGeneratingBulk}
                                   aria-label={`Select ${investor.name}`}
                                 />
                               </TableCell>
@@ -1343,12 +1329,13 @@ const NewWalletPage: React.FC = () => {
 
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Important Security Information</AlertTitle>
+                  <AlertTitle>Secure Key Storage</AlertTitle>
                   <AlertDescription>
                     <ul className="list-disc pl-5 space-y-1 text-sm mt-2">
-                      <li>When you generate wallets in bulk, a backup file containing private keys will be downloaded.</li>
-                      <li>Store this file securely - anyone with access to these private keys can control the wallets.</li>
-                      <li>Consider distributing wallet access securely to each investor.</li>
+                      <li>Private keys and mnemonic phrases are encrypted and stored securely in the key vault.</li>
+                      <li>Wallet records are created in the database with references to the encrypted keys.</li>
+                      <li>Keys are never stored in plaintext or downloaded as backup files.</li>
+                      <li>Only authorized personnel with proper credentials can access the encrypted keys.</li>
                     </ul>
                   </AlertDescription>
                 </Alert>

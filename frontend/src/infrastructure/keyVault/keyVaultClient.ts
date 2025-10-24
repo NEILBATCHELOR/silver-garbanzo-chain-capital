@@ -32,12 +32,12 @@ class KeyVaultClient implements IKeyVaultClient {
     this.credentials = null;
   }
 
-  async getKey(keyId: string): Promise<KeyResult> {
+  async getKey(vaultId: string): Promise<KeyResult> {
     // Note: Credentials check removed as Supabase handles auth automatically
     
     try {
-      // Retrieve the encrypted key
-      const encryptedKey = await this.getEncryptedKey(keyId);
+      // Retrieve the encrypted key using the UUID vault ID
+      const encryptedKey = await this.getEncryptedKey(vaultId);
       if (!encryptedKey) {
         throw new Error('Key not found');
       }
@@ -54,7 +54,7 @@ class KeyVaultClient implements IKeyVaultClient {
         address: wallet.address
       };
     } catch (error) {
-      console.error(`Error retrieving key ${keyId}:`, error);
+      console.error(`Error retrieving key ${vaultId}:`, error);
       throw new Error(`Failed to retrieve key: ${error}`);
     }
   }
@@ -64,16 +64,17 @@ class KeyVaultClient implements IKeyVaultClient {
     // via supabase.auth.getUser() in the storage methods
     
     try {
-      // Generate a key ID
+      // Generate a key ID for reference/tracking
       const keyId = `key-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
       
       // Encrypt the key
       const encryptedKey = await this.encryptPrivateKey(key);
       
-      // Store the encrypted key
-      await this.storeEncryptedKey(keyId, encryptedKey);
+      // Store the encrypted key and get the UUID id
+      const vaultId = await this.storeEncryptedKey(keyId, encryptedKey);
       
-      return keyId;
+      // Return the UUID id (not the custom key_id string)
+      return vaultId;
     } catch (error) {
       console.error('Error storing key:', error);
       throw new Error(`Failed to store key: ${error}`);
@@ -89,7 +90,7 @@ class KeyVaultClient implements IKeyVaultClient {
       // For development, we'll use ethers to generate a wallet
       const wallet = ethers.Wallet.createRandom();
       
-      // Generate a vault ID - this would be a reference to the key in the HSM
+      // Generate a key ID for reference/tracking
       const keyId = `key-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
       
       // In production, only the public key would be returned from the HSM
@@ -100,12 +101,12 @@ class KeyVaultClient implements IKeyVaultClient {
       // In production, this step wouldn't exist as private key never leaves HSM
       const encryptedPrivateKey = await this.encryptPrivateKey(wallet.privateKey);
       
-      // Store the encrypted key in a secure table
+      // Store the encrypted key in a secure table and get the UUID
       // In production, this would be handled by the key vault service
-      await this.storeEncryptedKey(keyId, encryptedPrivateKey);
+      const vaultId = await this.storeEncryptedKey(keyId, encryptedPrivateKey);
       
       return {
-        keyId,
+        keyId: vaultId, // Return UUID id, not the custom key_id string
         publicKey
       };
     } catch (error) {
@@ -117,11 +118,11 @@ class KeyVaultClient implements IKeyVaultClient {
   /**
    * Sign data using a key in the vault
    * 
-   * @param keyId The ID of the key in the vault
+   * @param vaultId The UUID of the key vault entry
    * @param data The data to sign
    * @returns The signature
    */
-  async signData(keyId: string, data: string): Promise<string> {
+  async signData(vaultId: string, data: string): Promise<string> {
     try {
       // In production, the HSM would handle the signing
       // For development, we need to:
@@ -130,8 +131,8 @@ class KeyVaultClient implements IKeyVaultClient {
       // 3. Sign the data
       // 4. Log the usage
       
-      // Retrieve the encrypted key
-      const encryptedKey = await this.getEncryptedKey(keyId);
+      // Retrieve the encrypted key using the UUID vault ID
+      const encryptedKey = await this.getEncryptedKey(vaultId);
       if (!encryptedKey) {
         throw new Error('Key not found');
       }
@@ -154,15 +155,15 @@ class KeyVaultClient implements IKeyVaultClient {
   /**
    * Delete a key from the vault
    * 
-   * @param keyId The ID of the key to delete
+   * @param vaultId The UUID of the key vault entry to delete
    */
-  async deleteKey(keyId: string): Promise<{ success: boolean }> {
+  async deleteKey(vaultId: string): Promise<{ success: boolean }> {
     try {
-      // Delete from key_vault_keys table
+      // Delete from key_vault_keys table by UUID 'id'
       const { error } = await supabase
         .from('key_vault_keys')
         .delete()
-        .eq('key_id', keyId);
+        .eq('id', vaultId); // Match on UUID 'id' column, not 'key_id'
         
       if (error) throw error;
       
@@ -273,28 +274,33 @@ class KeyVaultClient implements IKeyVaultClient {
     }
   }
   
-  private async storeEncryptedKey(keyId: string, encryptedKey: string): Promise<void> {
+  private async storeEncryptedKey(keyId: string, encryptedKey: string): Promise<string> {
     // Store in dedicated key_vault_keys table (not project_wallets)
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('key_vault_keys')
       .insert({
         key_id: keyId,
         encrypted_key: encryptedKey,
         key_type: 'private_key',
         created_by: user?.id
-      });
+      })
+      .select('id')
+      .single();
       
     if (error) throw error;
+    if (!data) throw new Error('Failed to retrieve vault ID after insert');
+    
+    return data.id;
   }
   
-  private async getEncryptedKey(keyId: string): Promise<string> {
-    // Retrieve from key_vault_keys table
+  private async getEncryptedKey(vaultId: string): Promise<string> {
+    // Retrieve from key_vault_keys table by UUID 'id' column
     const { data, error } = await supabase
       .from('key_vault_keys')
       .select('encrypted_key')
-      .eq('key_id', keyId)
+      .eq('id', vaultId) // Match on UUID 'id' column, not 'key_id'
       .single();
       
     if (error) throw error;

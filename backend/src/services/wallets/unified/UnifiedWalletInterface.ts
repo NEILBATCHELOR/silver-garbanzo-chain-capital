@@ -182,7 +182,7 @@ export class UnifiedWalletInterface extends BaseService {
         walletType,
         primaryAddress: baseWallet.primary_address,
         addresses: baseWallet.addresses,
-        blockchains: baseWallet.blockchains,
+        blockchains: Object.keys(baseWallet.addresses), // Derive blockchains from addresses
         status: baseWallet.status,
         capabilities,
         security,

@@ -140,11 +140,6 @@ export class TransactionService extends BaseService {
 
       const wallet = walletResult.data!
       
-      // Validate blockchain is supported by wallet
-      if (!wallet.blockchains.includes(request.blockchain)) {
-        return this.error(`Wallet does not support ${request.blockchain}`, 'BLOCKCHAIN_NOT_SUPPORTED')
-      }
-
       // Get the appropriate address for this blockchain
       const fromAddress = wallet.addresses[request.blockchain]
       if (!fromAddress) {

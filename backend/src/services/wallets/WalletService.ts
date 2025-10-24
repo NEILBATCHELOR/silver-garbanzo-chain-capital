@@ -23,11 +23,11 @@ export class WalletService extends BaseService {
   }
 
   /**
-   * Create a new HD wallet with multi-chain addresses
+   * Create a new HD wallet for a specific chain
    */
   async createWallet(request: CreateWalletRequest): Promise<ServiceResult<WalletResponse>> {
     try {
-      const { investor_id, wallet_type, blockchains, name } = request
+      const { investor_id, chain_id, name } = request
 
       // Validate input
       const validation = this.validateCreateWalletRequest(request)
@@ -51,26 +51,22 @@ export class WalletService extends BaseService {
 
       const masterKey = masterKeyResult.data!
 
-      // Derive addresses for each requested blockchain
-      const addressResult = await this.hdWalletService.deriveMultiChainAddresses(masterKey, blockchains)
+      // For now, derive Ethereum address (can be extended for other chains)
+      const blockchain: BlockchainNetwork = 'ethereum'
+      const addressResult = await this.hdWalletService.deriveAddress(masterKey, blockchain)
       if (!addressResult.success) {
-        return this.error('Failed to derive addresses', 'ADDRESS_DERIVATION_FAILED')
+        return this.error('Failed to derive address', 'ADDRESS_DERIVATION_FAILED')
       }
 
-      const addresses = addressResult.data!
-
-      // Store wallet in database
-      const primaryBlockchain = blockchains[0];
-      if (!primaryBlockchain) {
-        return this.error('At least one blockchain is required', 'VALIDATION_ERROR', 400);
-      }
+      const address = addressResult.data!
+      const addresses = { [blockchain]: address }
       
       const wallet = await this.db.wallets.create({
         data: {
           investor_id,
-          wallet_type,  
-          blockchain: primaryBlockchain, // Primary blockchain
-          wallet_address: addresses[primaryBlockchain] || '',
+          wallet_type: 'hd_wallet', // HD wallet type
+          blockchain,
+          wallet_address: address,
           status: 'active',
           guardian_policy: {},
           signatories: []
@@ -96,10 +92,11 @@ export class WalletService extends BaseService {
         id: wallet.id,
         investor_id: wallet.investor_id,
         name: name || `Wallet ${wallet.id.slice(0, 8)}`,
-        primary_address: addresses[primaryBlockchain] || '',
+        primary_address: address,
         addresses,
-        wallet_type: wallet.wallet_type as WalletType,
-        blockchains,
+        chain_id,
+        chain_name: 'Ethereum Mainnet', // TODO: Get from chainIds utility
+        is_testnet: false, // TODO: Get from chainIds utility
         status: wallet.status,
         is_multi_sig_enabled: wallet.is_multi_sig_enabled,
         guardian_policy: wallet.guardian_policy,
@@ -146,8 +143,9 @@ export class WalletService extends BaseService {
         name: this.generateWalletName(wallet),
         primary_address: wallet.wallet_address || '',
         addresses: addresses || { [wallet.blockchain]: wallet.wallet_address || '' },
-        wallet_type: wallet.wallet_type as WalletType,
-        blockchains: addresses ? Object.keys(addresses) : [wallet.blockchain],
+        chain_id: '1', // TODO: Store chain_id in database and retrieve it
+        chain_name: 'Ethereum Mainnet', // TODO: Get from chainIds utility
+        is_testnet: false, // TODO: Get from chainIds utility
         status: wallet.status,
         is_multi_sig_enabled: wallet.is_multi_sig_enabled,
         guardian_policy: wallet.guardian_policy,
@@ -171,29 +169,24 @@ export class WalletService extends BaseService {
     options: { 
       page?: number
       limit?: number
-      wallet_type?: WalletType
+      chain_id?: string
       status?: WalletStatus
-      blockchain?: BlockchainNetwork
     } = {}
   ): Promise<ServiceResult<PaginatedResponse<WalletResponse>>> {
     try {
-      const { page = 1, limit = 20, wallet_type, status, blockchain } = options
+      const { page = 1, limit = 20, chain_id, status } = options
       const offset = (page - 1) * limit
 
       const where: any = {
         investor_id: investorId
       }
 
-      if (wallet_type) {
-        where.wallet_type = wallet_type
+      if (chain_id) {
+        where.chain_id = chain_id
       }
 
       if (status) {
         where.status = status
-      }
-
-      if (blockchain) {
-        where.blockchain = blockchain
       }
 
       const [wallets, total] = await Promise.all([
@@ -221,8 +214,9 @@ export class WalletService extends BaseService {
             name: this.generateWalletName(wallet),
             primary_address: wallet.wallet_address || '',
             addresses: addresses || { [wallet.blockchain]: wallet.wallet_address || '' },
-            wallet_type: wallet.wallet_type as WalletType,
-            blockchains: addresses ? Object.keys(addresses) : [wallet.blockchain],
+            chain_id: '1', // TODO: Get from database
+            chain_name: 'Ethereum Mainnet', // TODO: Get from chainIds utility
+            is_testnet: false, // TODO: Get from chainIds utility
             status: wallet.status,
             is_multi_sig_enabled: wallet.is_multi_sig_enabled,
             created_at: wallet.created_at.toISOString(),
@@ -272,8 +266,9 @@ export class WalletService extends BaseService {
         name: this.generateWalletName(wallet),
         primary_address: wallet.wallet_address || '',
         addresses: addresses || { [wallet.blockchain]: wallet.wallet_address || '' },
-        wallet_type: wallet.wallet_type as WalletType,
-        blockchains: addresses ? Object.keys(addresses) : [wallet.blockchain],
+        chain_id: '1', // TODO: Get from database
+        chain_name: 'Ethereum Mainnet', // TODO: Get from chainIds utility
+        is_testnet: false, // TODO: Get from chainIds utility
         status: wallet.status,
         is_multi_sig_enabled: wallet.is_multi_sig_enabled,
         guardian_policy: wallet.guardian_policy,
@@ -464,22 +459,8 @@ export class WalletService extends BaseService {
       errors.push('Investor ID is required')
     }
 
-    if (!request.wallet_type) {
-      errors.push('Wallet type is required')
-    }
-
-    if (!request.blockchains || request.blockchains.length === 0) {
-      errors.push('At least one blockchain is required')
-    }
-
-    // Validate supported blockchains
-    const supportedBlockchains = this.hdWalletService.getSupportedBlockchains()
-    const unsupportedBlockchains = request.blockchains?.filter(
-      blockchain => !supportedBlockchains.includes(blockchain)
-    ) || []
-
-    if (unsupportedBlockchains.length > 0) {
-      errors.push(`Unsupported blockchains: ${unsupportedBlockchains.join(', ')}`)
+    if (!request.chain_id) {
+      errors.push('Chain ID is required')
     }
 
     return {

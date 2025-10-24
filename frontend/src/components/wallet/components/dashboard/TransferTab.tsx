@@ -611,16 +611,19 @@ export const TransferTab: React.FC = () => {
       const options: WalletOption[] = [
         ...wallets.projectWallets.map(w => {
           const chainIdNum = w.chainId ? parseInt(w.chainId, 10) : undefined;
-          let blockchain = w.network;
-          if (!blockchain && chainIdNum && !isNaN(chainIdNum)) {
+          let blockchain: string | undefined;
+          if (chainIdNum && !isNaN(chainIdNum)) {
             blockchain = getChainName(chainIdNum);
           }
           blockchain = blockchain || 'ethereum';
           
+          const chainInfo = chainIdNum ? getChainInfo(chainIdNum) : null;
+          const walletName = w.projectWalletName || chainInfo?.name || 'Project Wallet';
+          
           return {
             id: w.id,
             address: w.address,
-            name: `${w.walletType} (Project)`,
+            name: `${walletName} (Project)`,
             type: 'project' as const,
             balance: w.balance?.nativeBalance || '0',
             blockchain: blockchain,
