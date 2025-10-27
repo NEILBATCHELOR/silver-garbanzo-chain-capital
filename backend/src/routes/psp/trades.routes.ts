@@ -54,7 +54,9 @@ export default async function tradesRoutes(fastify: FastifyInstance) {
 
         const result = await tradeService.executeTrade({
           project_id: projectId,
-          ...request.body
+          source: request.body.source,
+          destination: request.body.destination,
+          virtual_account_id: request.body.virtualAccountId
         });
 
         if (!result.success || !result.data) {

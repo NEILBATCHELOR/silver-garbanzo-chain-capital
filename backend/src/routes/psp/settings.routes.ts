@@ -49,16 +49,16 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       body: {
         type: 'object',
         properties: {
-          automation_enabled: { type: 'boolean' },
-          withdrawal_frequency: { type: 'string', enum: ['continuous', 'on_demand', 'daily', 'weekly'] },
-          onramp_enabled: { type: 'boolean' },
-          onramp_target_asset: { type: 'string' },
-          onramp_target_network: { type: 'string' },
-          onramp_target_wallet_id: { type: 'string', format: 'uuid' },
-          offramp_enabled: { type: 'boolean' },
-          offramp_target_currency: { type: 'string' },
-          offramp_target_account_id: { type: 'string', format: 'uuid' },
-          default_fiat_rail: { type: 'string', enum: ['ach', 'wire', 'rtp', 'fednow'] }
+          automationEnabled: { type: 'boolean' },
+          withdrawalFrequency: { type: 'string', enum: ['continuous', 'on_demand', 'daily', 'weekly'] },
+          onrampEnabled: { type: 'boolean' },
+          onrampTargetAsset: { type: 'string' },
+          onrampTargetNetwork: { type: 'string' },
+          onrampTargetWalletId: { type: 'string', format: 'uuid' },
+          offrampEnabled: { type: 'boolean' },
+          offrampTargetCurrency: { type: 'string' },
+          offrampTargetAccountId: { type: 'string', format: 'uuid' },
+          defaultFiatRail: { type: 'string', enum: ['ach', 'wire', 'rtp', 'fednow'] }
         }
       }
     },
@@ -72,9 +72,19 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
           return reply.code(401).send({ success: false, error: 'Unauthorized' });
         }
 
+        const body = request.body || {};
         const result = await settingsService.updateSettings(projectId, {
           project_id: projectId,
-          ...request.body
+          automation_enabled: body.automationEnabled,
+          withdrawal_frequency: body.withdrawalFrequency,
+          onramp_enabled: body.onrampEnabled,
+          onramp_target_asset: body.onrampTargetAsset,
+          onramp_target_network: body.onrampTargetNetwork,
+          onramp_target_wallet_id: body.onrampTargetWalletId,
+          offramp_enabled: body.offrampEnabled,
+          offramp_target_currency: body.offrampTargetCurrency,
+          offramp_target_account_id: body.offrampTargetAccountId,
+          default_fiat_rail: body.defaultFiatRail
         });
 
         if (!result.success || !result.data) {

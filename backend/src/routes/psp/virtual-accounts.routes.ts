@@ -13,9 +13,15 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { VirtualAccountService } from '@/services/psp/accounts/virtualAccountService';
 import { logger } from '@/utils/logger';
-import type { CreateVirtualAccountRequest } from '@/types/psp/routes';
+import type { CreateVirtualAccountRequest } from '@/types/psp';
 
 const virtualAccountService = new VirtualAccountService();
+
+interface CreateVirtualAccountBody {
+  accountName: string;
+  accountType: 'individual' | 'business';
+  identityCaseId?: string;
+}
 
 export default async function virtualAccountsRoutes(fastify: FastifyInstance) {
   fastify.post('/api/psp/virtual-accounts', {
@@ -30,7 +36,7 @@ export default async function virtualAccountsRoutes(fastify: FastifyInstance) {
         }
       }
     },
-    handler: async (request: FastifyRequest<{ Body: CreateVirtualAccountRequest }>, reply: FastifyReply) => {
+    handler: async (request: FastifyRequest<{ Body: CreateVirtualAccountBody }>, reply: FastifyReply) => {
       try {
         const projectId = (request.user as any)?.project_id;
         if (!projectId) {
