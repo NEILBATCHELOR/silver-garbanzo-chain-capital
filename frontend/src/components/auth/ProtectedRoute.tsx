@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/infrastructure/database/client";
+import { useAuth } from "@/infrastructure/auth/AuthProvider";
 import { Database } from "@/types/core/database";
 import UnauthorizedPage from "./UnauthorizedPage";
 
@@ -21,22 +22,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   redirectTo = "/auth/login",
   showUnauthorized = true
 }) => {
+  const { user, loading: authLoading } = useAuth(); // Use AuthContext instead of direct Supabase calls
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
 
   useEffect(() => {
-    checkAuthorization();
-  }, [requiredRoles, requiredPermissions]);
+    if (!authLoading) {
+      checkAuthorization();
+    }
+  }, [user, authLoading, requiredRoles, requiredPermissions]);
 
   const checkAuthorization = async () => {
     try {
       setIsLoading(true);
       
-      // Check if user is authenticated
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.user) {
+      // Check if user is authenticated (from AuthContext - no additional auth state changes)
+      if (!user) {
         setIsAuthorized(false);
         setIsLoading(false);
         return;
@@ -55,7 +57,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         .select(`
           role:roles(name)
         `)
-        .eq('user_id', session.user.id);
+        .eq('user_id', user.id);
 
       if (rolesError) {
         console.error('Error fetching user roles:', rolesError);
@@ -72,7 +74,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             role_permissions(permission_name)
           )
         `)
-        .eq('user_id', session.user.id);
+        .eq('user_id', user.id);
 
       if (permissionsError) {
         console.error('Error fetching user permissions:', permissionsError);
@@ -105,8 +107,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   };
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state (includes both auth loading and authorization check)
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -114,13 +116,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // User is not authenticated - redirect to login
-  if (isAuthorized === false && (!supabase.auth.getSession())) {
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
-  }
-
-  // User is authenticated but not authorized
+  // User is not authenticated or has invalid session - redirect to login
   if (isAuthorized === false) {
+    // If no specific roles/permissions required but still not authorized,
+    // it means no valid session exists - redirect to login
+    if (requiredRoles.length === 0 && requiredPermissions.length === 0) {
+      return <Navigate to={redirectTo} state={{ from: location }} replace />;
+    }
+    
+    // User is authenticated but lacks required permissions
     if (showUnauthorized) {
       return (
         <UnauthorizedPage 
@@ -144,37 +148,20 @@ interface GuestGuardProps {
 
 export const GuestGuard: React.FC<GuestGuardProps> = ({
   children,
-  redirectTo = "/dashboard"
+  redirectTo = "/projects"
 }) => {
+  const { user, loading: authLoading } = useAuth(); // Use AuthContext
   const [isGuest, setIsGuest] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkGuestStatus();
-  }, []);
-
-  const checkGuestStatus = async () => {
-    try {
-      setIsLoading(true);
-      
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error checking session:', error);
-        setIsGuest(true);
-      } else {
-        setIsGuest(!session?.user);
-      }
-    } catch (error) {
-      console.error('Guest check failed:', error);
-      setIsGuest(true);
-    } finally {
-      setIsLoading(false);
+    if (!authLoading) {
+      // User from AuthContext determines guest status
+      setIsGuest(!user);
     }
-  };
+  }, [user, authLoading]);
 
   // Show loading state
-  if (isLoading) {
+  if (authLoading || isGuest === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

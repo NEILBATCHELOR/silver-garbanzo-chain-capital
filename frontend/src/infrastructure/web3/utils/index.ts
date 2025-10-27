@@ -17,3 +17,6 @@ export * from './eligibleAssets';
 
 // Fallback RPC service for resilient RPC connections
 export * from './FallbackRPCService';
+
+// Blockchain explorer configuration and utilities
+export * from './blockchainExplorerConfig';

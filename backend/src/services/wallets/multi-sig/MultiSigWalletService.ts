@@ -25,6 +25,8 @@ import { createHash } from 'crypto'
  */
 export class MultiSigWalletService extends BaseService {
   private providers: Map<BlockchainNetwork, any> = new Map()
+  // Default Owner role ID for multi-sig wallets
+  private readonly DEFAULT_OWNER_ROLE_ID = 'dd8ac325-e054-48a5-b838-b3a329cec237'
 
   constructor() {
     super('MultiSigWallet')
@@ -78,6 +80,57 @@ export class MultiSigWalletService extends BaseService {
   }
 
   /**
+   * Find user_address_id from blockchain address
+   */
+  private async findUserAddressId(address: string, blockchain: BlockchainNetwork): Promise<string | null> {
+    try {
+      const userAddress = await this.prisma.user_addresses.findFirst({
+        where: {
+          address: address.toLowerCase(),
+          blockchain
+        }
+      })
+      return userAddress?.id || null
+    } catch (error) {
+      this.logError('Error finding user address ID:', error)
+      return null
+    }
+  }
+
+  /**
+   * Resolve blockchain address from user_address_id
+   */
+  private async resolveUserAddress(userAddressId: string): Promise<string | null> {
+    try {
+      const userAddress = await this.prisma.user_addresses.findUnique({
+        where: { id: userAddressId }
+      })
+      return userAddress?.address || null
+    } catch (error) {
+      this.logError('Error resolving user address:', error)
+      return null
+    }
+  }
+
+  /**
+   * Resolve all owner addresses for a wallet
+   */
+  private async resolveOwnerAddresses(owners: Array<{ user_address_id?: string | null, user_id?: string | null }>): Promise<string[]> {
+    const addresses: string[] = []
+    
+    for (const owner of owners) {
+      if (owner.user_address_id) {
+        const address = await this.resolveUserAddress(owner.user_address_id)
+        if (address) {
+          addresses.push(address)
+        }
+      }
+    }
+    
+    return addresses
+  }
+
+  /**
    * Create a new multi-signature wallet
    */
   async createMultiSigWallet(request: CreateMultiSigWalletRequest): Promise<ServiceResult<MultiSigWallet>> {
@@ -99,45 +152,66 @@ export class MultiSigWalletService extends BaseService {
         return this.error('Failed to generate multi-sig wallet address')
       }
 
-      // Create wallet record
+      // Create wallet record (without owners - they go in separate table)
       const wallet = await this.prisma.multi_sig_wallets.create({
         data: {
           name: request.name,
           blockchain: request.blockchain,
           address,
-          owners: request.owners,
           threshold: request.threshold,
           created_by: request.created_by,
           status: 'pending', // Will be 'active' after blockchain deployment
           created_at: new Date(),
           updated_at: new Date()
+        },
+        include: {
+          multi_sig_wallet_owners: true
         }
       })
 
-      // Log wallet creation
-      // TODO: Implement activity logging service
-      // await this.logActivity({
-      //   entity_type: 'multi_sig_wallet',
-      //   entity_id: wallet.id,
-      //   action: 'create',
-      //   details: {
-      //     name: wallet.name,
-      //     blockchain: wallet.blockchain,
-      //     owners_count: wallet.owners.length,
-      //     threshold: wallet.threshold,
-      //     address: wallet.address
-      //   }
-      // })
+      // Create owner records in separate table with proper address linking
+      if (request.owners && request.owners.length > 0) {
+        await Promise.all(
+          request.owners.map(async ownerAddress => {
+            // Find the user_address_id for this blockchain address
+            const userAddressId = await this.findUserAddressId(ownerAddress, request.blockchain)
+            
+            if (!userAddressId) {
+              this.logWarn('Owner address not found in user_addresses table', {
+                address: ownerAddress,
+                blockchain: request.blockchain
+              })
+            }
+            
+            return this.prisma.multi_sig_wallet_owners.create({
+              data: {
+                wallet_id: wallet.id,
+                role_id: this.DEFAULT_OWNER_ROLE_ID,
+                added_by: request.created_by || undefined,
+                user_address_id: userAddressId || undefined
+              }
+            })
+          })
+        )
+      }
+
+      // Reload wallet with owners
+      const walletWithOwners = await this.prisma.multi_sig_wallets.findUnique({
+        where: { id: wallet.id },
+        include: {
+          multi_sig_wallet_owners: true
+        }
+      })
 
       this.logInfo('Multi-sig wallet created', {
         id: wallet.id,
         blockchain: wallet.blockchain,
         address: wallet.address,
-        owners: wallet.owners.length,
+        owners: request.owners.length,
         threshold: wallet.threshold
       })
 
-      return this.success(this.formatWallet(wallet))
+      return this.success(this.formatWallet(walletWithOwners!))
     } catch (error) {
       this.logError('Create multi-sig wallet error:', error)
       return this.error('Failed to create multi-sig wallet')
@@ -150,7 +224,10 @@ export class MultiSigWalletService extends BaseService {
   async getMultiSigWallet(id: string): Promise<ServiceResult<MultiSigWallet>> {
     try {
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id }
+        where: { id },
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       if (!wallet) {
@@ -169,64 +246,101 @@ export class MultiSigWalletService extends BaseService {
    */
   async updateMultiSigWallet(request: UpdateMultiSigWalletRequest): Promise<ServiceResult<MultiSigWallet>> {
     try {
-      // Get existing wallet
+      // Get existing wallet with owners
       const existing = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: request.id }
+        where: { id: request.id },
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       if (!existing) {
         return this.error('Multi-sig wallet not found', MultiSigErrorCodes.WALLET_NOT_FOUND)
       }
 
+      // Extract current owner count from relation
+      const currentOwnerCount = existing.multi_sig_wallet_owners?.length || 0
+
       // Validate update
       if (request.threshold || request.owners) {
+        const ownersToValidate = request.owners || []
+        const thresholdToValidate = request.threshold || existing.threshold
+        
         const validation = this.validateThresholdAndOwners(
-          request.owners || existing.owners,
-          request.threshold || existing.threshold
+          ownersToValidate,
+          thresholdToValidate
         )
         if (!validation.isValid) {
           return this.error('Validation failed: ' + validation.errors.map(e => e.message).join(', '))
         }
       }
 
-      // Build update data
+      // Build update data (exclude owners as they're in separate table)
       const updateData: any = {
         updated_at: new Date()
       }
 
       if (request.name) updateData.name = request.name
-      if (request.owners) updateData.owners = request.owners
       if (request.threshold) updateData.threshold = request.threshold
       if (request.status) updateData.status = request.status
 
       const wallet = await this.prisma.multi_sig_wallets.update({
         where: { id: request.id },
-        data: updateData
+        data: updateData,
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
-      // Log wallet update
-      // TODO: Implement activity logging service
-      // await this.logActivity({
-      //   entity_type: 'multi_sig_wallet',
-      //   entity_id: wallet.id,
-      //   action: 'update',
-      //   details: {
-      //     changes: updateData,
-      //     previous: {
-      //       name: existing.name,
-      //       owners_count: existing.owners.length,
-      //       threshold: existing.threshold,
-      //       status: existing.status
-      //     }
-      //   }
-      // })
+      // Handle owner updates if provided
+      if (request.owners && request.owners.length > 0) {
+        // Delete existing owners
+        await this.prisma.multi_sig_wallet_owners.deleteMany({
+          where: { wallet_id: request.id }
+        })
+
+        // Create new owners with proper address linking
+        await Promise.all(
+          request.owners.map(async ownerAddress => {
+            const userAddressId = await this.findUserAddressId(ownerAddress, existing.blockchain as BlockchainNetwork)
+            
+            if (!userAddressId) {
+              this.logWarn('Owner address not found in user_addresses table', {
+                address: ownerAddress,
+                blockchain: existing.blockchain
+              })
+            }
+            
+            return this.prisma.multi_sig_wallet_owners.create({
+              data: {
+                wallet_id: request.id,
+                role_id: this.DEFAULT_OWNER_ROLE_ID,
+                added_by: request.updated_by || undefined,
+                user_address_id: userAddressId || undefined
+              }
+            })
+          })
+        )
+      }
+
+      // Reload with updated owners
+      const updatedWallet = await this.prisma.multi_sig_wallets.findUnique({
+        where: { id: request.id },
+        include: {
+          multi_sig_wallet_owners: true
+        }
+      })
+
+      if (!updatedWallet) {
+        return this.error('Failed to reload updated wallet')
+      }
 
       this.logInfo('Multi-sig wallet updated', {
         id: wallet.id,
         changes: Object.keys(updateData)
       })
 
-      return this.success(this.formatWallet(wallet))
+      return this.success(this.formatWallet(updatedWallet))
     } catch (error) {
       this.logError('Update multi-sig wallet error:', error)
       return this.error('Failed to update multi-sig wallet')
@@ -302,24 +416,16 @@ export class MultiSigWalletService extends BaseService {
           where: { wallet_id: id }
         })
 
+        // Delete wallet owners
+        await tx.multi_sig_wallet_owners.deleteMany({
+          where: { wallet_id: id }
+        })
+
         // Delete wallet
         await tx.multi_sig_wallets.delete({
           where: { id }
         })
       })
-
-      // Log wallet deletion
-      // TODO: Implement activity logging service
-      // await this.logActivity({
-      //   entity_type: 'multi_sig_wallet',
-      //   entity_id: id,
-      //   action: 'delete',
-      //   details: {
-      //     name: wallet.name,
-      //     blockchain: wallet.blockchain,
-      //     address: wallet.address
-      //   }
-      // })
 
       this.logInfo('Multi-sig wallet deleted', {
         id,
@@ -356,20 +462,26 @@ export class MultiSigWalletService extends BaseService {
       if (blockchain) where.blockchain = blockchain
       if (created_by) where.created_by = created_by
       if (owner) {
-        where.owners = {
-          has: owner
+        // Filter by owner through the relation table
+        where.multi_sig_wallet_owners = {
+          some: {
+            user_id: owner
+          }
         }
       }
 
       // Get total count
       const total = await this.prisma.multi_sig_wallets.count({ where })
 
-      // Get wallets
+      // Get wallets with owners
       const wallets = await this.prisma.multi_sig_wallets.findMany({
         where,
         orderBy: { [sort_by]: sort_order },
         skip: (page - 1) * limit,
-        take: limit
+        take: limit,
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       const formattedWallets = wallets.map(w => this.formatWallet(w))
@@ -395,16 +507,14 @@ export class MultiSigWalletService extends BaseService {
   async addOwner(walletId: string, newOwner: string): Promise<ServiceResult<MultiSigWallet>> {
     try {
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: walletId }
+        where: { id: walletId },
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       if (!wallet) {
         return this.error('Multi-sig wallet not found', MultiSigErrorCodes.WALLET_NOT_FOUND)
-      }
-
-      // Check if owner already exists
-      if (wallet.owners.includes(newOwner)) {
-        return this.error('Owner already exists', MultiSigErrorCodes.DUPLICATE_OWNER)
       }
 
       // Validate address format
@@ -412,39 +522,71 @@ export class MultiSigWalletService extends BaseService {
         return this.error('Invalid owner address', MultiSigErrorCodes.INVALID_ADDRESS)
       }
 
-      // Add owner
-      const updatedOwners = [...wallet.owners, newOwner]
-
-      // Validate new configuration
-      const validation = this.validateThresholdAndOwners(updatedOwners, wallet.threshold)
-      if (!validation.isValid) {
-        return this.error('Invalid owner configuration: ' + validation.errors.map(e => e.message).join(', '))
+      // Find user_address_id for this address
+      const userAddressId = await this.findUserAddressId(newOwner, wallet.blockchain as BlockchainNetwork)
+      
+      if (!userAddressId) {
+        return this.error('Address not found in user_addresses table. Please register the address first.')
       }
 
-      const updatedWallet = await this.prisma.multi_sig_wallets.update({
-        where: { id: walletId },
-        data: {
-          owners: updatedOwners,
-          updated_at: new Date()
+      // Check if owner already exists
+      const existingOwner = await this.prisma.multi_sig_wallet_owners.findFirst({
+        where: {
+          wallet_id: walletId,
+          user_address_id: userAddressId
         }
       })
 
-      // Log owner addition
-      // TODO: Implement activity logging service
-      // await this.logActivity({
-      //   entity_type: 'multi_sig_wallet',
-      //   entity_id: walletId,
-      //   action: 'add_owner',
-      //   details: {
-      //     new_owner: newOwner,
-      //     total_owners: updatedOwners.length
-      //   }
-      // })
+      if (existingOwner) {
+        return this.error('Owner already exists in wallet')
+      }
+
+      // Add owner record with proper address linking
+      await this.prisma.multi_sig_wallet_owners.create({
+        data: {
+          wallet_id: walletId,
+          role_id: this.DEFAULT_OWNER_ROLE_ID,
+          user_address_id: userAddressId
+        }
+      })
+
+      // Reload wallet
+      const updatedWallet = await this.prisma.multi_sig_wallets.findUnique({
+        where: { id: walletId },
+        include: {
+          multi_sig_wallet_owners: true
+        }
+      })
+
+      if (!updatedWallet) {
+        return this.error('Failed to reload wallet after adding owner')
+      }
+
+      const totalOwners = updatedWallet.multi_sig_wallet_owners.length
+
+      // Validate new configuration
+      const validation = this.validateOwnerCountAndThreshold(
+        totalOwners,
+        wallet.threshold
+      )
+      if (!validation.isValid) {
+        // Rollback if invalid - remove the just-added owner
+        const lastOwner = updatedWallet.multi_sig_wallet_owners[totalOwners - 1]
+        if (lastOwner) {
+          await this.prisma.multi_sig_wallet_owners.deleteMany({
+            where: {
+              wallet_id: walletId,
+              added_at: lastOwner.added_at
+            }
+          })
+        }
+        return this.error('Invalid owner configuration: ' + validation.errors.map(e => e.message).join(', '))
+      }
 
       this.logInfo('Owner added to multi-sig wallet', {
         walletId,
         newOwner,
-        totalOwners: updatedOwners.length
+        totalOwners
       })
 
       return this.success(this.formatWallet(updatedWallet))
@@ -460,51 +602,63 @@ export class MultiSigWalletService extends BaseService {
   async removeOwner(walletId: string, ownerToRemove: string): Promise<ServiceResult<MultiSigWallet>> {
     try {
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: walletId }
+        where: { id: walletId },
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       if (!wallet) {
         return this.error('Multi-sig wallet not found', MultiSigErrorCodes.WALLET_NOT_FOUND)
       }
 
-      // Check if owner exists
-      if (!wallet.owners.includes(ownerToRemove)) {
-        return this.error('Owner not found')
-      }
+      const currentOwnerCount = wallet.multi_sig_wallet_owners.length
 
-      // Remove owner
-      const updatedOwners = wallet.owners.filter(owner => owner !== ownerToRemove)
-
-      // Validate new configuration
-      const validation = this.validateThresholdAndOwners(updatedOwners, wallet.threshold)
+      // Validate new configuration after removal
+      const validation = this.validateOwnerCountAndThreshold(
+        currentOwnerCount - 1,
+        wallet.threshold
+      )
       if (!validation.isValid) {
         return this.error('Invalid owner configuration after removal: ' + validation.errors.map(e => e.message).join(', '))
       }
 
-      const updatedWallet = await this.prisma.multi_sig_wallets.update({
+      // Find the owner to remove by address
+      const userAddressId = await this.findUserAddressId(ownerToRemove, wallet.blockchain as BlockchainNetwork)
+      
+      if (!userAddressId) {
+        return this.error('Owner address not found')
+      }
+
+      const ownerRecord = wallet.multi_sig_wallet_owners.find(
+        owner => owner.user_address_id === userAddressId
+      )
+
+      if (!ownerRecord) {
+        return this.error('Owner not found in this wallet')
+      }
+
+      // Remove the identified owner
+      await this.prisma.multi_sig_wallet_owners.delete({
+        where: { id: ownerRecord.id }
+      })
+
+      // Reload wallet
+      const updatedWallet = await this.prisma.multi_sig_wallets.findUnique({
         where: { id: walletId },
-        data: {
-          owners: updatedOwners,
-          updated_at: new Date()
+        include: {
+          multi_sig_wallet_owners: true
         }
       })
 
-      // Log owner removal
-      // TODO: Implement activity logging service
-      // await this.logActivity({
-      //   entity_type: 'multi_sig_wallet',
-      //   entity_id: walletId,
-      //   action: 'remove_owner',
-      //   details: {
-      //     removed_owner: ownerToRemove,
-      //     total_owners: updatedOwners.length
-      //   }
-      // })
+      if (!updatedWallet) {
+        return this.error('Failed to reload wallet after removing owner')
+      }
 
       this.logInfo('Owner removed from multi-sig wallet', {
         walletId,
         removedOwner: ownerToRemove,
-        totalOwners: updatedOwners.length
+        totalOwners: updatedWallet.multi_sig_wallet_owners.length
       })
 
       return this.success(this.formatWallet(updatedWallet))
@@ -520,7 +674,10 @@ export class MultiSigWalletService extends BaseService {
   async updateThreshold(walletId: string, newThreshold: number): Promise<ServiceResult<MultiSigWallet>> {
     try {
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: walletId }
+        where: { id: walletId },
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       if (!wallet) {
@@ -528,7 +685,10 @@ export class MultiSigWalletService extends BaseService {
       }
 
       // Validate new threshold
-      const validation = this.validateThresholdAndOwners(wallet.owners, newThreshold)
+      const validation = this.validateOwnerCountAndThreshold(
+        wallet.multi_sig_wallet_owners.length,
+        newThreshold
+      )
       if (!validation.isValid) {
         return this.error('Invalid threshold: ' + validation.errors.map(e => e.message).join(', '))
       }
@@ -538,20 +698,11 @@ export class MultiSigWalletService extends BaseService {
         data: {
           threshold: newThreshold,
           updated_at: new Date()
+        },
+        include: {
+          multi_sig_wallet_owners: true
         }
       })
-
-      // Log threshold update
-      // TODO: Implement activity logging service
-      // await this.logActivity({
-      //   entity_type: 'multi_sig_wallet',
-      //   entity_id: walletId,
-      //   action: 'update_threshold',
-      //   details: {
-      //     old_threshold: wallet.threshold,
-      //     new_threshold: newThreshold
-      //   }
-      // })
 
       this.logInfo('Multi-sig wallet threshold updated', {
         walletId,
@@ -572,7 +723,10 @@ export class MultiSigWalletService extends BaseService {
   async getWalletStatistics(walletId: string): Promise<ServiceResult<any>> {
     try {
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: walletId }
+        where: { id: walletId },
+        include: {
+          multi_sig_wallet_owners: true
+        }
       })
 
       if (!wallet) {
@@ -614,7 +768,7 @@ export class MultiSigWalletService extends BaseService {
           name: wallet.name,
           address: wallet.address,
           blockchain: wallet.blockchain,
-          owners_count: wallet.owners.length,
+          owners_count: wallet.multi_sig_wallet_owners.length,
           threshold: wallet.threshold,
           status: wallet.status
         },
@@ -838,6 +992,53 @@ export class MultiSigWalletService extends BaseService {
   }
 
   /**
+   * Validate owner count and threshold (for existing wallets)
+   */
+  private validateOwnerCountAndThreshold(ownerCount: number, threshold: number): MultiSigValidationResult {
+    const errors: any[] = []
+
+    // Validate owner count
+    if (ownerCount < MULTI_SIG_CONSTANTS.MIN_OWNERS) {
+      errors.push({
+        field: 'owners',
+        message: 'At least one owner is required',
+        code: MultiSigErrorCodes.INSUFFICIENT_OWNERS
+      })
+    }
+
+    if (ownerCount > MULTI_SIG_CONSTANTS.MAX_OWNERS) {
+      errors.push({
+        field: 'owners',
+        message: `Maximum ${MULTI_SIG_CONSTANTS.MAX_OWNERS} owners allowed`,
+        code: 'TOO_MANY_OWNERS'
+      })
+    }
+
+    // Validate threshold
+    if (threshold < MULTI_SIG_CONSTANTS.MIN_THRESHOLD) {
+      errors.push({
+        field: 'threshold',
+        message: `Minimum threshold is ${MULTI_SIG_CONSTANTS.MIN_THRESHOLD}`,
+        code: MultiSigErrorCodes.INVALID_THRESHOLD
+      })
+    }
+
+    if (threshold > ownerCount) {
+      errors.push({
+        field: 'threshold',
+        message: 'Threshold cannot be greater than number of owners',
+        code: MultiSigErrorCodes.INVALID_THRESHOLD
+      })
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings: []
+    }
+  }
+
+  /**
    * Validate address format for blockchain
    */
   private isValidAddress(address: string, blockchain: BlockchainNetwork): boolean {
@@ -877,14 +1078,46 @@ export class MultiSigWalletService extends BaseService {
 
   /**
    * Format wallet for API response
+   * Maps the Prisma multi_sig_wallet_owners relation to a simple owners array
    */
   private formatWallet(wallet: any): MultiSigWallet {
+    // This is synchronous but we need async for address resolution
+    // For now, return wallet without full address resolution
+    // In production, consider making this async or pre-loading addresses
+    const owners = wallet.multi_sig_wallet_owners?.map((owner: any) => {
+      // Return user_address_id as a reference - caller can resolve if needed
+      return owner.user_address_id || owner.user_id || ''
+    }) || []
+
     return {
       id: wallet.id,
       name: wallet.name,
       blockchain: wallet.blockchain as BlockchainNetwork,
       address: wallet.address,
-      owners: wallet.owners,
+      owners, // Array of user_address_ids
+      threshold: wallet.threshold,
+      created_by: wallet.created_by,
+      created_at: wallet.created_at,
+      updated_at: wallet.updated_at,
+      status: wallet.status,
+      blocked_at: wallet.blocked_at,
+      block_reason: wallet.block_reason
+    }
+  }
+
+  /**
+   * Format wallet with fully resolved owner addresses
+   * Use this when you need actual blockchain addresses
+   */
+  private async formatWalletWithAddresses(wallet: any): Promise<MultiSigWallet> {
+    const owners = await this.resolveOwnerAddresses(wallet.multi_sig_wallet_owners || [])
+
+    return {
+      id: wallet.id,
+      name: wallet.name,
+      blockchain: wallet.blockchain as BlockchainNetwork,
+      address: wallet.address,
+      owners, // Array of resolved blockchain addresses
       threshold: wallet.threshold,
       created_by: wallet.created_by,
       created_at: wallet.created_at,

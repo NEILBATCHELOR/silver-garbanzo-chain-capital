@@ -49,6 +49,7 @@ export interface StoredKeyData {
 // Request/Response Types
 export interface CreateWalletRequest {
   investor_id: string
+  project_id: string
   chain_id: string // Numeric chain ID as string (e.g., "1" for Ethereum mainnet)
   name?: string
 }

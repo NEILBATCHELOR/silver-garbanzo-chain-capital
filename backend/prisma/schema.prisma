@@ -1,7 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["views"]
   output          = "../src/infrastructure/database/generated"
+  previewFeatures = ["views"]
 }
 
 datasource db {
@@ -224,24 +224,27 @@ model schema_migrations {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sessions {
-  id             String           @id @db.Uuid
-  user_id        String           @db.Uuid
-  created_at     DateTime?        @db.Timestamptz(6)
-  updated_at     DateTime?        @db.Timestamptz(6)
-  factor_id      String?          @db.Uuid
-  aal            aal_level?
-  not_after      DateTime?        @db.Timestamptz(6)
-  refreshed_at   DateTime?        @db.Timestamp(6)
-  user_agent     String?
-  ip             String?          @db.Inet
-  tag            String?
-  mfa_amr_claims mfa_amr_claims[]
-  refresh_tokens refresh_tokens[]
-  users          auth_users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id              String           @id @db.Uuid
+  user_id         String           @db.Uuid
+  created_at      DateTime?        @db.Timestamptz(6)
+  updated_at      DateTime?        @db.Timestamptz(6)
+  factor_id       String?          @db.Uuid
+  aal             aal_level?
+  not_after       DateTime?        @db.Timestamptz(6)
+  refreshed_at    DateTime?        @db.Timestamp(6)
+  user_agent      String?
+  ip              String?          @db.Inet
+  tag             String?
+  oauth_client_id String?          @db.Uuid
+  mfa_amr_claims  mfa_amr_claims[]
+  refresh_tokens  refresh_tokens[]
+  oauth_clients   oauth_clients?   @relation(fields: [oauth_client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           auth_users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([not_after(sort: Desc)])
   @@index([user_id])
   @@index([user_id, created_at], map: "user_id_created_at_idx")
+  @@index([oauth_client_id])
   @@schema("auth")
 }
 
@@ -321,6 +324,8 @@ model auth_users {
   is_anonymous                                                    Boolean                            @default(false)
   identities                                                      identities[]
   mfa_factors                                                     mfa_factors[]
+  oauth_authorizations                                            oauth_authorizations[]
+  oauth_consents                                                  oauth_consents[]
   one_time_tokens                                                 one_time_tokens[]
   sessions                                                        sessions[]
   approval_requests                                               approval_requests[]
@@ -331,6 +336,7 @@ model auth_users {
   climate_user_data_sources                                       climate_user_data_sources[]
   compliance_reports_compliance_reports_created_byTousers         compliance_reports[]               @relation("compliance_reports_created_byTousers")
   compliance_reports_compliance_reports_updated_byTousers         compliance_reports[]               @relation("compliance_reports_updated_byTousers")
+  contract_role_assignments                                       contract_role_assignments[]
   credential_usage_logs                                           credential_usage_logs[]
   document_workflows_document_workflows_created_byTousers         document_workflows[]               @relation("document_workflows_created_byTousers")
   document_workflows_document_workflows_updated_byTousers         document_workflows[]               @relation("document_workflows_updated_byTousers")
@@ -349,14 +355,19 @@ model auth_users {
   issuer_documents_issuer_documents_created_byTousers             issuer_documents[]                 @relation("issuer_documents_created_byTousers")
   issuer_documents_issuer_documents_reviewed_byTousers            issuer_documents[]                 @relation("issuer_documents_reviewed_byTousers")
   issuer_documents_issuer_documents_updated_byTousers             issuer_documents[]                 @relation("issuer_documents_updated_byTousers")
+  key_vault_keys_key_vault_keys_user_idTousers                    key_vault_keys[]                   @relation("key_vault_keys_user_idTousers")
+  key_vault_keys_key_vault_keys_created_byTousers                 key_vault_keys[]                   @relation("key_vault_keys_created_byTousers")
   multi_sig_audit_log                                             multi_sig_audit_log[]
   multi_sig_proposals                                             multi_sig_proposals[]
+  multi_sig_wallet_owners_multi_sig_wallet_owners_added_byTousers multi_sig_wallet_owners[]          @relation("multi_sig_wallet_owners_added_byTousers")
+  multi_sig_wallet_owners_multi_sig_wallet_owners_user_idTousers  multi_sig_wallet_owners[]          @relation("multi_sig_wallet_owners_user_idTousers")
   multi_sig_wallets                                               multi_sig_wallets[]
   nav_oracle_configs                                              nav_oracle_configs[]
   notification_settings                                           notification_settings[]
   onchain_identities                                              onchain_identities[]
   profiles                                                        profiles?
   project_organization_assignments                                project_organization_assignments[]
+  recent_address_selections                                       recent_address_selections[]
   redemption_notifications                                        redemption_notifications[]
   redemption_requests_redemption_requests_approved_byTousers      redemption_requests[]              @relation("redemption_requests_approved_byTousers")
   redemption_requests_redemption_requests_processed_byTousers     redemption_requests[]              @relation("redemption_requests_processed_byTousers")
@@ -372,6 +383,7 @@ model auth_users {
   ripple_multisig_accounts                                        ripple_multisig_accounts[]
   ripple_multisig_proposals                                       ripple_multisig_proposals[]
   ripple_trust_lines                                              ripple_trust_lines[]
+  role_addresses                                                  role_addresses[]
   security_events                                                 security_events[]
   sidebar_configurations_sidebar_configurations_created_byTousers sidebar_configurations[]           @relation("sidebar_configurations_created_byTousers")
   sidebar_configurations_sidebar_configurations_updated_byTousers sidebar_configurations[]           @relation("sidebar_configurations_updated_byTousers")
@@ -383,6 +395,8 @@ model auth_users {
   tokens                                                          tokens[]
   transaction_proposals                                           transaction_proposals[]
   transaction_signatures                                          transaction_signatures[]
+  user_addresses                                                  user_addresses[]
+  user_contract_roles                                             user_contract_roles?
   user_mfa_settings                                               user_mfa_settings[]
   user_sidebar_preferences                                        user_sidebar_preferences[]
   users_users_auth_idTousers                                      public_users?                      @relation("users_auth_idTousers")
@@ -607,13 +621,14 @@ model bulk_operations {
 }
 
 model cap_tables {
-  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name        String
-  description String?
-  project_id  String?   @db.Uuid
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
-  projects    projects? @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                String
+  description         String?
+  project_id          String?               @db.Uuid
+  created_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  cap_table_investors cap_table_investors[]
+  projects            projects?             @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@schema("public")
 }
@@ -2087,6 +2102,7 @@ model investors {
   user_id                   String?                     @db.Uuid
   profile_type              profile_type?
   profile_id                String?                     @db.Uuid
+  cap_table_investors       cap_table_investors[]
   climate_investor_pools    climate_investor_pools[]
   compliance_checks         compliance_checks[]
   distributions             distributions[]
@@ -2094,8 +2110,9 @@ model investors {
   investor_documents        investor_documents[]
   investor_group_members    investor_group_members[]
   investor_groups_investors investor_groups_investors[]
-  publicUsers                     public_users?               @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "fk_investors_user_id")
-  authUsers                     auth_users?                 @relation(fields: [compliance_checked_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  publicUsers               public_users?               @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "fk_investors_user_id")
+  authUsers                 auth_users?                 @relation(fields: [compliance_checked_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  key_vault_keys            key_vault_keys[]
   kyc_screening_logs        kyc_screening_logs[]
   subscriptions             subscriptions[]
   token_allocations         token_allocations[]
@@ -2615,6 +2632,7 @@ model multi_sig_confirmations {
   confirmed              Boolean?
   signer                 String?
   timestamp              DateTime?               @db.Timestamptz(6)
+  project_id             String?                 @db.Uuid
   multi_sig_transactions multi_sig_transactions? @relation(fields: [transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@schema("public")
@@ -2639,6 +2657,7 @@ model multi_sig_transactions {
   description                String?
   required                   Int?
   to                         String?
+  project_id                 String?                   @db.Uuid
   multi_sig_confirmations    multi_sig_confirmations[]
   multi_sig_wallets          multi_sig_wallets?        @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -2648,29 +2667,46 @@ model multi_sig_transactions {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model multi_sig_wallets {
-  id                       String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name                     String
-  blockchain               String
-  address                  String
-  owners                   String[]
-  threshold                Int
-  created_by               String?                   @db.Uuid
-  created_at               DateTime?                 @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime?                 @default(now()) @db.Timestamptz(6)
-  status                   String?                   @default("active")
-  blocked_at               DateTime?                 @db.Timestamptz(6)
-  block_reason             String?
-  distributions            distributions[]
-  multi_sig_audit_log      multi_sig_audit_log[]
-  multi_sig_configurations multi_sig_configurations?
-  multi_sig_proposals      multi_sig_proposals[]
-  multi_sig_transactions   multi_sig_transactions[]
-  users                    auth_users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  transaction_proposals    transaction_proposals[]
-  wallet_details           wallet_details[]
+  id                              String                            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                            String
+  blockchain                      String
+  address                         String
+  threshold                       Int
+  created_by                      String?                           @db.Uuid
+  created_at                      DateTime?                         @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime?                         @default(now()) @db.Timestamptz(6)
+  status                          String?                           @default("active")
+  blocked_at                      DateTime?                         @db.Timestamptz(6)
+  block_reason                    String?
+  project_id                      String?                           @db.Uuid
+  investor_id                     String?                           @db.Uuid
+  contract_type                   String?                           @default("custom")
+  deployment_tx                   String?
+  factory_address                 String?
+  ownership_type                  String?                           @default("address_based")
+  migrated_to_roles               Boolean?                          @default(false)
+  migration_date                  DateTime?                         @db.Timestamptz(6)
+  funded_by_wallet_id             String?                           @db.Uuid
+  contract_role_assignments       contract_role_assignments[]
+  distributions                   distributions[]
+  multi_sig_audit_log             multi_sig_audit_log[]
+  multi_sig_configurations        multi_sig_configurations?
+  multi_sig_on_chain_transactions multi_sig_on_chain_transactions[]
+  multi_sig_proposals             multi_sig_proposals[]
+  multi_sig_transactions          multi_sig_transactions[]
+  multi_sig_wallet_owners         multi_sig_wallet_owners[]
+  users                           auth_users?                       @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project_wallets                 project_wallets?                  @relation(fields: [funded_by_wallet_id], references: [id], onUpdate: NoAction)
+  projects                        projects?                         @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transaction_proposals           transaction_proposals[]
+  wallet_details                  wallet_details[]
 
   @@index([blockchain])
-  @@index([owners], map: "idx_multi_sig_wallets_owners", type: Gin)
+  @@index([address], map: "idx_multi_sig_wallets_address")
+  @@index([blockchain], map: "idx_multi_sig_wallets_blockchain")
+  @@index([funded_by_wallet_id], map: "idx_multi_sig_wallets_funded_by")
+  @@index([investor_id], map: "idx_multi_sig_wallets_investor")
+  @@index([project_id], map: "idx_multi_sig_wallets_project")
   @@schema("public")
 }
 
@@ -2964,9 +3000,10 @@ model projects {
   duration                                    String?
   currency                                    String?                                      @default("USD")
   regulatory_exemptions                       Json[]
+  authorized_shares                           BigInt?
   asset_backed_products                       asset_backed_products?
   asset_nav_data                              asset_nav_data[]
-  bond_products                               bond_products?
+  bond_products                               bond_products[]
   cap_tables                                  cap_tables[]
   climate_incentives                          climate_incentives[]
   climate_pool_energy_assets                  climate_pool_energy_assets[]
@@ -2987,16 +3024,29 @@ model projects {
   invoice_collection_history                  invoice_collection_history[]
   invoice_receivables                         invoice_receivables[]
   issuer_detail_documents                     issuer_detail_documents[]
+  multi_sig_wallets                           multi_sig_wallets[]
   nav_calculation_runs                        nav_calculation_runs[]
   notification_settings                       notification_settings[]
   private_debt_products                       private_debt_products?
   private_equity_products                     private_equity_products?
   project_organization_assignments            project_organization_assignments[]
   project_wallets                             project_wallets[]
+  project_wallets_backup_do_not_use           project_wallets_backup_do_not_use[]
   organizations                               organizations?                               @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_projects_organization")
+  psp_api_keys                                psp_api_keys[]
+  psp_balances                                psp_balances[]
+  psp_external_accounts                       psp_external_accounts[]
+  psp_identity_cases                          psp_identity_cases[]
+  psp_payment_settings                        psp_payment_settings?
+  psp_payments                                psp_payments[]
+  psp_trades                                  psp_trades[]
+  psp_virtual_accounts                        psp_virtual_accounts[]
+  psp_webhook_events                          psp_webhook_events[]
+  psp_webhooks                                psp_webhooks[]
   quantitative_investment_strategies_products quantitative_investment_strategies_products?
   quantitative_strategies                     quantitative_strategies?
   real_estate_products                        real_estate_products?
+  recent_address_selections                   recent_address_selections[]
   redemption_rules                            redemption_rules[]
   redemption_window_templates                 redemption_window_templates[]
   redemption_windows                          redemption_windows[]
@@ -3476,6 +3526,9 @@ model roles {
   created_at                DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
   approval_config_approvers approval_config_approvers[]
+  multi_sig_wallet_owners   multi_sig_wallet_owners[]
+  role_addresses            role_addresses[]
+  role_contracts            role_contracts[]
   role_permissions          role_permissions[]
   user_organization_roles   user_organization_roles[]
   user_roles                user_roles[]
@@ -5167,6 +5220,10 @@ model tokens {
   is_minimal_proxy                                                            Boolean?                            @default(true)
   initialization_data                                                         Json?
   initial_owner                                                               String?
+  product_id                                                                  String?                             @db.Uuid
+  ratio                                                                       Decimal?                            @db.Decimal
+  parity                                                                      Decimal?                            @db.Decimal
+  product_type                                                                String?                             @db.VarChar(50)
   deployment_rate_limits                                                      deployment_rate_limits[]
   token_allocations                                                           token_allocations[]
   token_climate_properties                                                    token_climate_properties?
@@ -5220,6 +5277,7 @@ model tokens {
   @@index([project_id], map: "idx_tokens_project_id")
   @@index([standard], map: "idx_tokens_standard")
   @@index([status], map: "idx_tokens_status")
+  @@index([product_type], map: "idx_tokens_product_type")
   @@schema("public")
 }
 
@@ -5273,11 +5331,14 @@ model transaction_proposals {
   created_by             String?                  @db.Uuid
   created_at             DateTime?                @default(now()) @db.Timestamptz(6)
   updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  multi_sig_proposal_id  String?                  @db.Uuid
   signatures             signatures[]
   users                  auth_users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  multi_sig_proposals    multi_sig_proposals?     @relation(fields: [multi_sig_proposal_id], references: [id], onUpdate: NoAction)
   multi_sig_wallets      multi_sig_wallets?       @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   transaction_signatures transaction_signatures[]
 
+  @@index([multi_sig_proposal_id], map: "idx_transaction_proposals_multi_sig_proposal")
   @@schema("public")
 }
 
@@ -5290,9 +5351,12 @@ model transaction_signatures {
   signature             String
   created_at            DateTime              @default(now()) @db.Timestamptz(6)
   updated_at            DateTime?             @default(now()) @db.Timestamptz(6)
+  signer_address        String?
+  signer_name           String?
   transaction_proposals transaction_proposals @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transaction_signatures_proposal_fkey")
   users                 auth_users            @relation(fields: [signer], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([signer_address], map: "idx_transaction_signatures_signer_address")
   @@schema("public")
 }
 
@@ -5325,6 +5389,7 @@ model transactions {
   transfer_type               String?                  @default("standard")
   network_fee                 Decimal?                 @db.Decimal
   estimated_confirmation_time Unsupported("interval")?
+  project_id                  String?                  @db.Uuid
 
   @@index([blockchain], map: "idx_transactions_blockchain")
   @@index([from_address, status, created_at], map: "idx_transactions_composite")
@@ -5400,6 +5465,7 @@ model public_users {
   policy_template_approvers                                                   policy_template_approvers[]
   policy_violations                                                           policy_violations[]
   profiles                                                                    profiles[]
+  psp_api_keys                                                                psp_api_keys[]
   stripe_conversion_transactions                                              stripe_conversion_transactions[]
   stripe_stablecoin_accounts                                                  stripe_stablecoin_accounts[]
   token_deployment_verifications                                              token_deployment_verifications[]
@@ -5462,45 +5528,70 @@ model wallet_transactions {
   token_address      String?
   confirmation_count Int?      @default(0)
   updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  project_id         String?   @db.Uuid
+  amount             String?
+  blockchain         String?
+  wallet_id          String?   @db.Uuid
+  transaction_hash   String?
+  transaction_type   String?
+  wallets            wallets?  @relation(fields: [wallet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([from_address], map: "idx_wallet_transactions_from_address")
   @@index([status], map: "idx_wallet_transactions_status")
   @@index([tx_hash], map: "idx_wallet_transactions_tx_hash")
+  @@index([blockchain], map: "idx_wallet_transactions_blockchain")
+  @@index([transaction_hash], map: "idx_wallet_transactions_transaction_hash")
+  @@index([wallet_id], map: "idx_wallet_transactions_wallet_id")
   @@schema("public")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model wallets {
-  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  investor_id                 String                        @db.Uuid
-  wallet_address              String?
-  wallet_type                 String
-  blockchain                  String                        @default("ethereum")
-  is_multi_sig_enabled        Boolean                       @default(false)
-  guardian_policy             Json                          @default("{}")
-  signatories                 Json                          @default("[]")
-  status                      String                        @default("pending")
-  created_at                  DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
-  user_id                     String?                       @db.Uuid
-  restriction_validation_logs restriction_validation_logs[]
-  session_keys                session_keys[]
-  signature_migrations        signature_migrations[]
-  smart_contract_wallets      smart_contract_wallets[]
-  user_operations             user_operations[]
-  wallet_facets               wallet_facets[]
-  wallet_guardians            wallet_guardians[]
-  wallet_locks                wallet_locks[]
-  wallet_restriction_rules    wallet_restriction_rules[]
-  wallet_transaction_drafts   wallet_transaction_drafts[]
-  investors                   investors                     @relation(fields: [investor_id], references: [investor_id], onDelete: Cascade, onUpdate: NoAction)
-  webauthn_challenges         webauthn_challenges[]
-  webauthn_credentials        webauthn_credentials[]
+  id                                                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  investor_id                                                 String                        @db.Uuid
+  wallet_address                                              String?
+  wallet_type                                                 String
+  blockchain                                                  String                        @default("ethereum")
+  is_multi_sig_enabled                                        Boolean                       @default(false)
+  guardian_policy                                             Json                          @default("{}")
+  signatories                                                 Json                          @default("[]")
+  status                                                      String                        @default("pending")
+  created_at                                                  DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                                                  DateTime                      @default(now()) @db.Timestamptz(6)
+  user_id                                                     String?                       @db.Uuid
+  mnemonic                                                    String?
+  private_key                                                 String?
+  project_id                                                  String                        @db.Uuid
+  public_key                                                  String?
+  private_key_vault_id                                        String?                       @db.Uuid
+  mnemonic_vault_id                                           String?                       @db.Uuid
+  public_key_vault_id                                         String?                       @db.Uuid
+  key_vault_keys_key_vault_keys_wallet_idTowallets            key_vault_keys[]              @relation("key_vault_keys_wallet_idTowallets")
+  restriction_validation_logs                                 restriction_validation_logs[]
+  session_keys                                                session_keys[]
+  signature_migrations                                        signature_migrations[]
+  smart_contract_wallets                                      smart_contract_wallets[]
+  user_operations                                             user_operations[]
+  wallet_facets                                               wallet_facets[]
+  wallet_guardians                                            wallet_guardians[]
+  wallet_locks                                                wallet_locks[]
+  wallet_restriction_rules                                    wallet_restriction_rules[]
+  wallet_transaction_drafts                                   wallet_transaction_drafts[]
+  wallet_transactions                                         wallet_transactions[]
+  investors                                                   investors                     @relation(fields: [investor_id], references: [investor_id], onDelete: Cascade, onUpdate: NoAction)
+  key_vault_keys_wallets_mnemonic_vault_idTokey_vault_keys    key_vault_keys?               @relation("wallets_mnemonic_vault_idTokey_vault_keys", fields: [mnemonic_vault_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  key_vault_keys_wallets_private_key_vault_idTokey_vault_keys key_vault_keys?               @relation("wallets_private_key_vault_idTokey_vault_keys", fields: [private_key_vault_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  key_vault_keys_wallets_public_key_vault_idTokey_vault_keys  key_vault_keys?               @relation("wallets_public_key_vault_idTokey_vault_keys", fields: [public_key_vault_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  webauthn_challenges                                         webauthn_challenges[]
+  webauthn_credentials                                        webauthn_credentials[]
 
   @@index([investor_id], map: "idx_wallets_investor_id")
   @@index([status], map: "idx_wallets_status")
   @@index([wallet_address], map: "idx_wallets_wallet_address")
   @@index([wallet_type], map: "idx_wallets_wallet_type")
+  @@index([mnemonic_vault_id], map: "idx_wallets_mnemonic_vault_id")
+  @@index([private_key_vault_id], map: "idx_wallets_private_key_vault_id")
+  @@index([public_key_vault_id], map: "idx_wallets_public_key_vault_id")
   @@schema("public")
 }
 
@@ -6000,31 +6091,24 @@ model session_key_usage {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model oauth_clients {
-  id                 String                  @id @db.Uuid
-  client_id          String                  @unique
-  client_secret_hash String
-  registration_type  oauth_registration_type
-  redirect_uris      String
-  grant_types        String
-  client_name        String?
-  client_uri         String?
-  logo_uri           String?
-  created_at         DateTime                @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                @default(now()) @db.Timestamptz(6)
-  deleted_at         DateTime?               @db.Timestamptz(6)
+  id                   String                  @id @db.Uuid
+  client_secret_hash   String?
+  registration_type    oauth_registration_type
+  redirect_uris        String
+  grant_types          String
+  client_name          String?
+  client_uri           String?
+  logo_uri             String?
+  created_at           DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at           DateTime?               @db.Timestamptz(6)
+  client_type          oauth_client_type       @default(confidential)
+  oauth_authorizations oauth_authorizations[]
+  oauth_consents       oauth_consents[]
+  sessions             sessions[]
 
-  @@index([client_id])
   @@index([deleted_at])
   @@schema("auth")
-}
-
-model migrations {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String    @unique
-  executed_at DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@map("_migrations")
-  @@schema("public")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -6588,13 +6672,13 @@ model bond_market_prices {
 
 model bond_products {
   id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id                 String                       @unique @db.Uuid
-  bond_isin_cusip            String?                      @db.VarChar(50)
+  project_id                 String                       @db.Uuid
+  bond_isin_cusip            String?
   issuer_name                String?
   coupon_rate                Decimal?                     @db.Decimal
   face_value                 Decimal?                     @db.Decimal
   credit_rating              String?                      @db.VarChar(10)
-  bond_type                  String?                      @db.VarChar(50)
+  bond_type                  String?
   callable_flag              Boolean?
   call_put_dates             DateTime[]                   @db.Timestamptz
   yield_to_maturity          Decimal?                     @db.Decimal
@@ -6614,18 +6698,18 @@ model bond_products {
   target_raise               Decimal?                     @db.Decimal
   created_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
   updated_at                 DateTime?                    @default(now()) @db.Timestamptz(6)
-  bond_identifier            String?                      @db.VarChar
-  isin                       String?                      @db.VarChar(12)
-  cusip                      String?                      @db.VarChar(9)
-  sedol                      String?                      @db.VarChar(7)
-  asset_name                 String?                      @db.VarChar(255)
+  bond_identifier            String?
+  isin                       String?
+  cusip                      String?
+  sedol                      String?
+  asset_name                 String?
   issuer_type                String?                      @db.VarChar(50)
   seniority                  String?                      @db.VarChar(50)
   day_count_convention       String?                      @default("actual_actual") @db.VarChar(20)
   purchase_price             Decimal?                     @db.Decimal(20, 2)
   purchase_date              DateTime?                    @db.Date
   current_price              Decimal?                     @db.Decimal(20, 2)
-  accounting_treatment       String?                      @default("held_to_maturity") @db.VarChar(30)
+  accounting_treatment       String?
   puttable                   Boolean?                     @default(false)
   convertible                Boolean?                     @default(false)
   bond_amortization_schedule bond_amortization_schedule[]
@@ -8003,7 +8087,7 @@ model contract_masters {
   contract_address   String
   version            String        @default("1.0.0")
   abi_version        String        @default("1.0.0")
-  abi                Json          @db.Json
+  abi                Json?         @db.Json
   abi_hash           String?
   deployed_at        DateTime?     @default(now()) @db.Timestamptz(6)
   deployed_by        String?       @db.Uuid
@@ -8015,11 +8099,12 @@ model contract_masters {
   updated_at         DateTime?     @default(now()) @db.Timestamptz(6)
   contract_details   Json?
   initial_owner      String?
-  users              public_users? @relation(fields: [deployed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              public_users? @relation(fields: [deployed_by], references: [id], onUpdate: NoAction)
 
-  @@unique([network, environment, contract_type, version])
+  @@unique([network, environment, contract_address], map: "contract_masters_network_environment_address_unique")
   @@index([contract_address], map: "idx_contract_masters_address")
   @@index([contract_type, is_active], map: "idx_contract_masters_type")
+  @@index([network, environment], map: "idx_contract_masters_network_env")
   @@schema("public")
 }
 
@@ -8703,35 +8788,40 @@ model external_api_cache {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model fund_products {
-  id                          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id                  String                  @unique @db.Uuid
-  fund_ticker                 String?                 @db.VarChar(20)
+  id                          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                  String                   @unique(map: "idx_fund_products_project_id_unique") @db.Uuid
+  fund_ticker                 String?                  @db.VarChar(20)
   fund_name                   String?
-  fund_type                   String?                 @db.VarChar(50)
-  net_asset_value             Decimal?                @db.Decimal
-  assets_under_management     Decimal?                @db.Decimal
-  expense_ratio               Decimal?                @db.Decimal
+  fund_type                   String?                  @db.VarChar(50)
+  net_asset_value             Decimal?                 @db.Decimal
+  assets_under_management     Decimal?                 @db.Decimal
+  expense_ratio               Decimal?                 @db.Decimal
   benchmark_index             String?
   holdings                    Json?
-  distribution_frequency      String?                 @db.VarChar(50)
-  tracking_error              Decimal?                @db.Decimal
-  currency                    String?                 @db.VarChar(10)
-  inception_date              DateTime?               @db.Timestamptz(6)
-  closure_liquidation_date    DateTime?               @db.Timestamptz(6)
-  status                      String?                 @db.VarChar(50)
+  distribution_frequency      String?                  @db.VarChar(50)
+  tracking_error              Decimal?                 @db.Decimal
+  currency                    String?                  @db.VarChar(10)
+  inception_date              DateTime?                @db.Timestamptz(6)
+  closure_liquidation_date    DateTime?                @db.Timestamptz(6)
+  status                      String?                  @db.VarChar(50)
   creation_redemption_history Json?
   performance_history         Json?
   flow_data                   Json?
   fund_vintage_year           Int?
-  investment_stage            String?                 @db.VarChar(100)
+  investment_stage            String?                  @db.VarChar(100)
   sector_focus                String[]
   geographic_focus            String[]
-  target_raise                Decimal?                @db.Decimal
-  created_at                  DateTime?               @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime?               @default(now()) @db.Timestamptz(6)
+  target_raise                Decimal?                 @db.Decimal
+  created_at                  DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                @default(now()) @db.Timestamptz(6)
   asset_allocation            Json?
   concentration_limits        Json?
-  projects                    projects                @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_fund_products_project")
+  shares_outstanding          Decimal?                 @db.Decimal
+  initial_shares              Decimal?                 @db.Decimal
+  subscription_id_tracker     Json?
+  projects                    projects                 @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_fund_products_project")
+  mmf_allocation_history      mmf_allocation_history[]
+  mmf_fees_gates              mmf_fees_gates[]
   mmf_holdings                mmf_holdings[]
   mmf_liquidity_buckets       mmf_liquidity_buckets[]
   mmf_nav_history             mmf_nav_history[]
@@ -9564,6 +9654,7 @@ model mmf_nav_history {
   regulatory_filing_reference     String?       @db.VarChar(100)
   notes                           String?
   created_at                      DateTime?     @default(now()) @db.Timestamptz(6)
+  config_overrides_used           Json?
   fund_products                   fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([is_breaking_the_buck], map: "idx_mmf_nav_history_breaking_buck")
@@ -9661,30 +9752,36 @@ model multi_sig_configurations {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model multi_sig_proposals {
-  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  wallet_id            String?               @db.Uuid
-  transaction_hash     String
-  raw_transaction      Json
-  chain_type           String
-  status               String?               @default("pending")
-  signatures_collected Int?                  @default(0)
-  signatures_required  Int
-  expires_at           DateTime              @db.Timestamptz(6)
-  executed_at          DateTime?             @db.Timestamptz(6)
-  execution_hash       String?
-  created_by           String?               @db.Uuid
-  created_at           DateTime?             @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
-  multi_sig_audit_log  multi_sig_audit_log[]
-  users                auth_users?           @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  multi_sig_wallets    multi_sig_wallets?    @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  proposal_signatures  proposal_signatures[]
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wallet_id             String?                 @db.Uuid
+  transaction_hash      String
+  raw_transaction       Json
+  chain_type            String
+  status                String?                 @default("pending")
+  signatures_collected  Int?                    @default(0)
+  signatures_required   Int
+  expires_at            DateTime                @db.Timestamptz(6)
+  executed_at           DateTime?               @db.Timestamptz(6)
+  execution_hash        String?
+  created_by            String?                 @db.Uuid
+  created_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  on_chain_tx_id        Int?
+  on_chain_tx_hash      String?
+  submitted_on_chain    Boolean?                @default(false)
+  project_id            String?                 @db.Uuid
+  multi_sig_audit_log   multi_sig_audit_log[]
+  users                 auth_users?             @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  multi_sig_wallets     multi_sig_wallets?      @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  proposal_signatures   proposal_signatures[]
+  transaction_proposals transaction_proposals[]
 
   @@index([chain_type], map: "idx_multi_sig_proposals_chain_type")
   @@index([created_by], map: "idx_proposals_created_by")
   @@index([expires_at], map: "idx_proposals_expires_at")
   @@index([status], map: "idx_proposals_status")
   @@index([wallet_id], map: "idx_proposals_wallet_id")
+  @@index([on_chain_tx_id], map: "idx_proposals_on_chain_tx")
   @@schema("public")
 }
 
@@ -10758,8 +10855,8 @@ model profiles {
   profile_type profile_type?
   created_at   DateTime      @default(now()) @db.Timestamptz(6)
   updated_at   DateTime      @default(now()) @db.Timestamptz(6)
-  authUsers        auth_users    @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  publicUsers        public_users? @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  authUsers    auth_users    @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  publicUsers  public_users? @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([profile_type])
   @@index([user_id])
@@ -10793,122 +10890,30 @@ model project_organization_assignments {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model project_wallets {
-  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  project_id         String               @db.Uuid
-  wallet_type        String
-  wallet_address     String               @unique(map: "uq_project_wallets_wallet_address")
-  public_key         String
-  private_key        String?
-  mnemonic           String?
-  key_vault_id       String?
-  created_at         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
-  chain_id           String?
-  net                String?
-  projects           projects             @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  wallet_access_logs wallet_access_logs[]
+  id                                                                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  project_id                                                          String               @db.Uuid
+  wallet_address                                                      String               @unique(map: "uq_project_wallets_wallet_address")
+  public_key                                                          String
+  private_key                                                         String?
+  mnemonic                                                            String?
+  created_at                                                          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                                          DateTime             @default(now()) @db.Timestamptz(6)
+  chain_id                                                            String?
+  private_key_vault_id                                                String?              @db.Uuid
+  mnemonic_vault_id                                                   String?              @db.Uuid
+  project_wallet_name                                                 String?
+  non_evm_network                                                     String?
+  bitcoin_network_type                                                String?
+  key_vault_keys_key_vault_keys_project_wallet_idToproject_wallets    key_vault_keys[]     @relation("key_vault_keys_project_wallet_idToproject_wallets")
+  multi_sig_wallets                                                   multi_sig_wallets[]
+  key_vault_keys_project_wallets_mnemonic_vault_idTokey_vault_keys    key_vault_keys?      @relation("project_wallets_mnemonic_vault_idTokey_vault_keys", fields: [mnemonic_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  key_vault_keys_project_wallets_private_key_vault_idTokey_vault_keys key_vault_keys?      @relation("project_wallets_private_key_vault_idTokey_vault_keys", fields: [private_key_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projects                                                            projects             @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  wallet_access_logs                                                  wallet_access_logs[]
 
   @@index([project_id], map: "idx_project_wallets_project_id")
-  @@index([wallet_type], map: "idx_project_wallets_wallet_type")
-  @@schema("public")
-}
-
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model projects_backup {
-  id                            String?           @db.Uuid
-  name                          String?
-  description                   String?
-  created_at                    DateTime?         @db.Timestamptz(6)
-  updated_at                    DateTime?         @db.Timestamptz(6)
-  project_type                  String?
-  token_symbol                  String?
-  target_raise                  Decimal?          @db.Decimal
-  authorized_shares             Int?
-  share_price                   Decimal?          @db.Decimal
-  company_valuation             Decimal?          @db.Decimal
-  legal_entity                  String?
-  jurisdiction                  String?
-  tax_id                        String?
-  status                        String?
-  is_primary                    Boolean?
-  investment_status             String?
-  estimated_yield_percentage    Decimal?          @db.Decimal
-  duration                      project_duration?
-  subscription_start_date       DateTime?         @db.Timestamptz(6)
-  subscription_end_date         DateTime?         @db.Timestamptz(6)
-  transaction_start_date        DateTime?         @db.Timestamptz(6)
-  maturity_date                 DateTime?         @db.Timestamptz(6)
-  currency                      String?           @db.VarChar(3)
-  minimum_investment            Decimal?          @db.Decimal
-  total_notional                Decimal?          @db.Decimal
-  sustainability_classification String?           @db.VarChar(50)
-  esg_risk_rating               String?           @db.VarChar(20)
-  principal_adverse_impacts     String?           @db.VarChar(20)
-  taxonomy_alignment_percentage Decimal?          @db.Decimal(5, 2)
-  risk_profile                  String?           @db.VarChar(20)
-  governance_structure          String?
-  compliance_framework          String[]
-  third_party_custodian         Boolean?
-  custodian_name                String?
-  target_investor_type          String?           @db.VarChar(20)
-  complexity_indicator          String?           @db.VarChar(20)
-  liquidity_terms               String?           @db.VarChar(50)
-  fee_structure_summary         String?
-  capital_protection_level      Decimal?          @db.Decimal(5, 2)
-  underlying_assets             String[]
-  barrier_level                 Decimal?          @db.Decimal(10, 2)
-  payoff_structure              String?           @db.VarChar(50)
-  voting_rights                 String?           @db.VarChar(50)
-  dividend_policy               String?
-  dilution_protection           String[]
-  exit_strategy                 String?           @db.VarChar(50)
-  credit_rating                 String?           @db.VarChar(10)
-  coupon_frequency              String?           @db.VarChar(20)
-  callable_features             Boolean?
-  call_date                     DateTime?         @db.Timestamptz(6)
-  call_price                    Decimal?          @db.Decimal(10, 2)
-  security_collateral           String?
-  fund_vintage_year             Int?
-  investment_stage              String?           @db.VarChar(50)
-  sector_focus                  String[]
-  geographic_focus              String[]
-  property_type                 String?           @db.VarChar(50)
-  geographic_location           String?
-  development_stage             String?           @db.VarChar(50)
-  environmental_certifications  String[]
-  debtor_credit_quality         String?           @db.VarChar(20)
-  collection_period_days        Int?
-  recovery_rate_percentage      Decimal?          @db.Decimal(5, 2)
-  diversification_metrics       Json?
-  project_capacity_mw           Decimal?          @db.Decimal(10, 2)
-  power_purchase_agreements     String?
-  regulatory_approvals          String[]
-  carbon_offset_potential       Decimal?          @db.Decimal(10, 2)
-  blockchain_network            String?           @db.VarChar(50)
-  smart_contract_audit_status   String?           @db.VarChar(20)
-  consensus_mechanism           String?           @db.VarChar(50)
-  gas_fee_structure             String?
-  oracle_dependencies           String[]
-  collateral_type               String?           @db.VarChar(20)
-  reserve_management_policy     String?
-  audit_frequency               String?           @db.VarChar(20)
-  redemption_mechanism          String?
-  depeg_risk_mitigation         String[]
-  token_economics               String?
-  custody_arrangements          String?
-  smart_contract_address        String?           @db.VarChar(42)
-  upgrade_governance            String?
-  data_processing_basis         String?           @db.VarChar(30)
-  privacy_policy_link           String?
-  data_retention_policy         String?
-  business_continuity_plan      Boolean?
-  cybersecurity_framework       String[]
-  disaster_recovery_procedures  String?
-  tax_reporting_obligations     String[]
-  regulatory_permissions        String[]
-  cross_border_implications     String?
-
-  @@ignore
+  @@index([mnemonic_vault_id], map: "idx_project_wallets_mnemonic_vault_id")
+  @@index([private_key_vault_id], map: "idx_project_wallets_private_key_vault_id")
   @@schema("public")
 }
 
@@ -11059,15 +11064,17 @@ model property_valuations {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model proposal_signatures {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  proposal_id         String?              @db.Uuid
-  signer_address      String
-  signature           String
-  signature_type      String
-  signed_at           DateTime?            @default(now()) @db.Timestamptz(6)
-  is_valid            Boolean?             @default(true)
-  validation_error    String?
-  multi_sig_proposals multi_sig_proposals? @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposal_id              String?              @db.Uuid
+  signer_address           String
+  signature                String
+  signature_type           String
+  signed_at                DateTime?            @default(now()) @db.Timestamptz(6)
+  is_valid                 Boolean?             @default(true)
+  validation_error         String?
+  on_chain_confirmation_tx String?
+  confirmed_on_chain       Boolean?             @default(false)
+  multi_sig_proposals      multi_sig_proposals? @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([proposal_id, signer_address])
   @@index([proposal_id], map: "idx_signatures_proposal_id")
@@ -12863,6 +12870,712 @@ model weather_data {
   @@schema("public")
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model oauth_authorizations {
+  id                    String                     @id @db.Uuid
+  authorization_id      String                     @unique
+  client_id             String                     @db.Uuid
+  user_id               String?                    @db.Uuid
+  redirect_uri          String
+  scope                 String
+  state                 String?
+  resource              String?
+  code_challenge        String?
+  code_challenge_method code_challenge_method?
+  response_type         oauth_response_type        @default(code)
+  status                oauth_authorization_status @default(pending)
+  authorization_code    String?                    @unique
+  created_at            DateTime                   @default(now()) @db.Timestamptz(6)
+  expires_at            DateTime                   @default(dbgenerated("(now() + '00:03:00'::interval)")) @db.Timestamptz(6)
+  approved_at           DateTime?                  @db.Timestamptz(6)
+  oauth_clients         oauth_clients              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                 auth_users?                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model oauth_consents {
+  id            String        @id @db.Uuid
+  user_id       String        @db.Uuid
+  client_id     String        @db.Uuid
+  scopes        String
+  granted_at    DateTime      @default(now()) @db.Timestamptz(6)
+  revoked_at    DateTime?     @db.Timestamptz(6)
+  oauth_clients oauth_clients @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         auth_users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, client_id], map: "oauth_consents_user_client_unique")
+  @@index([user_id, granted_at(sort: Desc)], map: "oauth_consents_user_order_idx")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model cap_table_investors {
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cap_table_id         String     @db.Uuid
+  investor_id          String?    @db.Uuid
+  investor_name        String
+  investor_email       String?
+  investor_type        String?
+  shares_owned         BigInt     @default(0)
+  share_class          String?
+  investment_date      DateTime?  @db.Timestamptz(6)
+  investment_amount    Decimal?   @db.Decimal(20, 2)
+  percentage_ownership Decimal?   @db.Decimal(5, 2)
+  vesting_schedule     Json?
+  notes                String?
+  status               String?    @default("active")
+  created_at           DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?  @default(now()) @db.Timestamptz(6)
+  cap_tables           cap_tables @relation(fields: [cap_table_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  investors            investors? @relation(fields: [investor_id], references: [investor_id], onUpdate: NoAction)
+
+  @@index([cap_table_id], map: "idx_cap_table_investors_cap_table_id")
+  @@index([investor_id], map: "idx_cap_table_investors_investor_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model contract_role_assignments {
+  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  multi_sig_wallet_id      String?            @db.Uuid
+  multi_sig_wallet_address String
+  contract_address         String
+  contract_type            String
+  role_name                String
+  role_bytes32             String
+  blockchain               String
+  transaction_hash         String
+  status                   String             @default("assigned")
+  revoked_tx_hash          String?
+  assigned_by              String?            @db.Uuid
+  created_at               DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?          @default(now()) @db.Timestamptz(6)
+  users                    auth_users?        @relation(fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  multi_sig_wallets        multi_sig_wallets? @relation(fields: [multi_sig_wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([multi_sig_wallet_address, contract_address, role_name])
+  @@index([blockchain], map: "idx_role_assignments_blockchain")
+  @@index([contract_address], map: "idx_role_assignments_contract")
+  @@index([status], map: "idx_role_assignments_status")
+  @@index([multi_sig_wallet_id], map: "idx_role_assignments_wallet")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model key_vault_keys {
+  id                                                                                                       String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key_id                                                                                                   String                              @unique
+  encrypted_key                                                                                            String
+  key_type                                                                                                 String                              @default("private_key")
+  metadata                                                                                                 Json?                               @default("{}")
+  created_by                                                                                               String?                             @db.Uuid
+  created_at                                                                                               DateTime?                           @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                               DateTime?                           @default(now()) @db.Timestamptz(6)
+  project_wallet_id                                                                                        String?                             @db.Uuid
+  wallet_id                                                                                                String?                             @db.Uuid
+  investor_id                                                                                              String?                             @db.Uuid
+  user_id                                                                                                  String?                             @db.Uuid
+  investors                                                                                                investors?                          @relation(fields: [investor_id], references: [investor_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_key_vault_keys_investor_id")
+  users_key_vault_keys_user_idTousers                                                                      auth_users?                         @relation("key_vault_keys_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_key_vault_keys_user_id")
+  users_key_vault_keys_created_byTousers                                                                   auth_users?                         @relation("key_vault_keys_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project_wallets_key_vault_keys_project_wallet_idToproject_wallets                                        project_wallets?                    @relation("key_vault_keys_project_wallet_idToproject_wallets", fields: [project_wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  wallets_key_vault_keys_wallet_idTowallets                                                                wallets?                            @relation("key_vault_keys_wallet_idTowallets", fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project_wallets_project_wallets_mnemonic_vault_idTokey_vault_keys                                        project_wallets[]                   @relation("project_wallets_mnemonic_vault_idTokey_vault_keys")
+  project_wallets_project_wallets_private_key_vault_idTokey_vault_keys                                     project_wallets[]                   @relation("project_wallets_private_key_vault_idTokey_vault_keys")
+  project_wallets_backup_do_not_use_project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys    project_wallets_backup_do_not_use[] @relation("project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys")
+  project_wallets_backup_do_not_use_project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys project_wallets_backup_do_not_use[] @relation("project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys")
+  psp_api_keys                                                                                             psp_api_keys[]
+  psp_external_accounts_psp_external_accounts_account_number_vault_idTokey_vault_keys                      psp_external_accounts[]             @relation("psp_external_accounts_account_number_vault_idTokey_vault_keys")
+  psp_external_accounts_psp_external_accounts_routing_number_vault_idTokey_vault_keys                      psp_external_accounts[]             @relation("psp_external_accounts_routing_number_vault_idTokey_vault_keys")
+  psp_webhooks                                                                                             psp_webhooks[]
+  wallets_wallets_mnemonic_vault_idTokey_vault_keys                                                        wallets[]                           @relation("wallets_mnemonic_vault_idTokey_vault_keys")
+  wallets_wallets_private_key_vault_idTokey_vault_keys                                                     wallets[]                           @relation("wallets_private_key_vault_idTokey_vault_keys")
+  wallets_wallets_public_key_vault_idTokey_vault_keys                                                      wallets[]                           @relation("wallets_public_key_vault_idTokey_vault_keys")
+
+  @@index([created_by], map: "idx_key_vault_keys_created_by")
+  @@index([investor_id], map: "idx_key_vault_keys_investor_id")
+  @@index([key_id], map: "idx_key_vault_keys_key_id")
+  @@index([key_type], map: "idx_key_vault_keys_key_type")
+  @@index([project_wallet_id], map: "idx_key_vault_keys_project_wallet_id")
+  @@index([user_id], map: "idx_key_vault_keys_user_id")
+  @@index([wallet_id], map: "idx_key_vault_keys_wallet_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model mmf_allocation_history {
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id         String        @db.Uuid
+  as_of_date              DateTime      @db.Timestamptz(6)
+  asset_class             String        @db.VarChar
+  total_value             Decimal       @db.Decimal
+  percentage              Decimal       @db.Decimal
+  number_of_securities    Int           @default(0)
+  average_maturity_days   Int?
+  average_yield           Decimal?      @db.Decimal
+  typical_range_min       Decimal?      @db.Decimal
+  typical_range_max       Decimal?      @db.Decimal
+  typical_range_average   Decimal?      @db.Decimal
+  variance_from_typical   Decimal?      @db.Decimal
+  is_within_typical_range Boolean?
+  notes                   String?
+  created_at              DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products           fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([fund_product_id, as_of_date, asset_class])
+  @@index([asset_class], map: "idx_mmf_allocation_asset_class")
+  @@index([as_of_date(sort: Desc)], map: "idx_mmf_allocation_date")
+  @@index([fund_product_id, as_of_date(sort: Desc)], map: "idx_mmf_allocation_fund_date")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model mmf_fees_gates {
+  id                          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id             String        @db.Uuid
+  effective_date              DateTime      @db.Timestamptz(6)
+  end_date                    DateTime?     @db.Timestamptz(6)
+  fee_type                    String        @db.VarChar
+  fee_percentage              Decimal       @default(0) @db.Decimal
+  gate_status                 String?       @db.VarChar
+  gate_duration_days          Int?
+  trigger_reason              String
+  trigger_metrics             Json?
+  board_approval_date         DateTime?     @db.Timestamptz(6)
+  board_approval_notes        String?
+  board_notification_sent     Boolean?      @default(false)
+  board_notification_date     DateTime?     @db.Timestamptz(6)
+  net_redemptions_percentage  Decimal?      @db.Decimal
+  weekly_liquidity_percentage Decimal?      @db.Decimal
+  daily_liquidity_percentage  Decimal?      @db.Decimal
+  impact_on_shareholders      String?
+  regulatory_filing_reference String?       @db.VarChar
+  status                      String?       @default("active") @db.VarChar
+  created_at                  DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?     @default(now()) @db.Timestamptz(6)
+  created_by                  String?       @db.Uuid
+  fund_products               fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([effective_date, end_date], map: "idx_mmf_fees_gates_date_range")
+  @@index([fund_product_id, effective_date(sort: Desc)], map: "idx_mmf_fees_gates_fund")
+  @@index([status], map: "idx_mmf_fees_gates_status")
+  @@index([fee_type], map: "idx_mmf_fees_gates_type")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model multi_sig_on_chain_confirmations {
+  id                              String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  on_chain_transaction_id         String?                          @db.Uuid
+  signer_address                  String
+  confirmation_tx_hash            String
+  confirmed_at_timestamp          BigInt
+  created_at                      DateTime?                        @default(now()) @db.Timestamptz(6)
+  project_id                      String?                          @db.Uuid
+  multi_sig_on_chain_transactions multi_sig_on_chain_transactions? @relation(fields: [on_chain_transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([on_chain_transaction_id, signer_address], map: "multi_sig_on_chain_confirmati_on_chain_transaction_id_signe_key")
+  @@index([on_chain_transaction_id], map: "idx_on_chain_confirmations_tx")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model multi_sig_on_chain_transactions {
+  id                               String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wallet_id                        String?                            @db.Uuid
+  on_chain_tx_id                   Int
+  to_address                       String
+  value                            String                             @default("0")
+  data                             String?
+  executed                         Boolean?                           @default(false)
+  num_confirmations                Int?                               @default(0)
+  created_at_timestamp             BigInt
+  expires_at_timestamp             BigInt?
+  submission_tx_hash               String
+  execution_tx_hash                String?
+  submitted_by                     String
+  executed_by                      String?
+  created_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  executed_at                      DateTime?                          @db.Timestamptz(6)
+  project_id                       String?                            @db.Uuid
+  multi_sig_on_chain_confirmations multi_sig_on_chain_confirmations[]
+  multi_sig_wallets                multi_sig_wallets?                 @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([wallet_id, on_chain_tx_id])
+  @@index([executed], map: "idx_on_chain_tx_executed")
+  @@index([wallet_id], map: "idx_on_chain_tx_wallet")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model multi_sig_wallet_owners {
+  id                                            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wallet_id                                     String            @db.Uuid
+  role_id                                       String            @db.Uuid
+  added_at                                      DateTime          @default(now()) @db.Timestamptz(6)
+  added_by                                      String?           @db.Uuid
+  user_id                                       String?           @db.Uuid
+  user_address_id                               String?           @db.Uuid
+  users_multi_sig_wallet_owners_added_byTousers auth_users?       @relation("multi_sig_wallet_owners_added_byTousers", fields: [added_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles                                         roles             @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_addresses                                user_addresses?   @relation(fields: [user_address_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_multi_sig_wallet_owners_user_idTousers  auth_users?       @relation("multi_sig_wallet_owners_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  multi_sig_wallets                             multi_sig_wallets @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([wallet_id, user_id])
+  @@index([user_address_id], map: "idx_multisig_owners_user_address")
+  @@index([wallet_id, user_id], map: "idx_multisig_owners_user_wallet")
+  @@index([role_id], map: "idx_wallet_owners_role_id")
+  @@index([user_id], map: "idx_wallet_owners_user_id")
+  @@index([wallet_id], map: "idx_wallet_owners_wallet_id")
+  @@schema("public")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model project_members {
+  project_id String? @db.Uuid
+  user_id    String? @db.Uuid
+
+  @@unique([project_id, user_id])
+  @@ignore
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model project_wallets_backup_do_not_use {
+  id                                                                                    String          @id(map: "project_wallets_duplicate_pkey") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  project_id                                                                            String          @db.Uuid
+  wallet_type                                                                           String
+  wallet_address                                                                        String          @unique(map: "project_wallets_duplicate_wallet_address_key")
+  public_key                                                                            String
+  private_key                                                                           String?
+  mnemonic                                                                              String?
+  created_at                                                                            DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                                                            DateTime        @default(now()) @db.Timestamptz(6)
+  chain_id                                                                              String?
+  net                                                                                   String?
+  private_key_vault_id                                                                  String?         @db.Uuid
+  mnemonic_vault_id                                                                     String?         @db.Uuid
+  project_wallet_name                                                                   String?
+  key_vault_keys_project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys    key_vault_keys? @relation("project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys", fields: [mnemonic_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "project_wallets_duplicate_mnemonic_vault_id_fkey")
+  key_vault_keys_project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys key_vault_keys? @relation("project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys", fields: [private_key_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "project_wallets_duplicate_private_key_vault_id_fkey")
+  projects                                                                              projects        @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "project_wallets_duplicate_project_id_fkey")
+
+  @@index([mnemonic_vault_id], map: "project_wallets_duplicate_mnemonic_vault_id_idx")
+  @@index([private_key_vault_id], map: "project_wallets_duplicate_private_key_vault_id_idx")
+  @@index([project_id], map: "project_wallets_duplicate_project_id_idx")
+  @@index([wallet_type], map: "project_wallets_duplicate_wallet_type_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_api_keys {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id            String          @db.Uuid
+  key_description       String
+  key_hash              String          @unique
+  warp_api_key_vault_id String?         @db.Uuid
+  environment           String
+  ip_whitelist          String[]
+  status                String          @default("active")
+  last_used_at          DateTime?       @db.Timestamptz(6)
+  usage_count           Int?            @default(0)
+  created_by            String?         @db.Uuid
+  created_at            DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?       @default(now()) @db.Timestamptz(6)
+  expires_at            DateTime?       @db.Timestamptz(6)
+  users                 public_users?   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects              projects        @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  key_vault_keys        key_vault_keys? @relation(fields: [warp_api_key_vault_id], references: [id], onUpdate: NoAction)
+
+  @@index([environment], map: "idx_psp_api_keys_environment")
+  @@index([project_id], map: "idx_psp_api_keys_project")
+  @@index([status], map: "idx_psp_api_keys_status")
+  @@index([warp_api_key_vault_id], map: "idx_psp_api_keys_vault")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_balances {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id           String                @db.Uuid
+  virtual_account_id   String?               @db.Uuid
+  asset_type           String
+  asset_symbol         String
+  network              String?
+  available_balance    Decimal?              @default(0) @db.Decimal(30, 18)
+  locked_balance       Decimal?              @default(0) @db.Decimal(30, 18)
+  pending_balance      Decimal?              @default(0) @db.Decimal(30, 18)
+  total_balance        Decimal?              @default(0) @db.Decimal(30, 18)
+  warp_wallet_id       String?
+  wallet_address       String?
+  last_synced_at       DateTime?             @db.Timestamptz(6)
+  created_at           DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
+  projects             projects              @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  psp_virtual_accounts psp_virtual_accounts? @relation(fields: [virtual_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([project_id, virtual_account_id, asset_symbol, network])
+  @@index([asset_symbol, network], map: "idx_psp_balances_asset")
+  @@index([asset_type], map: "idx_psp_balances_asset_type")
+  @@index([project_id], map: "idx_psp_balances_project")
+  @@index([virtual_account_id], map: "idx_psp_balances_virtual_account")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_external_accounts {
+  id                                                                                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                                                                                 String                 @db.Uuid
+  warp_account_id                                                                            String?                @unique
+  account_type                                                                               String
+  currency_type                                                                              String
+  routing_number_vault_id                                                                    String?                @db.Uuid
+  account_number_vault_id                                                                    String?                @db.Uuid
+  account_number_last4                                                                       String?
+  account_holder_name                                                                        String?
+  bank_name                                                                                  String?
+  account_classification                                                                     String?
+  transfer_method                                                                            String?
+  network                                                                                    String?
+  wallet_address                                                                             String?
+  description                                                                                String
+  status                                                                                     String                 @default("active")
+  metadata                                                                                   Json?
+  created_at                                                                                 DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                 DateTime?              @default(now()) @db.Timestamptz(6)
+  key_vault_keys_psp_external_accounts_account_number_vault_idTokey_vault_keys               key_vault_keys?        @relation("psp_external_accounts_account_number_vault_idTokey_vault_keys", fields: [account_number_vault_id], references: [id], onUpdate: NoAction)
+  projects                                                                                   projects               @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  key_vault_keys_psp_external_accounts_routing_number_vault_idTokey_vault_keys               key_vault_keys?        @relation("psp_external_accounts_routing_number_vault_idTokey_vault_keys", fields: [routing_number_vault_id], references: [id], onUpdate: NoAction)
+  psp_payment_settings_psp_payment_settings_offramp_target_account_idTopsp_external_accounts psp_payment_settings[] @relation("psp_payment_settings_offramp_target_account_idTopsp_external_accounts")
+  psp_payment_settings_psp_payment_settings_onramp_target_wallet_idTopsp_external_accounts   psp_payment_settings[] @relation("psp_payment_settings_onramp_target_wallet_idTopsp_external_accounts")
+
+  @@index([account_number_vault_id], map: "idx_psp_external_accounts_account_vault")
+  @@index([project_id], map: "idx_psp_external_accounts_project")
+  @@index([routing_number_vault_id], map: "idx_psp_external_accounts_routing_vault")
+  @@index([status], map: "idx_psp_external_accounts_status")
+  @@index([account_type], map: "idx_psp_external_accounts_type")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_identity_cases {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id           String                 @db.Uuid
+  warp_case_id         String?                @unique
+  case_type            String
+  status               String                 @default("pending")
+  business_data        Json?
+  persons_data         Json?
+  verification_results Json?
+  next_steps           String[]
+  missing_fields       String[]
+  rejection_reasons    String[]
+  submitted_at         DateTime?              @db.Timestamptz(6)
+  approved_at          DateTime?              @db.Timestamptz(6)
+  rejected_at          DateTime?              @db.Timestamptz(6)
+  created_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  projects             projects               @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  psp_virtual_accounts psp_virtual_accounts[]
+
+  @@index([case_type], map: "idx_psp_identity_cases_case_type")
+  @@index([project_id], map: "idx_psp_identity_cases_project")
+  @@index([status], map: "idx_psp_identity_cases_status")
+  @@index([warp_case_id], map: "idx_psp_identity_cases_warp_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_payment_settings {
+  id                                                                                          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                                                                                  String                 @unique @db.Uuid
+  automation_enabled                                                                          Boolean?               @default(false)
+  withdrawal_frequency                                                                        String?                @default("on_demand")
+  onramp_enabled                                                                              Boolean?               @default(false)
+  onramp_target_asset                                                                         String?
+  onramp_target_network                                                                       String?
+  onramp_target_wallet_id                                                                     String?                @db.Uuid
+  offramp_enabled                                                                             Boolean?               @default(false)
+  offramp_target_currency                                                                     String?                @default("USD")
+  offramp_target_account_id                                                                   String?                @db.Uuid
+  default_fiat_rail                                                                           String?                @default("ach")
+  created_at                                                                                  DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                  DateTime?              @default(now()) @db.Timestamptz(6)
+  psp_external_accounts_psp_payment_settings_offramp_target_account_idTopsp_external_accounts psp_external_accounts? @relation("psp_payment_settings_offramp_target_account_idTopsp_external_accounts", fields: [offramp_target_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  psp_external_accounts_psp_payment_settings_onramp_target_wallet_idTopsp_external_accounts   psp_external_accounts? @relation("psp_payment_settings_onramp_target_wallet_idTopsp_external_accounts", fields: [onramp_target_wallet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects                                                                                    projects               @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([project_id], map: "idx_psp_payment_settings_project")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_payments {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id       String    @db.Uuid
+  warp_payment_id  String?   @unique
+  payment_type     String
+  direction        String
+  source_type      String?
+  source_id        String?   @db.Uuid
+  destination_type String?
+  destination_id   String?   @db.Uuid
+  amount           Decimal   @db.Decimal(30, 18)
+  currency         String
+  network          String?
+  asset_symbol     String?
+  payment_rail     String?
+  status           String    @default("pending")
+  error_code       String?
+  error_message    String?
+  memo             String?
+  idempotency_key  String?   @unique
+  metadata         Json?
+  initiated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  completed_at     DateTime? @db.Timestamptz(6)
+  failed_at        DateTime? @db.Timestamptz(6)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  projects         projects  @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_psp_payments_created_at")
+  @@index([idempotency_key], map: "idx_psp_payments_idempotency")
+  @@index([project_id], map: "idx_psp_payments_project")
+  @@index([status], map: "idx_psp_payments_status")
+  @@index([payment_type], map: "idx_psp_payments_type")
+  @@index([warp_payment_id], map: "idx_psp_payments_warp_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_trades {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id           String                @db.Uuid
+  warp_trade_id        String?               @unique
+  virtual_account_id   String?               @db.Uuid
+  source_symbol        String
+  source_network       String?
+  source_amount        Decimal               @db.Decimal(30, 18)
+  destination_symbol   String
+  destination_network  String?
+  destination_amount   Decimal?              @db.Decimal(30, 18)
+  exchange_rate        Decimal?              @db.Decimal(30, 18)
+  fee_amount           Decimal?              @db.Decimal(30, 18)
+  fee_currency         String?
+  status               String                @default("pending")
+  error_message        String?
+  executed_at          DateTime?             @db.Timestamptz(6)
+  created_at           DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
+  projects             projects              @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  psp_virtual_accounts psp_virtual_accounts? @relation(fields: [virtual_account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_psp_trades_created_at")
+  @@index([project_id], map: "idx_psp_trades_project")
+  @@index([status], map: "idx_psp_trades_status")
+  @@index([virtual_account_id], map: "idx_psp_trades_virtual_account")
+  @@index([warp_trade_id], map: "idx_psp_trades_warp_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_virtual_accounts {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id              String              @db.Uuid
+  warp_virtual_account_id String?             @unique
+  identity_case_id        String?             @db.Uuid
+  account_name            String
+  account_type            String
+  status                  String              @default("active")
+  balances                Json?
+  deposit_instructions    Json?
+  created_at              DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?           @default(now()) @db.Timestamptz(6)
+  psp_balances            psp_balances[]
+  psp_trades              psp_trades[]
+  psp_identity_cases      psp_identity_cases? @relation(fields: [identity_case_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects                projects            @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([identity_case_id], map: "idx_psp_virtual_accounts_identity")
+  @@index([project_id], map: "idx_psp_virtual_accounts_project")
+  @@index([status], map: "idx_psp_virtual_accounts_status")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_webhook_events {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  webhook_id        String?       @db.Uuid
+  project_id        String        @db.Uuid
+  event_id          String        @unique
+  event_name        String
+  resource_urls     String[]
+  payload           Json
+  status            String        @default("pending")
+  delivery_attempts Int?          @default(0)
+  delivered_at      DateTime?     @db.Timestamptz(6)
+  created_at        DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?     @default(now()) @db.Timestamptz(6)
+  projects          projects      @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  psp_webhooks      psp_webhooks? @relation(fields: [webhook_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_psp_webhook_events_created_at")
+  @@index([event_name], map: "idx_psp_webhook_events_event_name")
+  @@index([project_id], map: "idx_psp_webhook_events_project")
+  @@index([status], map: "idx_psp_webhook_events_status")
+  @@index([webhook_id], map: "idx_psp_webhook_events_webhook")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_webhooks {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id             String               @db.Uuid
+  warp_webhook_id        String?
+  callback_url           String
+  auth_username          String
+  auth_password_vault_id String?              @db.Uuid
+  status                 String               @default("active")
+  retry_count            Int?                 @default(0)
+  last_success_at        DateTime?            @db.Timestamptz(6)
+  last_failure_at        DateTime?            @db.Timestamptz(6)
+  failure_reason         String?
+  created_at             DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?            @default(now()) @db.Timestamptz(6)
+  psp_webhook_events     psp_webhook_events[]
+  key_vault_keys         key_vault_keys?      @relation(fields: [auth_password_vault_id], references: [id], onUpdate: NoAction)
+  projects               projects             @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([project_id], map: "idx_psp_webhooks_project")
+  @@index([status], map: "idx_psp_webhooks_status")
+  @@index([auth_password_vault_id], map: "idx_psp_webhooks_vault")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model recent_address_selections {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String     @db.Uuid
+  project_id  String?    @db.Uuid
+  address     String
+  selected_at DateTime   @default(now()) @db.Timestamptz(6)
+  context     String?    @default("transfer_tab")
+  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime   @default(now()) @db.Timestamptz(6)
+  projects    projects?  @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, project_id, selected_at(sort: Desc)], map: "idx_recent_address_selections_user_project")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model role_addresses {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id               String      @db.Uuid
+  blockchain            String
+  address               String
+  signing_method        String      @default("private_key")
+  encrypted_private_key String?
+  key_vault_reference   String?
+  derivation_path       String?
+  created_at            DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime    @default(now()) @db.Timestamptz(6)
+  created_by            String?     @db.Uuid
+  contract_roles        Json?       @default("[]")
+  users                 auth_users? @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles                 roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([blockchain, address], map: "idx_role_addresses_blockchain_address")
+  @@unique([role_id, blockchain, address], map: "idx_role_addresses_role_blockchain_address")
+  @@unique([blockchain, address])
+  @@index([address], map: "idx_role_addresses_address")
+  @@index([blockchain], map: "idx_role_addresses_blockchain")
+  @@index([contract_roles], map: "idx_role_addresses_contract_roles", type: Gin)
+  @@index([role_id], map: "idx_role_addresses_role_id")
+  @@schema("public")
+}
+
+model role_contracts {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  role_id        String   @db.Uuid
+  contract_roles Json
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+  roles          roles    @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_addresses {
+  user_id                 String?                   @db.Uuid
+  blockchain              String?
+  address                 String?
+  encrypted_private_key   String?
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  signing_method          String?                   @default("private_key")
+  key_vault_reference     String?
+  is_active               Boolean?                  @default(true)
+  created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  role_contracts_id       String?                   @db.Uuid
+  contract_roles          Json?                     @default("[]")
+  multi_sig_wallet_owners multi_sig_wallet_owners[]
+  users                   auth_users?               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([blockchain, address], map: "user_addresses_blockchain_address_unique")
+  @@unique([user_id, blockchain], map: "user_addresses_user_blockchain_unique")
+  @@unique([user_id, blockchain])
+  @@index([is_active], map: "idx_user_addresses_active")
+  @@index([blockchain], map: "idx_user_addresses_blockchain")
+  @@index([contract_roles], map: "idx_user_addresses_contract_roles", type: Gin)
+  @@index([user_id], map: "idx_user_addresses_user_id")
+  @@schema("public")
+}
+
+model user_contract_roles {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String     @unique(map: "user_contract_roles_user_id_unique") @db.Uuid
+  contract_roles Json       @default("[]")
+  created_at     DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime   @default(now()) @db.Timestamptz(6)
+  users          auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_user_contract_roles_user_id")
+  @@schema("public")
+}
+
 /// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 view activity_analytics {
   id                 String?   @db.Uuid
@@ -13810,6 +14523,66 @@ view wallet_access_summary {
   @@schema("public")
 }
 
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view multi_sig_wallet_roles {
+  wallet_id        String?   @db.Uuid
+  wallet_name      String?
+  wallet_address   String?
+  blockchain       String?
+  threshold        Int?
+  ownership_type   String?
+  role_id          String?   @db.Uuid
+  role_name        String?
+  role_description String?
+  role_priority    Int?
+  role_address     String?
+  signing_method   String?
+  added_at         DateTime? @db.Timestamptz(6)
+  added_by         String?   @db.Uuid
+
+  @@schema("public")
+}
+
+view role_addresses_with_resolved_roles {
+  address_id           String?   @db.Uuid
+  role_id              String?   @db.Uuid
+  role_name            String?
+  blockchain           String?
+  address              String?
+  signing_method       String?
+  explicit_roles       Json?
+  effective_roles      Json?
+  role_assignment_type String?
+  created_at           DateTime? @db.Timestamptz(6)
+  updated_at           DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view wallet_with_keys {
+  id                     String?   @db.Uuid
+  investor_id            String?   @db.Uuid
+  wallet_address         String?
+  wallet_type            String?
+  blockchain             String?
+  status                 String?
+  project_id             String?   @db.Uuid
+  private_key_vault_id   String?   @db.Uuid
+  mnemonic_vault_id      String?   @db.Uuid
+  public_key_vault_id    String?   @db.Uuid
+  private_key_from_vault String?
+  mnemonic_from_vault    String?
+  public_key_from_vault  String?
+  private_key_legacy     String?
+  mnemonic_legacy        String?
+  public_key_legacy      String?
+  created_at             DateTime? @db.Timestamptz(6)
+  updated_at             DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
 enum aal_level {
   aal1
   aal2
@@ -13986,15 +14759,15 @@ enum pool_type_enum {
 }
 
 enum project_duration {
-  m_1 @map("1m")
-  m_3 @map("3m")
-  m_6 @map("6m")
-  m_9 @map("9m")
+  m_1  @map("1m")
+  m_3  @map("3m")
+  m_6  @map("6m")
+  m_9  @map("9m")
   m_12 @map("12m")
-  y_1 @map("1y")
-  y_2 @map("2y")
-  y_3 @map("3y")
-  y_5 @map("5y")
+  y_1  @map("1y")
+  y_2  @map("2y")
+  y_3  @map("3y")
+  y_5  @map("5y")
   y_10 @map("10y")
   y_20 @map("20y")
   y_30 @map("30y")
@@ -14144,4 +14917,26 @@ enum submission_date_mode_enum {
   relative
 
   @@schema("public")
+}
+
+enum oauth_authorization_status {
+  pending
+  approved
+  denied
+  expired
+
+  @@schema("auth")
+}
+
+enum oauth_client_type {
+  public
+  confidential
+
+  @@schema("auth")
+}
+
+enum oauth_response_type {
+  code
+
+  @@schema("auth")
 }

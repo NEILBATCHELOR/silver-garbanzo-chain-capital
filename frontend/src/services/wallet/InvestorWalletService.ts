@@ -90,9 +90,10 @@ export class InvestorWalletService {
         throw walletError;
       }
 
-      // Step 4: Link vault keys to wallet_id
+      // Step 4: Link vault keys to wallet_id and investor_id
       await this.linkVaultKeysToWallet(
         walletData.id,
+        investorId,  // ✅ NEW: Pass investorId for proper FK relationship
         privateKeyVaultId,
         mnemonicVaultId,
         publicKeyVaultId
@@ -295,17 +296,19 @@ export class InvestorWalletService {
    * 
    * @private
    * @param walletId - The wallet UUID
+   * @param investorId - The investor UUID (for proper FK relationship)
    * @param privateKeyVaultId - Private key vault UUID
    * @param mnemonicVaultId - Mnemonic vault UUID
    * @param publicKeyVaultId - Public key vault UUID
    */
   private static async linkVaultKeysToWallet(
     walletId: string,
+    investorId: string,  // ✅ NEW: Accept investorId
     privateKeyVaultId: string,
     mnemonicVaultId: string,
     publicKeyVaultId: string
   ): Promise<void> {
-    // Update key_vault_keys records to link them to the wallet
+    // Update key_vault_keys records to link them to the wallet and investor
     // Note: vault IDs are now UUIDs (the 'id' column), not the TEXT 'key_id' column
     const keyVaultIds = [privateKeyVaultId, mnemonicVaultId, publicKeyVaultId];
 
@@ -314,6 +317,7 @@ export class InvestorWalletService {
         .from('key_vault_keys')
         .update({
           wallet_id: walletId,
+          investor_id: investorId,  // ✅ NEW: Set investor_id for proper FK
         })
         .eq('id', vaultId); // Match on UUID 'id' column, not 'key_id'
 

@@ -14,6 +14,36 @@ import { PublicKey } from '@solana/web3.js'
 import * as bitcoin from 'bitcoinjs-lib'
 import crypto from 'crypto'
 import { SigningService } from '../SigningService'
+import type { multi_sig_wallets, user_addresses } from '@/infrastructure/database/generated/index'
+
+// Type for wallet with owner relations
+type MultiSigWalletOwner = {
+  user_addresses: user_addresses | null
+}
+
+type WalletWithOwners = multi_sig_wallets & {
+  multi_sig_wallet_owners: MultiSigWalletOwner[]
+}
+
+/**
+ * Helper to extract owner addresses from wallet
+ */
+const getOwnerAddresses = (wallet: WalletWithOwners): string[] => {
+  return wallet.multi_sig_wallet_owners
+    .map((owner: MultiSigWalletOwner) => owner.user_addresses?.address)
+    .filter((address: string | null | undefined): address is string => !!address)
+}
+
+/**
+ * Common include for wallet queries with owners
+ */
+const walletWithOwnersInclude = {
+  multi_sig_wallet_owners: {
+    include: {
+      user_addresses: true
+    }
+  }
+} as const
 
 /**
  * MultiSigSigningService - Production signature management
@@ -63,9 +93,10 @@ export class MultiSigSigningService extends BaseService {
         return this.error('Transaction proposal not found', 'PROPOSAL_NOT_FOUND', 404)
       }
 
-      // Get wallet
+      // Get wallet with owners
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: proposal.wallet_id || '' }
+        where: { id: proposal.wallet_id || '' },
+        include: walletWithOwnersInclude
       })
 
       if (!wallet) {
@@ -73,7 +104,8 @@ export class MultiSigSigningService extends BaseService {
       }
 
       // Check if signer is authorized
-      if (!wallet.owners.includes(request.signer_address)) {
+      const ownerAddresses = getOwnerAddresses(wallet)
+      if (!ownerAddresses.includes(request.signer_address)) {
         return this.error('Signer is not authorized for this wallet', 'NOT_AUTHORIZED', 403)
       }
 
@@ -190,9 +222,10 @@ export class MultiSigSigningService extends BaseService {
         return this.error('Transaction proposal not found', 'PROPOSAL_NOT_FOUND', 404)
       }
 
-      // Get wallet
+      // Get wallet with owners
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: proposal.wallet_id || '' }
+        where: { id: proposal.wallet_id || '' },
+        include: walletWithOwnersInclude
       })
 
       if (!wallet) {
@@ -200,7 +233,8 @@ export class MultiSigSigningService extends BaseService {
       }
 
       // Check if signer is authorized
-      if (!wallet.owners.includes(request.signer)) {
+      const ownerAddresses = getOwnerAddresses(wallet)
+      if (!ownerAddresses.includes(request.signer)) {
         return this.error('Signer is not authorized for this wallet', 'NOT_AUTHORIZED', 403)
       }
 
@@ -392,7 +426,8 @@ export class MultiSigSigningService extends BaseService {
       }
 
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: proposal.wallet_id || "" }
+        where: { id: proposal.wallet_id || "" },
+        include: walletWithOwnersInclude
       })
 
       if (!wallet) {
@@ -452,12 +487,16 @@ export class MultiSigSigningService extends BaseService {
   async getWalletSignatureStats(walletId: string): Promise<ServiceResult<any>> {
     try {
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: walletId }
+        where: { id: walletId },
+        include: walletWithOwnersInclude
       })
 
       if (!wallet) {
         return this.error('Multi-sig wallet not found', 'WALLET_NOT_FOUND', 400)
       }
+
+      // Get owner addresses
+      const ownerAddresses = getOwnerAddresses(wallet)
 
       // Get all proposals for this wallet
       const proposals = await this.prisma.transaction_proposals.findMany({
@@ -475,7 +514,7 @@ export class MultiSigSigningService extends BaseService {
 
       // Signer activity
       const signerActivity: Record<string, any> = {}
-      for (const owner of wallet.owners) {
+      for (const owner of ownerAddresses) {
         signerActivity[owner] = {
           signer: owner,
           signatures_count: 0,
@@ -517,7 +556,7 @@ export class MultiSigSigningService extends BaseService {
         wallet_info: {
           id: wallet.id,
           name: wallet.name,
-          owners_count: wallet.owners.length,
+          owners_count: ownerAddresses.length,
           threshold: wallet.threshold,
           blockchain: wallet.blockchain
         },

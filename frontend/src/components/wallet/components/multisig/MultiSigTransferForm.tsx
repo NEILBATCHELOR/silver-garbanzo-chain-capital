@@ -18,12 +18,33 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, Building2, User as UserIcon, Shield, Wallet as WalletIcon, QrCode } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  internalWalletService, 
+  type AllWallets 
+} from '@/services/wallet/InternalWalletService';
+import { useUser } from '@/hooks/auth/user/useUser';
+import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
+import { getChainInfo, getChainId } from '@/infrastructure/web3/utils/chainIds';
 
 // ============================================================================
 // INTERFACES
 // ============================================================================
+
+// Wallet type for unified handling
+type WalletOption = {
+  id: string;
+  address: string;
+  name: string;
+  type: 'project' | 'user' | 'multisig';
+  balance?: string;
+  blockchain?: string;
+  network?: string;
+  chainId?: number;
+};
 
 interface MultiSigTransferFormProps {
   wallets: Array<{
@@ -64,6 +85,8 @@ export const MultiSigTransferForm: React.FC<MultiSigTransferFormProps> = ({
   onSuccess,
   onCancel
 }) => {
+  const { user } = useUser();
+  
   // State
   const [formData, setFormData] = useState<FormData>({
     walletId: '',
@@ -80,8 +103,134 @@ export const MultiSigTransferForm: React.FC<MultiSigTransferFormProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
+  // To address mode: 'custom' for manual input, 'wallet' for wallet selection
+  const [toAddressMode, setToAddressMode] = useState<'custom' | 'wallet'>('custom');
+  
+  // All available wallets for destination selection
+  const [allWallets, setAllWallets] = useState<AllWallets>({
+    projectWallets: [],
+    userWallets: [],
+    multiSigWallets: []
+  });
+  const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
+  const [loadingWallets, setLoadingWallets] = useState(true);
+  const [projectId, setProjectId] = useState<string | null>(null);
+
   // Selected wallet details
   const selectedWallet = wallets.find(w => w.id === formData.walletId);
+
+  // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
+
+  useEffect(() => {
+    initializeWalletData();
+  }, []);
+
+  const initializeWalletData = async () => {
+    try {
+      setLoadingWallets(true);
+      
+      const project = await getPrimaryOrFirstProject();
+      if (!project) {
+        console.warn('No project found for wallet loading');
+        setLoadingWallets(false);
+        return;
+      }
+      
+      setProjectId(project.id);
+      
+      const wallets = await internalWalletService.refreshAllBalances(project.id);
+      setAllWallets(wallets);
+
+      const options: WalletOption[] = [
+        ...wallets.projectWallets.map(w => {
+          const chainIdNum = w.chainId ? parseInt(w.chainId, 10) : undefined;
+          const chainInfo = chainIdNum ? getChainInfo(chainIdNum) : null;
+          const walletName = w.projectWalletName || chainInfo?.name || 'Project Wallet';
+          
+          return {
+            id: w.id,
+            address: w.address,
+            name: `${walletName} (Project)`,
+            type: 'project' as const,
+            balance: w.balance?.nativeBalance || '0',
+            blockchain: chainInfo?.name || 'Unknown',
+            network: chainInfo?.name || 'Unknown',
+            chainId: chainIdNum
+          };
+        }),
+        ...wallets.userWallets.map(w => {
+          // UserWallet has blockchain property as string name, convert to chain ID
+          const chainIdNum = getChainId(w.blockchain || 'ethereum');
+          const chainInfo = chainIdNum ? getChainInfo(chainIdNum) : null;
+          
+          return {
+            id: w.id,
+            address: w.address,
+            name: `${w.userName || 'User'} Wallet`,
+            type: 'user' as const,
+            balance: w.balance?.nativeBalance || '0',
+            blockchain: w.blockchain || 'ethereum',
+            network: w.blockchain || 'ethereum',
+            chainId: chainIdNum
+          };
+        }),
+        ...wallets.multiSigWallets.map(w => {
+          // MultiSigWallet has blockchain property as string name, convert to chain ID
+          const chainIdNum = getChainId(w.blockchain || 'ethereum');
+          const chainInfo = chainIdNum ? getChainInfo(chainIdNum) : null;
+          
+          return {
+            id: w.id,
+            address: w.address,
+            name: `${w.name} (Multi-Sig)`,
+            type: 'multisig' as const,
+            balance: w.balance?.nativeBalance || '0',
+            blockchain: w.blockchain || 'ethereum',
+            network: w.blockchain || 'ethereum',
+            chainId: chainIdNum
+          };
+        })
+      ];
+
+      setWalletOptions(options);
+    } catch (error) {
+      console.error('Failed to initialize wallet data:', error);
+    } finally {
+      setLoadingWallets(false);
+    }
+  };
+
+  // ============================================================================
+  // HELPER FUNCTIONS
+  // ============================================================================
+
+  const getWalletIcon = (type: string) => {
+    switch (type) {
+      case 'project':
+        return <Building2 className="h-4 w-4" />;
+      case 'user':
+        return <UserIcon className="h-4 w-4" />;
+      case 'multisig':
+        return <Shield className="h-4 w-4" />;
+      default:
+        return <WalletIcon className="h-4 w-4" />;
+    }
+  };
+
+  const formatBalance = (balance: string, network?: string): string => {
+    const numBalance = parseFloat(balance);
+    if (isNaN(numBalance)) return '0.0000';
+    
+    const symbol = network?.toUpperCase() || 'ETH';
+    return `${numBalance.toFixed(4)} ${symbol}`;
+  };
+
+  const formatAddress = (address: string) => {
+    if (address.length <= 12) return address;
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
 
   // ============================================================================
   // VALIDATION
@@ -224,7 +373,7 @@ export const MultiSigTransferForm: React.FC<MultiSigTransferFormProps> = ({
 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Wallet Selection */}
+          {/* Wallet Selection - Enhanced with Details */}
           <div className="space-y-2">
             <Label htmlFor="wallet">Multi-Sig Wallet *</Label>
             <Select
@@ -232,15 +381,45 @@ export const MultiSigTransferForm: React.FC<MultiSigTransferFormProps> = ({
               onValueChange={(value) => handleInputChange('walletId', value)}
             >
               <SelectTrigger id="wallet" className={errors.walletId ? 'border-red-500' : ''}>
-                <SelectValue placeholder="Select wallet..." />
+                <SelectValue placeholder="Select multi-sig wallet..." />
               </SelectTrigger>
               <SelectContent>
-                {wallets.map((wallet) => (
-                  <SelectItem key={wallet.id} value={wallet.id}>
-                    {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
-                    - Threshold: {wallet.threshold}
+                {wallets.length > 0 ? (
+                  wallets.map((wallet) => {
+                    // Find matching wallet from walletOptions for additional details
+                    const walletDetails = walletOptions.find(w => w.id === wallet.id);
+                    const chainInfo = walletDetails?.chainId ? getChainInfo(walletDetails.chainId) : null;
+                    
+                    return (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        <div className="flex flex-col gap-1 w-full">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4" />
+                            <span className="font-medium">{wallet.name}</span>
+                            <Badge variant="outline" className="ml-auto">
+                              {chainInfo?.name || wallet.blockchain || 'Unknown'}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono">{formatAddress(wallet.address)}</span>
+                            <span>•</span>
+                            <span>Threshold: {wallet.threshold}</span>
+                            {walletDetails?.balance && (
+                              <>
+                                <span>•</span>
+                                <span>{formatBalance(walletDetails.balance, walletDetails.network)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    );
+                  })
+                ) : (
+                  <SelectItem value="no-wallets" disabled>
+                    No multi-sig wallets available
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
             {errors.walletId && (
@@ -293,20 +472,100 @@ export const MultiSigTransferForm: React.FC<MultiSigTransferFormProps> = ({
             />
           </div>
 
-          {/* Destination Address */}
+          {/* Destination Address - Enhanced with Wallet Selection */}
           <div className="space-y-2">
-            <Label htmlFor="toAddress">Destination Address *</Label>
-            <Input
-              id="toAddress"
-              placeholder="0x..."
-              value={formData.toAddress}
-              onChange={(e) => handleInputChange('toAddress', e.target.value)}
-              className={errors.toAddress ? 'border-red-500' : ''}
-              disabled={isSubmitting}
-            />
-            {errors.toAddress && (
-              <p className="text-sm text-red-500">{errors.toAddress}</p>
-            )}
+            <Label>Destination Address *</Label>
+            <Tabs value={toAddressMode} onValueChange={(v) => setToAddressMode(v as any)}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="custom">Custom Address</TabsTrigger>
+                <TabsTrigger value="wallet">Select Wallet</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="custom" className="mt-2">
+                <div className="space-y-2">
+                  <Input
+                    id="toAddress"
+                    placeholder="0x..."
+                    value={formData.toAddress}
+                    onChange={(e) => handleInputChange('toAddress', e.target.value)}
+                    className={errors.toAddress ? 'border-red-500' : ''}
+                    disabled={isSubmitting}
+                  />
+                  {errors.toAddress && (
+                    <p className="text-sm text-red-500">{errors.toAddress}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Enter the recipient's wallet address
+                  </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="wallet" className="mt-2">
+                <div className="space-y-2">
+                  {loadingWallets ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-sm text-muted-foreground">Loading wallets...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      onValueChange={(value) => {
+                        handleInputChange('toAddress', value);
+                        // Clear error when selecting from dropdown
+                        if (errors.toAddress) {
+                          setErrors(prev => ({ ...prev, toAddress: undefined }));
+                        }
+                      }}
+                      value={formData.toAddress}
+                    >
+                      <SelectTrigger className={errors.toAddress ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Select destination wallet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {walletOptions.length > 0 ? (
+                          walletOptions.map((wallet) => {
+                            const chainInfo = wallet.chainId ? getChainInfo(wallet.chainId) : null;
+                            
+                            return (
+                              <SelectItem key={wallet.id} value={wallet.address}>
+                                <div className="flex flex-col gap-1 w-full">
+                                  <div className="flex items-center gap-2">
+                                    {getWalletIcon(wallet.type)}
+                                    <span className="font-medium">{wallet.name}</span>
+                                    <Badge variant="outline" className="ml-auto">
+                                      {chainInfo?.name || wallet.blockchain || 'Unknown'}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="font-mono">{formatAddress(wallet.address)}</span>
+                                    {wallet.balance && (
+                                      <>
+                                        <span>•</span>
+                                        <span>{formatBalance(wallet.balance, wallet.network)}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            );
+                          })
+                        ) : (
+                          <SelectItem value="no-wallets" disabled>
+                            No wallets available
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {errors.toAddress && (
+                    <p className="text-sm text-red-500">{errors.toAddress}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Select from your existing wallets
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Amount */}

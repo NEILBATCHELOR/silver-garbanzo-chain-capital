@@ -27,7 +27,7 @@ export class WalletService extends BaseService {
    */
   async createWallet(request: CreateWalletRequest): Promise<ServiceResult<WalletResponse>> {
     try {
-      const { investor_id, chain_id, name } = request
+      const { investor_id, project_id, chain_id, name } = request
 
       // Validate input
       const validation = this.validateCreateWalletRequest(request)
@@ -64,6 +64,7 @@ export class WalletService extends BaseService {
       const wallet = await this.db.wallets.create({
         data: {
           investor_id,
+          project_id,
           wallet_type: 'hd_wallet', // HD wallet type
           blockchain,
           wallet_address: address,

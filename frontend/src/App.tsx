@@ -68,6 +68,9 @@ import { enhancedActivityService, ActivitySource, ActivityCategory, ActivitySeve
 // Import Universal Database Audit Service for automatic CRUD tracking
 import { universalDatabaseAuditService } from '@/services/audit/UniversalDatabaseAuditService';
 
+// Import Multi-Sig Event Listeners Hook for real-time blockchain monitoring
+import { useMultiSigEventListeners } from '@/hooks/wallet/useMultiSigEventListeners';
+
 // Import Compliance Components
 import DocumentManagement from "@/components/compliance/operations/documents/DocumentManagement";
 import RestrictionManager from "@/components/compliance/operations/restrictions/RestrictionManager";
@@ -91,10 +94,10 @@ import {
 
 // Import Auth Components
 import UnauthorizedPage from "@/components/auth/UnauthorizedPage";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ProtectedRoute, { GuestGuard } from "@/components/auth/ProtectedRoute";
 
 // Import AuthProvider
-import { AuthProvider } from "@/infrastructure/auth/AuthProvider";
+import { AuthProvider, useAuth } from "@/infrastructure/auth/AuthProvider";
 
 // Import Organization Provider for organization context
 import { OrganizationProvider } from "@/components/organizations/OrganizationContext";
@@ -124,7 +127,7 @@ import DocumentsPage from "@/components/compliance/portal/DocumentsPage";
 // ✅ Import Onboarding Components
 import InvestorOnboarding from "@/components/compliance/investor/InvestorOnboarding";
 
-// ✅ Import Auth Components
+// Import Auth Components
 import LoginPage from "@/components/auth/pages/LoginPage";
 import {
   WelcomeScreen,
@@ -140,6 +143,9 @@ import {
   AdminDashboardPage,
   IdentityManagementPage
 } from "@/components/auth/pages";
+
+// Import Multi-Sig Monitoring Component
+import { MultiSigListenerHealthBadge } from '@/components/wallet/monitoring';
 
 // Add this import
 const IssuerOnboardingFlow = lazy(() => import('@/components/compliance/issuer/onboarding/IssuerOnboardingFlow'));
@@ -513,6 +519,26 @@ const RedemptionWindowWrapper = () => {
  * Main App component with routing configuration
  */
 function App() {
+  // ============================================================================
+  // INITIALIZE MULTI-SIG EVENT LISTENERS (Phase 3 Integration)
+  // ============================================================================
+  // Auto-starts event listeners when user logs in
+  // Monitors on-chain multi-sig transactions in real-time
+  // Updates database automatically from blockchain events
+  const { user } = useAuth();
+  const { health: multiSigHealth, isInitialized: multiSigInitialized } = useMultiSigEventListeners(user?.id, {
+    autoStart: true,
+    autoStop: true,
+    healthCheckInterval: 30000 // Check health every 30 seconds
+  });
+
+  useEffect(() => {
+    if (multiSigInitialized) {
+      console.log('✅ Multi-Sig Event Listeners initialized successfully');
+      console.log(`📊 Active listeners: ${multiSigHealth?.activeListeners || 0}`);
+    }
+  }, [multiSigInitialized, multiSigHealth]);
+
   useEffect(() => {
     // Initialize browser error handling for console cleanup
     initializeBrowserErrorHandling();
@@ -556,11 +582,23 @@ function App() {
             <WagmiRouteWrapper>
               <UnifiedWalletProvider>
                 <NotificationProvider>
+                  {/* Multi-Sig Listener Health Badge (Fixed Position) */}
+                  {multiSigInitialized && multiSigHealth && (
+                    <div className="fixed bottom-4 right-4 z-50">
+                      <MultiSigListenerHealthBadge health={multiSigHealth} />
+                    </div>
+                  )}
             
             <Suspense fallback={<div>Loading...</div>}>
           <Routes>
-            {/* Auth Routes - Process these first */}
-            <Route path="/" element={<WelcomeScreen />} />
+            {/* Root Route - Show Welcome Screen for unauthenticated users, redirect authenticated users to projects */}
+            <Route path="/" element={
+              <GuestGuard redirectTo="/projects">
+                <WelcomeScreen />
+              </GuestGuard>
+            } />
+            
+            {/* Auth Routes - Publicly accessible */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
             
@@ -582,18 +620,38 @@ function App() {
             {/* DFNS Mobile Authentication Route */}
             <Route path="/mobile-auth" element={<MobileAuthPage />} />
             
-            {/* Settings Routes */}
-            <Route path="/settings/security" element={<SecuritySettingsPage />} />
-            <Route path="/settings/identity" element={<IdentityManagementPage />} />
+            {/* Settings Routes - Protected */}
+            <Route path="/settings/security" element={
+              <ProtectedRoute>
+                <SecuritySettingsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/identity" element={
+              <ProtectedRoute>
+                <IdentityManagementPage />
+              </ProtectedRoute>
+            } />
             
-            {/* Admin Auth Routes */}
-            <Route path="/admin/auth" element={<AdminDashboardPage />} />
+            {/* Admin Auth Routes - Protected with admin role */}
+            <Route path="/admin/auth" element={
+              <ProtectedRoute requiredRoles={['admin']}>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
 
             {/* Add redirect for tokens/:projectId to projects/:projectId/tokens */}
-            <Route path="/tokens/:projectId" element={<TokenRedirect />} />
+            <Route path="/tokens/:projectId" element={
+              <ProtectedRoute>
+                <TokenRedirect />
+              </ProtectedRoute>
+            } />
             
-            {/* Main Layout - Ensures Sidebar Renders Only Once */}
-            <Route element={<MainLayout />}>
+            {/* Main Layout - Protected - Ensures Sidebar Renders Only Once */}
+            <Route element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }>
               <Route path="dashboard" element={<CapTableDashboard />} />
               <Route path="projects" element={<Home />} />
               <Route path="offerings" element={<OfferingsPageWrapper />} />

@@ -81,7 +81,8 @@ console.error = (...args: any[]) => {
     const isExternalLibrary = message.includes('ethereum.js') || 
                              message.includes('chrome.runtime') || 
                              message.includes('Lit is in dev mode') ||
-                             message.includes('Multiple GoTrueClient');
+                             message.includes('Multiple GoTrueClient') ||
+                             message.includes('AppKit SDK version');
     
     if (isExternalLibrary) {
       // Completely suppress external library warnings
@@ -111,7 +112,8 @@ console.warn = (...args: any[]) => {
     const isExternalLibrary = message.includes('ethereum.js') || 
                              message.includes('chrome.runtime') || 
                              message.includes('Lit is in dev mode') ||
-                             message.includes('Multiple GoTrueClient');
+                             message.includes('Multiple GoTrueClient') ||
+                             message.includes('AppKit SDK version');
     
     if (isExternalLibrary) {
       // Completely suppress external library warnings

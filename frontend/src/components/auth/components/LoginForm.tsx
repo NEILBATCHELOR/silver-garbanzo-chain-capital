@@ -47,8 +47,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   // Get selected profile type from session storage
   const selectedProfileType = sessionStorage.getItem('selectedProfileType') as ProfileType | null;
 
-  // Get redirect URL from router state or prop
-  const from = (location.state as any)?.from || redirectTo || '/dashboard';
+  // Get redirect URL from router state or prop (default to /projects)
+  const from = (location.state as any)?.from || redirectTo || '/projects';
 
   const {
     register,

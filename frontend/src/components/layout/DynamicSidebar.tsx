@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/infrastructure/database/client";
 import { sessionManager } from "@/infrastructure/sessionManager";
-import { Loader2, LogOut, AlertCircle, Database, FileText, RefreshCw } from "lucide-react";
+import { Loader2, LogOut, AlertCircle, Database, FileText, RefreshCw, Home, User } from "lucide-react";
 import { useSidebarConfig } from "@/hooks/sidebar";
 import type { SidebarItem as SidebarItemType, SidebarSection } from "@/types/sidebar";
 import { substituteUrlParameters, type UrlParameters } from "@/utils/sidebar";
@@ -25,6 +25,28 @@ interface UserInfo {
   name: string;
   email: string;
 }
+
+// Fallback sidebar configuration when database config fails
+const FALLBACK_SIDEBAR: SidebarSection[] = [
+  {
+    id: 'core',
+    title: 'Core',
+    items: [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        href: '/dashboard',
+        icon: Home
+      },
+      {
+        id: 'profile',
+        label: 'My Profile',
+        href: '/profile',
+        icon: User
+      }
+    ]
+  }
+];
 
 const SidebarItem = ({ item, urlParameters }: SidebarItemProps) => {
   const location = useLocation();
@@ -163,6 +185,59 @@ const DynamicSidebar = React.memo(() => {
     configurationSource
   } = useSidebarConfig(sidebarConfigOptions);
 
+  // Diagnostic logging for sidebar state
+  useEffect(() => {
+    const debugSidebarState = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('[🔍 Sidebar Debug] Full State:', {
+        authentication: {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
+        },
+        routing: {
+          pathname: window.location.pathname,
+          urlParams: urlParameters,
+        },
+        sidebarState: {
+          isLoading: isSidebarLoading,
+          hasError: !!sidebarError,
+          error: sidebarError,
+          configSource: configurationSource,
+          hasSidebarConfig: !!sidebarConfig,
+          sectionsCount: sidebarConfig?.sections.length || 0,
+          totalItems: sidebarConfig?.sections.reduce((sum, s) => sum + s.items.length, 0) || 0,
+        },
+        userContext: {
+          profileType: userContext.profileType,
+          rolesCount: userContext.roles.length,
+          roles: userContext.roles.map(r => r.name),
+          highestPriority: userContext.highestRolePriority,
+        },
+        userDisplay: {
+          hasUserInfo: !!userInfo,
+          isLoadingUserInfo: isLoadingUserInfo,
+        }
+      });
+      
+      // Additional warning if no sidebar items
+      if (!isSidebarLoading && (!sidebarConfig?.sections || sidebarConfig.sections.length === 0)) {
+        console.warn('[⚠️  Sidebar] No navigation items available!', {
+          possibleReasons: [
+            'User has no roles assigned',
+            'Sidebar config not found in database',
+            'All items filtered out by permissions',
+            'URL parameters preventing item display'
+          ],
+          solution: 'Check user roles in database or add fallback navigation'
+        });
+      }
+    };
+    
+    debugSidebarState();
+  }, [isSidebarLoading, sidebarConfig, sidebarError, configurationSource, userContext, userInfo, isLoadingUserInfo, urlParameters]);
+
   // Process sidebar sections with URL parameter substitution
   const processedSidebarConfig = useMemo(() => {
     if (!sidebarConfig) return null;
@@ -188,7 +263,7 @@ const DynamicSidebar = React.memo(() => {
   // Listen for sidebar configuration updates (from admin changes)
   useEffect(() => {
     const handleConfigurationUpdate = () => {
-      console.log('Sidebar configuration updated from admin, refreshing...');
+      console.log('[🔄 Sidebar] Configuration updated from admin, refreshing...');
       refreshConfig();
     };
 
@@ -208,6 +283,7 @@ const DynamicSidebar = React.memo(() => {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
+          console.log('[👤 Sidebar] No active session, showing guest user');
           setIsLoadingUserInfo(false);
           return;
         }
@@ -219,19 +295,20 @@ const DynamicSidebar = React.memo(() => {
           .maybeSingle();
 
         if (error) {
-          console.error('Error fetching user info:', error);
+          console.error('[❌ Sidebar] Error fetching user info:', error);
           setIsLoadingUserInfo(false);
           return;
         }
 
         if (userData) {
+          console.log('[âœ… Sidebar] User info loaded:', userData.name);
           setUserInfo({
             name: userData.name,
             email: userData.email
           });
         }
       } catch (error) {
-        console.error('Error in fetchUserInfo:', error);
+        console.error('[❌ Sidebar] Error in fetchUserInfo:', error);
       } finally {
         setIsLoadingUserInfo(false);
       }
@@ -242,6 +319,7 @@ const DynamicSidebar = React.memo(() => {
 
   const handleLogout = useCallback(async () => {
     try {
+      console.log('[ðŸš  Sidebar] Logging out...');
       // Clear local storage
       localStorage.clear();
       // Clear session storage
@@ -253,17 +331,34 @@ const DynamicSidebar = React.memo(() => {
       // Redirect to welcome screen
       window.location.href = '/';
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('[❌ Sidebar] Error during logout:', error);
       // Force redirect even if there's an error
       window.location.href = '/';
     }
   }, []);
+
+  // Determine sections to display - use fallback if error and no config
+  const displaySections = useMemo(() => {
+    if (processedSidebarConfig?.sections && processedSidebarConfig.sections.length > 0) {
+      return processedSidebarConfig.sections;
+    }
+    
+    // Use fallback if there's an error or no sections after loading
+    if (!isSidebarLoading && (sidebarError || !sidebarConfig?.sections?.length)) {
+      console.log('[ðŸ"„ Sidebar] Using fallback navigation');
+      return FALLBACK_SIDEBAR;
+    }
+    
+    return [];
+  }, [processedSidebarConfig, isSidebarLoading, sidebarError, sidebarConfig]);
 
   // Determine if we should show the admin configured indicator
   const showAdminConfigured = !isSidebarLoading && configurationSource === 'database';
 
   // Show error state
   if (sidebarError && !isSidebarLoading) {
+    console.error('[❌ Sidebar] Rendering error state:', sidebarError);
+    
     return (
       <div className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-background">
         <div className="flex h-full flex-col">
@@ -327,7 +422,7 @@ const DynamicSidebar = React.memo(() => {
             </div>
           ) : (
             <div className="space-y-6 pt-4"> {/* Added pt-4 for top spacing */}
-              {processedSidebarConfig?.sections.map((section) => (
+              {displaySections.map((section) => (
                 <div key={section.id}>
                   <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground">
                     {section.title}
@@ -344,8 +439,8 @@ const DynamicSidebar = React.memo(() => {
                 </div>
               ))}
               
-              {/* Show message if no sections are available */}
-              {(!processedSidebarConfig?.sections || processedSidebarConfig.sections.length === 0) && (
+              {/* Show message if no sections are available after loading */}
+              {!isSidebarLoading && displaySections.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-sm text-muted-foreground mb-2">
                     No navigation items available

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '@/infrastructure/database/client';
+import { useAuth } from '@/infrastructure/auth/AuthProvider';
 
 export interface OrganizationContextData {
   id: string;
@@ -40,22 +41,40 @@ interface OrganizationProviderProps {
 }
 
 export const OrganizationProvider: React.FC<OrganizationProviderProps> = ({ children }) => {
+  const { user, loading: authLoading } = useAuth(); // Get user from AuthContext
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationContextData | null>(null);
   const [userOrganizations, setUserOrganizations] = useState<OrganizationContextData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Ref to prevent concurrent loads
+  const loadingRef = useRef(false);
 
-  // Load user's accessible organizations
-  const refreshUserOrganizations = async () => {
+  // Load user's accessible organizations - memoized to prevent infinite loops
+  const refreshUserOrganizations = useCallback(async () => {
+    // Guard: Prevent concurrent executions
+    if (loadingRef.current) {
+      console.log('🏢 OrganizationProvider: Load already in progress, skipping...');
+      return;
+    }
+    
     try {
+      loadingRef.current = true;
       setIsLoading(true);
       console.log('🏢 OrganizationProvider: Starting to load user organizations...');
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      // Wait for auth to complete
+      if (authLoading) {
+        console.log('🏢 OrganizationProvider: Auth still loading, waiting...');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Get user from AuthContext (no auth state change triggered)
       if (!user) {
         console.log('🏢 OrganizationProvider: No authenticated user found');
         setUserOrganizations([]);
         setSelectedOrganization(null);
+        setIsLoading(false);
         return;
       }
 
@@ -180,8 +199,9 @@ export const OrganizationProvider: React.FC<OrganizationProviderProps> = ({ chil
     } finally {
       console.log('🏢 OrganizationProvider: Loading complete, isLoading set to false');
       setIsLoading(false);
+      loadingRef.current = false; // Reset loading guard
     }
-  };
+  }, [user, authLoading]); // Memoize with user and authLoading dependencies
 
   // Filter projects based on selected organization
   const getFilteredProjects = (allProjects: any[]): any[] => {
@@ -197,7 +217,7 @@ export const OrganizationProvider: React.FC<OrganizationProviderProps> = ({ chil
   useEffect(() => {
     console.log('🏢 OrganizationProvider: useEffect triggered, calling refreshUserOrganizations');
     refreshUserOrganizations();
-  }, []);
+  }, [refreshUserOrganizations]); // Use memoized function as dependency
 
   const shouldShowSelector = userOrganizations.length > 1;
   console.log('🏢 OrganizationProvider: shouldShowSelector =', shouldShowSelector, ', userOrganizations.length =', userOrganizations.length);

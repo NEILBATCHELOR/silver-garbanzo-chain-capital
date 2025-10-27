@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react';
 
 const PasswordResetPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { isRecoverySession, loading } = usePasswordReset();
+  const { isRecoverySession, loading, tokenHash } = usePasswordReset();
   
   // Check for error from email link (can be in query params or hash)
   const queryError = searchParams.get('error');
@@ -121,6 +121,7 @@ const PasswordResetPage: React.FC = () => {
           <PasswordResetForm 
             mode={mode}
             showHeader={true}
+            tokenHash={tokenHash}
           />
         </div>
       </div>

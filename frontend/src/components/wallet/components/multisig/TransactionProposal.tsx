@@ -85,6 +85,7 @@ interface ProposalDetails {
 
 interface Signer {
   address: string;
+  name?: string; // Added for display
   hasSigned: boolean;
   signedAt?: Date;
   signature?: string;
@@ -467,7 +468,10 @@ export const TransactionProposal: React.FC<TransactionProposalProps> = ({
                       )}
                     </div>
                     <div>
-                      <code className="text-xs">
+                      {signer.name && (
+                        <p className="text-sm font-medium">{signer.name}</p>
+                      )}
+                      <code className="text-xs text-muted-foreground">
                         {signer.address.substring(0, 8)}...{signer.address.slice(-6)}
                       </code>
                       {signer.address === currentUserAddress && (

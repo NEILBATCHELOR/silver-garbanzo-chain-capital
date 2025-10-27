@@ -1,7 +1,7 @@
 SELECT
   wal.wallet_id,
   pw.wallet_address,
-  pw.wallet_type AS network,
+  pw.chain_id AS network,
   p.name AS project_name,
   count(*) AS access_count,
   count(*) FILTER (
@@ -37,5 +37,5 @@ FROM
 GROUP BY
   wal.wallet_id,
   pw.wallet_address,
-  pw.wallet_type,
+  pw.chain_id,
   p.name;

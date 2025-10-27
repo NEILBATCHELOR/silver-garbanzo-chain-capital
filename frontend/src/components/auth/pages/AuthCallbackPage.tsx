@@ -2,6 +2,9 @@
  * Auth Callback Page
  * 
  * Handles authentication callbacks and redirects
+ * 
+ * FIXED: Password recovery flow now redirects to password reset page
+ * without establishing session first, preventing premature login
  */
 
 import React, { useEffect, useState } from 'react';
@@ -15,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 
 import { authService } from '@/components/auth/services/authWrapper';
+import { supabase } from '@/infrastructure/database/client';
 
 type CallbackStatus = 'loading' | 'success' | 'error';
 
@@ -71,14 +75,22 @@ const AuthCallbackPage: React.FC = () => {
           return;
         }
 
-        // Handle password recovery separately
+        // Handle password recovery - redirect to reset page WITHOUT verifying token here
+        // This prevents establishing a full session before password reset is complete
         if (authType === 'recovery') {
-          // For password recovery, redirect to reset password page with tokens
+          const tokenHash = searchParams.get('token_hash');
+          
+          if (!tokenHash) {
+            throw new Error('Recovery token missing. Please request a new password reset link.');
+          }
+          
+          // Show success message briefly before redirecting
           setStatus('success');
           
+          // Redirect to password reset page with the token_hash
+          // The password reset page will verify the token and handle the reset
           setTimeout(() => {
-            // Preserve tokens in URL for password reset form
-            const resetUrl = `/auth/reset-password?${searchParams.toString()}`;
+            const resetUrl = `/auth/reset-password?token_hash=${tokenHash}&type=recovery`;
             navigate(resetUrl, { replace: true });
           }, 1500);
           
@@ -173,7 +185,7 @@ const AuthCallbackPage: React.FC = () => {
               </div>
               
               <CardTitle className="text-2xl font-bold">
-                {status === 'loading' && 'Signing you in...'}
+                {status === 'loading' && 'Verifying your link...'}
                 {status === 'success' && (type === 'recovery' ? 'Reset Link Verified!' : 'Welcome back!')}
                 {status === 'error' && 'Authentication failed'}
               </CardTitle>
@@ -183,7 +195,7 @@ const AuthCallbackPage: React.FC = () => {
               {status === 'loading' && (
                 <div className="text-center">
                   <p className="text-muted-foreground mb-4">
-                    Please wait while we complete your authentication.
+                    Please wait while we verify your authentication.
                   </p>
                   <div className="flex items-center justify-center space-x-2">
                     <Loader2 className="w-4 h-4 animate-spin" />

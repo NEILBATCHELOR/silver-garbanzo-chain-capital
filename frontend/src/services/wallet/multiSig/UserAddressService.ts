@@ -116,8 +116,8 @@ export class UserAddressService {
               key_id: keyVaultReference,
               encrypted_key: encryptedPrivateKey,
               key_type: 'private_key',
+              user_id: userId,  // ✅ NEW: Proper FK column instead of metadata
               metadata: {
-                user_id: userId,
                 blockchain,
                 contract_roles: contractRoles || [],
                 address
@@ -214,7 +214,7 @@ export class UserAddressService {
         // Encrypt private key
         encryptedPrivateKey = await WalletEncryptionClient.encrypt(privateKey);
 
-        // ✅ NEW: Store encrypted key in key_vault_keys table with matching reference
+        // ✅ Store encrypted key in key_vault_keys table with matching reference
         try {
           const { data: { user } } = await supabase.auth.getUser();
           
@@ -224,8 +224,8 @@ export class UserAddressService {
               key_id: keyVaultReference,  // Use same ID as reference
               encrypted_key: encryptedPrivateKey,
               key_type: 'private_key',
+              user_id: userId,  // ✅ NEW: Proper FK column instead of metadata
               metadata: {
-                user_id: userId,
                 blockchain,
                 address,
                 imported: true

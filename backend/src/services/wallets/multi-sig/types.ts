@@ -32,6 +32,7 @@ export interface UpdateMultiSigWalletRequest {
   owners?: string[]
   threshold?: number
   status?: MultiSigWalletStatus
+  updated_by?: string
 }
 
 // Transaction Proposal Types

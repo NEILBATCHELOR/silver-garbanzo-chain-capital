@@ -13,7 +13,7 @@ import { ChainType, addressUtils } from '../AddressUtils';
 import { SignatureAggregator } from './SignatureAggregator';
 import { LocalSigner } from './LocalSigner';
 import { rpcManager } from '@/infrastructure/web3/rpc';
-import { validateBlockchain } from '@/infrastructure/web3/utils/BlockchainValidator';
+import { validateBlockchain, isEVMChain } from '@/infrastructure/web3/utils/BlockchainValidator';
 import { getChainId, getChainName, isValidChainId, CHAIN_IDS } from '@/infrastructure/web3/utils';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
@@ -672,6 +672,14 @@ export class MultiSigTransactionService {
 
       if (!projectId) {
         throw new Error('Project ID is required to fund deployment');
+      }
+
+      // Phase B & C: Validate blockchain is EVM-compatible
+      const validatedChain = validateBlockchain(blockchain);
+      if (!isEVMChain(validatedChain)) {
+        throw new Error(
+          `Multi-sig wallets only supported on EVM chains. ${validatedChain} is not EVM-compatible.`
+        );
       }
 
       const validOwners = owners.filter(o => o.trim() !== '');

@@ -547,14 +547,26 @@ export class TransactionProposalService extends BaseService {
         return this.error('Transaction proposal not found', 'PROPOSAL_NOT_FOUND', 400)
       }
 
-      // Get wallet info
+      // Get wallet info with owners
       const wallet = await this.prisma.multi_sig_wallets.findUnique({
-        where: { id: proposal.wallet_id || "" }
+        where: { id: proposal.wallet_id || "" },
+        include: {
+          multi_sig_wallet_owners: {
+            include: {
+              user_addresses: true
+            }
+          }
+        }
       })
 
       if (!wallet) {
         return this.error('Multi-sig wallet not found', 'WALLET_NOT_FOUND', 400)
       }
+
+      // Extract owner addresses from the wallet
+      const ownerAddresses = wallet.multi_sig_wallet_owners
+        .map(owner => owner.user_addresses?.address)
+        .filter((address): address is string => !!address)
 
       const signatureCount = proposal.transaction_signatures.length
       const isApproved = signatureCount >= wallet.threshold
@@ -571,8 +583,8 @@ export class TransactionProposalService extends BaseService {
         is_approved: isApproved,
         can_execute: canExecute,
         signers: proposal.transaction_signatures.map((sig: any) => sig.signer),
-        remaining_signers: wallet.owners.filter(owner => 
-          !proposal.transaction_signatures.some((sig: any) => sig.signer === owner)
+        remaining_signers: ownerAddresses.filter((address: string) => 
+          !proposal.transaction_signatures.some((sig: any) => sig.signer === address)
         ),
         blockchain: proposal.blockchain,
         wallet_address: wallet.address,

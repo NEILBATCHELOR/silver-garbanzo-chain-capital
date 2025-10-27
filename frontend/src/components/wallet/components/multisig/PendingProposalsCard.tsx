@@ -20,9 +20,12 @@ import {
   Loader2,
   ExternalLink,
   UserCheck,
-  Send
+  Send,
+  Link as LinkIcon,
+  Circle
 } from 'lucide-react';
 import { cn } from '@/utils/utils';
+import { BlockchainExplorerService, getChainId } from '@/infrastructure/web3/utils';
 
 // ============================================================================
 // INTERFACES
@@ -155,6 +158,27 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
   // ============================================================================
 
   const getStatusBadge = (proposal: ProposalWithSignatures) => {
+    // Show executed status if on-chain
+    if (proposal.executionHash) {
+      return (
+        <Badge variant="default" className="bg-green-600">
+          <CheckCircle className="mr-1 h-3 w-3" />
+          Executed On-Chain
+        </Badge>
+      );
+    }
+
+    // Show submitted to blockchain status
+    if (proposal.onChainTxId !== null && proposal.onChainTxId !== undefined) {
+      return (
+        <Badge variant="default" className="bg-blue-600">
+          <LinkIcon className="mr-1 h-3 w-3" />
+          On-Chain TX #{proposal.onChainTxId}
+        </Badge>
+      );
+    }
+
+    // Show ready to execute (threshold met)
     if (proposal.canExecute) {
       return (
         <Badge variant="default" className="bg-green-500">
@@ -164,11 +188,12 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
       );
     }
 
+    // Show pending signatures
     return (
       <Badge variant="secondary">
         <Clock className="mr-1 h-3 w-3" />
         Pending ({proposal.signaturesCollected}/{proposal.signaturesRequired})
-        </Badge>
+      </Badge>
     );
   };
 
@@ -275,9 +300,18 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">To:</span>
-                      <p className="font-mono mt-1">
-                        {formatAddress(proposal.toAddress)}
-                      </p>
+                      {proposal.toWalletName ? (
+                        <div className="mt-1">
+                          <p className="font-semibold">{proposal.toWalletName}</p>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {formatAddress(proposal.toAddress)}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="font-mono mt-1">
+                          {formatAddress(proposal.toAddress)}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <span className="text-muted-foreground">Amount:</span>
@@ -296,6 +330,80 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
                       </p>
                     </div>
                   )}
+
+                  {/* ============================================ */}
+                  {/* PHASE 4: ON-CHAIN STATUS (NEW) */}
+                  {/* ============================================ */}
+                  {(proposal.onChainTxId !== null || proposal.executionHash) && (
+                    <div className="border-t pt-4 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <Circle className="h-3 w-3 fill-blue-500 text-blue-500" />
+                        Blockchain Status
+                      </div>
+
+                      {/* On-Chain Transaction ID */}
+                      {proposal.onChainTxId !== null && proposal.onChainTxId !== undefined && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">On-Chain TX ID:</span>
+                          <Badge variant="outline" className="font-mono">
+                            #{proposal.onChainTxId}
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* Execution Transaction Hash */}
+                      {proposal.executionHash && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Execution TX:</span>
+                            <span className="font-mono text-xs">
+                              {proposal.executionHash.slice(0, 10)}...{proposal.executionHash.slice(-8)}
+                            </span>
+                          </div>
+                          {proposal.executionHash && proposal.blockchain && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => {
+                                // Get chain ID from blockchain name (e.g., 'ethereum' -> 1)
+                                const chainId = getChainId(proposal.blockchain!.toLowerCase());
+                                if (chainId) {
+                                  BlockchainExplorerService.openTransaction(chainId, proposal.executionHash!);
+                                } else {
+                                  console.warn(`Unknown blockchain: ${proposal.blockchain}`);
+                                }
+                              }}
+                            >
+                              <ExternalLink className="mr-2 h-3 w-3" />
+                              View on Explorer
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* On-Chain Confirmation Progress */}
+                      {proposal.onChainTxId !== null && !proposal.executionHash && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">On-Chain Confirmations</span>
+                            <span className="font-medium">
+                              {proposal.onChainConfirmations || 0} / {proposal.signaturesRequired}
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-1.5">
+                            <div
+                              className="h-1.5 rounded-full bg-blue-500 transition-all"
+                              style={{
+                                width: `${((proposal.onChainConfirmations || 0) / proposal.signaturesRequired) * 100}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* ============================================ */}
 
                   {/* Signatures Progress */}
                   <div className="space-y-2">
@@ -326,14 +434,16 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
                         {proposal.signatures.map((sig) => (
                           <div
                             key={sig.id}
-                            className="flex items-center gap-2 text-xs text-muted-foreground"
+                            className="flex items-center gap-2 text-xs"
                           >
-                            <UserCheck className="h-3 w-3 text-green-600" />
-                            <span className="font-mono">
-                              {sig.signer.slice(0, 8)}...{sig.signer.slice(-6)}
+                            <UserCheck className="h-3 w-3 text-green-600 flex-shrink-0" />
+                            <span className="font-medium">{sig.signerName}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="font-mono text-muted-foreground">
+                              {sig.signerAddress.slice(0, 6)}...{sig.signerAddress.slice(-4)}
                             </span>
-                            <span>•</span>
-                            <span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground">
                               {new Date(sig.createdAt).toLocaleDateString()}
                             </span>
                           </div>

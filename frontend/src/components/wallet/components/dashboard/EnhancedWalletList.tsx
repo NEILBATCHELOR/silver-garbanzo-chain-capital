@@ -200,7 +200,7 @@ export const EnhancedWalletList: React.FC<EnhancedWalletListProps> = ({
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Wallet className="h-4 w-4" />
-              Connected Wallets ({wallets.length})
+              Investor Wallets ({wallets.length})
             </div>
             {wallets.map((wallet) => (
               <div

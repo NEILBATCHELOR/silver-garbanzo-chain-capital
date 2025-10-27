@@ -362,6 +362,7 @@ const UnifiedTransactionSchema = Type.Object({
 
 const CreateSmartContractWalletSchema = Type.Object({
   investor_id: Type.String({ format: 'uuid' }),
+  project_id: Type.String({ format: 'uuid' }),
   name: Type.Optional(Type.String()),
   features: Type.Array(Type.Union([
     Type.Literal('webauthn'),
@@ -1031,15 +1032,17 @@ export async function walletRoutes(fastify: FastifyInstance) {
     }
   }, async (request: FastifyRequest<{ Body: {
     investor_id: string
+    project_id: string
     name?: string
     features: string[]
   } }>, reply: FastifyReply) => {
     try {
-      const { investor_id, name, features } = request.body
+      const { investor_id, project_id, name, features } = request.body
       
       // Create a base wallet first if needed
       const baseWalletResult = await walletService.instance.createWallet({
         investor_id,
+        project_id,
         chain_id: '1', // Ethereum mainnet - default for smart contracts
         name
       })

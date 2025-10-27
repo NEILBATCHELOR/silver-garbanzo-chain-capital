@@ -3,10 +3,23 @@ import { useAuth } from "@/infrastructure/auth/AuthProvider";
 import { supabase } from "@/infrastructure/database/client";
 import { getRoleDisplayName } from "@/utils/auth/roleNormalizer";
 import SessionIndicator from "./SessionIndicator";
+import { MultiSigListenerHealthBadge } from "@/components/wallet/monitoring";
+import { useMultiSigEventListeners } from "@/hooks/wallet/useMultiSigEventListeners";
 
 const Header = () => {
   const { user } = useAuth();
   const [displayRole, setDisplayRole] = useState<string>("");
+  
+  // ============================================================================
+  // MULTI-SIG EVENT LISTENERS INTEGRATION (Phase 3)
+  // ============================================================================
+  // Initialize event listeners when user logs in
+  // Monitors on-chain multi-sig transactions in real-time
+  const { health: multiSigHealth } = useMultiSigEventListeners(user?.id, {
+    autoStart: true,
+    autoStop: true,
+    healthCheckInterval: 30000 // Check health every 30 seconds
+  });
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -41,6 +54,8 @@ const Header = () => {
                 Welcome, {user.user_metadata?.name || user.email}
                 {displayRole && <span className="ml-1">({displayRole})</span>}
               </div>
+              {/* Multi-Sig Listener Health Badge */}
+              <MultiSigListenerHealthBadge health={multiSigHealth} />
               <SessionIndicator compact={true} />
             </>
           )}

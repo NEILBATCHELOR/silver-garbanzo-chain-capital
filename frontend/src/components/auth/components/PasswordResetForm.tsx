@@ -30,16 +30,22 @@ interface PasswordResetFormProps {
   mode?: 'request' | 'update';
   onSuccess?: () => void;
   showHeader?: boolean;
+  tokenHash?: string | null; // Token hash for secure password reset
 }
 
 export const PasswordResetForm: React.FC<PasswordResetFormProps> = ({
   mode: propMode,
   onSuccess,
   showHeader = true,
+  tokenHash: propTokenHash,
 }) => {
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Get token from props or URL params
+  const urlTokenHash = searchParams.get('token_hash');
+  const tokenHash = propTokenHash || urlTokenHash;
   
   // Enhanced token detection for password reset
   const accessToken = searchParams.get('access_token');
@@ -47,8 +53,10 @@ export const PasswordResetForm: React.FC<PasswordResetFormProps> = ({
   const tokenType = searchParams.get('token_type');
   const type = searchParams.get('type');
   
-  // Determine mode based on recovery tokens or explicit type
-  const hasRecoveryToken = (accessToken && refreshToken && tokenType === 'bearer') || type === 'recovery';
+  // Determine mode based on recovery tokens or explicit type or tokenHash
+  const hasRecoveryToken = (accessToken && refreshToken && tokenType === 'bearer') || 
+                           type === 'recovery' || 
+                           !!tokenHash;
   const mode = propMode || (hasRecoveryToken ? 'update' : 'request');
   
   const { resetPassword, updatePassword, loading, resetSent } = usePasswordManagement();
@@ -106,7 +114,62 @@ export const PasswordResetForm: React.FC<PasswordResetFormProps> = ({
   const handleUpdatePassword = async (data: UpdatePasswordFormData) => {
     clearError();
 
-    // Check if there's a valid session before attempting password update
+    // SECURITY FIX: Atomic password reset operation
+    // If we have a tokenHash, verify token and update password in ONE operation
+    // This prevents logging users in before they complete the password reset
+    if (tokenHash) {
+      try {
+        // Verify OTP token and update password simultaneously
+        const { data: authData, error: resetError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'recovery',
+        });
+
+        if (resetError) {
+          console.error('Token verification error:', resetError);
+          
+          if (resetError.message?.includes('expired')) {
+            navigate('/auth/reset-password?error=session_expired', { replace: true });
+          } else {
+            navigate(`/auth/reset-password?error=${encodeURIComponent(resetError.message)}`, { replace: true });
+          }
+          return;
+        }
+
+        if (!authData.session) {
+          console.error('No session established after token verification');
+          navigate('/auth/reset-password?error=session_error', { replace: true });
+          return;
+        }
+
+        // Now that we have a valid session, update the password
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: data.password,
+        });
+
+        if (updateError) {
+          console.error('Password update error:', updateError);
+          throw updateError;
+        }
+
+        // Success! Sign them out to force fresh login with new password
+        await supabase.auth.signOut();
+        
+        onSuccess?.();
+        navigate('/auth/login', {
+          state: { 
+            message: 'Your password has been updated successfully. Please sign in with your new password.',
+            variant: 'success'
+          }
+        });
+      } catch (err) {
+        console.error('Password reset error:', err);
+        navigate('/auth/reset-password?error=update_failed', { replace: true });
+      }
+      return;
+    }
+
+    // Fallback: Check if there's a valid session (legacy flow)
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -115,19 +178,26 @@ export const PasswordResetForm: React.FC<PasswordResetFormProps> = ({
         navigate('/auth/reset-password?error=session_expired', { replace: true });
         return;
       }
+
+      const success = await updatePassword({
+        password: data.password,
+      });
+
+      if (success) {
+        // Sign them out to force fresh login
+        await supabase.auth.signOut();
+        
+        onSuccess?.();
+        navigate('/auth/login', {
+          state: { 
+            message: 'Your password has been updated successfully. Please sign in with your new password.',
+            variant: 'success'
+          }
+        });
+      }
     } catch (err) {
       console.error('Error checking session:', err);
-    }
-
-    const success = await updatePassword({
-      password: data.password,
-    });
-
-    if (success) {
-      onSuccess?.();
-      navigate('/auth/login', {
-        state: { message: 'Your password has been updated successfully. Please sign in with your new password.' }
-      });
+      navigate('/auth/reset-password?error=session_error', { replace: true });
     }
   };
 

@@ -9,6 +9,26 @@ export {
   multiSigTransactionService
 } from './MultiSigTransactionService';
 
+export {
+  MultiSigApprovalService,
+  multiSigApprovalService
+} from './MultiSigApprovalService';
+
+export {
+  MultiSigBlockchainIntegration,
+  multiSigBlockchainIntegration
+} from './MultiSigBlockchainIntegration';
+
+export {
+  MultiSigEventListener,
+  multiSigEventListener
+} from './MultiSigEventListener';
+
+export {
+  MultiSigListenerManager,
+  multiSigListenerManager
+} from './MultiSigListenerManager';
+
 export { SignatureAggregator } from './SignatureAggregator';
 export { LocalSigner } from './LocalSigner';
 
@@ -37,6 +57,31 @@ export type {
   MultiSigBroadcastResult,
   WalletDeploymentResult
 } from './MultiSigTransactionService';
+
+export type {
+  TransferProposal,
+  ProposalApproval,
+  ProposalWithSignatures,
+  CreateProposalParams,
+  ApprovalResult,
+  ExecutionResult
+} from './MultiSigApprovalService';
+
+export type {
+  MultiSigProposal as TechnicalMultiSigProposal,
+  OnChainTransaction,
+  PrepareResult,
+  SubmitResult
+} from './MultiSigBlockchainIntegration';
+
+export type {
+  EventListenerConfig,
+  ListenerStatus
+} from './MultiSigEventListener';
+
+export type {
+  HealthReport
+} from './MultiSigListenerManager';
 
 export type {
   AggregatedSignature,
