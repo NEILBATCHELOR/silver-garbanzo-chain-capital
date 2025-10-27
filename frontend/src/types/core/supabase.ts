@@ -12893,40 +12893,70 @@ export type Database = {
           created_by: string | null
           encrypted_key: string
           id: string
+          investor_id: string | null
           key_id: string
           key_type: string
           metadata: Json | null
           project_wallet_id: string | null
           updated_at: string | null
+          user_id: string | null
+          wallet_id: string | null
         }
         Insert: {
           created_at?: string | null
           created_by?: string | null
           encrypted_key: string
           id?: string
+          investor_id?: string | null
           key_id: string
           key_type?: string
           metadata?: Json | null
           project_wallet_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
         }
         Update: {
           created_at?: string | null
           created_by?: string | null
           encrypted_key?: string
           id?: string
+          investor_id?: string | null
           key_id?: string
           key_type?: string
           metadata?: Json | null
           project_wallet_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_key_vault_keys_investor_id"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["investor_id"]
+          },
           {
             foreignKeyName: "key_vault_keys_project_wallet_id_fkey"
             columns: ["project_wallet_id"]
             isOneToOne: false
             referencedRelation: "project_wallets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "key_vault_keys_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "key_vault_keys_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
         ]
@@ -15152,6 +15182,7 @@ export type Database = {
           added_by: string | null
           id: string
           role_id: string
+          user_address_id: string | null
           user_id: string | null
           wallet_id: string
         }
@@ -15160,6 +15191,7 @@ export type Database = {
           added_by?: string | null
           id?: string
           role_id: string
+          user_address_id?: string | null
           user_id?: string | null
           wallet_id: string
         }
@@ -15168,6 +15200,7 @@ export type Database = {
           added_by?: string | null
           id?: string
           role_id?: string
+          user_address_id?: string | null
           user_id?: string | null
           wallet_id?: string
         }
@@ -15184,6 +15217,13 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multi_sig_wallet_owners_user_address_id_fkey"
+            columns: ["user_address_id"]
+            isOneToOne: false
+            referencedRelation: "user_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -19161,6 +19201,724 @@ export type Database = {
         }
         Relationships: []
       }
+      psp_api_keys: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          environment: string
+          expires_at: string | null
+          id: string
+          ip_whitelist: string[] | null
+          key_description: string
+          key_hash: string
+          last_used_at: string | null
+          project_id: string
+          status: string
+          updated_at: string | null
+          usage_count: number | null
+          warp_api_key_vault_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          environment: string
+          expires_at?: string | null
+          id?: string
+          ip_whitelist?: string[] | null
+          key_description: string
+          key_hash: string
+          last_used_at?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          warp_api_key_vault_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          environment?: string
+          expires_at?: string | null
+          id?: string
+          ip_whitelist?: string[] | null
+          key_description?: string
+          key_hash?: string
+          last_used_at?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          warp_api_key_vault_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_api_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_api_keys_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_api_keys_warp_api_key_vault_id_fkey"
+            columns: ["warp_api_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_balances: {
+        Row: {
+          asset_symbol: string
+          asset_type: string
+          available_balance: number | null
+          created_at: string | null
+          id: string
+          last_synced_at: string | null
+          locked_balance: number | null
+          network: string | null
+          pending_balance: number | null
+          project_id: string
+          total_balance: number | null
+          updated_at: string | null
+          virtual_account_id: string | null
+          wallet_address: string | null
+          warp_wallet_id: string | null
+        }
+        Insert: {
+          asset_symbol: string
+          asset_type: string
+          available_balance?: number | null
+          created_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          locked_balance?: number | null
+          network?: string | null
+          pending_balance?: number | null
+          project_id: string
+          total_balance?: number | null
+          updated_at?: string | null
+          virtual_account_id?: string | null
+          wallet_address?: string | null
+          warp_wallet_id?: string | null
+        }
+        Update: {
+          asset_symbol?: string
+          asset_type?: string
+          available_balance?: number | null
+          created_at?: string | null
+          id?: string
+          last_synced_at?: string | null
+          locked_balance?: number | null
+          network?: string | null
+          pending_balance?: number | null
+          project_id?: string
+          total_balance?: number | null
+          updated_at?: string | null
+          virtual_account_id?: string | null
+          wallet_address?: string | null
+          warp_wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_balances_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_balances_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "psp_virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_external_accounts: {
+        Row: {
+          account_classification: string | null
+          account_holder_name: string | null
+          account_number_last4: string | null
+          account_number_vault_id: string | null
+          account_type: string
+          bank_name: string | null
+          created_at: string | null
+          currency_type: string
+          description: string
+          id: string
+          metadata: Json | null
+          network: string | null
+          project_id: string
+          routing_number_vault_id: string | null
+          status: string
+          transfer_method: string | null
+          updated_at: string | null
+          wallet_address: string | null
+          warp_account_id: string | null
+        }
+        Insert: {
+          account_classification?: string | null
+          account_holder_name?: string | null
+          account_number_last4?: string | null
+          account_number_vault_id?: string | null
+          account_type: string
+          bank_name?: string | null
+          created_at?: string | null
+          currency_type: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          network?: string | null
+          project_id: string
+          routing_number_vault_id?: string | null
+          status?: string
+          transfer_method?: string | null
+          updated_at?: string | null
+          wallet_address?: string | null
+          warp_account_id?: string | null
+        }
+        Update: {
+          account_classification?: string | null
+          account_holder_name?: string | null
+          account_number_last4?: string | null
+          account_number_vault_id?: string | null
+          account_type?: string
+          bank_name?: string | null
+          created_at?: string | null
+          currency_type?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          network?: string | null
+          project_id?: string
+          routing_number_vault_id?: string | null
+          status?: string
+          transfer_method?: string | null
+          updated_at?: string | null
+          wallet_address?: string | null
+          warp_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_external_accounts_account_number_vault_id_fkey"
+            columns: ["account_number_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_external_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_external_accounts_routing_number_vault_id_fkey"
+            columns: ["routing_number_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_identity_cases: {
+        Row: {
+          approved_at: string | null
+          business_data: Json | null
+          case_type: string
+          created_at: string | null
+          id: string
+          missing_fields: string[] | null
+          next_steps: string[] | null
+          persons_data: Json | null
+          project_id: string
+          rejected_at: string | null
+          rejection_reasons: string[] | null
+          status: string
+          submitted_at: string | null
+          updated_at: string | null
+          verification_results: Json | null
+          warp_case_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          business_data?: Json | null
+          case_type: string
+          created_at?: string | null
+          id?: string
+          missing_fields?: string[] | null
+          next_steps?: string[] | null
+          persons_data?: Json | null
+          project_id: string
+          rejected_at?: string | null
+          rejection_reasons?: string[] | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+          verification_results?: Json | null
+          warp_case_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          business_data?: Json | null
+          case_type?: string
+          created_at?: string | null
+          id?: string
+          missing_fields?: string[] | null
+          next_steps?: string[] | null
+          persons_data?: Json | null
+          project_id?: string
+          rejected_at?: string | null
+          rejection_reasons?: string[] | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+          verification_results?: Json | null
+          warp_case_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_identity_cases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_payment_settings: {
+        Row: {
+          automation_enabled: boolean | null
+          created_at: string | null
+          default_fiat_rail: string | null
+          id: string
+          offramp_enabled: boolean | null
+          offramp_target_account_id: string | null
+          offramp_target_currency: string | null
+          onramp_enabled: boolean | null
+          onramp_target_asset: string | null
+          onramp_target_network: string | null
+          onramp_target_wallet_id: string | null
+          project_id: string
+          updated_at: string | null
+          withdrawal_frequency: string | null
+        }
+        Insert: {
+          automation_enabled?: boolean | null
+          created_at?: string | null
+          default_fiat_rail?: string | null
+          id?: string
+          offramp_enabled?: boolean | null
+          offramp_target_account_id?: string | null
+          offramp_target_currency?: string | null
+          onramp_enabled?: boolean | null
+          onramp_target_asset?: string | null
+          onramp_target_network?: string | null
+          onramp_target_wallet_id?: string | null
+          project_id: string
+          updated_at?: string | null
+          withdrawal_frequency?: string | null
+        }
+        Update: {
+          automation_enabled?: boolean | null
+          created_at?: string | null
+          default_fiat_rail?: string | null
+          id?: string
+          offramp_enabled?: boolean | null
+          offramp_target_account_id?: string | null
+          offramp_target_currency?: string | null
+          onramp_enabled?: boolean | null
+          onramp_target_asset?: string | null
+          onramp_target_network?: string | null
+          onramp_target_wallet_id?: string | null
+          project_id?: string
+          updated_at?: string | null
+          withdrawal_frequency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_payment_settings_offramp_target_account_id_fkey"
+            columns: ["offramp_target_account_id"]
+            isOneToOne: false
+            referencedRelation: "psp_external_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_payment_settings_onramp_target_wallet_id_fkey"
+            columns: ["onramp_target_wallet_id"]
+            isOneToOne: false
+            referencedRelation: "psp_external_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_payment_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_payments: {
+        Row: {
+          amount: number
+          asset_symbol: string | null
+          completed_at: string | null
+          created_at: string | null
+          currency: string
+          destination_id: string | null
+          destination_type: string | null
+          direction: string
+          error_code: string | null
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          initiated_at: string | null
+          memo: string | null
+          metadata: Json | null
+          network: string | null
+          payment_rail: string | null
+          payment_type: string
+          project_id: string
+          source_id: string | null
+          source_type: string | null
+          status: string
+          updated_at: string | null
+          warp_payment_id: string | null
+        }
+        Insert: {
+          amount: number
+          asset_symbol?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          currency: string
+          destination_id?: string | null
+          destination_type?: string | null
+          direction: string
+          error_code?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          initiated_at?: string | null
+          memo?: string | null
+          metadata?: Json | null
+          network?: string | null
+          payment_rail?: string | null
+          payment_type: string
+          project_id: string
+          source_id?: string | null
+          source_type?: string | null
+          status?: string
+          updated_at?: string | null
+          warp_payment_id?: string | null
+        }
+        Update: {
+          amount?: number
+          asset_symbol?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          currency?: string
+          destination_id?: string | null
+          destination_type?: string | null
+          direction?: string
+          error_code?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          initiated_at?: string | null
+          memo?: string | null
+          metadata?: Json | null
+          network?: string | null
+          payment_rail?: string | null
+          payment_type?: string
+          project_id?: string
+          source_id?: string | null
+          source_type?: string | null
+          status?: string
+          updated_at?: string | null
+          warp_payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_trades: {
+        Row: {
+          created_at: string | null
+          destination_amount: number | null
+          destination_network: string | null
+          destination_symbol: string
+          error_message: string | null
+          exchange_rate: number | null
+          executed_at: string | null
+          fee_amount: number | null
+          fee_currency: string | null
+          id: string
+          project_id: string
+          source_amount: number
+          source_network: string | null
+          source_symbol: string
+          status: string
+          updated_at: string | null
+          virtual_account_id: string | null
+          warp_trade_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          destination_amount?: number | null
+          destination_network?: string | null
+          destination_symbol: string
+          error_message?: string | null
+          exchange_rate?: number | null
+          executed_at?: string | null
+          fee_amount?: number | null
+          fee_currency?: string | null
+          id?: string
+          project_id: string
+          source_amount: number
+          source_network?: string | null
+          source_symbol: string
+          status?: string
+          updated_at?: string | null
+          virtual_account_id?: string | null
+          warp_trade_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          destination_amount?: number | null
+          destination_network?: string | null
+          destination_symbol?: string
+          error_message?: string | null
+          exchange_rate?: number | null
+          executed_at?: string | null
+          fee_amount?: number | null
+          fee_currency?: string | null
+          id?: string
+          project_id?: string
+          source_amount?: number
+          source_network?: string | null
+          source_symbol?: string
+          status?: string
+          updated_at?: string | null
+          virtual_account_id?: string | null
+          warp_trade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_trades_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_trades_virtual_account_id_fkey"
+            columns: ["virtual_account_id"]
+            isOneToOne: false
+            referencedRelation: "psp_virtual_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_virtual_accounts: {
+        Row: {
+          account_name: string
+          account_type: string
+          balances: Json | null
+          created_at: string | null
+          deposit_instructions: Json | null
+          id: string
+          identity_case_id: string | null
+          project_id: string
+          status: string
+          updated_at: string | null
+          warp_virtual_account_id: string | null
+        }
+        Insert: {
+          account_name: string
+          account_type: string
+          balances?: Json | null
+          created_at?: string | null
+          deposit_instructions?: Json | null
+          id?: string
+          identity_case_id?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string | null
+          warp_virtual_account_id?: string | null
+        }
+        Update: {
+          account_name?: string
+          account_type?: string
+          balances?: Json | null
+          created_at?: string | null
+          deposit_instructions?: Json | null
+          id?: string
+          identity_case_id?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string | null
+          warp_virtual_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_virtual_accounts_identity_case_id_fkey"
+            columns: ["identity_case_id"]
+            isOneToOne: false
+            referencedRelation: "psp_identity_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_virtual_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_webhook_events: {
+        Row: {
+          created_at: string | null
+          delivered_at: string | null
+          delivery_attempts: number | null
+          event_id: string
+          event_name: string
+          id: string
+          payload: Json
+          project_id: string
+          resource_urls: string[]
+          status: string
+          updated_at: string | null
+          webhook_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_attempts?: number | null
+          event_id: string
+          event_name: string
+          id?: string
+          payload: Json
+          project_id: string
+          resource_urls: string[]
+          status?: string
+          updated_at?: string | null
+          webhook_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_attempts?: number | null
+          event_id?: string
+          event_name?: string
+          id?: string
+          payload?: Json
+          project_id?: string
+          resource_urls?: string[]
+          status?: string
+          updated_at?: string | null
+          webhook_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_webhook_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_webhook_events_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "psp_webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psp_webhooks: {
+        Row: {
+          auth_password_vault_id: string | null
+          auth_username: string
+          callback_url: string
+          created_at: string | null
+          failure_reason: string | null
+          id: string
+          last_failure_at: string | null
+          last_success_at: string | null
+          project_id: string
+          retry_count: number | null
+          status: string
+          updated_at: string | null
+          warp_webhook_id: string | null
+        }
+        Insert: {
+          auth_password_vault_id?: string | null
+          auth_username: string
+          callback_url: string
+          created_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          project_id: string
+          retry_count?: number | null
+          status?: string
+          updated_at?: string | null
+          warp_webhook_id?: string | null
+        }
+        Update: {
+          auth_password_vault_id?: string | null
+          auth_username?: string
+          callback_url?: string
+          created_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          project_id?: string
+          retry_count?: number | null
+          status?: string
+          updated_at?: string | null
+          warp_webhook_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_webhooks_auth_password_vault_id_fkey"
+            columns: ["auth_password_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quant_backtests: {
         Row: {
           alpha: number | null
@@ -21423,6 +22181,13 @@ export type Database = {
             foreignKeyName: "restriction_validation_logs_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restriction_validation_logs_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -23006,6 +23771,13 @@ export type Database = {
             foreignKeyName: "session_keys_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_keys_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -23362,6 +24134,13 @@ export type Database = {
             foreignKeyName: "signature_migrations_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_migrations_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -23473,6 +24252,13 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "smart_contract_wallets_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "smart_contract_wallets_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -32080,6 +32866,7 @@ export type Database = {
           data: string | null
           description: string | null
           id: string
+          multi_sig_proposal_id: string | null
           nonce: number | null
           status: string
           title: string
@@ -32097,6 +32884,7 @@ export type Database = {
           data?: string | null
           description?: string | null
           id?: string
+          multi_sig_proposal_id?: string | null
           nonce?: number | null
           status?: string
           title: string
@@ -32114,6 +32902,7 @@ export type Database = {
           data?: string | null
           description?: string | null
           id?: string
+          multi_sig_proposal_id?: string | null
           nonce?: number | null
           status?: string
           title?: string
@@ -32125,6 +32914,13 @@ export type Database = {
           wallet_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "transaction_proposals_multi_sig_proposal_id_fkey"
+            columns: ["multi_sig_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_proposals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transaction_proposals_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -32148,6 +32944,8 @@ export type Database = {
           proposal_id: string
           signature: string
           signer: string
+          signer_address: string | null
+          signer_name: string | null
           transaction_hash: string | null
           updated_at: string | null
         }
@@ -32157,6 +32955,8 @@ export type Database = {
           proposal_id: string
           signature: string
           signer: string
+          signer_address?: string | null
+          signer_name?: string | null
           transaction_hash?: string | null
           updated_at?: string | null
         }
@@ -32166,6 +32966,8 @@ export type Database = {
           proposal_id?: string
           signature?: string
           signer?: string
+          signer_address?: string | null
+          signer_name?: string | null
           transaction_hash?: string | null
           updated_at?: string | null
         }
@@ -32504,6 +33306,13 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_operations_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_operations_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -33000,6 +33809,13 @@ export type Database = {
             foreignKeyName: "wallet_facets_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_facets_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -33043,6 +33859,13 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "wallet_guardians_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "wallet_guardians_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -33115,6 +33938,13 @@ export type Database = {
             foreignKeyName: "wallet_locks_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_locks_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -33158,6 +33988,13 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "wallet_restriction_rules_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "wallet_restriction_rules_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -33251,6 +34088,13 @@ export type Database = {
             foreignKeyName: "fk_wallet_transaction_drafts_wallet_id"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_wallet_transaction_drafts_wallet_id"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -33334,6 +34178,13 @@ export type Database = {
             foreignKeyName: "wallet_transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -33347,6 +34198,13 @@ export type Database = {
           id: string
           investor_id: string
           is_multi_sig_enabled: boolean
+          mnemonic: string | null
+          mnemonic_vault_id: string | null
+          private_key: string | null
+          private_key_vault_id: string | null
+          project_id: string
+          public_key: string | null
+          public_key_vault_id: string | null
           signatories: Json
           status: string
           updated_at: string
@@ -33361,6 +34219,13 @@ export type Database = {
           id?: string
           investor_id: string
           is_multi_sig_enabled?: boolean
+          mnemonic?: string | null
+          mnemonic_vault_id?: string | null
+          private_key?: string | null
+          private_key_vault_id?: string | null
+          project_id: string
+          public_key?: string | null
+          public_key_vault_id?: string | null
           signatories?: Json
           status?: string
           updated_at?: string
@@ -33375,6 +34240,13 @@ export type Database = {
           id?: string
           investor_id?: string
           is_multi_sig_enabled?: boolean
+          mnemonic?: string | null
+          mnemonic_vault_id?: string | null
+          private_key?: string | null
+          private_key_vault_id?: string | null
+          project_id?: string
+          public_key?: string | null
+          public_key_vault_id?: string | null
           signatories?: Json
           status?: string
           updated_at?: string
@@ -33389,6 +34261,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "investors"
             referencedColumns: ["investor_id"]
+          },
+          {
+            foreignKeyName: "wallets_mnemonic_vault_id_fkey"
+            columns: ["mnemonic_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallets_private_key_vault_id_fkey"
+            columns: ["private_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallets_public_key_vault_id_fkey"
+            columns: ["public_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -33491,6 +34384,13 @@ export type Database = {
             foreignKeyName: "webauthn_challenges_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webauthn_challenges_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
@@ -33537,6 +34437,13 @@ export type Database = {
           wallet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "webauthn_credentials_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webauthn_credentials_wallet_id_fkey"
             columns: ["wallet_id"]
@@ -35046,6 +35953,58 @@ export type Database = {
           },
         ]
       }
+      wallet_with_keys: {
+        Row: {
+          blockchain: string | null
+          created_at: string | null
+          id: string | null
+          investor_id: string | null
+          mnemonic_from_vault: string | null
+          mnemonic_legacy: string | null
+          mnemonic_vault_id: string | null
+          private_key_from_vault: string | null
+          private_key_legacy: string | null
+          private_key_vault_id: string | null
+          project_id: string | null
+          public_key_from_vault: string | null
+          public_key_legacy: string | null
+          public_key_vault_id: string | null
+          status: string | null
+          updated_at: string | null
+          wallet_address: string | null
+          wallet_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallets_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["investor_id"]
+          },
+          {
+            foreignKeyName: "wallets_mnemonic_vault_id_fkey"
+            columns: ["mnemonic_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallets_private_key_vault_id_fkey"
+            columns: ["private_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallets_public_key_vault_id_fkey"
+            columns: ["public_key_vault_id"]
+            isOneToOne: false
+            referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_investors_to_group: {
@@ -35531,6 +36490,13 @@ export type Database = {
         Returns: string
       }
       migrate_token_json_to_tables: { Args: never; Returns: undefined }
+      migrate_wallet_keys_to_vault: {
+        Args: never
+        Returns: {
+          error_count: number
+          migrated_count: number
+        }[]
+      }
       purge_duplicate_lifecycle_events: { Args: never; Returns: number }
       reconcile_redemption_statistics: {
         Args: never

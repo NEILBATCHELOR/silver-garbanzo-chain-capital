@@ -214,6 +214,21 @@ export class WarpApiClient {
   }
 
   /**
+   * Make a PATCH request to Warp API
+   */
+  async patch<T = any>(path: string, data?: any): Promise<WarpApiResponse<T>> {
+    try {
+      const response = await this.client.patch(path, data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return this.formatError(error);
+    }
+  }
+
+  /**
    * Make a DELETE request to Warp API
    */
   async delete<T = any>(path: string): Promise<WarpApiResponse<T>> {

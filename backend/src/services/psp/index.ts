@@ -15,10 +15,10 @@ export * from '../../types/psp';
 export * from './security';
 export * from './auth';
 export * from './webhooks';
+export * from './identity';
 
-// TODO: Implement remaining Phase 2 services
+// Remaining Phase 2 services to implement
 // export * from './accounts';
-// export * from './identity';
 // export * from './payments';
 // export * from './automation';
 // export * from './reporting';

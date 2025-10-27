@@ -32,8 +32,8 @@ export class PSPEncryptionService {
   static async encryptWarpApiKey(
     apiKey: string,
     projectId: string,
-    userId: string,
-    description: string
+    description: string,
+    userId: string = 'system'
   ): Promise<EncryptedVaultReference> {
     // Encrypt the API key
     const encrypted = await WalletEncryptionService.encrypt(apiKey);
@@ -89,8 +89,8 @@ export class PSPEncryptionService {
   static async encryptWebhookPassword(
     password: string,
     projectId: string,
-    userId: string,
-    description: string
+    description: string,
+    userId: string = 'system'
   ): Promise<EncryptedVaultReference> {
     const encrypted = await WalletEncryptionService.encrypt(password);
     
@@ -245,8 +245,8 @@ export class PSPEncryptionService {
   static async encryptPII(
     piiData: string,
     projectId: string,
-    userId: string,
-    piiType: PIIType
+    piiType: PIIType,
+    userId: string = 'system'
   ): Promise<EncryptedVaultReference> {
     const encrypted = await WalletEncryptionService.encrypt(piiData);
     

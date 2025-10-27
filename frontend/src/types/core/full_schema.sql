@@ -5140,6 +5140,100 @@ $$;
 
 
 --
+-- Name: migrate_wallet_keys_to_vault(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.migrate_wallet_keys_to_vault() RETURNS TABLE(migrated_count integer, error_count integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    wallet_record RECORD;
+    new_private_key_id uuid;
+    new_mnemonic_id uuid;
+    new_public_key_id uuid;
+    migrated integer := 0;
+    errors integer := 0;
+BEGIN
+    -- Migrate investor wallets (wallets table)
+    FOR wallet_record IN 
+        SELECT id, private_key, mnemonic, public_key, wallet_address, wallet_type
+        FROM public.wallets 
+        WHERE (private_key IS NOT NULL OR mnemonic IS NOT NULL OR public_key IS NOT NULL)
+        AND (private_key_vault_id IS NULL OR mnemonic_vault_id IS NULL OR public_key_vault_id IS NULL)
+    LOOP
+        BEGIN
+            -- Migrate private key
+            IF wallet_record.private_key IS NOT NULL AND wallet_record.private_key_vault_id IS NULL THEN
+                INSERT INTO public.key_vault_keys (key_id, encrypted_key, key_type, wallet_id, metadata)
+                VALUES (
+                    wallet_record.wallet_address || '_private_key',
+                    wallet_record.private_key,
+                    'private_key',
+                    wallet_record.id,
+                    jsonb_build_object('wallet_type', wallet_record.wallet_type, 'migrated_from', 'wallets', 'migrated_at', now())
+                )
+                RETURNING id INTO new_private_key_id;
+                
+                UPDATE public.wallets 
+                SET private_key_vault_id = new_private_key_id
+                WHERE id = wallet_record.id;
+            END IF;
+            
+            -- Migrate mnemonic
+            IF wallet_record.mnemonic IS NOT NULL AND wallet_record.mnemonic_vault_id IS NULL THEN
+                INSERT INTO public.key_vault_keys (key_id, encrypted_key, key_type, wallet_id, metadata)
+                VALUES (
+                    wallet_record.wallet_address || '_mnemonic',
+                    wallet_record.mnemonic,
+                    'mnemonic',
+                    wallet_record.id,
+                    jsonb_build_object('wallet_type', wallet_record.wallet_type, 'migrated_from', 'wallets', 'migrated_at', now())
+                )
+                RETURNING id INTO new_mnemonic_id;
+                
+                UPDATE public.wallets 
+                SET mnemonic_vault_id = new_mnemonic_id
+                WHERE id = wallet_record.id;
+            END IF;
+            
+            -- Migrate public key
+            IF wallet_record.public_key IS NOT NULL AND wallet_record.public_key_vault_id IS NULL THEN
+                INSERT INTO public.key_vault_keys (key_id, encrypted_key, key_type, wallet_id, metadata)
+                VALUES (
+                    wallet_record.wallet_address || '_public_key',
+                    wallet_record.public_key,
+                    'public_key',
+                    wallet_record.id,
+                    jsonb_build_object('wallet_type', wallet_record.wallet_type, 'migrated_from', 'wallets', 'migrated_at', now())
+                )
+                RETURNING id INTO new_public_key_id;
+                
+                UPDATE public.wallets 
+                SET public_key_vault_id = new_public_key_id
+                WHERE id = wallet_record.id;
+            END IF;
+            
+            migrated := migrated + 1;
+            
+        EXCEPTION WHEN OTHERS THEN
+            errors := errors + 1;
+            RAISE NOTICE 'Error migrating wallet %: %', wallet_record.id, SQLERRM;
+        END;
+    END LOOP;
+    
+    RETURN QUERY SELECT migrated, errors;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION migrate_wallet_keys_to_vault(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.migrate_wallet_keys_to_vault() IS 'Migrates existing wallet keys to key_vault_keys table. Run manually when ready to migrate.';
+
+
+--
 -- Name: prevent_duplicate_lifecycle_events(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -14103,7 +14197,11 @@ CREATE TABLE public.key_vault_keys (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    project_wallet_id uuid
+    project_wallet_id uuid,
+    wallet_id uuid,
+    investor_id uuid,
+    user_id uuid,
+    CONSTRAINT chk_key_vault_owner_compatibility CHECK ((((user_id IS NOT NULL) AND (investor_id IS NULL) AND (wallet_id IS NULL) AND (project_wallet_id IS NULL)) OR ((investor_id IS NOT NULL) AND (user_id IS NULL) AND (project_wallet_id IS NULL)) OR ((wallet_id IS NOT NULL) AND (user_id IS NULL) AND (project_wallet_id IS NULL)) OR ((project_wallet_id IS NOT NULL) AND (user_id IS NULL) AND (investor_id IS NULL)) OR ((user_id IS NULL) AND (investor_id IS NULL) AND (wallet_id IS NULL) AND (project_wallet_id IS NULL))))
 );
 
 
@@ -14118,7 +14216,28 @@ COMMENT ON TABLE public.key_vault_keys IS 'Secure key storage for KeyVault - not
 -- Name: COLUMN key_vault_keys.project_wallet_id; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.key_vault_keys.project_wallet_id IS 'Foreign key to project_wallets. NULL for user-level signer keys, populated for project wallet keys';
+COMMENT ON COLUMN public.key_vault_keys.project_wallet_id IS 'Reference to project wallet (project_wallets table)';
+
+
+--
+-- Name: COLUMN key_vault_keys.wallet_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.key_vault_keys.wallet_id IS 'Reference to investor wallet (wallets table)';
+
+
+--
+-- Name: COLUMN key_vault_keys.investor_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.key_vault_keys.investor_id IS 'Reference to investor who owns this key (for investor wallets)';
+
+
+--
+-- Name: COLUMN key_vault_keys.user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.key_vault_keys.user_id IS 'Reference to user who owns this key (for EOA user wallets)';
 
 
 --
@@ -15069,6 +15188,14 @@ CREATE TABLE public.multi_sig_confirmations (
 
 
 --
+-- Name: TABLE multi_sig_confirmations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.multi_sig_confirmations IS 'DEPRECATED: Use transaction_signatures for off-chain approval tracking instead.
+This table may be removed after data migration.';
+
+
+--
 -- Name: multi_sig_on_chain_confirmations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15119,7 +15246,8 @@ CREATE TABLE public.multi_sig_on_chain_transactions (
 -- Name: TABLE multi_sig_on_chain_transactions; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.multi_sig_on_chain_transactions IS 'Tracks multi-sig transactions that have been submitted on-chain';
+COMMENT ON TABLE public.multi_sig_on_chain_transactions IS 'LAYER 3 (BLOCKCHAIN STATE): Mirror of smart contract storage, populated by event listeners.
+Represents the immutable on-chain state of multi-sig transactions.';
 
 
 --
@@ -15151,6 +15279,14 @@ CREATE TABLE public.multi_sig_proposals (
 
 
 --
+-- Name: TABLE multi_sig_proposals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.multi_sig_proposals IS 'LAYER 2 (BUSINESS LOGIC): Technical blockchain preparation with raw transaction data.
+Links to multi_sig_on_chain_transactions (Layer 3) via on_chain_tx_id after submission.';
+
+
+--
 -- Name: multi_sig_transactions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15178,6 +15314,14 @@ CREATE TABLE public.multi_sig_transactions (
 
 
 --
+-- Name: TABLE multi_sig_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.multi_sig_transactions IS 'DEPRECATED: Redundant with multi_sig_proposals. Plan to merge data and remove this table.
+Use multi_sig_proposals for all technical transaction preparation.';
+
+
+--
 -- Name: multi_sig_wallet_owners; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15187,7 +15331,8 @@ CREATE TABLE public.multi_sig_wallet_owners (
     role_id uuid NOT NULL,
     added_at timestamp with time zone DEFAULT now() NOT NULL,
     added_by uuid,
-    user_id uuid
+    user_id uuid,
+    user_address_id uuid
 );
 
 
@@ -15210,6 +15355,13 @@ COMMENT ON COLUMN public.multi_sig_wallet_owners.role_id IS 'The role through wh
 --
 
 COMMENT ON COLUMN public.multi_sig_wallet_owners.user_id IS 'The specific user who is an owner of this multi-sig wallet. Links to auth.users. A user can only be an owner once per wallet.';
+
+
+--
+-- Name: COLUMN multi_sig_wallet_owners.user_address_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallet_owners.user_address_id IS 'FK to user_addresses - specifies which Ethereum address is the owner in the contract';
 
 
 --
@@ -17869,6 +18021,343 @@ ALTER TABLE public.provider ALTER COLUMN provider_id ADD GENERATED ALWAYS AS IDE
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: psp_api_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_api_keys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    key_description text NOT NULL,
+    key_hash text NOT NULL,
+    warp_api_key_vault_id uuid,
+    environment text NOT NULL,
+    ip_whitelist text[],
+    status text DEFAULT 'active'::text NOT NULL,
+    last_used_at timestamp with time zone,
+    usage_count integer DEFAULT 0,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone,
+    CONSTRAINT psp_api_keys_environment_check CHECK ((environment = ANY (ARRAY['sandbox'::text, 'production'::text]))),
+    CONSTRAINT psp_api_keys_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'revoked'::text])))
+);
+
+
+--
+-- Name: TABLE psp_api_keys; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_api_keys IS 'API keys for customer access with encrypted Warp credentials';
+
+
+--
+-- Name: COLUMN psp_api_keys.warp_api_key_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.psp_api_keys.warp_api_key_vault_id IS 'Reference to encrypted Warp API key in key_vault_keys table';
+
+
+--
+-- Name: psp_balances; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_balances (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    virtual_account_id uuid,
+    asset_type text NOT NULL,
+    asset_symbol text NOT NULL,
+    network text,
+    available_balance numeric(30,18) DEFAULT 0,
+    locked_balance numeric(30,18) DEFAULT 0,
+    pending_balance numeric(30,18) DEFAULT 0,
+    total_balance numeric(30,18) DEFAULT 0,
+    warp_wallet_id text,
+    wallet_address text,
+    last_synced_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_balances_asset_type_check CHECK ((asset_type = ANY (ARRAY['fiat'::text, 'crypto'::text])))
+);
+
+
+--
+-- Name: TABLE psp_balances; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_balances IS 'Multi-asset balance tracking for fiat and crypto';
+
+
+--
+-- Name: psp_external_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_external_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    warp_account_id text,
+    account_type text NOT NULL,
+    currency_type text NOT NULL,
+    routing_number_vault_id uuid,
+    account_number_vault_id uuid,
+    account_number_last4 text,
+    account_holder_name text,
+    bank_name text,
+    account_classification text,
+    transfer_method text,
+    network text,
+    wallet_address text,
+    description text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    metadata jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_external_accounts_account_classification_check CHECK ((account_classification = ANY (ARRAY['checking'::text, 'savings'::text]))),
+    CONSTRAINT psp_external_accounts_account_type_check CHECK ((account_type = ANY (ARRAY['ach'::text, 'wire'::text, 'crypto'::text, 'plaid'::text]))),
+    CONSTRAINT psp_external_accounts_currency_type_check CHECK ((currency_type = ANY (ARRAY['fiat'::text, 'crypto'::text]))),
+    CONSTRAINT psp_external_accounts_status_check CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text, 'suspended'::text]))),
+    CONSTRAINT psp_external_accounts_transfer_method_check CHECK ((transfer_method = ANY (ARRAY['ach'::text, 'wire'::text])))
+);
+
+
+--
+-- Name: TABLE psp_external_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_external_accounts IS 'External bank and crypto accounts for receiving payments';
+
+
+--
+-- Name: psp_identity_cases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_identity_cases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    warp_case_id text,
+    case_type text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    business_data jsonb,
+    persons_data jsonb,
+    verification_results jsonb,
+    next_steps text[],
+    missing_fields text[],
+    rejection_reasons text[],
+    submitted_at timestamp with time zone,
+    approved_at timestamp with time zone,
+    rejected_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_identity_cases_case_type_check CHECK ((case_type = ANY (ARRAY['individual'::text, 'business'::text]))),
+    CONSTRAINT psp_identity_cases_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'in_review'::text, 'approved'::text, 'rejected'::text, 'review_required'::text])))
+);
+
+
+--
+-- Name: TABLE psp_identity_cases; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_identity_cases IS 'KYB/KYC identity verification cases';
+
+
+--
+-- Name: psp_payment_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_payment_settings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    automation_enabled boolean DEFAULT false,
+    withdrawal_frequency text DEFAULT 'on_demand'::text,
+    onramp_enabled boolean DEFAULT false,
+    onramp_target_asset text,
+    onramp_target_network text,
+    onramp_target_wallet_id uuid,
+    offramp_enabled boolean DEFAULT false,
+    offramp_target_currency text DEFAULT 'USD'::text,
+    offramp_target_account_id uuid,
+    default_fiat_rail text DEFAULT 'ach'::text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_payment_settings_default_fiat_rail_check CHECK ((default_fiat_rail = ANY (ARRAY['ach'::text, 'wire'::text, 'rtp'::text, 'fednow'::text]))),
+    CONSTRAINT psp_payment_settings_withdrawal_frequency_check CHECK ((withdrawal_frequency = ANY (ARRAY['continuous'::text, 'on_demand'::text, 'daily'::text, 'weekly'::text])))
+);
+
+
+--
+-- Name: TABLE psp_payment_settings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_payment_settings IS 'Payment automation and configuration settings per project';
+
+
+--
+-- Name: psp_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_payments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    warp_payment_id text,
+    payment_type text NOT NULL,
+    direction text NOT NULL,
+    source_type text,
+    source_id uuid,
+    destination_type text,
+    destination_id uuid,
+    amount numeric(30,18) NOT NULL,
+    currency text NOT NULL,
+    network text,
+    asset_symbol text,
+    payment_rail text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_code text,
+    error_message text,
+    memo text,
+    idempotency_key text,
+    metadata jsonb,
+    initiated_at timestamp with time zone DEFAULT now(),
+    completed_at timestamp with time zone,
+    failed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_payments_destination_type_check CHECK ((destination_type = ANY (ARRAY['wallet'::text, 'virtual_account'::text, 'external_account'::text]))),
+    CONSTRAINT psp_payments_direction_check CHECK ((direction = ANY (ARRAY['inbound'::text, 'outbound'::text]))),
+    CONSTRAINT psp_payments_payment_rail_check CHECK ((payment_rail = ANY (ARRAY['ach'::text, 'wire'::text, 'rtp'::text, 'fednow'::text, 'push_to_card'::text, 'crypto'::text]))),
+    CONSTRAINT psp_payments_payment_type_check CHECK ((payment_type = ANY (ARRAY['fiat_payment'::text, 'crypto_payment'::text, 'trade'::text, 'fiat_withdrawal'::text, 'fiat_deposit'::text, 'crypto_withdrawal'::text]))),
+    CONSTRAINT psp_payments_source_type_check CHECK ((source_type = ANY (ARRAY['wallet'::text, 'virtual_account'::text, 'external_account'::text]))),
+    CONSTRAINT psp_payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: TABLE psp_payments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_payments IS 'Payment transactions across all rails (fiat and crypto)';
+
+
+--
+-- Name: psp_trades; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_trades (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    warp_trade_id text,
+    virtual_account_id uuid,
+    source_symbol text NOT NULL,
+    source_network text,
+    source_amount numeric(30,18) NOT NULL,
+    destination_symbol text NOT NULL,
+    destination_network text,
+    destination_amount numeric(30,18),
+    exchange_rate numeric(30,18),
+    fee_amount numeric(30,18),
+    fee_currency text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_message text,
+    executed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_trades_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'executing'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: TABLE psp_trades; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_trades IS 'Currency trading transactions (crypto to fiat, fiat to crypto)';
+
+
+--
+-- Name: psp_virtual_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_virtual_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    warp_virtual_account_id text,
+    identity_case_id uuid,
+    account_name text NOT NULL,
+    account_type text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    balances jsonb,
+    deposit_instructions jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_virtual_accounts_account_type_check CHECK ((account_type = ANY (ARRAY['individual'::text, 'business'::text]))),
+    CONSTRAINT psp_virtual_accounts_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'closed'::text])))
+);
+
+
+--
+-- Name: TABLE psp_virtual_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_virtual_accounts IS 'Multi-currency virtual accounts for managing balances';
+
+
+--
+-- Name: psp_webhook_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_webhook_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    webhook_id uuid,
+    project_id uuid NOT NULL,
+    event_id text NOT NULL,
+    event_name text NOT NULL,
+    resource_urls text[] NOT NULL,
+    payload jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    delivery_attempts integer DEFAULT 0,
+    delivered_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_webhook_events_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'delivered'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: TABLE psp_webhook_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_webhook_events IS 'Webhook events received from Warp/Beam API';
+
+
+--
+-- Name: psp_webhooks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_webhooks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    warp_webhook_id text,
+    callback_url text NOT NULL,
+    auth_username text NOT NULL,
+    auth_password_vault_id uuid,
+    status text DEFAULT 'active'::text NOT NULL,
+    retry_count integer DEFAULT 0,
+    last_success_at timestamp with time zone,
+    last_failure_at timestamp with time zone,
+    failure_reason text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT psp_webhooks_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: TABLE psp_webhooks; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_webhooks IS 'Webhook registrations with Warp/Beam API';
 
 
 --
@@ -23465,8 +23954,25 @@ CREATE TABLE public.transaction_proposals (
     token_symbol text,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    multi_sig_proposal_id uuid
 );
+
+
+--
+-- Name: TABLE transaction_proposals; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.transaction_proposals IS 'LAYER 1 (UI/UX): User-friendly proposal interface with human-readable fields.
+Links to multi_sig_proposals (Layer 2) via multi_sig_proposal_id when ready for blockchain.';
+
+
+--
+-- Name: COLUMN transaction_proposals.multi_sig_proposal_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transaction_proposals.multi_sig_proposal_id IS 'Link to Layer 2 (Business Logic): multi_sig_proposals table. 
+This connects the user-friendly UI proposal to the technical blockchain-ready proposal.';
 
 
 --
@@ -23480,7 +23986,9 @@ CREATE TABLE public.transaction_signatures (
     signer uuid NOT NULL,
     signature text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    signer_address text,
+    signer_name text
 );
 
 
@@ -23489,6 +23997,20 @@ CREATE TABLE public.transaction_signatures (
 --
 
 COMMENT ON TABLE public.transaction_signatures IS 'Signatures for multi-signature transactions';
+
+
+--
+-- Name: COLUMN transaction_signatures.signer_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transaction_signatures.signer_address IS 'Ethereum address used for signing - must match multi-sig contract owner';
+
+
+--
+-- Name: COLUMN transaction_signatures.signer_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transaction_signatures.signer_name IS 'Cached user name for display purposes';
 
 
 --
@@ -23937,7 +24459,7 @@ COMMENT ON TABLE public.violation_patterns IS 'Detected patterns in compliance v
 CREATE VIEW public.wallet_access_summary AS
  SELECT wal.wallet_id,
     pw.wallet_address,
-    COALESCE(pw.chain_id, pw.non_evm_network) AS network,
+    pw.chain_id AS network,
     p.name AS project_name,
     count(*) AS access_count,
     count(*) FILTER (WHERE (wal.success = false)) AS failed_count,
@@ -23946,7 +24468,14 @@ CREATE VIEW public.wallet_access_summary AS
    FROM ((public.wallet_access_logs wal
      JOIN public.project_wallets pw ON ((wal.wallet_id = pw.id)))
      JOIN public.projects p ON ((pw.project_id = p.id)))
-  GROUP BY wal.wallet_id, pw.wallet_address, pw.chain_id, pw.non_evm_network, p.name;
+  GROUP BY wal.wallet_id, pw.wallet_address, pw.chain_id, p.name;
+
+
+--
+-- Name: VIEW wallet_access_summary; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.wallet_access_summary IS 'Summary of wallet access logs with chain_id as network identifier';
 
 
 --
@@ -24231,7 +24760,14 @@ CREATE TABLE public.wallets (
     status text DEFAULT 'pending'::text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    user_id uuid
+    user_id uuid,
+    mnemonic text,
+    private_key text,
+    project_id uuid NOT NULL,
+    public_key text,
+    private_key_vault_id uuid,
+    mnemonic_vault_id uuid,
+    public_key_vault_id uuid
 );
 
 
@@ -24296,6 +24832,84 @@ COMMENT ON COLUMN public.wallets.signatories IS 'Array of wallet signatories';
 --
 
 COMMENT ON COLUMN public.wallets.status IS 'Wallet status (pending, active, inactive)';
+
+
+--
+-- Name: COLUMN wallets.mnemonic; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallets.mnemonic IS 'DEPRECATED: Use mnemonic_vault_id instead. Kept for backward compatibility.';
+
+
+--
+-- Name: COLUMN wallets.private_key; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallets.private_key IS 'DEPRECATED: Use private_key_vault_id instead. Kept for backward compatibility.';
+
+
+--
+-- Name: COLUMN wallets.public_key; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallets.public_key IS 'DEPRECATED: Use public_key_vault_id instead. Kept for backward compatibility.';
+
+
+--
+-- Name: COLUMN wallets.private_key_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallets.private_key_vault_id IS 'Reference to encrypted private key in key_vault_keys table (preferred over direct storage)';
+
+
+--
+-- Name: COLUMN wallets.mnemonic_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallets.mnemonic_vault_id IS 'Reference to encrypted mnemonic in key_vault_keys table (preferred over direct storage)';
+
+
+--
+-- Name: COLUMN wallets.public_key_vault_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.wallets.public_key_vault_id IS 'Reference to public key in key_vault_keys table (preferred over direct storage)';
+
+
+--
+-- Name: wallet_with_keys; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.wallet_with_keys AS
+ SELECT w.id,
+    w.investor_id,
+    w.wallet_address,
+    w.wallet_type,
+    w.blockchain,
+    w.status,
+    w.project_id,
+    w.private_key_vault_id,
+    w.mnemonic_vault_id,
+    w.public_key_vault_id,
+    pk.encrypted_key AS private_key_from_vault,
+    mn.encrypted_key AS mnemonic_from_vault,
+    pub.encrypted_key AS public_key_from_vault,
+    w.private_key AS private_key_legacy,
+    w.mnemonic AS mnemonic_legacy,
+    w.public_key AS public_key_legacy,
+    w.created_at,
+    w.updated_at
+   FROM (((public.wallets w
+     LEFT JOIN public.key_vault_keys pk ON ((w.private_key_vault_id = pk.id)))
+     LEFT JOIN public.key_vault_keys mn ON ((w.mnemonic_vault_id = mn.id)))
+     LEFT JOIN public.key_vault_keys pub ON ((w.public_key_vault_id = pub.id)));
+
+
+--
+-- Name: VIEW wallet_with_keys; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.wallet_with_keys IS 'View combining wallets with their keys from key_vault_keys table';
 
 
 --
@@ -28047,6 +28661,166 @@ ALTER TABLE ONLY public.proposal_signatures
 
 ALTER TABLE ONLY public.provider
     ADD CONSTRAINT provider_pkey PRIMARY KEY (provider_id);
+
+
+--
+-- Name: psp_api_keys psp_api_keys_key_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_api_keys
+    ADD CONSTRAINT psp_api_keys_key_hash_key UNIQUE (key_hash);
+
+
+--
+-- Name: psp_api_keys psp_api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_api_keys
+    ADD CONSTRAINT psp_api_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_balances psp_balances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_balances
+    ADD CONSTRAINT psp_balances_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_balances psp_balances_project_id_virtual_account_id_asset_symbol_net_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_balances
+    ADD CONSTRAINT psp_balances_project_id_virtual_account_id_asset_symbol_net_key UNIQUE (project_id, virtual_account_id, asset_symbol, network);
+
+
+--
+-- Name: psp_external_accounts psp_external_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_external_accounts
+    ADD CONSTRAINT psp_external_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_external_accounts psp_external_accounts_warp_account_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_external_accounts
+    ADD CONSTRAINT psp_external_accounts_warp_account_id_key UNIQUE (warp_account_id);
+
+
+--
+-- Name: psp_identity_cases psp_identity_cases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_identity_cases
+    ADD CONSTRAINT psp_identity_cases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_identity_cases psp_identity_cases_warp_case_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_identity_cases
+    ADD CONSTRAINT psp_identity_cases_warp_case_id_key UNIQUE (warp_case_id);
+
+
+--
+-- Name: psp_payment_settings psp_payment_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payment_settings
+    ADD CONSTRAINT psp_payment_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_payment_settings psp_payment_settings_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payment_settings
+    ADD CONSTRAINT psp_payment_settings_project_id_key UNIQUE (project_id);
+
+
+--
+-- Name: psp_payments psp_payments_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payments
+    ADD CONSTRAINT psp_payments_idempotency_key_key UNIQUE (idempotency_key);
+
+
+--
+-- Name: psp_payments psp_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payments
+    ADD CONSTRAINT psp_payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_payments psp_payments_warp_payment_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payments
+    ADD CONSTRAINT psp_payments_warp_payment_id_key UNIQUE (warp_payment_id);
+
+
+--
+-- Name: psp_trades psp_trades_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_trades
+    ADD CONSTRAINT psp_trades_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_trades psp_trades_warp_trade_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_trades
+    ADD CONSTRAINT psp_trades_warp_trade_id_key UNIQUE (warp_trade_id);
+
+
+--
+-- Name: psp_virtual_accounts psp_virtual_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_virtual_accounts
+    ADD CONSTRAINT psp_virtual_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_virtual_accounts psp_virtual_accounts_warp_virtual_account_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_virtual_accounts
+    ADD CONSTRAINT psp_virtual_accounts_warp_virtual_account_id_key UNIQUE (warp_virtual_account_id);
+
+
+--
+-- Name: psp_webhook_events psp_webhook_events_event_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhook_events
+    ADD CONSTRAINT psp_webhook_events_event_id_key UNIQUE (event_id);
+
+
+--
+-- Name: psp_webhook_events psp_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhook_events
+    ADD CONSTRAINT psp_webhook_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_webhooks psp_webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhooks
+    ADD CONSTRAINT psp_webhooks_pkey PRIMARY KEY (id);
 
 
 --
@@ -33872,6 +34646,13 @@ CREATE INDEX idx_key_vault_keys_created_by ON public.key_vault_keys USING btree 
 
 
 --
+-- Name: idx_key_vault_keys_investor_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_investor_id ON public.key_vault_keys USING btree (investor_id);
+
+
+--
 -- Name: idx_key_vault_keys_key_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33890,6 +34671,20 @@ CREATE INDEX idx_key_vault_keys_key_type ON public.key_vault_keys USING btree (k
 --
 
 CREATE INDEX idx_key_vault_keys_project_wallet_id ON public.key_vault_keys USING btree (project_wallet_id);
+
+
+--
+-- Name: idx_key_vault_keys_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_user_id ON public.key_vault_keys USING btree (user_id);
+
+
+--
+-- Name: idx_key_vault_keys_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_wallet_id ON public.key_vault_keys USING btree (wallet_id);
 
 
 --
@@ -34576,6 +35371,20 @@ CREATE INDEX idx_multi_sig_wallets_investor ON public.multi_sig_wallets USING bt
 --
 
 CREATE INDEX idx_multi_sig_wallets_project ON public.multi_sig_wallets USING btree (project_id);
+
+
+--
+-- Name: idx_multisig_owners_user_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_owners_user_address ON public.multi_sig_wallet_owners USING btree (user_address_id);
+
+
+--
+-- Name: idx_multisig_owners_user_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_owners_user_wallet ON public.multi_sig_wallet_owners USING btree (wallet_id, user_id);
 
 
 --
@@ -35829,6 +36638,286 @@ CREATE INDEX idx_proposals_status ON public.multi_sig_proposals USING btree (sta
 --
 
 CREATE INDEX idx_proposals_wallet_id ON public.multi_sig_proposals USING btree (wallet_id);
+
+
+--
+-- Name: idx_psp_api_keys_environment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_api_keys_environment ON public.psp_api_keys USING btree (environment);
+
+
+--
+-- Name: idx_psp_api_keys_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_api_keys_project ON public.psp_api_keys USING btree (project_id);
+
+
+--
+-- Name: idx_psp_api_keys_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_api_keys_status ON public.psp_api_keys USING btree (status);
+
+
+--
+-- Name: idx_psp_api_keys_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_api_keys_vault ON public.psp_api_keys USING btree (warp_api_key_vault_id);
+
+
+--
+-- Name: idx_psp_balances_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_balances_asset ON public.psp_balances USING btree (asset_symbol, network);
+
+
+--
+-- Name: idx_psp_balances_asset_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_balances_asset_type ON public.psp_balances USING btree (asset_type);
+
+
+--
+-- Name: idx_psp_balances_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_balances_project ON public.psp_balances USING btree (project_id);
+
+
+--
+-- Name: idx_psp_balances_virtual_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_balances_virtual_account ON public.psp_balances USING btree (virtual_account_id);
+
+
+--
+-- Name: idx_psp_external_accounts_account_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_external_accounts_account_vault ON public.psp_external_accounts USING btree (account_number_vault_id);
+
+
+--
+-- Name: idx_psp_external_accounts_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_external_accounts_project ON public.psp_external_accounts USING btree (project_id);
+
+
+--
+-- Name: idx_psp_external_accounts_routing_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_external_accounts_routing_vault ON public.psp_external_accounts USING btree (routing_number_vault_id);
+
+
+--
+-- Name: idx_psp_external_accounts_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_external_accounts_status ON public.psp_external_accounts USING btree (status);
+
+
+--
+-- Name: idx_psp_external_accounts_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_external_accounts_type ON public.psp_external_accounts USING btree (account_type);
+
+
+--
+-- Name: idx_psp_identity_cases_case_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_identity_cases_case_type ON public.psp_identity_cases USING btree (case_type);
+
+
+--
+-- Name: idx_psp_identity_cases_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_identity_cases_project ON public.psp_identity_cases USING btree (project_id);
+
+
+--
+-- Name: idx_psp_identity_cases_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_identity_cases_status ON public.psp_identity_cases USING btree (status);
+
+
+--
+-- Name: idx_psp_identity_cases_warp_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_identity_cases_warp_id ON public.psp_identity_cases USING btree (warp_case_id);
+
+
+--
+-- Name: idx_psp_payment_settings_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payment_settings_project ON public.psp_payment_settings USING btree (project_id);
+
+
+--
+-- Name: idx_psp_payments_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payments_created_at ON public.psp_payments USING btree (created_at DESC);
+
+
+--
+-- Name: idx_psp_payments_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payments_idempotency ON public.psp_payments USING btree (idempotency_key);
+
+
+--
+-- Name: idx_psp_payments_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payments_project ON public.psp_payments USING btree (project_id);
+
+
+--
+-- Name: idx_psp_payments_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payments_status ON public.psp_payments USING btree (status);
+
+
+--
+-- Name: idx_psp_payments_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payments_type ON public.psp_payments USING btree (payment_type);
+
+
+--
+-- Name: idx_psp_payments_warp_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_payments_warp_id ON public.psp_payments USING btree (warp_payment_id);
+
+
+--
+-- Name: idx_psp_trades_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_trades_created_at ON public.psp_trades USING btree (created_at DESC);
+
+
+--
+-- Name: idx_psp_trades_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_trades_project ON public.psp_trades USING btree (project_id);
+
+
+--
+-- Name: idx_psp_trades_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_trades_status ON public.psp_trades USING btree (status);
+
+
+--
+-- Name: idx_psp_trades_virtual_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_trades_virtual_account ON public.psp_trades USING btree (virtual_account_id);
+
+
+--
+-- Name: idx_psp_trades_warp_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_trades_warp_id ON public.psp_trades USING btree (warp_trade_id);
+
+
+--
+-- Name: idx_psp_virtual_accounts_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_virtual_accounts_identity ON public.psp_virtual_accounts USING btree (identity_case_id);
+
+
+--
+-- Name: idx_psp_virtual_accounts_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_virtual_accounts_project ON public.psp_virtual_accounts USING btree (project_id);
+
+
+--
+-- Name: idx_psp_virtual_accounts_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_virtual_accounts_status ON public.psp_virtual_accounts USING btree (status);
+
+
+--
+-- Name: idx_psp_webhook_events_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhook_events_created_at ON public.psp_webhook_events USING btree (created_at DESC);
+
+
+--
+-- Name: idx_psp_webhook_events_event_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhook_events_event_name ON public.psp_webhook_events USING btree (event_name);
+
+
+--
+-- Name: idx_psp_webhook_events_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhook_events_project ON public.psp_webhook_events USING btree (project_id);
+
+
+--
+-- Name: idx_psp_webhook_events_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhook_events_status ON public.psp_webhook_events USING btree (status);
+
+
+--
+-- Name: idx_psp_webhook_events_webhook; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhook_events_webhook ON public.psp_webhook_events USING btree (webhook_id);
+
+
+--
+-- Name: idx_psp_webhooks_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhooks_project ON public.psp_webhooks USING btree (project_id);
+
+
+--
+-- Name: idx_psp_webhooks_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhooks_status ON public.psp_webhooks USING btree (status);
+
+
+--
+-- Name: idx_psp_webhooks_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_webhooks_vault ON public.psp_webhooks USING btree (auth_password_vault_id);
 
 
 --
@@ -38009,6 +39098,20 @@ CREATE INDEX idx_transaction_notifications_wallet ON public.transaction_notifica
 
 
 --
+-- Name: idx_transaction_proposals_multi_sig_proposal; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transaction_proposals_multi_sig_proposal ON public.transaction_proposals USING btree (multi_sig_proposal_id);
+
+
+--
+-- Name: idx_transaction_signatures_signer_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transaction_signatures_signer_address ON public.transaction_signatures USING btree (signer_address);
+
+
+--
 -- Name: idx_transactions_blockchain; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38447,6 +39550,27 @@ CREATE INDEX idx_wallet_transactions_wallet_id ON public.wallet_transactions USI
 --
 
 CREATE INDEX idx_wallets_investor_id ON public.wallets USING btree (investor_id);
+
+
+--
+-- Name: idx_wallets_mnemonic_vault_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallets_mnemonic_vault_id ON public.wallets USING btree (mnemonic_vault_id);
+
+
+--
+-- Name: idx_wallets_private_key_vault_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallets_private_key_vault_id ON public.wallets USING btree (private_key_vault_id);
+
+
+--
+-- Name: idx_wallets_public_key_vault_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_wallets_public_key_vault_id ON public.wallets USING btree (public_key_vault_id);
 
 
 --
@@ -39885,6 +41009,76 @@ CREATE TRIGGER update_project_wallets_updated_at BEFORE UPDATE ON public.project
 
 
 --
+-- Name: psp_api_keys update_psp_api_keys_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_api_keys_updated_at BEFORE UPDATE ON public.psp_api_keys FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_balances update_psp_balances_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_balances_updated_at BEFORE UPDATE ON public.psp_balances FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_external_accounts update_psp_external_accounts_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_external_accounts_updated_at BEFORE UPDATE ON public.psp_external_accounts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_identity_cases update_psp_identity_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_identity_cases_updated_at BEFORE UPDATE ON public.psp_identity_cases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_payment_settings update_psp_payment_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_payment_settings_updated_at BEFORE UPDATE ON public.psp_payment_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_payments update_psp_payments_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_payments_updated_at BEFORE UPDATE ON public.psp_payments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_trades update_psp_trades_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_trades_updated_at BEFORE UPDATE ON public.psp_trades FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_virtual_accounts update_psp_virtual_accounts_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_virtual_accounts_updated_at BEFORE UPDATE ON public.psp_virtual_accounts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_webhook_events update_psp_webhook_events_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_webhook_events_updated_at BEFORE UPDATE ON public.psp_webhook_events FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: psp_webhooks update_psp_webhooks_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_webhooks_updated_at BEFORE UPDATE ON public.psp_webhooks FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: quantitative_strategies update_quantitative_strategies_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -41264,6 +42458,22 @@ ALTER TABLE ONLY public.investors
 
 
 --
+-- Name: key_vault_keys fk_key_vault_keys_investor_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT fk_key_vault_keys_investor_id FOREIGN KEY (investor_id) REFERENCES public.investors(investor_id) ON DELETE CASCADE;
+
+
+--
+-- Name: key_vault_keys fk_key_vault_keys_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT fk_key_vault_keys_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: redemption_notifications fk_notifications_user; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -41800,6 +43010,14 @@ ALTER TABLE ONLY public.key_vault_keys
 
 
 --
+-- Name: key_vault_keys key_vault_keys_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.key_vault_keys
+    ADD CONSTRAINT key_vault_keys_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: kyc_screening_logs kyc_screening_logs_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -41965,6 +43183,14 @@ ALTER TABLE ONLY public.multi_sig_wallet_owners
 
 ALTER TABLE ONLY public.multi_sig_wallet_owners
     ADD CONSTRAINT multi_sig_wallet_owners_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: multi_sig_wallet_owners multi_sig_wallet_owners_user_address_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.multi_sig_wallet_owners
+    ADD CONSTRAINT multi_sig_wallet_owners_user_address_id_fkey FOREIGN KEY (user_address_id) REFERENCES public.user_addresses(id);
 
 
 --
@@ -42420,6 +43646,174 @@ ALTER TABLE ONLY public.property_valuations
 
 ALTER TABLE ONLY public.proposal_signatures
     ADD CONSTRAINT proposal_signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_api_keys psp_api_keys_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_api_keys
+    ADD CONSTRAINT psp_api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: psp_api_keys psp_api_keys_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_api_keys
+    ADD CONSTRAINT psp_api_keys_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_api_keys psp_api_keys_warp_api_key_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_api_keys
+    ADD CONSTRAINT psp_api_keys_warp_api_key_vault_id_fkey FOREIGN KEY (warp_api_key_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: psp_balances psp_balances_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_balances
+    ADD CONSTRAINT psp_balances_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_balances psp_balances_virtual_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_balances
+    ADD CONSTRAINT psp_balances_virtual_account_id_fkey FOREIGN KEY (virtual_account_id) REFERENCES public.psp_virtual_accounts(id);
+
+
+--
+-- Name: psp_external_accounts psp_external_accounts_account_number_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_external_accounts
+    ADD CONSTRAINT psp_external_accounts_account_number_vault_id_fkey FOREIGN KEY (account_number_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: psp_external_accounts psp_external_accounts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_external_accounts
+    ADD CONSTRAINT psp_external_accounts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_external_accounts psp_external_accounts_routing_number_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_external_accounts
+    ADD CONSTRAINT psp_external_accounts_routing_number_vault_id_fkey FOREIGN KEY (routing_number_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: psp_identity_cases psp_identity_cases_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_identity_cases
+    ADD CONSTRAINT psp_identity_cases_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_payment_settings psp_payment_settings_offramp_target_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payment_settings
+    ADD CONSTRAINT psp_payment_settings_offramp_target_account_id_fkey FOREIGN KEY (offramp_target_account_id) REFERENCES public.psp_external_accounts(id);
+
+
+--
+-- Name: psp_payment_settings psp_payment_settings_onramp_target_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payment_settings
+    ADD CONSTRAINT psp_payment_settings_onramp_target_wallet_id_fkey FOREIGN KEY (onramp_target_wallet_id) REFERENCES public.psp_external_accounts(id);
+
+
+--
+-- Name: psp_payment_settings psp_payment_settings_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payment_settings
+    ADD CONSTRAINT psp_payment_settings_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_payments psp_payments_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_payments
+    ADD CONSTRAINT psp_payments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_trades psp_trades_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_trades
+    ADD CONSTRAINT psp_trades_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_trades psp_trades_virtual_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_trades
+    ADD CONSTRAINT psp_trades_virtual_account_id_fkey FOREIGN KEY (virtual_account_id) REFERENCES public.psp_virtual_accounts(id);
+
+
+--
+-- Name: psp_virtual_accounts psp_virtual_accounts_identity_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_virtual_accounts
+    ADD CONSTRAINT psp_virtual_accounts_identity_case_id_fkey FOREIGN KEY (identity_case_id) REFERENCES public.psp_identity_cases(id);
+
+
+--
+-- Name: psp_virtual_accounts psp_virtual_accounts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_virtual_accounts
+    ADD CONSTRAINT psp_virtual_accounts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_webhook_events psp_webhook_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhook_events
+    ADD CONSTRAINT psp_webhook_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
+
+
+--
+-- Name: psp_webhook_events psp_webhook_events_webhook_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhook_events
+    ADD CONSTRAINT psp_webhook_events_webhook_id_fkey FOREIGN KEY (webhook_id) REFERENCES public.psp_webhooks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_webhooks psp_webhooks_auth_password_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhooks
+    ADD CONSTRAINT psp_webhooks_auth_password_vault_id_fkey FOREIGN KEY (auth_password_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE SET NULL;
+
+
+--
+-- Name: psp_webhooks psp_webhooks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_webhooks
+    ADD CONSTRAINT psp_webhooks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -43455,6 +44849,14 @@ ALTER TABLE ONLY public.transaction_proposals
 
 
 --
+-- Name: transaction_proposals transaction_proposals_multi_sig_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transaction_proposals
+    ADD CONSTRAINT transaction_proposals_multi_sig_proposal_id_fkey FOREIGN KEY (multi_sig_proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE SET NULL;
+
+
+--
 -- Name: transaction_proposals transaction_proposals_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -43671,6 +45073,30 @@ ALTER TABLE ONLY public.wallets
 
 
 --
+-- Name: wallets wallets_mnemonic_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallets
+    ADD CONSTRAINT wallets_mnemonic_vault_id_fkey FOREIGN KEY (mnemonic_vault_id) REFERENCES public.key_vault_keys(id);
+
+
+--
+-- Name: wallets wallets_private_key_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallets
+    ADD CONSTRAINT wallets_private_key_vault_id_fkey FOREIGN KEY (private_key_vault_id) REFERENCES public.key_vault_keys(id);
+
+
+--
+-- Name: wallets wallets_public_key_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallets
+    ADD CONSTRAINT wallets_public_key_vault_id_fkey FOREIGN KEY (public_key_vault_id) REFERENCES public.key_vault_keys(id);
+
+
+--
 -- Name: webauthn_challenges webauthn_challenges_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -43709,6 +45135,66 @@ ALTER TABLE ONLY public.whitelist_settings
 ALTER TABLE ONLY public.whitelist_signatories
     ADD CONSTRAINT whitelist_signatories_whitelist_id_fkey FOREIGN KEY (whitelist_id) REFERENCES public.whitelist_settings(id) ON DELETE CASCADE;
 
+
+--
+-- Name: psp_api_keys; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_api_keys ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_balances; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_balances ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_external_accounts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_external_accounts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_identity_cases; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_identity_cases ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_payment_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_payment_settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_payments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_payments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_trades; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_trades ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_virtual_accounts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_virtual_accounts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_webhook_events; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_webhook_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: psp_webhooks; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_webhooks ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -44845,6 +46331,16 @@ GRANT ALL ON FUNCTION public.migrate_token_json_to_tables() TO anon;
 GRANT ALL ON FUNCTION public.migrate_token_json_to_tables() TO authenticated;
 GRANT ALL ON FUNCTION public.migrate_token_json_to_tables() TO service_role;
 GRANT ALL ON FUNCTION public.migrate_token_json_to_tables() TO prisma;
+
+
+--
+-- Name: FUNCTION migrate_wallet_keys_to_vault(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.migrate_wallet_keys_to_vault() TO anon;
+GRANT ALL ON FUNCTION public.migrate_wallet_keys_to_vault() TO authenticated;
+GRANT ALL ON FUNCTION public.migrate_wallet_keys_to_vault() TO service_role;
+GRANT ALL ON FUNCTION public.migrate_wallet_keys_to_vault() TO prisma;
 
 
 --
@@ -49008,6 +50504,106 @@ GRANT ALL ON SEQUENCE public.provider_provider_id_seq TO prisma;
 
 
 --
+-- Name: TABLE psp_api_keys; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_api_keys TO anon;
+GRANT ALL ON TABLE public.psp_api_keys TO authenticated;
+GRANT ALL ON TABLE public.psp_api_keys TO service_role;
+GRANT ALL ON TABLE public.psp_api_keys TO prisma;
+
+
+--
+-- Name: TABLE psp_balances; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_balances TO anon;
+GRANT ALL ON TABLE public.psp_balances TO authenticated;
+GRANT ALL ON TABLE public.psp_balances TO service_role;
+GRANT ALL ON TABLE public.psp_balances TO prisma;
+
+
+--
+-- Name: TABLE psp_external_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_external_accounts TO anon;
+GRANT ALL ON TABLE public.psp_external_accounts TO authenticated;
+GRANT ALL ON TABLE public.psp_external_accounts TO service_role;
+GRANT ALL ON TABLE public.psp_external_accounts TO prisma;
+
+
+--
+-- Name: TABLE psp_identity_cases; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_identity_cases TO anon;
+GRANT ALL ON TABLE public.psp_identity_cases TO authenticated;
+GRANT ALL ON TABLE public.psp_identity_cases TO service_role;
+GRANT ALL ON TABLE public.psp_identity_cases TO prisma;
+
+
+--
+-- Name: TABLE psp_payment_settings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_payment_settings TO anon;
+GRANT ALL ON TABLE public.psp_payment_settings TO authenticated;
+GRANT ALL ON TABLE public.psp_payment_settings TO service_role;
+GRANT ALL ON TABLE public.psp_payment_settings TO prisma;
+
+
+--
+-- Name: TABLE psp_payments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_payments TO anon;
+GRANT ALL ON TABLE public.psp_payments TO authenticated;
+GRANT ALL ON TABLE public.psp_payments TO service_role;
+GRANT ALL ON TABLE public.psp_payments TO prisma;
+
+
+--
+-- Name: TABLE psp_trades; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_trades TO anon;
+GRANT ALL ON TABLE public.psp_trades TO authenticated;
+GRANT ALL ON TABLE public.psp_trades TO service_role;
+GRANT ALL ON TABLE public.psp_trades TO prisma;
+
+
+--
+-- Name: TABLE psp_virtual_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_virtual_accounts TO anon;
+GRANT ALL ON TABLE public.psp_virtual_accounts TO authenticated;
+GRANT ALL ON TABLE public.psp_virtual_accounts TO service_role;
+GRANT ALL ON TABLE public.psp_virtual_accounts TO prisma;
+
+
+--
+-- Name: TABLE psp_webhook_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_webhook_events TO anon;
+GRANT ALL ON TABLE public.psp_webhook_events TO authenticated;
+GRANT ALL ON TABLE public.psp_webhook_events TO service_role;
+GRANT ALL ON TABLE public.psp_webhook_events TO prisma;
+
+
+--
+-- Name: TABLE psp_webhooks; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_webhooks TO anon;
+GRANT ALL ON TABLE public.psp_webhooks TO authenticated;
+GRANT ALL ON TABLE public.psp_webhooks TO service_role;
+GRANT ALL ON TABLE public.psp_webhooks TO prisma;
+
+
+--
 -- Name: TABLE quant_backtests; Type: ACL; Schema: public; Owner: -
 --
 
@@ -50786,6 +52382,16 @@ GRANT ALL ON TABLE public.wallets TO anon;
 GRANT ALL ON TABLE public.wallets TO authenticated;
 GRANT ALL ON TABLE public.wallets TO service_role;
 GRANT ALL ON TABLE public.wallets TO prisma;
+
+
+--
+-- Name: TABLE wallet_with_keys; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.wallet_with_keys TO anon;
+GRANT ALL ON TABLE public.wallet_with_keys TO authenticated;
+GRANT ALL ON TABLE public.wallet_with_keys TO service_role;
+GRANT ALL ON TABLE public.wallet_with_keys TO prisma;
 
 
 --

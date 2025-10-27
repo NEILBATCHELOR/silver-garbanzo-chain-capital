@@ -11,7 +11,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import { initializeDatabase } from './src/infrastructure/database/client'
 import { createLogger } from './src/utils/logger'
 
-// Route imports - All 17 services (added PSP Webhooks)
+// Route imports - All 18 services
 import projectRoutes from './src/routes/projects'
 import investorRoutes from './src/routes/investors'
 import captableRoutes from './src/routes/captable'
@@ -29,7 +29,6 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
-import pspWebhookRoutes from './src/routes/psp-webhooks'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes } from './src/routes/nav/index'
 import supabasePlugin from './src/plugins/supabase'
 
@@ -709,9 +708,6 @@ Comprehensive platform supporting:
     await app.register(factoringRoutes, { prefix: apiPrefix })
     await app.register(complianceRoutes, { prefix: apiPrefix })
     await app.register(organizationRoutes, { prefix: '/api/v1/organizations' })
-    
-    // PSP Integration routes
-    await app.register(pspWebhookRoutes, { prefix: apiPrefix })
 
   } catch (error) {
     logger.error('Route registration failed:', error)
