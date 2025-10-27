@@ -204,6 +204,8 @@ export class TradeService extends BaseService {
    */
   async getMarketRates(
     projectId: string,
+    fromSymbol?: string,
+    toSymbol?: string,
     environment: PSPEnvironment = 'production'
   ): Promise<ServiceResult<MarketRate[]>> {
     try {
@@ -227,9 +229,16 @@ export class TradeService extends BaseService {
 
       if (Array.isArray(response.data)) {
         for (const rate of response.data) {
+          const fromSym = rate.fromSymbol || rate.from;
+          const toSym = rate.toSymbol || rate.to;
+          
+          // Filter by from/to if specified
+          if (fromSymbol && fromSym !== fromSymbol) continue;
+          if (toSymbol && toSym !== toSymbol) continue;
+
           rates.push({
-            from_symbol: rate.fromSymbol || rate.from,
-            to_symbol: rate.toSymbol || rate.to,
+            from_symbol: fromSym,
+            to_symbol: toSym,
             rate: rate.rate || rate.exchangeRate,
             timestamp: new Date()
           });

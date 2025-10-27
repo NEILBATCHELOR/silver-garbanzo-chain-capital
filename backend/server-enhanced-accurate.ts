@@ -11,7 +11,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import { initializeDatabase } from './src/infrastructure/database/client'
 import { createLogger } from './src/utils/logger'
 
-// Route imports - All 18 services
+// Route imports - Core Services (18 services)
 import projectRoutes from './src/routes/projects'
 import investorRoutes from './src/routes/investors'
 import captableRoutes from './src/routes/captable'
@@ -30,6 +30,20 @@ import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes } from './src/routes/nav/index'
+
+// PSP (Payment Service Provider) Routes (10 services)
+import authPspRoutes from './src/routes/psp/auth.routes'
+import balancesPspRoutes from './src/routes/psp/balances.routes'
+import externalAccountsPspRoutes from './src/routes/psp/external-accounts.routes'
+import identityPspRoutes from './src/routes/psp/identity.routes'
+import paymentsPspRoutes from './src/routes/psp/payments.routes'
+import settingsPspRoutes from './src/routes/psp/settings.routes'
+import tradesPspRoutes from './src/routes/psp/trades.routes'
+import transactionsPspRoutes from './src/routes/psp/transactions.routes'
+import virtualAccountsPspRoutes from './src/routes/psp/virtual-accounts.routes'
+import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
+
+// Plugins
 import supabasePlugin from './src/plugins/supabase'
 
 // Types
@@ -42,7 +56,8 @@ const logger = createLogger('EnhancedAccurateServer')
 
 /**
  * Comprehensive Service Catalog with Accurate Counts
- * Based on actual route file analysis (August 2025)
+ * Based on actual route file analysis (January 2026)
+ * Updated to include PSP (Payment Service Provider) services
  */
 const SERVICE_CATALOG = {
   core_business: {
@@ -158,7 +173,6 @@ const SERVICE_CATALOG = {
           'GET /nav/bonds/:bondId/token-links (get-links)', 'POST /nav/bonds/:bondId/token-links (create-link)',
           'POST /nav/bonds/bulk (bulk-create)', 'POST /nav/bonds/csv/upload (csv-upload)',
           'GET /nav/bonds/csv/template (csv-template)', 'POST /nav/bonds/csv/validate (csv-validate)',
-          // Additional bond management endpoints
           'GET /nav/bonds/search (search)', 'GET /nav/bonds/analytics (analytics)',
           'POST /nav/bonds/import (import)', 'GET /nav/bonds/export (export)'
         ],
@@ -234,26 +248,7 @@ const SERVICE_CATALOG = {
           'POST /wallets/multi-sig (create-multisig)', 'GET /wallets/:id/transactions (txns)',
           'POST /wallets/:id/backup (backup)', 'GET /wallets/:id/recovery (recovery)',
           'POST /wallets/:id/restore (restore)', 'POST /wallets/:id/upgrade (upgrade)',
-          // ... 35 more wallet endpoints for comprehensive wallet management
-          'DELETE /wallets/:id/facet (remove-facet)'
-        ],
-        operations: ['Multi-Sig', 'Smart Contracts', 'HD Wallets', 'Transactions', 'Security', 'Backup/Recovery'],
-        prefix: '/api/v1/wallets',
-        description: 'Comprehensive wallet infrastructure with advanced security features'
-      },
-      {
-        name: 'Factoring',
-        endpoints: 21,
-        routes: [
-          'POST /wallets (create)', 'GET /wallets (list)', 'GET /wallets/:id (get)',
-          'GET /wallets/user/:userId (by-user)', 'POST /wallets/hd (create-hd)',
-          'POST /wallets/smart-contract (create-sc)', 'GET /wallets/:id/balance (balance)',
-          'POST /wallets/:id/transaction (send)', 'POST /wallets/:id/sign (sign)',
-          'POST /wallets/multi-sig (create-multisig)', 'GET /wallets/:id/transactions (txns)',
-          'POST /wallets/:id/backup (backup)', 'GET /wallets/:id/recovery (recovery)',
-          'POST /wallets/:id/restore (restore)', 'POST /wallets/:id/upgrade (upgrade)',
-          // ... 35 more wallet endpoints for comprehensive wallet management
-          'DELETE /wallets/:id/facet (remove-facet)'
+          '... 35 more wallet endpoints for comprehensive wallet management'
         ],
         operations: ['Multi-Sig', 'Smart Contracts', 'HD Wallets', 'Transactions', 'Security', 'Backup/Recovery'],
         prefix: '/api/v1/wallets',
@@ -389,7 +384,7 @@ const SERVICE_CATALOG = {
           'PUT /users/:id (update)', 'DELETE /users/:id (delete)', 'POST /users/:id/role (assign-role)',
           'PUT /users/:id/permissions (permissions)', 'GET /users/:id/roles (roles)',
           'GET /users/:id/permissions (get-permissions)', 'GET /users/search (search)',
-          // ... 15 more user management endpoints
+          '... 15 more user management endpoints'
         ],
         operations: ['CRUD', 'Roles', 'Permissions', 'Search', 'Activity Tracking'],
         prefix: '/api/v1/users',
@@ -423,6 +418,131 @@ const SERVICE_CATALOG = {
     ],
     total_endpoints: 45,
     total_services: 4
+  },
+  psp_payment_services: {
+    category: 'PSP (Payment Service Provider)',
+    services: [
+      {
+        name: 'PSP Auth (API Keys)',
+        endpoints: 7,
+        routes: [
+          'POST /psp/auth/api-keys (create)', 'GET /psp/auth/api-keys (list)',
+          'GET /psp/auth/api-keys/:id (get)', 'DELETE /psp/auth/api-keys/:id (delete)',
+          'POST /psp/auth/api-keys/:id/suspend (suspend)', 'POST /psp/auth/api-keys/:id/reactivate (reactivate)',
+          'PUT /psp/auth/api-keys/:id/ip-whitelist (update-whitelist)'
+        ],
+        operations: ['API Key Management', 'IP Whitelisting', 'Key Lifecycle'],
+        prefix: '/api/psp/auth',
+        description: 'PSP API key generation and management'
+      },
+      {
+        name: 'PSP Balances & Wallets',
+        endpoints: 3,
+        routes: [
+          'GET /psp/balances (get-balances)', 'GET /psp/wallets (get-wallets)',
+          'POST /psp/balances/sync (sync-balances)'
+        ],
+        operations: ['Balance Queries', 'Wallet Management', 'Warp Sync'],
+        prefix: '/api/psp',
+        description: 'Balance tracking and wallet information'
+      },
+      {
+        name: 'PSP External Accounts',
+        endpoints: 8,
+        routes: [
+          'POST /psp/external-accounts/ach (create-ach)', 'POST /psp/external-accounts/wire (create-wire)',
+          'POST /psp/external-accounts/crypto (create-crypto)', 'POST /psp/external-accounts/plaid (create-plaid)',
+          'GET /psp/external-accounts/fiat (list-fiat)', 'GET /psp/external-accounts/crypto (list-crypto)',
+          'GET /psp/external-accounts/:id (get)', 'DELETE /psp/external-accounts/:id (deactivate)'
+        ],
+        operations: ['ACH', 'Wire', 'Crypto', 'Plaid Integration', 'Account Management'],
+        prefix: '/api/psp/external-accounts',
+        description: 'External account management for ACH, Wire, and Crypto'
+      },
+      {
+        name: 'PSP Identity (KYB/KYC)',
+        endpoints: 6,
+        routes: [
+          'POST /psp/identity/cases (create)', 'GET /psp/identity/cases (list)',
+          'GET /psp/identity/cases/:id (get)', 'PATCH /psp/identity/cases/:id (update)',
+          'DELETE /psp/identity/cases/:id (deactivate)', 'POST /psp/identity/cases/:id/resubmit (resubmit)'
+        ],
+        operations: ['KYB/KYC', 'Identity Verification', 'Case Management'],
+        prefix: '/api/psp/identity',
+        description: 'Business and individual identity verification'
+      },
+      {
+        name: 'PSP Payments',
+        endpoints: 5,
+        routes: [
+          'POST /psp/payments/fiat (create-fiat)', 'POST /psp/payments/crypto (create-crypto)',
+          'GET /psp/payments (list)', 'GET /psp/payments/:id (get)',
+          'DELETE /psp/payments/:id (cancel)'
+        ],
+        operations: ['Fiat Payments', 'Crypto Payments', 'ACH', 'Wire', 'RTP', 'FedNow', 'Push-to-Card'],
+        prefix: '/api/psp/payments',
+        description: 'Multi-rail payment orchestration'
+      },
+      {
+        name: 'PSP Settings',
+        endpoints: 2,
+        routes: [
+          'GET /psp/settings (get-settings)', 'PUT /psp/settings (update-settings)'
+        ],
+        operations: ['Automation Config', 'On-Ramp/Off-Ramp', 'Payment Rails'],
+        prefix: '/api/psp/settings',
+        description: 'Payment automation and routing configuration'
+      },
+      {
+        name: 'PSP Trades',
+        endpoints: 4,
+        routes: [
+          'POST /psp/trades (create)', 'GET /psp/trades (list)',
+          'GET /psp/trades/:id (get)', 'GET /psp/market-rates (get-rates)'
+        ],
+        operations: ['Currency Exchange', 'Fiat/Crypto Trading', 'Market Rates'],
+        prefix: '/api/psp/trades',
+        description: 'Currency trading and conversion'
+      },
+      {
+        name: 'PSP Transactions',
+        endpoints: 3,
+        routes: [
+          'GET /psp/transactions (list)', 'GET /psp/transactions/:id (get)',
+          'GET /psp/transactions/export (export)'
+        ],
+        operations: ['Transaction History', 'Export', 'Reporting'],
+        prefix: '/api/psp/transactions',
+        description: 'Transaction history and reporting'
+      },
+      {
+        name: 'PSP Virtual Accounts',
+        endpoints: 5,
+        routes: [
+          'POST /psp/virtual-accounts (create)', 'GET /psp/virtual-accounts (list)',
+          'GET /psp/virtual-accounts/:id (get)', 'GET /psp/virtual-accounts/:id/deposit-instructions (instructions)',
+          'PUT /psp/virtual-accounts/:id (update)'
+        ],
+        operations: ['Virtual Accounts', 'Multi-Currency', 'Deposit Instructions'],
+        prefix: '/api/psp/virtual-accounts',
+        description: 'Virtual account management'
+      },
+      {
+        name: 'PSP Webhooks',
+        endpoints: 7,
+        routes: [
+          'POST /psp/webhooks (register)', 'GET /psp/webhooks (list)',
+          'GET /psp/webhooks/:id (get)', 'PUT /psp/webhooks/:id (update)',
+          'DELETE /psp/webhooks/:id (delete)', 'GET /psp/webhooks/events (list-events)',
+          'POST /psp/webhooks/:id/retry (retry)'
+        ],
+        operations: ['Webhook Registration', 'Event Tracking', 'Delivery Management'],
+        prefix: '/api/psp/webhooks',
+        description: 'Webhook management and event tracking'
+      }
+    ],
+    total_endpoints: 50,
+    total_services: 10
   }
 }
 
@@ -501,8 +621,8 @@ async function buildApp(): Promise<FastifyInstance> {
       openapi: {
         openapi: '3.0.0',
         info: {
-          title: 'Chain Capital Backend API - Complete Tokenization Platform',
-          description: `Complete Chain Capital Tokenization Platform API with ${TOTAL_SERVICES} services and ${TOTAL_ENDPOINTS}+ endpoints. 
+          title: 'Chain Capital Backend API - Complete Tokenization & Payment Platform',
+          description: `Complete Chain Capital Platform API with ${TOTAL_SERVICES} services and ${TOTAL_ENDPOINTS}+ endpoints. 
                        
 Comprehensive platform supporting:
 - Asset tokenization and management
@@ -510,8 +630,9 @@ Comprehensive platform supporting:
 - Multi-signature wallet infrastructure
 - Regulatory compliance and reporting
 - Healthcare invoice factoring
-- Smart contract deployment and management`,
-          version: '1.0.0',
+- Smart contract deployment and management
+- Payment Service Provider (PSP) - Stablecoin-first payments with multi-rail support`,
+          version: '2.0.0',
           contact: {
             name: 'Chain Capital Development Team',
             url: 'https://chaincapital.io'
@@ -546,7 +667,8 @@ Comprehensive platform supporting:
           { name: 'Core Business', description: 'Core business operations and asset management' },
           { name: 'Financial Operations', description: 'Wallets, transactions, and financial services' },
           { name: 'Compliance & Governance', description: 'Regulatory compliance and policy management' },
-          { name: 'System & Infrastructure', description: 'System utilities and infrastructure services' }
+          { name: 'System & Infrastructure', description: 'System utilities and infrastructure services' },
+          { name: 'PSP (Payment Services)', description: 'Payment Service Provider - Multi-rail payment orchestration' }
         ]
       }
     })
@@ -581,14 +703,15 @@ Comprehensive platform supporting:
         status: 'healthy',
         timestamp: new Date().toISOString(),
         environment: NODE_ENV,
-        platform: 'Chain Capital Tokenization Platform',
-        version: '1.0.0',
+        platform: 'Chain Capital Tokenization & Payment Platform',
+        version: '2.0.0',
         database: dbHealth.status,
         uptime: Math.floor(process.uptime()),
         services: { 
           database: 'connected', 
           api: 'operational', 
           swagger: 'available',
+          psp: 'operational',
           total_services: TOTAL_SERVICES,
           total_endpoints: TOTAL_ENDPOINTS
         },
@@ -609,12 +732,12 @@ Comprehensive platform supporting:
 
   app.get('/api/v1/status', async (request, reply) => {
     return reply.send({
-      message: 'Chain Capital Backend API - Complete Tokenization Platform Operational',
-      version: '1.0.0',
+      message: 'Chain Capital Backend API - Complete Tokenization & Payment Platform Operational',
+      version: '2.0.0',
       timestamp: new Date().toISOString(),
       platform: {
-        name: 'Chain Capital Tokenization Platform',
-        description: 'Complete tokenization infrastructure for digital assets',
+        name: 'Chain Capital Tokenization & Payment Platform',
+        description: 'Complete tokenization infrastructure and stablecoin-first payment services',
         services: {
           total: TOTAL_SERVICES,
           active: TOTAL_SERVICES,
@@ -636,7 +759,11 @@ Comprehensive platform supporting:
         'Regulatory Compliance & Reporting',
         'Healthcare Invoice Factoring',
         'Document Management & Storage',
-        'Audit Trail & Activity Tracking'
+        'Audit Trail & Activity Tracking',
+        'PSP - Multi-Rail Payment Orchestration (ACH, Wire, RTP, FedNow, P2C, Crypto)',
+        'Stablecoin-First Payment Infrastructure',
+        'KYB/KYC Identity Verification',
+        'Webhook Management & Event Tracking'
       ],
       service_categories: Object.keys(SERVICE_CATALOG).map(key => ({
         key,
@@ -649,6 +776,7 @@ Comprehensive platform supporting:
         docs: '/docs', 
         ready: '/ready', 
         api: '/api/v1',
+        psp: '/api/psp',
         services: '/debug/services',
         routes: '/debug/routes',
         catalog: '/debug/catalog'
@@ -709,6 +837,18 @@ Comprehensive platform supporting:
     await app.register(complianceRoutes, { prefix: apiPrefix })
     await app.register(organizationRoutes, { prefix: '/api/v1/organizations' })
 
+    // PSP (Payment Service Provider) routes - 10 services, 50 endpoints
+    await app.register(authPspRoutes)  // Handles /api/psp/auth/*
+    await app.register(balancesPspRoutes)  // Handles /api/psp/balances and /api/psp/wallets
+    await app.register(externalAccountsPspRoutes)  // Handles /api/psp/external-accounts/*
+    await app.register(identityPspRoutes)  // Handles /api/psp/identity/*
+    await app.register(paymentsPspRoutes)  // Handles /api/psp/payments/*
+    await app.register(settingsPspRoutes)  // Handles /api/psp/settings
+    await app.register(tradesPspRoutes)  // Handles /api/psp/trades/*
+    await app.register(transactionsPspRoutes)  // Handles /api/psp/transactions/*
+    await app.register(virtualAccountsPspRoutes)  // Handles /api/psp/virtual-accounts/*
+    await app.register(webhooksPspRoutes)  // Handles /api/psp/webhooks/*
+
   } catch (error) {
     logger.error('Route registration failed:', error)
     throw error
@@ -722,9 +862,9 @@ Comprehensive platform supporting:
 
     app.get('/debug/catalog', async (request, reply) => {
       return reply.send({
-        platform: 'Chain Capital Tokenization Platform',
-        version: '1.0.0',
-        last_updated: '2025-08-12',
+        platform: 'Chain Capital Tokenization & Payment Platform',
+        version: '2.0.0',
+        last_updated: '2026-01-27',
         summary: {
           total_services: TOTAL_SERVICES,
           total_endpoints: TOTAL_ENDPOINTS,
@@ -742,8 +882,8 @@ Comprehensive platform supporting:
 
     app.get('/debug/services', async (request, reply) => {
       return reply.send({
-        platform: 'Chain Capital Tokenization Platform',
-        version: '1.0.0',
+        platform: 'Chain Capital Tokenization & Payment Platform',
+        version: '2.0.0',
         categories: SERVICE_CATALOG,
         summary: {
           total_services: TOTAL_SERVICES,
@@ -790,7 +930,8 @@ Comprehensive platform supporting:
           docs: '/docs',
           health: '/health',
           status: '/api/v1/status',
-          services: '/debug/services'
+          services: '/debug/services',
+          psp: '/api/psp'
         }
       }
     })
@@ -832,15 +973,17 @@ async function start() {
     console.log('')
     console.log(`📊 AVAILABLE SERVICES (${TOTAL_SERVICES}):`)
     console.log('   🏢 Core Business (6): Projects, Investors, Cap Tables, Tokens, Subscriptions, Documents')
-    console.log('   📊 NAV Operations (2): Bond Data Input, Bond Calculations')
+    console.log('   📊 NAV Operations (5): Bond Data Input, Bond Calculations, MMF Data, MMF Calcs, MMF Enhancements')
     console.log('   💰 Financial Ops (3): Wallets, Factoring, Wallet Encryption')
     console.log('   ⚖️  Compliance (4): Compliance, Organizations, Policies, Rules')
     console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
+    console.log('   💳 PSP Services (10): Auth, Balances, External Accounts, Identity, Payments, Settings, Trades, Transactions, Virtual Accounts, Webhooks')
     console.log('')
     console.log('🔗 QUICK ACCESS:')
     console.log(`   📚 API Docs: http://${HOST}:${PORT}/docs`)
     console.log(`   🏥 Health: http://${HOST}:${PORT}/health`)
     console.log(`   📊 Status: http://${HOST}:${PORT}/api/v1/status`)
+    console.log(`   💳 PSP API: http://${HOST}:${PORT}/api/psp/*`)
     console.log(`   🐛 Debug Services: http://${HOST}:${PORT}/debug/services`)
     console.log(`   📋 Service Catalog: http://${HOST}:${PORT}/debug/catalog`)
     console.log('')

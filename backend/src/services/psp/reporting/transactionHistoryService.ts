@@ -513,6 +513,114 @@ export class TransactionHistoryService extends BaseService {
   }
 
   /**
+   * Export transaction history in various formats
+   */
+  async exportTransactionHistory(
+    projectId: string,
+    format: 'csv' | 'pdf' | 'json',
+    options?: {
+      type?: 'payment' | 'trade';
+      status?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    }
+  ): Promise<ServiceResult<string>> {
+    try {
+      // Get transaction history
+      const result = await this.getTransactionHistory({
+        project_id: projectId,
+        type: options?.type,
+        status: options?.status as any, // Type narrowing from validated input
+        start_date: options?.dateFrom,
+        end_date: options?.dateTo
+      });
+
+      if (!result.success || !result.data) {
+        return this.error(
+          result.error || 'Failed to get transaction history',
+          'EXPORT_ERROR',
+          500
+        );
+      }
+
+      const transactions = result.data.transactions;
+
+      // Generate export based on format
+      let exportData: string;
+
+      switch (format) {
+        case 'csv':
+          exportData = this.generateCsvExport(transactions);
+          break;
+        case 'json':
+          exportData = JSON.stringify(transactions, null, 2);
+          break;
+        case 'pdf':
+          return this.error('PDF export not yet implemented', 'NOT_IMPLEMENTED', 501);
+        default:
+          return this.error('Invalid export format', 'INVALID_FORMAT', 400);
+      }
+
+      this.logInfo('Transaction history exported', {
+        projectId,
+        format,
+        count: transactions.length
+      });
+
+      return this.success(exportData);
+    } catch (error) {
+      return this.handleError('Failed to export transaction history', error);
+    }
+  }
+
+  /**
+   * Generate CSV export
+   */
+  private generateCsvExport(transactions: UnifiedTransaction[]): string {
+    const headers = [
+      'ID',
+      'Type',
+      'Status',
+      'Amount',
+      'Currency',
+      'Date',
+      'Payment Type',
+      'Payment Rail',
+      'Source',
+      'Destination',
+      'Exchange Rate',
+      'Memo',
+      'Warp ID'
+    ];
+
+    const rows = transactions.map(tx => [
+      tx.id,
+      tx.type,
+      tx.status,
+      tx.amount,
+      tx.currency,
+      tx.created_at.toISOString(),
+      tx.payment_type || '',
+      tx.payment_rail || '',
+      tx.source_symbol || '',
+      tx.destination_symbol || '',
+      tx.exchange_rate || '',
+      tx.memo || '',
+      tx.warp_id || ''
+    ]);
+
+    // Create CSV
+    const csvLines = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ];
+
+    return csvLines.join('\n');
+  }
+
+  // ==================== PRIVATE HELPERS ====================
+
+  /**
    * Convert trade to unified transaction
    */
   private tradeToUnified(trade: PSPTrade): UnifiedTransaction {

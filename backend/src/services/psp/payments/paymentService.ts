@@ -422,6 +422,63 @@ export class PaymentService extends BaseService {
     }
   }
 
+  /**
+   * Cancel a payment
+   */
+  async cancelPayment(
+    paymentId: string,
+    projectId: string,
+    environment: PSPEnvironment = 'production'
+  ): Promise<ServiceResult<boolean>> {
+    try {
+      const payment = await this.db.psp_payments.findUnique({
+        where: { id: paymentId },
+        select: {
+          id: true,
+          project_id: true,
+          warp_payment_id: true,
+          status: true
+        }
+      });
+
+      if (!payment) {
+        return this.error('Payment not found', 'NOT_FOUND', 404);
+      }
+
+      if (payment.project_id !== projectId) {
+        return this.error('Forbidden', 'FORBIDDEN', 403);
+      }
+
+      // Check if payment can be cancelled
+      if (payment.status === 'completed') {
+        return this.error(
+          'Cannot cancel completed payment',
+          'INVALID_STATE',
+          400
+        );
+      }
+
+      if (payment.status === 'cancelled') {
+        return this.success(true);
+      }
+
+      // Update local status
+      await this.db.psp_payments.update({
+        where: { id: paymentId },
+        data: {
+          status: 'cancelled',
+          updated_at: new Date()
+        }
+      });
+
+      this.logInfo('Payment cancelled', { paymentId, projectId });
+
+      return this.success(true);
+    } catch (error) {
+      return this.handleError('Failed to cancel payment', error);
+    }
+  }
+
   // ==================== PRIVATE HELPERS ====================
 
   /**

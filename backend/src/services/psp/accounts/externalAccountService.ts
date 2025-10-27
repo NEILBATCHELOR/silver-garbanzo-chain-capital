@@ -390,23 +390,43 @@ export class ExternalAccountService extends BaseService {
   /**
    * Get account details by ID
    */
-  async getAccount(accountId: string): Promise<ServiceResult<PSPExternalAccount>> {
-    return this.findById<PSPExternalAccount>(
-      this.db.psp_external_accounts,
-      accountId
-    );
+  async getAccount(accountId: string, projectId?: string): Promise<ServiceResult<PSPExternalAccount>> {
+    try {
+      const result = await this.findById<PSPExternalAccount>(
+        this.db.psp_external_accounts,
+        accountId
+      );
+
+      if (!result.success || !result.data) {
+        return result;
+      }
+
+      // Verify project ownership if projectId provided
+      if (projectId && result.data.project_id !== projectId) {
+        return this.error('Account not found', 'NOT_FOUND', 404);
+      }
+
+      return result;
+    } catch (error) {
+      return this.handleError('Failed to get account', error);
+    }
   }
 
   /**
    * Deactivate an external account
    */
-  async deactivateAccount(accountId: string): Promise<ServiceResult<boolean>> {
+  async deactivateAccount(accountId: string, projectId?: string): Promise<ServiceResult<boolean>> {
     try {
       const account = await this.db.psp_external_accounts.findUnique({
         where: { id: accountId }
       });
 
       if (!account) {
+        return this.error('Account not found', 'NOT_FOUND', 404);
+      }
+
+      // Verify project ownership if projectId provided
+      if (projectId && account.project_id !== projectId) {
         return this.error('Account not found', 'NOT_FOUND', 404);
       }
 

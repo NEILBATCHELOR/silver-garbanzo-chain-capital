@@ -513,6 +513,141 @@ export class IdentityService extends BaseService {
   }
 
   /**
+   * Update case information (general case update)
+   */
+  async updateCase(
+    caseId: string,
+    updates: {
+      status?: string;
+      businessData?: Partial<BusinessData>;
+      personsData?: PersonData[];
+    },
+    environment: 'sandbox' | 'production',
+    userId: string = 'system'
+  ): Promise<IdentityCaseResponse> {
+    this.logInfo('Updating case', { caseId });
+
+    const findResult: ServiceResult<psp_identity_cases> = await this.findById(this.db.psp_identity_cases, caseId);
+    if (!findResult.success || !findResult.data) {
+      throw new Error('Case not found');
+    }
+    const record = findResult.data;
+
+    try {
+      const updateData: Prisma.psp_identity_casesUpdateInput = {
+        updated_at: new Date()
+      };
+
+      if (updates.status) {
+        updateData.status = updates.status;
+      }
+
+      if (updates.businessData) {
+        const encryptedBusiness = await this.encryptBusinessData(
+          updates.businessData as BusinessData,
+          record.project_id,
+          userId
+        );
+        updateData.business_data = encryptedBusiness as Prisma.InputJsonValue;
+      }
+
+      if (updates.personsData) {
+        const encryptedPersons = await Promise.all(
+          updates.personsData.map(person => 
+            this.encryptPersonData(person, record.project_id, userId)
+          )
+        );
+        updateData.persons_data = encryptedPersons as Prisma.InputJsonValue;
+      }
+
+      const updateResult: ServiceResult<psp_identity_cases> = await this.updateEntity(
+        this.db.psp_identity_cases,
+        caseId,
+        updateData
+      );
+
+      if (!updateResult.success || !updateResult.data) {
+        throw new Error(updateResult.error || 'Failed to update case');
+      }
+
+      this.logInfo('Case updated successfully', { caseId });
+      return this.toCaseResponse(updateResult.data);
+    } catch (error) {
+      this.logError('Failed to update case', { error, caseId });
+      throw error;
+    }
+  }
+
+  /**
+   * Resubmit a case for verification (after corrections)
+   */
+  async resubmitCase(
+    caseId: string,
+    environment: 'sandbox' | 'production'
+  ): Promise<IdentityCaseResponse> {
+    this.logInfo('Resubmitting case', { caseId });
+
+    const findResult: ServiceResult<psp_identity_cases> = await this.findById(this.db.psp_identity_cases, caseId);
+    if (!findResult.success || !findResult.data) {
+      throw new Error('Case not found');
+    }
+    const record = findResult.data;
+
+    if (!record.warp_case_id) {
+      throw new Error('Case not previously submitted to Warp');
+    }
+
+    try {
+      // Get Warp client
+      const warpClient = await WarpClientService.getClientForProject(
+        record.project_id,
+        environment
+      );
+
+      // Prepare resubmission payload
+      const payload: any = {
+        business: record.business_data,
+        persons: record.persons_data
+      };
+
+      // Resubmit to Warp API (create new case)
+      const warpResponse = await warpClient.post('/identity/cases', payload);
+      const newWarpCaseId = warpResponse.data.case_id || warpResponse.data.id;
+
+      // Update local record
+      const updateResult: ServiceResult<psp_identity_cases> = await this.updateEntity(
+        this.db.psp_identity_cases,
+        caseId,
+        {
+          warp_case_id: newWarpCaseId,
+          status: 'pending',
+          submitted_at: new Date(),
+          approved_at: null,
+          rejected_at: null,
+          rejection_reasons: [],
+          missing_fields: [],
+          next_steps: [],
+          updated_at: new Date()
+        }
+      );
+
+      if (!updateResult.success || !updateResult.data) {
+        throw new Error(updateResult.error || 'Failed to update case after resubmission');
+      }
+
+      this.logInfo('Case resubmitted successfully', {
+        caseId,
+        newWarpCaseId
+      });
+
+      return this.toCaseResponse(updateResult.data);
+    } catch (error) {
+      this.logError('Failed to resubmit case', { error, caseId });
+      throw error;
+    }
+  }
+
+  /**
    * Convert database record to response format
    */
   private toCaseResponse(record: psp_identity_cases): IdentityCaseResponse {

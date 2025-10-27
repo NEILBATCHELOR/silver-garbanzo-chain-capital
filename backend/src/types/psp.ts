@@ -280,6 +280,8 @@ export interface CreateExternalAchAccountRequest {
   routing_number: string;
   account_number: string;
   account_classification: AccountClassification;
+  account_holder_name?: string;
+  bank_name?: string;
   description: string;
 }
 
