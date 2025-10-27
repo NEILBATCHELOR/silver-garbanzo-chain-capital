@@ -1,316 +1,452 @@
 /**
- * API Key Service
+ * PSP API Key Service
  * 
- * Manages PSP API keys for authentication and authorization.
+ * Manages API key generation, validation, and lifecycle for PSP projects.
+ * Provides secure key generation, hashing, and validation with IP whitelisting.
  * 
- * Features:
- * - Generate secure API keys
- * - Hash keys for database storage
- * - Validate API keys
- * - IP whitelisting
- * - Key expiration
- * - Usage tracking
+ * Security Features:
+ * - Cryptographically secure key generation
+ * - Bcrypt hashing for key storage
+ * - Encrypted Warp API key storage via vault
+ * - IP whitelist support
+ * - Usage tracking and audit logging
  */
 
-import { randomBytes, createHash } from 'crypto';
-import { getDatabase } from '../../../infrastructure/database/client';
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+import { BaseService } from '../../BaseService';
+import { logger } from '@/utils/logger';
 import { PSPEncryptionService } from '../security/pspEncryptionService';
-import type { 
-  PSPApiKey, 
-  PSPEnvironment, 
-  PSPApiKeyStatus,
-  CreateApiKeyRequest as ImportedCreateApiKeyRequest,
-  ApiKeyResponse as ImportedApiKeyResponse
-} from '../../../types/psp';
 
-// Re-export types from psp.ts for convenience
-export type CreateApiKeyRequest = ImportedCreateApiKeyRequest & {
-  userId: string;  // Add userId for creator tracking
-};
+export interface CreateApiKeyRequest {
+  projectId: string;
+  description: string;
+  warpApiKey: string;
+  environment: 'sandbox' | 'production';
+  ipWhitelist?: string[];
+  expiresAt?: Date;
+}
 
-export type ApiKeyResponse = ImportedApiKeyResponse & {
-  keyHash: string;
+export interface ApiKeyResponse {
+  id: string;
+  projectId: string;
+  apiKey?: string;  // Only present when first created
+  description: string;
+  environment: 'sandbox' | 'production';
   ipWhitelist: string[];
-  expiresAt: Date | null;
+  status: 'active' | 'suspended' | 'revoked';
   lastUsedAt: Date | null;
-};
-
-export interface ValidateApiKeyRequest {
-  apiKey: string;
-  ipAddress?: string;
+  createdAt: Date | null;
+  expiresAt: Date | null;
 }
 
-export interface ValidateApiKeyResponse {
-  valid: boolean;
-  projectId?: string;
-  environment?: PSPEnvironment;
-  error?: string;
+export interface ValidatedApiKey {
+  id: string;
+  projectId: string;
+  environment: 'sandbox' | 'production';
+  warpApiKey: string;  // Decrypted from vault
 }
 
-export class ApiKeyService {
-  /**
-   * Generate a new API key
-   * Format: psp_sandbox_xxxxx or psp_production_xxxxx
-   */
-  private static generateApiKey(environment: PSPEnvironment): string {
-    const randomPart = randomBytes(32).toString('hex');
-    return `psp_${environment}_${randomPart}`;
+export class ApiKeyService extends BaseService {
+  constructor() {
+    super('ApiKey');
   }
 
   /**
-   * Hash API key for storage
+   * Generate a new API key with secure random bytes
    */
-  private static hashApiKey(apiKey: string): string {
-    return createHash('sha256').update(apiKey).digest('hex');
+  private generateApiKey(): string {
+    const randomBytes = crypto.randomBytes(32);
+    const key = randomBytes.toString('base64url');
+    return `warp_${key}`;
+  }
+
+  /**
+   * Hash an API key for storage
+   */
+  private async hashApiKey(apiKey: string): Promise<string> {
+    const saltRounds = 12;
+    return bcrypt.hash(apiKey, saltRounds);
+  }
+
+  /**
+   * Verify an API key against its hash
+   */
+  private async verifyApiKey(apiKey: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(apiKey, hash);
+  }
+
+  /**
+   * Check if an IP is in the whitelist
+   */
+  private isIpWhitelisted(ip: string, whitelist: string[] | null): boolean {
+    // If no whitelist, allow all IPs
+    if (!whitelist || whitelist.length === 0) {
+      return true;
+    }
+
+    // Check if IP matches any whitelist entry
+    return whitelist.includes(ip);
   }
 
   /**
    * Create a new API key
+   * Returns the plaintext API key only once - it will not be retrievable later
    */
-  static async createApiKey(request: CreateApiKeyRequest): Promise<ApiKeyResponse> {
-    const db = getDatabase();
+  async createApiKey(
+    request: CreateApiKeyRequest,
+    userId: string = 'system'
+  ): Promise<ApiKeyResponse> {
+    this.logInfo('Creating new API key', { 
+      projectId: request.projectId,
+      environment: request.environment 
+    });
 
-    // Generate new API key
-    const apiKey = this.generateApiKey(request.environment);
-    const keyHash = this.hashApiKey(apiKey);
+    try {
+      // Generate API key
+      const apiKey = this.generateApiKey();
+      const keyHash = await this.hashApiKey(apiKey);
 
-    // Store Warp API key in vault if provided
-    let warpApiKeyVaultId: string | undefined;
-    if (request.warp_api_key) {
+      // Encrypt Warp API key
       const vaultRef = await PSPEncryptionService.encryptWarpApiKey(
-        request.warp_api_key,
-        request.project_id,
-        request.userId,
-        `Warp API key for ${request.key_description}`
+        request.warpApiKey,
+        request.projectId,
+        request.description,
+        userId
       );
-      warpApiKeyVaultId = vaultRef.vaultId;
-    }
 
-    // Create API key record
-    const apiKeyRecord = await db.psp_api_keys.create({
-      data: {
-        project_id: request.project_id,
-        key_hash: keyHash,
-        key_description: request.key_description,
-        environment: request.environment,
-        warp_api_key_vault_id: warpApiKeyVaultId,
-        ip_whitelist: request.ip_whitelist ?? [],
-        status: 'active',
-        created_by: request.userId,
-        expires_at: request.expires_at ?? null
-      }
-    });
+      // Create record
+      const record = await this.db.psp_api_keys.create({
+        data: {
+          project_id: request.projectId,
+          key_hash: keyHash,
+          key_description: request.description,
+          environment: request.environment,
+          warp_api_key_vault_id: vaultRef.vaultId,
+          ip_whitelist: request.ipWhitelist || [],
+          status: 'active',
+          created_by: userId,
+          expires_at: request.expiresAt || null
+        }
+      });
 
-    return {
-      id: apiKeyRecord.id,
-      api_key: apiKey,  // Only returned during creation
-      keyHash: apiKeyRecord.key_hash,
-      key_description: apiKeyRecord.key_description,
-      environment: apiKeyRecord.environment as PSPEnvironment,
-      status: apiKeyRecord.status as PSPApiKeyStatus,
-      ipWhitelist: apiKeyRecord.ip_whitelist as string[],
-      created_at: apiKeyRecord.created_at ?? new Date(),
-      expiresAt: apiKeyRecord.expires_at,
-      lastUsedAt: apiKeyRecord.last_used_at
-    };
-  }
-
-  /**
-   * Validate an API key
-   */
-  static async validateApiKey(request: ValidateApiKeyRequest): Promise<ValidateApiKeyResponse> {
-    const db = getDatabase();
-
-    // Hash the provided key
-    const keyHash = this.hashApiKey(request.apiKey);
-
-    // Look up key in database
-    const apiKeyRecord = await db.psp_api_keys.findUnique({
-      where: { key_hash: keyHash },
-      select: {
-        id: true,
-        project_id: true,
-        environment: true,
-        status: true,
-        ip_whitelist: true,
-        expires_at: true
-      }
-    });
-
-    if (!apiKeyRecord) {
-      return {
-        valid: false,
-        error: 'Invalid API key'
-      };
-    }
-
-    // Check if key is active
-    if (apiKeyRecord.status !== 'active') {
-      return {
-        valid: false,
-        error: `API key is ${apiKeyRecord.status}`
-      };
-    }
-
-    // Check if key is expired
-    if (apiKeyRecord.expires_at && apiKeyRecord.expires_at < new Date()) {
-      // Update status to revoked
-      await db.psp_api_keys.update({
-        where: { id: apiKeyRecord.id },
-        data: { status: 'revoked' }
+      this.logInfo('API key created successfully', { 
+        keyId: record.id,
+        projectId: request.projectId 
       });
 
       return {
-        valid: false,
-        error: 'API key has expired'
+        id: record.id,
+        projectId: record.project_id,
+        apiKey, // Return plaintext key only during creation
+        description: record.key_description,
+        environment: record.environment as 'sandbox' | 'production',
+        ipWhitelist: record.ip_whitelist || [],
+        status: record.status as 'active' | 'suspended' | 'revoked',
+        lastUsedAt: record.last_used_at,
+        createdAt: record.created_at,
+        expiresAt: record.expires_at
       };
+    } catch (error) {
+      this.logError('Failed to create API key', { 
+        error,
+        projectId: request.projectId 
+      });
+      throw error;
     }
-
-    // Check IP whitelist if provided
-    if (request.ipAddress && apiKeyRecord.ip_whitelist && apiKeyRecord.ip_whitelist.length > 0) {
-      const ipWhitelist = apiKeyRecord.ip_whitelist as string[];
-      if (!ipWhitelist.includes(request.ipAddress)) {
-        return {
-          valid: false,
-          error: 'IP address not whitelisted'
-        };
-      }
-    }
-
-    // Update last used timestamp
-    await db.psp_api_keys.update({
-      where: { id: apiKeyRecord.id },
-      data: { last_used_at: new Date() }
-    });
-
-    return {
-      valid: true,
-      projectId: apiKeyRecord.project_id,
-      environment: apiKeyRecord.environment as PSPEnvironment
-    };
   }
 
   /**
-   * List API keys for a project
+   * Validate an API key and return project context
+   * Updates last_used_at timestamp
    */
-  static async listApiKeys(projectId: string): Promise<Omit<ApiKeyResponse, 'api_key'>[]> {
-    const db = getDatabase();
+  async validateApiKey(
+    apiKey: string,
+    ipAddress?: string
+  ): Promise<ValidatedApiKey | null> {
+    try {
+      // Get all active API keys
+      const allKeys = await this.db.psp_api_keys.findMany({
+        where: {
+          status: 'active'
+        }
+      });
 
-    const apiKeys = await db.psp_api_keys.findMany({
-      where: {
-        project_id: projectId,
-        status: { not: 'revoked' }
-      },
+      // Try to find matching key
+      for (const record of allKeys) {
+        // Check if key matches hash
+        const isValid = await this.verifyApiKey(apiKey, record.key_hash);
+        if (!isValid) continue;
+
+        // Check if expired
+        if (record.expires_at && record.expires_at < new Date()) {
+          this.logWarn('Attempted use of expired API key', { keyId: record.id });
+          continue;
+        }
+
+        // Check IP whitelist
+        if (ipAddress && !this.isIpWhitelisted(ipAddress, record.ip_whitelist)) {
+          this.logWarn('IP not whitelisted for API key', { 
+            keyId: record.id, 
+            ip: ipAddress 
+          });
+          continue;
+        }
+
+        // Update last_used_at
+        await this.db.psp_api_keys.update({
+          where: { id: record.id },
+          data: {
+            last_used_at: new Date(),
+            usage_count: (record.usage_count || 0) + 1
+          }
+        });
+
+        // Decrypt Warp API key - only if vault ID exists
+        if (!record.warp_api_key_vault_id) {
+          this.logWarn('API key missing vault reference', { keyId: record.id });
+          continue;
+        }
+
+        const warpApiKey = await PSPEncryptionService.decryptWarpApiKey(
+          record.warp_api_key_vault_id
+        );
+
+        this.logInfo('API key validated successfully', { 
+          keyId: record.id,
+          projectId: record.project_id 
+        });
+
+        return {
+          id: record.id,
+          projectId: record.project_id,
+          environment: record.environment as 'sandbox' | 'production',
+          warpApiKey
+        };
+      }
+
+      this.logWarn('API key validation failed', { ipAddress });
+      return null;
+    } catch (error) {
+      this.logError('Error validating API key', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List all API keys for a project
+   * Does not return API key values, only metadata
+   */
+  async listApiKeys(projectId: string): Promise<ApiKeyResponse[]> {
+    this.logInfo('Listing API keys', { projectId });
+
+    const records = await this.db.psp_api_keys.findMany({
+      where: { project_id: projectId },
       orderBy: { created_at: 'desc' }
     });
 
-    return apiKeys.map(key => ({
-      id: key.id,
-      keyHash: key.key_hash,
-      key_description: key.key_description,
-      environment: key.environment as PSPEnvironment,
-      status: key.status as PSPApiKeyStatus,
-      ipWhitelist: key.ip_whitelist as string[],
-      created_at: key.created_at ?? new Date(),
-      expiresAt: key.expires_at,
-      lastUsedAt: key.last_used_at
+    return records.map(record => ({
+      id: record.id,
+      projectId: record.project_id,
+      description: record.key_description,
+      environment: record.environment as 'sandbox' | 'production',
+      ipWhitelist: record.ip_whitelist || [],
+      status: record.status as 'active' | 'suspended' | 'revoked',
+      lastUsedAt: record.last_used_at,
+      createdAt: record.created_at,
+      expiresAt: record.expires_at
     }));
   }
 
   /**
-   * Revoke an API key
+   * Get a specific API key by ID
    */
-  static async revokeApiKey(apiKeyId: string): Promise<void> {
-    const db = getDatabase();
-
-    await db.psp_api_keys.update({
-      where: { id: apiKeyId },
-      data: { status: 'revoked', updated_at: new Date() }
+  async getApiKey(keyId: string): Promise<ApiKeyResponse | null> {
+    const record = await this.db.psp_api_keys.findUnique({
+      where: { id: keyId }
     });
+
+    if (!record) return null;
+
+    return {
+      id: record.id,
+      projectId: record.project_id,
+      description: record.key_description,
+      environment: record.environment as 'sandbox' | 'production',
+      ipWhitelist: record.ip_whitelist || [],
+      status: record.status as 'active' | 'suspended' | 'revoked',
+      lastUsedAt: record.last_used_at,
+      createdAt: record.created_at,
+      expiresAt: record.expires_at
+    };
   }
 
   /**
-   * Suspend an API key (temporary)
+   * Revoke an API key (permanent - cannot be reactivated)
    */
-  static async suspendApiKey(apiKeyId: string): Promise<void> {
-    const db = getDatabase();
+  async revokeApiKey(keyId: string): Promise<void> {
+    this.logInfo('Revoking API key', { keyId });
 
-    await db.psp_api_keys.update({
-      where: { id: apiKeyId },
-      data: { status: 'suspended', updated_at: new Date() }
+    await this.db.psp_api_keys.update({
+      where: { id: keyId },
+      data: {
+        status: 'revoked',
+        updated_at: new Date()
+      }
     });
+
+    this.logInfo('API key revoked successfully', { keyId });
+  }
+
+  /**
+   * Suspend an API key (temporary - can be reactivated)
+   */
+  async suspendApiKey(keyId: string): Promise<void> {
+    this.logInfo('Suspending API key', { keyId });
+
+    await this.db.psp_api_keys.update({
+      where: { id: keyId },
+      data: {
+        status: 'suspended',
+        updated_at: new Date()
+      }
+    });
+
+    this.logInfo('API key suspended successfully', { keyId });
   }
 
   /**
    * Reactivate a suspended API key
    */
-  static async reactivateApiKey(apiKeyId: string): Promise<void> {
-    const db = getDatabase();
+  async reactivateApiKey(keyId: string): Promise<void> {
+    this.logInfo('Reactivating API key', { keyId });
 
-    // Only reactivate suspended keys
-    const apiKey = await db.psp_api_keys.findUnique({
-      where: { id: apiKeyId },
-      select: { status: true }
+    const record = await this.db.psp_api_keys.findUnique({
+      where: { id: keyId }
     });
 
-    if (apiKey?.status !== 'suspended') {
-      throw new Error('Can only reactivate suspended keys');
+    if (!record) {
+      throw new Error('API key not found');
     }
 
-    await db.psp_api_keys.update({
-      where: { id: apiKeyId },
-      data: { status: 'active', updated_at: new Date() }
+    if (record.status === 'revoked') {
+      throw new Error('Cannot reactivate a revoked API key');
+    }
+
+    await this.db.psp_api_keys.update({
+      where: { id: keyId },
+      data: {
+        status: 'active',
+        updated_at: new Date()
+      }
     });
+
+    this.logInfo('API key reactivated successfully', { keyId });
   }
 
   /**
    * Update IP whitelist for an API key
    */
-  static async updateIpWhitelist(apiKeyId: string, ipWhitelist: string[]): Promise<void> {
-    const db = getDatabase();
+  async updateIpWhitelist(keyId: string, ipWhitelist: string[]): Promise<void> {
+    this.logInfo('Updating IP whitelist', { keyId, ipCount: ipWhitelist.length });
 
-    await db.psp_api_keys.update({
-      where: { id: apiKeyId },
-      data: { ip_whitelist: ipWhitelist, updated_at: new Date() }
-    });
-  }
-
-  /**
-   * Get Warp API client for a project
-   * Automatically decrypts and uses the stored Warp API key
-   */
-  static async getWarpClientForProject(projectId: string, environment: PSPEnvironment): Promise<any> {
-    const db = getDatabase();
-
-    // Find active API key for this project/environment
-    const apiKey = await db.psp_api_keys.findFirst({
-      where: {
-        project_id: projectId,
-        environment,
-        status: 'active',
-        warp_api_key_vault_id: { not: null }
-      },
-      select: {
-        warp_api_key_vault_id: true
+    await this.db.psp_api_keys.update({
+      where: { id: keyId },
+      data: {
+        ip_whitelist: ipWhitelist,
+        updated_at: new Date()
       }
     });
 
-    if (!apiKey?.warp_api_key_vault_id) {
-      throw new Error(`No active Warp API key found for project ${projectId} in ${environment}`);
+    this.logInfo('IP whitelist updated successfully', { keyId });
+  }
+
+  /**
+   * Delete an API key and its encrypted Warp key from vault
+   */
+  async deleteApiKey(keyId: string): Promise<void> {
+    this.logInfo('Deleting API key', { keyId });
+
+    const record = await this.db.psp_api_keys.findUnique({
+      where: { id: keyId }
+    });
+
+    if (!record) {
+      throw new Error('API key not found');
     }
 
-    // Decrypt Warp API key
-    const decryptedWarpKey = await PSPEncryptionService.decryptWarpApiKey(
-      apiKey.warp_api_key_vault_id
-    );
+    // Delete encrypted Warp API key from vault
+    if (record.warp_api_key_vault_id) {
+      await PSPEncryptionService.deleteVaultKey(record.warp_api_key_vault_id);
+    }
 
-    // Import WarpApiClient dynamically to avoid circular dependencies
-    const { WarpApiClient } = await import('../../../infrastructure/warp');
-
-    return new WarpApiClient({
-      apiKey: decryptedWarpKey,
-      environment
+    // Delete API key record
+    await this.db.psp_api_keys.delete({
+      where: { id: keyId }
     });
+
+    this.logInfo('API key deleted successfully', { keyId });
+  }
+
+  /**
+   * Get API keys that haven't been used in specified days
+   */
+  async getInactiveKeys(projectId: string, inactiveDays: number): Promise<ApiKeyResponse[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - inactiveDays);
+
+    const records = await this.db.psp_api_keys.findMany({
+      where: {
+        project_id: projectId,
+        status: 'active',
+        last_used_at: {
+          lt: cutoffDate
+        }
+      }
+    });
+
+    return records.map(record => ({
+      id: record.id,
+      projectId: record.project_id,
+      description: record.key_description,
+      environment: record.environment as 'sandbox' | 'production',
+      ipWhitelist: record.ip_whitelist || [],
+      status: record.status as 'active' | 'suspended' | 'revoked',
+      lastUsedAt: record.last_used_at,
+      createdAt: record.created_at,
+      expiresAt: record.expires_at
+    }));
+  }
+
+  /**
+   * Get API keys expiring within specified days
+   */
+  async getExpiringKeys(projectId: string, expiresInDays: number): Promise<ApiKeyResponse[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() + expiresInDays);
+
+    const records = await this.db.psp_api_keys.findMany({
+      where: {
+        project_id: projectId,
+        status: 'active',
+        expires_at: {
+          lte: cutoffDate,
+          gt: new Date()
+        }
+      }
+    });
+
+    return records.map(record => ({
+      id: record.id,
+      projectId: record.project_id,
+      description: record.key_description,
+      environment: record.environment as 'sandbox' | 'production',
+      ipWhitelist: record.ip_whitelist || [],
+      status: record.status as 'active' | 'suspended' | 'revoked',
+      lastUsedAt: record.last_used_at,
+      createdAt: record.created_at,
+      expiresAt: record.expires_at
+    }));
   }
 }
 

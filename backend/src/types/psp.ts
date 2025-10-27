@@ -394,6 +394,7 @@ export interface CreateFiatPaymentRequest {
     external_account_id: string;
   };
   amount: string;
+  payment_rail?: PaymentRail;
   memo?: string;
   idempotency_key?: string;
 }
@@ -410,6 +411,7 @@ export interface CreateCryptoPaymentRequest {
   amount: string;
   asset: string;
   network: string;
+  memo?: string;
   idempotency_key?: string;
 }
 
@@ -567,6 +569,31 @@ export interface TransactionSummary {
   currency: string;
   status: PaymentStatus;
   created_at: Date;
+}
+
+/**
+ * Unified transaction type combining payments and trades
+ * Used for transaction history and reporting
+ */
+export interface UnifiedTransaction {
+  id: string;
+  type: 'payment' | 'trade';
+  subtype?: PaymentType | 'trade';
+  direction?: PaymentDirection;
+  status: string;
+  amount: string;
+  currency: string;
+  source?: string;
+  destination?: string;
+  payment_rail?: PaymentRail;
+  network?: string;
+  memo?: string;
+  created_at: Date;
+  completed_at?: Date;
+  failed_at?: Date;
+  // Original record reference
+  payment?: PSPPayment;
+  trade?: PSPTrade;
 }
 
 // ==================== SERVICE RESPONSES ====================

@@ -16,6 +16,23 @@ export function decimalToNumber(decimal: Decimal | null | undefined): number {
 }
 
 /**
+ * Convert Prisma Decimal to string safely (for API compatibility)
+ * Returns '0' for null/undefined values
+ */
+export function decimalToString(decimal: Decimal | null | undefined): string {
+  if (!decimal) return '0'
+  return decimal.toString()
+}
+
+/**
+ * Convert Prisma Decimal to string or null (preserves null)
+ */
+export function decimalToStringOrNull(decimal: Decimal | null | undefined): string | null {
+  if (!decimal) return null
+  return decimal.toString()
+}
+
+/**
  * Convert number to Prisma Decimal
  */
 export function numberToDecimal(num: number | null | undefined): Decimal {
