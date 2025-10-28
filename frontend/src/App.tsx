@@ -18,6 +18,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import CapTableManagerNew from "@/components/captable/CapTableManagerNew";
 import FactoringManager from "@/components/factoring/FactoringManager";
 import ClimateReceivablesManager from "@/components/climateReceivables/ClimateReceivablesManager";
+import { PspLayout } from "@/components/psp";
 import RuleManagementDashboard from "@/components/rules/RuleManagementDashboard";
 import PolicyTemplateDashboard from "@/components/rules/PolicyTemplateDashboard";
 import PolicyTemplateVersionManagement from "@/components/rules/PolicyTemplateVersionManagement";
@@ -795,6 +796,14 @@ function App() {
               
               {/* Project-specific Climate Receivables Routes */}
               <Route path="/projects/:projectId/climate-receivables/*" element={<ClimateReceivablesManager />} />
+
+              {/* PSP Routes */}
+              <Route path="psp/" element={<PspLayout/>} />
+              <Route path="psp/:section" element={<PspLayout />} />
+
+              {/* Project-specific PSP Routes */}
+              <Route path="/projects/:projectId/psp/" element={<PspLayout/>} />
+              <Route path="/projects/:projectId/psp/:section" element={<PspLayout />} />
 
               {/* Project-specific Cap Table Routes */}
               <Route path="/projects/:projectId/captable" element={<CapTableManagerNew />} />

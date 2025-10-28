@@ -2974,6 +2974,44 @@ COMMENT ON FUNCTION public.get_all_table_schemas() IS 'Returns schema informatio
 
 
 --
+-- Name: get_applicable_spread(uuid, text, text, numeric, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text DEFAULT 'buy'::text) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_spread_bps INTEGER;
+BEGIN
+    SELECT 
+        CASE 
+            WHEN p_direction = 'buy' THEN buy_spread_bps
+            ELSE sell_spread_bps
+        END INTO v_spread_bps
+    FROM psp_fiat_crypto_spreads
+    WHERE project_id = p_project_id
+        AND crypto_asset = p_crypto_asset
+        AND (network = p_network OR network IS NULL)
+        AND p_amount >= tier_min
+        AND (tier_max IS NULL OR p_amount < tier_max)
+        AND is_active = true
+    ORDER BY tier_min DESC
+    LIMIT 1;
+    
+    -- Return 0 if no spread found
+    RETURN COALESCE(v_spread_bps, 0);
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text) IS 'Returns the applicable spread in basis points for a given transaction amount and asset';
+
+
+--
 -- Name: get_audit_repopulation_summary(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -18132,6 +18170,63 @@ COMMENT ON TABLE public.psp_external_accounts IS 'External bank and crypto accou
 
 
 --
+-- Name: psp_fiat_crypto_spreads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.psp_fiat_crypto_spreads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    crypto_asset text NOT NULL,
+    network text,
+    tier_name text NOT NULL,
+    tier_min numeric(30,2) NOT NULL,
+    tier_max numeric(30,2),
+    buy_spread_bps integer DEFAULT 0 NOT NULL,
+    sell_spread_bps integer DEFAULT 0 NOT NULL,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    created_by uuid,
+    updated_by uuid
+);
+
+
+--
+-- Name: TABLE psp_fiat_crypto_spreads; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.psp_fiat_crypto_spreads IS 'Fiat-to-crypto trading spreads configuration by transaction size and asset';
+
+
+--
+-- Name: COLUMN psp_fiat_crypto_spreads.tier_min; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.psp_fiat_crypto_spreads.tier_min IS 'Minimum transaction amount for this tier (inclusive)';
+
+
+--
+-- Name: COLUMN psp_fiat_crypto_spreads.tier_max; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.psp_fiat_crypto_spreads.tier_max IS 'Maximum transaction amount for this tier (exclusive), NULL for highest tier';
+
+
+--
+-- Name: COLUMN psp_fiat_crypto_spreads.buy_spread_bps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.psp_fiat_crypto_spreads.buy_spread_bps IS 'Spread in basis points when buying crypto (100 bps = 1%)';
+
+
+--
+-- Name: COLUMN psp_fiat_crypto_spreads.sell_spread_bps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.psp_fiat_crypto_spreads.sell_spread_bps IS 'Spread in basis points when selling crypto (100 bps = 1%)';
+
+
+--
 -- Name: psp_identity_cases; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -28712,6 +28807,22 @@ ALTER TABLE ONLY public.psp_external_accounts
 
 
 --
+-- Name: psp_fiat_crypto_spreads psp_fiat_crypto_spreads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_fiat_crypto_spreads
+    ADD CONSTRAINT psp_fiat_crypto_spreads_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: psp_fiat_crypto_spreads psp_fiat_crypto_spreads_project_id_crypto_asset_network_tie_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_fiat_crypto_spreads
+    ADD CONSTRAINT psp_fiat_crypto_spreads_project_id_crypto_asset_network_tie_key UNIQUE (project_id, crypto_asset, network, tier_min, tier_max);
+
+
+--
 -- Name: psp_identity_cases psp_identity_cases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36809,6 +36920,41 @@ CREATE INDEX idx_psp_payments_warp_id ON public.psp_payments USING btree (warp_p
 
 
 --
+-- Name: idx_psp_spreads_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_spreads_active ON public.psp_fiat_crypto_spreads USING btree (is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_psp_spreads_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_spreads_asset ON public.psp_fiat_crypto_spreads USING btree (crypto_asset);
+
+
+--
+-- Name: idx_psp_spreads_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_spreads_network ON public.psp_fiat_crypto_spreads USING btree (network);
+
+
+--
+-- Name: idx_psp_spreads_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_spreads_project ON public.psp_fiat_crypto_spreads USING btree (project_id);
+
+
+--
+-- Name: idx_psp_spreads_tier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_psp_spreads_tier ON public.psp_fiat_crypto_spreads USING btree (tier_min, tier_max);
+
+
+--
 -- Name: idx_psp_trades_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41030,6 +41176,13 @@ CREATE TRIGGER update_psp_external_accounts_updated_at BEFORE UPDATE ON public.p
 
 
 --
+-- Name: psp_fiat_crypto_spreads update_psp_fiat_crypto_spreads_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_psp_fiat_crypto_spreads_updated_at BEFORE UPDATE ON public.psp_fiat_crypto_spreads FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: psp_identity_cases update_psp_identity_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -43713,6 +43866,30 @@ ALTER TABLE ONLY public.psp_external_accounts
 
 
 --
+-- Name: psp_fiat_crypto_spreads psp_fiat_crypto_spreads_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_fiat_crypto_spreads
+    ADD CONSTRAINT psp_fiat_crypto_spreads_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: psp_fiat_crypto_spreads psp_fiat_crypto_spreads_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_fiat_crypto_spreads
+    ADD CONSTRAINT psp_fiat_crypto_spreads_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: psp_fiat_crypto_spreads psp_fiat_crypto_spreads_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.psp_fiat_crypto_spreads
+    ADD CONSTRAINT psp_fiat_crypto_spreads_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id);
+
+
+--
 -- Name: psp_identity_cases psp_identity_cases_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -45155,6 +45332,12 @@ ALTER TABLE public.psp_balances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.psp_external_accounts ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: psp_fiat_crypto_spreads; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.psp_fiat_crypto_spreads ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: psp_identity_cases; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -45821,6 +46004,16 @@ GRANT ALL ON FUNCTION public.get_all_table_schemas() TO anon;
 GRANT ALL ON FUNCTION public.get_all_table_schemas() TO authenticated;
 GRANT ALL ON FUNCTION public.get_all_table_schemas() TO service_role;
 GRANT ALL ON FUNCTION public.get_all_table_schemas() TO prisma;
+
+
+--
+-- Name: FUNCTION get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text) TO anon;
+GRANT ALL ON FUNCTION public.get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text) TO service_role;
+GRANT ALL ON FUNCTION public.get_applicable_spread(p_project_id uuid, p_crypto_asset text, p_network text, p_amount numeric, p_direction text) TO prisma;
 
 
 --
@@ -50531,6 +50724,16 @@ GRANT ALL ON TABLE public.psp_external_accounts TO anon;
 GRANT ALL ON TABLE public.psp_external_accounts TO authenticated;
 GRANT ALL ON TABLE public.psp_external_accounts TO service_role;
 GRANT ALL ON TABLE public.psp_external_accounts TO prisma;
+
+
+--
+-- Name: TABLE psp_fiat_crypto_spreads; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.psp_fiat_crypto_spreads TO anon;
+GRANT ALL ON TABLE public.psp_fiat_crypto_spreads TO authenticated;
+GRANT ALL ON TABLE public.psp_fiat_crypto_spreads TO service_role;
+GRANT ALL ON TABLE public.psp_fiat_crypto_spreads TO prisma;
 
 
 --

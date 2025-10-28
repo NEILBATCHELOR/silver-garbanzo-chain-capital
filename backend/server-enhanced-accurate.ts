@@ -42,6 +42,8 @@ import tradesPspRoutes from './src/routes/psp/trades.routes'
 import transactionsPspRoutes from './src/routes/psp/transactions.routes'
 import virtualAccountsPspRoutes from './src/routes/psp/virtual-accounts.routes'
 import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
+import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
+import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'
 
 // Plugins
 import supabasePlugin from './src/plugins/supabase'
@@ -838,16 +840,26 @@ Comprehensive platform supporting:
     await app.register(organizationRoutes, { prefix: '/api/v1/organizations' })
 
     // PSP (Payment Service Provider) routes - 10 services, 50 endpoints
+    // Auth routes don't need authentication (they create/manage API keys)
     await app.register(authPspRoutes)  // Handles /api/psp/auth/*
-    await app.register(balancesPspRoutes)  // Handles /api/psp/balances and /api/psp/wallets
-    await app.register(externalAccountsPspRoutes)  // Handles /api/psp/external-accounts/*
-    await app.register(identityPspRoutes)  // Handles /api/psp/identity/*
-    await app.register(paymentsPspRoutes)  // Handles /api/psp/payments/*
-    await app.register(settingsPspRoutes)  // Handles /api/psp/settings
-    await app.register(tradesPspRoutes)  // Handles /api/psp/trades/*
-    await app.register(transactionsPspRoutes)  // Handles /api/psp/transactions/*
-    await app.register(virtualAccountsPspRoutes)  // Handles /api/psp/virtual-accounts/*
-    await app.register(webhooksPspRoutes)  // Handles /api/psp/webhooks/*
+    
+    // All other PSP routes require API key authentication
+    // TEMPORARY: Disabled for development - TODO: Re-enable after API key creation UI is ready
+    await app.register(async (fastify) => {
+      // COMMENTED OUT: API key validation temporarily disabled for development
+      // await fastify.register(pspApiKeyPlugin)
+      
+      // Register PSP routes (currently accessible without API key for development)
+      await fastify.register(balancesPspRoutes)  // Handles /api/psp/balances and /api/psp/wallets
+      await fastify.register(externalAccountsPspRoutes)  // Handles /api/psp/external-accounts/*
+      await fastify.register(identityPspRoutes)  // Handles /api/psp/identity/*
+      await fastify.register(paymentsPspRoutes)  // Handles /api/psp/payments/*
+      await fastify.register(settingsPspRoutes)  // Handles /api/psp/settings
+      await fastify.register(tradesPspRoutes)  // Handles /api/psp/trades/*
+      await fastify.register(transactionsPspRoutes)  // Handles /api/psp/transactions/*
+      await fastify.register(virtualAccountsPspRoutes)  // Handles /api/psp/virtual-accounts/*
+      await fastify.register(webhooksPspRoutes)  // Handles /api/psp/webhooks/*
+    })
 
   } catch (error) {
     logger.error('Route registration failed:', error)

@@ -101,27 +101,39 @@ export class MultiSigEventListener {
         throw new Error(`Cannot resolve chain ID for blockchain: ${validatedChain}`);
       }
 
-      // Phase D: Get RPC provider with potential fallback
+      // Phase D: Determine network type (mainnet or testnet) based on chain ID
+      // Import the helper function from chainIds
+      const { isTestnet } = await import('@/infrastructure/web3/utils/chainIds');
+      const networkType = isTestnet(chainId) ? 'testnet' : 'mainnet';
+
+      // Phase E: Get RPC provider with potential fallback
       let rpcUrl: string | null = null;
       
       // Try primary RPC first
-      const providerConfig = rpcManager.getProviderConfig(validatedChain as any, 'mainnet');
+      const providerConfig = rpcManager.getProviderConfig(validatedChain as any, networkType);
       if (providerConfig) {
         rpcUrl = providerConfig.url;
       } else {
         // Fall back to public RPC if primary unavailable
-        console.warn(`No primary RPC for ${validatedChain}, attempting fallback...`);
-        rpcUrl = await rpcManager.getRPCUrlWithFallback(chainId, 'mainnet');
+        console.warn(`No primary RPC for ${validatedChain} (${networkType}), attempting fallback...`);
+        rpcUrl = await rpcManager.getRPCUrlWithFallback(chainId, networkType);
       }
 
       if (!rpcUrl) {
         throw new Error(`No RPC available for blockchain: ${validatedChain} (chainId: ${chainId})`);
       }
 
-      const provider = new ethers.JsonRpcProvider(rpcUrl, {
+      // Create static network to skip auto-detection and prevent NETWORK_ERROR spam
+      const staticNetwork = ethers.Network.from({
         chainId: chainId,
         name: validatedChain
       });
+
+      const provider = new ethers.JsonRpcProvider(
+        rpcUrl,
+        staticNetwork,
+        { staticNetwork }
+      );
 
       // Create contract instance
       const contractABI = abi || this.getDefaultMultiSigABI();
@@ -247,8 +259,15 @@ export class MultiSigEventListener {
       // Store contract reference
       this.listeners.set(walletId, contract);
 
-      // Set up auto-reconnect on provider disconnect
-      provider.on('error', (error) => {
+      // Set up auto-reconnect on provider disconnect (filter initialization errors)
+      provider.on('error', (error: any) => {
+        // Skip network detection errors (should not happen with static network)
+        if (error?.code === 'NETWORK_ERROR' && error?.event === 'initial-network-discovery') {
+          console.debug(`[MultiSigListener] Skipping network detection error for wallet ${walletId}`);
+          return;
+        }
+
+        // Log real connection errors
         console.error(`Provider error for wallet ${walletId}:`, error);
         this.scheduleReconnect(walletId, config);
       });

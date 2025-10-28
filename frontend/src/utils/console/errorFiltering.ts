@@ -65,6 +65,10 @@ const NON_CRITICAL_PATTERNS = [
   /Element.*scheduled an update.*after an update completed.*inefficient/i,
   /<svg> attribute (width|height): Unexpected end of attribute/i,
   /PhCaretRight.*svg.*attribute.*Unexpected end/i,
+  // Ethers.js network detection errors - Added October 28, 2025
+  /failed to bootstrap network detection.*event=.*initial-network-discovery.*code=NETWORK_ERROR/i,
+  /Provider error for wallet.*failed to bootstrap network detection/i,
+  /NETWORK_ERROR.*initial-network-discovery/i,
 ];
 
 // Enhanced console.error that filters non-critical messages

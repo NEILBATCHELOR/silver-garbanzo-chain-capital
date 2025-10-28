@@ -3,3 +3,4 @@ export * from './auth';
 export * from './compliance';
 export * from './wallet';
 export * from './shared';
+export * from './apiClient';

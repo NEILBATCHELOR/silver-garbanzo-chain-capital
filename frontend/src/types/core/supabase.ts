@@ -19431,6 +19431,79 @@ export type Database = {
           },
         ]
       }
+      psp_fiat_crypto_spreads: {
+        Row: {
+          buy_spread_bps: number
+          created_at: string | null
+          created_by: string | null
+          crypto_asset: string
+          id: string
+          is_active: boolean | null
+          network: string | null
+          project_id: string
+          sell_spread_bps: number
+          tier_max: number | null
+          tier_min: number
+          tier_name: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          buy_spread_bps?: number
+          created_at?: string | null
+          created_by?: string | null
+          crypto_asset: string
+          id?: string
+          is_active?: boolean | null
+          network?: string | null
+          project_id: string
+          sell_spread_bps?: number
+          tier_max?: number | null
+          tier_min: number
+          tier_name: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          buy_spread_bps?: number
+          created_at?: string | null
+          created_by?: string | null
+          crypto_asset?: string
+          id?: string
+          is_active?: boolean | null
+          network?: string | null
+          project_id?: string
+          sell_spread_bps?: number
+          tier_max?: number | null
+          tier_min?: number
+          tier_name?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psp_fiat_crypto_spreads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_fiat_crypto_spreads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psp_fiat_crypto_spreads_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       psp_identity_cases: {
         Row: {
           approved_at: string | null
@@ -36224,6 +36297,16 @@ export type Database = {
           is_nullable: string
           table_name: string
         }[]
+      }
+      get_applicable_spread: {
+        Args: {
+          p_amount: number
+          p_crypto_asset: string
+          p_direction?: string
+          p_network: string
+          p_project_id: string
+        }
+        Returns: number
       }
       get_audit_repopulation_summary: {
         Args: never

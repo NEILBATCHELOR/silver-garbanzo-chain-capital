@@ -19,11 +19,121 @@ import {
   Equal,
   BarChart3,
   FileSpreadsheet,
-  PanelLeft
+  PanelLeft,
+  Key,
+  Webhook,
+  Building2,
+  CreditCard,
+  TrendingUp,
+  ArrowLeftRight,
+  DollarSign,
+  Percent
 } from 'lucide-react';
 import type { SidebarSection } from '@/types/sidebar';
 
 export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
+  // PSP (PAYMENT SERVICE PROVIDER) SECTION
+  {
+    id: 'psp',
+    title: 'PAYMENT HUB (WARP)',
+    permissions: ['psp.view'],
+    roles: ['Operations', 'Owner', 'Super Admin'],
+    minRolePriority: 70,
+    items: [
+      {
+        id: 'psp-dashboard',
+        label: 'Dashboard',
+        href: '/psp/dashboard',
+        icon: LayoutDashboard,
+        permissions: ['psp.view']
+      },
+      {
+        id: 'psp-api-keys',
+        label: 'API Keys',
+        href: '/psp/api-keys',
+        icon: Key,
+        permissions: ['psp.api_keys.view']
+      },
+      {
+        id: 'psp-webhooks',
+        label: 'Webhooks',
+        href: '/psp/webhooks',
+        icon: Webhook,
+        permissions: ['psp.webhooks.view']
+      },
+      {
+        id: 'psp-identity',
+        label: 'Identity Verification',
+        href: '/psp/identity',
+        icon: Building2,
+        permissions: ['psp.identity.view']
+      },
+      {
+        id: 'psp-accounts',
+        label: 'Connected Accounts',
+        href: '/psp/accounts',
+        icon: CreditCard,
+        permissions: ['psp.accounts.view']
+      },
+      {
+        id: 'psp-payments',
+        label: 'Payments',
+        href: '/psp/payments',
+        icon: ArrowLeftRight,
+        permissions: ['psp.payments.view']
+      },
+      {
+        id: 'psp-trades',
+        label: 'Trades',
+        href: '/psp/trades',
+        icon: TrendingUp,
+        permissions: ['psp.trades.view']
+      },
+      {
+        id: 'psp-balances',
+        label: 'Balances',
+        href: '/psp/balances',
+        icon: DollarSign,
+        permissions: ['psp.balances.view']
+      },
+      {
+        id: 'psp-spreads',
+        label: 'Spreads Configuration',
+        href: '/psp/spreads',
+        icon: Percent,
+        permissions: ['psp.settings.manage']
+      },
+      {
+        id: 'psp-transactions',
+        label: 'Transaction History',
+        href: '/psp/transactions',
+        icon: FileText,
+        permissions: ['psp.transactions.view']
+      },
+      {
+        id: 'psp-quotes',
+        label: 'Quotes',
+        href: '/psp/quotes',
+        icon: FileSpreadsheet,
+        permissions: ['psp.quotes.view']
+      },
+      {
+        id: 'psp-reports',
+        label: 'Reports',
+        href: '/psp/reports',
+        icon: BarChart3,
+        permissions: ['psp.reports.view']
+      },
+      {
+        id: 'psp-settings',
+        label: 'Settings',
+        href: '/psp/settings',
+        icon: Settings,
+        permissions: ['psp.settings.manage']
+      }
+    ]
+  },
+
   // WALLET MANAGEMENT SECTION
   {
     id: 'wallet-management',

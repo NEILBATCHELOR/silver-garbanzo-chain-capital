@@ -99,6 +99,16 @@ export const RPC_CONFIG = {
   injective: {
     mainnet: "https://sentry.tm.injective.network:443",
     testnet: "https://testnet.sentry.tm.injective.network:443"
+  },
+  
+  // Holesky and Hoodi Testnets
+  holesky: {
+    mainnet: `https://eth-holesky.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    testnet: `https://eth-holesky.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  },
+  hoodi: {
+    mainnet: "https://ethereum-hoodi.publicnode.com",
+    testnet: "https://ethereum-hoodi.publicnode.com"
   }
 };
 
@@ -139,7 +149,8 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
       near: 'VITE_NEAR_TESTNET_RPC_URL',
       avalanche: 'VITE_AVALANCHE_TESTNET_RPC_URL',
       mantle: 'VITE_MANTLE_TESTNET_RPC_URL',
-      holesky: 'VITE_HOLEKSY_RPC_URL',
+      holesky: 'VITE_HOLESKY_RPC_URL',
+      hoodi: 'VITE_HOODI_RPC_URL',
       injective: 'VITE_INJECTIVE_TESTNET_RPC_URL'
     };
     

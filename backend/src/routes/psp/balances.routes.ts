@@ -5,6 +5,7 @@
  * 
  * Endpoints:
  * - GET    /api/psp/balances         - Get balances
+ * - GET    /api/psp/balances/summary - Get balance summary
  * - GET    /api/psp/wallets          - Get wallets  
  * - POST   /api/psp/balances/sync    - Sync balances with Warp
  */
@@ -21,6 +22,7 @@ export default async function balancesRoutes(fastify: FastifyInstance) {
       querystring: {
         type: 'object',
         properties: {
+          project_id: { type: 'string', format: 'uuid' },
           virtualAccountId: { type: 'string', format: 'uuid' },
           assetType: { type: 'string', enum: ['fiat', 'crypto'] },
           assetSymbol: { type: 'string' }
@@ -28,13 +30,17 @@ export default async function balancesRoutes(fastify: FastifyInstance) {
       }
     },
     handler: async (
-      request: FastifyRequest<{ Querystring: { virtualAccountId?: string; assetType?: string; assetSymbol?: string } }>,
+      request: FastifyRequest<{ Querystring: { project_id?: string; virtualAccountId?: string; assetType?: string; assetSymbol?: string } }>,
       reply: FastifyReply
     ) => {
       try {
-        const projectId = (request.user as any)?.project_id;
+        // DEVELOPMENT MODE: project_id required in query params (no API key auth)
+        const projectId = request.query.project_id;
         if (!projectId) {
-          return reply.code(401).send({ success: false, error: 'Unauthorized' });
+          return reply.code(400).send({ 
+            success: false, 
+            error: 'project_id query parameter is required' 
+          });
         }
 
         const balances = await balanceService.getBalances(projectId, request.query.virtualAccountId);
@@ -50,12 +56,84 @@ export default async function balancesRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.get('/api/psp/wallets', {
-    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/api/psp/balances/summary', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        }
+      }
+    },
+    handler: async (
+      request: FastifyRequest<{ Querystring: { project_id?: string } }>,
+      reply: FastifyReply
+    ) => {
       try {
-        const projectId = (request.user as any)?.project_id;
+        // DEVELOPMENT MODE: project_id required in query params (no API key auth)
+        const projectId = request.query.project_id;
         if (!projectId) {
-          return reply.code(401).send({ success: false, error: 'Unauthorized' });
+          return reply.code(400).send({ 
+            success: false, 
+            error: 'project_id query parameter is required' 
+          });
+        }
+
+        const result = await balanceService.getBalances(projectId);
+
+        if (!result.success || !result.data) {
+          return reply.code(result.statusCode || 500).send({
+            success: false,
+            error: result.error || 'Failed to get balance summary'
+          });
+        }
+
+        const balances = result.data;
+
+        // Calculate summary statistics
+        const summary = {
+          totalAssets: balances.length,
+          fiatAssets: balances.filter((b: any) => b.assetType === 'fiat').length,
+          cryptoAssets: balances.filter((b: any) => b.assetType === 'crypto').length,
+          totalValue: balances.reduce((sum: number, b: any) => sum + Number(b.availableBalance || 0), 0),
+          availableBalance: balances.reduce((sum: number, b: any) => sum + Number(b.availableBalance || 0), 0),
+          lockedBalance: balances.reduce((sum: number, b: any) => sum + Number(b.lockedBalance || 0), 0),
+          pendingBalance: balances.reduce((sum: number, b: any) => sum + Number(b.pendingBalance || 0), 0)
+        };
+
+        return reply.code(200).send({ success: true, data: summary });
+      } catch (error) {
+        logger.error({ error }, 'Failed to get balance summary');
+        return reply.code(500).send({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get balance summary'
+        });
+      }
+    }
+  });
+
+  fastify.get('/api/psp/wallets', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id']
+      }
+    },
+    handler: async (
+      request: FastifyRequest<{ Querystring: { project_id: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        // DEVELOPMENT MODE: project_id required in query params (no API key auth)
+        const projectId = request.query.project_id;
+        if (!projectId) {
+          return reply.code(400).send({ 
+            success: false, 
+            error: 'project_id query parameter is required' 
+          });
         }
 
         // For now, return balances grouped as wallets
@@ -74,11 +152,27 @@ export default async function balancesRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/api/psp/balances/sync', {
-    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        },
+        required: ['project_id']
+      }
+    },
+    handler: async (
+      request: FastifyRequest<{ Body: { project_id: string } }>,
+      reply: FastifyReply
+    ) => {
       try {
-        const projectId = (request.user as any)?.project_id;
+        // DEVELOPMENT MODE: project_id required in request body (no API key auth)
+        const projectId = request.body.project_id;
         if (!projectId) {
-          return reply.code(401).send({ success: false, error: 'Unauthorized' });
+          return reply.code(400).send({ 
+            success: false, 
+            error: 'project_id in request body is required' 
+          });
         }
 
         const result = await balanceService.syncBalances(projectId);

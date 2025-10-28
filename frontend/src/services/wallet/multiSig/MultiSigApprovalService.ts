@@ -13,6 +13,7 @@ import { rpcManager } from '@/infrastructure/web3/rpc';
 import { ChainType } from '../AddressUtils';
 import { ethers } from 'ethers';
 import { multiSigBlockchainIntegration } from './MultiSigBlockchainIntegration';
+import { multiSigContractSubmitter } from './MultiSigContractSubmitter';
 import { validateBlockchain, isEVMChain } from '@/infrastructure/web3/utils/BlockchainValidator';
 import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
@@ -381,22 +382,17 @@ export class MultiSigApprovalService {
         throw new Error('User details not found');
       }
 
-      // Get user's wallet address and private key
-      const userWallet = await this.getUserWallet(userAddressId);
-      if (!userWallet) {
-        throw new Error('User wallet not found');
-      }
-
       // Verify user is an owner of the multi-sig wallet
       const isOwner = await this.verifyUserIsOwner(proposal.walletId, user.id);
       if (!isOwner) {
         throw new Error('User is not an owner of this wallet');
       }
 
-      // Verify the user's Ethereum address is in the contract owners
+      // Get the multi-sig wallet details
       const multiSigWallet = await this.getMultiSigWallet(proposal.walletId);
       
-      // Get the user's address from multi_sig_wallet_owners via FK to user_addresses
+      // CRITICAL FIX: Get the owner's REGISTERED address from multi_sig_wallet_owners
+      // This is the address that was added as an owner during wallet creation
       const { data: ownerRecord, error: ownerError } = await supabase
         .from('multi_sig_wallet_owners')
         .select(`
@@ -417,6 +413,16 @@ export class MultiSigApprovalService {
 
       // Get the Ethereum address from the joined user_addresses table
       const signerEthereumAddress = (ownerRecord.user_addresses as any).address;
+      
+      // CRITICAL FIX: Use the owner's registered user_address_id instead of the passed parameter
+      // This ensures we use the SAME address for signing that's registered as an owner
+      const registeredUserAddressId = ownerRecord.user_address_id;
+      
+      // Get the wallet and private key for the REGISTERED owner address
+      const userWallet = await this.getUserWallet(registeredUserAddressId);
+      if (!userWallet) {
+        throw new Error('Owner wallet not found');
+      }
 
       // Check if already signed
       const existingSignature = proposal.signatures.find(
@@ -436,8 +442,23 @@ export class MultiSigApprovalService {
 
       // Verify the signature was created by the expected address
       const recoveredAddress = ethers.verifyMessage(ethers.getBytes(transactionHash), signature);
+      
+      // Debug logging for signature verification
+      console.log('[MultiSig Approval] Signature Verification:', {
+        walletAddress: wallet.address,
+        recoveredAddress: recoveredAddress,
+        expectedAddress: signerEthereumAddress,
+        registeredAddressId: registeredUserAddressId,
+        passedAddressId: userAddressId,
+        match: recoveredAddress.toLowerCase() === signerEthereumAddress.toLowerCase()
+      });
+      
       if (recoveredAddress.toLowerCase() !== signerEthereumAddress.toLowerCase()) {
-        throw new Error('Signature verification failed: address mismatch');
+        throw new Error(
+          `Signature verification failed: address mismatch. ` +
+          `Expected ${signerEthereumAddress}, got ${recoveredAddress}. ` +
+          `Using registered address ID: ${registeredUserAddressId}`
+        );
       }
 
       // Store signature with enhanced details
@@ -484,9 +505,12 @@ export class MultiSigApprovalService {
 
   /**
    * Execute a proposal once threshold is met
-   * ENHANCED: Now uses three-layer architecture (UI → Business Logic → Blockchain)
+   * ENHANCED: Now uses three-layer architecture with proper on-chain submission
    */
-  async executeProposal(proposalId: string): Promise<ExecutionResult> {
+  async executeProposal(
+    proposalId: string,
+    executorAddressId: string // User wallet ID that will pay gas fees
+  ): Promise<ExecutionResult> {
     try {
       // Get proposal with signatures
       const proposal = await this.getProposalDetails(proposalId);
@@ -508,31 +532,33 @@ export class MultiSigApprovalService {
       }
 
       // LAYER 1 → LAYER 2: Prepare for blockchain
-      let multiSigProposal;
+      console.log('[MultiSig] Preparing proposal for blockchain...');
       const prepareResult = await multiSigBlockchainIntegration.prepareForBlockchain(proposalId);
       
       if (!prepareResult.success || !prepareResult.multiSigProposal) {
         throw new Error(`Failed to prepare proposal: ${prepareResult.error}`);
       }
       
-      multiSigProposal = prepareResult.multiSigProposal;
+      const multiSigProposal = prepareResult.multiSigProposal;
+      console.log('[MultiSig] Proposal prepared, technical proposal ID:', multiSigProposal.id);
 
-      // LAYER 2 → LAYER 3: Submit to contract
+      // LAYER 2 → LAYER 3: Submit to contract with proper signer
       if (!multiSigProposal.submittedOnChain) {
-        const submitResult = await multiSigBlockchainIntegration.submitToContract(multiSigProposal.id);
+        console.log('[MultiSig] Submitting to smart contract...');
+        const submitResult = await multiSigContractSubmitter.submitProposalToContract(
+          multiSigProposal.id,
+          executorAddressId // Pass the executor's wallet ID for gas payment
+        );
         
         if (!submitResult.success) {
           throw new Error(`Failed to submit to contract: ${submitResult.error}`);
         }
 
-        // Update UI proposal status
-        await supabase
-          .from('transaction_proposals')
-          .update({
-            status: 'approved', // Will be 'executed' after on-chain execution
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', proposalId);
+        console.log('[MultiSig] Successfully submitted to contract:', {
+          onChainTxId: submitResult.onChainTxId,
+          transactionHash: submitResult.transactionHash,
+          submittedBy: submitResult.submittedBy
+        });
 
         return {
           success: true,
@@ -549,9 +575,166 @@ export class MultiSigApprovalService {
       }
 
       // Proposal submitted but waiting for confirmations
-      throw new Error('Proposal submitted to contract, waiting for sufficient on-chain confirmations');
+      return {
+        success: true,
+        transactionHash: multiSigProposal.onChainTxHash || undefined
+      };
     } catch (error: any) {
       console.error('Failed to execute proposal:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // ============================================================================
+  // PROPOSAL MANAGEMENT (DELETE/REJECT)
+  // ============================================================================
+
+  /**
+   * Delete a proposal (only if not yet submitted to blockchain)
+   * IMPORTANT: Can only delete proposals that haven't been submitted on-chain
+   */
+  async deleteProposal(proposalId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get proposal
+      const proposal = await this.getProposalDetails(proposalId);
+
+      // Check if user is creator or owner
+      const isCreator = proposal.createdBy === user.id;
+      const isOwner = await this.verifyUserIsOwner(proposal.walletId, user.id);
+
+      if (!isCreator && !isOwner) {
+        throw new Error('Only the creator or wallet owners can delete this proposal');
+      }
+
+      // Check if already submitted to blockchain
+      if (proposal.onChainTxId !== null) {
+        throw new Error('Cannot delete proposal that has been submitted to blockchain. Use reject instead.');
+      }
+
+      // Check status
+      if (proposal.status === 'executed') {
+        throw new Error('Cannot delete executed proposal');
+      }
+
+      // Delete signatures first (cascade)
+      await supabase
+        .from('transaction_signatures')
+        .delete()
+        .eq('proposal_id', proposalId);
+
+      // Delete technical proposal if exists
+      if (proposal.onChainTxId === null) {
+        const { data: techProposal } = await supabase
+          .from('transaction_proposals')
+          .select('multi_sig_proposal_id')
+          .eq('id', proposalId)
+          .single();
+
+        if (techProposal?.multi_sig_proposal_id) {
+          await supabase
+            .from('multi_sig_proposals')
+            .delete()
+            .eq('id', techProposal.multi_sig_proposal_id);
+        }
+      }
+
+      // Delete proposal
+      const { error } = await supabase
+        .from('transaction_proposals')
+        .delete()
+        .eq('id', proposalId);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Failed to delete proposal:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Reject a proposal (mark as rejected, keep for audit trail)
+   * This is the proper way to "delete" proposals that have been submitted on-chain
+   */
+  async rejectProposal(proposalId: string, reason?: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get proposal
+      const proposal = await this.getProposalDetails(proposalId);
+
+      // Check if user is owner
+      const isOwner = await this.verifyUserIsOwner(proposal.walletId, user.id);
+      if (!isOwner) {
+        throw new Error('Only wallet owners can reject proposals');
+      }
+
+      // Check status
+      if (proposal.status === 'executed') {
+        throw new Error('Cannot reject executed proposal');
+      }
+
+      if (proposal.status === 'rejected') {
+        throw new Error('Proposal already rejected');
+      }
+
+      // Update proposal status to rejected
+      const { error } = await supabase
+        .from('transaction_proposals')
+        .update({
+          status: 'rejected',
+          description: proposal.description 
+            ? `${proposal.description}\n\nREJECTED: ${reason || 'No reason provided'}`
+            : `REJECTED: ${reason || 'No reason provided'}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', proposalId);
+
+      if (error) throw error;
+
+      // If technical proposal exists, update its status too
+      const { data: techProposal } = await supabase
+        .from('transaction_proposals')
+        .select('multi_sig_proposal_id')
+        .eq('id', proposalId)
+        .single();
+
+      if (techProposal?.multi_sig_proposal_id) {
+        await supabase
+          .from('multi_sig_proposals')
+          .update({
+            status: 'rejected',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', techProposal.multi_sig_proposal_id);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Failed to reject proposal:', error);
       return {
         success: false,
         error: error.message

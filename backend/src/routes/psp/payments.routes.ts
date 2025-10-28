@@ -4,11 +4,12 @@
  * Payment creation and management for fiat and crypto rails.
  * 
  * Endpoints:
- * - POST   /api/psp/payments/fiat   - Create fiat payment
- * - POST   /api/psp/payments/crypto - Create crypto payment
- * - GET    /api/psp/payments        - List payments
- * - GET    /api/psp/payments/:id    - Get specific payment
- * - DELETE /api/psp/payments/:id    - Cancel payment
+ * - POST   /api/psp/payments/fiat    - Create fiat payment
+ * - POST   /api/psp/payments/crypto  - Create crypto payment
+ * - GET    /api/psp/payments         - List payments
+ * - GET    /api/psp/payments/summary - Get payment summary statistics
+ * - GET    /api/psp/payments/:id     - Get specific payment
+ * - DELETE /api/psp/payments/:id     - Cancel payment
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
@@ -193,6 +194,67 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
         return reply.code(500).send({
           success: false,
           error: error instanceof Error ? error.message : 'Failed to list payments'
+        });
+      }
+    }
+  });
+
+  fastify.get('/api/psp/payments/summary', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', format: 'uuid' }
+        }
+      }
+    },
+    handler: async (
+      request: FastifyRequest<{ Querystring: { project_id?: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        const projectId = request.query.project_id || (request.user as any)?.project_id;
+        if (!projectId) {
+          return reply.code(401).send({ success: false, error: 'Unauthorized - No project context' });
+        }
+
+        const result = await paymentService.listPayments(projectId, {});
+
+        if (!result.success || !result.data) {
+          return reply.code(result.statusCode || 500).send({
+            success: false,
+            error: result.error || 'Failed to get payment summary'
+          });
+        }
+
+        const payments = result.data;
+        const summary = {
+          total: payments.length,
+          pending: payments.filter((p: any) => p.status === 'pending').length,
+          processing: payments.filter((p: any) => p.status === 'processing').length,
+          completed: payments.filter((p: any) => p.status === 'completed').length,
+          failed: payments.filter((p: any) => p.status === 'failed').length,
+          cancelled: payments.filter((p: any) => p.status === 'cancelled').length,
+          totalVolume: payments
+            .filter((p: any) => p.status === 'completed')
+            .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0),
+          byType: {
+            fiat: payments.filter((p: any) => p.paymentType?.includes('fiat')).length,
+            crypto: payments.filter((p: any) => p.paymentType?.includes('crypto')).length
+          },
+          byRail: payments.reduce((acc: Record<string, number>, p: any) => {
+            const rail = p.paymentRail || 'unknown';
+            acc[rail] = (acc[rail] || 0) + 1;
+            return acc;
+          }, {})
+        };
+
+        return reply.code(200).send({ success: true, data: summary });
+      } catch (error) {
+        logger.error({ error }, 'Failed to get payment summary');
+        return reply.code(500).send({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get payment summary'
         });
       }
     }

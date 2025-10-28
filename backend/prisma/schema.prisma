@@ -3036,6 +3036,7 @@ model projects {
   psp_api_keys                                psp_api_keys[]
   psp_balances                                psp_balances[]
   psp_external_accounts                       psp_external_accounts[]
+  psp_fiat_crypto_spreads                     psp_fiat_crypto_spreads[]
   psp_identity_cases                          psp_identity_cases[]
   psp_payment_settings                        psp_payment_settings?
   psp_payments                                psp_payments[]
@@ -5466,6 +5467,8 @@ model public_users {
   policy_violations                                                           policy_violations[]
   profiles                                                                    profiles[]
   psp_api_keys                                                                psp_api_keys[]
+  psp_fiat_crypto_spreads_psp_fiat_crypto_spreads_created_byTousers           psp_fiat_crypto_spreads[]        @relation("psp_fiat_crypto_spreads_created_byTousers")
+  psp_fiat_crypto_spreads_psp_fiat_crypto_spreads_updated_byTousers           psp_fiat_crypto_spreads[]        @relation("psp_fiat_crypto_spreads_updated_byTousers")
   stripe_conversion_transactions                                              stripe_conversion_transactions[]
   stripe_stablecoin_accounts                                                  stripe_stablecoin_accounts[]
   token_deployment_verifications                                              token_deployment_verifications[]
@@ -13573,6 +13576,35 @@ model user_contract_roles {
   users          auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_user_contract_roles_user_id")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model psp_fiat_crypto_spreads {
+  id                                              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                                      String        @db.Uuid
+  crypto_asset                                    String
+  network                                         String?
+  tier_name                                       String
+  tier_min                                        Decimal       @db.Decimal(30, 2)
+  tier_max                                        Decimal?      @db.Decimal(30, 2)
+  buy_spread_bps                                  Int           @default(0)
+  sell_spread_bps                                 Int           @default(0)
+  is_active                                       Boolean?      @default(true)
+  created_at                                      DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at                                      DateTime?     @default(now()) @db.Timestamptz(6)
+  created_by                                      String?       @db.Uuid
+  updated_by                                      String?       @db.Uuid
+  users_psp_fiat_crypto_spreads_created_byTousers public_users? @relation("psp_fiat_crypto_spreads_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects                                        projects      @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_psp_fiat_crypto_spreads_updated_byTousers public_users? @relation("psp_fiat_crypto_spreads_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([project_id, crypto_asset, network, tier_min, tier_max])
+  @@index([crypto_asset], map: "idx_psp_spreads_asset")
+  @@index([network], map: "idx_psp_spreads_network")
+  @@index([project_id], map: "idx_psp_spreads_project")
+  @@index([tier_min, tier_max], map: "idx_psp_spreads_tier")
   @@schema("public")
 }
 

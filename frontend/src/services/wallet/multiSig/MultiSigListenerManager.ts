@@ -76,7 +76,6 @@ export class MultiSigListenerManager {
           id,
           address,
           blockchain,
-          abi,
           project_id
         `)
         .eq('id', walletId)
@@ -91,7 +90,6 @@ export class MultiSigListenerManager {
         walletId: wallet.id,
         walletAddress: wallet.address,
         blockchain: wallet.blockchain,
-        abi: wallet.abi,
         projectId: wallet.project_id
       });
 
@@ -116,11 +114,10 @@ export class MultiSigListenerManager {
           id,
           address,
           blockchain,
-          abi,
           project_id
         `)
         .eq('project_id', projectId)
-        .eq('is_active', true);
+        .eq('status', 'active');
 
       if (error) {
         throw new Error(`Failed to fetch wallets: ${error.message}`);
@@ -138,7 +135,6 @@ export class MultiSigListenerManager {
             walletId: wallet.id,
             walletAddress: wallet.address,
             blockchain: wallet.blockchain,
-            abi: wallet.abi,
             projectId: wallet.project_id
           })
         )
@@ -158,27 +154,45 @@ export class MultiSigListenerManager {
    */
   async startListenersForUser(userId: string): Promise<void> {
     try {
-      // Fetch all projects user has access to
-      const { data: projectUsers, error: projectError } = await supabase
-        .from('project_users')
-        .select('project_id')
+      // Fetch all organizations user has access to
+      const { data: userOrgs, error: orgError } = await supabase
+        .from('user_organization_roles')
+        .select('organization_id')
         .eq('user_id', userId);
 
-      if (projectError) {
-        throw new Error(`Failed to fetch user projects: ${projectError.message}`);
+      if (orgError) {
+        throw new Error(`Failed to fetch user organizations: ${orgError.message}`);
       }
 
-      if (!projectUsers || projectUsers.length === 0) {
+      if (!userOrgs || userOrgs.length === 0) {
+        console.log(`User ${userId} has no organization memberships`);
+        return;
+      }
+
+      const orgIds = userOrgs.map(o => o.organization_id);
+
+      // Fetch all projects in those organizations
+      const { data: projectAssignments, error: projectError } = await supabase
+        .from('project_organization_assignments')
+        .select('project_id')
+        .in('organization_id', orgIds)
+        .eq('is_active', true);
+
+      if (projectError) {
+        throw new Error(`Failed to fetch organization projects: ${projectError.message}`);
+      }
+
+      if (!projectAssignments || projectAssignments.length === 0) {
         console.log(`User ${userId} has no projects with multi-sig wallets`);
         return;
       }
 
       // Start listeners for all projects
       await Promise.allSettled(
-        projectUsers.map(pu => this.startListenersForProject(pu.project_id))
+        projectAssignments.map(pa => this.startListenersForProject(pa.project_id))
       );
 
-      console.log(`✅ Started listeners for user ${userId} across ${projectUsers.length} projects`);
+      console.log(`✅ Started listeners for user ${userId} across ${projectAssignments.length} projects`);
     } catch (error: any) {
       console.error(`Failed to start listeners for user ${userId}:`, error);
       throw error;

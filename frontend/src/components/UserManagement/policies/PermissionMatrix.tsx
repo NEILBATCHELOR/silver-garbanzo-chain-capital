@@ -188,6 +188,7 @@ const PermissionMatrix = ({
 };
 
 const defaultPermissions: Permission[] = [
+  // ========== CORE SYSTEM PERMISSIONS ==========
   {
     functionName: "System Configuration (Platform Settings, Security)",
     description:
@@ -256,6 +257,8 @@ const defaultPermissions: Permission[] = [
       complianceOfficer: false,
     },
   },
+
+  // ========== TOKEN MANAGEMENT ==========
   {
     functionName: "Token Management (Design, Configure, Deploy)",
     description: "Design and configure tokens using Token Building Blocks",
@@ -278,6 +281,8 @@ const defaultPermissions: Permission[] = [
       complianceOfficer: false,
     },
   },
+
+  // ========== COMPLIANCE & INVESTOR MANAGEMENT ==========
   {
     functionName: "Compliance Validation (KYC/AML, Jurisdiction)",
     description:
@@ -343,6 +348,406 @@ const defaultPermissions: Permission[] = [
       complianceManager: true,
       agent: false,
       complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP (WARP) - DASHBOARD & CORE ACCESS ==========
+  {
+    functionName: "PSP Dashboard Access",
+    description: "Access the PSP/Warp payment service provider dashboard",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
+    },
+  },
+
+  // ========== PSP - API KEYS MANAGEMENT ==========
+  {
+    functionName: "PSP API Keys - View",
+    description: "View PSP API keys and their configurations",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP API Keys - Create & Edit",
+    description: "Create new PSP API keys and edit existing ones",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP API Keys - Delete/Revoke",
+    description: "Delete or revoke PSP API keys",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP API Keys - Manage IP Whitelist",
+    description: "Manage IP address whitelist for API keys",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - WEBHOOKS ==========
+  {
+    functionName: "PSP Webhooks - View & Events",
+    description: "View webhook configurations and event logs",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Webhooks - Create, Edit & Test",
+    description: "Create, edit and test webhook configurations",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Webhooks - Delete",
+    description: "Delete webhook configurations",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - IDENTITY VERIFICATION (KYB/KYC) ==========
+  {
+    functionName: "PSP Identity - View Cases",
+    description: "View identity verification cases and results",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
+    },
+  },
+  {
+    functionName: "PSP Identity - Create & Submit",
+    description: "Create new identity verification cases and submit for review",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Identity - Edit & Resubmit",
+    description: "Edit identity verification data and resubmit rejected cases",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - CONNECTED ACCOUNTS ==========
+  {
+    functionName: "PSP Accounts - View",
+    description: "View connected external accounts (fiat and crypto)",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
+    },
+  },
+  {
+    functionName: "PSP Accounts - Create & Edit",
+    description: "Add new external accounts and edit existing ones",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Accounts - Delete & Verify",
+    description: "Remove external accounts and verify account ownership",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - VIRTUAL ACCOUNTS ==========
+  {
+    functionName: "PSP Virtual Accounts - View",
+    description: "View virtual accounts and their balances",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Virtual Accounts - Create & Edit",
+    description: "Create new virtual accounts and edit existing ones",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Virtual Accounts - Close",
+    description: "Close virtual accounts",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - PAYMENTS ==========
+  {
+    functionName: "PSP Payments - View & Details",
+    description: "View payment transactions and detailed information",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
+    },
+  },
+  {
+    functionName: "PSP Payments - Create",
+    description: "Initiate new payment transactions",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Payments - Cancel & Retry",
+    description: "Cancel pending payments and retry failed payments",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - TRADES ==========
+  {
+    functionName: "PSP Trades - View & Rates",
+    description: "View trading transactions, history and current market rates",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
+    },
+  },
+  {
+    functionName: "PSP Trades - Create",
+    description: "Execute new trades between fiat and crypto",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Trades - Cancel",
+    description: "Cancel pending trade transactions",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - BALANCES ==========
+  {
+    functionName: "PSP Balances - View",
+    description: "View account balances and detailed breakdown",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Balances - Sync",
+    description: "Sync balances with payment provider",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - SPREADS CONFIGURATION ==========
+  {
+    functionName: "PSP Spreads - View",
+    description: "View spread configurations for fiat-crypto trading",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Spreads - Edit & Manage",
+    description: "Edit spread configurations, copy spreads, and bulk updates",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Spreads - Initialize Defaults",
+    description: "Initialize default spread configurations for a project",
+    roles: {
+      superAdmin: true,
+      owner: false,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - TRANSACTION HISTORY ==========
+  {
+    functionName: "PSP Transactions - View & Search",
+    description: "View transaction history, search and filter transactions",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
+    },
+  },
+  {
+    functionName: "PSP Transactions - Export",
+    description: "Export transaction data for reporting and analysis",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - SETTINGS ==========
+  {
+    functionName: "PSP Settings - View",
+    description: "View PSP settings and automation configurations",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Settings - Manage",
+    description: "Manage PSP settings, automation, on-ramp and off-ramp configurations",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: false,
+      complianceOfficer: false,
+    },
+  },
+
+  // ========== PSP - QUOTES & REPORTS ==========
+  {
+    functionName: "PSP Quotes - View & Generate",
+    description: "View and generate payment quotes for fiat-crypto exchanges",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: false,
+      agent: true,
+      complianceOfficer: false,
+    },
+  },
+  {
+    functionName: "PSP Reports - View & Generate",
+    description: "View, generate and export PSP reports",
+    roles: {
+      superAdmin: true,
+      owner: true,
+      complianceManager: true,
+      agent: true,
+      complianceOfficer: true,
     },
   },
 ];

@@ -13,10 +13,11 @@ const Header = () => {
   // ============================================================================
   // MULTI-SIG EVENT LISTENERS INTEGRATION (Phase 3)
   // ============================================================================
-  // Initialize event listeners when user logs in
-  // Monitors on-chain multi-sig transactions in real-time
+  // FIXED: Lazy loading - listeners start only when viewing specific wallets
+  // Auto-start disabled to prevent console spam and resource waste
+  // Listeners are now managed by individual wallet components (PendingProposalsCard, etc.)
   const { health: multiSigHealth } = useMultiSigEventListeners(user?.id, {
-    autoStart: true,
+    autoStart: false, // ✅ DISABLED: Prevents auto-starting 17+ listeners on app load
     autoStop: true,
     healthCheckInterval: 30000 // Check health every 30 seconds
   });

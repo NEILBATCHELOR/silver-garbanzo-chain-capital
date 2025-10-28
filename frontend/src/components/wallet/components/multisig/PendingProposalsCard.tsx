@@ -9,6 +9,7 @@ import {
   multiSigApprovalService,
   type ProposalWithSignatures
 } from '@/services/wallet/multiSig/MultiSigApprovalService';
+import { useWalletMultiSigListener } from '@/hooks/wallet/useProjectMultiSigListeners';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +23,9 @@ import {
   UserCheck,
   Send,
   Link as LinkIcon,
-  Circle
+  Circle,
+  Trash2,
+  XCircle
 } from 'lucide-react';
 import { cn } from '@/utils/utils';
 import { BlockchainExplorerService, getChainId } from '@/infrastructure/web3/utils';
@@ -39,7 +42,7 @@ interface PendingProposalsCardProps {
 }
 
 interface ProposalAction {
-  type: 'approve' | 'execute';
+  type: 'approve' | 'execute' | 'delete' | 'reject';
   proposalId: string;
 }
 
@@ -53,6 +56,9 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
   onProposalExecuted,
   refreshInterval = 30000 // 30 seconds
 }) => {
+  // Auto-start event listener for this wallet
+  useWalletMultiSigListener(walletId);
+
   // State
   const [proposals, setProposals] = useState<ProposalWithSignatures[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,14 +134,18 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
     setActionSuccess(null);
 
     try {
-      const result = await multiSigApprovalService.executeProposal(proposalId);
+      // CRITICAL FIX: Pass userAddressId to executeProposal
+      const result = await multiSigApprovalService.executeProposal(
+        proposalId,
+        userAddressId! // Pass user's wallet ID for gas payment
+      );
 
       if (!result.success) {
         throw new Error(result.error || 'Execution failed');
       }
 
       setActionSuccess(
-        `Transaction executed! Hash: ${result.transactionHash?.slice(0, 10)}...`
+        `Transaction submitted to blockchain! Hash: ${result.transactionHash?.slice(0, 10)}...`
       );
 
       // Notify parent
@@ -148,6 +158,63 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
     } catch (err: any) {
       console.error('Failed to execute proposal:', err);
       setActionError(err.message || 'Failed to execute proposal');
+    } finally {
+      setActiveAction(null);
+    }
+  };
+
+  const handleDelete = async (proposalId: string) => {
+    if (!confirm('Are you sure you want to delete this proposal? This action cannot be undone.')) {
+      return;
+    }
+
+    setActiveAction({ type: 'delete', proposalId });
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const result = await multiSigApprovalService.deleteProposal(proposalId);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Delete failed');
+      }
+
+      setActionSuccess('Proposal deleted successfully');
+      
+      // Refresh proposals
+      await fetchProposals();
+    } catch (err: any) {
+      console.error('Failed to delete proposal:', err);
+      setActionError(err.message || 'Failed to delete proposal');
+    } finally {
+      setActiveAction(null);
+    }
+  };
+
+  const handleReject = async (proposalId: string) => {
+    const reason = prompt('Please provide a reason for rejecting this proposal (optional):');
+    
+    // User canceled
+    if (reason === null) return;
+
+    setActiveAction({ type: 'reject', proposalId });
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const result = await multiSigApprovalService.rejectProposal(proposalId, reason);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Reject failed');
+      }
+
+      setActionSuccess('Proposal rejected successfully');
+      
+      // Refresh proposals
+      await fetchProposals();
+    } catch (err: any) {
+      console.error('Failed to reject proposal:', err);
+      setActionError(err.message || 'Failed to reject proposal');
     } finally {
       setActiveAction(null);
     }
@@ -210,7 +277,7 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const isActionActive = (proposalId: string, actionType: 'approve' | 'execute') => {
+  const isActionActive = (proposalId: string, actionType: 'approve' | 'execute' | 'delete' | 'reject') => {
     return activeAction?.proposalId === proposalId && activeAction?.type === actionType;
   };
 
@@ -453,44 +520,98 @@ export const PendingProposalsCard: React.FC<PendingProposalsCardProps> = ({
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex gap-2 pt-2">
-                    {!proposal.canExecute && (
+                  <div className="space-y-2 pt-2">
+                    {/* Primary Actions */}
+                    <div className="flex gap-2">
+                      {!proposal.canExecute && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(proposal.id)}
+                          disabled={!!activeAction}
+                          className="flex-1"
+                        >
+                          {isActionActive(proposal.id, 'approve') && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          )}
+                          <UserCheck className="mr-2 h-4 w-4" />
+                          Approve
+                        </Button>
+                      )}
+
+                      {proposal.canExecute && !proposal.onChainTxId && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleExecute(proposal.id)}
+                          disabled={!!activeAction || !userAddressId}
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          title={!userAddressId ? 'No wallet selected for gas payment' : 'Submit to blockchain'}
+                        >
+                          {isActionActive(proposal.id, 'execute') && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          )}
+                          <Send className="mr-2 h-4 w-4" />
+                          Submit to Blockchain
+                        </Button>
+                      )}
+
                       <Button
                         size="sm"
-                        onClick={() => handleApprove(proposal.id)}
-                        disabled={!!activeAction}
-                        className="flex-1"
+                        variant="outline"
+                        onClick={() => window.open(`/proposals/${proposal.id}`, '_blank')}
                       >
-                        {isActionActive(proposal.id, 'approve') && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        <UserCheck className="mr-2 h-4 w-4" />
-                        Approve
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
+                    </div>
+
+                    {/* Secondary Actions: Delete/Reject */}
+                    {proposal.status === 'pending' && (
+                      <div className="flex gap-2">
+                        {/* Delete button - only if not yet on-chain */}
+                        {!proposal.onChainTxId && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(proposal.id)}
+                            disabled={!!activeAction}
+                            className="flex-1"
+                          >
+                            {isActionActive(proposal.id, 'delete') && (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        )}
+
+                        {/* Reject button - keeps audit trail */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleReject(proposal.id)}
+                          disabled={!!activeAction}
+                          className="flex-1 border-orange-500 text-orange-600 hover:bg-orange-50"
+                        >
+                          {isActionActive(proposal.id, 'reject') && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          )}
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject
+                        </Button>
+                      </div>
                     )}
 
-                    {proposal.canExecute && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleExecute(proposal.id)}
-                        disabled={!!activeAction}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                      >
-                        {isActionActive(proposal.id, 'execute') && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        <Send className="mr-2 h-4 w-4" />
-                        Execute Transaction
-                      </Button>
+                    {/* Status Messages */}
+                    {proposal.onChainTxId && !proposal.executionHash && (
+                      <div className="text-xs text-blue-600 text-center">
+                        âœ… Submitted to blockchain (TX #{proposal.onChainTxId}). Waiting for on-chain confirmations...
+                      </div>
                     )}
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(`/proposals/${proposal.id}`, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    
+                    {!userAddressId && proposal.canExecute && (
+                      <div className="text-xs text-orange-600 text-center">
+                        ⚠️ Select a wallet in the dashboard to execute this proposal
+                      </div>
+                    )}
                   </div>
 
                   {/* Metadata */}

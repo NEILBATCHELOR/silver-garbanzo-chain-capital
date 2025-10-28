@@ -110,8 +110,8 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   const [loadingInternalWallets, setLoadingInternalWallets] = useState(false);
   const [walletBalancesLoaded, setWalletBalancesLoaded] = useState(false);
 
-  // Multi-sig specific state
-  const [selectedMultiSigWallet, setSelectedMultiSigWallet] = useState<string | null>(null);
+  // Multi-sig specific state - Initialize with empty string to prevent controlled/uncontrolled switch warning
+  const [selectedMultiSigWallet, setSelectedMultiSigWallet] = useState<string>('');
   const [userAddressId, setUserAddressId] = useState<string | null>(null);
   const [totalUserWalletCount, setTotalUserWalletCount] = useState<number>(0);
 
@@ -731,7 +731,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
                       <div className="space-y-2">
                         <Label>Select Multi-Sig Wallet</Label>
                         <Select
-                          value={selectedMultiSigWallet || undefined}
+                          value={selectedMultiSigWallet || ''}
                           onValueChange={setSelectedMultiSigWallet}
                         >
                           <SelectTrigger>
