@@ -11,6 +11,7 @@ import { PlusIcon, MinusIcon, Shield, AlertTriangle, CheckCircle, User, Users, Z
 import { useToast } from '@/components/ui/use-toast';
 import { MultiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
 import { userAddressService } from '@/services/wallet/multiSig/UserAddressService';
+import { multiSigABIService } from '@/services/wallet/multiSig/MultiSigABIService';
 import { supabase } from '@/infrastructure/database/client';
 import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
 import { FeePriority } from '@/services/blockchain/FeeEstimator';
@@ -54,6 +55,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const [isDeploying, setIsDeploying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [deploymentResult, setDeploymentResult] = useState<{
+    id: string;
     address: string;
     transactionHash: string;
   } | null>(null);
@@ -460,6 +462,20 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
       );
 
       setDeploymentResult(result);
+
+      // Populate ABI automatically after deployment
+      try {
+        console.log('📝 Populating ABI for newly deployed wallet...');
+        await multiSigABIService.populateWalletAndContractMasterABI(
+          result.id,
+          result.address,
+          blockchain
+        );
+        console.log('✅ ABI populated successfully');
+      } catch (abiError: any) {
+        console.warn('⚠️ ABI population failed (non-critical):', abiError);
+        // Don't fail the deployment if ABI population fails
+      }
 
       toast({
         title: 'Success!',

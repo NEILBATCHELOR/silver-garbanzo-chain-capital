@@ -22,8 +22,8 @@ export default async function transactionsRoutes(fastify: FastifyInstance) {
       querystring: {
         type: 'object',
         properties: {
-          page: { type: 'number', minimum: 1, default: 1 },
-          limit: { type: 'number', minimum: 1, maximum: 100, default: 20 },
+          page: { type: 'number', minimum: 1 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
           type: { type: 'string', enum: ['payment', 'trade', 'all'] },
           status: { type: 'string' },
           dateFrom: { type: 'string', format: 'date-time' },
@@ -41,9 +41,11 @@ export default async function transactionsRoutes(fastify: FastifyInstance) {
           return reply.code(401).send({ success: false, error: 'Unauthorized' });
         }
 
-        const { dateFrom, dateTo, status, ...otherParams } = request.query;
+        const { page = 1, limit = 20, dateFrom, dateTo, status, ...otherParams } = request.query;
         const query = {
           project_id: projectId,
+          page,
+          limit,
           ...otherParams,
           status: status as any, // Type narrowing from validated schema
           start_date: dateFrom ? new Date(dateFrom) : undefined,

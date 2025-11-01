@@ -90,7 +90,7 @@ export class PSPEncryptionService {
     password: string,
     projectId: string,
     description: string,
-    userId: string = 'system'
+    userId?: string
   ): Promise<EncryptedVaultReference> {
     const encrypted = await WalletEncryptionService.encrypt(password);
     
@@ -107,7 +107,7 @@ export class PSPEncryptionService {
           description,
           project_id: projectId
         },
-        created_by: userId
+        created_by: userId || null
       }
     });
     

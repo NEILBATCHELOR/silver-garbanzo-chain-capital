@@ -108,27 +108,38 @@ export abstract class BaseApiService {
     try {
       const response = await fetch(url, options)
 
+      const contentType = response.headers.get('content-type')
+      let responseData: any
+
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json()
+      } else {
+        responseData = await response.text()
+      }
+
+      // Handle non-OK responses
       if (!response.ok) {
-        const errorBody = await response.text().catch(() => 'Unknown error')
         return {
           success: false,
-          error: `HTTP ${response.status}: ${errorBody}`,
+          error: responseData?.error || responseData?.message || `HTTP ${response.status}`,
           status: response.status
         }
       }
 
-      const contentType = response.headers.get('content-type')
-      let data: T
-
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json()
-      } else {
-        data = await response.text() as unknown as T
+      // Backend returns {success, data, message?}
+      // Unwrap the data field if present
+      if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+        return {
+          success: true,
+          data: responseData.data as T,
+          status: response.status
+        }
       }
 
+      // If no data field, return the response as-is
       return {
         success: true,
-        data,
+        data: responseData as T,
         status: response.status
       }
 

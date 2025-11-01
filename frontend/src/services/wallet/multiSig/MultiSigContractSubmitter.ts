@@ -23,7 +23,7 @@ import { rpcManager } from '@/infrastructure/web3/rpc';
 import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
 import { validateBlockchain, isEVMChain } from '@/infrastructure/web3/utils/BlockchainValidator';
 import { getChainId } from '@/infrastructure/web3/utils/chainIds';
-import { RealTimeFeeEstimator } from '@/services/blockchain/RealTimeFeeEstimator';
+import { RealTimeFeeEstimator, FeePriority } from '@/services/blockchain/RealTimeFeeEstimator';
 
 // ============================================================================
 // INTERFACES
@@ -147,9 +147,16 @@ export class MultiSigContractSubmitter {
       );
 
       // 9. Get real-time fee data
-      const feeEstimator = new RealTimeFeeEstimator(provider, chainId);
-      await feeEstimator.initialize();
-      const feeData = await feeEstimator.estimateFees('high'); // Use high priority for submissions
+      const feeEstimator = RealTimeFeeEstimator.getInstance();
+      const feeData = await feeEstimator.getOptimalFeeData(validatedChain, FeePriority.HIGH);
+
+      console.log('[MultiSig] Fee data obtained:', {
+        gasPrice: feeData.gasPrice,
+        maxFeePerGas: feeData.maxFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+        source: feeData.source,
+        networkCongestion: feeData.networkCongestion
+      });
 
       // 10. Submit transaction with proper gas settings
       const tx = await contract.submitTransaction(

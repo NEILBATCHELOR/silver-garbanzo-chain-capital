@@ -75,14 +75,20 @@ export interface MultiSigWallet {
 export interface ProjectWallet {
   id: string;
   projectId: string;
-  walletType: string;
-  walletAddress: string;
+  projectWalletName?: string;
+  address?: string; // Alternative to walletAddress
+  walletAddress?: string; // Alternative to address
   publicKey: string;
   privateKey?: string;
   privateKeyVaultId?: string;
   mnemonicVaultId?: string;
   chainId?: string;
-  net?: string;
+  nonEvmNetwork?: string;
+  bitcoinNetworkType?: string;
+  hasDirectKey?: boolean;
+  hasVaultKey?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface SignatureRequirement {
@@ -112,6 +118,7 @@ export interface MultiSigBroadcastResult {
 }
 
 export interface WalletDeploymentResult {
+  id: string;
   address: string;
   transactionHash: string;
   factoryAddress: string;
@@ -152,15 +159,15 @@ export class MultiSigTransactionService {
     try {
       const query = supabase
         .from('project_wallets')
-        .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
+        .select('id, project_id, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, non_evm_network')
         .eq('project_id', projectId);
 
       // Filter by blockchain if provided
-      // Try matching by 'net' field first (e.g., 'mainnet', 'hoodi', 'testnet')
-      // Fall back to 'chain_id' if net doesn't match
+      // Try matching by 'non_evm_network' field first (e.g., 'mainnet', 'hoodi', 'testnet')
+      // Fall back to 'chain_id' if non_evm_network doesn't match
       if (blockchain) {
-        // First try: Match by net field (preferred)
-        query.or(`net.eq.${blockchain},chain_id.eq.${this.getChainIdString(blockchain)}`);
+        // First try: Match by non_evm_network field (preferred)
+        query.or(`non_evm_network.eq.${blockchain},chain_id.eq.${this.getChainIdString(blockchain)}`);
       }
 
       const { data, error } = await query.limit(1).maybeSingle();
@@ -179,14 +186,13 @@ export class MultiSigTransactionService {
       return {
         id: data.id,
         projectId: data.project_id,
-        walletType: data.wallet_type,
         walletAddress: data.wallet_address,
         publicKey: data.public_key,
         privateKey: data.private_key,
         privateKeyVaultId: data.private_key_vault_id,
         mnemonicVaultId: data.mnemonic_vault_id,
         chainId: data.chain_id,
-        net: data.net
+        nonEvmNetwork: data.non_evm_network
       };
     } catch (error: any) {
       console.error('Failed to get project wallet:', error);
@@ -202,7 +208,7 @@ export class MultiSigTransactionService {
     try {
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
+        .select('id, project_id, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, non_evm_network')
         .eq('id', walletId)
         .single();
 
@@ -218,14 +224,13 @@ export class MultiSigTransactionService {
       return {
         id: data.id,
         projectId: data.project_id,
-        walletType: data.wallet_type,
         walletAddress: data.wallet_address,
         publicKey: data.public_key,
         privateKey: data.private_key,
         privateKeyVaultId: data.private_key_vault_id,
         mnemonicVaultId: data.mnemonic_vault_id,
         chainId: data.chain_id,
-        net: data.net
+        nonEvmNetwork: data.non_evm_network
       };
     } catch (error: any) {
       console.error('Failed to get project wallet by ID:', error);
@@ -836,6 +841,7 @@ export class MultiSigTransactionService {
       }
       
       return {
+        id: insertedWallet.id,
         address: walletAddress,
         transactionHash: receipt.hash,
         factoryAddress
@@ -1108,7 +1114,7 @@ export class MultiSigTransactionService {
         // Look up project wallet by address
         const { data, error } = await supabase
           .from('project_wallets')
-          .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
+          .select('id, project_id, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, non_evm_network')
           .eq('wallet_address', addressOrOptions)
           .single();
           
@@ -1119,21 +1125,23 @@ export class MultiSigTransactionService {
         projectWallet = {
           id: data.id,
           projectId: data.project_id,
-          walletType: data.wallet_type,
-          walletAddress: data.wallet_address,
+          projectWalletName: data.project_wallet_name,
+          address: data.wallet_address,
           publicKey: data.public_key,
-          privateKey: data.private_key,
-          privateKeyVaultId: data.private_key_vault_id,
-          mnemonicVaultId: data.mnemonic_vault_id,
           chainId: data.chain_id,
-          net: data.net
+          nonEvmNetwork: data.non_evm_network,
+          bitcoinNetworkType: data.bitcoin_network_type,
+          hasDirectKey: !!data.private_key,
+          hasVaultKey: !!data.private_key_vault_id,
+          createdAt: new Date(data.created_at),
+          updatedAt: new Date(data.updated_at)
         };
         
       } else if (addressOrOptions?.walletAddress) {
         // New: specific wallet address provided
         const { data, error } = await supabase
           .from('project_wallets')
-          .select('id, project_id, wallet_type, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, net')
+          .select('id, project_id, project_wallet_name, wallet_address, public_key, private_key, private_key_vault_id, mnemonic_vault_id, chain_id, non_evm_network, bitcoin_network_type, created_at, updated_at')
           .eq('wallet_address', addressOrOptions.walletAddress)
           .single();
           
@@ -1144,14 +1152,16 @@ export class MultiSigTransactionService {
         projectWallet = {
           id: data.id,
           projectId: data.project_id,
-          walletType: data.wallet_type,
-          walletAddress: data.wallet_address,
+          projectWalletName: data.project_wallet_name,
+          address: data.wallet_address,
           publicKey: data.public_key,
-          privateKey: data.private_key,
-          privateKeyVaultId: data.private_key_vault_id,
-          mnemonicVaultId: data.mnemonic_vault_id,
           chainId: data.chain_id,
-          net: data.net
+          nonEvmNetwork: data.non_evm_network,
+          bitcoinNetworkType: data.bitcoin_network_type,
+          hasDirectKey: !!data.private_key,
+          hasVaultKey: !!data.private_key_vault_id,
+          createdAt: new Date(data.created_at),
+          updatedAt: new Date(data.updated_at)
         };
         
       } else if (addressOrOptions?.projectId) {

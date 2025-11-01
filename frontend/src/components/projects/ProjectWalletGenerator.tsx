@@ -32,7 +32,8 @@ import {
   getChainEnvironments, 
   getChainEnvironment,
   type ChainConfig,
-  type NetworkEnvironment 
+  type NetworkEnvironment,
+  type ChainEnvironment
 } from '@/config/chains';
 
 // Module-level lock to prevent concurrent wallet generation for the same project
@@ -280,7 +281,6 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
         network: selectedNetwork,
         networkEnvironment: environment.isTestnet ? 'testnet' : 'mainnet',
         chainId: environment.chainId,
-        net: environment.net,
         includePrivateKey,
         includeMnemonic,
         userId: user.id // Pass the user ID for permission checking
@@ -858,12 +858,12 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                       <span>Chain ID: {wallet.chainId}</span>
                     </Badge>
                   )}
-                  {wallet.net && (
+                  {wallet.nonEvmNetwork && (
                     <Badge variant="outline" className="flex items-center space-x-1">
-                      <span>Environment: {wallet.net}</span>
+                      <span>Network: {wallet.nonEvmNetwork}</span>
                     </Badge>
                   )}
-                  {wallet.vaultStorageId && (
+                  {(wallet.privateKeyVaultId || wallet.mnemonicVaultId) && (
                     <Badge variant="outline" className="flex items-center space-x-1">
                       <Shield className="h-3 w-3" />
                       <span>Vault Stored</span>
@@ -985,10 +985,10 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                         <p className="font-mono text-xs break-all">{wallet.mnemonicVaultId}</p>
                       </div>
                     )}
-                    {wallet.vaultStorageId && (
+                    {wallet.privateKeyVaultId && (
                       <div>
-                        <span className="text-muted-foreground">Vault Storage ID:</span>
-                        <p className="font-mono text-xs break-all">{wallet.vaultStorageId}</p>
+                        <span className="text-muted-foreground">Private Key Vault ID:</span>
+                        <p className="font-mono text-xs break-all">{wallet.privateKeyVaultId}</p>
                       </div>
                     )}
                   </div>
@@ -1001,7 +1001,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                     <AlertDescription>
                       <strong>Security Notice:</strong> The private keys and mnemonic phrases are shown here for immediate use. 
                       They are securely stored in the vault and encrypted. Never share these credentials with unauthorized parties.
-                      {generatedWallets.some(w => w.vaultStorageId) 
+                      {generatedWallets.some(w => w.privateKeyVaultId || w.mnemonicVaultId) 
                         ? " Private keys are backed up in secure vault storage."
                         : " Consider enabling vault storage for enhanced security."
                       }

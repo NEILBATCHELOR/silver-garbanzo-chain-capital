@@ -57,7 +57,8 @@ export function ApiKeysList({ apiKeys, onViewDetails, onRevoke }: ApiKeysListPro
     return daysUntilExpiry > 0 && daysUntilExpiry <= 7
   }
 
-  if (apiKeys.length === 0) {
+  // Guard against non-array data
+  if (!Array.isArray(apiKeys) || apiKeys.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Key className="h-12 w-12 text-muted-foreground mb-4" />
@@ -78,7 +79,6 @@ export function ApiKeysList({ apiKeys, onViewDetails, onRevoke }: ApiKeysListPro
             <TableHead>Environment</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Last Used</TableHead>
-            <TableHead>Usage Count</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
@@ -88,27 +88,28 @@ export function ApiKeysList({ apiKeys, onViewDetails, onRevoke }: ApiKeysListPro
             <TableRow key={apiKey.id}>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{apiKey.key_description}</span>
-                  {isExpiringSoon(apiKey.expires_at) && (
+                  <span className="font-medium">{apiKey.description}</span>
+                  {isExpiringSoon(apiKey.expiresAt) && (
                     <AlertCircle className="h-4 w-4 text-yellow-500" />
                   )}
                 </div>
-                {apiKey.ip_whitelist && apiKey.ip_whitelist.length > 0 && (
+                {apiKey.ipWhitelist && apiKey.ipWhitelist.length > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    {apiKey.ip_whitelist.length} IP(s) whitelisted
+                    {apiKey.ipWhitelist.length} IP(s) whitelisted
                   </div>
                 )}
               </TableCell>
               <TableCell>{getEnvironmentBadge(apiKey.environment)}</TableCell>
               <TableCell>{getStatusBadge(apiKey.status)}</TableCell>
               <TableCell>
-                {apiKey.last_used_at 
-                  ? formatDistanceToNow(new Date(apiKey.last_used_at), { addSuffix: true })
+                {apiKey.lastUsedAt 
+                  ? formatDistanceToNow(new Date(apiKey.lastUsedAt), { addSuffix: true })
                   : 'Never'}
               </TableCell>
-              <TableCell>{apiKey.usage_count}</TableCell>
               <TableCell>
-                {formatDistanceToNow(new Date(apiKey.created_at), { addSuffix: true })}
+                {apiKey.createdAt 
+                  ? formatDistanceToNow(new Date(apiKey.createdAt), { addSuffix: true })
+                  : 'Unknown'}
               </TableCell>
               <TableCell>
                 <DropdownMenu>

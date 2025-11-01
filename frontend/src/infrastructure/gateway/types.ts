@@ -12,7 +12,9 @@ export type OperationType =
   | 'lock' 
   | 'unlock' 
   | 'block' 
-  | 'unblock';
+  | 'unblock'
+  | 'pause'
+  | 'unpause';
 
 // Operation Request
 export interface OperationRequest {

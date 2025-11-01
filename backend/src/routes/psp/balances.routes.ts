@@ -90,15 +90,32 @@ export default async function balancesRoutes(fastify: FastifyInstance) {
 
         const balances = result.data;
 
-        // Calculate summary statistics
+        // Separate balances by type
+        const fiat_balances = balances.filter((b: any) => b.assetType === 'fiat');
+        const crypto_balances = balances.filter((b: any) => b.assetType === 'crypto');
+
+        // Group balances by asset symbol
+        const balances_by_asset: Record<string, any[]> = {};
+        balances.forEach((balance: any) => {
+          const key = balance.assetSymbol;
+          if (!balances_by_asset[key]) {
+            balances_by_asset[key] = [];
+          }
+          balances_by_asset[key].push(balance);
+        });
+
+        // Calculate total USD value (sum of all available balances)
+        // NOTE: This assumes all balances are in USD-equivalent or will be converted
+        const total_usd_value = balances.reduce((sum: number, b: any) => {
+          return sum + Number(b.availableBalance || 0);
+        }, 0);
+
+        // Return summary matching frontend BalancesSummary type
         const summary = {
-          totalAssets: balances.length,
-          fiatAssets: balances.filter((b: any) => b.assetType === 'fiat').length,
-          cryptoAssets: balances.filter((b: any) => b.assetType === 'crypto').length,
-          totalValue: balances.reduce((sum: number, b: any) => sum + Number(b.availableBalance || 0), 0),
-          availableBalance: balances.reduce((sum: number, b: any) => sum + Number(b.availableBalance || 0), 0),
-          lockedBalance: balances.reduce((sum: number, b: any) => sum + Number(b.lockedBalance || 0), 0),
-          pendingBalance: balances.reduce((sum: number, b: any) => sum + Number(b.pendingBalance || 0), 0)
+          total_usd_value,
+          fiat_balances,
+          crypto_balances,
+          balances_by_asset
         };
 
         return reply.code(200).send({ success: true, data: summary });

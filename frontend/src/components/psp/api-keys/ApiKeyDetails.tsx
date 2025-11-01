@@ -87,7 +87,7 @@ export function ApiKeyDetails({
         <div className="space-y-6 py-4">
           <div>
             <Label className="text-sm text-muted-foreground">Description</Label>
-            <p className="text-sm font-medium mt-1">{apiKey.key_description}</p>
+            <p className="text-sm font-medium mt-1">{apiKey.description}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -101,33 +101,29 @@ export function ApiKeyDetails({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm text-muted-foreground">Usage Count</Label>
-              <p className="text-sm font-medium mt-1">{apiKey.usage_count}</p>
-            </div>
-            <div>
-              <Label className="text-sm text-muted-foreground">Last Used</Label>
-              <p className="text-sm font-medium mt-1">
-                {apiKey.last_used_at 
-                  ? formatDistanceToNow(new Date(apiKey.last_used_at), { addSuffix: true })
-                  : 'Never'}
-              </p>
-            </div>
+          <div>
+            <Label className="text-sm text-muted-foreground">Last Used</Label>
+            <p className="text-sm font-medium mt-1">
+              {apiKey.lastUsedAt 
+                ? formatDistanceToNow(new Date(apiKey.lastUsedAt), { addSuffix: true })
+                : 'Never'}
+            </p>
           </div>
 
           <div>
             <Label className="text-sm text-muted-foreground">Created</Label>
             <p className="text-sm font-medium mt-1">
-              {format(new Date(apiKey.created_at), 'PPpp')}
+              {apiKey.createdAt 
+                ? format(new Date(apiKey.createdAt), 'PPpp')
+                : 'Unknown'}
             </p>
           </div>
 
-          {apiKey.expires_at && (
+          {apiKey.expiresAt && (
             <div>
               <Label className="text-sm text-muted-foreground">Expires</Label>
               <p className="text-sm font-medium mt-1">
-                {format(new Date(apiKey.expires_at), 'PPpp')}
+                {format(new Date(apiKey.expiresAt), 'PPpp')}
               </p>
             </div>
           )}
@@ -162,9 +158,9 @@ export function ApiKeyDetails({
               </div>
             )}
 
-            {apiKey.ip_whitelist && apiKey.ip_whitelist.length > 0 ? (
+            {apiKey.ipWhitelist && apiKey.ipWhitelist.length > 0 ? (
               <div className="space-y-2">
-                {apiKey.ip_whitelist.map((ip) => (
+                {apiKey.ipWhitelist.map((ip) => (
                   <div
                     key={ip}
                     className="flex items-center justify-between p-2 bg-muted rounded-md"

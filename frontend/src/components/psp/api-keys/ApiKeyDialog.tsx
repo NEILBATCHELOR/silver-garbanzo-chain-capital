@@ -31,10 +31,9 @@ interface ApiKeyDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreate: (data: {
-    key_description: string
+    description: string
     environment: ApiKeyEnvironment
-    ip_whitelist?: string[]
-    warp_api_key?: string
+    ipWhitelist?: string[]
   }) => Promise<CreateApiKeyResponse | null>
   projectId: string
 }
@@ -48,7 +47,6 @@ export function ApiKeyDialog({
   const [description, setDescription] = useState('')
   const [environment, setEnvironment] = useState<ApiKeyEnvironment>('sandbox')
   const [ipWhitelist, setIpWhitelist] = useState('')
-  const [warpApiKey, setWarpApiKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -59,14 +57,13 @@ export function ApiKeyDialog({
     setLoading(true)
     try {
       const result = await onCreate({
-        key_description: description,
+        description,
         environment,
-        ip_whitelist: ipWhitelist ? ipWhitelist.split('\n').filter(ip => ip.trim()) : undefined,
-        warp_api_key: warpApiKey || undefined
+        ipWhitelist: ipWhitelist ? ipWhitelist.split('\n').filter(ip => ip.trim()) : undefined
       })
 
       if (result) {
-        setCreatedKey(result.plain_text_key)
+        setCreatedKey(result.apiKey)
       }
     } finally {
       setLoading(false)
@@ -85,7 +82,6 @@ export function ApiKeyDialog({
     setDescription('')
     setEnvironment('sandbox')
     setIpWhitelist('')
-    setWarpApiKey('')
     setCreatedKey(null)
     setCopied(false)
     onOpenChange(false)
@@ -168,18 +164,6 @@ export function ApiKeyDialog({
                 <SelectItem value="production">Production</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="warp-key">Warp API Key (Optional)</Label>
-            <Input
-              id="warp-key"
-              type="password"
-              value={warpApiKey}
-              onChange={(e) => setWarpApiKey(e.target.value)}
-              placeholder="Enter your Warp API key"
-              disabled={loading}
-            />
           </div>
 
           <div className="space-y-2">

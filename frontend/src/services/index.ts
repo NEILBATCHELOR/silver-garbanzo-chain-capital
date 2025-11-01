@@ -54,16 +54,12 @@ export type {
 export {
   getGasOracle,
   getMainnetGas,
+  getSepoliaGas,
+  getHoleskyGas,
   buildEip1559Fees,
   toWeiFromGwei,
   type GasOracle
 } from './GasOracleService';
-
-export {
-  getSepoliaGas,
-  getHoleskyGas,
-  getTestnetGas
-} from './TestnetGasService';
 
 // ============================================
 // TOKEN SERVICES

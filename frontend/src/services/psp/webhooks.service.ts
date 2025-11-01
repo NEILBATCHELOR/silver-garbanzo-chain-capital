@@ -5,6 +5,7 @@
 
 import { BaseApiService } from '../base/BaseApiService'
 import { ApiResponse } from '@/types/core/api'
+import { supabase } from '@/infrastructure/database/client'
 import type {
   PspWebhook,
   PspWebhookEvent,
@@ -19,9 +20,28 @@ class PspWebhooksService extends BaseApiService {
   }
 
   /**
+   * Get JWT token from Supabase auth session
+   */
+  private async getAuthToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || null
+  }
+
+  /**
+   * Ensure authentication token is set before making requests
+   */
+  private async ensureAuthenticated(): Promise<void> {
+    const token = await this.getAuthToken()
+    if (token) {
+      this.setToken(token)
+    }
+  }
+
+  /**
    * Get all webhooks for a project
    */
   async getWebhooks(projectId: string): Promise<ApiResponse<PspWebhook[]>> {
+    await this.ensureAuthenticated()
     return this.get<PspWebhook[]>(`/webhooks?project_id=${projectId}`)
   }
 
@@ -29,6 +49,7 @@ class PspWebhooksService extends BaseApiService {
    * Get a specific webhook by ID with recent events
    */
   async getWebhook(id: string): Promise<ApiResponse<WebhookWithEvents>> {
+    await this.ensureAuthenticated()
     return this.get<WebhookWithEvents>(`/webhooks/${id}`)
   }
 
@@ -39,6 +60,7 @@ class PspWebhooksService extends BaseApiService {
     projectId: string,
     data: CreateWebhookRequest
   ): Promise<ApiResponse<PspWebhook>> {
+    await this.ensureAuthenticated()
     return this.post<PspWebhook>('/webhooks', {
       project_id: projectId,
       ...data
@@ -52,6 +74,7 @@ class PspWebhooksService extends BaseApiService {
     id: string,
     data: UpdateWebhookRequest
   ): Promise<ApiResponse<PspWebhook>> {
+    await this.ensureAuthenticated()
     return this.put<PspWebhook>(`/webhooks/${id}`, data)
   }
 
@@ -59,6 +82,7 @@ class PspWebhooksService extends BaseApiService {
    * Delete a webhook
    */
   async deleteWebhook(id: string): Promise<ApiResponse<void>> {
+    await this.ensureAuthenticated()
     return this.delete<void>(`/webhooks/${id}`)
   }
 
@@ -66,6 +90,7 @@ class PspWebhooksService extends BaseApiService {
    * Test a webhook by triggering a test event
    */
   async testWebhook(id: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    await this.ensureAuthenticated()
     return this.post<{ success: boolean; message: string }>(
       `/webhooks/${id}/test`,
       {}
@@ -83,6 +108,8 @@ class PspWebhooksService extends BaseApiService {
     limit?: number
     offset?: number
   }): Promise<ApiResponse<{ events: PspWebhookEvent[]; total: number }>> {
+    await this.ensureAuthenticated()
+    
     const queryParams = new URLSearchParams(
       Object.entries(params).reduce((acc, [key, value]) => {
         if (value !== undefined) {
@@ -101,6 +128,7 @@ class PspWebhooksService extends BaseApiService {
    * Retry a failed webhook event
    */
   async retryEvent(eventId: string): Promise<ApiResponse<PspWebhookEvent>> {
+    await this.ensureAuthenticated()
     return this.post<PspWebhookEvent>(`/webhooks/events/${eventId}/retry`, {})
   }
 }

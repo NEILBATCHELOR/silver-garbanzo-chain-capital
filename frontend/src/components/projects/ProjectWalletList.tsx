@@ -40,9 +40,10 @@ import {
 import { ProjectWalletData, projectWalletService } from "@/services/project/project-wallet-service";
 import { BalanceFormatter, balanceService } from "@/services/wallet/balances";
 import type { WalletBalance } from "@/services/wallet/balances";
-import { getChainEnvironment, getExplorerUrl } from "@/config/chains";
+import { getExplorerUrl } from "@/config/chains";
 import { WalletEncryptionClient } from "@/services/security/walletEncryptionService";
 import { getChainInfo, getChainName, isTestnet } from '@/infrastructure/web3/utils/chainIds';
+import { deriveWalletType, getNetworkEnvironment } from '@/config/chains';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +76,9 @@ interface WalletWithBalance extends ProjectWalletData {
   balance?: WalletBalance;
   isLoadingBalance?: boolean;
   balanceError?: string;
+  // Computed properties
+  wallet_type?: string;
+  environment?: 'mainnet' | 'testnet';
 }
 
 type SortOption = 'network_asc' | 'network_desc' | 'balance_desc' | 'balance_asc';
@@ -120,7 +124,10 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
       const initializedWallets = walletData.map(wallet => ({
         ...wallet,
         isLoadingBalance: false,
-        balance: undefined
+        balance: undefined,
+        // Compute wallet_type and environment from database fields
+        wallet_type: deriveWalletType(wallet.chain_id, wallet.non_evm_network),
+        environment: wallet.chain_id ? getNetworkEnvironment(wallet.chain_id) : undefined,
       }));
       
       setWallets(initializedWallets);
@@ -213,29 +220,15 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             console.log(`⚠️ Unknown chain ID ${chainIdStr}, using wallet_type: ${networkKey}`);
           }
         }
-        // If we have a net field, use it to get more specific network info
-        else if (w.net) {
-          // Map net values to balance service keys
-          const netToServiceKey: Record<string, string> = {
-            'sepolia': 'sepolia',
-            'holesky': 'holesky',
-            'amoy': 'amoy',
-            'optimism-sepolia': 'optimism-sepolia',
-            'arbitrum-sepolia': 'arbitrum-sepolia',
-            'base-sepolia': 'base-sepolia',
-            'fuji': 'avalanche-testnet',
-            'zksync-sepolia': 'zksync-sepolia',
-            'injective-888': 'injective-testnet',
-            'testnet': `${networkKey}-testnet`,
-            'devnet': `${networkKey}-devnet`,
-            'signet': `${networkKey}-signet`,
-            'mainnet': networkKey, // Keep as-is for mainnet
-          };
-          
-          if (netToServiceKey[w.net]) {
-            networkKey = netToServiceKey[w.net];
-            console.log(`🌐 Mapped net ${w.net} to network: ${networkKey}`);
-          }
+        // If we have a non-EVM network, use it directly
+        else if (w.non_evm_network) {
+          networkKey = w.non_evm_network.toLowerCase();
+          console.log(`🌐 Using non-EVM network: ${networkKey}`);
+        }
+        // Use computed environment to determine if testnet
+        else if (w.environment === 'testnet' && w.wallet_type) {
+          networkKey = `${w.wallet_type}-testnet`;
+          console.log(`🧪 Derived testnet network: ${networkKey}`);
         }
         
         return {

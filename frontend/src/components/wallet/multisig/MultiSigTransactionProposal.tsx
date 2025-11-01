@@ -18,7 +18,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { buildEip1559Fees, getHoleskyGas, getSepoliaGas, type GasOracle } from '@/services/TestnetGasService';
+import { buildEip1559Fees, getHoleskyGas, getSepoliaGas, type GasOracle } from '@/services/GasOracleService';
 
 interface TransactionProposalProps {
   walletId: string;
@@ -113,18 +113,18 @@ export function MultiSigTransactionProposal({
         gasOracle = await getHoleskyGas();
       }
 
-      const fees = buildEip1559Fees(gasOracle, 'propose');
+      const fees = buildEip1559Fees(gasOracle, 'medium');
       
       // Estimate gas limit (basic estimation for transfers/calls)
       const isContractCall = data && data !== '0x' && data.length > 2;
       const baseGasLimit = isContractCall ? 150000n : 21000n;
       
       // Calculate estimated cost
-      const estimatedCost = (baseGasLimit * fees.maxFeePerGasWei) / BigInt(1e18);
+      const estimatedCost = (baseGasLimit * fees.maxFeePerGas) / BigInt(1e18);
       
       setGasEstimate({
-        maxFeePerGas: (Number(fees.maxFeePerGasWei) / 1e9).toFixed(2) + ' Gwei',
-        maxPriorityFeePerGas: (Number(fees.maxPriorityFeePerGasWei) / 1e9).toFixed(2) + ' Gwei',
+        maxFeePerGas: (Number(fees.maxFeePerGas) / 1e9).toFixed(2) + ' Gwei',
+        maxPriorityFeePerGas: (Number(fees.maxPriorityFeePerGas) / 1e9).toFixed(2) + ' Gwei',
         estimatedCost: estimatedCost.toString() + ' ETH',
       });
 

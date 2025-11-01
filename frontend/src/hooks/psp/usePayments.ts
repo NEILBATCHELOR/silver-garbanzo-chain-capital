@@ -150,11 +150,13 @@ export function usePayments(projectId?: string, filters?: PaymentListFilters) {
     }
   }, [fetchPayments, toast])
 
-  // Auto-fetch on mount and when dependencies change
+  // Auto-fetch on mount and when projectId changes (NOT when functions change!)
   useEffect(() => {
-    fetchPayments()
-    fetchSummary()
-  }, [fetchPayments, fetchSummary])
+    if (projectId) {
+      fetchPayments()
+      fetchSummary()
+    }
+  }, [projectId]) // Only depend on projectId, not the functions themselves
 
   return {
     payments,

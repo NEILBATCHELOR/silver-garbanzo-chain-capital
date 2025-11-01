@@ -507,6 +507,71 @@ export class WebhookService extends BaseService {
   }
 
   /**
+   * List webhook events with pagination
+   */
+  async listEvents(
+    projectId: string,
+    options: {
+      eventName?: string;
+      status?: 'pending' | 'delivered' | 'failed';
+      page?: number;
+      limit?: number;
+    } = {}
+  ): Promise<{
+    events: WebhookEventResponse[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }> {
+    const page = options.page || 1;
+    const limit = options.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const where: Prisma.psp_webhook_eventsWhereInput = {
+      project_id: projectId
+    };
+
+    if (options.eventName) {
+      where.event_name = options.eventName;
+    }
+
+    if (options.status) {
+      where.status = options.status;
+    }
+
+    // Get total count
+    const total = await this.db.psp_webhook_events.count({ where });
+
+    // Get paginated events
+    const records = await this.db.psp_webhook_events.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: limit,
+      skip: offset
+    });
+
+    const events = records.map(r => this.toEventResponse(r));
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      events,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
+  }
+
+  /**
    * Get webhook event log
    */
   async getEventLog(

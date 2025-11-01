@@ -12,6 +12,9 @@ import ApiKeysPage from "./ApiKeysPage";
 import WebhooksPage from "./WebhooksPage";
 import IdentityPage from "./IdentityPage";
 import AccountsPage from "./AccountsPage";
+import PaymentsPage from "./PaymentsPage";
+import TradesPage from "./TradesPage";
+import BalancesPage from "./BalancesPage";
 import TransactionsPage from "./TransactionsPage";
 import SettingsPage from "./SettingsPage";
 import { SpreadsPage } from "../spreads";
@@ -163,7 +166,7 @@ function PspLayout({ projectId, section }: PspLayoutProps) {
   const renderSection = () => {
     if (!currentProjectId) {
       return (
-        <div className="p-6 bg-white rounded-lg shadow m-6">
+        <div className="p-6 bg-white rounded-lg shadow">
           <h2 className="text-xl font-bold mb-4">No Project Selected</h2>
           <p>Please select a project to view PSP data.</p>
         </div>
@@ -181,6 +184,12 @@ function PspLayout({ projectId, section }: PspLayoutProps) {
         return <IdentityPage />;
       case "accounts":
         return <AccountsPage />;
+      case "payments":
+        return <PaymentsPage projectId={currentProjectId} />;
+      case "trades":
+        return <TradesPage projectId={currentProjectId} />;
+      case "balances":
+        return <BalancesPage projectId={currentProjectId} />;
       case "spreads":
         return <SpreadsPage />;
       case "transactions":
@@ -281,7 +290,9 @@ function PspLayout({ projectId, section }: PspLayoutProps) {
 
       {currentProjectId && <PspNavigation projectId={currentProjectId} />}
 
-      {renderSection()}
+      <div className="p-6">
+        {renderSection()}
+      </div>
     </div>
   );
 }

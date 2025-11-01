@@ -14,15 +14,31 @@ async function jwtAuthPlugin(fastify: FastifyInstance) {
       await request.jwtVerify()
       
       // Token is valid, continue with request
-      fastify.log.debug({ userId: (request as any).user?.userId }, 'JWT authentication successful')
+      const user = (request as any).user
+      fastify.log.info({ 
+        userId: user?.sub || user?.userId || user?.id,
+        email: user?.email,
+        role: user?.role,
+        userObject: user // Log full user object for debugging
+      }, 'JWT authentication successful')
       
     } catch (err) {
-      // Authentication failed
-      fastify.log.warn({ error: err, url: request.url }, 'JWT authentication failed')
+      // Authentication failed - log detailed error
+      fastify.log.error({ 
+        error: err,
+        errorMessage: err instanceof Error ? err.message : String(err),
+        errorName: err instanceof Error ? err.name : 'Unknown',
+        url: request.url,
+        headers: {
+          authorization: request.headers.authorization ? 'Bearer [REDACTED]' : 'missing',
+          hasAuthHeader: !!request.headers.authorization
+        }
+      }, 'JWT authentication failed')
       
       reply.status(401).send({
         error: {
           message: 'Authentication required',
+          details: err instanceof Error ? err.message : 'Invalid token',
           statusCode: 401,
           timestamp: new Date().toISOString()
         }

@@ -14,27 +14,28 @@ export interface ProjectWalletResult {
   mnemonic?: string;
   privateKeyVaultId?: string;
   mnemonicVaultId?: string;
-  vaultStorageId?: string;
   network: string;
   chainId?: string | null;
-  net?: string;
+  nonEvmNetwork?: string | null;
   error?: string;
 }
 
 export interface ProjectWalletData {
   id?: string;
   project_id: string;
-  wallet_type: string;
   wallet_address: string;
   public_key: string;
+  wallet_type?: string; // ✅ FIX #9: Add wallet_type field for backward compatibility
   private_key?: string;
   mnemonic?: string;
   private_key_vault_id?: string;
   mnemonic_vault_id?: string;
-  vault_storage_id?: string;
   chain_id?: string | null;
-  net?: string;
+  non_evm_network?: string | null;
+  bitcoin_network_type?: string | null;
   project_wallet_name?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface WalletGenerationParams {
@@ -44,7 +45,7 @@ export interface WalletGenerationParams {
   network?: string;
   networkEnvironment?: 'mainnet' | 'testnet' | 'devnet';
   chainId?: string | null;
-  net?: string;
+  nonEvmNetwork?: string | null;
   includePrivateKey?: boolean;
   includeMnemonic?: boolean;
   userId?: string;
@@ -84,7 +85,8 @@ export const projectWalletService = {
    * @returns The created wallet
    */
   async createProjectWallet(walletData: ProjectWalletData, requestId?: string): Promise<ProjectWalletData> {
-    console.log(`[ProjectWalletService] Attempting to create wallet for project: ${walletData.project_id}, network: ${walletData.wallet_type}`);
+    const networkInfo = walletData.chain_id || walletData.non_evm_network || 'unknown';
+    console.log(`[ProjectWalletService] Attempting to create wallet for project: ${walletData.project_id}, network: ${networkInfo}`);
 
     // Check if a wallet with this address already exists
     const { data: existing, error: existingError } = await supabase
@@ -114,7 +116,7 @@ export const projectWalletService = {
       return fullWallet;
     }
 
-    console.log(`[ProjectWalletService] Creating wallet for project: ${walletData.project_id}, network: ${walletData.wallet_type}, address: ${walletData.wallet_address}`);
+    console.log(`[ProjectWalletService] Creating wallet for project: ${walletData.project_id}, network: ${networkInfo}, address: ${walletData.wallet_address}`);
     
     // If this is part of a wallet generation, check if it's a duplicate request
     if (requestId) {
@@ -220,39 +222,33 @@ export const enhancedProjectWalletService = {
       network = 'ethereum',
       networkEnvironment = 'testnet',
       chainId,
-      net,
+      nonEvmNetwork,
       includePrivateKey = true, 
       includeMnemonic = true 
     } = params;
     
     // Generate a unique request ID
     const requestId = `req-${uuidv4()}`;
-    console.log(`[ProjectWalletService] Starting wallet generation for project: ${projectId}, network: ${network}, environment: ${net}, request ID: ${requestId}`);
+    const environmentType = networkEnvironment === 'mainnet' ? 'mainnet' : 'testnet';
+    console.log(`[ProjectWalletService] Starting wallet generation for project: ${projectId}, network: ${network}, environment: ${environmentType}, request ID: ${requestId}`);
     
     try {
-      // Use provided chainId and net, or fall back to defaults
+      // Use provided chainId and nonEvmNetwork, or fall back to chain config
       let finalChainId = chainId;
-      let finalNet = net;
+      let finalNonEvmNetwork = nonEvmNetwork;
       
-      // If chainId or net not provided, try to get from chain config
-      // First, resolve the network input to proper chain/environment pair
-      if (!finalChainId || !finalNet) {
-        const resolved = resolveChainAndEnvironment(network, networkEnvironment);
-        if (!resolved) {
-          throw new Error(`Unsupported network environment: ${network}${networkEnvironment ? ' ' + networkEnvironment : ''}`);
-        }
-        
-        const envConfig = getChainEnvironment(resolved.chain, resolved.environment);
+      // If chainId not provided and this is an EVM network, get from chain config
+      if (!finalChainId && !finalNonEvmNetwork) {
+        const envConfig = getChainEnvironment(network, environmentType);
         if (!envConfig) {
-          throw new Error(`Unsupported network environment: ${resolved.chain} ${resolved.environment}`);
+          throw new Error(`Unsupported network environment: ${network} ${environmentType}`);
         }
         
-        console.log(`[ProjectWalletService] Resolved network '${network}' to chain '${resolved.chain}' environment '${resolved.environment}'`);
-        finalChainId = finalChainId || envConfig.chainId;
-        finalNet = finalNet || envConfig.net;
+        console.log(`[ProjectWalletService] Resolved network '${network}' to chain ID '${envConfig.chainId}'`);
+        finalChainId = envConfig.chainId;
       }
       
-      console.log(`[ProjectWalletService] Network identifiers - chain_id: ${finalChainId}, net: ${finalNet}`);
+      console.log(`[ProjectWalletService] Network identifiers - chain_id: ${finalChainId}, non_evm_network: ${finalNonEvmNetwork}`);
       
       // Generate a new wallet using the WalletGeneratorFactory for consistency
       console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
@@ -318,7 +314,7 @@ export const enhancedProjectWalletService = {
               wallet_address: walletAddress,
               network: network,
               chain_id: finalChainId,
-              net: finalNet
+              non_evm_network: finalNonEvmNetwork
             },
             created_by: params.userId || null
           })
@@ -346,7 +342,7 @@ export const enhancedProjectWalletService = {
               wallet_address: walletAddress,
               network: network,
               chain_id: finalChainId,
-              net: finalNet
+              non_evm_network: finalNonEvmNetwork
             },
             created_by: params.userId || null
           })
@@ -368,19 +364,19 @@ export const enhancedProjectWalletService = {
       // - Encrypted copies in private_key and mnemonic columns (backward compatibility)
       const walletData: ProjectWalletData = {
         project_id: projectId,
-        wallet_type: network,
         wallet_address: walletAddress,
         public_key: publicKey,
+        wallet_type: network, // ✅ FIX #9: Set wallet_type for backward compatibility and filtering
         private_key_vault_id: privateKeyVaultId, // FK to private key record
         mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
         chain_id: finalChainId,
-        net: finalNet,
+        non_evm_network: finalNonEvmNetwork,
         // Store encrypted data for backward compatibility
         private_key: encryptedPrivateKey,
         mnemonic: encryptedMnemonic,
       };
 
-      console.log(`[ProjectWalletService] Saving wallet to database: ${walletAddress}, request ID: ${requestId}`);
+      console.log(`[ProjectWalletService] Saving wallet to database: ${walletAddress}, wallet_type: ${network}, chain_id: ${finalChainId}, request ID: ${requestId}`);
       
       // Pass the request ID to track duplicates
       const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
@@ -425,7 +421,7 @@ export const enhancedProjectWalletService = {
           metadata: {
             network,
             chainId: finalChainId,
-            net: finalNet,
+            nonEvmNetwork: finalNonEvmNetwork,
             hasPrivateKey: !!encryptedPrivateKey,
             hasMnemonic: !!encryptedMnemonic
           }
@@ -442,10 +438,9 @@ export const enhancedProjectWalletService = {
         mnemonic: includeMnemonic ? mnemonic : undefined,
         privateKeyVaultId: privateKeyVaultId,
         mnemonicVaultId: mnemonicVaultId,
-        vaultStorageId: savedWallet.vault_storage_id,
-        network: savedWallet.wallet_type,
+        network,
         chainId: savedWallet.chain_id,
-        net: savedWallet.net,
+        nonEvmNetwork: savedWallet.non_evm_network,
       };
     } catch (error) {
       console.error('[ProjectWalletService] Error generating wallet for project:', error);
@@ -588,13 +583,12 @@ export const enhancedProjectWalletService = {
         
         const walletData: ProjectWalletData = {
           project_id: projectId,
-          wallet_type: network,
           wallet_address: walletAddress,
           public_key: publicKey,
           private_key_vault_id: privateKeyVaultId, // FK to private key record
           mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
           chain_id: environment.chainId,
-          net: environment.net,
+          non_evm_network: environment.net,
           // Store encrypted data for backward compatibility
           private_key: encryptedPrivateKey,
           mnemonic: encryptedMnemonic,
@@ -635,7 +629,7 @@ export const enhancedProjectWalletService = {
             metadata: {
               network,
               chainId: environment.chainId,
-              net: environment.net,
+              nonEvmNetwork: environment.net,
               hasPrivateKey: !!encryptedPrivateKey,
               hasMnemonic: !!encryptedMnemonic
             }
@@ -649,10 +643,9 @@ export const enhancedProjectWalletService = {
           publicKey: savedWallet.public_key,
           privateKey: includePrivateKey ? privateKey : undefined,
           mnemonic: includeMnemonic ? mnemonic : undefined,
-          vaultStorageId: savedWallet.vault_storage_id,
-          network: savedWallet.wallet_type,
+          network,
           chainId: savedWallet.chain_id,
-          net: savedWallet.net,
+          nonEvmNetwork: savedWallet.non_evm_network,
         };
       } catch (error) {
         console.error(`[ProjectWalletService] Error generating ${network} wallet:`, error);

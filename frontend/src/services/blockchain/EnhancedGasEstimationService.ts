@@ -27,7 +27,7 @@
 
 import { ethers } from 'ethers';
 import { RealTimeFeeEstimator, FeePriority } from './RealTimeFeeEstimator';
-import { getSepoliaGas, getHoleskyGas, buildEip1559Fees, toWeiFromGwei } from '../TestnetGasService';
+import { getSepoliaGas, getHoleskyGas, buildEip1559Fees } from '../GasOracleService';
 
 // Re-export FeePriority for convenience
 export { FeePriority } from './RealTimeFeeEstimator';
@@ -174,17 +174,25 @@ export class EnhancedGasEstimationService {
       const priorityFeeGwei = priorityFeeMap[priority];
       const baseFeeGwei = testnetGas.suggestBaseFee;
       
+      // Convert priority to gas oracle priority level
+      const priorityLevelMap = {
+        [FeePriority.LOW]: 'low' as const,
+        [FeePriority.MEDIUM]: 'medium' as const,
+        [FeePriority.HIGH]: 'high' as const,
+        [FeePriority.URGENT]: 'high' as const
+      };
+      
       // Build EIP-1559 fees
-      const { maxFeePerGasWei, maxPriorityFeePerGasWei } = buildEip1559Fees(
+      const { maxFeePerGas, maxPriorityFeePerGas } = buildEip1559Fees(
         testnetGas,
-        priority === FeePriority.LOW ? 'safe' : priority === FeePriority.HIGH || priority === FeePriority.URGENT ? 'fast' : 'propose'
+        priorityLevelMap[priority]
       );
       
       // Return in RealTimeFeeEstimator-compatible format
       return {
         gasPrice: undefined, // EIP-1559 only for testnets
-        maxFeePerGas: maxFeePerGasWei.toString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGasWei.toString(),
+        maxFeePerGas: maxFeePerGas.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
         estimatedTimeSeconds: 15, // Testnets are typically fast
         networkCongestion: 'low',
         priority,

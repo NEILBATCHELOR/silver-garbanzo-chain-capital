@@ -20,6 +20,16 @@ export {
 } from './MultiSigBlockchainIntegration';
 
 export {
+  MultiSigContractSubmitter,
+  multiSigContractSubmitter
+} from './MultiSigContractSubmitter';
+
+export {
+  MultiSigOnChainConfirmation,
+  multiSigOnChainConfirmation
+} from './MultiSigOnChainConfirmation';
+
+export {
   MultiSigEventListener,
   multiSigEventListener
 } from './MultiSigEventListener';
@@ -28,6 +38,11 @@ export {
   MultiSigListenerManager,
   multiSigListenerManager
 } from './MultiSigListenerManager';
+
+export {
+  MultiSigABIService,
+  multiSigABIService
+} from './MultiSigABIService';
 
 export { SignatureAggregator } from './SignatureAggregator';
 export { LocalSigner } from './LocalSigner';
@@ -75,7 +90,17 @@ export type {
 } from './MultiSigBlockchainIntegration';
 
 export type {
-  EventListenerConfig,
+  ContractSubmissionResult,
+  SignerWallet
+} from './MultiSigContractSubmitter';
+
+export type {
+  OnChainConfirmationResult,
+  OnChainStatus
+} from './MultiSigOnChainConfirmation';
+
+export type {
+  ListenerConfig,
   ListenerStatus
 } from './MultiSigEventListener';
 

@@ -114,11 +114,13 @@ export function useBalances(projectId?: string, filters?: BalanceListFilters) {
     }
   }, [fetchBalances, toast])
 
-  // Auto-fetch on mount and when dependencies change
+  // Auto-fetch on mount and when projectId changes (NOT when functions change!)
   useEffect(() => {
-    fetchBalances()
-    fetchSummary()
-  }, [fetchBalances, fetchSummary])
+    if (projectId) {
+      fetchBalances()
+      fetchSummary()
+    }
+  }, [projectId]) // Only depend on projectId, not the functions themselves
 
   return {
     balances,

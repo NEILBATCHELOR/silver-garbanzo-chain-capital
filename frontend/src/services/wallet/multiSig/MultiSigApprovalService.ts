@@ -14,6 +14,7 @@ import { ChainType } from '../AddressUtils';
 import { ethers } from 'ethers';
 import { multiSigBlockchainIntegration } from './MultiSigBlockchainIntegration';
 import { multiSigContractSubmitter } from './MultiSigContractSubmitter';
+import { multiSigOnChainConfirmation } from './MultiSigOnChainConfirmation';
 import { validateBlockchain, isEVMChain } from '@/infrastructure/web3/utils/BlockchainValidator';
 import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
@@ -347,7 +348,12 @@ export class MultiSigApprovalService {
 
   /**
    * Approve a proposal by signing it
-   * ENHANCED: Now records signer name and Ethereum address for verification
+   * ENHANCED: Now supports both off-chain signatures AND on-chain confirmations
+   * 
+   * WORKFLOW:
+   * 1. Always collect off-chain signature for audit trail
+   * 2. If proposal already submitted to contract → Submit on-chain confirmation
+   * 3. If not yet submitted → Just store signature for later batch submission
    */
   async approveProposal(
     proposalId: string,
@@ -361,8 +367,12 @@ export class MultiSigApprovalService {
       }
 
       // Check proposal status
-      if (proposal.status !== 'pending') {
-        throw new Error(`Proposal is ${proposal.status}, cannot approve`);
+      if (proposal.status === 'executed') {
+        throw new Error('Proposal already executed, cannot approve');
+      }
+
+      if (proposal.status === 'rejected') {
+        throw new Error('Proposal rejected, cannot approve');
       }
 
       // Get current user
@@ -391,8 +401,7 @@ export class MultiSigApprovalService {
       // Get the multi-sig wallet details
       const multiSigWallet = await this.getMultiSigWallet(proposal.walletId);
       
-      // CRITICAL FIX: Get the owner's REGISTERED address from multi_sig_wallet_owners
-      // This is the address that was added as an owner during wallet creation
+      // Get the owner's REGISTERED address from multi_sig_wallet_owners
       const { data: ownerRecord, error: ownerError } = await supabase
         .from('multi_sig_wallet_owners')
         .select(`
@@ -411,11 +420,7 @@ export class MultiSigApprovalService {
         throw new Error('User is not registered as an owner with an Ethereum address');
       }
 
-      // Get the Ethereum address from the joined user_addresses table
       const signerEthereumAddress = (ownerRecord.user_addresses as any).address;
-      
-      // CRITICAL FIX: Use the owner's registered user_address_id instead of the passed parameter
-      // This ensures we use the SAME address for signing that's registered as an owner
       const registeredUserAddressId = ownerRecord.user_address_id;
       
       // Get the wallet and private key for the REGISTERED owner address
@@ -424,71 +429,106 @@ export class MultiSigApprovalService {
         throw new Error('Owner wallet not found');
       }
 
-      // Check if already signed
+      // Check if already signed OFF-CHAIN
       const existingSignature = proposal.signatures.find(
         sig => sig.signer === user.id
       );
-      if (existingSignature) {
-        throw new Error('User has already signed this proposal');
+
+      // STEP 1: Always collect OFF-CHAIN signature for audit trail (if not already signed)
+      let signatureData: any = existingSignature;
+
+      if (!existingSignature) {
+        const transactionHash = await this.buildTransactionHash(proposal, multiSigWallet.address);
+
+        // Sign the transaction hash
+        const privateKey = await this.getUserPrivateKey(userWallet);
+        const wallet = new ethers.Wallet(privateKey);
+        const signature = await wallet.signMessage(ethers.getBytes(transactionHash));
+
+        // Verify the signature
+        const recoveredAddress = ethers.verifyMessage(ethers.getBytes(transactionHash), signature);
+        
+        if (recoveredAddress.toLowerCase() !== signerEthereumAddress.toLowerCase()) {
+          throw new Error(
+            `Signature verification failed: Expected ${signerEthereumAddress}, got ${recoveredAddress}`
+          );
+        }
+
+        // Store off-chain signature for audit trail
+        const { data, error } = await supabase
+          .from('transaction_signatures')
+          .insert({
+            proposal_id: proposalId,
+            signer: user.id,
+            signer_name: userData.name,
+            signer_address: signerEthereumAddress,
+            signature,
+            transaction_hash: transactionHash
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        signatureData = data;
+
+        // Update proposal signatures count
+        const newSignatureCount = proposal.signaturesCollected + 1;
+        if (newSignatureCount >= proposal.signaturesRequired) {
+          await supabase
+            .from('transaction_proposals')
+            .update({ status: 'approved' })
+            .eq('id', proposalId);
+        }
+
+        console.log('[MultiSig Approval] Off-chain signature collected');
       }
 
-      // Build transaction hash to sign
-      const transactionHash = await this.buildTransactionHash(proposal, multiSigWallet.address);
-
-      // Sign the transaction hash
-      const privateKey = await this.getUserPrivateKey(userWallet);
-      const wallet = new ethers.Wallet(privateKey);
-      const signature = await wallet.signMessage(ethers.getBytes(transactionHash));
-
-      // Verify the signature was created by the expected address
-      const recoveredAddress = ethers.verifyMessage(ethers.getBytes(transactionHash), signature);
-      
-      // Debug logging for signature verification
-      console.log('[MultiSig Approval] Signature Verification:', {
-        walletAddress: wallet.address,
-        recoveredAddress: recoveredAddress,
-        expectedAddress: signerEthereumAddress,
-        registeredAddressId: registeredUserAddressId,
-        passedAddressId: userAddressId,
-        match: recoveredAddress.toLowerCase() === signerEthereumAddress.toLowerCase()
-      });
-      
-      if (recoveredAddress.toLowerCase() !== signerEthereumAddress.toLowerCase()) {
-        throw new Error(
-          `Signature verification failed: address mismatch. ` +
-          `Expected ${signerEthereumAddress}, got ${recoveredAddress}. ` +
-          `Using registered address ID: ${registeredUserAddressId}`
-        );
-      }
-
-      // Store signature with enhanced details
-      const { data, error } = await supabase
-        .from('transaction_signatures')
-        .insert({
-          proposal_id: proposalId,
-          signer: user.id,
-          signer_name: userData.name,
-          signer_address: signerEthereumAddress,
-          signature,
-          transaction_hash: transactionHash
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update proposal signatures count and check if threshold met
-      const newSignatureCount = proposal.signaturesCollected + 1;
-      if (newSignatureCount >= proposal.signaturesRequired) {
-        await supabase
+      // STEP 2: If proposal is submitted to contract → Submit ON-CHAIN confirmation
+      if (proposal.onChainTxId !== null) {
+        console.log('[MultiSig Approval] Proposal on-chain, submitting confirmation...');
+        
+        // Check if already confirmed on-chain
+        const { data: techProposal } = await supabase
           .from('transaction_proposals')
-          .update({ status: 'approved' })
-          .eq('id', proposalId);
+          .select('multi_sig_proposal_id')
+          .eq('id', proposalId)
+          .single();
+
+        if (techProposal?.multi_sig_proposal_id) {
+          // Check on-chain status
+          const onChainStatus = await multiSigOnChainConfirmation.getOnChainStatus(
+            techProposal.multi_sig_proposal_id,
+            signerEthereumAddress
+          );
+
+          if (onChainStatus?.hasUserConfirmed) {
+            console.log('[MultiSig Approval] User already confirmed on-chain');
+            return {
+              success: true,
+              signature: this.formatSignature(signatureData)
+            };
+          }
+
+          // Submit on-chain confirmation
+          const onChainResult = await multiSigOnChainConfirmation.confirmTransactionOnChain(
+            techProposal.multi_sig_proposal_id,
+            registeredUserAddressId
+          );
+
+          if (!onChainResult.success) {
+            throw new Error(`On-chain confirmation failed: ${onChainResult.error}`);
+          }
+
+          console.log('[MultiSig Approval] On-chain confirmation successful:', {
+            txHash: onChainResult.transactionHash,
+            blockNumber: onChainResult.blockNumber
+          });
+        }
       }
 
       return {
         success: true,
-        signature: this.formatSignature(data)
+        signature: this.formatSignature(signatureData)
       };
     } catch (error: any) {
       console.error('Failed to approve proposal:', error);

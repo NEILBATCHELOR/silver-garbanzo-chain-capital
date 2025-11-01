@@ -142,12 +142,14 @@ export function useTrades(projectId?: string, filters?: TradeListFilters) {
     }
   }, [fetchTrades, toast])
 
-  // Auto-fetch on mount and when dependencies change
+  // Auto-fetch on mount and when projectId changes (NOT when functions change!)
   useEffect(() => {
-    fetchTrades()
-    fetchSummary()
-    fetchMarketRates()
-  }, [fetchTrades, fetchSummary, fetchMarketRates])
+    if (projectId) {
+      fetchTrades()
+      fetchSummary()
+      fetchMarketRates()
+    }
+  }, [projectId]) // Only depend on projectId, not the functions themselves
 
   return {
     trades,

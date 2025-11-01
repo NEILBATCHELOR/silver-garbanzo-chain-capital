@@ -12,6 +12,9 @@ export * from './CryptoUtils';
 // Chain ID utilities and mappings
 export * from './chainIds';
 
+// Chain ID conversion utilities
+export * from './chainIdUtils';
+
 // Eligible assets mappings and utilities
 export * from './eligibleAssets';
 

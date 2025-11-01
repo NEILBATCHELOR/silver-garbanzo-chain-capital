@@ -43,7 +43,7 @@ import transactionsPspRoutes from './src/routes/psp/transactions.routes'
 import virtualAccountsPspRoutes from './src/routes/psp/virtual-accounts.routes'
 import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
-import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'
+// import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
 
 // Plugins
 import supabasePlugin from './src/plugins/supabase'
@@ -614,6 +614,9 @@ async function buildApp(): Promise<FastifyInstance> {
 
     // Register authentication middleware
     await app.register(import('./src/middleware/auth/jwt-auth'))
+    
+    // Register PSP API key authentication middleware
+    await app.register(import('./src/middleware/pspApiKeyAuth'))
 
     // Register Supabase plugin for database access
     await app.register(supabasePlugin)

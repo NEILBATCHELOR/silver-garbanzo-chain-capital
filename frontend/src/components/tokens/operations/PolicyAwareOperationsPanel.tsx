@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Shield, Info, Activity, Lock, Unlock } from "lucide-react";
+import { AlertCircle, Shield, Activity, Lock, Unlock } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +24,7 @@ import { PolicyAwareLockOperation } from "./PolicyAwareLockOperation";
 import { PolicyAwareUnlockOperation } from "./PolicyAwareUnlockOperation";
 import { PolicyAwareBlockOperation } from "./PolicyAwareBlockOperation";
 import { PolicyAwareUnblockOperation } from "./PolicyAwareUnblockOperation";
-
-// Keep PauseOperation as no PolicyAware version exists
-import PauseOperation from "./PauseOperation";
+import { PolicyAwarePauseOperation } from "./PolicyAwarePauseOperation";
 
 import type { SupportedChain } from "@/infrastructure/web3/adapters/IBlockchainAdapter";
 import { useSupabaseClient as useSupabase } from "@/hooks/shared/supabase/useSupabaseClient";
@@ -282,18 +280,13 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
                 
                 {operations.pause && (
                   <TabsContent value="pause">
-                    <Alert className="mb-4">
-                      <Info className="h-4 w-4" />
-                      <AlertTitle>Note</AlertTitle>
-                      <AlertDescription>
-                        Pause operations are not yet integrated with the Policy Engine.
-                      </AlertDescription>
-                    </Alert>
-                    <PauseOperation
+                    <PolicyAwarePauseOperation
                       tokenId={tokenId}
+                      tokenAddress={tokenAddress}
                       tokenStandard={tokenStandard}
                       tokenName={tokenName}
                       tokenSymbol={tokenSymbol}
+                      chain={chain}
                       isDeployed={isDeployed}
                       isPaused={isPaused}
                       hasPauseFeature={hasPauseFeature}

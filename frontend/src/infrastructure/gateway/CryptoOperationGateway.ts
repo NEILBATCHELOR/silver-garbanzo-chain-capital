@@ -378,6 +378,8 @@ export class CryptoOperationGateway {
     const { UnlockValidator } = await import('./validators/UnlockValidator');
     const { BlockValidator } = await import('./validators/BlockValidator');
     const { UnblockValidator } = await import('./validators/UnblockValidator');
+    const { PauseValidator } = await import('./validators/PauseValidator');
+    const { UnpauseValidator } = await import('./validators/UnpauseValidator');
     
     this.validators.set('mint', new MintValidator());
     this.validators.set('burn', new BurnValidator());
@@ -386,6 +388,8 @@ export class CryptoOperationGateway {
     this.validators.set('unlock', new UnlockValidator());
     this.validators.set('block', new BlockValidator());
     this.validators.set('unblock', new UnblockValidator());
+    this.validators.set('pause', new PauseValidator());
+    this.validators.set('unpause', new UnpauseValidator());
   }
   
   /**
@@ -400,6 +404,8 @@ export class CryptoOperationGateway {
     const { UnlockExecutor } = await import('./executors/UnlockExecutor');
     const { BlockExecutor } = await import('./executors/BlockExecutor');
     const { UnblockExecutor } = await import('./executors/UnblockExecutor');
+    const { PauseExecutor } = await import('./executors/PauseExecutor');
+    const { UnpauseExecutor } = await import('./executors/UnpauseExecutor');
     
     this.executors.set('mint', new MintExecutor(this.tokenManager));
     this.executors.set('burn', new BurnExecutor(this.tokenManager));
@@ -408,5 +414,7 @@ export class CryptoOperationGateway {
     this.executors.set('unlock', new UnlockExecutor(this.tokenManager));
     this.executors.set('block', new BlockExecutor(this.tokenManager));
     this.executors.set('unblock', new UnblockExecutor(this.tokenManager));
+    this.executors.set('pause', new PauseExecutor(this.tokenManager));
+    this.executors.set('unpause', new UnpauseExecutor(this.tokenManager));
   }
 }

@@ -22,6 +22,7 @@ export interface TokenWalletOptions {
   projectName?: string;
   projectType?: string;
   network: string;
+  environment?: 'mainnet' | 'testnet'; // ✅ FIX #9: Add environment parameter
   forceNew?: boolean;
   includePrivateKey?: boolean;
   includeMnemonic?: boolean;
@@ -29,7 +30,8 @@ export interface TokenWalletOptions {
 
 /**
  * Network mapping for consistent wallet_type values
- * ✅ FIX #6: Enhanced network normalization with comprehensive mapping
+ * ✅ FIX #9: Comprehensive network normalization with ALL supported chains
+ * Maps from user-friendly names to standardized network identifiers
  */
 const NETWORK_MAPPING: Record<string, string> = {
   // Ethereum variants (mainnet)
@@ -41,47 +43,138 @@ const NETWORK_MAPPING: Record<string, string> = {
   // Ethereum testnets
   'sepolia': 'ethereum',
   'holesky': 'ethereum',
+  'hoodi': 'ethereum', // ✅ FIX #9: Add hoodi testnet support
   'goerli': 'ethereum', // Deprecated but still included for compatibility
+  
+  // Layer 2 Networks - Arbitrum
+  'arbitrum': 'arbitrum',
+  'arb': 'arbitrum',
+  'arbnet': 'arbitrum',
+  'arbitrumone': 'arbitrum',
+  'arbitrumnova': 'arbitrum',
+  'arbitrumsepolia': 'arbitrum',
+  
+  // Layer 2 Networks - Base
+  'base': 'base',
+  'basename': 'base',
+  'basenet': 'base',
+  'basesepolia': 'base',
+  
+  // Layer 2 Networks - Optimism
+  'optimism': 'optimism',
+  'op': 'optimism',
+  'opnet': 'optimism',
+  'optimismsepolia': 'optimism',
+  
+  // Layer 2 Networks - Blast
+  'blast': 'blast',
+  'blastsepolia': 'blast',
+  
+  // Layer 2 Networks - Scroll
+  'scroll': 'scroll',
+  'scrollsepolia': 'scroll',
+  
+  // Layer 2 Networks - zkSync
+  'zksync': 'zksync',
+  'zksyncsepolia': 'zksync',
+  
+  // Layer 2 Networks - Polygon zkEVM
+  'polygonzkevm': 'polygonzkevm',
+  'polygonzkevmcardona': 'polygonzkevm',
+  
+  // Layer 2 Networks - Linea
+  'linea': 'linea',
+  'lineasepolia': 'linea',
+  
+  // Layer 2 Networks - Mantle
+  'mantle': 'mantle',
+  'mantlesepolia': 'mantle',
+  
+  // Layer 2 Networks - Taiko
+  'taiko': 'taiko',
+  'taikohekla': 'taiko',
+  
+  // Layer 2 Networks - Sonic
+  'sonic': 'sonic',
+  'sonictestnet': 'sonic',
+  
+  // Layer 2 Networks - Unichain
+  'unichain': 'unichain',
+  'unichainsepolia': 'unichain',
+  
+  // Layer 2 Networks - Abstract
+  'abstract': 'abstract',
+  'abstractsepolia': 'abstract',
+  
+  // Layer 2 Networks - Fraxtal
+  'fraxtal': 'fraxtal',
+  'fraxtaltestnet': 'fraxtal',
+  
+  // Layer 2 Networks - Swellchain
+  'swellchain': 'swellchain',
+  'swellchaintestnet': 'swellchain',
   
   // Polygon variants
   'polygon': 'polygon',
   'matic': 'polygon',
   'poly': 'polygon',
   'polygonmatic': 'polygon',
+  'polygonamoy': 'polygon', // ✅ FIX #9: Add Amoy testnet support
+  
+  // BNB Chain variants
+  'binance': 'binance',
+  'bsc': 'binance',
+  'bnb': 'binance',
+  'binancesmartchain': 'binance',
+  'bnbchain': 'binance',
+  'bnbtestnet': 'binance',
+  'opbnb': 'binance',
+  'opbnbtestnet': 'binance',
   
   // Avalanche variants
   'avalanche': 'avalanche',
   'avax': 'avalanche',
   'avax-c': 'avalanche',
   'avax-x': 'avalanche',
+  'avalanchefuji': 'avalanche',
   
-  // Optimism variants
-  'optimism': 'optimism',
-  'op': 'optimism',
-  'opnet': 'optimism',
+  // Other Major Networks
+  'gnosis': 'gnosis',
+  'celo': 'celo',
+  'celoalfajores': 'celo',
+  'moonbeam': 'moonbeam',
+  'moonriver': 'moonbeam',
+  'moonbasealpha': 'moonbeam',
+  'berachain': 'berachain',
+  'berachainbepolia': 'berachain',
+  'sei': 'sei',
+  'seitestnet': 'sei',
+  'injective': 'injective',
+  'injectivetestnet': 'injective',
+  'katana': 'katana',
+  'world': 'world',
+  'worldsepolia': 'world',
+  'sophon': 'sophon',
+  'sophonsepolia': 'sophon',
+  'monad': 'monad',
   
-  // Base variants
-  'base': 'base',
-  'basename': 'base',
-  'basenet': 'base',
-  
-  // Arbitrum variants
-  'arbitrum': 'arbitrum',
-  'arb': 'arbitrum',
-  'arbnet': 'arbitrum',
-  'arbitrumone': 'arbitrum',
-  
-  // Binance Smart Chain variants
-  'binance': 'binance',
-  'bsc': 'binance',
-  'bnb': 'binance',
-  'binancesmartchain': 'binance',
-  'bnbchain': 'binance',
+  // Other Networks
+  'bittorrent': 'bittorrent',
+  'bittorrenttestnet': 'bittorrent',
+  'xdc': 'xdc',
+  'xdcapothem': 'xdc',
+  'hyperevm': 'hyperevm',
+  'apechain': 'apechain',
+  'apechaincurtis': 'apechain',
+  'memecore': 'memecore',
   
   // Fantom variants
   'fantom': 'fantom',
   'ftm': 'fantom',
-  'fantomopera': 'fantom'
+  'fantomopera': 'fantom',
+  
+  // Deprecated Networks
+  'cronos': 'cronos'
 };
 
 /**
@@ -114,6 +207,7 @@ function getNormalizedNetwork(network: string): string {
 export const tokenProjectWalletIntegrationService = {
   /**
    * Get or create a project wallet for token deployment
+   * ✅ FIX #8: Pass chain_id to findExistingWallet for accurate filtering
    * @param options Wallet integration options
    * @returns Token wallet integration result
    */
@@ -128,14 +222,33 @@ export const tokenProjectWalletIntegrationService = {
     
     const normalizedNetwork = getNormalizedNetwork(network);
     
-    console.log(`[TokenWalletIntegration] Getting wallet for project: ${projectId}, network: ${normalizedNetwork}`);
+    // ✅ FIX #9: Intelligently determine environment based on network name or use provided environment
+    const { deploymentEnhancementService } = await import('@/components/tokens/services/deploymentEnhancementService');
+    const { NetworkEnvironment } = await import('@/infrastructure/web3/ProviderManager');
+    
+    // Detect environment from network name if not explicitly provided
+    let detectedEnvironment: typeof NetworkEnvironment.MAINNET | typeof NetworkEnvironment.TESTNET;
+    
+    if (options.environment) {
+      // Use provided environment
+      detectedEnvironment = options.environment === 'mainnet' ? NetworkEnvironment.MAINNET : NetworkEnvironment.TESTNET;
+    } else {
+      // Auto-detect based on network name
+      const testnetKeywords = ['testnet', 'sepolia', 'holesky', 'hoodi', 'goerli', 'amoy', 'fuji', 'bepolia', 'curtis'];
+      const isTestnet = testnetKeywords.some(keyword => network.toLowerCase().includes(keyword));
+      detectedEnvironment = isTestnet ? NetworkEnvironment.TESTNET : NetworkEnvironment.MAINNET;
+    }
+    
+    const chainId = deploymentEnhancementService.getChainId(normalizedNetwork, detectedEnvironment);
+    
+    console.log(`[TokenWalletIntegration] Getting wallet for project: ${projectId}, network: ${normalizedNetwork}, environment: ${detectedEnvironment === NetworkEnvironment.MAINNET ? 'mainnet' : 'testnet'}, chain_id: ${chainId}`);
     
     try {
       // First, try to find existing wallet if not forcing new
       if (!forceNew) {
-        const existingWallet = await this.findExistingWallet(projectId, normalizedNetwork);
+        const existingWallet = await this.findExistingWallet(projectId, normalizedNetwork, chainId);
         if (existingWallet) {
-          console.log(`[TokenWalletIntegration] Found existing wallet: ${existingWallet.walletAddress}`);
+          console.log(`✅ FIX #8: Found existing wallet by chain_id ${chainId}: ${existingWallet.walletAddress}`);
           return {
             success: true,
             walletAddress: existingWallet.walletAddress,
@@ -149,13 +262,14 @@ export const tokenProjectWalletIntegrationService = {
       }
       
       // Generate new wallet if none exists or forced
-      console.log(`[TokenWalletIntegration] Generating new wallet for network: ${normalizedNetwork}`);
+      console.log(`[TokenWalletIntegration] Generating new wallet for network: ${normalizedNetwork}, chain_id: ${chainId}`);
       
       const walletParams: WalletGenerationParams = {
         projectId,
         projectName: options.projectName || 'Chain Capital Project',
         projectType: options.projectType || 'tokenization',
         network: normalizedNetwork,
+        chainId: chainId.toString(), // ✅ FIX #8: Pass chain_id to wallet generation
         includePrivateKey,
         includeMnemonic
       };
@@ -173,7 +287,7 @@ export const tokenProjectWalletIntegrationService = {
         };
       }
       
-      console.log(`[TokenWalletIntegration] Successfully generated wallet: ${walletResult.walletAddress}`);
+      console.log(`✅ FIX #8: Successfully generated wallet with chain_id ${chainId}: ${walletResult.walletAddress}`);
       
       return {
         success: true,
@@ -200,20 +314,51 @@ export const tokenProjectWalletIntegrationService = {
   
   /**
    * Find existing wallet for project and network
+   * ✅ FIX #7: Search by chain_id first, fallback to wallet_type
    * @param projectId Project ID
    * @param network Network name
+   * @param chainId Optional chain ID for more precise filtering
    * @returns Existing wallet or null
    */
-  async findExistingWallet(projectId: string, network: string): Promise<{
+  async findExistingWallet(
+    projectId: string, 
+    network: string, 
+    chainId?: string | number
+  ): Promise<{
     walletId: string;
     walletAddress: string;
     publicKey: string;
     privateKey?: string;
   } | null> {
     try {
+      // ✅ FIX #7: Priority 1 - Search by chain_id (most reliable)
+      if (chainId !== undefined && chainId !== null) {
+        const { data: chainData, error: chainError } = await supabase
+          .from('project_wallets')
+          .select('id, wallet_address, public_key, private_key, chain_id')
+          .eq('project_id', projectId)
+          .eq('chain_id', chainId.toString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (chainError) {
+          console.error('[TokenWalletIntegration] Error finding wallet by chain_id:', chainError);
+        } else if (chainData) {
+          console.log(`✅ FIX #7: Found existing wallet by chain_id ${chainId}: ${chainData.wallet_address}`);
+          return {
+            walletId: chainData.id,
+            walletAddress: chainData.wallet_address,
+            publicKey: chainData.public_key,
+            privateKey: chainData.private_key || undefined
+          };
+        }
+      }
+      
+      // ✅ FIX #7: Priority 2 - Fallback to wallet_type (for legacy wallets)
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('id, wallet_address, public_key, private_key')
+        .select('id, wallet_address, public_key, private_key, wallet_type')
         .eq('project_id', projectId)
         .eq('wallet_type', network)
         .order('created_at', { ascending: false })
@@ -221,15 +366,16 @@ export const tokenProjectWalletIntegrationService = {
         .maybeSingle();
       
       if (error) {
-        console.error('[TokenWalletIntegration] Error finding existing wallet:', error);
+        console.error('[TokenWalletIntegration] Error finding wallet by wallet_type:', error);
         return null;
       }
       
       if (!data) {
-        console.log(`[TokenWalletIntegration] No existing wallet found for project ${projectId}, network ${network}`);
+        console.log(`[TokenWalletIntegration] No existing wallet found for project ${projectId}, network ${network}, chain_id ${chainId}`);
         return null;
       }
       
+      console.log(`✅ FIX #7: Found existing wallet by wallet_type ${network}: ${data.wallet_address}`);
       return {
         walletId: data.id,
         walletAddress: data.wallet_address,

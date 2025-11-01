@@ -6,7 +6,7 @@ import { RateLimitPluginOptions } from '@fastify/rate-limit'
  */
 export const rateLimitOptions: RateLimitPluginOptions = {
   global: true,
-  max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+  max: parseInt(process.env.RATE_LIMIT_MAX || '10000', 10), // 10,000 requests (high for dev)
   timeWindow: parseInt(process.env.RATE_LIMIT_WINDOW || '60000', 10), // 1 minute
   allowList: ['127.0.0.1', '::1'], // Allow localhost
   skipOnError: false,

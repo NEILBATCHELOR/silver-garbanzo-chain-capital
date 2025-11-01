@@ -82,6 +82,11 @@ export class ProjectWalletService {
 
     // Map wallet types to role addresses
     wallets.forEach(wallet => {
+      // Handle null/undefined wallet_type gracefully
+      if (!wallet.wallet_type) {
+        return;
+      }
+      
       const walletType = wallet.wallet_type.toLowerCase();
       
       // Map wallet types to roles based on common patterns
@@ -239,10 +244,12 @@ export class ProjectWalletService {
   async getDeployerPrivateKey(projectId: string): Promise<string | null> {
     const wallets = await this.getProjectWallets(projectId);
     
-    // Find deployer wallet
+    // Find deployer wallet - with null safety for wallet_type
     const deployerWallet = wallets.find(w => 
-      w.wallet_type.toLowerCase().includes('deploy') ||
-      w.wallet_type.toLowerCase().includes('operator')
+      w.wallet_type && (
+        w.wallet_type.toLowerCase().includes('deploy') ||
+        w.wallet_type.toLowerCase().includes('operator')
+      )
     ) || wallets[0]; // Fallback to first wallet
 
     if (!deployerWallet?.private_key) {

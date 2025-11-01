@@ -157,10 +157,11 @@ export class ApiKeyService extends BaseService {
   }
 
   /**
-   * Validate an API key and return project context
+   * Validate an API key and return authenticated context with decrypted Warp API key
+   * Used internally for making Warp API calls on behalf of the project
    * Updates last_used_at timestamp
    */
-  async validateApiKey(
+  async validateAndDecryptApiKey(
     apiKey: string,
     ipAddress?: string
   ): Promise<ValidatedApiKey | null> {
@@ -362,6 +363,88 @@ export class ApiKeyService extends BaseService {
   }
 
   /**
+   * Add a single IP to the whitelist
+   */
+  async addIpToWhitelist(keyId: string, request: { ip: string; description?: string }): Promise<{ id: string; ipWhitelist: string[]; message: string }> {
+    this.logInfo('Adding IP to whitelist', { keyId, ip: request.ip });
+
+    const record = await this.db.psp_api_keys.findUnique({
+      where: { id: keyId }
+    });
+
+    if (!record) {
+      throw new Error('API key not found');
+    }
+
+    const currentWhitelist = record.ip_whitelist || [];
+    
+    // Check if IP already exists
+    if (currentWhitelist.includes(request.ip)) {
+      throw new Error('IP address already in whitelist');
+    }
+
+    // Add IP to whitelist
+    const updatedWhitelist = [...currentWhitelist, request.ip];
+
+    await this.db.psp_api_keys.update({
+      where: { id: keyId },
+      data: {
+        ip_whitelist: updatedWhitelist,
+        updated_at: new Date()
+      }
+    });
+
+    this.logInfo('IP added to whitelist successfully', { keyId, ip: request.ip });
+
+    return {
+      id: keyId,
+      ipWhitelist: updatedWhitelist,
+      message: 'IP address added to whitelist'
+    };
+  }
+
+  /**
+   * Remove a single IP from the whitelist
+   */
+  async removeIpFromWhitelist(keyId: string, ip: string): Promise<{ id: string; ipWhitelist: string[]; message: string }> {
+    this.logInfo('Removing IP from whitelist', { keyId, ip });
+
+    const record = await this.db.psp_api_keys.findUnique({
+      where: { id: keyId }
+    });
+
+    if (!record) {
+      throw new Error('API key not found');
+    }
+
+    const currentWhitelist = record.ip_whitelist || [];
+    
+    // Check if IP exists
+    if (!currentWhitelist.includes(ip)) {
+      throw new Error('IP address not found in whitelist');
+    }
+
+    // Remove IP from whitelist
+    const updatedWhitelist = currentWhitelist.filter(item => item !== ip);
+
+    await this.db.psp_api_keys.update({
+      where: { id: keyId },
+      data: {
+        ip_whitelist: updatedWhitelist,
+        updated_at: new Date()
+      }
+    });
+
+    this.logInfo('IP removed from whitelist successfully', { keyId, ip });
+
+    return {
+      id: keyId,
+      ipWhitelist: updatedWhitelist,
+      message: 'IP address removed from whitelist'
+    };
+  }
+
+  /**
    * Delete an API key and its encrypted Warp key from vault
    */
   async deleteApiKey(keyId: string): Promise<void> {
@@ -447,6 +530,86 @@ export class ApiKeyService extends BaseService {
       createdAt: record.created_at,
       expiresAt: record.expires_at
     }));
+  }
+
+  /**
+   * Validate API key for middleware (simplified validation)
+   * Returns validation result with detailed context
+   */
+  async validateApiKey(apiKey: string): Promise<{
+    valid: boolean
+    reason?: string
+    projectId?: string
+    keyId?: string
+    environment?: 'sandbox' | 'production'
+    ipWhitelist?: string[]
+  }> {
+    try {
+      // Get all active API keys
+      const allKeys = await this.db.psp_api_keys.findMany({
+        where: {
+          status: 'active'
+        }
+      });
+
+      // Try to find matching key
+      for (const record of allKeys) {
+        // Check if key matches hash
+        const isValid = await this.verifyApiKey(apiKey, record.key_hash);
+        if (!isValid) continue;
+
+        // Check if expired
+        if (record.expires_at && record.expires_at < new Date()) {
+          this.logWarn('Attempted use of expired API key', { keyId: record.id });
+          return {
+            valid: false,
+            reason: 'API key has expired'
+          };
+        }
+
+        // Return validation success with context
+        return {
+          valid: true,
+          projectId: record.project_id,
+          keyId: record.id,
+          environment: record.environment as 'sandbox' | 'production',
+          ipWhitelist: record.ip_whitelist || []
+        };
+      }
+
+      return {
+        valid: false,
+        reason: 'Invalid or inactive API key'
+      };
+
+    } catch (error) {
+      this.logError('Error validating API key', error);
+      return {
+        valid: false,
+        reason: 'Validation failed'
+      };
+    }
+  }
+
+  /**
+   * Update last used timestamp for an API key
+   * Non-critical operation - doesn't throw on error
+   */
+  async updateLastUsed(keyId: string): Promise<void> {
+    try {
+      await this.db.psp_api_keys.update({
+        where: { id: keyId },
+        data: {
+          last_used_at: new Date(),
+          usage_count: {
+            increment: 1
+          }
+        }
+      });
+    } catch (error) {
+      // Non-critical error, just log it
+      this.logWarn('Failed to update last_used_at', { keyId, error });
+    }
   }
 }
 

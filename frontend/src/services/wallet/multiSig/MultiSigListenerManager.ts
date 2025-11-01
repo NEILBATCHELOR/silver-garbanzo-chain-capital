@@ -69,13 +69,14 @@ export class MultiSigListenerManager {
    */
   async startListenerForWallet(walletId: string): Promise<void> {
     try {
-      // Fetch wallet details
+      // Fetch wallet details including ABI
       const { data: wallet, error } = await supabase
         .from('multi_sig_wallets')
         .select(`
           id,
           address,
           blockchain,
+          abi,
           project_id
         `)
         .eq('id', walletId)
@@ -90,6 +91,7 @@ export class MultiSigListenerManager {
         walletId: wallet.id,
         walletAddress: wallet.address,
         blockchain: wallet.blockchain,
+        abi: wallet.abi,
         projectId: wallet.project_id
       });
 
@@ -107,13 +109,14 @@ export class MultiSigListenerManager {
    */
   async startListenersForProject(projectId: string): Promise<void> {
     try {
-      // Fetch all multi-sig wallets in project
+      // Fetch all multi-sig wallets in project including ABI
       const { data: wallets, error } = await supabase
         .from('multi_sig_wallets')
         .select(`
           id,
           address,
           blockchain,
+          abi,
           project_id
         `)
         .eq('project_id', projectId)
@@ -135,6 +138,7 @@ export class MultiSigListenerManager {
             walletId: wallet.id,
             walletAddress: wallet.address,
             blockchain: wallet.blockchain,
+            abi: wallet.abi,
             projectId: wallet.project_id
           })
         )

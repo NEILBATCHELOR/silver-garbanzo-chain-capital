@@ -87,8 +87,8 @@ export default async function tradesRoutes(fastify: FastifyInstance) {
         properties: {
           virtualAccountId: { type: 'string', format: 'uuid' },
           status: { type: 'string', enum: ['pending', 'executing', 'completed', 'failed', 'cancelled'] },
-          limit: { type: 'number', minimum: 1, maximum: 100, default: 50 },
-          offset: { type: 'number', minimum: 0, default: 0 }
+          limit: { type: 'number', minimum: 1, maximum: 100 },
+          offset: { type: 'number', minimum: 0 }
         }
       }
     },
@@ -102,7 +102,14 @@ export default async function tradesRoutes(fastify: FastifyInstance) {
           return reply.code(401).send({ success: false, error: 'Unauthorized' });
         }
 
-        const result = await tradeService.listTrades(projectId, request.query);
+        // Apply default values
+        const query = {
+          ...request.query,
+          limit: request.query.limit ?? 50,
+          offset: request.query.offset ?? 0
+        };
+
+        const result = await tradeService.listTrades(projectId, query);
 
         if (!result.success || !result.data) {
           return reply.code(result.statusCode || 500).send({

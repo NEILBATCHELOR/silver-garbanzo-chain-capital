@@ -52,7 +52,8 @@
     "test:erc721-enhanced": "./scripts/test-enhanced-erc721-integration.sh",
     "compile:erc721-enhanced": "./scripts/compile-enhanced-erc721.sh",
     "test:erc1155-enhanced": "./scripts/test-enhanced-erc1155-integration.sh",
-    "compile:erc1155-enhanced": "./scripts/compile-enhanced-erc1155.sh"
+    "compile:erc1155-enhanced": "./scripts/compile-enhanced-erc1155.sh",
+    "multisig:populate-abi": "tsx src/scripts/populateMultiSigABIs.ts"
   },
   "dependencies": {
     "@adraffy/ens-normalize": "^1.11.0",

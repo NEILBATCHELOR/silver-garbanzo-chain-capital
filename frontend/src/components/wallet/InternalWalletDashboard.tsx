@@ -3,15 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { useUser } from '@/hooks/auth/user/useUser';
 import { useNavigate } from 'react-router-dom';
@@ -26,10 +17,7 @@ import {
   EyeOff,
   CheckCircle2,
   Copy,
-  ExternalLink,
-  Users,
-  Shield,
-  AlertCircle
+  ExternalLink
 } from 'lucide-react';
 
 // Import InternalWalletService
@@ -59,11 +47,6 @@ import { useAccount } from 'wagmi';
 import { CombinedOrgProjectSelector } from '@/components/organizations';
 import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
 
-// Import multi-sig wizard components
-import { SignatureCollectionWizard } from './components/multisig/SignatureCollectionWizard';
-import { MultiSigWalletFormWizard } from './components/multisig/MultiSigWalletFormWizard';
-import { MultiSigTransferFormWizard } from './components/multisig/MultiSigTransferFormWizard';
-import { PendingProposalsWizard } from './components/multisig/PendingProposalsWizard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface InternalWalletDashboardProps {
@@ -91,7 +74,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
   // Dashboard state
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [multiSigSubTab, setMultiSigSubTab] = useState<string>('create-wallet');
   const [showBalances, setShowBalances] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateWallet, setShowCreateWallet] = useState(false);
@@ -109,10 +91,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   });
   const [loadingInternalWallets, setLoadingInternalWallets] = useState(false);
   const [walletBalancesLoaded, setWalletBalancesLoaded] = useState(false);
-
-  // Multi-sig specific state - Initialize with empty string to prevent controlled/uncontrolled switch warning
-  const [selectedMultiSigWallet, setSelectedMultiSigWallet] = useState<string>('');
-  const [userAddressId, setUserAddressId] = useState<string | null>(null);
   const [totalUserWalletCount, setTotalUserWalletCount] = useState<number>(0);
 
   // Initialize project on component mount
@@ -131,34 +109,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
   useEffect(() => {
     loadUserWallets();
   }, []);
-
-  // Load current user's address ID for multi-sig approvals when user is available
-  useEffect(() => {
-    if (user?.id) {
-      loadUserAddressId();
-    }
-  }, [user?.id]);
-
-  // NEW: Load user address ID for multi-sig approvals (current user only)
-  const loadUserAddressId = async () => {
-    if (!user?.id) return;
-
-    try {
-      // Fetch CURRENT user's wallets specifically for approval purposes
-      const userWallets = await internalWalletService.fetchUserEOAWallets(user.id, true);
-      
-      // Get the first active wallet for approvals
-      const activeWallet = userWallets.find(w => w.isActive);
-      if (activeWallet) {
-        setUserAddressId(activeWallet.id);
-      } else if (userWallets.length > 0) {
-        // If no active wallet, use the first one
-        setUserAddressId(userWallets[0].id);
-      }
-    } catch (error) {
-      console.error('Failed to load user address ID:', error);
-    }
-  };
 
   // NEW: Load project wallets using InternalWalletService
   const loadProjectWallets = async () => {
@@ -570,12 +520,11 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="external">Connect External</TabsTrigger>
           <TabsTrigger value="tokens">Tokens</TabsTrigger>
           <TabsTrigger value="transfer">Transfer</TabsTrigger>
-          <TabsTrigger value="multisig">Multi-Sig</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -651,182 +600,6 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
         <TabsContent value="transfer" className="space-y-6">
           <TransferTab />
-        </TabsContent>
-
-        <TabsContent value="multisig" className="space-y-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="text-lg font-semibold">Multi-Signature Wallets</h3>
-              <p className="text-sm text-muted-foreground">
-                Create wallets, initiate transfers, and manage proposals
-              </p>
-            </div>
-          </div>
-
-          {/* Nested Tabs for Multi-Sig Components */}
-          <Tabs value={multiSigSubTab} onValueChange={setMultiSigSubTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="create-wallet">Create Wallet</TabsTrigger>
-              <TabsTrigger value="transfer">Transfer Proposal</TabsTrigger>
-              <TabsTrigger value="proposals">Pending Proposals</TabsTrigger>
-              <TabsTrigger value="overview">Signature Overview</TabsTrigger>
-            </TabsList>
-
-            {/* Create Wallet Tab */}
-            <TabsContent value="create-wallet" className="space-y-6">
-              <MultiSigWalletFormWizard 
-                projectId={projectId || undefined}
-                onSuccess={(address, txHash) => {
-                  toast({
-                    title: 'Multi-Sig Wallet Created',
-                    description: `Wallet deployed at ${address}`,
-                  });
-                  loadProjectWallets();
-                }}
-              />
-            </TabsContent>
-
-            {/* Transfer Proposal Tab */}
-            <TabsContent value="transfer" className="space-y-6">
-              {internalWallets.multiSigWallets.length > 0 ? (
-                <MultiSigTransferFormWizard
-                  wallets={internalWallets.multiSigWallets.map(w => ({
-                    id: w.id,
-                    name: w.name,
-                    address: w.address,
-                    blockchain: w.blockchain,
-                    threshold: w.threshold
-                  }))}
-                  onSuccess={(proposalId) => {
-                    toast({
-                      title: 'Proposal Created',
-                      description: `Transfer proposal ${proposalId} created successfully`,
-                    });
-                    // Switch to proposals tab to see the new proposal
-                    setMultiSigSubTab('proposals');
-                  }}
-                />
-              ) : (
-                <Card className="p-8 text-center">
-                  <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Multi-Sig Wallets</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create a multi-sig wallet first to propose transfers
-                  </p>
-                  <Button onClick={() => setMultiSigSubTab('create-wallet')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Multi-Sig Wallet
-                  </Button>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Pending Proposals Tab */}
-            <TabsContent value="proposals" className="space-y-6">
-              {internalWallets.multiSigWallets.length > 0 ? (
-                <>
-                  {/* Wallet Selector */}
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="space-y-2">
-                        <Label>Select Multi-Sig Wallet</Label>
-                        <Select
-                          value={selectedMultiSigWallet || ''}
-                          onValueChange={setSelectedMultiSigWallet}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a multi-sig wallet..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {internalWallets.multiSigWallets.map((wallet) => (
-                              <SelectItem key={wallet.id} value={wallet.id}>
-                                {wallet.name} - {wallet.threshold}/{wallet.ownerCount} signatures
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Pending Proposals Wizard */}
-                  {selectedMultiSigWallet && userAddressId ? (
-                    <PendingProposalsWizard
-                      walletId={selectedMultiSigWallet}
-                      userAddressId={userAddressId}
-                      onProposalExecuted={(proposalId, txHash) => {
-                        toast({
-                          title: 'Proposal Executed',
-                          description: (
-                            <div className="space-y-1">
-                              <p>Transaction executed successfully!</p>
-                              <a
-                                href={`https://etherscan.io/tx/${txHash}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-blue-500 hover:underline flex items-center gap-1"
-                              >
-                                View on Explorer
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                          ),
-                        });
-                        refreshAllBalances();
-                      }}
-                      refreshInterval={30000}
-                    />
-                  ) : !selectedMultiSigWallet ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Select a multi-sig wallet above to view pending proposals
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        No user address found. Please create a user wallet to approve proposals.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </>
-              ) : (
-                <Card className="p-8 text-center">
-                  <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Multi-Sig Wallets</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create a multi-sig wallet first to manage proposals
-                  </p>
-                  <Button onClick={() => setMultiSigSubTab('create-wallet')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Multi-Sig Wallet
-                  </Button>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Signature Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              <SignatureCollectionWizard />
-            </TabsContent>
-          </Tabs>
-
-          {/* Empty State for No Multi-Sig Wallets */}
-          {internalWallets.multiSigWallets.length === 0 && (
-            <Card className="p-8 text-center mt-6">
-              <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Multi-Sig Wallets</h3>
-              <p className="text-muted-foreground mb-4">
-                Create your first multi-sig wallet to enable shared control and collaborative transaction management
-              </p>
-              <Button onClick={() => setMultiSigSubTab('create-wallet')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Get Started
-              </Button>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
 

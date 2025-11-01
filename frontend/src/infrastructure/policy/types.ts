@@ -15,7 +15,9 @@ export type OperationType =
   | 'lock' 
   | 'unlock' 
   | 'block' 
-  | 'unblock';
+  | 'unblock'
+  | 'pause'
+  | 'unpause';
 
 export interface CryptoOperation {
   type: OperationType;

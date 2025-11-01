@@ -33,13 +33,18 @@ export function useApiKeys(projectId?: string, filters?: ApiKeyListFilters) {
       })
 
       if (response.success && response.data) {
-        setApiKeys(response.data)
+        // Ensure data is an array
+        const keysData = Array.isArray(response.data) ? response.data : []
+        setApiKeys(keysData)
       } else {
+        // Set empty array on error
+        setApiKeys([])
         throw new Error(response.error || 'Failed to fetch API keys')
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(message)
+      setApiKeys([]) // Ensure apiKeys is always an array
       toast({
         title: 'Error',
         description: message,
@@ -56,7 +61,8 @@ export function useApiKeys(projectId?: string, filters?: ApiKeyListFilters) {
       setLoading(true)
       setError(null)
 
-      const response = await pspApiKeysService.createApiKey(data)
+      const { project_id, ...apiKeyData } = data
+      const response = await pspApiKeysService.createApiKey(project_id, apiKeyData)
 
       if (response.success && response.data) {
         toast({
@@ -225,10 +231,12 @@ export function useApiKeys(projectId?: string, filters?: ApiKeyListFilters) {
     }
   }, [fetchApiKeys, toast])
 
-  // Auto-fetch on mount and when dependencies change
+  // Auto-fetch on mount and when projectId changes (NOT when function changes!)
   useEffect(() => {
-    fetchApiKeys()
-  }, [fetchApiKeys])
+    if (projectId) {
+      fetchApiKeys()
+    }
+  }, [projectId]) // Only depend on projectId, not fetchApiKeys
 
   return {
     apiKeys,

@@ -106,7 +106,9 @@ export const BalancesOverview: React.FC<BalancesOverviewProps> = ({
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Balance</p>
                   <p className="text-3xl font-bold mt-1">
-                    {summary ? formatCurrency(summary.total_usd_value.toString(), 'USD') : '$0.00'}
+                    {summary?.total_usd_value !== undefined && summary.total_usd_value !== null
+                      ? formatCurrency(summary.total_usd_value.toString(), 'USD')
+                      : '$0.00'}
                   </p>
                 </div>
                 <div className="bg-primary/10 rounded-full p-3">

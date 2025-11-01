@@ -1105,4 +1105,140 @@ export class EnhancedTokenManager {
   ): Promise<TokenOperationResult> {
     throw new Error(`Unblock operation not yet implemented`);
   }
+
+  /**
+   * Pause token operations (with policy validation)
+   */
+  async pause(
+    tokenAddress: string,
+    params: { reason?: string; metadata?: Record<string, any> },
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'pause',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        lockReason: params.reason,
+        metadata: params.metadata
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute pause operation
+    const result = await this.executePauseOperation(
+      connection.adapter,
+      tokenAddress,
+      params.reason
+    );
+
+    // Log operation
+    await this.logOperation(
+      operationId, 
+      'pause', 
+      tokenAddress, 
+      { reason: params.reason }, 
+      result, 
+      policyResult
+    );
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
+  }
+
+  /**
+   * Unpause token operations (with policy validation)
+   */
+  async unpause(
+    tokenAddress: string,
+    params: { reason?: string; metadata?: Record<string, any> },
+    chain: SupportedChain,
+    networkType: NetworkType = 'mainnet'
+  ): Promise<TokenOperationResult> {
+    const operationId = generateUUID();
+    
+    // Build policy context
+    const context = await this.buildPolicyContext(
+      'unpause',
+      tokenAddress,
+      chain,
+      networkType,
+      {
+        lockReason: params.reason,
+        metadata: params.metadata
+      }
+    );
+
+    // Evaluate policies
+    const policyResult = await this.policyEngine.evaluateOperation(
+      context.operation,
+      context
+    );
+
+    if (!policyResult.allowed) {
+      throw new PolicyViolationError(policyResult.violations, context.operation);
+    }
+
+    // Get wallet connection
+    const connection = await this.getWalletConnection(chain, networkType);
+    
+    // Execute unpause operation
+    const result = await this.executeUnpauseOperation(
+      connection.adapter,
+      tokenAddress,
+      params.reason
+    );
+
+    // Log operation
+    await this.logOperation(
+      operationId, 
+      'unpause', 
+      tokenAddress, 
+      { reason: params.reason }, 
+      result, 
+      policyResult
+    );
+
+    return {
+      ...result,
+      operationId,
+      policyValidation: policyResult
+    };
+  }
+
+  private async executePauseOperation(
+    adapter: IBlockchainAdapter,
+    tokenAddress: string,
+    reason?: string
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Pause operation not yet implemented`);
+  }
+
+  private async executeUnpauseOperation(
+    adapter: IBlockchainAdapter,
+    tokenAddress: string,
+    reason?: string
+  ): Promise<TokenOperationResult> {
+    throw new Error(`Unpause operation not yet implemented`);
+  }
 }

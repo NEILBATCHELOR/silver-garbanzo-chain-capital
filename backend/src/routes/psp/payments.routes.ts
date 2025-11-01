@@ -150,8 +150,8 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
       querystring: {
         type: 'object',
         properties: {
-          page: { type: 'number', minimum: 1, default: 1 },
-          limit: { type: 'number', minimum: 1, maximum: 100, default: 20 },
+          page: { type: 'number', minimum: 1 },
+          limit: { type: 'number', minimum: 1, maximum: 100 },
           status: { type: 'string', enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'] },
           paymentType: { type: 'string' },
           direction: { type: 'string', enum: ['inbound', 'outbound'] },
@@ -170,8 +170,10 @@ export default async function paymentsRoutes(fastify: FastifyInstance) {
           return reply.code(401).send({ success: false, error: 'Unauthorized' });
         }
 
-        const { dateFrom, dateTo, paymentType, status, ...otherParams } = request.query;
+        const { page = 1, limit = 20, dateFrom, dateTo, paymentType, status, ...otherParams } = request.query;
         const options = {
+          page,
+          limit,
           ...otherParams,
           paymentType: paymentType as any, // Type narrowing from validated schema enum
           status: status as any, // Type narrowing from validated schema enum

@@ -24,7 +24,8 @@ import { supabase } from '@/infrastructure/database/client';
 import { ethers } from 'ethers';
 import { rpcManager } from '@/infrastructure/web3/rpc';
 import { validateBlockchain, isEVMChain } from '@/infrastructure/web3/utils/BlockchainValidator';
-import { getChainId, isEIP1559Supported } from '@/infrastructure/web3/utils/chainIds';
+import { getChainId, isEIP1559Supported, isTestnet } from '@/infrastructure/web3/utils/chainIds';
+import type { NetworkType } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
 // ============================================================================
 // INTERFACES
@@ -166,10 +167,11 @@ export class MultiSigBlockchainIntegration {
       const supportsEIP1559 = isEIP1559Supported(chainId);
       console.log(`Chain ${validatedChain} (${chainId}) EIP-1559 support: ${supportsEIP1559}`);
 
-      // Get RPC provider for fee estimation
-      const config = rpcManager.getProviderConfig(validatedChain as any, 'mainnet');
+      // Get RPC provider for fee estimation - determine network type
+      const networkType: NetworkType = isTestnet(chainId) ? 'testnet' : 'mainnet';
+      const config = rpcManager.getProviderConfig(validatedChain as any, networkType);
       if (!config) {
-        throw new Error(`No RPC configuration for blockchain: ${validatedChain}`);
+        throw new Error(`No RPC configuration for blockchain: ${validatedChain} (${networkType})`);
       }
 
       const provider = new ethers.JsonRpcProvider(config.url, {
@@ -293,9 +295,11 @@ export class MultiSigBlockchainIntegration {
         throw new Error(`Cannot resolve chain ID for blockchain: ${validatedChain}`);
       }
 
-      const config = rpcManager.getProviderConfig(validatedChain as any, 'mainnet');
+      // Determine network type based on chain ID
+      const networkType: NetworkType = isTestnet(chainId) ? 'testnet' : 'mainnet';
+      const config = rpcManager.getProviderConfig(validatedChain as any, networkType);
       if (!config) {
-        throw new Error(`No RPC configuration for blockchain: ${validatedChain}`);
+        throw new Error(`No RPC configuration for blockchain: ${validatedChain} (${networkType})`);
       }
 
       const provider = new ethers.JsonRpcProvider(config.url, {

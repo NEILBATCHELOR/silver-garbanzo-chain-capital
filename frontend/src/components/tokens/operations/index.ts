@@ -14,9 +14,6 @@ export { default as PolicyAwareOperationsPanel } from './PolicyAwareOperationsPa
 // Legacy Operations Panel (for backward compatibility - remove after migration)
 export { default as OperationsPanel } from './OperationsPanel';
 
-// Keep PauseOperation until PolicyAware version is created
-export { default as PauseOperation } from './PauseOperation';
-
 // PolicyAware Operations with integrated validation
 export { PolicyAwareMintOperation } from './PolicyAwareMintOperation';
 export { PolicyAwareBurnOperation } from './PolicyAwareBurnOperation';
@@ -25,6 +22,7 @@ export { PolicyAwareBlockOperation } from './PolicyAwareBlockOperation';
 export { PolicyAwareUnlockOperation } from './PolicyAwareUnlockOperation';
 export { PolicyAwareUnblockOperation } from './PolicyAwareUnblockOperation';
 export { PolicyAwareTransferOperation } from './PolicyAwareTransferOperation';
+export { PolicyAwarePauseOperation } from './PolicyAwarePauseOperation';
 
 // Type definitions for operation types
 export type PolicyAwareOperationType = 
@@ -34,7 +32,9 @@ export type PolicyAwareOperationType =
   | 'block' 
   | 'unlock' 
   | 'unblock' 
-  | 'transfer';
+  | 'transfer'
+  | 'pause'
+  | 'unpause';
 
 // Configuration type for PolicyAware operations
 export interface PolicyAwareOperationConfig {

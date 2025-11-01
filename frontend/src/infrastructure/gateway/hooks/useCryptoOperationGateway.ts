@@ -23,6 +23,8 @@ export interface OperationHelpers {
   unlock: (tokenAddress: string, lockId: string, amount: string | bigint, chain: SupportedChain) => Promise<OperationResult>;
   block: (tokenAddress: string, address: string, reason: string, chain: SupportedChain) => Promise<OperationResult>;
   unblock: (tokenAddress: string, address: string, blockId: string, chain: SupportedChain) => Promise<OperationResult>;
+  pause: (tokenAddress: string, chain: SupportedChain, reason?: string) => Promise<OperationResult>;
+  unpause: (tokenAddress: string, chain: SupportedChain, reason?: string) => Promise<OperationResult>;
 }
 
 export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOptions = {}) {
@@ -225,6 +227,42 @@ export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOpti
   }, [executeOperation]);
   
   /**
+   * Helper function for pause operation
+   */
+  const pause = useCallback(async (
+    tokenAddress: string,
+    chain: SupportedChain,
+    reason?: string
+  ): Promise<OperationResult> => {
+    return executeOperation({
+      type: 'pause',
+      chain,
+      tokenAddress,
+      parameters: {
+        reason: reason || 'Manual pause operation'
+      }
+    });
+  }, [executeOperation]);
+  
+  /**
+   * Helper function for unpause operation
+   */
+  const unpause = useCallback(async (
+    tokenAddress: string,
+    chain: SupportedChain,
+    reason?: string
+  ): Promise<OperationResult> => {
+    return executeOperation({
+      type: 'unpause',
+      chain,
+      tokenAddress,
+      parameters: {
+        reason: reason || 'Manual unpause operation'
+      }
+    });
+  }, [executeOperation]);
+  
+  /**
    * Clear error state
    */
   const clearError = useCallback(() => {
@@ -250,7 +288,9 @@ export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOpti
       lock,
       unlock,
       block,
-      unblock
+      unblock,
+      pause,
+      unpause
     } as OperationHelpers,
     
     // State
