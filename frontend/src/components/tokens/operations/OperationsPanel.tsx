@@ -14,6 +14,7 @@ import type { SupportedChain } from "@/infrastructure/web3/adapters/IBlockchainA
 
 interface OperationsPanelProps {
   tokenId: string;
+  projectId: string; // 🆕 Required for role management
   tokenStandard: string;
   tokenName: string;
   tokenSymbol: string;
@@ -36,6 +37,7 @@ interface OperationsPanelProps {
  */
 const OperationsPanel: React.FC<OperationsPanelProps> = ({
   tokenId,
+  projectId, // 🆕 Pass through to PolicyAware version
   tokenStandard,
   tokenName,
   tokenSymbol,
@@ -52,6 +54,7 @@ const OperationsPanel: React.FC<OperationsPanelProps> = ({
   return (
     <PolicyAwareOperationsPanel
       tokenId={tokenId}
+      projectId={projectId} // 🆕 Pass through
       tokenAddress={tokenAddress}
       tokenStandard={tokenStandard}
       tokenName={tokenName}

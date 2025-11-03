@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 
 import { TokenERC721PropertiesData, ConfigMode } from '../../types';
+import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 
 interface ERC721PropertiesTabProps {
   data: TokenERC721PropertiesData | TokenERC721PropertiesData[];
@@ -22,6 +23,8 @@ interface ERC721PropertiesTabProps {
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting: boolean;
+  network?: string;
+  environment?: string;
 }
 
 export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
@@ -31,7 +34,9 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
   configMode,
   onFieldChange,
   onValidate,
-  isSubmitting
+  isSubmitting,
+  network = 'hoodi',
+  environment = 'testnet'
 }) => {
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
 
@@ -399,6 +404,15 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
           )}
         </CardContent>
       </Card>
+
+      {/* 🆕 Extension Modules */}
+      <ModuleSelectionCard
+        network={network}
+        tokenStandard="erc721"
+        environment={environment}
+        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
+        disabled={isSubmitting}
+      />
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

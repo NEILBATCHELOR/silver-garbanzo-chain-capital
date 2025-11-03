@@ -24,6 +24,11 @@ export { PolicyAwareUnblockOperation } from './PolicyAwareUnblockOperation';
 export { PolicyAwareTransferOperation } from './PolicyAwareTransferOperation';
 export { PolicyAwarePauseOperation } from './PolicyAwarePauseOperation';
 
+// 🆕 Advanced Management Operations
+export { PolicyAwareRoleManagementOperation } from './PolicyAwareRoleManagementOperation';
+export { ModuleManagementPanel } from './ModuleManagementPanel';
+export { UpdateMaxSupplyOperation } from './UpdateMaxSupplyOperation';
+
 // Type definitions for operation types
 export type PolicyAwareOperationType = 
   | 'mint' 
@@ -34,7 +39,11 @@ export type PolicyAwareOperationType =
   | 'unblock' 
   | 'transfer'
   | 'pause'
-  | 'unpause';
+  | 'unpause'
+  | 'grantRole'
+  | 'revokeRole'
+  | 'setModule'
+  | 'updateMaxSupply';
 
 // Configuration type for PolicyAware operations
 export interface PolicyAwareOperationConfig {
@@ -49,10 +58,8 @@ export interface PolicyValidationStatus {
   valid: boolean;
   violations: Array<{
     policyId: string;
-    policyName: string;
-    reason: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    message: string;
+    severity: 'error' | 'warning';
   }>;
   warnings: string[];
-  requiredApprovals: string[];
 }

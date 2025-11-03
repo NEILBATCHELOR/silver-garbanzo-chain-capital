@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Plus, Minus } from 'lucide-react';
 
 import { TokenERC20PropertiesData, ConfigMode } from '../../types';
+import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 
 interface ERC20PropertiesTabProps {
   data: TokenERC20PropertiesData | TokenERC20PropertiesData[];
@@ -24,6 +25,8 @@ interface ERC20PropertiesTabProps {
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting: boolean;
+  network?: string;
+  environment?: string;
 }
 
 export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
@@ -33,7 +36,9 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   configMode,
   onFieldChange,
   onValidate,
-  isSubmitting
+  isSubmitting,
+  network = 'hoodi',
+  environment = 'testnet'
 }) => {
   // Handle single record for properties table
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
@@ -455,6 +460,15 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
           </Card>
         </>
       )}
+
+      {/* 🆕 Extension Modules */}
+      <ModuleSelectionCard
+        network={network}
+        tokenStandard="erc20"
+        environment={environment}
+        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
+        disabled={isSubmitting}
+      />
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

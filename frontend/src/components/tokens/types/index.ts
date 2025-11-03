@@ -731,7 +731,12 @@ export enum TokenOperationType {
   BLOCK = "block",
   UNBLOCK = "unblock",
   TRANSFER = "transfer",
-  APPROVE = "approve"
+  APPROVE = "approve",
+  // 🆕 Advanced Management Operations
+  GRANT_ROLE = "grantRole",
+  REVOKE_ROLE = "revokeRole",
+  SET_MODULE = "setModule",
+  UPDATE_MAX_SUPPLY = "updateMaxSupply"
 }
 
 export interface TokenOperationParams {

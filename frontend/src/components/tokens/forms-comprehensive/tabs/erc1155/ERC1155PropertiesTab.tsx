@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import { TokenERC1155PropertiesData, ConfigMode } from '../../types';
+import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 
 interface ERC1155PropertiesTabProps {
   data?: TokenERC1155PropertiesData[];
@@ -36,6 +37,8 @@ interface ERC1155PropertiesTabProps {
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting?: boolean;
+  network?: string;
+  environment?: string;
 }
 
 const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
@@ -45,7 +48,9 @@ const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
   configMode,
   onFieldChange,
   onValidate,
-  isSubmitting = false
+  isSubmitting = false,
+  network = 'hoodi',
+  environment = 'testnet'
 }) => {
   const properties = data[0] || {};
 
@@ -767,6 +772,15 @@ const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
           )}
         </CardContent>
       </Card>
+
+      {/* 🆕 Extension Modules */}
+      <ModuleSelectionCard
+        network={network}
+        tokenStandard="erc1155"
+        environment={environment}
+        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
+        disabled={isSubmitting}
+      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

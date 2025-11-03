@@ -316,6 +316,7 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
         {/* PolicyAware Operations Panel */}
         <PolicyAwareOperationsPanel
           tokenId={token.id}
+          projectId={projectId || ''} // 🆕 Add projectId
           tokenName={token.name}
           tokenSymbol={token.symbol}
           tokenStandard={token.standard}

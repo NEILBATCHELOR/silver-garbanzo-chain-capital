@@ -14,7 +14,12 @@ export type OperationType =
   | 'block' 
   | 'unblock'
   | 'pause'
-  | 'unpause';
+  | 'unpause'
+  // 🆕 Advanced Management Operations
+  | 'grantRole'
+  | 'revokeRole'
+  | 'setModule'
+  | 'updateMaxSupply';
 
 // Operation Request
 export interface OperationRequest {
@@ -39,6 +44,14 @@ export interface OperationParameters {
   address?: string;  // for block/unblock operations
   lockId?: string;   // for unlock operations
   blockId?: string;  // for unblock operations
+  // 🆕 Role Management Parameters
+  role?: string;     // for grantRole/revokeRole operations (keccak256 hash)
+  account?: string;  // for grantRole/revokeRole operations
+  // 🆕 Module Management Parameters
+  setterFunction?: string;  // for setModule operations (e.g., 'setComplianceModule')
+  moduleAddress?: string;   // for setModule operations
+  // 🆕 Max Supply Update Parameters
+  newMaxSupply?: string;    // for updateMaxSupply operations
 }
 
 // Operation Metadata

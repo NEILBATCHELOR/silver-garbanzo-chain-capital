@@ -25,6 +25,11 @@ export interface OperationHelpers {
   unblock: (tokenAddress: string, address: string, blockId: string, chain: SupportedChain) => Promise<OperationResult>;
   pause: (tokenAddress: string, chain: SupportedChain, reason?: string) => Promise<OperationResult>;
   unpause: (tokenAddress: string, chain: SupportedChain, reason?: string) => Promise<OperationResult>;
+  // 🆕 Advanced Management Operations
+  grantRole: (tokenAddress: string, roleHash: string, account: string, chain: SupportedChain) => Promise<OperationResult>;
+  revokeRole: (tokenAddress: string, roleHash: string, account: string, chain: SupportedChain) => Promise<OperationResult>;
+  setModule: (tokenAddress: string, setterFunction: string, moduleAddress: string, chain: SupportedChain) => Promise<OperationResult>;
+  updateMaxSupply: (tokenAddress: string, newMaxSupply: string, chain: SupportedChain) => Promise<OperationResult>;
 }
 
 export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOptions = {}) {
@@ -261,6 +266,84 @@ export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOpti
       }
     });
   }, [executeOperation]);
+
+  /**
+   * 🆕 Helper function for grantRole operation
+   */
+  const grantRole = useCallback(async (
+    tokenAddress: string,
+    roleHash: string,
+    account: string,
+    chain: SupportedChain
+  ): Promise<OperationResult> => {
+    return executeOperation({
+      type: 'grantRole',
+      chain,
+      tokenAddress,
+      parameters: {
+        role: roleHash,
+        account
+      }
+    });
+  }, [executeOperation]);
+
+  /**
+   * 🆕 Helper function for revokeRole operation
+   */
+  const revokeRole = useCallback(async (
+    tokenAddress: string,
+    roleHash: string,
+    account: string,
+    chain: SupportedChain
+  ): Promise<OperationResult> => {
+    return executeOperation({
+      type: 'revokeRole',
+      chain,
+      tokenAddress,
+      parameters: {
+        role: roleHash,
+        account
+      }
+    });
+  }, [executeOperation]);
+
+  /**
+   * 🆕 Helper function for setModule operation
+   */
+  const setModule = useCallback(async (
+    tokenAddress: string,
+    setterFunction: string,
+    moduleAddress: string,
+    chain: SupportedChain
+  ): Promise<OperationResult> => {
+    return executeOperation({
+      type: 'setModule',
+      chain,
+      tokenAddress,
+      parameters: {
+        setterFunction,
+        moduleAddress
+      }
+    });
+  }, [executeOperation]);
+
+  /**
+   * 🆕 Helper function for updateMaxSupply operation
+   */
+  const updateMaxSupply = useCallback(async (
+    tokenAddress: string,
+    newMaxSupply: string,
+    chain: SupportedChain
+  ): Promise<OperationResult> => {
+    return executeOperation({
+      type: 'updateMaxSupply',
+      chain,
+      tokenAddress,
+      parameters: {
+        newMaxSupply
+      }
+    });
+  }, [executeOperation]);
   
   /**
    * Clear error state
@@ -290,7 +373,12 @@ export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOpti
       block,
       unblock,
       pause,
-      unpause
+      unpause,
+      // 🆕 Advanced operations
+      grantRole,
+      revokeRole,
+      setModule,
+      updateMaxSupply
     } as OperationHelpers,
     
     // State

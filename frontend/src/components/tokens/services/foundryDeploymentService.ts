@@ -30,6 +30,7 @@ import {
 import { DeploymentStatus, DeploymentResult } from '@/types/deployment/TokenDeploymentTypes';
 import { contractConfigurationService, ContractConfigurationError } from './contractConfigurationService';
 import { enhancedGasEstimator, FeePriority } from '@/services/blockchain/EnhancedGasEstimationService';
+import { enhancedModuleDeploymentService } from './enhancedModuleDeploymentService';
 
 // Import compiled Foundry artifacts (JSON files contain both ABI and bytecode)
 // These are the STATIC master contract artifacts compiled by Foundry
@@ -763,6 +764,42 @@ export class FoundryDeploymentService {
         factoryAddress,
         userId
       );
+
+      // 🆕 Deploy and attach NEW module instances (CORRECTED ARCHITECTURE)
+      // Each token gets its OWN module instances, not shared masters
+      try {
+        const moduleDeploymentResult = await enhancedModuleDeploymentService.deployAndAttachModules(
+          deploymentResult.address,
+          params.tokenId,
+          wallet,
+          params,
+          userId
+        );
+        
+        if (moduleDeploymentResult.deployed.length > 0) {
+          console.log(`✅ Deployed ${moduleDeploymentResult.deployed.length} NEW module instances:`);
+          moduleDeploymentResult.deployed.forEach(m => {
+            console.log(`  - ${m.moduleType}: instance=${m.instanceAddress} (from master=${m.masterAddress})`);
+          });
+        }
+        
+        if (moduleDeploymentResult.failed.length > 0) {
+          console.warn(`⚠️ Failed to deploy ${moduleDeploymentResult.failed.length} modules:`, moduleDeploymentResult.failed);
+          // Log failures but don't block deployment
+        }
+      } catch (moduleError) {
+        console.error('Module deployment failed:', moduleError);
+        // Don't throw - token deployment succeeded even if module deployment failed
+        await logActivity({
+          action: 'module_deployment_failed',
+          entity_type: 'token',
+          entity_id: deploymentResult.address,
+          details: {
+            error: moduleError instanceof Error ? moduleError.message : 'Unknown error'
+          },
+          status: 'warning'
+        });
+      }
 
       // Log success
       await logActivity({

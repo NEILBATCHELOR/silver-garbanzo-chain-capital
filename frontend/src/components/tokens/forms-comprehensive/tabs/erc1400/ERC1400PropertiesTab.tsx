@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import { TokenERC1400PropertiesData, ConfigMode } from '../../types';
+import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 
 interface ERC1400PropertiesTabProps {
   data?: TokenERC1400PropertiesData[];
@@ -34,6 +35,8 @@ interface ERC1400PropertiesTabProps {
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting?: boolean;
+  network?: string;
+  environment?: string;
 }
 
 const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
@@ -43,7 +46,9 @@ const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   configMode,
   onFieldChange,
   onValidate,
-  isSubmitting = false
+  isSubmitting = false,
+  network = 'hoodi',
+  environment = 'testnet'
 }) => {
   const properties = data[0] || {};
 
@@ -971,6 +976,15 @@ const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* 🆕 Extension Modules */}
+      <ModuleSelectionCard
+        network={network}
+        tokenStandard="erc1400"
+        environment={environment}
+        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
+        disabled={isSubmitting}
+      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Shield, Activity, Lock, Unlock } from "lucide-react";
+import { AlertCircle, Shield, Activity, Lock, Unlock, Users, PlugZap, TrendingUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +26,17 @@ import { PolicyAwareBlockOperation } from "./PolicyAwareBlockOperation";
 import { PolicyAwareUnblockOperation } from "./PolicyAwareUnblockOperation";
 import { PolicyAwarePauseOperation } from "./PolicyAwarePauseOperation";
 
+// 🆕 Advanced Management Operations
+import { PolicyAwareRoleManagementOperation } from "./PolicyAwareRoleManagementOperation";
+import { ModuleManagementPanel } from "./ModuleManagementPanel";
+import { UpdateMaxSupplyOperation } from "./UpdateMaxSupplyOperation";
+
 import type { SupportedChain } from "@/infrastructure/web3/adapters/IBlockchainAdapter";
 import { useSupabaseClient as useSupabase } from "@/hooks/shared/supabase/useSupabaseClient";
 
 interface PolicyAwareOperationsPanelProps {
   tokenId: string;
+  projectId: string; // 🆕 For role management
   tokenAddress: string;
   tokenStandard: string;
   tokenName: string;
@@ -41,6 +47,9 @@ interface PolicyAwareOperationsPanelProps {
   hasPauseFeature?: boolean;
   hasLockFeature?: boolean;
   hasBlockFeature?: boolean;
+  currentMaxSupply?: string; // 🆕 For max supply operation
+  currentTotalSupply?: string; // 🆕 For max supply operation
+  decimals?: number; // 🆕 For max supply operation
   refreshTokenData?: () => void;
 }
 
@@ -57,6 +66,7 @@ interface PolicyStatus {
  */
 const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
   tokenId,
+  projectId,
   tokenAddress,
   tokenStandard,
   tokenName,
@@ -67,6 +77,9 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
   hasPauseFeature = false,
   hasLockFeature = true,
   hasBlockFeature = false,
+  currentMaxSupply = '0',
+  currentTotalSupply = '0',
+  decimals = 18,
   refreshTokenData
 }) => {
   const [activeTab, setActiveTab] = useState("mint");
@@ -139,13 +152,17 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
     lock: hasLockFeature && ["ERC-20", "ERC-1400", "ERC-3525"].includes(tokenStandard),
     unlock: hasLockFeature && ["ERC-20", "ERC-1400", "ERC-3525"].includes(tokenStandard),
     block: hasBlockFeature && ["ERC-20", "ERC-1400"].includes(tokenStandard),
-    unblock: hasBlockFeature && ["ERC-20", "ERC-1400"].includes(tokenStandard)
+    unblock: hasBlockFeature && ["ERC-20", "ERC-1400"].includes(tokenStandard),
+    // 🆕 Advanced operations
+    roles: true, // Always available
+    modules: true, // Always available
+    maxSupply: ["ERC-20", "ERC-1400"].includes(tokenStandard) // Only for tokens with max supply
   };
 
   // Count available operations for grid layout
   const operationCount = Object.values(operations).filter(Boolean).length;
   const gridCols = operationCount <= 4 ? `grid-cols-${operationCount}` : 
-                   operationCount <= 6 ? 'grid-cols-6' : 'grid-cols-4';
+                   operationCount <= 8 ? 'grid-cols-4' : 'grid-cols-6';
 
   return (
     <div className="space-y-6">
@@ -230,6 +247,25 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
                 {operations.unlock && <TabsTrigger value="unlock">Unlock</TabsTrigger>}
                 {operations.block && <TabsTrigger value="block">Block</TabsTrigger>}
                 {operations.unblock && <TabsTrigger value="unblock">Unblock</TabsTrigger>}
+                {/* 🆕 Advanced Operations */}
+                {operations.roles && (
+                  <TabsTrigger value="roles">
+                    <Users className="h-4 w-4 mr-2" />
+                    Roles
+                  </TabsTrigger>
+                )}
+                {operations.modules && (
+                  <TabsTrigger value="modules">
+                    <PlugZap className="h-4 w-4 mr-2" />
+                    Modules
+                  </TabsTrigger>
+                )}
+                {operations.maxSupply && (
+                  <TabsTrigger value="maxSupply">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Max Supply
+                  </TabsTrigger>
+                )}
               </TabsList>
               
               <div className="mt-6">
@@ -354,21 +390,59 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
                     />
                   </TabsContent>
                 )}
+
+                {/* 🆕 Advanced Operations */}
+                {operations.roles && (
+                  <TabsContent value="roles">
+                    <PolicyAwareRoleManagementOperation
+                      tokenId={tokenId}
+                      projectId={projectId}
+                      tokenAddress={tokenAddress}
+                      tokenStandard={tokenStandard}
+                      tokenName={tokenName}
+                      tokenSymbol={tokenSymbol}
+                      chain={chain}
+                      isDeployed={isDeployed}
+                      onSuccess={handleOperationSuccess}
+                    />
+                  </TabsContent>
+                )}
+
+                {operations.modules && (
+                  <TabsContent value="modules">
+                    <ModuleManagementPanel
+                      tokenId={tokenId}
+                      tokenAddress={tokenAddress}
+                      tokenStandard={tokenStandard}
+                      chain={chain}
+                      isDeployed={isDeployed}
+                      onSuccess={handleOperationSuccess}
+                    />
+                  </TabsContent>
+                )}
+
+                {operations.maxSupply && (
+                  <TabsContent value="maxSupply">
+                    <UpdateMaxSupplyOperation
+                      tokenId={tokenId}
+                      tokenAddress={tokenAddress}
+                      tokenStandard={tokenStandard}
+                      tokenName={tokenName}
+                      tokenSymbol={tokenSymbol}
+                      chain={chain}
+                      isDeployed={isDeployed}
+                      currentMaxSupply={currentMaxSupply}
+                      currentTotalSupply={currentTotalSupply}
+                      decimals={decimals}
+                      onSuccess={handleOperationSuccess}
+                    />
+                  </TabsContent>
+                )}
               </div>
             </Tabs>
           )}
         </CardContent>
       </Card>
-
-      {/* Policy Info Footer */}
-      <Alert>
-        <Shield className="h-4 w-4" />
-        <AlertTitle>Policy Protection Active</AlertTitle>
-        <AlertDescription>
-          All operations are automatically validated against {policyStatus.policiesActive} active policies. 
-          Operations that violate policies will be blocked before execution, protecting your assets and ensuring compliance.
-        </AlertDescription>
-      </Alert>
     </div>
   );
 };

@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Vault, TrendingUp, Shield, Settings, Coins, Vote, Zap } from 'lucide-react';
 import { TokenERC4626PropertiesData, ConfigMode } from '../../types';
+import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 
 interface ERC4626PropertiesTabProps {
   data?: TokenERC4626PropertiesData[];
@@ -21,6 +22,8 @@ interface ERC4626PropertiesTabProps {
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting?: boolean;
+  network?: string;
+  environment?: string;
 }
 
 const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
@@ -30,7 +33,9 @@ const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   configMode,
   onFieldChange,
   onValidate,
-  isSubmitting = false
+  isSubmitting = false,
+  network = 'hoodi',
+  environment = 'testnet'
 }) => {
   const properties = data[0] || {};
   const handleFieldChange = (field: string, value: any) => onFieldChange(field, value, 0);
@@ -490,6 +495,15 @@ const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* 🆕 Extension Modules */}
+      <ModuleSelectionCard
+        network={network}
+        tokenStandard="erc4626"
+        environment={environment}
+        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
+        disabled={isSubmitting}
+      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

@@ -7053,6 +7053,20 @@ $$;
 
 
 --
+-- Name: update_token_modules_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_token_modules_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_total_assets(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -15311,6 +15325,7 @@ CREATE TABLE public.multi_sig_proposals (
     on_chain_tx_hash text,
     submitted_on_chain boolean DEFAULT false,
     project_id uuid,
+    submitted_by text,
     CONSTRAINT multi_sig_proposals_signatures_required_check CHECK ((signatures_required > 0)),
     CONSTRAINT multi_sig_proposals_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'signed'::text, 'executed'::text, 'expired'::text, 'rejected'::text])))
 );
@@ -15322,6 +15337,13 @@ CREATE TABLE public.multi_sig_proposals (
 
 COMMENT ON TABLE public.multi_sig_proposals IS 'LAYER 2 (BUSINESS LOGIC): Technical blockchain preparation with raw transaction data.
 Links to multi_sig_on_chain_transactions (Layer 3) via on_chain_tx_id after submission.';
+
+
+--
+-- Name: COLUMN multi_sig_proposals.submitted_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_proposals.submitted_by IS 'Ethereum address that submitted the proposal to the blockchain';
 
 
 --
@@ -15427,6 +15449,7 @@ CREATE TABLE public.multi_sig_wallets (
     migrated_to_roles boolean DEFAULT false,
     migration_date timestamp with time zone,
     funded_by_wallet_id uuid,
+    abi jsonb,
     CONSTRAINT multi_sig_wallets_contract_type_check CHECK ((contract_type = ANY (ARRAY['custom'::text, 'gnosis_safe'::text]))),
     CONSTRAINT multi_sig_wallets_ownership_type_check CHECK ((ownership_type = ANY (ARRAY['address_based'::text, 'role_based'::text]))),
     CONSTRAINT multi_sig_wallets_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'blocked'::text])))
@@ -15452,6 +15475,13 @@ COMMENT ON COLUMN public.multi_sig_wallets.ownership_type IS 'Whether wallet use
 --
 
 COMMENT ON COLUMN public.multi_sig_wallets.funded_by_wallet_id IS 'Project wallet that funded the multi-sig wallet deployment';
+
+
+--
+-- Name: COLUMN multi_sig_wallets.abi; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.multi_sig_wallets.abi IS 'Smart contract ABI for multi-sig wallet interaction';
 
 
 --
@@ -17500,16 +17530,6 @@ COMMENT ON COLUMN public.profiles.profile_type IS 'User role type in the system'
 
 
 --
--- Name: project_members; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.project_members (
-    project_id uuid,
-    user_id uuid
-);
-
-
---
 -- Name: project_organization_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -17774,7 +17794,8 @@ CREATE TABLE public.project_wallets (
     mnemonic_vault_id uuid,
     project_wallet_name text,
     non_evm_network text,
-    bitcoin_network_type text
+    bitcoin_network_type text,
+    wallet_type text
 );
 
 
@@ -17811,6 +17832,13 @@ COMMENT ON COLUMN public.project_wallets.non_evm_network IS 'Network identifier 
 --
 
 COMMENT ON COLUMN public.project_wallets.bitcoin_network_type IS 'Bitcoin network type: mainnet, testnet, regtest';
+
+
+--
+-- Name: COLUMN project_wallets.wallet_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.project_wallets.wallet_type IS 'Role/purpose of the wallet (e.g., admin, minter, burner, blocker, deployer, operator, treasury, compliance)';
 
 
 --
@@ -21826,9 +21854,23 @@ CREATE TABLE public.token_erc1155_properties (
     wrapped_versions jsonb,
     layer2_support_enabled boolean DEFAULT false,
     supported_layer2_networks text[],
+    compliance_module_address text,
+    policy_engine_address text,
+    vesting_module_address text,
+    document_module_address text,
+    royalty_module_address text,
+    supply_cap_module_address text,
+    uri_management_module_address text,
     CONSTRAINT batch_transfer_limits_structure_check CHECK (((batch_transfer_limits IS NULL) OR (jsonb_typeof(batch_transfer_limits) = 'object'::text))),
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
+    CONSTRAINT token_erc1155_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1155_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1155_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1155_properties_royalty_module_address_check CHECK (((royalty_module_address IS NULL) OR (royalty_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1155_properties_supply_cap_module_address_check CHECK (((supply_cap_module_address IS NULL) OR (supply_cap_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1155_properties_uri_management_module_address_check CHECK (((uri_management_module_address IS NULL) OR (uri_management_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1155_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT whitelist_config_structure_check CHECK (((whitelist_config IS NULL) OR ((jsonb_typeof(whitelist_config) = 'object'::text) AND (whitelist_config ? 'enabled'::text) AND (((whitelist_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text])))))
 );
 
@@ -21873,6 +21915,55 @@ COMMENT ON COLUMN public.token_erc1155_properties.voting_power_enabled IS 'Wheth
 --
 
 COMMENT ON COLUMN public.token_erc1155_properties.bridge_enabled IS 'Whether tokens can be bridged to other chains';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.compliance_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.compliance_module_address IS 'Address of ERC20ComplianceModule for KYC/AML compliance';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.policy_engine_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.policy_engine_address IS 'Address of PolicyEngine for pre-transaction validation';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.vesting_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.vesting_module_address IS 'Address of ERC20VestingModule for token lock schedules';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.document_module_address IS 'Address of UniversalDocumentModule for document management';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.royalty_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.royalty_module_address IS 'Address of ERC1155RoyaltyModule for creator royalties';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.supply_cap_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.supply_cap_module_address IS 'Address of ERC1155SupplyCapModule for per-token-id supply caps';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.uri_management_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.uri_management_module_address IS 'Address of ERC1155URIModule for dynamic URI management';
 
 
 --
@@ -22294,7 +22385,21 @@ CREATE TABLE public.token_erc1400_properties (
     collateral_management_enabled boolean DEFAULT false,
     insurance_coverage_enabled boolean DEFAULT false,
     disaster_recovery_enabled boolean DEFAULT false,
-    CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config))
+    compliance_module_address text,
+    policy_engine_address text,
+    vesting_module_address text,
+    document_module_address text,
+    controller_module_address text,
+    erc1400_document_module_address text,
+    transfer_restrictions_module_address text,
+    CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
+    CONSTRAINT token_erc1400_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1400_properties_controller_module_address_check CHECK (((controller_module_address IS NULL) OR (controller_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1400_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1400_properties_erc1400_document_module_address_check CHECK (((erc1400_document_module_address IS NULL) OR (erc1400_document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1400_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1400_properties_transfer_restrictions_module_add_check CHECK (((transfer_restrictions_module_address IS NULL) OR (transfer_restrictions_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc1400_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text)))
 );
 
 
@@ -22373,6 +22478,55 @@ COMMENT ON COLUMN public.token_erc1400_properties.cross_border_trading_enabled I
 --
 
 COMMENT ON COLUMN public.token_erc1400_properties.traditional_finance_integration IS 'Whether integration with traditional finance systems is enabled';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.compliance_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.compliance_module_address IS 'Address of ERC20ComplianceModule for KYC/AML compliance';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.policy_engine_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.policy_engine_address IS 'Address of PolicyEngine for pre-transaction validation';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.vesting_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.vesting_module_address IS 'Address of ERC20VestingModule for token lock schedules';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.document_module_address IS 'Address of UniversalDocumentModule for document management';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.controller_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.controller_module_address IS 'Address of ERC1400ControllerModule for operator control functions';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.erc1400_document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.erc1400_document_module_address IS 'Address of ERC1400DocumentModule for security document management';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.transfer_restrictions_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.transfer_restrictions_module_address IS 'Address of ERC1400TransferRestrictionsModule for partition transfer rules';
 
 
 --
@@ -22552,8 +22706,30 @@ CREATE TABLE public.token_erc20_properties (
     vesting_release_frequency text DEFAULT 'monthly'::text,
     use_geographic_restrictions boolean DEFAULT false,
     default_restriction_policy text DEFAULT 'allowed'::text,
+    compliance_module_address text,
+    vesting_module_address text,
+    fees_module_address text,
+    policy_engine_address text,
+    flash_mint_module_address text,
+    permit_module_address text,
+    snapshot_module_address text,
+    timelock_module_address text,
+    votes_module_address text,
+    payable_token_module_address text,
+    temporary_approval_module_address text,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
-    CONSTRAINT compliance_config_reporting_interval_check CHECK (((compliance_config IS NULL) OR (((compliance_config -> 'reportingInterval'::text))::text = ANY (ARRAY['"daily"'::text, '"weekly"'::text, '"monthly"'::text, '"quarterly"'::text, '"annually"'::text]))))
+    CONSTRAINT compliance_config_reporting_interval_check CHECK (((compliance_config IS NULL) OR (((compliance_config -> 'reportingInterval'::text))::text = ANY (ARRAY['"daily"'::text, '"weekly"'::text, '"monthly"'::text, '"quarterly"'::text, '"annually"'::text])))),
+    CONSTRAINT compliance_module_address_format CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT fees_module_address_format CHECK (((fees_module_address IS NULL) OR (fees_module_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT policy_engine_address_format CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_flash_mint_module_address_check CHECK (((flash_mint_module_address IS NULL) OR (flash_mint_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_payable_token_module_address_check CHECK (((payable_token_module_address IS NULL) OR (payable_token_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_permit_module_address_check CHECK (((permit_module_address IS NULL) OR (permit_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_snapshot_module_address_check CHECK (((snapshot_module_address IS NULL) OR (snapshot_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_temporary_approval_module_address_check CHECK (((temporary_approval_module_address IS NULL) OR (temporary_approval_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_timelock_module_address_check CHECK (((timelock_module_address IS NULL) OR (timelock_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc20_properties_votes_module_address_check CHECK (((votes_module_address IS NULL) OR (votes_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT vesting_module_address_format CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~ '^0x[a-fA-F0-9]{40}$'::text)))
 );
 
 
@@ -22590,6 +22766,83 @@ COMMENT ON COLUMN public.token_erc20_properties.reflection_enabled IS 'Whether r
 --
 
 COMMENT ON COLUMN public.token_erc20_properties.vesting_enabled IS 'Whether token vesting schedules are enforced';
+
+
+--
+-- Name: COLUMN token_erc20_properties.compliance_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.compliance_module_address IS 'Address of deployed ERC20ComplianceModule contract';
+
+
+--
+-- Name: COLUMN token_erc20_properties.vesting_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.vesting_module_address IS 'Address of deployed ERC20VestingModule contract';
+
+
+--
+-- Name: COLUMN token_erc20_properties.fees_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.fees_module_address IS 'Address of deployed ERC20FeesModule contract';
+
+
+--
+-- Name: COLUMN token_erc20_properties.policy_engine_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.policy_engine_address IS 'Address of deployed PolicyEngine contract';
+
+
+--
+-- Name: COLUMN token_erc20_properties.flash_mint_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.flash_mint_module_address IS 'Address of ERC20FlashMintModule for flash loan functionality (EIP-3156)';
+
+
+--
+-- Name: COLUMN token_erc20_properties.permit_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.permit_module_address IS 'Address of ERC20PermitModule for gasless approvals (EIP-2612)';
+
+
+--
+-- Name: COLUMN token_erc20_properties.snapshot_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.snapshot_module_address IS 'Address of ERC20SnapshotModule for balance snapshots at specific points in time';
+
+
+--
+-- Name: COLUMN token_erc20_properties.timelock_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.timelock_module_address IS 'Address of ERC20TimelockModule for time-locked transfers';
+
+
+--
+-- Name: COLUMN token_erc20_properties.votes_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.votes_module_address IS 'Address of ERC20VotesModule for governance voting power tracking';
+
+
+--
+-- Name: COLUMN token_erc20_properties.payable_token_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.payable_token_module_address IS 'Address of ERC1363PayableToken for receiver callback functionality';
+
+
+--
+-- Name: COLUMN token_erc20_properties.temporary_approval_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.temporary_approval_module_address IS 'Address of ERC20TemporaryApprovalModule for time-limited approvals';
 
 
 --
@@ -22802,9 +23055,23 @@ CREATE TABLE public.token_erc3525_properties (
     use_geographic_restrictions boolean DEFAULT false,
     default_restriction_policy text DEFAULT 'blocked'::text,
     geographic_restrictions text[],
+    compliance_module_address text,
+    policy_engine_address text,
+    vesting_module_address text,
+    document_module_address text,
+    slot_approvable_module_address text,
+    slot_manager_module_address text,
+    value_exchange_module_address text,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_erc3525_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
-    CONSTRAINT slot_transfer_validation_enhanced_check CHECK (((slot_transfer_validation IS NULL) OR ((jsonb_typeof(slot_transfer_validation) = 'object'::text) AND (slot_transfer_validation ? 'rules'::text))))
+    CONSTRAINT slot_transfer_validation_enhanced_check CHECK (((slot_transfer_validation IS NULL) OR ((jsonb_typeof(slot_transfer_validation) = 'object'::text) AND (slot_transfer_validation ? 'rules'::text)))),
+    CONSTRAINT token_erc3525_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc3525_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc3525_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc3525_properties_slot_approvable_module_address_check CHECK (((slot_approvable_module_address IS NULL) OR (slot_approvable_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc3525_properties_slot_manager_module_address_check CHECK (((slot_manager_module_address IS NULL) OR (slot_manager_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc3525_properties_value_exchange_module_address_check CHECK (((value_exchange_module_address IS NULL) OR (value_exchange_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc3525_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text)))
 );
 
 
@@ -22911,6 +23178,55 @@ COMMENT ON COLUMN public.token_erc3525_properties.regulatory_compliance_enabled 
 --
 
 COMMENT ON COLUMN public.token_erc3525_properties.whitelist_config IS 'JSON configuration for semi-fungible token whitelist controls including slot-specific access, transfer restrictions, and compliance settings';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.compliance_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.compliance_module_address IS 'Address of ERC20ComplianceModule for KYC/AML compliance';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.policy_engine_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.policy_engine_address IS 'Address of PolicyEngine for pre-transaction validation';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.vesting_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.vesting_module_address IS 'Address of ERC20VestingModule for token lock schedules';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.document_module_address IS 'Address of UniversalDocumentModule for document management';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.slot_approvable_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.slot_approvable_module_address IS 'Address of ERC3525SlotApprovableModule for slot-level approvals';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.slot_manager_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.slot_manager_module_address IS 'Address of ERC3525SlotManagerModule for slot enumeration and management';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.value_exchange_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.value_exchange_module_address IS 'Address of ERC3525ValueExchangeModule for value transfers between tokens';
 
 
 --
@@ -23228,8 +23544,28 @@ CREATE TABLE public.token_erc4626_properties (
     regulatory_framework text,
     fund_administration_enabled boolean DEFAULT false,
     third_party_audits_enabled boolean DEFAULT false,
+    compliance_module_address text,
+    policy_engine_address text,
+    document_module_address text,
+    fee_strategy_module_address text,
+    withdrawal_queue_module_address text,
+    yield_strategy_module_address text,
+    multi_asset_vault_module_address text,
+    async_vault_module_address text,
+    native_vault_module_address text,
+    router_module_address text,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
-    CONSTRAINT rebalancing_rules_validation_check CHECK (((rebalancing_rules IS NULL) OR ((jsonb_typeof(rebalancing_rules) = 'object'::text) AND (rebalancing_rules ? 'frequency'::text))))
+    CONSTRAINT rebalancing_rules_validation_check CHECK (((rebalancing_rules IS NULL) OR ((jsonb_typeof(rebalancing_rules) = 'object'::text) AND (rebalancing_rules ? 'frequency'::text)))),
+    CONSTRAINT token_erc4626_properties_async_vault_module_address_check CHECK (((async_vault_module_address IS NULL) OR (async_vault_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_fee_strategy_module_address_check CHECK (((fee_strategy_module_address IS NULL) OR (fee_strategy_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_multi_asset_vault_module_address_check CHECK (((multi_asset_vault_module_address IS NULL) OR (multi_asset_vault_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_native_vault_module_address_check CHECK (((native_vault_module_address IS NULL) OR (native_vault_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_router_module_address_check CHECK (((router_module_address IS NULL) OR (router_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_withdrawal_queue_module_address_check CHECK (((withdrawal_queue_module_address IS NULL) OR (withdrawal_queue_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc4626_properties_yield_strategy_module_address_check CHECK (((yield_strategy_module_address IS NULL) OR (yield_strategy_module_address ~* '^0x[a-fA-F0-9]{40}$'::text)))
 );
 
 
@@ -23294,6 +23630,76 @@ COMMENT ON COLUMN public.token_erc4626_properties.governance_token_enabled IS 'W
 --
 
 COMMENT ON COLUMN public.token_erc4626_properties.institutional_grade IS 'Whether vault meets institutional investment standards';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.compliance_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.compliance_module_address IS 'Address of ERC20ComplianceModule for KYC/AML compliance';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.policy_engine_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.policy_engine_address IS 'Address of PolicyEngine for pre-transaction validation';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.document_module_address IS 'Address of UniversalDocumentModule for document management';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.fee_strategy_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.fee_strategy_module_address IS 'Address of ERC4626FeeStrategyModule for vault fee management';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.withdrawal_queue_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.withdrawal_queue_module_address IS 'Address of ERC4626WithdrawalQueueModule for delayed withdrawals';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.yield_strategy_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.yield_strategy_module_address IS 'Address of ERC4626YieldStrategyModule for yield generation strategies';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.multi_asset_vault_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.multi_asset_vault_module_address IS 'Address of ERC7575MultiAssetVaultModule for multi-asset support';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.async_vault_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.async_vault_module_address IS 'Address of ERC7540AsyncVaultModule for delayed deposit/redeem (RWA, liquid staking)';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.native_vault_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.native_vault_module_address IS 'Address of ERC7535NativeVaultModule for native token (ETH) vaults';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.router_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.router_module_address IS 'Address of ERC4626Router for multi-vault routing and aggregation';
 
 
 --
@@ -23530,8 +23936,28 @@ CREATE TABLE public.token_erc721_properties (
     layer2_networks text[],
     use_geographic_restrictions boolean DEFAULT false,
     default_restriction_policy text DEFAULT 'allowed'::text,
+    compliance_module_address text,
+    policy_engine_address text,
+    vesting_module_address text,
+    document_module_address text,
+    consecutive_module_address text,
+    fractionalization_module_address text,
+    rental_module_address text,
+    royalty_module_address text,
+    soulbound_module_address text,
+    metadata_events_module_address text,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
+    CONSTRAINT token_erc721_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_consecutive_module_address_check CHECK (((consecutive_module_address IS NULL) OR (consecutive_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_fractionalization_module_address_check CHECK (((fractionalization_module_address IS NULL) OR (fractionalization_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_metadata_events_module_address_check CHECK (((metadata_events_module_address IS NULL) OR (metadata_events_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_rental_module_address_check CHECK (((rental_module_address IS NULL) OR (rental_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_royalty_module_address_check CHECK (((royalty_module_address IS NULL) OR (royalty_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_soulbound_module_address_check CHECK (((soulbound_module_address IS NULL) OR (soulbound_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_erc721_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT whitelist_config_structure_check CHECK (((whitelist_config IS NULL) OR ((jsonb_typeof(whitelist_config) = 'object'::text) AND (whitelist_config ? 'enabled'::text) AND (((whitelist_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text])))))
 );
 
@@ -23590,6 +24016,76 @@ COMMENT ON COLUMN public.token_erc721_properties.staking_enabled IS 'Whether NFT
 --
 
 COMMENT ON COLUMN public.token_erc721_properties.cross_chain_enabled IS 'Whether NFTs support cross-chain transfers';
+
+
+--
+-- Name: COLUMN token_erc721_properties.compliance_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.compliance_module_address IS 'Address of ERC20ComplianceModule for KYC/AML compliance';
+
+
+--
+-- Name: COLUMN token_erc721_properties.policy_engine_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.policy_engine_address IS 'Address of PolicyEngine for pre-transaction validation';
+
+
+--
+-- Name: COLUMN token_erc721_properties.vesting_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.vesting_module_address IS 'Address of ERC20VestingModule for token lock schedules';
+
+
+--
+-- Name: COLUMN token_erc721_properties.document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.document_module_address IS 'Address of UniversalDocumentModule for document management';
+
+
+--
+-- Name: COLUMN token_erc721_properties.consecutive_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.consecutive_module_address IS 'Address of ERC721ConsecutiveModule for batch minting optimization';
+
+
+--
+-- Name: COLUMN token_erc721_properties.fractionalization_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.fractionalization_module_address IS 'Address of ERC721FractionModule for NFT fractionalization';
+
+
+--
+-- Name: COLUMN token_erc721_properties.rental_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.rental_module_address IS 'Address of ERC721RentalModule for NFT rental/leasing';
+
+
+--
+-- Name: COLUMN token_erc721_properties.royalty_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.royalty_module_address IS 'Address of ERC721RoyaltyModule for creator royalties';
+
+
+--
+-- Name: COLUMN token_erc721_properties.soulbound_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.soulbound_module_address IS 'Address of ERC721SoulboundModule for non-transferable tokens';
+
+
+--
+-- Name: COLUMN token_erc721_properties.metadata_events_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.metadata_events_module_address IS 'Address of ERC4906MetadataModule for metadata update events';
 
 
 --
@@ -23775,6 +24271,87 @@ CREATE VIEW public.token_geographic_restrictions_view AS
      JOIN public.tokens t ON ((tgr.token_id = t.id)))
      JOIN public.geographic_jurisdictions gj ON ((tgr.country_code = gj.country_code)))
   WHERE (((tgr.effective_date IS NULL) OR (tgr.effective_date <= CURRENT_DATE)) AND ((tgr.expiry_date IS NULL) OR (tgr.expiry_date > CURRENT_DATE)));
+
+
+--
+-- Name: token_modules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.token_modules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid NOT NULL,
+    module_type text NOT NULL,
+    module_address text NOT NULL,
+    master_address text,
+    deployment_tx_hash text,
+    configuration jsonb DEFAULT '{}'::jsonb,
+    is_active boolean DEFAULT true,
+    attached_at timestamp with time zone DEFAULT now(),
+    deployed_at timestamp with time zone,
+    detached_at timestamp with time zone,
+    deployed_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT token_modules_master_address_check CHECK (((master_address IS NULL) OR (master_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT token_modules_module_address_check CHECK ((module_address ~ '^0x[a-fA-F0-9]{40}$'::text)),
+    CONSTRAINT token_modules_module_type_check CHECK ((module_type = ANY (ARRAY['compliance'::text, 'vesting'::text, 'fees'::text, 'policy_engine'::text])))
+);
+
+
+--
+-- Name: TABLE token_modules; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.token_modules IS 'Tracks extension module deployments and attachments to tokens';
+
+
+--
+-- Name: COLUMN token_modules.module_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.module_type IS 'Type of module: compliance, vesting, fees, or policy_engine';
+
+
+--
+-- Name: COLUMN token_modules.module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.module_address IS 'On-chain address of the deployed module';
+
+
+--
+-- Name: COLUMN token_modules.master_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.master_address IS 'Address of the master contract this module was cloned from';
+
+
+--
+-- Name: COLUMN token_modules.configuration; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.configuration IS 'Module-specific configuration parameters';
+
+
+--
+-- Name: COLUMN token_modules.is_active; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.is_active IS 'Whether this module is currently active/attached';
+
+
+--
+-- Name: COLUMN token_modules.attached_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.attached_at IS 'When the module was attached to the token';
+
+
+--
+-- Name: COLUMN token_modules.detached_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.detached_at IS 'When the module was detached (if applicable)';
 
 
 --
@@ -28655,14 +29232,6 @@ ALTER TABLE ONLY public.profiles
 
 
 --
--- Name: project_members project_members_project_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_members
-    ADD CONSTRAINT project_members_project_id_user_id_key UNIQUE (project_id, user_id);
-
-
---
 -- Name: project_organization_assignments project_organization_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -30272,6 +30841,14 @@ ALTER TABLE ONLY public.token_geographic_restrictions
 
 ALTER TABLE ONLY public.token_geographic_restrictions
     ADD CONSTRAINT token_geographic_restrictions_token_id_country_code_key UNIQUE (token_id, country_code);
+
+
+--
+-- Name: token_modules token_modules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_modules
+    ADD CONSTRAINT token_modules_pkey PRIMARY KEY (id);
 
 
 --
@@ -33658,6 +34235,13 @@ CREATE INDEX idx_erc1155_bridge ON public.token_erc1155_properties USING btree (
 
 
 --
+-- Name: idx_erc1155_compliance_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc1155_compliance_module ON public.token_erc1155_properties USING btree (compliance_module_address) WHERE (compliance_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc1155_crafting; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33669,6 +34253,13 @@ CREATE INDEX idx_erc1155_crafting ON public.token_erc1155_properties USING btree
 --
 
 CREATE INDEX idx_erc1155_lazy_minting ON public.token_erc1155_properties USING btree (lazy_minting_enabled);
+
+
+--
+-- Name: idx_erc1155_policy_engine; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc1155_policy_engine ON public.token_erc1155_properties USING btree (policy_engine_address) WHERE (policy_engine_address IS NOT NULL);
 
 
 --
@@ -33693,10 +34284,24 @@ CREATE INDEX idx_erc1400_advanced_governance ON public.token_erc1400_properties 
 
 
 --
+-- Name: idx_erc1400_compliance_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc1400_compliance_module ON public.token_erc1400_properties USING btree (compliance_module_address) WHERE (compliance_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc1400_compliance_monitoring; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc1400_compliance_monitoring ON public.token_erc1400_properties USING btree (real_time_compliance_monitoring);
+
+
+--
+-- Name: idx_erc1400_controller_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc1400_controller_module ON public.token_erc1400_properties USING btree (controller_module_address) WHERE (controller_module_address IS NOT NULL);
 
 
 --
@@ -33728,6 +34333,13 @@ CREATE INDEX idx_erc1400_traditional_finance ON public.token_erc1400_properties 
 
 
 --
+-- Name: idx_erc20_flash_mint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_flash_mint ON public.token_erc20_properties USING btree (flash_mint_module_address) WHERE (flash_mint_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc20_governance_enabled; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33735,10 +34347,24 @@ CREATE INDEX idx_erc20_governance_enabled ON public.token_erc20_properties USING
 
 
 --
+-- Name: idx_erc20_permit; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_permit ON public.token_erc20_properties USING btree (permit_module_address) WHERE (permit_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc20_presale_enabled; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc20_presale_enabled ON public.token_erc20_properties USING btree (presale_enabled);
+
+
+--
+-- Name: idx_erc20_snapshot; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_snapshot ON public.token_erc20_properties USING btree (snapshot_module_address) WHERE (snapshot_module_address IS NOT NULL);
 
 
 --
@@ -33756,10 +34382,24 @@ CREATE INDEX idx_erc20_trading_start ON public.token_erc20_properties USING btre
 
 
 --
+-- Name: idx_erc20_votes; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_votes ON public.token_erc20_properties USING btree (votes_module_address) WHERE (votes_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc3525_compliance; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc3525_compliance ON public.token_erc3525_properties USING btree (regulatory_compliance_enabled);
+
+
+--
+-- Name: idx_erc3525_compliance_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc3525_compliance_module ON public.token_erc3525_properties USING btree (compliance_module_address) WHERE (compliance_module_address IS NOT NULL);
 
 
 --
@@ -33791,6 +34431,13 @@ CREATE INDEX idx_erc3525_maturity_date ON public.token_erc3525_properties USING 
 
 
 --
+-- Name: idx_erc3525_slot_manager; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc3525_slot_manager ON public.token_erc3525_properties USING btree (slot_manager_module_address) WHERE (slot_manager_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc3525_slot_marketplace; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33802,6 +34449,20 @@ CREATE INDEX idx_erc3525_slot_marketplace ON public.token_erc3525_properties USI
 --
 
 CREATE INDEX idx_erc3525_yield_farming ON public.token_erc3525_properties USING btree (yield_farming_enabled);
+
+
+--
+-- Name: idx_erc4626_async_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc4626_async_vault ON public.token_erc4626_properties USING btree (async_vault_module_address) WHERE (async_vault_module_address IS NOT NULL);
+
+
+--
+-- Name: idx_erc4626_compliance_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc4626_compliance_module ON public.token_erc4626_properties USING btree (compliance_module_address) WHERE (compliance_module_address IS NOT NULL);
 
 
 --
@@ -33833,10 +34494,24 @@ CREATE INDEX idx_erc4626_multi_asset ON public.token_erc4626_properties USING bt
 
 
 --
+-- Name: idx_erc4626_native_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc4626_native_vault ON public.token_erc4626_properties USING btree (native_vault_module_address) WHERE (native_vault_module_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc4626_rebalancing; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc4626_rebalancing ON public.token_erc4626_properties USING btree (rebalancing_enabled);
+
+
+--
+-- Name: idx_erc4626_router; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc4626_router ON public.token_erc4626_properties USING btree (router_module_address) WHERE (router_module_address IS NOT NULL);
 
 
 --
@@ -33854,6 +34529,27 @@ CREATE INDEX idx_erc4626_yield_optimization ON public.token_erc4626_properties U
 
 
 --
+-- Name: idx_erc4626_yield_strategy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc4626_yield_strategy ON public.token_erc4626_properties USING btree (yield_strategy_module_address) WHERE (yield_strategy_module_address IS NOT NULL);
+
+
+--
+-- Name: idx_erc721_compliance_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_compliance_module ON public.token_erc721_properties USING btree (compliance_module_address) WHERE (compliance_module_address IS NOT NULL);
+
+
+--
+-- Name: idx_erc721_policy_engine; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_policy_engine ON public.token_erc721_properties USING btree (policy_engine_address) WHERE (policy_engine_address IS NOT NULL);
+
+
+--
 -- Name: idx_erc721_public_sale; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -33865,6 +34561,13 @@ CREATE INDEX idx_erc721_public_sale ON public.token_erc721_properties USING btre
 --
 
 CREATE INDEX idx_erc721_revealable ON public.token_erc721_properties USING btree (revealable);
+
+
+--
+-- Name: idx_erc721_royalty_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_royalty_module ON public.token_erc721_properties USING btree (royalty_module_address) WHERE (royalty_module_address IS NOT NULL);
 
 
 --
@@ -36556,6 +37259,13 @@ CREATE INDEX idx_project_wallets_project_id ON public.project_wallets USING btre
 
 
 --
+-- Name: idx_project_wallets_wallet_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_wallets_wallet_type ON public.project_wallets USING btree (wallet_type);
+
+
+--
 -- Name: idx_projects_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -39083,6 +39793,41 @@ CREATE INDEX idx_token_extensions_type ON public.token_extensions USING btree (e
 
 
 --
+-- Name: idx_token_modules_attached_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_attached_at ON public.token_modules USING btree (attached_at);
+
+
+--
+-- Name: idx_token_modules_is_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_is_active ON public.token_modules USING btree (is_active);
+
+
+--
+-- Name: idx_token_modules_module_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_module_address ON public.token_modules USING btree (module_address);
+
+
+--
+-- Name: idx_token_modules_module_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_module_type ON public.token_modules USING btree (module_type);
+
+
+--
+-- Name: idx_token_modules_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_token_id ON public.token_modules USING btree (token_id);
+
+
+--
 -- Name: idx_token_operations_token_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -40473,6 +41218,13 @@ CREATE TRIGGER template_approval_trigger BEFORE INSERT OR UPDATE ON public.polic
 --
 
 CREATE TRIGGER token_insert_trigger AFTER INSERT ON public.tokens FOR EACH ROW EXECUTE FUNCTION public.insert_token_properties();
+
+
+--
+-- Name: token_modules token_modules_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER token_modules_updated_at BEFORE UPDATE ON public.token_modules FOR EACH ROW EXECUTE FUNCTION public.update_token_modules_updated_at();
 
 
 --
@@ -44962,6 +45714,22 @@ ALTER TABLE ONLY public.token_geographic_restrictions
 
 
 --
+-- Name: token_modules token_modules_deployed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_modules
+    ADD CONSTRAINT token_modules_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: token_modules token_modules_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_modules
+    ADD CONSTRAINT token_modules_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
 -- Name: token_operations token_operations_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -45312,72 +46080,6 @@ ALTER TABLE ONLY public.whitelist_settings
 ALTER TABLE ONLY public.whitelist_signatories
     ADD CONSTRAINT whitelist_signatories_whitelist_id_fkey FOREIGN KEY (whitelist_id) REFERENCES public.whitelist_settings(id) ON DELETE CASCADE;
 
-
---
--- Name: psp_api_keys; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_api_keys ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_balances; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_balances ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_external_accounts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_external_accounts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_fiat_crypto_spreads; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_fiat_crypto_spreads ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_identity_cases; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_identity_cases ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_payment_settings; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_payment_settings ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_payments; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_payments ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_trades; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_trades ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_virtual_accounts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_virtual_accounts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_webhook_events; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_webhook_events ENABLE ROW LEVEL SECURITY;
-
---
--- Name: psp_webhooks; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.psp_webhooks ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -47204,6 +47906,16 @@ GRANT ALL ON FUNCTION public.update_timestamp_column() TO anon;
 GRANT ALL ON FUNCTION public.update_timestamp_column() TO authenticated;
 GRANT ALL ON FUNCTION public.update_timestamp_column() TO service_role;
 GRANT ALL ON FUNCTION public.update_timestamp_column() TO prisma;
+
+
+--
+-- Name: FUNCTION update_token_modules_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_token_modules_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_token_modules_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_token_modules_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_token_modules_updated_at() TO prisma;
 
 
 --
@@ -50567,16 +51279,6 @@ GRANT ALL ON TABLE public.profiles TO prisma;
 
 
 --
--- Name: TABLE project_members; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.project_members TO anon;
-GRANT ALL ON TABLE public.project_members TO authenticated;
-GRANT ALL ON TABLE public.project_members TO service_role;
-GRANT ALL ON TABLE public.project_members TO prisma;
-
-
---
 -- Name: TABLE project_organization_assignments; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52204,6 +52906,16 @@ GRANT ALL ON TABLE public.token_geographic_restrictions_view TO anon;
 GRANT ALL ON TABLE public.token_geographic_restrictions_view TO authenticated;
 GRANT ALL ON TABLE public.token_geographic_restrictions_view TO service_role;
 GRANT ALL ON TABLE public.token_geographic_restrictions_view TO prisma;
+
+
+--
+-- Name: TABLE token_modules; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.token_modules TO anon;
+GRANT ALL ON TABLE public.token_modules TO authenticated;
+GRANT ALL ON TABLE public.token_modules TO service_role;
+GRANT ALL ON TABLE public.token_modules TO prisma;
 
 
 --

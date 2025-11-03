@@ -17,7 +17,12 @@ export type OperationType =
   | 'block' 
   | 'unblock'
   | 'pause'
-  | 'unpause';
+  | 'unpause'
+  // 🆕 Advanced Management Operations
+  | 'grantRole'
+  | 'revokeRole'
+  | 'setModule'
+  | 'updateMaxSupply';
 
 export interface CryptoOperation {
   type: OperationType;
