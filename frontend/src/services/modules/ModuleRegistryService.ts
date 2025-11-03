@@ -30,6 +30,7 @@ export interface ModuleSelection {
   kyc?: boolean;
   vesting?: boolean;
   fees?: boolean;
+  policyEngine?: boolean;
   permit?: boolean;
   snapshot?: boolean;
   flashMint?: boolean;
@@ -50,6 +51,11 @@ export interface ModuleSelection {
   feesConfig?: {
     transferFeeBps?: number;
     feeRecipient?: string;
+    [key: string]: any;
+  };
+  policyEngineConfig?: {
+    rulesEnabled?: string[];
+    validatorsEnabled?: string[];
     [key: string]: any;
   };
   

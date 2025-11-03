@@ -191,6 +191,14 @@ export class EnhancedModuleDeploymentService {
       };
     }
 
+    if (config.policy_engine_enabled || config.policyEngineAddress) {
+      selection.policyEngine = true;
+      selection.policyEngineConfig = {
+        rulesEnabled: config.policy_rules_enabled || [],
+        validatorsEnabled: config.policy_validators_enabled || []
+      };
+    }
+
     // ERC20-specific modules
     const tokenStandard = this.getTokenStandard(params.tokenType);
     if (tokenStandard === 'erc20') {

@@ -107,6 +107,20 @@ export class ModuleDeploymentService {
       deployedModules.push(result);
     }
 
+    // Deploy policy engine if selected
+    if (selection.policyEngine) {
+      const result = await this.deployPolicyEngine(
+        factory,
+        token,
+        tokenAddress,
+        tokenId,
+        selection.policyEngineConfig || {},
+        network,
+        environment
+      );
+      deployedModules.push(result);
+    }
+
     // ERC20-specific modules
     if (tokenStandard === 'erc20') {
       if (selection.permit) {
@@ -297,6 +311,58 @@ export class ModuleDeploymentService {
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'fees',
+      configuration: config
+    };
+  }
+
+  /**
+   * Deploy policy engine instance
+   */
+  private static async deployPolicyEngine(
+    factory: ethers.Contract,
+    token: ethers.Contract,
+    tokenAddress: string,
+    tokenId: string,
+    config: any,
+    network: string,
+    environment: string
+  ): Promise<ModuleDeploymentResult> {
+    const masterModule = await ModuleRegistryService.getModuleMetadata(
+      'policy_engine',
+      network,
+      environment
+    );
+
+    if (!masterModule) {
+      throw new Error('Policy engine master not found');
+    }
+
+    console.log(`Deploying NEW policy engine instance for token ${tokenAddress}`);
+    const tx = await factory.deployPolicyEngine(
+      tokenAddress,
+      config.rulesEnabled || [],
+      config.validatorsEnabled || []
+    );
+    const receipt = await tx.wait();
+
+    const event = receipt.logs.find(
+      (log: any) => log.eventName === 'PolicyEngineDeployed'
+    );
+    const newModuleAddress = event?.args?.engineAddress || event?.args?.moduleAddress;
+
+    if (!newModuleAddress) {
+      throw new Error('Failed to get deployed policy engine address');
+    }
+
+    console.log(`NEW policy engine deployed at: ${newModuleAddress}`);
+
+    await token.setPolicyEngine(newModuleAddress);
+
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'policy_engine',
       configuration: config
     };
   }

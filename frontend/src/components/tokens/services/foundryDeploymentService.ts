@@ -1413,6 +1413,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as FoundryERC20Config;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(string memory name, string memory symbol, uint256 maxSupply, uint256 initialSupply, address owner) public'
     ];
@@ -1427,7 +1430,7 @@ export class FoundryDeploymentService {
       symbol: config.symbol,
       maxSupply: ethers.formatUnits(maxSupply, config.decimals),
       initialSupply: ethers.formatUnits(initialSupply, config.decimals),
-      owner: config.initialOwner
+      owner: initialOwner
     });
     
     const tx = await contract.initialize(
@@ -1435,7 +1438,7 @@ export class FoundryDeploymentService {
       config.symbol,
       maxSupply,
       initialSupply,
-      config.initialOwner
+      initialOwner
     );
     
     const receipt = await tx.wait();
@@ -1456,6 +1459,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as FoundryERC721Config;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(string memory name, string memory symbol, string memory baseTokenURI, uint256 maxSupply, address owner, bool mintingEnabled, bool burningEnabled) public'
     ];
@@ -1467,7 +1473,7 @@ export class FoundryDeploymentService {
       symbol: config.symbol,
       baseURI: config.baseURI,
       maxSupply: config.maxSupply,
-      owner: config.initialOwner,
+      owner: initialOwner,
       mintingEnabled: config.mintingEnabled,
       burningEnabled: config.burningEnabled
     });
@@ -1477,7 +1483,7 @@ export class FoundryDeploymentService {
       config.symbol,
       config.baseURI,
       config.maxSupply,
-      config.initialOwner,
+      initialOwner,
       config.mintingEnabled,
       config.burningEnabled
     );
@@ -1500,6 +1506,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as FoundryERC1155Config;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(string memory name, string memory symbol, string memory uri, address owner) public'
     ];
@@ -1510,14 +1519,14 @@ export class FoundryDeploymentService {
       name: config.name,
       symbol: config.symbol,
       uri: config.baseURI,
-      owner: config.initialOwner
+      owner: initialOwner
     });
     
     const tx = await contract.initialize(
       config.name,
       config.symbol,
       config.baseURI,
-      config.initialOwner
+      initialOwner
     );
     
     const receipt = await tx.wait();
@@ -1538,6 +1547,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as FoundryERC3525Config;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(string memory name, string memory symbol, uint8 decimals, address owner) public'
     ];
@@ -1548,14 +1560,14 @@ export class FoundryDeploymentService {
       name: config.name,
       symbol: config.symbol,
       decimals: config.valueDecimals,
-      owner: config.initialOwner
+      owner: initialOwner
     });
     
     const tx = await contract.initialize(
       config.name,
       config.symbol,
       config.valueDecimals,
-      config.initialOwner
+      initialOwner
     );
     
     const receipt = await tx.wait();
@@ -1576,6 +1588,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as FoundryERC4626Config;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(address asset, string memory name, string memory symbol, uint256 depositCap, uint256 minimumDeposit, address owner) public'
     ];
@@ -1591,7 +1606,7 @@ export class FoundryDeploymentService {
       symbol: config.symbol,
       depositCap: ethers.formatUnits(depositCap, config.decimals),
       minimumDeposit: ethers.formatUnits(minimumDeposit, config.decimals),
-      owner: config.initialOwner
+      owner: initialOwner
     });
     
     const tx = await contract.initialize(
@@ -1600,7 +1615,7 @@ export class FoundryDeploymentService {
       config.symbol,
       depositCap,
       minimumDeposit,
-      config.initialOwner
+      initialOwner
     );
     
     const receipt = await tx.wait();
@@ -1621,6 +1636,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as any;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(string memory name, string memory symbol, uint8 decimals, bytes32[] memory defaultPartitions, address owner, bool isControllable) public'
     ];
@@ -1636,7 +1654,7 @@ export class FoundryDeploymentService {
       symbol: config.symbol,
       decimals: 18,
       defaultPartitions,
-      owner: config.initialOwner,
+      owner: initialOwner,
       isControllable
     });
     
@@ -1645,7 +1663,7 @@ export class FoundryDeploymentService {
       config.symbol,
       18,
       defaultPartitions,
-      config.initialOwner,
+      initialOwner,
       isControllable
     );
     
@@ -1667,6 +1685,9 @@ export class FoundryDeploymentService {
   ): Promise<ethers.ContractTransactionReceipt> {
     const config = params.config as any;
     
+    // ✅ CRITICAL FIX: Auto-populate initialOwner from project wallet if not provided
+    const initialOwner = config.initialOwner || wallet.address;
+    
     const initializeABI = [
       'function initialize(string memory name, string memory symbol, uint256 initialSupply, address owner) public'
     ];
@@ -1680,14 +1701,14 @@ export class FoundryDeploymentService {
       name: config.name,
       symbol: config.symbol,
       initialSupply: ethers.formatUnits(initialSupply, decimals),
-      owner: config.initialOwner
+      owner: initialOwner
     });
     
     const tx = await contract.initialize(
       config.name,
       config.symbol,
       initialSupply,
-      config.initialOwner
+      initialOwner
     );
     
     const receipt = await tx.wait();
