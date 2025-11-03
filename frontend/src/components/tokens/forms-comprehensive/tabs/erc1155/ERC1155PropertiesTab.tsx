@@ -28,12 +28,14 @@ import {
 
 import { TokenERC1155PropertiesData, ConfigMode } from '../../types';
 import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
+import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC1155PropertiesTabProps {
   data?: TokenERC1155PropertiesData[];
   validationErrors?: Record<string, string[]>;
   isModified?: boolean;
   configMode: ConfigMode;
+  projectId: string; // ✅ NEW PROP - Required for wallet loading
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting?: boolean;
@@ -46,6 +48,7 @@ const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
   validationErrors = {},
   isModified = false,
   configMode,
+  projectId, // ✅ NEW DESTRUCTURE
   onFieldChange,
   onValidate,
   isSubmitting = false,
@@ -75,6 +78,23 @@ const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
     // Basic mode - essential fields only
     return (
       <div className="space-y-6">
+        {/* Owner Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Owner Configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProjectWalletSelector
+              projectId={projectId}
+              value={properties.initial_owner || ''}
+              onChange={(address) => handleFieldChange('initial_owner', address)}
+              label="Initial Owner"
+              description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+              required
+            />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -155,6 +175,23 @@ const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
   // Advanced mode - all fields
   return (
     <div className="space-y-6">
+      {/* Owner Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner Configuration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectWalletSelector
+            projectId={projectId}
+            value={properties.initial_owner || ''}
+            onChange={(address) => handleFieldChange('initial_owner', address)}
+            label="Initial Owner"
+            description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+            required
+          />
+        </CardContent>
+      </Card>
+
       {/* Basic Configuration */}
       <Card>
         <CardHeader>

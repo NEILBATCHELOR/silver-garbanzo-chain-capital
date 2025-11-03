@@ -57,13 +57,50 @@ contract ERC4626Master is
     /// @notice Policy engine for operation validation
     address public policyEngine;
     
+    /// @notice Compliance module for KYC/AML/whitelist checks
+    address public complianceModule;
+    
+    /// @notice Document module for attaching documents to vault
+    address public documentModule;
+    
+    /// @notice Fee strategy module for vault fee management
+    address public feeStrategyModule;
+    
+    /// @notice Withdrawal queue module for delayed withdrawals
+    address public withdrawalQueueModule;
+    
+    /// @notice Yield strategy module for yield generation
+    address public yieldStrategyModule;
+    
+    /// @notice Async vault module for delayed deposit/redeem (RWA)
+    address public asyncVaultModule;
+    
+    /// @notice Native vault module for native ETH vaults
+    address public nativeVaultModule;
+    
+    /// @notice Router module for multi-vault routing
+    address public routerModule;
+    
+    /// @notice Multi-asset vault module for multi-asset support
+    address public multiAssetVaultModule;
+    
     // ============ Storage Gap ============
-    uint256[47] private __gap;
+    // Reserve 38 slots for future upgrades (48 - 10 module addresses)
+    uint256[38] private __gap;
     
     // ============ Events ============
     event DepositCapUpdated(uint256 newCap);
     event MinimumDepositUpdated(uint256 newMinimum);
     event PolicyEngineUpdated(address indexed oldEngine, address indexed newEngine);
+    event ComplianceModuleUpdated(address indexed oldModule, address indexed newModule);
+    event DocumentModuleUpdated(address indexed oldModule, address indexed newModule);
+    event FeeStrategyModuleUpdated(address indexed oldModule, address indexed newModule);
+    event WithdrawalQueueModuleUpdated(address indexed oldModule, address indexed newModule);
+    event YieldStrategyModuleUpdated(address indexed oldModule, address indexed newModule);
+    event AsyncVaultModuleUpdated(address indexed oldModule, address indexed newModule);
+    event NativeVaultModuleUpdated(address indexed oldModule, address indexed newModule);
+    event RouterModuleUpdated(address indexed oldModule, address indexed newModule);
+    event MultiAssetVaultModuleUpdated(address indexed oldModule, address indexed newModule);
     
     // ============ Errors ============
     error DepositCapExceeded();
@@ -238,6 +275,105 @@ contract ERC4626Master is
         address oldEngine = policyEngine;
         policyEngine = engine_;
         emit PolicyEngineUpdated(oldEngine, engine_);
+    }
+    
+    /**
+     * @notice Set or update the compliance module
+     * @param module_ Address of compliance module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setComplianceModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = complianceModule;
+        complianceModule = module_;
+        emit ComplianceModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the document module
+     * @param module_ Address of document module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setDocumentModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = documentModule;
+        documentModule = module_;
+        emit DocumentModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the fee strategy module
+     * @param module_ Address of fee strategy module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setFeeStrategyModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = feeStrategyModule;
+        feeStrategyModule = module_;
+        emit FeeStrategyModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the withdrawal queue module
+     * @param module_ Address of withdrawal queue module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setWithdrawalQueueModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = withdrawalQueueModule;
+        withdrawalQueueModule = module_;
+        emit WithdrawalQueueModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the yield strategy module
+     * @param module_ Address of yield strategy module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setYieldStrategyModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = yieldStrategyModule;
+        yieldStrategyModule = module_;
+        emit YieldStrategyModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the async vault module
+     * @param module_ Address of async vault module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setAsyncVaultModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = asyncVaultModule;
+        asyncVaultModule = module_;
+        emit AsyncVaultModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the native vault module
+     * @param module_ Address of native vault module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setNativeVaultModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = nativeVaultModule;
+        nativeVaultModule = module_;
+        emit NativeVaultModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the router module
+     * @param module_ Address of router module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setRouterModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = routerModule;
+        routerModule = module_;
+        emit RouterModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the multi-asset vault module
+     * @param module_ Address of multi-asset vault module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setMultiAssetVaultModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = multiAssetVaultModule;
+        multiAssetVaultModule = module_;
+        emit MultiAssetVaultModuleUpdated(oldModule, module_);
     }
     
     // ============ Policy Validation Helpers ============

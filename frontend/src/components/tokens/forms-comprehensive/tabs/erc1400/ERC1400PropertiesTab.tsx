@@ -26,12 +26,14 @@ import {
 
 import { TokenERC1400PropertiesData, ConfigMode } from '../../types';
 import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
+import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC1400PropertiesTabProps {
   data?: TokenERC1400PropertiesData[];
   validationErrors?: Record<string, string[]>;
   isModified?: boolean;
   configMode: ConfigMode;
+  projectId: string; // ✅ NEW PROP - Required for wallet loading
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting?: boolean;
@@ -44,6 +46,7 @@ const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   validationErrors = {},
   isModified = false,
   configMode,
+  projectId, // ✅ NEW DESTRUCTURE
   onFieldChange,
   onValidate,
   isSubmitting = false,
@@ -279,6 +282,23 @@ const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Owner Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner Configuration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectWalletSelector
+            projectId={projectId}
+            value={properties.initial_owner || ''}
+            onChange={(address) => handleFieldChange('initial_owner', address)}
+            label="Initial Owner"
+            description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+            required={true}
+          />
         </CardContent>
       </Card>
 

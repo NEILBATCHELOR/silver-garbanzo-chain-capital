@@ -87,9 +87,21 @@ contract ERC721Master is
     /// @notice Consecutive minting module for gas optimization
     address public consecutiveModule;
     
+    /// @notice Compliance module for KYC/AML/whitelist checks
+    address public complianceModule;
+    
+    /// @notice Document module for attaching documents to NFTs
+    address public documentModule;
+    
+    /// @notice Metadata events module for EIP-4906 metadata updates
+    address public metadataEventsModule;
+    
+    /// @notice Vesting module for token lock schedules
+    address public vestingModule;
+    
     // ============ Storage Gap ============
-    // Reserve 34 slots for future upgrades (40 - 6 module addresses)
-    uint256[34] private __gap;
+    // Reserve 30 slots for future upgrades (40 - 10 module addresses)
+    uint256[30] private __gap;
 
     // ============ Events ============
     event NFTMinted(address indexed to, uint256 indexed tokenId, string uri);
@@ -107,6 +119,10 @@ contract ERC721Master is
     event SoulboundModuleUpdated(address indexed oldModule, address indexed newModule);
     event FractionModuleUpdated(address indexed oldModule, address indexed newModule);
     event ConsecutiveModuleUpdated(address indexed oldModule, address indexed newModule);
+    event ComplianceModuleUpdated(address indexed oldModule, address indexed newModule);
+    event DocumentModuleUpdated(address indexed oldModule, address indexed newModule);
+    event MetadataEventsModuleUpdated(address indexed oldModule, address indexed newModule);
+    event VestingModuleUpdated(address indexed oldModule, address indexed newModule);
     
     // ============ Errors ============
     error TransfersPaused();
@@ -383,6 +399,50 @@ contract ERC721Master is
         address oldModule = consecutiveModule;
         consecutiveModule = module_;
         emit ConsecutiveModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the compliance module
+     * @param module_ Address of compliance module (address(0) to disable)
+     * @dev Only owner can update modules
+     */
+    function setComplianceModule(address module_) external onlyOwner {
+        address oldModule = complianceModule;
+        complianceModule = module_;
+        emit ComplianceModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the document module
+     * @param module_ Address of document module (address(0) to disable)
+     * @dev Only owner can update modules
+     */
+    function setDocumentModule(address module_) external onlyOwner {
+        address oldModule = documentModule;
+        documentModule = module_;
+        emit DocumentModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the metadata events module
+     * @param module_ Address of metadata events module (address(0) to disable)
+     * @dev Only owner can update modules
+     */
+    function setMetadataEventsModule(address module_) external onlyOwner {
+        address oldModule = metadataEventsModule;
+        metadataEventsModule = module_;
+        emit MetadataEventsModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the vesting module
+     * @param module_ Address of vesting module (address(0) to disable)
+     * @dev Only owner can update modules
+     */
+    function setVestingModule(address module_) external onlyOwner {
+        address oldModule = vestingModule;
+        vestingModule = module_;
+        emit VestingModuleUpdated(oldModule, module_);
     }
     
     // ============ Royalty Module Delegation ============

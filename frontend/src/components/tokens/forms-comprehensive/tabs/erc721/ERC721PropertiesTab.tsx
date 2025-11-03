@@ -14,12 +14,14 @@ import { AlertTriangle } from 'lucide-react';
 
 import { TokenERC721PropertiesData, ConfigMode } from '../../types';
 import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
+import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC721PropertiesTabProps {
   data: TokenERC721PropertiesData | TokenERC721PropertiesData[];
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
+  projectId: string; // ✅ NEW PROP - Required for wallet loading
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting: boolean;
@@ -32,6 +34,7 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
   validationErrors,
   isModified,
   configMode,
+  projectId, // ✅ NEW DESTRUCTURE
   onFieldChange,
   onValidate,
   isSubmitting,
@@ -54,6 +57,23 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Owner Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner Configuration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectWalletSelector
+            projectId={projectId}
+            value={propertiesData.initial_owner || ''}
+            onChange={(address) => handleFieldChange('initial_owner', address)}
+            label="Initial Owner"
+            description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+            required
+          />
+        </CardContent>
+      </Card>
+
       {/* Metadata Configuration */}
       <Card>
         <CardHeader>

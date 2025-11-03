@@ -16,12 +16,14 @@ import { AlertTriangle, Plus, Minus } from 'lucide-react';
 
 import { TokenERC20PropertiesData, ConfigMode } from '../../types';
 import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
+import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector'; // ✅ CORRECTED PATH
 
 interface ERC20PropertiesTabProps {
   data: TokenERC20PropertiesData | TokenERC20PropertiesData[];
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
+  projectId: string; // ✅ NEW PROP - Required for wallet loading
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting: boolean;
@@ -34,6 +36,7 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   validationErrors,
   isModified,
   configMode,
+  projectId, // ✅ NEW DESTRUCTURE
   onFieldChange,
   onValidate,
   isSubmitting,
@@ -67,6 +70,23 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* ✅ NEW: Initial Owner Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner Configuration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectWalletSelector
+            projectId={projectId}
+            value={propertiesData.initial_owner || ''}
+            onChange={(address) => handleFieldChange('initial_owner', address)}
+            label="Initial Owner"
+            description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+            required={true}
+          />
+        </CardContent>
+      </Card>
+
       {/* Basic Supply Configuration */}
       <Card>
         <CardHeader>

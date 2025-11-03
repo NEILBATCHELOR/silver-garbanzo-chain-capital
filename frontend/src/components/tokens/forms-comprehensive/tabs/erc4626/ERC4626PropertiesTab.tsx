@@ -13,12 +13,14 @@ import { Separator } from '@/components/ui/separator';
 import { Vault, TrendingUp, Shield, Settings, Coins, Vote, Zap } from 'lucide-react';
 import { TokenERC4626PropertiesData, ConfigMode } from '../../types';
 import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
+import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC4626PropertiesTabProps {
   data?: TokenERC4626PropertiesData[];
   validationErrors?: Record<string, string[]>;
   isModified?: boolean;
   configMode: ConfigMode;
+  projectId: string; // ✅ NEW PROP - Required for wallet loading
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting?: boolean;
@@ -31,6 +33,7 @@ const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   validationErrors = {},
   isModified = false,
   configMode,
+  projectId, // ✅ NEW DESTRUCTURE
   onFieldChange,
   onValidate,
   isSubmitting = false,
@@ -45,6 +48,23 @@ const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   if (configMode === 'min') {
     return (
       <div className="space-y-6">
+        {/* Owner Configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Owner Configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProjectWalletSelector
+              projectId={projectId}
+              value={properties.initial_owner || ''}
+              onChange={(address) => handleFieldChange('initial_owner', address)}
+              label="Initial Owner"
+              description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+              required
+            />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -117,6 +137,23 @@ const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   // Advanced mode - organized by feature categories
   return (
     <div className="space-y-6">
+      {/* Owner Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner Configuration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectWalletSelector
+            projectId={projectId}
+            value={properties.initial_owner || ''}
+            onChange={(address) => handleFieldChange('initial_owner', address)}
+            label="Initial Owner"
+            description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
+            required
+          />
+        </CardContent>
+      </Card>
+
       {/* Basic Configuration */}
       <Card>
         <CardHeader>

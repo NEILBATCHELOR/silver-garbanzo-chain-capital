@@ -83,8 +83,27 @@ contract ERC3525Master is
     /// @notice Policy engine for operation validation
     address public policyEngine;
     
+    /// @notice Compliance module for KYC/AML/whitelist checks
+    address public complianceModule;
+    
+    /// @notice Document module for attaching documents to tokens
+    address public documentModule;
+    
+    /// @notice Vesting module for token lock schedules
+    address public vestingModule;
+    
+    /// @notice Slot approvable module for slot-level approvals
+    address public slotApprovableModule;
+    
+    /// @notice Slot manager module for slot enumeration/management
+    address public slotManagerModule;
+    
+    /// @notice Value exchange module for value transfers between tokens
+    address public valueExchangeModule;
+    
     // ============ Storage Gap ============
-    uint256[39] private __gap;
+    // Reserve 33 slots for future upgrades (40 - 7 module addresses)
+    uint256[33] private __gap;
     
     // ============ Events ============
     event TransferValue(
@@ -124,6 +143,12 @@ contract ERC3525Master is
     );
     
     event PolicyEngineUpdated(address indexed oldEngine, address indexed newEngine);
+    event ComplianceModuleUpdated(address indexed oldModule, address indexed newModule);
+    event DocumentModuleUpdated(address indexed oldModule, address indexed newModule);
+    event VestingModuleUpdated(address indexed oldModule, address indexed newModule);
+    event SlotApprovableModuleUpdated(address indexed oldModule, address indexed newModule);
+    event SlotManagerModuleUpdated(address indexed oldModule, address indexed newModule);
+    event ValueExchangeModuleUpdated(address indexed oldModule, address indexed newModule);
     
     // ============ Errors ============
     error InvalidToken();
@@ -378,6 +403,72 @@ contract ERC3525Master is
         address oldEngine = policyEngine;
         policyEngine = engine_;
         emit PolicyEngineUpdated(oldEngine, engine_);
+    }
+    
+    /**
+     * @notice Set or update the compliance module
+     * @param module_ Address of compliance module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setComplianceModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = complianceModule;
+        complianceModule = module_;
+        emit ComplianceModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the document module
+     * @param module_ Address of document module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setDocumentModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = documentModule;
+        documentModule = module_;
+        emit DocumentModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the vesting module
+     * @param module_ Address of vesting module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setVestingModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = vestingModule;
+        vestingModule = module_;
+        emit VestingModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the slot approvable module
+     * @param module_ Address of slot approvable module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setSlotApprovableModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = slotApprovableModule;
+        slotApprovableModule = module_;
+        emit SlotApprovableModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the slot manager module
+     * @param module_ Address of slot manager module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setSlotManagerModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = slotManagerModule;
+        slotManagerModule = module_;
+        emit SlotManagerModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the value exchange module
+     * @param module_ Address of value exchange module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setValueExchangeModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = valueExchangeModule;
+        valueExchangeModule = module_;
+        emit ValueExchangeModuleUpdated(oldModule, module_);
     }
     
     // ============ Policy Validation Helpers ============

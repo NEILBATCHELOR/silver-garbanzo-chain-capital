@@ -64,9 +64,30 @@ contract ERC20Master is
     /// @notice Policy engine for operation validation
     address public policyEngine;
     
+    /// @notice Flash mint module for EIP-3156 flash loans
+    address public flashMintModule;
+    
+    /// @notice Permit module for EIP-2612 gasless approvals
+    address public permitModule;
+    
+    /// @notice Snapshot module for balance snapshots
+    address public snapshotModule;
+    
+    /// @notice Timelock module for time-locked transfers
+    address public timelockModule;
+    
+    /// @notice Votes module for governance voting power
+    address public votesModule;
+    
+    /// @notice Payable token module for EIP-1363 receiver callbacks
+    address public payableTokenModule;
+    
+    /// @notice Temporary approval module for time-limited approvals
+    address public temporaryApprovalModule;
+    
     // ============ Storage Gap ============
-    // Reserve 43 slots for future upgrades (47 - 4 for new modules)
-    uint256[43] private __gap;
+    // Reserve 36 slots for future upgrades (43 - 7 new modules)
+    uint256[36] private __gap;
     
     // ============ Events ============
     event MaxSupplyUpdated(uint256 newMaxSupply);
@@ -74,6 +95,13 @@ contract ERC20Master is
     event VestingModuleUpdated(address indexed oldModule, address indexed newModule);
     event FeesModuleUpdated(address indexed oldModule, address indexed newModule);
     event PolicyEngineUpdated(address indexed oldEngine, address indexed newEngine);
+    event FlashMintModuleUpdated(address indexed oldModule, address indexed newModule);
+    event PermitModuleUpdated(address indexed oldModule, address indexed newModule);
+    event SnapshotModuleUpdated(address indexed oldModule, address indexed newModule);
+    event TimelockModuleUpdated(address indexed oldModule, address indexed newModule);
+    event VotesModuleUpdated(address indexed oldModule, address indexed newModule);
+    event PayableTokenModuleUpdated(address indexed oldModule, address indexed newModule);
+    event TemporaryApprovalModuleUpdated(address indexed oldModule, address indexed newModule);
     
     // ============ Errors ============
     error MaxSupplyExceeded();
@@ -246,6 +274,83 @@ contract ERC20Master is
         address oldEngine = policyEngine;
         policyEngine = engine_;
         emit PolicyEngineUpdated(oldEngine, engine_);
+    }
+    
+    /**
+     * @notice Set or update the flash mint module
+     * @param module_ Address of flash mint module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setFlashMintModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = flashMintModule;
+        flashMintModule = module_;
+        emit FlashMintModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the permit module
+     * @param module_ Address of permit module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setPermitModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = permitModule;
+        permitModule = module_;
+        emit PermitModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the snapshot module
+     * @param module_ Address of snapshot module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setSnapshotModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = snapshotModule;
+        snapshotModule = module_;
+        emit SnapshotModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the timelock module
+     * @param module_ Address of timelock module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setTimelockModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = timelockModule;
+        timelockModule = module_;
+        emit TimelockModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the votes module
+     * @param module_ Address of votes module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setVotesModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = votesModule;
+        votesModule = module_;
+        emit VotesModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the payable token module
+     * @param module_ Address of payable token module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setPayableTokenModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = payableTokenModule;
+        payableTokenModule = module_;
+        emit PayableTokenModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the temporary approval module
+     * @param module_ Address of temporary approval module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setTemporaryApprovalModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = temporaryApprovalModule;
+        temporaryApprovalModule = module_;
+        emit TemporaryApprovalModuleUpdated(oldModule, module_);
     }
     
     // ============ Policy Validation Helpers ============

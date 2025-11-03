@@ -76,8 +76,17 @@ contract ERC1400Master is
     /// @notice Policy engine for operation validation
     address public policyEngine;
     
+    /// @notice Vesting module for token lock schedules
+    address public vestingModule;
+    
+    /// @notice Controller module for operator control functions
+    address public controllerModule;
+    
+    /// @notice ERC1400-specific document module
+    address public erc1400DocumentModule;
+    
     // Storage gap for future upgrades
-    uint256[39] private __gap; // Reduced by 1 for policyEngine
+    uint256[36] private __gap; // Reduced by 4 for policyEngine + 3 new modules
     
     // ============ Events ============
     
@@ -117,6 +126,9 @@ contract ERC1400Master is
     event DocumentModuleSet(address indexed module);
     event ComplianceModuleSet(address indexed module);
     event PolicyEngineUpdated(address indexed oldEngine, address indexed newEngine);
+    event VestingModuleSet(address indexed module);
+    event ControllerModuleSet(address indexed module);
+    event ERC1400DocumentModuleSet(address indexed module);
     
     // ============ Errors ============
     
@@ -494,6 +506,42 @@ contract ERC1400Master is
         if (module == address(0)) revert InvalidModule();
         complianceModule = module;
         emit ComplianceModuleSet(module);
+    }
+    
+    /**
+     * @notice Set vesting module
+     */
+    function setVestingModule(address module) 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        if (module == address(0)) revert InvalidModule();
+        vestingModule = module;
+        emit VestingModuleSet(module);
+    }
+    
+    /**
+     * @notice Set controller module
+     */
+    function setControllerModule(address module) 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        if (module == address(0)) revert InvalidModule();
+        controllerModule = module;
+        emit ControllerModuleSet(module);
+    }
+    
+    /**
+     * @notice Set ERC1400-specific document module
+     */
+    function setERC1400DocumentModule(address module) 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        if (module == address(0)) revert InvalidModule();
+        erc1400DocumentModule = module;
+        emit ERC1400DocumentModuleSet(module);
     }
     
     // ============ View Functions ============

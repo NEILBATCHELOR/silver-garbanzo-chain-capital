@@ -51,13 +51,38 @@ contract ERC1155Master is
     /// @notice Policy engine for operation validation
     address public policyEngine;
     
+    /// @notice Compliance module for KYC/AML/whitelist checks
+    address public complianceModule;
+    
+    /// @notice Document module for attaching documents to tokens
+    address public documentModule;
+    
+    /// @notice Royalty module for EIP-2981 creator royalties
+    address public royaltyModule;
+    
+    /// @notice Supply cap module for per-token-id supply limits
+    address public supplyCapModule;
+    
+    /// @notice URI management module for dynamic URI updates
+    address public uriManagementModule;
+    
+    /// @notice Vesting module for token lock schedules
+    address public vestingModule;
+    
     // ============ Storage Gap ============
-    uint256[46] private __gap;
+    // Reserve 40 slots for future upgrades (47 - 7 module addresses)
+    uint256[40] private __gap;
     
     // ============ Events ============
     event MaxSupplySet(uint256 indexed tokenId, uint256 maxSupply);
     event URIUpdated(string newuri);
     event PolicyEngineUpdated(address indexed oldEngine, address indexed newEngine);
+    event ComplianceModuleUpdated(address indexed oldModule, address indexed newModule);
+    event DocumentModuleUpdated(address indexed oldModule, address indexed newModule);
+    event RoyaltyModuleUpdated(address indexed oldModule, address indexed newModule);
+    event SupplyCapModuleUpdated(address indexed oldModule, address indexed newModule);
+    event UriManagementModuleUpdated(address indexed oldModule, address indexed newModule);
+    event VestingModuleUpdated(address indexed oldModule, address indexed newModule);
     
     // ============ Errors ============
     error MaxSupplyExceeded(uint256 tokenId);
@@ -252,6 +277,72 @@ contract ERC1155Master is
         address oldEngine = policyEngine;
         policyEngine = engine_;
         emit PolicyEngineUpdated(oldEngine, engine_);
+    }
+    
+    /**
+     * @notice Set or update the compliance module
+     * @param module_ Address of compliance module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setComplianceModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = complianceModule;
+        complianceModule = module_;
+        emit ComplianceModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the document module
+     * @param module_ Address of document module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setDocumentModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = documentModule;
+        documentModule = module_;
+        emit DocumentModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the royalty module
+     * @param module_ Address of royalty module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setRoyaltyModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = royaltyModule;
+        royaltyModule = module_;
+        emit RoyaltyModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the supply cap module
+     * @param module_ Address of supply cap module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setSupplyCapModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = supplyCapModule;
+        supplyCapModule = module_;
+        emit SupplyCapModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the URI management module
+     * @param module_ Address of URI management module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setUriManagementModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = uriManagementModule;
+        uriManagementModule = module_;
+        emit UriManagementModuleUpdated(oldModule, module_);
+    }
+    
+    /**
+     * @notice Set or update the vesting module
+     * @param module_ Address of vesting module (address(0) to disable)
+     * @dev Only admin can update modules
+     */
+    function setVestingModule(address module_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldModule = vestingModule;
+        vestingModule = module_;
+        emit VestingModuleUpdated(oldModule, module_);
     }
     
     // ============ Policy Validation Helpers ============
