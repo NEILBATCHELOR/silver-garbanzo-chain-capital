@@ -80,8 +80,8 @@ export class RedemptionCalendarService extends BaseService {
         SELECT rw.*, p.name as project_name
         FROM redemption_windows rw
         LEFT JOIN projects p ON p.id = rw.project_id
-        ${projectId ? 'WHERE rw.project_id = $1' : ''}
-        ${organizationId ? `${projectId ? 'AND' : 'WHERE'} rw.organization_id = ${projectId ? '$2' : '$1'}` : ''}
+        ${projectId ? 'WHERE rw.project_id = $1::uuid' : ''}
+        ${organizationId ? `${projectId ? 'AND' : 'WHERE'} rw.organization_id = ${projectId ? '$2::uuid' : '$1::uuid'}` : ''}
       `;
       
       const params = [];
@@ -215,8 +215,8 @@ export class RedemptionCalendarService extends BaseService {
         SELECT rr.*, p.name as project_name
         FROM redemption_rules rr
         LEFT JOIN projects p ON p.id = rr.project_id
-        ${projectId ? 'WHERE rr.project_id = $1' : ''}
-        ${organizationId ? `${projectId ? 'AND' : 'WHERE'} rr.organization_id = ${projectId ? '$2' : '$1'}` : ''}
+        ${projectId ? 'WHERE rr.project_id = $1::uuid' : ''}
+        ${organizationId ? `${projectId ? 'AND' : 'WHERE'} rr.organization_id = ${projectId ? '$2::uuid' : '$1::uuid'}` : ''}
       `;
       
       const params = [];

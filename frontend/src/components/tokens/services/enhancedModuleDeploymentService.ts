@@ -158,6 +158,7 @@ export class EnhancedModuleDeploymentService {
 
   /**
    * Extract module selection from deployment parameters
+   * EXTENDED: Now supports all 52 module types across all token standards
    */
   private extractModuleSelection(params: FoundryDeploymentParams): ModuleSelection {
     // Check if moduleSelection exists in config (new format)
@@ -169,7 +170,7 @@ export class EnhancedModuleDeploymentService {
     // Fallback: Build selection from boolean flags in config
     const selection: ModuleSelection = {};
 
-    // Universal modules
+    // ============ UNIVERSAL MODULES (All Standards) ============
     if (config.compliance_enabled || config.complianceModuleAddress) {
       selection.compliance = true;
       selection.complianceConfig = {
@@ -183,12 +184,9 @@ export class EnhancedModuleDeploymentService {
       selection.vestingConfig = config.vesting_config || {};
     }
 
-    if (config.fees_enabled || config.feesModuleAddress) {
-      selection.fees = true;
-      selection.feesConfig = {
-        transferFeeBps: config.transfer_fee_bps || 0,
-        feeRecipient: config.fee_recipient || config.initialOwner
-      };
+    if (config.document_enabled || config.documentModuleAddress) {
+      selection.document = true;
+      selection.documentConfig = config.document_config || {};
     }
 
     if (config.policy_engine_enabled || config.policyEngineAddress) {
@@ -199,29 +197,175 @@ export class EnhancedModuleDeploymentService {
       };
     }
 
-    // ERC20-specific modules
+    // ============ TOKEN STANDARD-SPECIFIC MODULES ============
     const tokenStandard = this.getTokenStandard(params.tokenType);
+
+    // ERC20-specific modules
     if (tokenStandard === 'erc20') {
+      if (config.fees_enabled || config.feesModuleAddress) {
+        selection.fees = true;
+        selection.feesConfig = {
+          transferFeeBps: config.transfer_fee_bps || 0,
+          feeRecipient: config.fee_recipient || config.initialOwner
+        };
+      }
+      if (config.flash_mint || config.flashMintModuleAddress) {
+        selection.flashMint = true;
+      }
       if (config.permit || config.permitModuleAddress) {
         selection.permit = true;
       }
       if (config.snapshot || config.snapshotModuleAddress) {
         selection.snapshot = true;
       }
-      if (config.flash_mint || config.flashMintModuleAddress) {
-        selection.flashMint = true;
+      if (config.timelock || config.timelockModuleAddress) {
+        selection.timelock = true;
+        selection.timelockConfig = { minDelay: config.timelock_min_delay || 0 };
       }
       if (config.votes || config.votesModuleAddress) {
         selection.votes = true;
       }
-      if (config.timelock || config.timelockModuleAddress) {
-        selection.timelock = true;
-      }
-      if (config.payable || config.payableModuleAddress) {
-        selection.payable = true;
+      if (config.payable_token || config.payableTokenModuleAddress) {
+        selection.payableToken = true;
       }
       if (config.temporary_approval || config.temporaryApprovalModuleAddress) {
         selection.temporaryApproval = true;
+        selection.temporaryApprovalConfig = { 
+          defaultDuration: config.temporary_approval_duration || 3600 
+        };
+      }
+    }
+
+    // ERC721-specific modules
+    if (tokenStandard === 'erc721') {
+      if (config.royalty_enabled || config.royaltyModuleAddress) {
+        selection.royalty = true;
+        selection.royaltyConfig = {
+          defaultRoyaltyBps: config.default_royalty_bps || 250,
+          royaltyRecipient: config.royalty_recipient || config.initialOwner
+        };
+      }
+      if (config.rental_enabled || config.rentalModuleAddress) {
+        selection.rental = true;
+        selection.rentalConfig = {
+          maxRentalDuration: config.max_rental_duration || 86400
+        };
+      }
+      if (config.soulbound || config.soulboundModuleAddress) {
+        selection.soulbound = true;
+      }
+      if (config.fraction_enabled || config.fractionModuleAddress) {
+        selection.fraction = true;
+        selection.fractionConfig = {
+          minFractions: config.min_fractions || 100
+        };
+      }
+      if (config.consecutive || config.consecutiveModuleAddress) {
+        selection.consecutive = true;
+      }
+      if (config.metadata_events || config.metadataEventsModuleAddress) {
+        selection.metadataEvents = true;
+      }
+    }
+
+    // ERC1155-specific modules
+    if (tokenStandard === 'erc1155') {
+      if (config.royalty_enabled || config.royaltyModuleAddress) {
+        selection.royalty = true;
+        selection.royaltyConfig = {
+          defaultRoyaltyBps: config.default_royalty_bps || 250,
+          royaltyRecipient: config.royalty_recipient || config.initialOwner
+        };
+      }
+      if (config.supply_cap_enabled || config.supplyCapModuleAddress) {
+        selection.supplyCap = true;
+        selection.supplyCapConfig = {
+          defaultCap: config.default_supply_cap || 0
+        };
+      }
+      if (config.uri_management || config.uriManagementModuleAddress) {
+        selection.uriManagement = true;
+        selection.uriManagementConfig = {
+          baseURI: config.base_uri || ''
+        };
+      }
+    }
+
+    // ERC3525-specific modules
+    if (tokenStandard === 'erc3525') {
+      if (config.slot_approvable || config.slotApprovableModuleAddress) {
+        selection.slotApprovable = true;
+      }
+      if (config.slot_manager || config.slotManagerModuleAddress) {
+        selection.slotManager = true;
+        selection.slotManagerConfig = config.slot_manager_config || {};
+      }
+      if (config.value_exchange || config.valueExchangeModuleAddress) {
+        selection.valueExchange = true;
+        selection.valueExchangeConfig = {
+          exchangeFeeBps: config.exchange_fee_bps || 0
+        };
+      }
+    }
+
+    // ERC4626-specific modules
+    if (tokenStandard === 'erc4626') {
+      if (config.fee_strategy || config.feeStrategyModuleAddress) {
+        selection.feeStrategy = true;
+        selection.feeStrategyConfig = {
+          managementFeeBps: config.management_fee_bps || 0,
+          performanceFeeBps: config.performance_fee_bps || 0
+        };
+      }
+      if (config.withdrawal_queue || config.withdrawalQueueModuleAddress) {
+        selection.withdrawalQueue = true;
+        selection.withdrawalQueueConfig = {
+          maxQueueSize: config.max_queue_size || 1000
+        };
+      }
+      if (config.yield_strategy || config.yieldStrategyModuleAddress) {
+        selection.yieldStrategy = true;
+        selection.yieldStrategyConfig = {
+          targetYieldBps: config.target_yield_bps || 500
+        };
+      }
+      if (config.async_vault || config.asyncVaultModuleAddress) {
+        selection.asyncVault = true;
+        selection.asyncVaultConfig = {
+          settlementDelay: config.settlement_delay || 86400
+        };
+      }
+      if (config.native_vault || config.nativeVaultModuleAddress) {
+        selection.nativeVault = true;
+        selection.nativeVaultConfig = config.native_vault_config || {};
+      }
+      if (config.router || config.routerModuleAddress) {
+        selection.router = true;
+        selection.routerConfig = config.router_config || {};
+      }
+      if (config.multi_asset_vault || config.multiAssetVaultModuleAddress) {
+        selection.multiAssetVault = true;
+        selection.multiAssetVaultConfig = {
+          maxAssets: config.max_assets || 10
+        };
+      }
+    }
+
+    // ERC1400-specific modules
+    if (tokenStandard === 'erc1400') {
+      if (config.transfer_restrictions || config.transferRestrictionsModuleAddress) {
+        selection.transferRestrictions = true;
+        selection.transferRestrictionsConfig = config.transfer_restrictions_config || {};
+      }
+      if (config.controller || config.controllerModuleAddress) {
+        selection.controller = true;
+        selection.controllerConfig = {
+          controllers: config.controllers || []
+        };
+      }
+      if (config.erc1400_document || config.erc1400DocumentModuleAddress) {
+        selection.erc1400Document = true;
+        selection.erc1400DocumentConfig = config.erc1400_document_config || {};
       }
     }
 

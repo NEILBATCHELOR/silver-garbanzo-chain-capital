@@ -23,29 +23,66 @@ export interface ModuleRegistryEntry {
 
 /**
  * Module selection by feature (no addresses needed from user)
+ * EXTENDED: Now supports all 52 module types across all token standards
  */
 export interface ModuleSelection {
-  // Feature toggles (user-friendly)
+  // ============ UNIVERSAL MODULES (All Standards) ============
   compliance?: boolean;
-  kyc?: boolean;
   vesting?: boolean;
-  fees?: boolean;
+  document?: boolean;
   policyEngine?: boolean;
+  
+  // ============ ERC20-SPECIFIC MODULES ============
+  fees?: boolean;
+  flashMint?: boolean;
   permit?: boolean;
   snapshot?: boolean;
-  flashMint?: boolean;
-  votes?: boolean;
   timelock?: boolean;
-  payable?: boolean;
+  votes?: boolean;
+  payableToken?: boolean;
   temporaryApproval?: boolean;
   
-  // Module-specific configurations (optional)
+  // ============ ERC721-SPECIFIC MODULES ============
+  royalty?: boolean;
+  rental?: boolean;
+  soulbound?: boolean;
+  fraction?: boolean;
+  consecutive?: boolean;
+  metadataEvents?: boolean;
+  
+  // ============ ERC1155-SPECIFIC MODULES ============
+  supplyCap?: boolean;
+  uriManagement?: boolean;
+  
+  // ============ ERC3525-SPECIFIC MODULES ============
+  slotApprovable?: boolean;
+  slotManager?: boolean;
+  valueExchange?: boolean;
+  
+  // ============ ERC4626-SPECIFIC MODULES ============
+  feeStrategy?: boolean;
+  withdrawalQueue?: boolean;
+  yieldStrategy?: boolean;
+  asyncVault?: boolean;
+  nativeVault?: boolean;
+  router?: boolean;
+  multiAssetVault?: boolean;
+  
+  // ============ ERC1400-SPECIFIC MODULES ============
+  transferRestrictions?: boolean;
+  controller?: boolean;
+  erc1400Document?: boolean;
+  
+  // ============ MODULE-SPECIFIC CONFIGURATIONS ============
   complianceConfig?: {
     kycRequired?: boolean;
     whitelistRequired?: boolean;
     [key: string]: any;
   };
   vestingConfig?: {
+    [key: string]: any;
+  };
+  documentConfig?: {
     [key: string]: any;
   };
   feesConfig?: {
@@ -58,20 +95,128 @@ export interface ModuleSelection {
     validatorsEnabled?: string[];
     [key: string]: any;
   };
+  timelockConfig?: {
+    minDelay?: number;
+    [key: string]: any;
+  };
+  temporaryApprovalConfig?: {
+    defaultDuration?: number;
+    [key: string]: any;
+  };
+  royaltyConfig?: {
+    defaultRoyaltyBps?: number;
+    royaltyRecipient?: string;
+    [key: string]: any;
+  };
+  rentalConfig?: {
+    maxRentalDuration?: number;
+    [key: string]: any;
+  };
+  fractionConfig?: {
+    minFractions?: number;
+    [key: string]: any;
+  };
+  supplyCapConfig?: {
+    defaultCap?: number;
+    [key: string]: any;
+  };
+  uriManagementConfig?: {
+    baseURI?: string;
+    [key: string]: any;
+  };
+  slotManagerConfig?: {
+    [key: string]: any;
+  };
+  valueExchangeConfig?: {
+    exchangeFeeBps?: number;
+    [key: string]: any;
+  };
+  feeStrategyConfig?: {
+    managementFeeBps?: number;
+    performanceFeeBps?: number;
+    [key: string]: any;
+  };
+  withdrawalQueueConfig?: {
+    maxQueueSize?: number;
+    [key: string]: any;
+  };
+  yieldStrategyConfig?: {
+    targetYieldBps?: number;
+    [key: string]: any;
+  };
+  asyncVaultConfig?: {
+    settlementDelay?: number;
+    [key: string]: any;
+  };
+  nativeVaultConfig?: {
+    [key: string]: any;
+  };
+  routerConfig?: {
+    [key: string]: any;
+  };
+  multiAssetVaultConfig?: {
+    maxAssets?: number;
+    [key: string]: any;
+  };
+  transferRestrictionsConfig?: {
+    [key: string]: any;
+  };
+  controllerConfig?: {
+    controllers?: string[];
+    [key: string]: any;
+  };
+  erc1400DocumentConfig?: {
+    [key: string]: any;
+  };
   
-  // Resolved addresses (automatic, hidden from user)
+  // ============ RESOLVED ADDRESSES (Automatic, Hidden) ============
   resolvedAddresses?: {
+    // Universal
     complianceModuleAddress?: string;
     vestingModuleAddress?: string;
-    feesModuleAddress?: string;
+    documentModuleAddress?: string;
     policyEngineAddress?: string;
+    
+    // ERC20
+    feesModuleAddress?: string;
+    flashMintModuleAddress?: string;
     permitModuleAddress?: string;
     snapshotModuleAddress?: string;
-    flashMintModuleAddress?: string;
-    votesModuleAddress?: string;
     timelockModuleAddress?: string;
-    payableModuleAddress?: string;
+    votesModuleAddress?: string;
+    payableTokenModuleAddress?: string;
     temporaryApprovalModuleAddress?: string;
+    
+    // ERC721
+    royaltyModuleAddress?: string;
+    rentalModuleAddress?: string;
+    soulboundModuleAddress?: string;
+    fractionModuleAddress?: string;
+    consecutiveModuleAddress?: string;
+    metadataEventsModuleAddress?: string;
+    
+    // ERC1155
+    supplyCapModuleAddress?: string;
+    uriManagementModuleAddress?: string;
+    
+    // ERC3525
+    slotApprovableModuleAddress?: string;
+    slotManagerModuleAddress?: string;
+    valueExchangeModuleAddress?: string;
+    
+    // ERC4626
+    feeStrategyModuleAddress?: string;
+    withdrawalQueueModuleAddress?: string;
+    yieldStrategyModuleAddress?: string;
+    asyncVaultModuleAddress?: string;
+    nativeVaultModuleAddress?: string;
+    routerModuleAddress?: string;
+    multiAssetVaultModuleAddress?: string;
+    
+    // ERC1400
+    transferRestrictionsModuleAddress?: string;
+    controllerModuleAddress?: string;
+    erc1400DocumentModuleAddress?: string;
   };
 }
 
@@ -182,9 +327,9 @@ export class ModuleRegistryService {
         if (module) resolved.timelockModuleAddress = module.contractAddress;
       }
 
-      if (selection.payable) {
+      if (selection.payableToken) {
         const module = registry.get('payable_module');
-        if (module) resolved.payableModuleAddress = module.contractAddress;
+        if (module) resolved.payableTokenModuleAddress = module.contractAddress;
       }
 
       if (selection.temporaryApproval) {
