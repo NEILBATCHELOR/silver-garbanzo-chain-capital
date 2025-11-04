@@ -60,7 +60,7 @@ const FEATURE_INFO: Record<string, { label: string; description: string; }> = {
     label: 'Timelock Controller',
     description: 'Delay administrative actions with timelock'
   },
-  payable: {
+  payableToken: {
     label: 'Payable Token',
     description: 'Allow ETH to be sent alongside token transfers'
   },
@@ -86,12 +86,26 @@ export const ModuleSelectionCard: React.FC<ModuleSelectionCardProps> = ({
     getResolvedAddresses
   } = useModuleRegistry({ network, tokenStandard, environment });
 
-  // Notify parent of changes
+  // Use ref to avoid onChange dependency causing infinite loops
+  const onChangeRef = React.useRef(onChange);
   React.useEffect(() => {
-    if (onChange) {
-      onChange(selection);
+    onChangeRef.current = onChange;
+  }, [onChange]);
+  
+  // Track if this is the first render to avoid calling onChange on mount
+  const isFirstRender = React.useRef(true);
+
+  // Notify parent of changes (skip first render to avoid initialization loops)
+  React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [selection, onChange]);
+    
+    if (onChangeRef.current) {
+      onChangeRef.current(selection);
+    }
+  }, [selection]); // Only depend on selection, not onChange
 
   if (isLoading) {
     return (
@@ -236,12 +250,12 @@ export const ModuleSelectionCard: React.FC<ModuleSelectionCardProps> = ({
               />
             )}
             
-            {availableFeatures.includes('payable') && (
+            {availableFeatures.includes('payableToken') && (
               <ModuleToggle
-                feature="payable"
-                info={FEATURE_INFO.payable}
-                checked={selection.payable || false}
-                onToggle={() => toggleFeature('payable')}
+                feature="payableToken"
+                info={FEATURE_INFO.payableToken}
+                checked={selection.payableToken || false}
+                onToggle={() => toggleFeature('payableToken')}
                 disabled={disabled}
               />
             )}

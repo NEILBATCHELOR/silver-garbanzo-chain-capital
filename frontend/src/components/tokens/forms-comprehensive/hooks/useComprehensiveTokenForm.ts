@@ -34,6 +34,7 @@ export function useComprehensiveTokenForm({
     standard,
     configMode,
     activeTab: 'tokens',
+    projectId: undefined, // 🆕 ADD PROJECT ID TO STATE
     tabs: {},
     globalErrors: [],
     isSubmitting: false
@@ -58,6 +59,10 @@ export function useComprehensiveTokenForm({
       const allData = await tokenCRUDService.loadAllTokenData(tokenId, standard);
       const tables = tokenCRUDService.getTablesForStandard(standard);
       
+      // 🆕 EXTRACT PROJECT ID FROM TOKENS TABLE
+      const tokenData = allData['tokens'];
+      const projectId = tokenData?.project_id;
+      
       const newTabs: Record<string, FormTabState> = {};
       
       for (const table of tables) {
@@ -72,6 +77,7 @@ export function useComprehensiveTokenForm({
       
       setFormState(prev => ({
         ...prev,
+        projectId, // 🆕 SET PROJECT ID IN STATE
         tabs: newTabs,
         isSubmitting: false,
         globalErrors: []
@@ -351,6 +357,7 @@ export function useComprehensiveTokenForm({
 
   return {
     formState,
+    projectId: formState.projectId, // 🆕 RETURN PROJECT ID
     eventHandlers,
     loadAllData,
     initializeEmptyForm,

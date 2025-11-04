@@ -546,6 +546,7 @@ export interface FormTabState {
 
 export interface ComprehensiveFormState {
   tokenId?: string;
+  projectId?: string; // 🆕 ADD PROJECT ID
   standard: TokenStandard;
   configMode: ConfigMode;
   activeTab: string;

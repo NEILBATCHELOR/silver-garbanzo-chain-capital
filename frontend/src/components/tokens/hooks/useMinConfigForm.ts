@@ -4,6 +4,8 @@
  * 
  * Eliminates dual state management issues by providing centralized state management
  * for all min config forms (ERC-20, ERC-721, ERC-1155, ERC-1400, ERC-3525, ERC-4626)
+ * 
+ * FIXED: Prevented infinite loop by removing circular dependencies in useEffect
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -25,6 +27,10 @@ export function useMinConfigForm({
   setTokenForm,
   handleInputChange
 }: UseMinConfigFormProps) {
+  
+  // Track if we're initializing to prevent loops
+  const isInitializingRef = useRef(true);
+  const isMountedRef = useRef(false);
   
   // Initialize form data - prioritize tokenForm, then initialConfig, then defaults
   const initializeFormData = useCallback(() => {
@@ -78,35 +84,51 @@ export function useMinConfigForm({
   // Track previous tokenForm to prevent unnecessary updates
   const prevTokenFormRef = useRef(tokenForm);
   
+  // Mark as mounted after first render
+  useEffect(() => {
+    isMountedRef.current = true;
+    isInitializingRef.current = false;
+  }, []);
+  
   // Sync with parent tokenForm when it changes (prevent infinite loops)
   useEffect(() => {
+    // Skip during initialization
+    if (isInitializingRef.current) return;
+    
     // Only update if tokenForm actually changed
     if (tokenForm && tokenForm !== prevTokenFormRef.current) {
-      const newFormData = initializeFormData();
+      // Create new form data
+      const newData = {
+        ...formData, // Keep existing form data as base
+        ...tokenForm // Overlay tokenForm changes
+      };
+      
       // Only update if the data is actually different
-      if (JSON.stringify(newFormData) !== JSON.stringify(formData)) {
-        setFormData(newFormData);
+      const currentDataStr = JSON.stringify(formData);
+      const newDataStr = JSON.stringify(newData);
+      
+      if (currentDataStr !== newDataStr) {
+        setFormData(newData);
       }
+      
       prevTokenFormRef.current = tokenForm;
     }
-  }, [tokenForm, initializeFormData]);
+  }, [tokenForm]); // REMOVED initializeFormData and formData from dependencies
   
-  // Notify parent when formData changes (with debouncing to prevent loops)
-  const onConfigChangeRef = useRef(onConfigChange);
+  // Notify parent when formData changes (ONLY on user interaction, not initialization)
   useEffect(() => {
-    onConfigChangeRef.current = onConfigChange;
-  }, [onConfigChange]);
-  
-  useEffect(() => {
-    // Only call onConfigChange if the component receives it as a prop
-    // and avoid calling it during initialization
-    if (onConfigChangeRef.current) {
-      const timeoutId = setTimeout(() => {
-        onConfigChangeRef.current?.(formData);
-      }, 0);
-      return () => clearTimeout(timeoutId);
+    // Don't call onConfigChange during initialization or if not mounted
+    if (!isMountedRef.current || isInitializingRef.current || !onConfigChange) {
+      return;
     }
-  }, [formData]);
+    
+    // Debounce to prevent rapid-fire updates
+    const timeoutId = setTimeout(() => {
+      onConfigChange(formData);
+    }, 50); // Slightly longer debounce
+    
+    return () => clearTimeout(timeoutId);
+  }, [formData, onConfigChange]);
   
   // Centralized field change handler
   const handleFieldChange = useCallback((field: string, value: any) => {
@@ -117,6 +139,7 @@ export function useMinConfigForm({
     }));
     
     // Also update parent state directly if setTokenForm is available
+    // This prevents circular dependency since we're not reading from parent
     if (setTokenForm) {
       setTokenForm((prev: any) => ({
         ...prev,

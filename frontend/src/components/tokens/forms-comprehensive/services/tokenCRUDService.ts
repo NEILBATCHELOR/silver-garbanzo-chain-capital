@@ -9,6 +9,7 @@ import {
   ConfigMode
 } from '../types';
 import { TokenStandard } from '@/types/core/centralModels';
+import { transformModuleSelectionToColumns } from './moduleSelectionTransformer';
 
 class ComprehensiveTokenCRUDService implements TokenCRUDService {
   
@@ -144,15 +145,35 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
     const results: TokenTableData[] = [];
     
     for (const record of records) {
-      if (record.id) {
+      // 🆕 HANDLE MODULE SELECTION TRANSFORMATION
+      let recordToSave = { ...record } as any; // Cast to any to handle dynamic moduleSelection field
+      
+      // If this is a properties table and has moduleSelection field
+      if (table.includes('_properties') && 'moduleSelection' in recordToSave && recordToSave.moduleSelection) {
+        const tokenStandard = table.replace('token_', '').replace('_properties', '');
+        
+        // Transform moduleSelection to individual module address columns
+        const moduleColumns = transformModuleSelectionToColumns(
+          recordToSave.moduleSelection,
+          tokenStandard
+        );
+        
+        // Remove moduleSelection (not a database column) and add module addresses
+        delete recordToSave.moduleSelection;
+        recordToSave = { ...recordToSave, ...moduleColumns };
+        
+        console.log(`[tokenCRUDService] Transformed moduleSelection to columns for ${table}:`, moduleColumns);
+      }
+      
+      if (recordToSave.id) {
         // Update existing record
         const { data, error } = await (supabase as any)
           .from(table)
           .update({
-            ...record,
+            ...recordToSave,
             updated_at: new Date().toISOString()
           })
-          .eq('id', record.id)
+          .eq('id', recordToSave.id)
           .select()
           .single();
         
@@ -161,7 +182,7 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
       } else {
         // Insert new record
         const recordToInsert = {
-          ...record,
+          ...recordToSave,
           token_id: tokenId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
