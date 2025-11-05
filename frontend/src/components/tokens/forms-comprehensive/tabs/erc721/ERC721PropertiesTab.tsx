@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 
 import { TokenERC721PropertiesData, ConfigMode } from '../../types';
-import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC721PropertiesTabProps {
@@ -424,15 +423,6 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
           )}
         </CardContent>
       </Card>
-
-      {/* 🆕 Extension Modules */}
-      <ModuleSelectionCard
-        network={network}
-        tokenStandard="erc721"
-        environment={environment}
-        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
-        disabled={isSubmitting}
-      />
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

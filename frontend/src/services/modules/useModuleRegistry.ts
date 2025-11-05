@@ -1,13 +1,14 @@
 // React Hook for Module Registry
 // Provides automatic module selection and address resolution in forms
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ModuleRegistryService, ModuleSelection } from '@/services/modules';
 
 interface UseModuleRegistryProps {
   network: string;
   tokenStandard: 'erc20' | 'erc721' | 'erc1155' | 'erc3525' | 'erc4626' | 'erc1400';
   environment?: string;
+  initialSelection?: ModuleSelection; // 🆕 Accept initial selection for edit mode
 }
 
 export interface UseModuleRegistryResult {
@@ -39,12 +40,24 @@ export interface UseModuleRegistryResult {
 export function useModuleRegistry({
   network,
   tokenStandard,
-  environment = 'testnet'
+  environment = 'testnet',
+  initialSelection = {} // 🆕 Default to empty if not provided
 }: UseModuleRegistryProps): UseModuleRegistryResult {
-  const [selection, setSelection] = useState<ModuleSelection>({});
+  const [selection, setSelection] = useState<ModuleSelection>(initialSelection);
   const [availableFeatures, setAvailableFeatures] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ FIXED: Update selection whenever initialSelection changes
+  // Use a ref to track previous value and only update when actually different
+  const prevInitialSelectionRef = useRef<string>(JSON.stringify(initialSelection));
+  useEffect(() => {
+    const currentValue = JSON.stringify(initialSelection);
+    if (currentValue !== prevInitialSelectionRef.current) {
+      setSelection(initialSelection);
+      prevInitialSelectionRef.current = currentValue;
+    }
+  }, [initialSelection]);
 
   // Load available features on mount
   useEffect(() => {

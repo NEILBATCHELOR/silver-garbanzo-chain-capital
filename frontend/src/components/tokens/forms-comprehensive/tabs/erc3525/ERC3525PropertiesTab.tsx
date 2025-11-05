@@ -12,7 +12,6 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Layers, Settings, TrendingUp, Shield, Coins, Vote } from 'lucide-react';
 import { TokenERC3525PropertiesData, ConfigMode } from '../../types';
-import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC3525PropertiesTabProps {
@@ -386,15 +385,6 @@ const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
           </div>
         </CardContent>
       </Card>
-
-      {/* 🆕 Extension Modules */}
-      <ModuleSelectionCard
-        network={network}
-        tokenStandard="erc3525"
-        environment={environment}
-        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
-        disabled={isSubmitting}
-      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

@@ -12,7 +12,6 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Vault, TrendingUp, Shield, Settings, Coins, Vote, Zap } from 'lucide-react';
 import { TokenERC4626PropertiesData, ConfigMode } from '../../types';
-import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC4626PropertiesTabProps {
@@ -532,15 +531,6 @@ const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
           </div>
         </CardContent>
       </Card>
-
-      {/* 🆕 Extension Modules */}
-      <ModuleSelectionCard
-        network={network}
-        tokenStandard="erc4626"
-        environment={environment}
-        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
-        disabled={isSubmitting}
-      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

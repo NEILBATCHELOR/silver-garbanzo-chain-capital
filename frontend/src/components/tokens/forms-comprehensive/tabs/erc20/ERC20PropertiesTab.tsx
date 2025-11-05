@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Plus, Minus } from 'lucide-react';
 
 import { TokenERC20PropertiesData, ConfigMode } from '../../types';
-import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector'; // ✅ CORRECTED PATH
 
 interface ERC20PropertiesTabProps {
@@ -480,15 +479,6 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
           </Card>
         </>
       )}
-
-      {/* 🆕 Extension Modules */}
-      <ModuleSelectionCard
-        network={network}
-        tokenStandard="erc20"
-        environment={environment}
-        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
-        disabled={isSubmitting}
-      />
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

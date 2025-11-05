@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 
 import { TokenERC1400PropertiesData, ConfigMode } from '../../types';
-import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC1400PropertiesTabProps {
@@ -996,15 +995,6 @@ const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
           </div>
         </CardContent>
       </Card>
-
-      {/* 🆕 Extension Modules */}
-      <ModuleSelectionCard
-        network={network}
-        tokenStandard="erc1400"
-        environment={environment}
-        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
-        disabled={isSubmitting}
-      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

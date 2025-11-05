@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 
 import { TokenERC1155PropertiesData, ConfigMode } from '../../types';
-import { ModuleSelectionCard } from '../../ui/ModuleSelectionCard';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 interface ERC1155PropertiesTabProps {
@@ -809,15 +808,6 @@ const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
           )}
         </CardContent>
       </Card>
-
-      {/* 🆕 Extension Modules */}
-      <ModuleSelectionCard
-        network={network}
-        tokenStandard="erc1155"
-        environment={environment}
-        onChange={(selection) => handleFieldChange('moduleSelection', selection)}
-        disabled={isSubmitting}
-      />
 
       {/* Status */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

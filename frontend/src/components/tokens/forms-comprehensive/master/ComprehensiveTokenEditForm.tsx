@@ -354,7 +354,6 @@ export const ComprehensiveTokenEditForm: React.FC<ComprehensiveTokenEditFormProp
   
   const {
     formState,
-    projectId, // 🆕 GET PROJECT ID FROM HOOK
     eventHandlers,
     hasUnsavedChanges,
     hasErrors
@@ -524,7 +523,6 @@ export const ComprehensiveTokenEditForm: React.FC<ComprehensiveTokenEditFormProp
                 <CardContent>
                   <TabComponent
                     tokenId={tokenId}
-                    projectId={projectId} // 🆕 PASS PROJECT ID TO TAB
                     data={tabState?.data}
                     validationErrors={tabState?.validationErrors || {}}
                     isModified={tabState?.isModified || false}

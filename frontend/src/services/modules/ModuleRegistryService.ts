@@ -3,6 +3,38 @@
 // Users select features, system resolves addresses automatically
 
 import { supabase } from '@/infrastructure/database/client';
+import type {
+  ComplianceConfig,
+  VestingConfig,
+  DocumentConfig,
+  PolicyEngineConfig,
+  FeesConfig,
+  TimelockConfig,
+  TemporaryApprovalConfig,
+  FlashMintConfig,
+  RoyaltyConfig,
+  RentalConfig,
+  FractionalizationConfig,
+  SoulboundConfig,
+  ConsecutiveConfig,
+  MetadataEventsConfig,
+  SupplyCapConfig,
+  UriManagementConfig,
+  SlotApprovableConfig,
+  SlotManagerConfig,
+  ValueExchangeConfig,
+  FeeStrategyConfig,
+  WithdrawalQueueConfig,
+  YieldStrategyConfig,
+  AsyncVaultConfig,
+  NativeVaultConfig,
+  RouterConfig,
+  MultiAssetVaultConfig,
+  TransferRestrictionsConfig,
+  ControllerConfig,
+  ERC1400DocumentConfig,
+  TokenStandard
+} from '@/types/modules';
 
 /**
  * Module metadata from contract_masters
@@ -24,6 +56,7 @@ export interface ModuleRegistryEntry {
 /**
  * Module selection by feature (no addresses needed from user)
  * EXTENDED: Now supports all 52 module types across all token standards
+ * ✅ UPDATED: Uses shared types from @/types/modules
  */
 export interface ModuleSelection {
   // ============ UNIVERSAL MODULES (All Standards) ============
@@ -74,100 +107,48 @@ export interface ModuleSelection {
   erc1400Document?: boolean;
   
   // ============ MODULE-SPECIFIC CONFIGURATIONS ============
-  complianceConfig?: {
-    kycRequired?: boolean;
-    whitelistRequired?: boolean;
-    [key: string]: any;
-  };
-  vestingConfig?: {
-    [key: string]: any;
-  };
-  documentConfig?: {
-    [key: string]: any;
-  };
-  feesConfig?: {
-    transferFeeBps?: number;
-    feeRecipient?: string;
-    [key: string]: any;
-  };
-  policyEngineConfig?: {
-    rulesEnabled?: string[];
-    validatorsEnabled?: string[];
-    [key: string]: any;
-  };
-  timelockConfig?: {
-    minDelay?: number;
-    [key: string]: any;
-  };
-  temporaryApprovalConfig?: {
-    defaultDuration?: number;
-    [key: string]: any;
-  };
-  royaltyConfig?: {
-    defaultRoyaltyBps?: number;
-    royaltyRecipient?: string;
-    [key: string]: any;
-  };
-  rentalConfig?: {
-    maxRentalDuration?: number;
-    [key: string]: any;
-  };
-  fractionConfig?: {
-    minFractions?: number;
-    [key: string]: any;
-  };
-  supplyCapConfig?: {
-    defaultCap?: number;
-    [key: string]: any;
-  };
-  uriManagementConfig?: {
-    baseURI?: string;
-    [key: string]: any;
-  };
-  slotManagerConfig?: {
-    [key: string]: any;
-  };
-  valueExchangeConfig?: {
-    exchangeFeeBps?: number;
-    [key: string]: any;
-  };
-  feeStrategyConfig?: {
-    managementFeeBps?: number;
-    performanceFeeBps?: number;
-    [key: string]: any;
-  };
-  withdrawalQueueConfig?: {
-    maxQueueSize?: number;
-    [key: string]: any;
-  };
-  yieldStrategyConfig?: {
-    targetYieldBps?: number;
-    [key: string]: any;
-  };
-  asyncVaultConfig?: {
-    settlementDelay?: number;
-    [key: string]: any;
-  };
-  nativeVaultConfig?: {
-    [key: string]: any;
-  };
-  routerConfig?: {
-    [key: string]: any;
-  };
-  multiAssetVaultConfig?: {
-    maxAssets?: number;
-    [key: string]: any;
-  };
-  transferRestrictionsConfig?: {
-    [key: string]: any;
-  };
-  controllerConfig?: {
-    controllers?: string[];
-    [key: string]: any;
-  };
-  erc1400DocumentConfig?: {
-    [key: string]: any;
-  };
+  // Universal
+  complianceConfig?: ComplianceConfig;
+  vestingConfig?: VestingConfig;
+  documentConfig?: DocumentConfig;
+  policyEngineConfig?: PolicyEngineConfig;
+  
+  // ERC20
+  feesConfig?: FeesConfig;
+  timelockConfig?: TimelockConfig;
+  temporaryApprovalConfig?: TemporaryApprovalConfig;
+  flashMintConfig?: FlashMintConfig;
+  
+  // ERC721
+  royaltyConfig?: RoyaltyConfig;
+  rentalConfig?: RentalConfig;
+  fractionConfig?: FractionalizationConfig;
+  soulboundConfig?: SoulboundConfig;
+  consecutiveConfig?: ConsecutiveConfig;
+  metadataEventsConfig?: MetadataEventsConfig;
+  
+  // ERC1155
+  supplyCapConfig?: SupplyCapConfig;
+  uriManagementConfig?: UriManagementConfig;
+  
+  // ERC3525
+  slotApprovableConfig?: SlotApprovableConfig;
+  slotManagerConfig?: SlotManagerConfig;
+  valueExchangeConfig?: ValueExchangeConfig;
+  
+  // ERC4626
+  feeStrategyConfig?: FeeStrategyConfig;
+  withdrawalQueueConfig?: WithdrawalQueueConfig;
+  yieldStrategyConfig?: YieldStrategyConfig;
+  asyncVaultConfig?: AsyncVaultConfig;
+  nativeVaultConfig?: NativeVaultConfig;
+  routerConfig?: RouterConfig;
+  multiAssetVaultConfig?: MultiAssetVaultConfig;
+  
+  // ERC1400
+  transferRestrictionsConfig?: TransferRestrictionsConfig;
+  controllerConfig?: ControllerConfig;
+  erc1400DocumentConfig?: ERC1400DocumentConfig;
   
   // ============ RESOLVED ADDRESSES (Automatic, Hidden) ============
   resolvedAddresses?: {
@@ -272,7 +253,7 @@ export class ModuleRegistryService {
   static async resolveModuleAddresses(
     selection: ModuleSelection,
     network: string,
-    tokenStandard: 'erc20' | 'erc721' | 'erc1155' | 'erc3525' | 'erc4626' | 'erc1400',
+    tokenStandard: TokenStandard,
     environment: string = 'testnet'
   ): Promise<ModuleSelection['resolvedAddresses']> {
     const registry = await this.getAvailableModules(network, environment);
@@ -335,6 +316,131 @@ export class ModuleRegistryService {
       if (selection.temporaryApproval) {
         const module = registry.get('temporary_approval_module');
         if (module) resolved.temporaryApprovalModuleAddress = module.contractAddress;
+      }
+    }
+
+    // ============ ERC721-SPECIFIC MODULES ============
+    if (tokenStandard === 'erc721') {
+      if (selection.royalty) {
+        const module = registry.get('royalty_module');
+        if (module) resolved.royaltyModuleAddress = module.contractAddress;
+      }
+
+      if (selection.rental) {
+        const module = registry.get('rental_module');
+        if (module) resolved.rentalModuleAddress = module.contractAddress;
+      }
+
+      if (selection.soulbound) {
+        const module = registry.get('soulbound_module');
+        if (module) resolved.soulboundModuleAddress = module.contractAddress;
+      }
+
+      if (selection.fraction) {
+        const module = registry.get('fractionalization_module');
+        if (module) resolved.fractionModuleAddress = module.contractAddress;
+      }
+
+      if (selection.consecutive) {
+        const module = registry.get('consecutive_module');
+        if (module) resolved.consecutiveModuleAddress = module.contractAddress;
+      }
+
+      if (selection.metadataEvents) {
+        const module = registry.get('metadata_events_module');
+        if (module) resolved.metadataEventsModuleAddress = module.contractAddress;
+      }
+    }
+
+    // ============ ERC1155-SPECIFIC MODULES ============
+    if (tokenStandard === 'erc1155') {
+      if (selection.royalty) {
+        const module = registry.get('royalty_module');
+        if (module) resolved.royaltyModuleAddress = module.contractAddress;
+      }
+
+      if (selection.supplyCap) {
+        const module = registry.get('supply_cap_module');
+        if (module) resolved.supplyCapModuleAddress = module.contractAddress;
+      }
+
+      if (selection.uriManagement) {
+        const module = registry.get('uri_management_module');
+        if (module) resolved.uriManagementModuleAddress = module.contractAddress;
+      }
+    }
+
+    // ============ ERC3525-SPECIFIC MODULES ============
+    if (tokenStandard === 'erc3525') {
+      if (selection.slotApprovable) {
+        const module = registry.get('slot_approvable_module');
+        if (module) resolved.slotApprovableModuleAddress = module.contractAddress;
+      }
+
+      if (selection.slotManager) {
+        const module = registry.get('slot_manager_module');
+        if (module) resolved.slotManagerModuleAddress = module.contractAddress;
+      }
+
+      if (selection.valueExchange) {
+        const module = registry.get('value_exchange_module');
+        if (module) resolved.valueExchangeModuleAddress = module.contractAddress;
+      }
+    }
+
+    // ============ ERC4626-SPECIFIC MODULES ============
+    if (tokenStandard === 'erc4626') {
+      if (selection.feeStrategy) {
+        const module = registry.get('fee_strategy_module');
+        if (module) resolved.feeStrategyModuleAddress = module.contractAddress;
+      }
+
+      if (selection.withdrawalQueue) {
+        const module = registry.get('withdrawal_queue_module');
+        if (module) resolved.withdrawalQueueModuleAddress = module.contractAddress;
+      }
+
+      if (selection.yieldStrategy) {
+        const module = registry.get('yield_strategy_module');
+        if (module) resolved.yieldStrategyModuleAddress = module.contractAddress;
+      }
+
+      if (selection.asyncVault) {
+        const module = registry.get('async_vault_module');
+        if (module) resolved.asyncVaultModuleAddress = module.contractAddress;
+      }
+
+      if (selection.nativeVault) {
+        const module = registry.get('native_vault_module');
+        if (module) resolved.nativeVaultModuleAddress = module.contractAddress;
+      }
+
+      if (selection.router) {
+        const module = registry.get('router_module');
+        if (module) resolved.routerModuleAddress = module.contractAddress;
+      }
+
+      if (selection.multiAssetVault) {
+        const module = registry.get('multi_asset_vault_module');
+        if (module) resolved.multiAssetVaultModuleAddress = module.contractAddress;
+      }
+    }
+
+    // ============ ERC1400-SPECIFIC MODULES ============
+    if (tokenStandard === 'erc1400') {
+      if (selection.transferRestrictions) {
+        const module = registry.get('transfer_restrictions_module');
+        if (module) resolved.transferRestrictionsModuleAddress = module.contractAddress;
+      }
+
+      if (selection.controller) {
+        const module = registry.get('controller_module');
+        if (module) resolved.controllerModuleAddress = module.contractAddress;
+      }
+
+      if (selection.erc1400Document) {
+        const module = registry.get('erc1400_document_module');
+        if (module) resolved.erc1400DocumentModuleAddress = module.contractAddress;
       }
     }
 
@@ -401,27 +507,66 @@ export class ModuleRegistryService {
    * Get all available features for a token standard on a network
    */
   static async getAvailableFeatures(
-    tokenStandard: 'erc20' | 'erc721' | 'erc1155' | 'erc3525' | 'erc4626' | 'erc1400',
+    tokenStandard: TokenStandard,
     network: string,
     environment: string = 'testnet'
   ): Promise<string[]> {
     const registry = await this.getAvailableModules(network, environment);
     const availableFeatures: string[] = [];
 
-    // Universal features
+    // Universal features (all standards)
     if (registry.has('compliance_module')) availableFeatures.push('compliance');
     if (registry.has('vesting_module')) availableFeatures.push('vesting');
-    if (registry.has('fee_module')) availableFeatures.push('fees');
+    if (registry.has('document_module')) availableFeatures.push('document');
+    if (registry.has('policy_engine')) availableFeatures.push('policyEngine');
 
     // Standard-specific features
     if (tokenStandard === 'erc20') {
+      if (registry.has('fee_module')) availableFeatures.push('fees');
       if (registry.has('permit_module')) availableFeatures.push('permit');
       if (registry.has('snapshot_module')) availableFeatures.push('snapshot');
       if (registry.has('flash_mint_module')) availableFeatures.push('flashMint');
       if (registry.has('votes_module')) availableFeatures.push('votes');
       if (registry.has('timelock_module')) availableFeatures.push('timelock');
-      if (registry.has('payable_module')) availableFeatures.push('payable');
+      if (registry.has('payable_token_module')) availableFeatures.push('payableToken');
       if (registry.has('temporary_approval_module')) availableFeatures.push('temporaryApproval');
+    }
+    
+    if (tokenStandard === 'erc721') {
+      if (registry.has('royalty_module')) availableFeatures.push('royalty');
+      if (registry.has('rental_module')) availableFeatures.push('rental');
+      if (registry.has('soulbound_module')) availableFeatures.push('soulbound');
+      if (registry.has('fractionalization_module')) availableFeatures.push('fraction');
+      if (registry.has('consecutive_module')) availableFeatures.push('consecutive');
+      if (registry.has('metadata_events_module')) availableFeatures.push('metadataEvents');
+    }
+    
+    if (tokenStandard === 'erc1155') {
+      if (registry.has('royalty_module')) availableFeatures.push('royalty');
+      if (registry.has('supply_cap_module')) availableFeatures.push('supplyCap');
+      if (registry.has('uri_management_module')) availableFeatures.push('uriManagement');
+    }
+    
+    if (tokenStandard === 'erc3525') {
+      if (registry.has('slot_approvable_module')) availableFeatures.push('slotApprovable');
+      if (registry.has('slot_manager_module')) availableFeatures.push('slotManager');
+      if (registry.has('value_exchange_module')) availableFeatures.push('valueExchange');
+    }
+    
+    if (tokenStandard === 'erc4626') {
+      if (registry.has('fee_strategy_module')) availableFeatures.push('feeStrategy');
+      if (registry.has('withdrawal_queue_module')) availableFeatures.push('withdrawalQueue');
+      if (registry.has('yield_strategy_module')) availableFeatures.push('yieldStrategy');
+      if (registry.has('async_vault_module')) availableFeatures.push('asyncVault');
+      if (registry.has('native_vault_module')) availableFeatures.push('nativeVault');
+      if (registry.has('router_module')) availableFeatures.push('router');
+      if (registry.has('multi_asset_vault_module')) availableFeatures.push('multiAssetVault');
+    }
+    
+    if (tokenStandard === 'erc1400') {
+      if (registry.has('transfer_restrictions_module')) availableFeatures.push('transferRestrictions');
+      if (registry.has('controller_module')) availableFeatures.push('controller');
+      if (registry.has('erc1400_document_module')) availableFeatures.push('erc1400Document');
     }
 
     return availableFeatures;

@@ -105,9 +105,37 @@ export interface FoundryERC20Config {
 }
 
 /**
+ * ERC721 Royalty Configuration
+ */
+export interface ERC721RoyaltyConfig {
+  defaultRoyaltyBps: number; // Royalty in basis points (250 = 2.5%)
+  royaltyRecipient: string; // Address receiving royalties
+}
+
+/**
+ * ERC721 Rental Configuration
+ */
+export interface ERC721RentalConfig {
+  maxRentalDuration: number; // Maximum rental period in seconds
+  minRentalPrice?: string; // Minimum rental price in wei (optional)
+  rentalRecipient?: string; // Address receiving rental payments (optional)
+}
+
+/**
+ * ERC721 Fractionalization Configuration
+ */
+export interface ERC721FractionalizationConfig {
+  minFractions: number; // Minimum number of fractional shares per NFT
+  maxFractions?: number; // Maximum number of fractional shares (optional)
+  fractionPrice?: string; // Price per fraction in wei (optional)
+}
+
+/**
  * ERC721 Token Configuration for Foundry deployment
+ * ✅ UPDATED: Now includes module configurations for all ERC721 extensions
  */
 export interface FoundryERC721Config {
+  // Base Configuration
   name: string;
   symbol: string;
   baseURI: string;
@@ -118,6 +146,56 @@ export interface FoundryERC721Config {
   burningEnabled: boolean;
   publicMinting: boolean;
   initialOwner: string;
+  
+  // ============ MODULE SELECTION ============
+  // Universal Modules (All Standards)
+  compliance?: boolean;
+  vesting?: boolean;
+  document?: boolean;
+  policyEngine?: boolean;
+  
+  // ERC721-Specific Modules
+  royalty?: boolean;
+  rental?: boolean;
+  soulbound?: boolean;
+  fraction?: boolean; // Fractionalization
+  consecutive?: boolean;
+  metadataEvents?: boolean;
+  
+  // ============ MODULE CONFIGURATIONS ============
+  // Universal Module Configs
+  complianceConfig?: {
+    kycRequired?: boolean;
+    whitelistRequired?: boolean;
+    whitelistAddresses?: string;
+  };
+  vestingConfig?: {
+    cliffPeriod?: number; // Cliff period in seconds
+    totalPeriod?: number; // Total vesting period in seconds
+    releaseFrequency?: 'daily' | 'weekly' | 'monthly' | 'quarterly';
+  };
+  documentConfig?: Record<string, any>;
+  policyEngineConfig?: {
+    rulesEnabled?: string[];
+    validatorsEnabled?: string[];
+  };
+  
+  // ERC721-Specific Module Configs
+  royaltyConfig?: ERC721RoyaltyConfig;
+  rentalConfig?: ERC721RentalConfig;
+  fractionConfig?: ERC721FractionalizationConfig;
+  
+  // ============ MODULE ADDRESSES (Auto-resolved) ============
+  complianceModuleAddress?: string;
+  vestingModuleAddress?: string;
+  documentModuleAddress?: string;
+  policyEngineAddress?: string;
+  royaltyModuleAddress?: string;
+  rentalModuleAddress?: string;
+  soulboundModuleAddress?: string;
+  fractionalizationModuleAddress?: string;
+  consecutiveModuleAddress?: string;
+  metadataEventsModuleAddress?: string;
 }
 
 /**
