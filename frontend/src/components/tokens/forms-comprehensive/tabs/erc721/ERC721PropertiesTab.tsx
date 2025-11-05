@@ -39,7 +39,7 @@ import type {
   ComplianceModuleConfig,
   VestingModuleConfig,
   DocumentModuleConfig,
-  PolicyEngineConfig,
+  PolicyEngineModuleConfig,
   RoyaltyModuleConfig,
   RentalModuleConfig,
   SoulboundModuleConfig,
@@ -107,17 +107,19 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
   });
 
   const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address
+    enabled: !!propertiesData.vesting_module_address,
+    schedules: []
   });
 
   const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address
+    enabled: !!propertiesData.document_module_address,
+    documents: []
   });
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineConfig>({
+  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
-    rulesEnabled: [],
-    validatorsEnabled: []
+    rules: [],
+    validators: []
   });
 
   const [royaltyConfig, setRoyaltyConfig] = useState<RoyaltyModuleConfig>({

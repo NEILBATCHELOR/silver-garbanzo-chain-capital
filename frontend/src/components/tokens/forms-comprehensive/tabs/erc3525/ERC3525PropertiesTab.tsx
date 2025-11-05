@@ -33,7 +33,7 @@ import type {
   ComplianceModuleConfig,
   VestingModuleConfig,
   DocumentModuleConfig,
-  PolicyEngineConfig,
+  PolicyEngineModuleConfig,
   SlotApprovableModuleConfig,
   SlotManagerModuleConfig,
   ValueExchangeModuleConfig
@@ -95,17 +95,19 @@ export const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
   });
 
   const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address
+    enabled: !!propertiesData.vesting_module_address,
+    schedules: []
   });
 
   const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address
+    enabled: !!propertiesData.document_module_address,
+    documents: []
   });
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineConfig>({
+  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
-    rulesEnabled: [],
-    validatorsEnabled: []
+    rules: [],
+    validators: []
   });
 
   const [slotApprovableConfig, setSlotApprovableConfig] = useState<SlotApprovableModuleConfig>({
@@ -113,7 +115,8 @@ export const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
   });
 
   const [slotManagerConfig, setSlotManagerConfig] = useState<SlotManagerModuleConfig>({
-    enabled: !!propertiesData.slot_manager_module_address
+    enabled: !!propertiesData.slot_manager_module_address,
+    slots: []
   });
 
   const [valueExchangeConfig, setValueExchangeConfig] = useState<ValueExchangeModuleConfig>({

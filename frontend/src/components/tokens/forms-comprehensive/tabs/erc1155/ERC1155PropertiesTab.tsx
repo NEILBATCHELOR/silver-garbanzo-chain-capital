@@ -34,10 +34,10 @@ import type {
   ComplianceModuleConfig,
   VestingModuleConfig,
   DocumentModuleConfig,
-  PolicyEngineConfig,
+  PolicyEngineModuleConfig,
   RoyaltyModuleConfig,
   SupplyCapModuleConfig,
-  URIManagementModuleConfig,
+  UriManagementModuleConfig,
   GranularApprovalModuleConfig
 } from '../../contracts/types';
 
@@ -97,17 +97,19 @@ export const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
   });
 
   const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address
+    enabled: !!propertiesData.vesting_module_address,
+    schedules: []
   });
 
   const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address
+    enabled: !!propertiesData.document_module_address,
+    documents: []
   });
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineConfig>({
+  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
-    rulesEnabled: [],
-    validatorsEnabled: []
+    rules: [],
+    validators: []
   });
 
   const [royaltyConfig, setRoyaltyConfig] = useState<RoyaltyModuleConfig>({
@@ -121,7 +123,7 @@ export const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
     defaultCap: 0
   });
 
-  const [uriManagementConfig, setUriManagementConfig] = useState<URIManagementModuleConfig>({
+  const [uriManagementConfig, setUriManagementConfig] = useState<UriManagementModuleConfig>({
     enabled: !!propertiesData.uri_management_module_address,
     baseURI: ''
   });

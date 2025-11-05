@@ -37,7 +37,7 @@ import type {
   ComplianceModuleConfig,
   VestingModuleConfig,
   DocumentModuleConfig,
-  PolicyEngineConfig,
+  PolicyEngineModuleConfig,
   FeeStrategyModuleConfig,
   WithdrawalQueueModuleConfig,
   YieldStrategyModuleConfig,
@@ -105,23 +105,26 @@ export const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   });
 
   const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address
+    enabled: !!propertiesData.vesting_module_address,
+    schedules: []
   });
 
   const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address
+    enabled: !!propertiesData.document_module_address,
+    documents: []
   });
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineConfig>({
+  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
-    rulesEnabled: [],
-    validatorsEnabled: []
+    rules: [],
+    validators: []
   });
 
   const [feeStrategyConfig, setFeeStrategyConfig] = useState<FeeStrategyModuleConfig>({
     enabled: !!propertiesData.fee_strategy_module_address,
     managementFeeBps: 0,
-    performanceFeeBps: 0
+    performanceFeeBps: 0,
+    feeRecipient: ''
   });
 
   const [withdrawalQueueConfig, setWithdrawalQueueConfig] = useState<WithdrawalQueueModuleConfig>({

@@ -1,11 +1,70 @@
 /**
  * Module Configuration Types
  * 
- * Comprehensive type definitions for all 52 extension modules
+ * COMPREHENSIVE type definitions for ALL 52+ extension modules
  * across 6 token standards (ERC20, ERC721, ERC1155, ERC3525, ERC4626, ERC1400)
  * 
- * Last Updated: Based on ERC721 Module Configuration Complete Implementation
+ * KEY PRINCIPLE: All configuration should be captured PRE-DEPLOYMENT
+ * to enable single-transaction deployment with automatic configuration.
+ * 
+ * Last Updated: November 2025 - Enhanced with pre-deployment configuration
  */
+
+// ============ SHARED TYPES ============
+
+/**
+ * Document structure for attaching legal/compliance documents
+ */
+export interface Document {
+  name: string;
+  uri: string;           // IPFS hash or URL
+  hash: string;          // SHA256 hash for verification
+  documentType: 'whitepaper' | 'legal' | 'prospectus' | 'terms' | 'disclosure' | 'other';
+  uploadedAt?: number;   // Unix timestamp
+}
+
+/**
+ * Vesting Schedule structure
+ */
+export interface VestingSchedule {
+  beneficiary: string;
+  amount: string;
+  startTime: number;      // Unix timestamp
+  cliffDuration: number;  // Seconds
+  vestingDuration: number; // Seconds
+  revocable: boolean;
+  category: 'team' | 'advisor' | 'investor' | 'founder' | 'community' | 'partner' | 'other';
+  scheduleId?: string;    // Optional ID for tracking
+}
+
+/**
+ * Policy Rule Definition
+ */
+export interface PolicyRule {
+  ruleId: string;
+  name: string;
+  enabled: boolean;
+  conditions: {
+    field: string;
+    operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'nin';
+    value: any;
+  }[];
+  actions: {
+    actionType: 'allow' | 'deny' | 'require_approval' | 'fee' | 'delay';
+    params?: Record<string, any>;
+  }[];
+  priority: number;
+}
+
+/**
+ * Transfer Restriction Definition
+ */
+export interface TransferRestriction {
+  restrictionType: 'jurisdiction' | 'investorType' | 'lockup' | 'limit' | 'timeWindow' | 'whitelist';
+  value: string | number;
+  enabled: boolean;
+  description?: string;
+}
 
 // ============ UNIVERSAL MODULE CONFIGURATIONS ============
 
@@ -14,51 +73,52 @@
  * Used across all token standards for KYC/AML compliance
  */
 export interface ComplianceConfig {
-  kycRequired?: boolean;
-  whitelistRequired?: boolean;
-  whitelistAddresses?: string;
+  kycRequired: boolean;
+  whitelistRequired: boolean;
   kycProvider?: string;
   restrictedCountries?: string[];
+  whitelistAddresses?: string[];
+  accreditedInvestorOnly?: boolean;
+  jurisdictionRules?: Array<{
+    jurisdiction: string;
+    allowed: boolean;
+    requirements?: string[];
+  }>;
 }
 
 /**
  * Vesting Module Configuration
- * Used for token lockup and vesting schedules
+ * ✅ ENHANCED: Full schedule configuration pre-deployment
  */
 export interface VestingConfig {
-  cliffPeriod?: number; // Cliff period in seconds
-  totalPeriod?: number; // Total vesting period in seconds
-  releaseFrequency?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
-  beneficiaries?: Array<{
-    address: string;
-    amount: string;
-    startTime: number;
-  }>;
+  schedules: VestingSchedule[];  // ✅ Configure ALL schedules upfront
+  allowEarlyRelease?: boolean;
+  revocationEnabled?: boolean;
 }
 
 /**
  * Document Module Configuration
- * For attaching legal documents and disclosures
+ * ✅ ENHANCED: All documents configured pre-deployment
  */
 export interface DocumentConfig {
-  documentHash?: string;
-  documentUri?: string;
-  documentType?: 'prospectus' | 'terms' | 'disclosure' | 'other';
-  ipfsHash?: string;
+  documents: Document[];  // ✅ Upload ALL documents upfront
+  allowUpdates?: boolean;
+  requireSignatures?: boolean;
 }
 
 /**
  * Policy Engine Configuration
- * For complex transaction validation rules
+ * ✅ ENHANCED: Full rule definitions, not just IDs
  */
 export interface PolicyEngineConfig {
-  rulesEnabled?: string[];
-  validatorsEnabled?: string[];
-  customRules?: Array<{
-    ruleId: string;
-    conditions: Record<string, any>;
-    actions: Record<string, any>;
+  rules: PolicyRule[];  // ✅ Complete rule definitions
+  validators: Array<{
+    validatorId: string;
+    validatorAddress: string;
+    enabled: boolean;
   }>;
+  defaultPolicy?: 'allow' | 'deny';
+  requireAllValidators?: boolean;
 }
 
 // ============ ERC20 MODULE CONFIGURATIONS ============
@@ -70,6 +130,34 @@ export interface FeesConfig {
   transferFeeBps: number; // Transfer fee in basis points (100 = 1%)
   feeRecipient: string; // Address receiving fees
   exemptAddresses?: string[]; // Addresses exempt from fees
+  buyFeeBps?: number;
+  sellFeeBps?: number;
+  maxFeeBps?: number; // Maximum fee cap
+}
+
+/**
+ * Flash Mint Module Configuration (ERC20)
+ */
+export interface FlashMintConfig {
+  flashFeeBps?: number; // Flash loan fee in basis points (default: 9 = 0.09%)
+  maxFlashLoan?: string; // Maximum flash loan amount
+}
+
+/**
+ * Permit Module Configuration (ERC20)
+ * EIP-2612: Permit extension for ERC-20
+ */
+export interface PermitConfig {
+  permitDeadline?: number; // Default permit deadline in seconds
+  permitVersion?: string; // Permit version string
+}
+
+/**
+ * Snapshot Module Configuration (ERC20)
+ */
+export interface SnapshotConfig {
+  automaticSnapshots?: boolean;
+  snapshotInterval?: number; // Auto-snapshot interval in seconds
 }
 
 /**
@@ -78,6 +166,28 @@ export interface FeesConfig {
 export interface TimelockConfig {
   minDelay: number; // Minimum delay in seconds before actions can be executed
   gracePeriod?: number; // Optional grace period for executing queued actions
+  proposers?: string[]; // Addresses allowed to propose
+  executors?: string[]; // Addresses allowed to execute
+}
+
+/**
+ * Votes Module Configuration (ERC20)
+ * For governance tokens (EIP-5805) */
+export interface VotesConfig {
+  votingDelay?: number; // Delay before voting starts (blocks)
+  votingPeriod?: number; // Voting duration (blocks)
+  proposalThreshold?: string; // Tokens needed to create proposal
+  quorumPercentage?: number; // Quorum as percentage
+  delegatesEnabled?: boolean;
+}
+
+/**
+ * Payable Token Module Configuration (ERC20)
+ * EIP-1363: Payable Token
+ */
+export interface PayableTokenConfig {
+  acceptedForPayment?: boolean;
+  paymentCallbackEnabled?: boolean;
 }
 
 /**
@@ -86,21 +196,14 @@ export interface TimelockConfig {
 export interface TemporaryApprovalConfig {
   defaultDuration: number; // Default approval duration in seconds (default: 3600 = 1 hour)
   maxDuration?: number; // Maximum allowed duration
-}
-
-/**
- * Flash Mint Module Configuration (ERC20)
- * Note: No configuration needed, just enable/disable
- */
-export interface FlashMintConfig {
-  flashFee?: number; // Optional flash loan fee in basis points
+  minDuration?: number; // Minimum allowed duration
 }
 
 // ============ ERC721 MODULE CONFIGURATIONS ============
 
 /**
  * Royalty Module Configuration (ERC721/ERC1155)
- * EIP-2981 NFT Royalty Standard
+ * ✅ ENHANCED: Per-token royalties configurable
  */
 export interface RoyaltyConfig {
   defaultRoyaltyBps: number; // Royalty percentage in basis points (250 = 2.5%)
@@ -110,11 +213,12 @@ export interface RoyaltyConfig {
     royaltyBps: number;
     recipient: string;
   }>;
+  maxRoyaltyBps?: number; // Maximum royalty cap (e.g., 1000 = 10%)
 }
 
 /**
  * Rental Module Configuration (ERC721)
- * For NFT lending/rental functionality
+ * ✅ ENHANCED: Full rental configuration
  */
 export interface RentalConfig {
   maxRentalDuration: number; // Maximum rental period in seconds
@@ -122,26 +226,34 @@ export interface RentalConfig {
   minRentalPrice?: string; // Minimum rental price in wei
   rentalRecipient?: string; // Address receiving rental payments (defaults to owner)
   autoReturn?: boolean; // Automatically return NFT after rental period
+  allowSubRentals?: boolean;
+  depositRequired?: boolean;
+  depositAmount?: string;
 }
 
 /**
  * Fractionalization Module Configuration (ERC721)
- * For splitting NFTs into fractional ownership
+ * ✅ ENHANCED: Complete fractionalization setup
  */
 export interface FractionalizationConfig {
   minFractions: number; // Minimum number of fractional shares per NFT
   maxFractions?: number; // Maximum number of fractional shares
   fractionPrice?: string; // Price per fraction in wei
   buyoutMultiplier?: number; // Multiplier for buyout price (e.g., 1.5 = 150%)
+  fractionTokenName?: string;
+  fractionTokenSymbol?: string;
+  tradingEnabled?: boolean;
 }
 
 /**
  * Soulbound Module Configuration (ERC721)
- * Note: Typically no configuration needed, just enable/disable
  */
 export interface SoulboundConfig {
   transferable?: boolean; // Allow one-time transfer (e.g., for account recovery)
   burnableByOwner?: boolean; // Allow owner to burn soulbound token
+  burnableByIssuer?: boolean; // Allow issuer to burn
+  expirationEnabled?: boolean;
+  expirationPeriod?: number; // Seconds until expiration
 }
 
 /**
@@ -150,20 +262,24 @@ export interface SoulboundConfig {
  */
 export interface ConsecutiveConfig {
   batchSize?: number; // Default batch size for consecutive minting
+  startTokenId?: number; // Starting token ID
+  maxBatchSize?: number; // Maximum batch size allowed
 }
 
 /**
  * Metadata Events Module Configuration (ERC721)
- * For emitting events when metadata changes
+ * EIP-4906: Metadata Update Events
  */
 export interface MetadataEventsConfig {
   emitBatchUpdates?: boolean; // Emit events for batch metadata updates
+  emitOnTransfer?: boolean;
 }
 
 // ============ ERC1155 MODULE CONFIGURATIONS ============
 
 /**
  * Supply Cap Module Configuration (ERC1155)
+ * ✅ ENHANCED: Per-token caps configurable
  */
 export interface SupplyCapConfig {
   defaultCap: number; // Default supply cap for new token IDs (0 = unlimited)
@@ -171,10 +287,13 @@ export interface SupplyCapConfig {
     tokenId: string;
     cap: number;
   }>;
+  enforceGlobalCap?: boolean;
+  globalCap?: number;
 }
 
 /**
  * URI Management Module Configuration (ERC1155)
+ * ✅ ENHANCED: Per-token URIs configurable
  */
 export interface UriManagementConfig {
   baseURI: string; // Base URI for metadata
@@ -183,27 +302,55 @@ export interface UriManagementConfig {
     tokenId: string;
     uri: string;
   }>;
+  dynamicUris?: boolean;
+  updateableUris?: boolean;
+}
+
+/**
+ * Granular Approval Module Configuration (ERC1155)
+ * EIP-5216: Granular Approval for ERC-1155
+ */
+export interface GranularApprovalConfig {
+  allowPartialApprovals?: boolean;
+  defaultApprovalAmount?: string;
 }
 
 // ============ ERC3525 MODULE CONFIGURATIONS ============
 
 /**
+ * Slot Definition for ERC3525
+ */
+export interface SlotDefinition {
+  slotId: string;
+  name: string;
+  transferable: boolean;
+  mergeable: boolean;
+  splittable: boolean;
+  maxSupply?: string; // 0 = unlimited
+  metadata?: string; // JSON metadata for slot
+  restrictions?: {
+    minValue?: string;
+    maxValue?: string;
+    allowedOwners?: string[];
+  };
+}
+
+/**
  * Slot Approvable Module Configuration (ERC3525)
- * Note: Typically no configuration needed
  */
 export interface SlotApprovableConfig {
   approvalMode?: 'slot' | 'token' | 'both';
+  requireSlotApproval?: boolean;
 }
 
 /**
  * Slot Manager Module Configuration (ERC3525)
+ * ✅ ENHANCED: Complete slot definitions pre-deployment
  */
 export interface SlotManagerConfig {
-  slotRules?: Array<{
-    slotId: number;
-    restrictions: Record<string, any>;
-  }>;
-  defaultSlotMetadata?: string;
+  slots: SlotDefinition[];  // ✅ Define ALL slots upfront
+  allowDynamicSlots?: boolean; // Allow creation of new slots post-deployment
+  slotCreationFee?: string;
 }
 
 /**
@@ -213,18 +360,23 @@ export interface ValueExchangeConfig {
   exchangeFeeBps: number; // Fee for value exchanges in basis points
   feeRecipient?: string; // Address receiving exchange fees
   allowCrossSlotExchange?: boolean; // Allow exchanges between different slots
+  minExchangeValue?: string;
+  slippageTolerance?: number;
 }
 
 // ============ ERC4626 MODULE CONFIGURATIONS ============
 
 /**
  * Fee Strategy Module Configuration (ERC4626)
+ * ✅ ENHANCED: Complete fee structure
  */
 export interface FeeStrategyConfig {
   managementFeeBps: number; // Annual management fee in basis points (100 = 1%)
   performanceFeeBps: number; // Performance fee in basis points (1000 = 10%)
-  feeRecipient?: string; // Address receiving fees
+  feeRecipient: string; // Address receiving fees
   managementFeeFrequency?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual';
+  highWaterMark?: boolean; // Only charge performance fee on new profits
+  hurdleRate?: number; // Minimum return before performance fee (bps)
 }
 
 /**
@@ -234,37 +386,44 @@ export interface WithdrawalQueueConfig {
   maxQueueSize: number; // Maximum number of pending withdrawals
   processingDelay?: number; // Delay before processing withdrawals (seconds)
   priorityFee?: number; // Optional fee for priority processing (basis points)
+  maxWithdrawalAmount?: string;
+  minWithdrawalAmount?: string;
 }
 
 /**
  * Yield Strategy Module Configuration (ERC4626)
+ * ✅ ENHANCED: Multiple strategies configurable
  */
 export interface YieldStrategyConfig {
-  harvestFrequency: number; // How often yields are harvested (in seconds, default 86400 = 24h)
-  rebalanceThreshold: number; // Threshold to trigger rebalancing (in basis points, default 100 = 1%)
+  targetYieldBps: number; // Target annual yield in basis points
+  harvestFrequency?: number; // How often yields are harvested (seconds)
+  rebalanceThreshold?: number; // Threshold to trigger rebalancing (bps)
   strategies?: Array<{
     strategyAddress: string;
-    allocationBps: number;
+    allocationBps: number; // Must total 10000
+    minAllocationBps?: number;
+    maxAllocationBps?: number;
   }>;
+  autoCompound?: boolean;
 }
 
 /**
  * Async Vault Module Configuration (ERC4626)
  */
 export interface AsyncVaultConfig {
-  minimumFulfillmentDelay: number; // Minimum time between request and fulfillment (in seconds, default 86400 = 1 day)
-  maxPendingRequestsPerUser: number; // Maximum pending requests per user (default 10)
+  settlementDelay: number; // Time between request and settlement (seconds, default: 86400 = 1 day)
+  maxPendingRequestsPerUser?: number; // Default: 10
   requestExpiry?: number; // Request expiration period in seconds
-  partialFulfillment?: boolean; // Allow partial fulfillment of requests
+  partialFulfillment?: boolean;
+  minimumRequestAmount?: string;
 }
 
 /**
  * Native Vault Module Configuration (ERC4626)
- * For ETH/native token vaults
- */
-export interface NativeVaultConfig {
+ */export interface NativeVaultConfig {
   wrapNative?: boolean; // Automatically wrap native token to ERC20
   wrappedTokenAddress?: string; // Address of wrapped token (e.g., WETH)
+  unwrapOnWithdrawal?: boolean;
 }
 
 /**
@@ -273,62 +432,154 @@ export interface NativeVaultConfig {
 export interface RouterConfig {
   allowedVaults?: string[]; // List of allowed vault addresses
   slippageTolerance?: number; // Maximum slippage tolerance in basis points
+  routerAddress?: string;
+  enableMultiHopRouting?: boolean;
 }
 
 /**
  * Multi-Asset Vault Module Configuration (ERC4626)
+ * ✅ ENHANCED: Complete asset allocation pre-configured
  */
 export interface MultiAssetVaultConfig {
-  priceOracle: string; // Address of price oracle contract
-  baseAsset: string; // Address of base asset for valuation
+  maxAssets: number; // Maximum number of different assets
   assets?: Array<{
     assetAddress: string;
     weight: number; // Weight in basis points (total must equal 10000)
+    minWeight?: number;
+    maxWeight?: number;
   }>;
-  rebalanceThreshold?: number; // Threshold for triggering rebalance (basis points)
+  priceOracle?: string; // Address of price oracle contract
+  baseAsset?: string; // Base asset for valuation
+  rebalanceThreshold?: number; // Threshold for triggering rebalance (bps)
+  rebalanceFrequency?: number; // Minimum time between rebalances (seconds)
 }
 
 // ============ ERC1400 MODULE CONFIGURATIONS ============
 
 /**
  * Transfer Restrictions Module Configuration (ERC1400)
+ * ✅ ENHANCED: Comprehensive restriction configuration
  */
 export interface TransferRestrictionsConfig {
+  restrictions: TransferRestriction[];  // ✅ All restrictions defined upfront
+  defaultPolicy: 'allow' | 'block';
   partitionRestrictions?: Array<{
     partition: string;
     restrictions: {
       lockupPeriod?: number;
       maxHoldersPerPartition?: number;
+      maxTokensPerHolder?: string;
       transferWindows?: Array<{
-        start: number;
-        end: number;
+        start: number; // Unix timestamp
+        end: number;   // Unix timestamp
       }>;
     };
   }>;
+  jurisdictionRestrictions?: Record<string, boolean>; // jurisdiction => allowed
 }
 
 /**
  * Controller Module Configuration (ERC1400)
+ * ✅ ENHANCED: Controller permissions configurable
  */
 export interface ControllerConfig {
-  controllable: boolean; // Enable controller functions (default true)
-  controllerOperations?: string[]; // List of allowed controller operations
+  controllers: string[];  // Controller addresses
+  controllable?: boolean; // Enable controller functions (default true)
+  controllerOperations?: Array<{
+    controller: string;
+    operations: ('forceTransfer' | 'forceBurn' | 'issuance' | 'redemption')[];
+  }>;
+  requireMultiSig?: boolean;
+  minSignatures?: number;
 }
 
 /**
  * ERC1400 Document Module Configuration (ERC1400)
+ * ✅ ENHANCED: Partition-specific documents
  */
 export interface ERC1400DocumentConfig {
-  documentHash?: string;
-  documentUri?: string;
+  documents: Document[];  // Global documents
   partitionDocuments?: Array<{
     partition: string;
-    documentHash: string;
-    documentUri: string;
+    documents: Document[];
   }>;
+  requireDocumentHash?: boolean;
+  allowDocumentUpdates?: boolean;
 }
 
-// ============ MODULE DEPLOYMENT RESULT ============
+/**
+ * Partition Configuration (ERC1400)
+ */
+export interface PartitionConfig {
+  partitions: Array<{
+    name: string;
+    description?: string;
+    transferable?: boolean;
+    supply?: string;
+    maxSupply?: string;
+    metadata?: Record<string, any>;
+  }>;
+  defaultPartition?: string;
+}
+
+// ============ COMPLETE MODULE CONFIGURATION TYPE ============
+
+/**
+ * Complete Module Configuration
+ * Used for passing all module configs to deployment scripts
+ */
+export interface CompleteModuleConfiguration {
+  // Universal modules
+  compliance?: ComplianceConfig;
+  vesting?: VestingConfig;
+  document?: DocumentConfig;
+  policyEngine?: PolicyEngineConfig;
+
+  // ERC20 modules
+  fees?: FeesConfig;
+  flashMint?: FlashMintConfig;
+  permit?: PermitConfig;
+  snapshot?: SnapshotConfig;
+  timelock?: TimelockConfig;
+  votes?: VotesConfig;
+  payableToken?: PayableTokenConfig;
+  temporaryApproval?: TemporaryApprovalConfig;
+
+  // ERC721 modules
+  royalty?: RoyaltyConfig;
+  rental?: RentalConfig;
+  soulbound?: SoulboundConfig;
+  fractionalization?: FractionalizationConfig;
+  consecutive?: ConsecutiveConfig;
+  metadataEvents?: MetadataEventsConfig;
+
+  // ERC1155 modules
+  supplyCap?: SupplyCapConfig;
+  uriManagement?: UriManagementConfig;
+  granularApproval?: GranularApprovalConfig;
+
+  // ERC3525 modules
+  slotApprovable?: SlotApprovableConfig;
+  slotManager?: SlotManagerConfig;
+  valueExchange?: ValueExchangeConfig;
+
+  // ERC4626 modules
+  feeStrategy?: FeeStrategyConfig;
+  withdrawalQueue?: WithdrawalQueueConfig;
+  yieldStrategy?: YieldStrategyConfig;
+  asyncVault?: AsyncVaultConfig;
+  nativeVault?: NativeVaultConfig;
+  router?: RouterConfig;
+  multiAssetVault?: MultiAssetVaultConfig;
+
+  // ERC1400 modules
+  transferRestrictions?: TransferRestrictionsConfig;
+  controller?: ControllerConfig;
+  erc1400Document?: ERC1400DocumentConfig;
+  partition?: PartitionConfig;
+}
+
+// ============ DEPLOYMENT & RESULT TYPES ============
 
 /**
  * Module Deployment Result
@@ -340,7 +591,8 @@ export interface ModuleDeploymentResult {
   deploymentTxHash: string;
   deploymentTimestamp: number;
   configuration: Record<string, any>;
-  status: 'deployed' | 'failed';
+  configurationTxHashes?: string[]; // Hashes of configuration transactions
+  status: 'deployed' | 'configured' | 'failed';
   error?: string;
 }
 
@@ -348,3 +600,95 @@ export interface ModuleDeploymentResult {
  * Token Standard Type
  */
 export type TokenStandard = 'erc20' | 'erc721' | 'erc1155' | 'erc3525' | 'erc4626' | 'erc1400';
+
+/**
+ * Module Type Union
+ */
+export type ModuleType = 
+  // Universal
+  | 'compliance'
+  | 'vesting'
+  | 'document'
+  | 'policyEngine'
+  // ERC20
+  | 'fees'
+  | 'flashMint'
+  | 'permit'
+  | 'snapshot'
+  | 'timelock'
+  | 'votes'
+  | 'payableToken'
+  | 'temporaryApproval'
+  // ERC721
+  | 'royalty'
+  | 'rental'
+  | 'soulbound'
+  | 'fractionalization'
+  | 'consecutive'
+  | 'metadataEvents'
+  // ERC1155
+  | 'supplyCap'
+  | 'uriManagement'
+  | 'granularApproval'
+  // ERC3525
+  | 'slotApprovable'
+  | 'slotManager'
+  | 'valueExchange'
+  // ERC4626
+  | 'feeStrategy'
+  | 'withdrawalQueue'
+  | 'yieldStrategy'
+  | 'asyncVault'
+  | 'nativeVault'
+  | 'router'
+  | 'multiAssetVault'
+  // ERC1400
+  | 'transferRestrictions'
+  | 'controller'
+  | 'erc1400Document'
+  | 'partition';
+
+/**
+ * Module Configuration Props
+ * Generic props interface for module config components
+ */
+export interface ModuleConfigProps<T> {
+  config: T;
+  onChange: (config: T) => void;
+  disabled?: boolean;
+  errors?: Record<string, string>;
+}
+
+/**
+ * Validation Result
+ */
+export interface ValidationResult {
+  isValid: boolean;
+  errors: Record<string, string[]>;
+  warnings?: Record<string, string[]>;
+}
+
+// ============ HELPER TYPES ============
+
+/**
+ * Module Enablement State
+ * Tracks which modules are enabled for a token
+ */
+export interface ModuleEnablementState {
+  [key: string]: {
+    enabled: boolean;
+    address?: string;
+    configuration?: any;
+  };
+}
+
+/**
+ * Deployment Progress
+ */
+export interface DeploymentProgress {
+  step: 'master' | 'extensions' | 'configuration' | 'complete';
+  currentModule?: ModuleType;
+  progress: number; // 0-100
+  status: 'pending' | 'processing' | 'success' | 'error';
+  message?: string;
+}

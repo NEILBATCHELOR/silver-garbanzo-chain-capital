@@ -1,4 +1,4 @@
-// Module Deployment Service
+// Instance Deployment Service
 // Deploys NEW module instances for each token (not shared masters)
 
 import { ethers } from 'ethers';
@@ -31,8 +31,11 @@ export interface ModuleDeploymentResult {
 /**
  * Service for deploying NEW module instances per token
  * (not just pointing to shared masters)
+ * 
+ * RENAMED FROM: ModuleDeploymentService → InstanceDeploymentService
+ * To better reflect that we're deploying instances from templates
  */
-export class ModuleDeploymentService {
+export class InstanceDeploymentService {
   /**
    * Deploy and attach modules for a token based on feature selection
    * 

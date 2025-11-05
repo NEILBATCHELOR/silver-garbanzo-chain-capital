@@ -30,7 +30,7 @@ import {
 import { DeploymentStatus, DeploymentResult } from '@/types/deployment/TokenDeploymentTypes';
 import { contractConfigurationService, ContractConfigurationError } from './contractConfigurationService';
 import { enhancedGasEstimator, FeePriority } from '@/services/blockchain/EnhancedGasEstimationService';
-import { enhancedModuleDeploymentService } from './enhancedModuleDeploymentService';
+import { InstanceConfigurationService } from '@/services/modules/InstanceConfigurationService';
 
 // Import compiled Foundry artifacts (JSON files contain both ABI and bytecode)
 // These are the STATIC master contract artifacts compiled by Foundry
@@ -768,7 +768,7 @@ export class FoundryDeploymentService {
       // 🆕 Deploy and attach NEW module instances (CORRECTED ARCHITECTURE)
       // Each token gets its OWN module instances, not shared masters
       try {
-        const moduleDeploymentResult = await enhancedModuleDeploymentService.deployAndAttachModules(
+        const moduleDeploymentResult = await InstanceConfigurationService.deployAndConfigureModules(
           deploymentResult.address,
           params.tokenId,
           wallet,

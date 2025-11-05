@@ -7349,6 +7349,33 @@ $_$;
 
 
 --
+-- Name: validate_document_config(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_document_config(config jsonb) RETURNS boolean
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+BEGIN
+  IF config IS NULL THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- Must have documents array
+  IF NOT (config ? 'documents') THEN
+    RETURN FALSE;
+  END IF;
+  
+  -- documents must be an array
+  IF jsonb_typeof(config->'documents') != 'array' THEN
+    RETURN FALSE;
+  END IF;
+  
+  RETURN TRUE;
+END;
+$$;
+
+
+--
 -- Name: validate_geographic_restriction(uuid, character, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7613,6 +7640,33 @@ $$;
 --
 
 COMMENT ON FUNCTION public.validate_token_exists() IS 'Validates that token_id exists in tokens table before insert/update operations';
+
+
+--
+-- Name: validate_vesting_config(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_vesting_config(config jsonb) RETURNS boolean
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+BEGIN
+  IF config IS NULL THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- Must have schedules array
+  IF NOT (config ? 'schedules') THEN
+    RETURN FALSE;
+  END IF;
+  
+  -- schedules must be an array
+  IF jsonb_typeof(config->'schedules') != 'array' THEN
+    RETURN FALSE;
+  END IF;
+  
+  RETURN TRUE;
+END;
+$$;
 
 
 --
@@ -21865,6 +21919,11 @@ CREATE TABLE public.token_erc1155_properties (
     royalty_config jsonb,
     supply_cap_config jsonb,
     uri_management_config jsonb,
+    document_config jsonb,
+    vesting_config jsonb,
+    compliance_config jsonb,
+    policy_engine_config jsonb,
+    granular_approval_config jsonb,
     CONSTRAINT batch_transfer_limits_structure_check CHECK (((batch_transfer_limits IS NULL) OR (jsonb_typeof(batch_transfer_limits) = 'object'::text))),
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
@@ -21876,6 +21935,8 @@ CREATE TABLE public.token_erc1155_properties (
     CONSTRAINT token_erc1155_properties_supply_cap_module_address_check CHECK (((supply_cap_module_address IS NULL) OR (supply_cap_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1155_properties_uri_management_module_address_check CHECK (((uri_management_module_address IS NULL) OR (uri_management_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1155_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT valid_document_config_erc1155 CHECK (((document_config IS NULL) OR public.validate_document_config(document_config))),
+    CONSTRAINT valid_vesting_config_erc1155 CHECK (((vesting_config IS NULL) OR public.validate_vesting_config(vesting_config))),
     CONSTRAINT whitelist_config_structure_check CHECK (((whitelist_config IS NULL) OR ((jsonb_typeof(whitelist_config) = 'object'::text) AND (whitelist_config ? 'enabled'::text) AND (((whitelist_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text])))))
 );
 
@@ -21990,6 +22051,20 @@ COMMENT ON COLUMN public.token_erc1155_properties.supply_cap_config IS 'Supply c
 --
 
 COMMENT ON COLUMN public.token_erc1155_properties.uri_management_config IS 'URI management configuration: {baseURI: string}';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.document_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.document_config IS 'Collection documents: {documents: [{name, uri, hash, documentType}]}';
+
+
+--
+-- Name: COLUMN token_erc1155_properties.granular_approval_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1155_properties.granular_approval_config IS 'ERC-5216 granular approval settings';
 
 
 --
@@ -22421,6 +22496,9 @@ CREATE TABLE public.token_erc1400_properties (
     initial_owner text,
     controller_config jsonb,
     default_partitions jsonb DEFAULT '["DEFAULT"]'::jsonb,
+    enhanced_transfer_restrictions_config jsonb,
+    enhanced_document_config jsonb,
+    partition_config jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT token_erc1400_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1400_properties_controller_module_address_check CHECK (((controller_module_address IS NULL) OR (controller_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -22429,7 +22507,8 @@ CREATE TABLE public.token_erc1400_properties (
     CONSTRAINT token_erc1400_properties_initial_owner_format CHECK (((initial_owner IS NULL) OR (initial_owner ~* '^0x[a-f0-9]{40}$'::text))),
     CONSTRAINT token_erc1400_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1400_properties_transfer_restrictions_module_add_check CHECK (((transfer_restrictions_module_address IS NULL) OR (transfer_restrictions_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
-    CONSTRAINT token_erc1400_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text)))
+    CONSTRAINT token_erc1400_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT valid_enhanced_document_config CHECK (((enhanced_document_config IS NULL) OR public.validate_document_config(enhanced_document_config)))
 );
 
 
@@ -22571,6 +22650,27 @@ COMMENT ON COLUMN public.token_erc1400_properties.controller_config IS 'Controll
 --
 
 COMMENT ON COLUMN public.token_erc1400_properties.default_partitions IS 'Array of partition identifiers to create on deployment (e.g., ["CLASS_A", "CLASS_B", "PREFERRED"])';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.enhanced_transfer_restrictions_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.enhanced_transfer_restrictions_config IS 'Detailed transfer restrictions: {restrictions: [{restrictionType, value, enabled}], defaultPolicy}';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.enhanced_document_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.enhanced_document_config IS 'Partition-specific documents: {documents: [{partition, name, uri, hash}]}';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.partition_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.partition_config IS 'Partition definitions with metadata and rules';
 
 
 --
@@ -22764,6 +22864,15 @@ CREATE TABLE public.token_erc20_properties (
     initial_owner text,
     timelock_config jsonb,
     temporary_approval_config jsonb,
+    vesting_config jsonb,
+    document_config jsonb,
+    policy_engine_config jsonb,
+    fees_config jsonb,
+    flash_mint_config jsonb,
+    permit_config jsonb,
+    snapshot_config jsonb,
+    votes_config jsonb,
+    payable_token_config jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT compliance_config_reporting_interval_check CHECK (((compliance_config IS NULL) OR (((compliance_config -> 'reportingInterval'::text))::text = ANY (ARRAY['"daily"'::text, '"weekly"'::text, '"monthly"'::text, '"quarterly"'::text, '"annually"'::text])))),
     CONSTRAINT compliance_module_address_format CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
@@ -22777,8 +22886,17 @@ CREATE TABLE public.token_erc20_properties (
     CONSTRAINT token_erc20_properties_temporary_approval_module_address_check CHECK (((temporary_approval_module_address IS NULL) OR (temporary_approval_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc20_properties_timelock_module_address_check CHECK (((timelock_module_address IS NULL) OR (timelock_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc20_properties_votes_module_address_check CHECK (((votes_module_address IS NULL) OR (votes_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT valid_document_config_erc20 CHECK (((document_config IS NULL) OR public.validate_document_config(document_config))),
+    CONSTRAINT valid_vesting_config_erc20 CHECK (((vesting_config IS NULL) OR public.validate_vesting_config(vesting_config))),
     CONSTRAINT vesting_module_address_format CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~ '^0x[a-fA-F0-9]{40}$'::text)))
 );
+
+
+--
+-- Name: COLUMN token_erc20_properties.compliance_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.compliance_config IS 'Compliance settings: {kycRequired, whitelistRequired, kycProvider, restrictedCountries}';
 
 
 --
@@ -22905,6 +23023,34 @@ COMMENT ON COLUMN public.token_erc20_properties.timelock_config IS 'Timelock mod
 --
 
 COMMENT ON COLUMN public.token_erc20_properties.temporary_approval_config IS 'Temporary Approval module configuration: { defaultDuration: number (seconds) }';
+
+
+--
+-- Name: COLUMN token_erc20_properties.vesting_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.vesting_config IS 'Vesting schedules: {schedules: [{beneficiary, amount, startTime, cliffDuration, vestingDuration, revocable, category}]}';
+
+
+--
+-- Name: COLUMN token_erc20_properties.document_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.document_config IS 'Initial documents: {documents: [{name, uri, hash, documentType}]}';
+
+
+--
+-- Name: COLUMN token_erc20_properties.policy_engine_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.policy_engine_config IS 'Policy rules: {rules: [{ruleId, conditions, actions}], validators: [...]}';
+
+
+--
+-- Name: COLUMN token_erc20_properties.fees_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.fees_config IS 'Fee configuration: {transferFeeBps, feeRecipient, exemptAddresses}';
 
 
 --
@@ -23126,6 +23272,11 @@ CREATE TABLE public.token_erc3525_properties (
     value_exchange_module_address text,
     initial_owner text,
     value_exchange_config jsonb,
+    slot_manager_config jsonb,
+    slot_approvable_config jsonb,
+    document_config jsonb,
+    compliance_config jsonb,
+    policy_engine_config jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_erc3525_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
     CONSTRAINT slot_transfer_validation_enhanced_check CHECK (((slot_transfer_validation IS NULL) OR ((jsonb_typeof(slot_transfer_validation) = 'object'::text) AND (slot_transfer_validation ? 'rules'::text)))),
@@ -23136,7 +23287,8 @@ CREATE TABLE public.token_erc3525_properties (
     CONSTRAINT token_erc3525_properties_slot_approvable_module_address_check CHECK (((slot_approvable_module_address IS NULL) OR (slot_approvable_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc3525_properties_slot_manager_module_address_check CHECK (((slot_manager_module_address IS NULL) OR (slot_manager_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc3525_properties_value_exchange_module_address_check CHECK (((value_exchange_module_address IS NULL) OR (value_exchange_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
-    CONSTRAINT token_erc3525_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text)))
+    CONSTRAINT token_erc3525_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT valid_document_config_erc3525 CHECK (((document_config IS NULL) OR public.validate_document_config(document_config)))
 );
 
 
@@ -23299,6 +23451,27 @@ COMMENT ON COLUMN public.token_erc3525_properties.value_exchange_module_address 
 --
 
 COMMENT ON COLUMN public.token_erc3525_properties.value_exchange_config IS 'Value exchange configuration: {exchangeFeeBps: number}';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.slot_manager_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.slot_manager_config IS 'Slot definitions: {slots: [{slotId, name, transferable, mergeable, splittable, maxSupply}]}';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.slot_approvable_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.slot_approvable_config IS 'Slot approval settings: {approvalMode}';
+
+
+--
+-- Name: COLUMN token_erc3525_properties.document_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc3525_properties.document_config IS 'Semi-fungible token documents';
 
 
 --
@@ -23632,6 +23805,11 @@ CREATE TABLE public.token_erc4626_properties (
     yield_strategy_config jsonb,
     async_vault_config jsonb,
     multi_asset_vault_config jsonb,
+    document_config jsonb,
+    compliance_config jsonb,
+    policy_engine_config jsonb,
+    native_vault_config jsonb,
+    router_config jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT rebalancing_rules_validation_check CHECK (((rebalancing_rules IS NULL) OR ((jsonb_typeof(rebalancing_rules) = 'object'::text) AND (rebalancing_rules ? 'frequency'::text)))),
     CONSTRAINT token_erc4626_properties_async_vault_module_address_check CHECK (((async_vault_module_address IS NULL) OR (async_vault_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -23644,7 +23822,8 @@ CREATE TABLE public.token_erc4626_properties (
     CONSTRAINT token_erc4626_properties_policy_engine_address_check CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc4626_properties_router_module_address_check CHECK (((router_module_address IS NULL) OR (router_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc4626_properties_withdrawal_queue_module_address_check CHECK (((withdrawal_queue_module_address IS NULL) OR (withdrawal_queue_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
-    CONSTRAINT token_erc4626_properties_yield_strategy_module_address_check CHECK (((yield_strategy_module_address IS NULL) OR (yield_strategy_module_address ~* '^0x[a-fA-F0-9]{40}$'::text)))
+    CONSTRAINT token_erc4626_properties_yield_strategy_module_address_check CHECK (((yield_strategy_module_address IS NULL) OR (yield_strategy_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT valid_document_config_erc4626 CHECK (((document_config IS NULL) OR public.validate_document_config(document_config)))
 );
 
 
@@ -23814,6 +23993,20 @@ COMMENT ON COLUMN public.token_erc4626_properties.async_vault_config IS 'Async v
 --
 
 COMMENT ON COLUMN public.token_erc4626_properties.multi_asset_vault_config IS 'Multi-asset vault configuration: {maxAssets: number}';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.native_vault_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.native_vault_config IS 'Native token (ETH) vault settings: {wrapNative, wrappedTokenAddress}';
+
+
+--
+-- Name: COLUMN token_erc4626_properties.router_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc4626_properties.router_config IS 'Vault router settings: {allowedVaults, slippageTolerance}';
 
 
 --
@@ -24074,6 +24267,10 @@ CREATE TABLE public.token_erc721_properties (
     policy_engine_enabled boolean DEFAULT false,
     policy_rules_enabled text,
     policy_validators_enabled text,
+    document_config jsonb,
+    consecutive_config jsonb,
+    metadata_events_config jsonb,
+    soulbound_config jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
     CONSTRAINT token_erc721_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -24087,6 +24284,7 @@ CREATE TABLE public.token_erc721_properties (
     CONSTRAINT token_erc721_properties_royalty_module_address_check CHECK (((royalty_module_address IS NULL) OR (royalty_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc721_properties_soulbound_module_address_check CHECK (((soulbound_module_address IS NULL) OR (soulbound_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc721_properties_vesting_module_address_check CHECK (((vesting_module_address IS NULL) OR (vesting_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
+    CONSTRAINT valid_document_config_erc721 CHECK (((document_config IS NULL) OR public.validate_document_config(document_config))),
     CONSTRAINT whitelist_config_structure_check CHECK (((whitelist_config IS NULL) OR ((jsonb_typeof(whitelist_config) = 'object'::text) AND (whitelist_config ? 'enabled'::text) AND (((whitelist_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text])))))
 );
 
@@ -24250,6 +24448,27 @@ COMMENT ON COLUMN public.token_erc721_properties.policy_rules_enabled IS 'Comma-
 --
 
 COMMENT ON COLUMN public.token_erc721_properties.policy_validators_enabled IS 'Comma-separated list of enabled validator IDs (e.g., "kyc_validator,accreditation_validator")';
+
+
+--
+-- Name: COLUMN token_erc721_properties.document_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.document_config IS 'NFT legal documents: {documents: [{name, uri, hash, documentType}]}';
+
+
+--
+-- Name: COLUMN token_erc721_properties.consecutive_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.consecutive_config IS 'Consecutive minting: {batchSize, startTokenId}';
+
+
+--
+-- Name: COLUMN token_erc721_properties.soulbound_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc721_properties.soulbound_config IS 'Soulbound settings: {transferable, burnableByOwner}';
 
 
 --
@@ -34525,6 +34744,27 @@ CREATE INDEX idx_erc1400_traditional_finance ON public.token_erc1400_properties 
 
 
 --
+-- Name: idx_erc1400_transfer_restrictions; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc1400_transfer_restrictions ON public.token_erc1400_properties USING gin (enhanced_transfer_restrictions_config);
+
+
+--
+-- Name: idx_erc20_compliance_config; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_compliance_config ON public.token_erc20_properties USING gin (compliance_config);
+
+
+--
+-- Name: idx_erc20_document_config; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_document_config ON public.token_erc20_properties USING gin (document_config);
+
+
+--
 -- Name: idx_erc20_flash_mint; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -34571,6 +34811,13 @@ CREATE INDEX idx_erc20_token_type ON public.token_erc20_properties USING btree (
 --
 
 CREATE INDEX idx_erc20_trading_start ON public.token_erc20_properties USING btree (trading_start_time);
+
+
+--
+-- Name: idx_erc20_vesting_config; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_vesting_config ON public.token_erc20_properties USING gin (vesting_config);
 
 
 --
@@ -34627,6 +34874,13 @@ CREATE INDEX idx_erc3525_maturity_date ON public.token_erc3525_properties USING 
 --
 
 CREATE INDEX idx_erc3525_slot_manager ON public.token_erc3525_properties USING btree (slot_manager_module_address) WHERE (slot_manager_module_address IS NOT NULL);
+
+
+--
+-- Name: idx_erc3525_slot_manager_config; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc3525_slot_manager_config ON public.token_erc3525_properties USING gin (slot_manager_config);
 
 
 --
@@ -34788,6 +35042,13 @@ CREATE INDEX idx_erc721_compliance_module ON public.token_erc721_properties USIN
 --
 
 CREATE INDEX idx_erc721_consecutive ON public.token_erc721_properties USING btree (consecutive) WHERE (consecutive = true);
+
+
+--
+-- Name: idx_erc721_document_config; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_document_config ON public.token_erc721_properties USING gin (document_config);
 
 
 --
@@ -48377,6 +48638,16 @@ GRANT ALL ON FUNCTION public.validate_blockchain_address(blockchain text, addres
 
 
 --
+-- Name: FUNCTION validate_document_config(config jsonb); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.validate_document_config(config jsonb) TO anon;
+GRANT ALL ON FUNCTION public.validate_document_config(config jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.validate_document_config(config jsonb) TO service_role;
+GRANT ALL ON FUNCTION public.validate_document_config(config jsonb) TO prisma;
+
+
+--
 -- Name: FUNCTION validate_geographic_restriction(p_token_id uuid, p_investor_country_code character, p_investment_amount numeric); Type: ACL; Schema: public; Owner: -
 --
 
@@ -48424,6 +48695,16 @@ GRANT ALL ON FUNCTION public.validate_token_exists() TO anon;
 GRANT ALL ON FUNCTION public.validate_token_exists() TO authenticated;
 GRANT ALL ON FUNCTION public.validate_token_exists() TO service_role;
 GRANT ALL ON FUNCTION public.validate_token_exists() TO prisma;
+
+
+--
+-- Name: FUNCTION validate_vesting_config(config jsonb); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.validate_vesting_config(config jsonb) TO anon;
+GRANT ALL ON FUNCTION public.validate_vesting_config(config jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.validate_vesting_config(config jsonb) TO service_role;
+GRANT ALL ON FUNCTION public.validate_vesting_config(config jsonb) TO prisma;
 
 
 --

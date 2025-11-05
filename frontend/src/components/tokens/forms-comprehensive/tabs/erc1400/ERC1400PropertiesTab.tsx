@@ -33,7 +33,7 @@ import type {
   ComplianceModuleConfig,
   VestingModuleConfig,
   DocumentModuleConfig,
-  PolicyEngineConfig,
+  PolicyEngineModuleConfig,
   TransferRestrictionsModuleConfig,
   ControllerModuleConfig,
   ERC1400DocumentModuleConfig
@@ -97,21 +97,25 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   });
 
   const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address
+    enabled: !!propertiesData.vesting_module_address,
+    schedules: []
   });
 
   const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address
+    enabled: !!propertiesData.document_module_address,
+    documents: []
   });
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineConfig>({
+  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
-    rulesEnabled: [],
-    validatorsEnabled: []
+    rules: [],
+    validators: []
   });
 
   const [transferRestrictionsConfig, setTransferRestrictionsConfig] = useState<TransferRestrictionsModuleConfig>({
-    enabled: !!propertiesData.transfer_restrictions_module_address
+    enabled: !!propertiesData.transfer_restrictions_module_address,
+    restrictions: [],
+    defaultPolicy: 'block'
   });
 
   const [controllerConfig, setControllerConfig] = useState<ControllerModuleConfig>({
@@ -120,7 +124,8 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   });
 
   const [erc1400DocumentConfig, setErc1400DocumentConfig] = useState<ERC1400DocumentModuleConfig>({
-    enabled: !!propertiesData.erc1400_document_module_address
+    enabled: !!propertiesData.erc1400_document_module_address,
+    documents: []
   });
 
   // Handler for master config changes

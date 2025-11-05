@@ -1,18 +1,29 @@
 /**
  * Module Types Index
- * Central export point for all module-related type definitions
+ * Central export point for all module configuration types
  */
 
 export * from './ModuleTypes';
 
-// Re-export commonly used types with more explicit names for convenience
+// Re-export commonly used types for convenience
 export type {
-  ComplianceConfig as ComplianceModuleConfig,
-  VestingConfig as VestingModuleConfig,
-  RoyaltyConfig as RoyaltyModuleConfig,
-  RentalConfig as RentalModuleConfig,
-  FractionalizationConfig as FractionalizationModuleConfig,
-  FeesConfig as FeesModuleConfig,
-  TimelockConfig as TimelockModuleConfig,
-  TemporaryApprovalConfig as TemporaryApprovalModuleConfig,
+  // Most commonly used
+  VestingSchedule,
+  Document,
+  VestingConfig,
+  DocumentConfig,
+  ComplianceConfig,
+  FeesConfig,
+  RoyaltyConfig,
+  
+  // Complete configuration
+  CompleteModuleConfiguration,
+  
+  // Deployment
+  ModuleDeploymentResult,
+  DeploymentProgress,
+  
+  // UI helpers
+  ModuleConfigProps,
+  ValidationResult,
 } from './ModuleTypes';

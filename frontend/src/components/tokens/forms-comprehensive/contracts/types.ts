@@ -1,9 +1,269 @@
 /**
  * Type definitions for contract configuration components
- * These mirror the Solidity contract initialization parameters
+ * 
+ * MIGRATION COMPLETE: Now imports comprehensive types from @/types/modules
+ * Master contract types remain here as they're deployment-specific
  */
 
-// ============ Master Contract Configurations ============
+// Import comprehensive module types
+import type {
+  // Shared types
+  Document,
+  VestingSchedule,
+  PolicyRule,
+  TransferRestriction,
+  
+  // Universal module configs
+  ComplianceConfig,
+  VestingConfig,
+  DocumentConfig,
+  PolicyEngineConfig,
+  
+  // ERC20 module configs
+  FeesConfig,
+  FlashMintConfig,
+  PermitConfig,
+  SnapshotConfig,
+  TimelockConfig,
+  VotesConfig,
+  PayableTokenConfig,
+  TemporaryApprovalConfig,
+  
+  // ERC721 module configs
+  RoyaltyConfig,
+  RentalConfig,
+  SoulboundConfig,
+  FractionalizationConfig,
+  ConsecutiveConfig,
+  MetadataEventsConfig,
+  
+  // ERC1155 module configs
+  SupplyCapConfig,
+  UriManagementConfig,
+  GranularApprovalConfig,
+  
+  // ERC3525 module configs
+  SlotDefinition,
+  SlotManagerConfig,
+  SlotApprovableConfig,
+  ValueExchangeConfig,
+  
+  // ERC4626 module configs
+  FeeStrategyConfig,
+  WithdrawalQueueConfig,
+  YieldStrategyConfig,
+  AsyncVaultConfig,
+  NativeVaultConfig,
+  RouterConfig,
+  MultiAssetVaultConfig,
+  
+  // ERC1400 module configs
+  TransferRestrictionsConfig,
+  ControllerConfig,
+  ERC1400DocumentConfig,
+  PartitionConfig
+} from '@/types/modules';
+
+// Re-export all module types for backward compatibility
+export type {
+  // Shared types
+  Document,
+  VestingSchedule,
+  PolicyRule,
+  TransferRestriction,
+  
+  // Universal configs
+  ComplianceConfig,
+  VestingConfig,
+  DocumentConfig,
+  PolicyEngineConfig,
+  
+  // ERC20 configs
+  FeesConfig,
+  FlashMintConfig,
+  PermitConfig,
+  SnapshotConfig,
+  TimelockConfig,
+  VotesConfig,
+  PayableTokenConfig,
+  TemporaryApprovalConfig,
+  
+  // ERC721 configs
+  RoyaltyConfig,
+  RentalConfig,
+  SoulboundConfig,
+  FractionalizationConfig,
+  ConsecutiveConfig,
+  MetadataEventsConfig,
+  
+  // ERC1155 configs
+  SupplyCapConfig,
+  UriManagementConfig,
+  GranularApprovalConfig,
+  
+  // ERC3525 configs
+  SlotDefinition,
+  SlotManagerConfig,
+  SlotApprovableConfig,
+  ValueExchangeConfig,
+  
+  // ERC4626 configs
+  FeeStrategyConfig,
+  WithdrawalQueueConfig,
+  YieldStrategyConfig,
+  AsyncVaultConfig,
+  NativeVaultConfig,
+  RouterConfig,
+  MultiAssetVaultConfig,
+  
+  // ERC1400 configs
+  TransferRestrictionsConfig,
+  ControllerConfig,
+  ERC1400DocumentConfig,
+  PartitionConfig
+};
+
+// ============ LEGACY COMPATIBILITY LAYER ============
+// These types extend the comprehensive configs with 'enabled' property
+
+export interface ComplianceModuleConfig extends ComplianceConfig {
+  enabled: boolean;
+}
+
+export interface VestingModuleConfig extends VestingConfig {
+  enabled: boolean;
+}
+
+export interface DocumentModuleConfig extends DocumentConfig {
+  enabled: boolean;
+}
+
+export interface PolicyEngineModuleConfig extends PolicyEngineConfig {
+  enabled: boolean;
+}
+
+export interface FeeModuleConfig extends FeesConfig {
+  enabled: boolean;
+}
+
+export interface FlashMintModuleConfig extends FlashMintConfig {
+  enabled: boolean;
+}
+
+export interface PermitModuleConfig extends PermitConfig {
+  enabled: boolean;
+}
+
+export interface SnapshotModuleConfig extends SnapshotConfig {
+  enabled: boolean;
+}
+
+export interface TimelockModuleConfig extends TimelockConfig {
+  enabled: boolean;
+}
+
+export interface VotesModuleConfig extends VotesConfig {
+  enabled: boolean;
+}
+
+export interface PayableTokenModuleConfig extends PayableTokenConfig {
+  enabled: boolean;
+}
+
+export interface TemporaryApprovalModuleConfig extends TemporaryApprovalConfig {
+  enabled: boolean;
+}
+
+export interface RoyaltyModuleConfig extends RoyaltyConfig {
+  enabled: boolean;
+}
+
+export interface RentalModuleConfig extends RentalConfig {
+  enabled: boolean;
+}
+
+export interface SoulboundModuleConfig extends SoulboundConfig {
+  enabled: boolean;
+}
+
+export interface FractionalizationModuleConfig extends FractionalizationConfig {
+  enabled: boolean;
+}
+
+export interface ConsecutiveModuleConfig extends ConsecutiveConfig {
+  enabled: boolean;
+}
+
+export interface MetadataEventsModuleConfig extends MetadataEventsConfig {
+  enabled: boolean;
+}
+
+export interface SupplyCapModuleConfig extends SupplyCapConfig {
+  enabled: boolean;
+}
+
+export interface UriManagementModuleConfig extends UriManagementConfig {
+  enabled: boolean;
+}
+
+export interface GranularApprovalModuleConfig extends GranularApprovalConfig {
+  enabled: boolean;
+}
+
+export interface SlotApprovableModuleConfig extends SlotApprovableConfig {
+  enabled: boolean;
+}
+
+export interface SlotManagerModuleConfig extends SlotManagerConfig {
+  enabled: boolean;
+}
+
+export interface ValueExchangeModuleConfig extends ValueExchangeConfig {
+  enabled: boolean;
+}
+
+export interface FeeStrategyModuleConfig extends FeeStrategyConfig {
+  enabled: boolean;
+}
+
+export interface WithdrawalQueueModuleConfig extends WithdrawalQueueConfig {
+  enabled: boolean;
+}
+
+export interface YieldStrategyModuleConfig extends YieldStrategyConfig {
+  enabled: boolean;
+}
+
+export interface AsyncVaultModuleConfig extends AsyncVaultConfig {
+  enabled: boolean;
+}
+
+export interface NativeVaultModuleConfig extends NativeVaultConfig {
+  enabled: boolean;
+}
+
+export interface RouterModuleConfig extends RouterConfig {
+  enabled: boolean;
+}
+
+export interface MultiAssetVaultModuleConfig extends MultiAssetVaultConfig {
+  enabled: boolean;
+}
+
+export interface TransferRestrictionsModuleConfig extends TransferRestrictionsConfig {
+  enabled: boolean;
+}
+
+export interface ControllerModuleConfig extends ControllerConfig {
+  enabled: boolean;
+}
+
+export interface ERC1400DocumentModuleConfig extends ERC1400DocumentConfig {
+  enabled: boolean;
+}
+
+// ============ MASTER CONTRACT CONFIGURATIONS ============
+// These remain here as they're deployment-specific
 
 /**
  * ERC20Master Configuration
@@ -20,14 +280,12 @@ export interface ERC20MasterConfig {
 /**
  * ERC20RebasingMaster Configuration
  * Rebasing token (e.g., stETH, aTokens)
- * NOTE: Rebasing is configured post-deployment via rebase() function
  */
 export interface ERC20RebasingMasterConfig {
   name: string;
   symbol: string;
   initialSupply: string;
   owner: string;
-  // Rebasing parameters NOT in initialize - configured via rebase() calls
 }
 
 /**
@@ -115,203 +373,14 @@ export interface ERC1400MasterConfig {
   isControllable: boolean;      // Whether token can be controlled
 }
 
-// ============ Universal Extension Configurations ============
-
-export interface ComplianceModuleConfig {
-  enabled: boolean;
-  kycRequired: boolean;
-  whitelistRequired: boolean;
-}
-
-export interface VestingModuleConfig {
-  enabled: boolean;
-  // Vesting schedules configured post-deployment via PolicyAwareLockOperation
-}
-
-export interface DocumentModuleConfig {
-  enabled: boolean;
-  // Documents uploaded post-deployment
-}
-
-export interface PolicyEngineConfig {
-  enabled: boolean;
-  rulesEnabled: string[];
-  validatorsEnabled: string[];
-}
-
-// ============ ERC20-Specific Extension Configurations ============
-
-export interface FeeModuleConfig {
-  enabled: boolean;
-  transferFeeBps: number;       // Basis points (e.g., 50 = 0.5%)
-  feeRecipient: string;
-}
-
-export interface FlashMintModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface PermitModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface SnapshotModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface TimelockModuleConfig {
-  enabled: boolean;
-  minDelay: number;             // Seconds
-}
-
-export interface VotesModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface PayableTokenModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface TemporaryApprovalModuleConfig {
-  enabled: boolean;
-  defaultDuration: number;      // Seconds (default: 3600)
-}
-
-// ============ ERC721-Specific Extension Configurations ============
-
-export interface RoyaltyModuleConfig {
-  enabled: boolean;
-  defaultRoyaltyBps: number;    // Basis points (e.g., 250 = 2.5%)
-  royaltyRecipient: string;
-}
-
-export interface RentalModuleConfig {
-  enabled: boolean;
-  maxRentalDuration: number;    // Seconds
-}
-
-export interface SoulboundModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface FractionalizationModuleConfig {
-  enabled: boolean;
-  minFractions: number;
-}
-
-export interface ConsecutiveModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface MetadataEventsModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-// ============ ERC1155-Specific Extension Configurations ============
-
-export interface SupplyCapModuleConfig {
-  enabled: boolean;
-  defaultCap: number;           // 0 = unlimited
-}
-
-export interface URIManagementModuleConfig {
-  enabled: boolean;
-  baseURI: string;
-}
-
-export interface GranularApprovalModuleConfig {
-  enabled: boolean;
-  // No additional config needed - ERC-5216 granular approvals for ERC-1155
-}
-
-// ============ ERC3525-Specific Extension Configurations ============
-
-export interface SlotApprovableModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface SlotManagerModuleConfig {
-  enabled: boolean;
-  // Slot-specific rules configured post-deployment
-}
-
-export interface ValueExchangeModuleConfig {
-  enabled: boolean;
-  exchangeFeeBps: number;
-}
-
-// ============ ERC4626-Specific Extension Configurations ============
-
-export interface FeeStrategyModuleConfig {
-  enabled: boolean;
-  managementFeeBps: number;     // Annual management fee
-  performanceFeeBps: number;    // Performance fee
-}
-
-export interface WithdrawalQueueModuleConfig {
-  enabled: boolean;
-  maxQueueSize: number;
-}
-
-export interface YieldStrategyModuleConfig {
-  enabled: boolean;
-  targetYieldBps: number;       // Target annual yield
-}
-
-export interface AsyncVaultModuleConfig {
-  enabled: boolean;
-  settlementDelay: number;      // Seconds (default: 86400 = 1 day)
-}
-
-export interface NativeVaultModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface RouterModuleConfig {
-  enabled: boolean;
-  // No additional config needed
-}
-
-export interface MultiAssetVaultModuleConfig {
-  enabled: boolean;
-  maxAssets: number;
-}
-
-// ============ ERC1400-Specific Extension Configurations ============
-
-export interface TransferRestrictionsModuleConfig {
-  enabled: boolean;
-  // Restrictions configured post-deployment
-}
-
-export interface ControllerModuleConfig {
-  enabled: boolean;
-  controllers: string[];        // Array of controller addresses
-}
-
-export interface ERC1400DocumentModuleConfig {
-  enabled: boolean;
-  // Documents uploaded post-deployment
-}
-
-// ============ Complete Module Configuration Type ============
+// ============ COMPLETE MODULE CONFIGURATION TYPE ============
 
 export interface CompleteModuleConfiguration {
-  // Universal modules
+  // Universal modules (with enabled property)
   compliance?: ComplianceModuleConfig;
   vesting?: VestingModuleConfig;
   document?: DocumentModuleConfig;
-  policyEngine?: PolicyEngineConfig;
+  policyEngine?: PolicyEngineModuleConfig;
 
   // ERC20 modules
   fees?: FeeModuleConfig;
@@ -333,7 +402,7 @@ export interface CompleteModuleConfiguration {
 
   // ERC1155 modules
   supplyCap?: SupplyCapModuleConfig;
-  uriManagement?: URIManagementModuleConfig;
+  uriManagement?: UriManagementConfig;
   granularApproval?: GranularApprovalModuleConfig;
 
   // ERC3525 modules
@@ -356,12 +425,13 @@ export interface CompleteModuleConfiguration {
   erc1400Document?: ERC1400DocumentModuleConfig;
 }
 
-// ============ Props Types for Configuration Components ============
+// ============ PROPS TYPES FOR CONFIGURATION COMPONENTS ============
 
 export interface ModuleConfigProps<T> {
   config: T;
   onChange: (config: T) => void;
   disabled?: boolean;
+  errors?: Record<string, string[]>;
 }
 
 export interface MasterConfigProps<T> {
@@ -371,7 +441,7 @@ export interface MasterConfigProps<T> {
   errors?: Record<string, string>;
 }
 
-// ============ Validation Helper Types ============
+// ============ VALIDATION HELPER TYPES ============
 
 /**
  * Address validation result

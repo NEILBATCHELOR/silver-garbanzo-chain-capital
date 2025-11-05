@@ -26885,6 +26885,7 @@ export type Database = {
           claim_period_enabled: boolean | null
           claim_start_time: string | null
           community_treasury_enabled: boolean | null
+          compliance_config: Json | null
           compliance_module_address: string | null
           consumable_tokens: boolean | null
           container_config: Json | null
@@ -26893,12 +26894,14 @@ export type Database = {
           created_at: string | null
           cross_collection_trading: boolean | null
           default_restriction_policy: string | null
+          document_config: Json | null
           document_module_address: string | null
           dynamic_uri_config: Json | null
           dynamic_uris: boolean | null
           enable_approval_for_all: boolean | null
           experience_points_enabled: boolean | null
           fusion_enabled: boolean | null
+          granular_approval_config: Json | null
           has_royalty: boolean | null
           id: string
           initial_owner: string | null
@@ -26915,6 +26918,7 @@ export type Database = {
           metadata_update_roles: string[] | null
           mint_roles: string[] | null
           policy_engine_address: string | null
+          policy_engine_config: Json | null
           price_multipliers: Json | null
           pricing_model: string | null
           proposal_creation_threshold: string | null
@@ -26940,6 +26944,7 @@ export type Database = {
           uri_management_config: Json | null
           uri_management_module_address: string | null
           use_geographic_restrictions: boolean | null
+          vesting_config: Json | null
           vesting_module_address: string | null
           voting_power_enabled: boolean | null
           voting_weight_per_token: Json | null
@@ -26967,6 +26972,7 @@ export type Database = {
           claim_period_enabled?: boolean | null
           claim_start_time?: string | null
           community_treasury_enabled?: boolean | null
+          compliance_config?: Json | null
           compliance_module_address?: string | null
           consumable_tokens?: boolean | null
           container_config?: Json | null
@@ -26975,12 +26981,14 @@ export type Database = {
           created_at?: string | null
           cross_collection_trading?: boolean | null
           default_restriction_policy?: string | null
+          document_config?: Json | null
           document_module_address?: string | null
           dynamic_uri_config?: Json | null
           dynamic_uris?: boolean | null
           enable_approval_for_all?: boolean | null
           experience_points_enabled?: boolean | null
           fusion_enabled?: boolean | null
+          granular_approval_config?: Json | null
           has_royalty?: boolean | null
           id?: string
           initial_owner?: string | null
@@ -26997,6 +27005,7 @@ export type Database = {
           metadata_update_roles?: string[] | null
           mint_roles?: string[] | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           price_multipliers?: Json | null
           pricing_model?: string | null
           proposal_creation_threshold?: string | null
@@ -27022,6 +27031,7 @@ export type Database = {
           uri_management_config?: Json | null
           uri_management_module_address?: string | null
           use_geographic_restrictions?: boolean | null
+          vesting_config?: Json | null
           vesting_module_address?: string | null
           voting_power_enabled?: boolean | null
           voting_weight_per_token?: Json | null
@@ -27049,6 +27059,7 @@ export type Database = {
           claim_period_enabled?: boolean | null
           claim_start_time?: string | null
           community_treasury_enabled?: boolean | null
+          compliance_config?: Json | null
           compliance_module_address?: string | null
           consumable_tokens?: boolean | null
           container_config?: Json | null
@@ -27057,12 +27068,14 @@ export type Database = {
           created_at?: string | null
           cross_collection_trading?: boolean | null
           default_restriction_policy?: string | null
+          document_config?: Json | null
           document_module_address?: string | null
           dynamic_uri_config?: Json | null
           dynamic_uris?: boolean | null
           enable_approval_for_all?: boolean | null
           experience_points_enabled?: boolean | null
           fusion_enabled?: boolean | null
+          granular_approval_config?: Json | null
           has_royalty?: boolean | null
           id?: string
           initial_owner?: string | null
@@ -27079,6 +27092,7 @@ export type Database = {
           metadata_update_roles?: string[] | null
           mint_roles?: string[] | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           price_multipliers?: Json | null
           pricing_model?: string | null
           proposal_creation_threshold?: string | null
@@ -27104,6 +27118,7 @@ export type Database = {
           uri_management_config?: Json | null
           uri_management_module_address?: string | null
           use_geographic_restrictions?: boolean | null
+          vesting_config?: Json | null
           vesting_module_address?: string | null
           voting_power_enabled?: boolean | null
           voting_weight_per_token?: Json | null
@@ -28257,7 +28272,9 @@ export type Database = {
           document_module_address: string | null
           document_uri: string | null
           enforce_kyc: boolean | null
+          enhanced_document_config: Json | null
           enhanced_reporting_enabled: boolean | null
+          enhanced_transfer_restrictions_config: Json | null
           erc1400_document_module_address: string | null
           esg_reporting_enabled: boolean | null
           financial_data_vendor_integration: boolean | null
@@ -28297,6 +28314,7 @@ export type Database = {
           max_investor_count: number | null
           mergers_acquisitions_support: boolean | null
           multi_jurisdiction_compliance: boolean | null
+          partition_config: Json | null
           passport_regime_support: boolean | null
           pep_screening_enabled: boolean | null
           performance_analytics_enabled: boolean | null
@@ -28388,7 +28406,9 @@ export type Database = {
           document_module_address?: string | null
           document_uri?: string | null
           enforce_kyc?: boolean | null
+          enhanced_document_config?: Json | null
           enhanced_reporting_enabled?: boolean | null
+          enhanced_transfer_restrictions_config?: Json | null
           erc1400_document_module_address?: string | null
           esg_reporting_enabled?: boolean | null
           financial_data_vendor_integration?: boolean | null
@@ -28428,6 +28448,7 @@ export type Database = {
           max_investor_count?: number | null
           mergers_acquisitions_support?: boolean | null
           multi_jurisdiction_compliance?: boolean | null
+          partition_config?: Json | null
           passport_regime_support?: boolean | null
           pep_screening_enabled?: boolean | null
           performance_analytics_enabled?: boolean | null
@@ -28519,7 +28540,9 @@ export type Database = {
           document_module_address?: string | null
           document_uri?: string | null
           enforce_kyc?: boolean | null
+          enhanced_document_config?: Json | null
           enhanced_reporting_enabled?: boolean | null
+          enhanced_transfer_restrictions_config?: Json | null
           erc1400_document_module_address?: string | null
           esg_reporting_enabled?: boolean | null
           financial_data_vendor_integration?: boolean | null
@@ -28559,6 +28582,7 @@ export type Database = {
           max_investor_count?: number | null
           mergers_acquisitions_support?: boolean | null
           multi_jurisdiction_compliance?: boolean | null
+          partition_config?: Json | null
           passport_regime_support?: boolean | null
           pep_screening_enabled?: boolean | null
           performance_analytics_enabled?: boolean | null
@@ -28822,8 +28846,11 @@ export type Database = {
           default_restriction_policy: string | null
           deflation_enabled: boolean | null
           deflation_rate: string | null
+          document_config: Json | null
           fee_on_transfer: Json | null
+          fees_config: Json | null
           fees_module_address: string | null
+          flash_mint_config: Json | null
           flash_mint_module_address: string | null
           gas_config: Json | null
           governance_enabled: boolean | null
@@ -28843,10 +28870,13 @@ export type Database = {
           max_wallet_amount: string | null
           mintable_by: string | null
           pausable_by: string | null
+          payable_token_config: Json | null
           payable_token_module_address: string | null
           permit: boolean | null
+          permit_config: Json | null
           permit_module_address: string | null
           policy_engine_address: string | null
+          policy_engine_config: Json | null
           presale_enabled: boolean | null
           presale_end_time: string | null
           presale_rate: string | null
@@ -28858,6 +28888,7 @@ export type Database = {
           reflection_percentage: string | null
           sell_fee_enabled: boolean | null
           snapshot: boolean | null
+          snapshot_config: Json | null
           snapshot_module_address: string | null
           staking_enabled: boolean | null
           staking_rewards_rate: string | null
@@ -28873,10 +28904,12 @@ export type Database = {
           updated_at: string | null
           use_geographic_restrictions: boolean | null
           vesting_cliff_period: number | null
+          vesting_config: Json | null
           vesting_enabled: boolean | null
           vesting_module_address: string | null
           vesting_release_frequency: string | null
           vesting_total_period: number | null
+          votes_config: Json | null
           votes_module_address: string | null
           voting_delay: number | null
           voting_period: number | null
@@ -28901,8 +28934,11 @@ export type Database = {
           default_restriction_policy?: string | null
           deflation_enabled?: boolean | null
           deflation_rate?: string | null
+          document_config?: Json | null
           fee_on_transfer?: Json | null
+          fees_config?: Json | null
           fees_module_address?: string | null
+          flash_mint_config?: Json | null
           flash_mint_module_address?: string | null
           gas_config?: Json | null
           governance_enabled?: boolean | null
@@ -28922,10 +28958,13 @@ export type Database = {
           max_wallet_amount?: string | null
           mintable_by?: string | null
           pausable_by?: string | null
+          payable_token_config?: Json | null
           payable_token_module_address?: string | null
           permit?: boolean | null
+          permit_config?: Json | null
           permit_module_address?: string | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           presale_enabled?: boolean | null
           presale_end_time?: string | null
           presale_rate?: string | null
@@ -28937,6 +28976,7 @@ export type Database = {
           reflection_percentage?: string | null
           sell_fee_enabled?: boolean | null
           snapshot?: boolean | null
+          snapshot_config?: Json | null
           snapshot_module_address?: string | null
           staking_enabled?: boolean | null
           staking_rewards_rate?: string | null
@@ -28952,10 +28992,12 @@ export type Database = {
           updated_at?: string | null
           use_geographic_restrictions?: boolean | null
           vesting_cliff_period?: number | null
+          vesting_config?: Json | null
           vesting_enabled?: boolean | null
           vesting_module_address?: string | null
           vesting_release_frequency?: string | null
           vesting_total_period?: number | null
+          votes_config?: Json | null
           votes_module_address?: string | null
           voting_delay?: number | null
           voting_period?: number | null
@@ -28980,8 +29022,11 @@ export type Database = {
           default_restriction_policy?: string | null
           deflation_enabled?: boolean | null
           deflation_rate?: string | null
+          document_config?: Json | null
           fee_on_transfer?: Json | null
+          fees_config?: Json | null
           fees_module_address?: string | null
+          flash_mint_config?: Json | null
           flash_mint_module_address?: string | null
           gas_config?: Json | null
           governance_enabled?: boolean | null
@@ -29001,10 +29046,13 @@ export type Database = {
           max_wallet_amount?: string | null
           mintable_by?: string | null
           pausable_by?: string | null
+          payable_token_config?: Json | null
           payable_token_module_address?: string | null
           permit?: boolean | null
+          permit_config?: Json | null
           permit_module_address?: string | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           presale_enabled?: boolean | null
           presale_end_time?: string | null
           presale_rate?: string | null
@@ -29016,6 +29064,7 @@ export type Database = {
           reflection_percentage?: string | null
           sell_fee_enabled?: boolean | null
           snapshot?: boolean | null
+          snapshot_config?: Json | null
           snapshot_module_address?: string | null
           staking_enabled?: boolean | null
           staking_rewards_rate?: string | null
@@ -29031,10 +29080,12 @@ export type Database = {
           updated_at?: string | null
           use_geographic_restrictions?: boolean | null
           vesting_cliff_period?: number | null
+          vesting_config?: Json | null
           vesting_enabled?: boolean | null
           vesting_module_address?: string | null
           vesting_release_frequency?: string | null
           vesting_total_period?: number | null
+          votes_config?: Json | null
           votes_module_address?: string | null
           voting_delay?: number | null
           voting_period?: number | null
@@ -29417,6 +29468,7 @@ export type Database = {
           base_uri: string | null
           batch_operations_enabled: boolean | null
           collateral_factor: string | null
+          compliance_config: Json | null
           compliance_module_address: string | null
           compound_interest_enabled: boolean | null
           coupon_frequency: string | null
@@ -29427,6 +29479,7 @@ export type Database = {
           default_restriction_policy: string | null
           delegate_enabled: boolean | null
           derivative_type: string | null
+          document_config: Json | null
           document_module_address: string | null
           dynamic_metadata: boolean | null
           dynamic_slot_creation: boolean | null
@@ -29463,6 +29516,7 @@ export type Database = {
           permissioning_advanced: boolean | null
           permissioning_enabled: boolean | null
           policy_engine_address: string | null
+          policy_engine_config: Json | null
           principal_amount: string | null
           proposal_value_threshold: string | null
           quorum_calculation_method: string | null
@@ -29475,11 +29529,13 @@ export type Database = {
           sales_config: Json | null
           settlement_type: string | null
           slot_admin_roles: string[] | null
+          slot_approvable_config: Json | null
           slot_approvable_module_address: string | null
           slot_approvals: boolean | null
           slot_creation_enabled: boolean | null
           slot_enumeration_enabled: boolean | null
           slot_freeze_enabled: boolean | null
+          slot_manager_config: Json | null
           slot_manager_module_address: string | null
           slot_marketplace_enabled: boolean | null
           slot_merge_enabled: boolean | null
@@ -29535,6 +29591,7 @@ export type Database = {
           base_uri?: string | null
           batch_operations_enabled?: boolean | null
           collateral_factor?: string | null
+          compliance_config?: Json | null
           compliance_module_address?: string | null
           compound_interest_enabled?: boolean | null
           coupon_frequency?: string | null
@@ -29545,6 +29602,7 @@ export type Database = {
           default_restriction_policy?: string | null
           delegate_enabled?: boolean | null
           derivative_type?: string | null
+          document_config?: Json | null
           document_module_address?: string | null
           dynamic_metadata?: boolean | null
           dynamic_slot_creation?: boolean | null
@@ -29581,6 +29639,7 @@ export type Database = {
           permissioning_advanced?: boolean | null
           permissioning_enabled?: boolean | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           principal_amount?: string | null
           proposal_value_threshold?: string | null
           quorum_calculation_method?: string | null
@@ -29593,11 +29652,13 @@ export type Database = {
           sales_config?: Json | null
           settlement_type?: string | null
           slot_admin_roles?: string[] | null
+          slot_approvable_config?: Json | null
           slot_approvable_module_address?: string | null
           slot_approvals?: boolean | null
           slot_creation_enabled?: boolean | null
           slot_enumeration_enabled?: boolean | null
           slot_freeze_enabled?: boolean | null
+          slot_manager_config?: Json | null
           slot_manager_module_address?: string | null
           slot_marketplace_enabled?: boolean | null
           slot_merge_enabled?: boolean | null
@@ -29653,6 +29714,7 @@ export type Database = {
           base_uri?: string | null
           batch_operations_enabled?: boolean | null
           collateral_factor?: string | null
+          compliance_config?: Json | null
           compliance_module_address?: string | null
           compound_interest_enabled?: boolean | null
           coupon_frequency?: string | null
@@ -29663,6 +29725,7 @@ export type Database = {
           default_restriction_policy?: string | null
           delegate_enabled?: boolean | null
           derivative_type?: string | null
+          document_config?: Json | null
           document_module_address?: string | null
           dynamic_metadata?: boolean | null
           dynamic_slot_creation?: boolean | null
@@ -29699,6 +29762,7 @@ export type Database = {
           permissioning_advanced?: boolean | null
           permissioning_enabled?: boolean | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           principal_amount?: string | null
           proposal_value_threshold?: string | null
           quorum_calculation_method?: string | null
@@ -29711,11 +29775,13 @@ export type Database = {
           sales_config?: Json | null
           settlement_type?: string | null
           slot_admin_roles?: string[] | null
+          slot_approvable_config?: Json | null
           slot_approvable_module_address?: string | null
           slot_approvals?: boolean | null
           slot_creation_enabled?: boolean | null
           slot_enumeration_enabled?: boolean | null
           slot_freeze_enabled?: boolean | null
+          slot_manager_config?: Json | null
           slot_manager_module_address?: string | null
           slot_marketplace_enabled?: boolean | null
           slot_merge_enabled?: boolean | null
@@ -30559,6 +30625,7 @@ export type Database = {
           borrowing_enabled: boolean | null
           bridge_protocols: string[] | null
           circuit_breaker_enabled: boolean | null
+          compliance_config: Json | null
           compliance_module_address: string | null
           compliance_reporting_enabled: boolean | null
           compound_frequency: string | null
@@ -30572,6 +30639,7 @@ export type Database = {
           deposit_fee: string | null
           deposit_limit: string | null
           diversification_enabled: boolean | null
+          document_config: Json | null
           document_module_address: string | null
           dynamic_fees_enabled: boolean | null
           early_withdrawal_penalty: string | null
@@ -30621,6 +30689,7 @@ export type Database = {
           multi_asset_enabled: boolean | null
           multi_asset_vault_config: Json | null
           multi_asset_vault_module_address: string | null
+          native_vault_config: Json | null
           native_vault_module_address: string | null
           notification_system_enabled: boolean | null
           performance_fee: string | null
@@ -30630,6 +30699,7 @@ export type Database = {
           performance_tracking: boolean | null
           permit: boolean | null
           policy_engine_address: string | null
+          policy_engine_config: Json | null
           portfolio_analytics_enabled: boolean | null
           real_time_pnl_tracking: boolean | null
           rebalance_threshold: string | null
@@ -30638,6 +30708,7 @@ export type Database = {
           regulatory_framework: string | null
           risk_management_enabled: boolean | null
           risk_tolerance: string | null
+          router_config: Json | null
           router_module_address: string | null
           social_trading_enabled: boolean | null
           stop_loss_enabled: boolean | null
@@ -30687,6 +30758,7 @@ export type Database = {
           borrowing_enabled?: boolean | null
           bridge_protocols?: string[] | null
           circuit_breaker_enabled?: boolean | null
+          compliance_config?: Json | null
           compliance_module_address?: string | null
           compliance_reporting_enabled?: boolean | null
           compound_frequency?: string | null
@@ -30700,6 +30772,7 @@ export type Database = {
           deposit_fee?: string | null
           deposit_limit?: string | null
           diversification_enabled?: boolean | null
+          document_config?: Json | null
           document_module_address?: string | null
           dynamic_fees_enabled?: boolean | null
           early_withdrawal_penalty?: string | null
@@ -30749,6 +30822,7 @@ export type Database = {
           multi_asset_enabled?: boolean | null
           multi_asset_vault_config?: Json | null
           multi_asset_vault_module_address?: string | null
+          native_vault_config?: Json | null
           native_vault_module_address?: string | null
           notification_system_enabled?: boolean | null
           performance_fee?: string | null
@@ -30758,6 +30832,7 @@ export type Database = {
           performance_tracking?: boolean | null
           permit?: boolean | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           portfolio_analytics_enabled?: boolean | null
           real_time_pnl_tracking?: boolean | null
           rebalance_threshold?: string | null
@@ -30766,6 +30841,7 @@ export type Database = {
           regulatory_framework?: string | null
           risk_management_enabled?: boolean | null
           risk_tolerance?: string | null
+          router_config?: Json | null
           router_module_address?: string | null
           social_trading_enabled?: boolean | null
           stop_loss_enabled?: boolean | null
@@ -30815,6 +30891,7 @@ export type Database = {
           borrowing_enabled?: boolean | null
           bridge_protocols?: string[] | null
           circuit_breaker_enabled?: boolean | null
+          compliance_config?: Json | null
           compliance_module_address?: string | null
           compliance_reporting_enabled?: boolean | null
           compound_frequency?: string | null
@@ -30828,6 +30905,7 @@ export type Database = {
           deposit_fee?: string | null
           deposit_limit?: string | null
           diversification_enabled?: boolean | null
+          document_config?: Json | null
           document_module_address?: string | null
           dynamic_fees_enabled?: boolean | null
           early_withdrawal_penalty?: string | null
@@ -30877,6 +30955,7 @@ export type Database = {
           multi_asset_enabled?: boolean | null
           multi_asset_vault_config?: Json | null
           multi_asset_vault_module_address?: string | null
+          native_vault_config?: Json | null
           native_vault_module_address?: string | null
           notification_system_enabled?: boolean | null
           performance_fee?: string | null
@@ -30886,6 +30965,7 @@ export type Database = {
           performance_tracking?: boolean | null
           permit?: boolean | null
           policy_engine_address?: string | null
+          policy_engine_config?: Json | null
           portfolio_analytics_enabled?: boolean | null
           real_time_pnl_tracking?: boolean | null
           rebalance_threshold?: string | null
@@ -30894,6 +30974,7 @@ export type Database = {
           regulatory_framework?: string | null
           risk_management_enabled?: boolean | null
           risk_tolerance?: string | null
+          router_config?: Json | null
           router_module_address?: string | null
           social_trading_enabled?: boolean | null
           stop_loss_enabled?: boolean | null
@@ -31471,6 +31552,7 @@ export type Database = {
           compliance_enabled: boolean | null
           compliance_module_address: string | null
           consecutive: boolean | null
+          consecutive_config: Json | null
           consecutive_module_address: string | null
           contract_uri: string | null
           created_at: string | null
@@ -31481,6 +31563,7 @@ export type Database = {
           custom_base_uri: string | null
           custom_operator_filter_address: string | null
           default_restriction_policy: string | null
+          document_config: Json | null
           document_enabled: boolean | null
           document_module_address: string | null
           dutch_auction_duration: number | null
@@ -31507,6 +31590,7 @@ export type Database = {
           max_mints_per_wallet: number | null
           max_supply: string | null
           metadata_events: boolean | null
+          metadata_events_config: Json | null
           metadata_events_module_address: string | null
           metadata_frozen: boolean | null
           metadata_provenance_hash: string | null
@@ -31540,6 +31624,7 @@ export type Database = {
           royalty_receiver: string | null
           sales_config: Json | null
           soulbound: boolean | null
+          soulbound_config: Json | null
           soulbound_module_address: string | null
           staking_enabled: boolean | null
           staking_rewards_rate: string | null
@@ -31581,6 +31666,7 @@ export type Database = {
           compliance_enabled?: boolean | null
           compliance_module_address?: string | null
           consecutive?: boolean | null
+          consecutive_config?: Json | null
           consecutive_module_address?: string | null
           contract_uri?: string | null
           created_at?: string | null
@@ -31591,6 +31677,7 @@ export type Database = {
           custom_base_uri?: string | null
           custom_operator_filter_address?: string | null
           default_restriction_policy?: string | null
+          document_config?: Json | null
           document_enabled?: boolean | null
           document_module_address?: string | null
           dutch_auction_duration?: number | null
@@ -31617,6 +31704,7 @@ export type Database = {
           max_mints_per_wallet?: number | null
           max_supply?: string | null
           metadata_events?: boolean | null
+          metadata_events_config?: Json | null
           metadata_events_module_address?: string | null
           metadata_frozen?: boolean | null
           metadata_provenance_hash?: string | null
@@ -31650,6 +31738,7 @@ export type Database = {
           royalty_receiver?: string | null
           sales_config?: Json | null
           soulbound?: boolean | null
+          soulbound_config?: Json | null
           soulbound_module_address?: string | null
           staking_enabled?: boolean | null
           staking_rewards_rate?: string | null
@@ -31691,6 +31780,7 @@ export type Database = {
           compliance_enabled?: boolean | null
           compliance_module_address?: string | null
           consecutive?: boolean | null
+          consecutive_config?: Json | null
           consecutive_module_address?: string | null
           contract_uri?: string | null
           created_at?: string | null
@@ -31701,6 +31791,7 @@ export type Database = {
           custom_base_uri?: string | null
           custom_operator_filter_address?: string | null
           default_restriction_policy?: string | null
+          document_config?: Json | null
           document_enabled?: boolean | null
           document_module_address?: string | null
           dutch_auction_duration?: number | null
@@ -31727,6 +31818,7 @@ export type Database = {
           max_mints_per_wallet?: number | null
           max_supply?: string | null
           metadata_events?: boolean | null
+          metadata_events_config?: Json | null
           metadata_events_module_address?: string | null
           metadata_frozen?: boolean | null
           metadata_provenance_hash?: string | null
@@ -31760,6 +31852,7 @@ export type Database = {
           royalty_receiver?: string | null
           sales_config?: Json | null
           soulbound?: boolean | null
+          soulbound_config?: Json | null
           soulbound_module_address?: string | null
           staking_enabled?: boolean | null
           staking_rewards_rate?: string | null
@@ -37080,6 +37173,7 @@ export type Database = {
         Args: { address: string; blockchain: string }
         Returns: boolean
       }
+      validate_document_config: { Args: { config: Json }; Returns: boolean }
       validate_geographic_restriction: {
         Args: {
           p_investment_amount?: number
@@ -37107,6 +37201,7 @@ export type Database = {
           target_raise_amount: number
         }[]
       }
+      validate_vesting_config: { Args: { config: Json }; Returns: boolean }
       validate_whitelist_config_permissive: {
         Args: { config: Json }
         Returns: boolean
