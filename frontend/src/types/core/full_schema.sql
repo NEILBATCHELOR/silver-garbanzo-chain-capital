@@ -22420,6 +22420,7 @@ CREATE TABLE public.token_erc1400_properties (
     transfer_restrictions_module_address text,
     initial_owner text,
     controller_config jsonb,
+    default_partitions jsonb DEFAULT '["DEFAULT"]'::jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT token_erc1400_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1400_properties_controller_module_address_check CHECK (((controller_module_address IS NULL) OR (controller_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -22563,6 +22564,13 @@ COMMENT ON COLUMN public.token_erc1400_properties.transfer_restrictions_module_a
 --
 
 COMMENT ON COLUMN public.token_erc1400_properties.controller_config IS 'Controller configuration: {controllers: address[]}';
+
+
+--
+-- Name: COLUMN token_erc1400_properties.default_partitions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc1400_properties.default_partitions IS 'Array of partition identifiers to create on deployment (e.g., ["CLASS_A", "CLASS_B", "PREFERRED"])';
 
 
 --

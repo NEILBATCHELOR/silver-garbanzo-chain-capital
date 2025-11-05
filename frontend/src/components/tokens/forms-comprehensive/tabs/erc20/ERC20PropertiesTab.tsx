@@ -1,28 +1,67 @@
 // ERC20 Properties Tab Component
 // Handles token_erc20_properties table with complete field coverage
+// Integrates Master Contract and Extension Module configurations
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Plus, Minus } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertTriangle, Settings, Puzzle } from 'lucide-react';
 
 import { TokenERC20PropertiesData, ConfigMode } from '../../types';
-import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector'; // ✅ CORRECTED PATH
+import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
+
+// Master Contract Configs
+import { 
+  ERC20MasterConfigPanel,
+  ERC20RebasingMasterConfigPanel,
+  ERC20WrapperMasterConfigPanel
+} from '../../contracts/masters';
+
+// Extension Module Configs
+import {
+  ComplianceModuleConfigPanel,
+  VestingModuleConfigPanel,
+  DocumentModuleConfigPanel,
+  PolicyEngineConfigPanel,
+  FeeModuleConfigPanel,
+  FlashMintModuleConfigPanel,
+  PermitModuleConfigPanel,
+  SnapshotModuleConfigPanel,
+  TimelockModuleConfigPanel,
+  VotesModuleConfigPanel,
+  PayableTokenModuleConfigPanel,
+  TemporaryApprovalModuleConfigPanel
+} from '../../contracts/extensions';
+
+import type {
+  ERC20MasterConfig,
+  ComplianceModuleConfig,
+  VestingModuleConfig,
+  DocumentModuleConfig,
+  PolicyEngineConfig,
+  FeeModuleConfig,
+  FlashMintModuleConfig,
+  PermitModuleConfig,
+  SnapshotModuleConfig,
+  TimelockModuleConfig,
+  VotesModuleConfig,
+  PayableTokenModuleConfig,
+  TemporaryApprovalModuleConfig
+} from '../../contracts/types';
 
 interface ERC20PropertiesTabProps {
   data: TokenERC20PropertiesData | TokenERC20PropertiesData[];
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
-  projectId: string; // ✅ NEW PROP - Required for wallet loading
+  projectId: string;
   onFieldChange: (field: string, value: any, recordIndex?: number) => void;
   onValidate: () => Promise<boolean>;
   isSubmitting: boolean;
@@ -35,15 +74,15 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   validationErrors,
   isModified,
   configMode,
-  projectId, // ✅ NEW DESTRUCTURE
+  projectId,
   onFieldChange,
   onValidate,
   isSubmitting,
   network = 'hoodi',
   environment = 'testnet'
 }) => {
-  // Handle single record for properties table
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
+  const [activeTab, setActiveTab] = useState<'master' | 'extensions'>('master');
 
   const handleFieldChange = (field: string, value: any) => {
     onFieldChange(field, value, 0);
@@ -57,19 +96,102 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
     return getFieldError(field).length > 0;
   };
 
-  // Handle JSON field updates
-  const handleJsonFieldChange = (parentField: string, subField: string, value: any) => {
-    const currentValue = propertiesData[parentField] || {};
-    const updatedValue = {
-      ...currentValue,
-      [subField]: value
-    };
-    handleFieldChange(parentField, updatedValue);
+  // Master Contract Configuration State
+  const [masterConfig, setMasterConfig] = useState<ERC20MasterConfig>({
+    name: propertiesData.name || '',
+    symbol: propertiesData.symbol || '',
+    maxSupply: propertiesData.cap || '0',
+    initialSupply: propertiesData.initial_supply || '0',
+    owner: propertiesData.initial_owner || ''
+  });
+
+  // Extension Module Configuration States
+  const [complianceConfig, setComplianceConfig] = useState<ComplianceModuleConfig>({
+    enabled: !!propertiesData.compliance_module_address,
+    kycRequired: false,
+    whitelistRequired: false
+  });
+
+  const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
+    enabled: !!propertiesData.vesting_module_address
+  });
+
+  const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
+    enabled: !!propertiesData.document_module_address
+  });
+
+  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineConfig>({
+    enabled: !!propertiesData.policy_engine_address,
+    rulesEnabled: [],
+    validatorsEnabled: []
+  });
+
+  const [feeConfig, setFeeConfig] = useState<FeeModuleConfig>({
+    enabled: !!propertiesData.fees_module_address,
+    transferFeeBps: 0,
+    feeRecipient: ''
+  });
+
+  const [flashMintConfig, setFlashMintConfig] = useState<FlashMintModuleConfig>({
+    enabled: !!propertiesData.flash_mint_module_address
+  });
+
+  const [permitConfig, setPermitConfig] = useState<PermitModuleConfig>({
+    enabled: !!propertiesData.permit_module_address
+  });
+
+  const [snapshotConfig, setSnapshotConfig] = useState<SnapshotModuleConfig>({
+    enabled: !!propertiesData.snapshot_module_address
+  });
+
+  const [timelockConfig, setTimelockConfig] = useState<TimelockModuleConfig>({
+    enabled: !!propertiesData.timelock_module_address,
+    minDelay: 0
+  });
+
+  const [votesConfig, setVotesConfig] = useState<VotesModuleConfig>({
+    enabled: !!propertiesData.votes_module_address
+  });
+
+  const [payableTokenConfig, setPayableTokenConfig] = useState<PayableTokenModuleConfig>({
+    enabled: !!propertiesData.payable_token_module_address
+  });
+
+  const [temporaryApprovalConfig, setTemporaryApprovalConfig] = useState<TemporaryApprovalModuleConfig>({
+    enabled: !!propertiesData.temporary_approval_module_address,
+    defaultDuration: 3600
+  });
+
+  // Handler for master config changes
+  const handleMasterConfigChange = (newConfig: ERC20MasterConfig) => {
+    setMasterConfig(newConfig);
+    // Update underlying data fields
+    handleFieldChange('name', newConfig.name);
+    handleFieldChange('symbol', newConfig.symbol);
+    handleFieldChange('cap', newConfig.maxSupply);
+    handleFieldChange('initial_supply', newConfig.initialSupply);
+    handleFieldChange('initial_owner', newConfig.owner);
   };
+
+  // Count enabled modules
+  const enabledModulesCount = [
+    complianceConfig.enabled,
+    vestingConfig.enabled,
+    documentConfig.enabled,
+    policyEngineConfig.enabled,
+    feeConfig.enabled,
+    flashMintConfig.enabled,
+    permitConfig.enabled,
+    snapshotConfig.enabled,
+    timelockConfig.enabled,
+    votesConfig.enabled,
+    payableTokenConfig.enabled,
+    temporaryApprovalConfig.enabled
+  ].filter(Boolean).length;
 
   return (
     <div className="space-y-6">
-      {/* ✅ NEW: Initial Owner Selection */}
+      {/* Owner Configuration - Always at top */}
       <Card>
         <CardHeader>
           <CardTitle>Owner Configuration</CardTitle>
@@ -77,8 +199,11 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
         <CardContent>
           <ProjectWalletSelector
             projectId={projectId}
-            value={propertiesData.initial_owner || ''}
-            onChange={(address) => handleFieldChange('initial_owner', address)}
+            value={masterConfig.owner}
+            onChange={(address) => handleMasterConfigChange({
+              ...masterConfig,
+              owner: address
+            })}
             label="Initial Owner"
             description="This wallet address will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER) upon deployment"
             required={true}
@@ -86,399 +211,138 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
         </CardContent>
       </Card>
 
-      {/* Basic Supply Configuration */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Supply Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Initial Supply */}
-            <div className="space-y-2">
-              <Label htmlFor="initial_supply" className="text-sm font-medium">
-                Initial Supply
-              </Label>
-              <Input
-                id="initial_supply"
-                value={propertiesData.initial_supply || ''}
-                onChange={(e) => handleFieldChange('initial_supply', e.target.value)}
-                placeholder="Enter initial supply"
-                className={hasFieldError('initial_supply') ? 'border-red-500' : ''}
-                disabled={isSubmitting}
-              />
-              {hasFieldError('initial_supply') && (
-                <Alert variant="destructive" className="py-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    {getFieldError('initial_supply').join(', ')}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
+      {/* Configuration Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'master' | 'extensions')}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="master" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Master Contract
+          </TabsTrigger>
+          <TabsTrigger value="extensions" className="flex items-center gap-2">
+            <Puzzle className="h-4 w-4" />
+            Extension Modules
+            {enabledModulesCount > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {enabledModulesCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-            {/* Cap (Maximum Supply) */}
-            <div className="space-y-2">
-              <Label htmlFor="cap" className="text-sm font-medium">
-                Maximum Supply (Cap)
-              </Label>
-              <Input
-                id="cap"
-                value={propertiesData.cap || ''}
-                onChange={(e) => handleFieldChange('cap', e.target.value)}
-                placeholder="Enter maximum supply (0 for unlimited)"
-                className={hasFieldError('cap') ? 'border-red-500' : ''}
-                disabled={isSubmitting}
-              />
-              {hasFieldError('cap') && (
-                <Alert variant="destructive" className="py-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
-                    {getFieldError('cap').join(', ')}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Token Features */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Token Features</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Mintable */}
-            <div className="flex items-center justify-between space-x-2">
-              <div className="space-y-1">
-                <Label htmlFor="is_mintable" className="text-sm font-medium">
-                  Mintable
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Allow creating new tokens after deployment
-                </p>
-              </div>
-              <Switch
-                id="is_mintable"
-                checked={propertiesData.is_mintable || false}
-                onCheckedChange={(checked) => handleFieldChange('is_mintable', checked)}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* Burnable */}
-            <div className="flex items-center justify-between space-x-2">
-              <div className="space-y-1">
-                <Label htmlFor="is_burnable" className="text-sm font-medium">
-                  Burnable
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Allow permanently destroying tokens
-                </p>
-              </div>
-              <Switch
-                id="is_burnable"
-                checked={propertiesData.is_burnable || false}
-                onCheckedChange={(checked) => handleFieldChange('is_burnable', checked)}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* Pausable */}
-            <div className="flex items-center justify-between space-x-2">
-              <div className="space-y-1">
-                <Label htmlFor="is_pausable" className="text-sm font-medium">
-                  Pausable
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Allow pausing all token transfers
-                </p>
-              </div>
-              <Switch
-                id="is_pausable"
-                checked={propertiesData.is_pausable || false}
-                onCheckedChange={(checked) => handleFieldChange('is_pausable', checked)}
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Advanced Features (Max Mode) */}
-      {configMode === 'max' && (
-        <>
-          <Separator />
-          
-          {/* Token Type and Access Control */}
+        {/* Master Contract Configuration */}
+        <TabsContent value="master" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Advanced Configuration</CardTitle>
+              <CardTitle>ERC20 Token Configuration</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Token Type */}
-                <div className="space-y-2">
-                  <Label htmlFor="token_type" className="text-sm font-medium">
-                    Token Type
-                  </Label>
-                  <Select
-                    value={propertiesData.token_type || ''}
-                    onValueChange={(value) => handleFieldChange('token_type', value)}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select token type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="utility">Utility Token</SelectItem>
-                      <SelectItem value="governance">Governance Token</SelectItem>
-                      <SelectItem value="stablecoin">Stablecoin</SelectItem>
-                      <SelectItem value="reward">Reward Token</SelectItem>
-                      <SelectItem value="wrapped">Wrapped Token</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Access Control */}
-                <div className="space-y-2">
-                  <Label htmlFor="access_control" className="text-sm font-medium">
-                    Access Control
-                  </Label>
-                  <Select
-                    value={propertiesData.access_control || ''}
-                    onValueChange={(value) => handleFieldChange('access_control', value)}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select access control" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="owner">Owner Only</SelectItem>
-                      <SelectItem value="role_based">Role-Based</SelectItem>
-                      <SelectItem value="multisig">Multi-Signature</SelectItem>
-                      <SelectItem value="dao">DAO Governance</SelectItem>
-                      <SelectItem value="none">No Access Control</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Allow Management */}
-                <div className="flex items-center justify-between space-x-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="allow_management" className="text-sm font-medium">
-                      Management Functions
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Enable administrative functions
-                    </p>
-                  </div>
-                  <Switch
-                    id="allow_management"
-                    checked={propertiesData.allow_management || false}
-                    onCheckedChange={(checked) => handleFieldChange('allow_management', checked)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                {/* Permit (EIP-2612) */}
-                <div className="flex items-center justify-between space-x-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="permit" className="text-sm font-medium">
-                      Permit (EIP-2612)
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Enable gasless approvals
-                    </p>
-                  </div>
-                  <Switch
-                    id="permit"
-                    checked={propertiesData.permit || false}
-                    onCheckedChange={(checked) => handleFieldChange('permit', checked)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                {/* Snapshot */}
-                <div className="flex items-center justify-between space-x-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="snapshot" className="text-sm font-medium">
-                      Snapshot
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Enable balance snapshots
-                    </p>
-                  </div>
-                  <Switch
-                    id="snapshot"
-                    checked={propertiesData.snapshot || false}
-                    onCheckedChange={(checked) => handleFieldChange('snapshot', checked)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
+            <CardContent>
+              <ERC20MasterConfigPanel
+                config={masterConfig}
+                onChange={handleMasterConfigChange}
+                disabled={isSubmitting}
+                errors={{}}
+              />
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Complex Features */}
+        {/* Extension Modules Configuration */}
+        <TabsContent value="extensions" className="space-y-4">
+          {/* Universal Modules */}
           <Card>
             <CardHeader>
-              <CardTitle>Complex Features</CardTitle>
+              <CardTitle>Universal Modules</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Available for all token standards
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Fee on Transfer */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Fee on Transfer</Label>
-                  <Switch
-                    checked={!!(propertiesData.fee_on_transfer && Object.keys(propertiesData.fee_on_transfer).length > 0)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        handleFieldChange('fee_on_transfer', { enabled: true, percentage: 0.1 });
-                      } else {
-                        handleFieldChange('fee_on_transfer', null);
-                      }
-                    }}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                
-                {propertiesData.fee_on_transfer && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Fee Percentage</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={propertiesData.fee_on_transfer?.percentage || 0}
-                        onChange={(e) => handleJsonFieldChange('fee_on_transfer', 'percentage', parseFloat(e.target.value))}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Fee Recipient</Label>
-                      <Input
-                        value={propertiesData.fee_on_transfer?.recipient || ''}
-                        onChange={(e) => handleJsonFieldChange('fee_on_transfer', 'recipient', e.target.value)}
-                        placeholder="0x..."
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Rebasing */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Rebasing Token</Label>
-                  <Switch
-                    checked={!!(propertiesData.rebasing && Object.keys(propertiesData.rebasing).length > 0)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        handleFieldChange('rebasing', { enabled: true, type: 'positive' });
-                      } else {
-                        handleFieldChange('rebasing', null);
-                      }
-                    }}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                
-                {propertiesData.rebasing && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Rebase Type</Label>
-                      <Select
-                        value={propertiesData.rebasing?.type || 'positive'}
-                        onValueChange={(value) => handleJsonFieldChange('rebasing', 'type', value)}
-                        disabled={isSubmitting}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="positive">Positive Rebase</SelectItem>
-                          <SelectItem value="negative">Negative Rebase</SelectItem>
-                          <SelectItem value="neutral">Neutral Rebase</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Rebase Rate (%)</Label>
-                      <Input
-                        type="number"
-                        step="0.001"
-                        value={propertiesData.rebasing?.rate || 0}
-                        onChange={(e) => handleJsonFieldChange('rebasing', 'rate', parseFloat(e.target.value))}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Governance Features */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Governance Features</Label>
-                  <Switch
-                    checked={!!(propertiesData.governance_features && Object.keys(propertiesData.governance_features).length > 0)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        handleFieldChange('governance_features', { enabled: true, voting_delay: 1, voting_period: 7 });
-                      } else {
-                        handleFieldChange('governance_features', null);
-                      }
-                    }}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                
-                {propertiesData.governance_features && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Voting Delay (blocks)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={propertiesData.governance_features?.voting_delay || 1}
-                        onChange={(e) => handleJsonFieldChange('governance_features', 'voting_delay', parseInt(e.target.value))}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Voting Period (days)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={propertiesData.governance_features?.voting_period || 7}
-                        onChange={(e) => handleJsonFieldChange('governance_features', 'voting_period', parseInt(e.target.value))}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Proposal Threshold</Label>
-                      <Input
-                        value={propertiesData.governance_features?.proposal_threshold || ''}
-                        onChange={(e) => handleJsonFieldChange('governance_features', 'proposal_threshold', e.target.value)}
-                        placeholder="Minimum tokens to propose"
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ComplianceModuleConfigPanel
+                config={complianceConfig}
+                onChange={setComplianceConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <VestingModuleConfigPanel
+                config={vestingConfig}
+                onChange={setVestingConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <DocumentModuleConfigPanel
+                config={documentConfig}
+                onChange={setDocumentConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <PolicyEngineConfigPanel
+                config={policyEngineConfig}
+                onChange={setPolicyEngineConfig}
+                disabled={isSubmitting}
+              />
             </CardContent>
           </Card>
-        </>
-      )}
+
+          {/* ERC20-Specific Modules */}
+          <Card>
+            <CardHeader>
+              <CardTitle>ERC20-Specific Modules</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Extensions designed specifically for fungible tokens
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <FeeModuleConfigPanel
+                config={feeConfig}
+                onChange={setFeeConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <FlashMintModuleConfigPanel
+                config={flashMintConfig}
+                onChange={setFlashMintConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <PermitModuleConfigPanel
+                config={permitConfig}
+                onChange={setPermitConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <SnapshotModuleConfigPanel
+                config={snapshotConfig}
+                onChange={setSnapshotConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <TimelockModuleConfigPanel
+                config={timelockConfig}
+                onChange={setTimelockConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <VotesModuleConfigPanel
+                config={votesConfig}
+                onChange={setVotesConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <PayableTokenModuleConfigPanel
+                config={payableTokenConfig}
+                onChange={setPayableTokenConfig}
+                disabled={isSubmitting}
+              />
+              <Separator />
+              <TemporaryApprovalModuleConfigPanel
+                config={temporaryApprovalConfig}
+                onChange={setTemporaryApprovalConfig}
+                disabled={isSubmitting}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Status Bar */}
       <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
@@ -488,6 +352,14 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
             <Badge variant="outline" className="text-yellow-600">Modified</Badge>
           ) : (
             <Badge variant="outline" className="text-green-600">Saved</Badge>
+          )}
+          {enabledModulesCount > 0 && (
+            <>
+              <Separator orientation="vertical" className="h-4" />
+              <span className="text-sm text-muted-foreground">
+                {enabledModulesCount} module{enabledModulesCount !== 1 ? 's' : ''} enabled
+              </span>
+            </>
           )}
         </div>
         

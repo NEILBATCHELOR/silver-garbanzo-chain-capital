@@ -28248,6 +28248,7 @@ export type Database = {
           custody_integration_enabled: boolean | null
           custom_features: Json | null
           decimals: number | null
+          default_partitions: Json | null
           default_restriction_policy: string | null
           disaster_recovery_enabled: boolean | null
           dividend_distribution: boolean | null
@@ -28378,6 +28379,7 @@ export type Database = {
           custody_integration_enabled?: boolean | null
           custom_features?: Json | null
           decimals?: number | null
+          default_partitions?: Json | null
           default_restriction_policy?: string | null
           disaster_recovery_enabled?: boolean | null
           dividend_distribution?: boolean | null
@@ -28508,6 +28510,7 @@ export type Database = {
           custody_integration_enabled?: boolean | null
           custom_features?: Json | null
           decimals?: number | null
+          default_partitions?: Json | null
           default_restriction_policy?: string | null
           disaster_recovery_enabled?: boolean | null
           dividend_distribution?: boolean | null
