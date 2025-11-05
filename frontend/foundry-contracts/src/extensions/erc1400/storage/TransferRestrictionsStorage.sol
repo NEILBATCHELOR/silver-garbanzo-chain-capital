@@ -33,6 +33,29 @@ contract TransferRestrictionsStorage {
     // partition => array of investors
     mapping(bytes32 => address[]) internal _investorList;
     
+    // ============ Whitelist/Blacklist Management ============
+    
+    // Global whitelist/blacklist (applies to all partitions)
+    mapping(address => bool) internal _globalWhitelist;
+    mapping(address => bool) internal _globalBlacklist;
+    
+    // Per-partition whitelist/blacklist (partition-specific)
+    // partition => investor => is whitelisted
+    mapping(bytes32 => mapping(address => bool)) internal _partitionWhitelist;
+    
+    // partition => investor => is blacklisted
+    mapping(bytes32 => mapping(address => bool)) internal _partitionBlacklist;
+    
+    // Whitelist/blacklist enforcement settings
+    bool internal _globalWhitelistEnabled;
+    bool internal _globalBlacklistEnabled;
+    
+    // partition => whitelist enabled for this partition
+    mapping(bytes32 => bool) internal _partitionWhitelistEnabled;
+    
+    // partition => blacklist enabled for this partition
+    mapping(bytes32 => bool) internal _partitionBlacklistEnabled;
+    
     // ============ Storage Gap ============
-    uint256[45] private __gap;
+    uint256[38] private __gap;
 }

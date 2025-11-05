@@ -29,6 +29,18 @@ interface IERC1400TransferRestrictionsModule {
     event PartitionLocked(bytes32 indexed partition, uint256 until);
     event PartitionUnlocked(bytes32 indexed partition);
     event JurisdictionRestricted(bytes32 indexed jurisdiction, bool restricted);
+    event GlobalWhitelistEnabled(bool enabled);
+    event GlobalBlacklistEnabled(bool enabled);
+    event AddressAddedToGlobalWhitelist(address indexed investor);
+    event AddressRemovedFromGlobalWhitelist(address indexed investor);
+    event AddressAddedToGlobalBlacklist(address indexed investor);
+    event AddressRemovedFromGlobalBlacklist(address indexed investor);
+    event PartitionWhitelistEnabled(bytes32 indexed partition, bool enabled);
+    event PartitionBlacklistEnabled(bytes32 indexed partition, bool enabled);
+    event AddressAddedToPartitionWhitelist(bytes32 indexed partition, address indexed investor);
+    event AddressRemovedFromPartitionWhitelist(bytes32 indexed partition, address indexed investor);
+    event AddressAddedToPartitionBlacklist(bytes32 indexed partition, address indexed investor);
+    event AddressRemovedFromPartitionBlacklist(bytes32 indexed partition, address indexed investor);
     
     // ============ Errors ============
     
@@ -170,4 +182,172 @@ interface IERC1400TransferRestrictionsModule {
      * @return bool True if restricted
      */
     function isJurisdictionRestricted(bytes32 jurisdiction) external view returns (bool);
+    
+    // ============ Global Whitelist Management ============
+    
+    /**
+     * @notice Enable or disable global whitelist
+     * @param enabled True to enable whitelist enforcement
+     */
+    function setGlobalWhitelistEnabled(bool enabled) external;
+    
+    /**
+     * @notice Check if global whitelist is enabled
+     * @return bool True if enabled
+     */
+    function isGlobalWhitelistEnabled() external view returns (bool);
+    
+    /**
+     * @notice Add address to global whitelist
+     * @param investor Address to whitelist
+     */
+    function addToGlobalWhitelist(address investor) external;
+    
+    /**
+     * @notice Remove address from global whitelist
+     * @param investor Address to remove
+     */
+    function removeFromGlobalWhitelist(address investor) external;
+    
+    /**
+     * @notice Check if address is on global whitelist
+     * @param investor Address to check
+     * @return bool True if whitelisted
+     */
+    function isGlobalWhitelisted(address investor) external view returns (bool);
+    
+    /**
+     * @notice Add multiple addresses to global whitelist
+     * @param investors Array of addresses to whitelist
+     */
+    function addBatchToGlobalWhitelist(address[] calldata investors) external;
+    
+    // ============ Global Blacklist Management ============
+    
+    /**
+     * @notice Enable or disable global blacklist
+     * @param enabled True to enable blacklist enforcement
+     */
+    function setGlobalBlacklistEnabled(bool enabled) external;
+    
+    /**
+     * @notice Check if global blacklist is enabled
+     * @return bool True if enabled
+     */
+    function isGlobalBlacklistEnabled() external view returns (bool);
+    
+    /**
+     * @notice Add address to global blacklist
+     * @param investor Address to blacklist
+     */
+    function addToGlobalBlacklist(address investor) external;
+    
+    /**
+     * @notice Remove address from global blacklist
+     * @param investor Address to remove
+     */
+    function removeFromGlobalBlacklist(address investor) external;
+    
+    /**
+     * @notice Check if address is on global blacklist
+     * @param investor Address to check
+     * @return bool True if blacklisted
+     */
+    function isGlobalBlacklisted(address investor) external view returns (bool);
+    
+    /**
+     * @notice Add multiple addresses to global blacklist
+     * @param investors Array of addresses to blacklist
+     */
+    function addBatchToGlobalBlacklist(address[] calldata investors) external;
+    
+    // ============ Partition Whitelist Management ============
+    
+    /**
+     * @notice Enable or disable whitelist for a partition
+     * @param partition The partition identifier
+     * @param enabled True to enable whitelist enforcement
+     */
+    function setPartitionWhitelistEnabled(bytes32 partition, bool enabled) external;
+    
+    /**
+     * @notice Check if partition whitelist is enabled
+     * @param partition The partition identifier
+     * @return bool True if enabled
+     */
+    function isPartitionWhitelistEnabled(bytes32 partition) external view returns (bool);
+    
+    /**
+     * @notice Add address to partition whitelist
+     * @param partition The partition identifier
+     * @param investor Address to whitelist
+     */
+    function addToPartitionWhitelist(bytes32 partition, address investor) external;
+    
+    /**
+     * @notice Remove address from partition whitelist
+     * @param partition The partition identifier
+     * @param investor Address to remove
+     */
+    function removeFromPartitionWhitelist(bytes32 partition, address investor) external;
+    
+    /**
+     * @notice Check if address is on partition whitelist
+     * @param partition The partition identifier
+     * @param investor Address to check
+     * @return bool True if whitelisted
+     */
+    function isPartitionWhitelisted(bytes32 partition, address investor) external view returns (bool);
+    
+    /**
+     * @notice Add multiple addresses to partition whitelist
+     * @param partition The partition identifier
+     * @param investors Array of addresses to whitelist
+     */
+    function addBatchToPartitionWhitelist(bytes32 partition, address[] calldata investors) external;
+    
+    // ============ Partition Blacklist Management ============
+    
+    /**
+     * @notice Enable or disable blacklist for a partition
+     * @param partition The partition identifier
+     * @param enabled True to enable blacklist enforcement
+     */
+    function setPartitionBlacklistEnabled(bytes32 partition, bool enabled) external;
+    
+    /**
+     * @notice Check if partition blacklist is enabled
+     * @param partition The partition identifier
+     * @return bool True if enabled
+     */
+    function isPartitionBlacklistEnabled(bytes32 partition) external view returns (bool);
+    
+    /**
+     * @notice Add address to partition blacklist
+     * @param partition The partition identifier
+     * @param investor Address to blacklist
+     */
+    function addToPartitionBlacklist(bytes32 partition, address investor) external;
+    
+    /**
+     * @notice Remove address from partition blacklist
+     * @param partition The partition identifier
+     * @param investor Address to remove
+     */
+    function removeFromPartitionBlacklist(bytes32 partition, address investor) external;
+    
+    /**
+     * @notice Check if address is on partition blacklist
+     * @param partition The partition identifier
+     * @param investor Address to check
+     * @return bool True if blacklisted
+     */
+    function isPartitionBlacklisted(bytes32 partition, address investor) external view returns (bool);
+    
+    /**
+     * @notice Add multiple addresses to partition blacklist
+     * @param partition The partition identifier
+     * @param investors Array of addresses to blacklist
+     */
+    function addBatchToPartitionBlacklist(bytes32 partition, address[] calldata investors) external;
 }

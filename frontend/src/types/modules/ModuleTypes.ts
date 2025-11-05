@@ -60,7 +60,7 @@ export interface PolicyRule {
  * Transfer Restriction Definition
  */
 export interface TransferRestriction {
-  restrictionType: 'jurisdiction' | 'investorType' | 'lockup' | 'limit' | 'timeWindow' | 'whitelist';
+  restrictionType: 'jurisdiction' | 'investorType' | 'lockup' | 'limit' | 'timeWindow' | 'whitelist' | 'blocklist';
   value: string | number;
   enabled: boolean;
   description?: string;
