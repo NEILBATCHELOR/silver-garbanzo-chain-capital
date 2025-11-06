@@ -68,11 +68,13 @@ contract ERC721ConsecutiveModule is
      * @param admin Admin address
      * @param _nftContract NFT contract address
      * @param startTokenId Starting token ID for consecutive mints
+     * @param maxBatchSize Maximum tokens per batch (0 = default 10000)
      */
     function initialize(
         address admin,
         address _nftContract,
-        uint256 startTokenId
+        uint256 startTokenId,
+        uint256 maxBatchSize
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -84,6 +86,7 @@ contract ERC721ConsecutiveModule is
         
         nftContract = _nftContract;
         _nextConsecutiveId = startTokenId;
+        _maxBatchSize = maxBatchSize > 0 ? maxBatchSize : 10000;
     }
     
     // ============ Consecutive Minting (EIP-2309) ============
@@ -91,7 +94,7 @@ contract ERC721ConsecutiveModule is
     /**
      * @notice Mint consecutive token IDs (gas-optimized)
      * @param to Recipient address
-     * @param amount Number of tokens to mint (max 5000 per batch for safety)
+     * @param amount Number of tokens to mint (max set by _maxBatchSize)
      * @return firstTokenId First token ID minted
      * 
      * @dev Emits ConsecutiveTransfer event (EIP-2309) instead of multiple Transfer events
@@ -104,7 +107,7 @@ contract ERC721ConsecutiveModule is
         returns (uint256 firstTokenId)
     {
         if (to == address(0)) revert InvalidRecipient(to);
-        if (amount == 0 || amount > 5000) revert InvalidAmount(amount);
+        if (amount == 0 || amount > _maxBatchSize) revert InvalidAmount(amount);
         if (nftContract == address(0)) revert NFTContractNotSet();
         
         firstTokenId = _nextConsecutiveId;
@@ -185,6 +188,14 @@ contract ERC721ConsecutiveModule is
     }
     
     /**
+     * @notice Get maximum batch size
+     * @return maxSize Maximum tokens per batch
+     */
+    function getMaxBatchSize() external view returns (uint256 maxSize) {
+        return _maxBatchSize;
+    }
+    
+    /**
      * @notice Check if token ID was part of a consecutive batch
      * @param tokenId Token ID to check
      * @return bool True if part of consecutive batch
@@ -228,6 +239,18 @@ contract ERC721ConsecutiveModule is
         if (_nftContract == address(0)) revert InvalidRecipient(_nftContract);
         nftContract = _nftContract;
         emit NFTContractSet(_nftContract);
+    }
+    
+    /**
+     * @notice Set maximum batch size
+     * @param maxBatchSize New maximum batch size
+     */
+    function setMaxBatchSize(uint256 maxBatchSize)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (maxBatchSize == 0) revert InvalidAmount(0);
+        _maxBatchSize = maxBatchSize;
     }
     
     /**

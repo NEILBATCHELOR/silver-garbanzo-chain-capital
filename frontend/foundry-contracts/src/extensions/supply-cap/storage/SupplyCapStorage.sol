@@ -19,6 +19,9 @@ contract SupplyCapStorage {
     
     // ============ Global Cap ============
     
+    // Default cap for tokens without specific caps (0 = unlimited)
+    uint256 internal _defaultCap;
+    
     // Global cap for total supply across all tokens (0 = no cap)
     uint256 internal _globalCap;
     
@@ -26,5 +29,5 @@ contract SupplyCapStorage {
     uint256 internal _totalGlobalSupply;
     
     // ============ Storage Gap ============
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 }

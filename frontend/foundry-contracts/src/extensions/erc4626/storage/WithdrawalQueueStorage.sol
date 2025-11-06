@@ -27,7 +27,10 @@ contract WithdrawalQueueStorage {
     uint256 internal _liquidityBuffer;       // Minimum assets to keep in vault
     uint256 internal _maxQueueSize;          // Maximum pending requests
     uint256 internal _minWithdrawalDelay;    // Minimum time before processing
+    uint256 internal _minWithdrawalAmount;   // Minimum withdrawal amount (assets)
+    uint256 internal _maxWithdrawalAmount;   // Maximum withdrawal amount (assets)
+    uint256 internal _priorityFeeBps;        // Priority processing fee (basis points)
     
     // ============ Storage Gap ============
-    uint256[43] private __gap;
+    uint256[40] private __gap;
 }

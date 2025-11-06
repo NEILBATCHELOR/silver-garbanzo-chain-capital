@@ -3,19 +3,20 @@ pragma solidity ^0.8.28;
 
 /**
  * @title IERC20TemporaryApprovalModule
- * @notice Interface for ERC-7674 temporary approval extension
- * @dev Uses EIP-1153 transient storage for gas-efficient, auto-expiring approvals
+ * @notice Interface for time-based temporary approval extension
+ * @dev Approvals automatically expire after specified duration
  * 
  * Key Features:
- * - 99.5% gas reduction: ~100 gas vs ~20,000 gas (TSTORE vs SSTORE)
- * - Auto-expiry: Approvals cleared at transaction end
- * - Perfect for: DEX swaps, batch operations, flash loans
- * - Backwards compatible: Works alongside standard approvals
+ * - Time-based expiration (seconds)
+ * - Configurable duration limits (default, min, max)
+ * - Automatic expiry checking
+ * - Reduced security risk from forgotten approvals
  * 
- * Post-Cancun Upgrade (EIP-1153):
- * - TSTORE: Store value in transient storage (~100 gas)
- * - TLOAD: Load value from transient storage (~100 gas)
- * - Auto-cleared after transaction (no SSTORE needed)
+ * Use Cases:
+ * - Short-term DEX approvals
+ * - Time-limited marketplace permissions
+ * - Temporary vault access
+ * - Controlled spender permissions
  */
 interface IERC20TemporaryApprovalModule {
     // ============ Events ============
@@ -25,11 +26,13 @@ interface IERC20TemporaryApprovalModule {
      * @param owner Token owner granting approval
      * @param spender Address allowed to spend
      * @param value Amount approved
+     * @param expiry Expiration timestamp
      */
     event TemporaryApproval(
         address indexed owner,
         address indexed spender,
-        uint256 value
+        uint256 value,
+        uint256 expiry
     );
     
     /**
@@ -46,14 +49,22 @@ interface IERC20TemporaryApprovalModule {
         uint256 remaining
     );
     
+    /**
+     * @notice Emitted when duration configuration is updated
+     * @param defaultDuration New default duration
+     * @param minDuration New minimum duration
+     * @param maxDuration New maximum duration
+     */
+    event DurationConfigUpdated(
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
+    );
+    
     // ============ Errors ============
     
     /**
-     * @notice Thrown when temporary allowance is insufficient
-     * @param owner Token owner
-     * @param spender Address attempting to spend
-     * @param requested Amount requested
-     * @param available Amount available
+     * @notice Thrown when temporary allowance is insufficient or expired
      */
     error InsufficientTemporaryAllowance(
         address owner,
@@ -63,37 +74,27 @@ interface IERC20TemporaryApprovalModule {
     );
     
     /**
+     * @notice Thrown when approval has expired
+     */
+    error ApprovalExpired(address owner, address spender, uint256 expiry);
+    
+    /**
      * @notice Thrown when trying to set approval for zero address
      */
     error InvalidSpender();
     
     /**
-     * @notice Thrown when transient storage is not supported
+     * @notice Thrown when duration is invalid
      */
-    error TransientStorageNotSupported();
+    error InvalidDuration(uint256 duration, uint256 min, uint256 max);
     
     // ============ Core Functions ============
     
     /**
-     * @notice Grant temporary approval that expires after transaction
-     * @dev Uses EIP-1153 transient storage (TSTORE)
+     * @notice Grant temporary approval with default duration
      * @param spender Address allowed to spend tokens
      * @param value Amount to approve
      * @return bool True if approval successful
-     * 
-     * Gas Cost: ~100 gas (vs ~20,000 for standard approve)
-     * 
-     * Requirements:
-     * - spender cannot be zero address
-     * - Must be called on chain with EIP-1153 support (post-Cancun)
-     * 
-     * Example Usage:
-     * ```
-     * // User wants to swap tokens on DEX
-     * token.temporaryApprove(dexRouter, 1000e18);
-     * dexRouter.swap(token, 1000e18);
-     * // Approval auto-expires after transaction
-     * ```
      */
     function temporaryApprove(
         address spender,
@@ -101,17 +102,36 @@ interface IERC20TemporaryApprovalModule {
     ) external returns (bool);
     
     /**
-     * @notice Get current temporary allowance (valid only in same transaction)
-     * @dev Uses EIP-1153 transient storage (TLOAD)
+     * @notice Grant temporary approval with custom duration
+     * @param spender Address allowed to spend tokens
+     * @param value Amount to approve
+     * @param duration Approval duration in seconds (must be between min/max)
+     * @return bool True if approval successful
+     */
+    function temporaryApproveWithDuration(
+        address spender,
+        uint256 value,
+        uint256 duration
+    ) external returns (bool);
+    
+    /**
+     * @notice Get current temporary allowance (checks expiration)
      * @param owner Token owner
      * @param spender Address to check allowance for
-     * @return uint256 Current temporary allowance
-     * 
-     * Gas Cost: ~100 gas (vs ~2,100 for standard allowance)
-     * 
-     * Note: Returns 0 if checked in different transaction than approval
+     * @return uint256 Current temporary allowance (0 if expired)
      */
     function temporaryAllowance(
+        address owner,
+        address spender
+    ) external view returns (uint256);
+    
+    /**
+     * @notice Get temporary allowance expiration time
+     * @param owner Token owner
+     * @param spender Address to check
+     * @return uint256 Expiration timestamp (0 if no approval)
+     */
+    function temporaryAllowanceExpiry(
         address owner,
         address spender
     ) external view returns (uint256);
@@ -140,7 +160,6 @@ interface IERC20TemporaryApprovalModule {
     
     /**
      * @notice Spend temporary allowance (called by token during transferFrom)
-     * @dev Internal function called by token contract
      * @param owner Token owner
      * @param spender Address spending tokens
      * @param value Amount to spend
@@ -155,25 +174,32 @@ interface IERC20TemporaryApprovalModule {
     
     /**
      * @notice Check if temporary approvals are enabled
-     * @return bool True if module is active
      */
     function isTemporaryApprovalEnabled() external view returns (bool);
     
     /**
-     * @notice Check if chain supports EIP-1153 transient storage
-     * @return bool True if transient storage opcodes available
+     * @notice Get duration configuration
+     * @return defaultDuration Default approval duration (seconds)
+     * @return minDuration Minimum allowed duration (seconds)
+     * @return maxDuration Maximum allowed duration (seconds)
      */
-    function supportsTransientStorage() external view returns (bool);
+    function getDurationConfig() external view returns (
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
+    );
+    
+    // ============ Admin Functions ============
     
     /**
-     * @notice Get gas cost savings vs standard approval
-     * @return standardCost Gas cost of standard approve (~20,000)
-     * @return temporaryCost Gas cost of temporary approve (~100)
-     * @return savingsPercent Percentage savings (99.5%)
+     * @notice Update duration configuration
+     * @param defaultDuration New default duration
+     * @param minDuration New minimum duration
+     * @param maxDuration New maximum duration
      */
-    function getGasSavings() external pure returns (
-        uint256 standardCost,
-        uint256 temporaryCost,
-        uint256 savingsPercent
-    );
+    function setDurationConfig(
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
+    ) external;
 }

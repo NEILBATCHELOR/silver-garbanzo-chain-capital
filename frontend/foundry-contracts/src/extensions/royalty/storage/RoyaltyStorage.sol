@@ -25,7 +25,10 @@ contract RoyaltyStorage {
     // Maximum royalty percentage (10000 = 100%)
     uint96 internal constant _FEE_DENOMINATOR = 10000;
     
+    // Configurable maximum royalty cap (protects against abuse)
+    uint96 internal _maxRoyaltyBps;
+    
     // ============ Storage Gap ============
     // Reserve space for future upgrades (50 slots total)
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 }

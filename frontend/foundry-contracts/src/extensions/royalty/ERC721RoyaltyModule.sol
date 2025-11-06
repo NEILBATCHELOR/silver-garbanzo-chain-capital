@@ -45,11 +45,13 @@ contract ERC721RoyaltyModule is
      * @param admin Admin address
      * @param defaultReceiver Default royalty receiver (can be zero address)
      * @param defaultFeeNumerator Default royalty percentage in basis points
+     * @param maxRoyaltyCap Maximum allowed royalty percentage (0 = no cap, default: 1000 = 10%)
      */
     function initialize(
         address admin,
         address defaultReceiver,
-        uint96 defaultFeeNumerator
+        uint96 defaultFeeNumerator,
+        uint96 maxRoyaltyCap
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -57,6 +59,9 @@ contract ERC721RoyaltyModule is
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ROYALTY_MANAGER_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
+        
+        // Set max royalty cap (default 10% if not specified)
+        _maxRoyaltyBps = maxRoyaltyCap > 0 ? maxRoyaltyCap : 1000;
         
         if (defaultReceiver != address(0)) {
             _setDefaultRoyalty(defaultReceiver, defaultFeeNumerator);
@@ -141,11 +146,33 @@ contract ERC721RoyaltyModule is
         isSet = receiver != address(0);
     }
     
+    function getMaxRoyaltyCap()
+        external
+        view
+        returns (uint96)
+    {
+        return _maxRoyaltyBps;
+    }
+    
+    function setMaxRoyaltyCap(uint96 maxRoyaltyBps)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (maxRoyaltyBps > _FEE_DENOMINATOR) {
+            revert InvalidRoyaltyPercentage(maxRoyaltyBps);
+        }
+        _maxRoyaltyBps = maxRoyaltyBps;
+        emit MaxRoyaltyCapSet(maxRoyaltyBps);
+    }
+    
     // ============ Internal Functions ============
     
     function _setDefaultRoyalty(address receiver, uint96 feeNumerator) internal {
         if (feeNumerator > _FEE_DENOMINATOR) {
             revert InvalidRoyaltyPercentage(feeNumerator);
+        }
+        if (_maxRoyaltyBps > 0 && feeNumerator > _maxRoyaltyBps) {
+            revert ExceedsMaxRoyaltyCap(feeNumerator, _maxRoyaltyBps);
         }
         if (receiver == address(0) && feeNumerator > 0) {
             revert InvalidReceiver();
@@ -158,6 +185,9 @@ contract ERC721RoyaltyModule is
     function _setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) internal {
         if (feeNumerator > _FEE_DENOMINATOR) {
             revert InvalidRoyaltyPercentage(feeNumerator);
+        }
+        if (_maxRoyaltyBps > 0 && feeNumerator > _maxRoyaltyBps) {
+            revert ExceedsMaxRoyaltyCap(feeNumerator, _maxRoyaltyBps);
         }
         if (receiver == address(0)) {
             revert InvalidReceiver();

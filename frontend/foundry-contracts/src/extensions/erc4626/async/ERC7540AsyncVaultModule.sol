@@ -61,12 +61,18 @@ contract ERC7540AsyncVaultModule is
      * @param vault_ The ERC-4626 vault address
      * @param minimumFulfillmentDelay_ Minimum delay before fulfillment (seconds)
      * @param maxPendingRequestsPerUser_ Max pending requests per user
+     * @param requestExpiry_ Request expiry time (seconds, 0 = no expiry)
+     * @param minimumRequestAmount_ Minimum request amount
+     * @param partialFulfillmentEnabled_ Allow partial fulfillment
      */
     function initialize(
         address admin,
         address vault_,
         uint256 minimumFulfillmentDelay_,
-        uint256 maxPendingRequestsPerUser_
+        uint256 maxPendingRequestsPerUser_,
+        uint256 requestExpiry_,
+        uint256 minimumRequestAmount_,
+        bool partialFulfillmentEnabled_
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -79,6 +85,9 @@ contract ERC7540AsyncVaultModule is
         asset = IERC20(vault.asset());
         _minimumFulfillmentDelay = minimumFulfillmentDelay_;
         _maxPendingRequestsPerUser = maxPendingRequestsPerUser_;
+        _requestExpiry = requestExpiry_;
+        _minimumRequestAmount = minimumRequestAmount_;
+        _partialFulfillmentEnabled = partialFulfillmentEnabled_;
         _nextRequestId = 1; // Start from 1 (0 is invalid)
     }
     
@@ -96,6 +105,11 @@ contract ERC7540AsyncVaultModule is
         address controller,
         address owner
     ) external override returns (uint256 requestId) {
+        // Check minimum request amount
+        if (_minimumRequestAmount > 0 && assets < _minimumRequestAmount) {
+            revert InvalidAmount();
+        }
+        
         // Check maximum pending requests
         if (_userDepositRequests[owner].length >= _maxPendingRequestsPerUser) {
             revert TooManyPendingRequests();
@@ -134,6 +148,18 @@ contract ERC7540AsyncVaultModule is
         
         if (request.status != RequestStatus.PENDING) revert RequestNotPending();
         if (block.timestamp < request.requestedAt + _minimumFulfillmentDelay) {
+            revert FulfillmentDelayNotMet();
+        }
+        
+        // Check if request has expired
+        if (_requestExpiry > 0 && block.timestamp > request.requestedAt + _requestExpiry) {
+            request.status = RequestStatus.CANCELLED;
+            _pendingDepositAssets -= request.assets;
+            // Return assets to owner
+            asset.safeTransfer(request.owner, request.assets);
+            emit DepositRequestCancelled(requestId);
+            return;
+        }
             revert FulfillmentDelayNotMet();
         }
         
@@ -218,6 +244,14 @@ contract ERC7540AsyncVaultModule is
         address controller,
         address owner
     ) external override returns (uint256 requestId) {
+        // Check minimum request amount (convert shares to assets)
+        if (_minimumRequestAmount > 0) {
+            uint256 assetValue = vault.previewRedeem(shares);
+            if (assetValue < _minimumRequestAmount) {
+                revert InvalidAmount();
+            }
+        }
+        
         // Check maximum pending requests
         if (_userRedeemRequests[owner].length >= _maxPendingRequestsPerUser) {
             revert TooManyPendingRequests();
@@ -257,6 +291,16 @@ contract ERC7540AsyncVaultModule is
         if (request.status != RequestStatus.PENDING) revert RequestNotPending();
         if (block.timestamp < request.requestedAt + _minimumFulfillmentDelay) {
             revert FulfillmentDelayNotMet();
+        }
+        
+        // Check if request has expired
+        if (_requestExpiry > 0 && block.timestamp > request.requestedAt + _requestExpiry) {
+            request.status = RequestStatus.CANCELLED;
+            _pendingRedeemShares -= request.shares;
+            // Return shares to owner
+            IERC20(address(vault)).safeTransfer(request.owner, request.shares);
+            emit RedeemRequestCancelled(requestId);
+            return;
         }
         
         // Calculate assets at current vault exchange rate
@@ -417,6 +461,48 @@ contract ERC7540AsyncVaultModule is
     function setMaxPendingRequestsPerUser(uint256 newMax) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _maxPendingRequestsPerUser = newMax;
         emit MaxPendingRequestsUpdated(newMax);
+    }
+    
+    /**
+     * @notice Get request expiry time
+     */
+    function requestExpiry() external view returns (uint256) {
+        return _requestExpiry;
+    }
+    
+    /**
+     * @notice Set request expiry time (0 = no expiry)
+     */
+    function setRequestExpiry(uint256 expiry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _requestExpiry = expiry;
+    }
+    
+    /**
+     * @notice Get minimum request amount
+     */
+    function minimumRequestAmount() external view returns (uint256) {
+        return _minimumRequestAmount;
+    }
+    
+    /**
+     * @notice Set minimum request amount
+     */
+    function setMinimumRequestAmount(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _minimumRequestAmount = amount;
+    }
+    
+    /**
+     * @notice Check if partial fulfillment is enabled
+     */
+    function isPartialFulfillmentEnabled() external view returns (bool) {
+        return _partialFulfillmentEnabled;
+    }
+    
+    /**
+     * @notice Enable/disable partial fulfillment
+     */
+    function setPartialFulfillmentEnabled(bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _partialFulfillmentEnabled = enabled;
     }
     
     // ============ UUPS Upgrade ============

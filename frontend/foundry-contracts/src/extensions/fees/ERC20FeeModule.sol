@@ -66,6 +66,8 @@ contract ERC20FeeModule is
         tokenContract = token;
         _feeConfig.feeRecipient = feeRecipient;
         _feeConfig.transferFee = initialFeeBasisPoints;
+        _feeConfig.buyFee = 0; // Default 0%
+        _feeConfig.sellFee = 0; // Default 0%
         _feeConfig.maxFee = 0; // 0 = no cap
         _feeConfig.enabled = true;
     }
@@ -76,6 +78,43 @@ contract ERC20FeeModule is
         if (basisPoints > MAX_FEE_BASIS_POINTS) revert FeeExceedsMaximum();
         _feeConfig.transferFee = basisPoints;
         emit TransferFeeUpdated(basisPoints);
+    }
+    
+    /**
+     * @notice Set buy fee (applies when buying from DEX)
+     * @param basisPoints Fee in basis points
+     */
+    function setBuyFee(uint256 basisPoints) external onlyRole(FEE_MANAGER_ROLE) {
+        if (basisPoints > MAX_FEE_BASIS_POINTS) revert FeeExceedsMaximum();
+        _feeConfig.buyFee = basisPoints;
+        emit BuyFeeUpdated(basisPoints);
+    }
+    
+    /**
+     * @notice Set sell fee (applies when selling to DEX)
+     * @param basisPoints Fee in basis points
+     */
+    function setSellFee(uint256 basisPoints) external onlyRole(FEE_MANAGER_ROLE) {
+        if (basisPoints > MAX_FEE_BASIS_POINTS) revert FeeExceedsMaximum();
+        _feeConfig.sellFee = basisPoints;
+        emit SellFeeUpdated(basisPoints);
+    }
+    
+    /**
+     * @notice Register DEX pair for buy/sell fee differentiation
+     * @param pairAddress DEX pair address
+     */
+    function registerDEXPair(address pairAddress) external onlyRole(FEE_MANAGER_ROLE) {
+        _dexPairs[pairAddress] = true;
+        emit DEXPairRegistered(pairAddress);
+    }
+    
+    function unregisterDEXPair(address pairAddress) external onlyRole(FEE_MANAGER_ROLE) {
+        _dexPairs[pairAddress] = false;
+    }
+    
+    function isDEXPair(address addr) public view returns (bool) {
+        return _dexPairs[addr];
     }
     
     function setMaxFee(uint256 maxFee) external override onlyRole(FEE_MANAGER_ROLE) {
@@ -99,6 +138,40 @@ contract ERC20FeeModule is
         if (!_feeConfig.enabled || amount == 0) return 0;
         
         uint256 fee = (amount * _feeConfig.transferFee) / BASIS_POINTS_DIVISOR;
+        
+        // Apply max fee cap if set
+        if (_feeConfig.maxFee > 0 && fee > _feeConfig.maxFee) {
+            fee = _feeConfig.maxFee;
+        }
+        
+        return fee;
+    }
+    
+    /**
+     * @notice Calculate fee with buy/sell differentiation
+     * @param from Sender address
+     * @param to Recipient address
+     * @param amount Transfer amount
+     */
+    function calculateFeeWithContext(address from, address to, uint256 amount) 
+        public 
+        view 
+        returns (uint256) 
+    {
+        if (!_feeConfig.enabled || amount == 0) return 0;
+        
+        uint256 feeRate = _feeConfig.transferFee;
+        
+        // Check if buy transaction (buying from DEX)
+        if (_dexPairs[from] && _feeConfig.buyFee > 0) {
+            feeRate = _feeConfig.buyFee;
+        }
+        // Check if sell transaction (selling to DEX)
+        else if (_dexPairs[to] && _feeConfig.sellFee > 0) {
+            feeRate = _feeConfig.sellFee;
+        }
+        
+        uint256 fee = (amount * feeRate) / BASIS_POINTS_DIVISOR;
         
         // Apply max fee cap if set
         if (_feeConfig.maxFee > 0 && fee > _feeConfig.maxFee) {
@@ -133,6 +206,24 @@ contract ERC20FeeModule is
         emit FeeExemptionGranted(account, reason);
     }
     
+    /**
+     * @notice Batch exempt addresses from fees
+     * @param accounts Array of addresses to exempt
+     */
+    function exemptFromFeesBatch(address[] calldata accounts) 
+        external 
+        onlyRole(FEE_MANAGER_ROLE) 
+    {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _exemptions[accounts[i]] = FeeExemption({
+                isExempt: true,
+                reason: "Batch exemption",
+                addedAt: block.timestamp
+            });
+            emit FeeExemptionGranted(accounts[i], "Batch exemption");
+        }
+    }
+    
     function revokeExemption(address account) external override onlyRole(FEE_MANAGER_ROLE) {
         delete _exemptions[account];
         emit FeeExemptionRevoked(account);
@@ -163,7 +254,8 @@ contract ERC20FeeModule is
             return (0, amount);
         }
         
-        feeAmount = calculateFee(amount);
+        // Use context-aware fee calculation
+        feeAmount = calculateFeeWithContext(from, to, amount);
         netAmount = amount - feeAmount;
         
         if (feeAmount > 0) {
@@ -182,6 +274,14 @@ contract ERC20FeeModule is
         return _totalFeesCollected;
     }
     
+    function getBuyFee() external view returns (uint256) {
+        return _feeConfig.buyFee;
+    }
+    
+    function getSellFee() external view returns (uint256) {
+        return _feeConfig.sellFee;
+    }
+    
     // ============ UUPS Upgrade ============
     
     function _authorizeUpgrade(address newImplementation) 
@@ -189,4 +289,10 @@ contract ERC20FeeModule is
         override 
         onlyRole(UPGRADER_ROLE) 
     {}
+    
+    // ============ Events ============
+    
+    event BuyFeeUpdated(uint256 basisPoints);
+    event SellFeeUpdated(uint256 basisPoints);
+    event DEXPairRegistered(address indexed pairAddress);
 }

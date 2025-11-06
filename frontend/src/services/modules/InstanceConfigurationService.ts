@@ -280,19 +280,19 @@ export class InstanceConfigurationService {
         }
       }
       
-      // TIMELOCK - Reads from timelock_config JSONB
+      // TIMELOCK - Reads from timelock_config JSONB (individual token locks)
       if (config.timelock || config.timelockModuleAddress || config.timelock_config) {
         selection.timelock = true;
         
-        if (config.timelock_config && config.timelock_config.minDelay !== undefined) {
+        if (config.timelock_config && config.timelock_config.defaultLockDuration !== undefined) {
           selection.timelockConfig = {
-            minDelay: config.timelock_config.minDelay || 172800
+            defaultLockDuration: config.timelock_config.defaultLockDuration || 172800
           };
         } else if (config.governance_features && config.governance_features.voting_delay !== undefined) {
           const delayInSeconds = (config.governance_features.voting_delay || 1) * 12;
-          selection.timelockConfig = { minDelay: delayInSeconds };
+          selection.timelockConfig = { defaultLockDuration: delayInSeconds };
         } else {
-          selection.timelockConfig = { minDelay: config.timelock_min_delay || 172800 };
+          selection.timelockConfig = { defaultLockDuration: config.timelock_min_delay || 172800 };
         }
       }
       
@@ -690,17 +690,58 @@ export class InstanceConfigurationService {
 
   private static async configureComplianceModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
     console.log('Configuring compliance module');
+    
+    // Set KYC and whitelist requirements
     if (config.kycRequired !== undefined) {
       const tx = await module.setKYCRequired(config.kycRequired);
       txHashes.push((await tx.wait()).transactionHash);
     }
+    
     if (config.whitelistRequired !== undefined) {
       const tx = await module.setWhitelistRequired(config.whitelistRequired);
       txHashes.push((await tx.wait()).transactionHash);
     }
-    if (config.allowedJurisdictions?.length) {
-      for (const jurisdiction of config.allowedJurisdictions) {
-        const tx = await module.allowJurisdiction(jurisdiction);
+    
+    // Set accredited investor only requirement
+    if (config.accreditedInvestorOnly !== undefined) {
+      const tx = await module.setAccreditedOnly(config.accreditedInvestorOnly);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Batch whitelist addresses
+    if (config.whitelistAddresses?.length > 0) {
+      console.log(`Batch whitelisting ${config.whitelistAddresses.length} addresses`);
+      const jurisdictions = config.whitelistAddresses.map(() => 
+        ethers.encodeBytes32String('')
+      );
+      const tx = await module.addToWhitelistBatch(config.whitelistAddresses, jurisdictions);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure jurisdiction rules
+    if (config.jurisdictionRules?.length > 0) {
+      console.log(`Configuring ${config.jurisdictionRules.length} jurisdiction rules`);
+      for (const rule of config.jurisdictionRules) {
+        const jurisdictionBytes = ethers.encodeBytes32String(rule.jurisdiction);
+        
+        // Set allowed status
+        const tx1 = await module.setJurisdictionAllowed(jurisdictionBytes, rule.allowed);
+        txHashes.push((await tx1.wait()).transactionHash);
+        
+        // Set limit if specified
+        if (rule.limit) {
+          const tx2 = await module.setJurisdictionLimit(jurisdictionBytes, rule.limit);
+          txHashes.push((await tx2.wait()).transactionHash);
+        }
+      }
+    }
+    
+    // Handle restricted countries (map to jurisdiction rules)
+    if (config.restrictedCountries?.length > 0) {
+      console.log(`Restricting ${config.restrictedCountries.length} countries`);
+      for (const country of config.restrictedCountries) {
+        const countryBytes = ethers.encodeBytes32String(country);
+        const tx = await module.setJurisdictionAllowed(countryBytes, false);
         txHashes.push((await tx.wait()).transactionHash);
       }
     }

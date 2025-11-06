@@ -16,10 +16,16 @@ abstract contract NativeVaultStorage {
     /// @dev Returns 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for asset()
     address internal constant NATIVE_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     
+    /// @notice Enable native ETH deposits with automatic wrapping
+    bool internal _acceptNativeToken;
+    
+    /// @notice Automatically unwrap to native ETH on withdrawal
+    bool internal _unwrapOnWithdrawal;
+    
     // ============ Storage Gap ============
     
     /**
      * @dev Storage gap for future storage layout changes
      */
-    uint256[48] private __gap;
+    uint256[46] private __gap;
 }

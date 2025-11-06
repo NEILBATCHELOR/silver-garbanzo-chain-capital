@@ -47,10 +47,22 @@ contract ERC721FractionModule is
      * @notice Initialize fractionalization module
      * @param admin Admin address
      * @param _nftContract NFT contract address
+     * @param minFractions Minimum fractions per NFT (default: 100)
+     * @param maxFractions Maximum fractions per NFT (0 = unlimited)
+     * @param buyoutMultiplierBps Buyout multiplier in basis points (e.g., 150 = 1.5x)
+     * @param redemptionEnabled Whether redemption is allowed
+     * @param fractionPrice Price per fraction in wei (0 = no fixed price)
+     * @param tradingEnabled Whether fraction trading is enabled
      */
     function initialize(
         address admin,
-        address _nftContract
+        address _nftContract,
+        uint256 minFractions,
+        uint256 maxFractions,
+        uint256 buyoutMultiplierBps,
+        bool redemptionEnabled,
+        uint256 fractionPrice,
+        bool tradingEnabled
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -61,6 +73,14 @@ contract ERC721FractionModule is
         _grantRole(UPGRADER_ROLE, admin);
         
         nftContract = _nftContract;
+        
+        // Set defaults
+        _minFractions = minFractions > 0 ? minFractions : 100;
+        _maxFractions = maxFractions; // 0 = unlimited
+        _buyoutMultiplierBps = buyoutMultiplierBps > 0 ? buyoutMultiplierBps : 150; // Default 1.5x
+        _redemptionEnabled = redemptionEnabled;
+        _fractionPrice = fractionPrice; // 0 = no fixed price
+        _tradingEnabled = tradingEnabled;
     }
     
     // ============ Fractionalization ============
@@ -81,6 +101,14 @@ contract ERC721FractionModule is
     ) external nonReentrant returns (address shareToken) {
         if (_shareTokens[tokenId] != address(0)) {
             revert AlreadyFractionalized(tokenId);
+        }
+        
+        // Validate share count
+        if (shares < _minFractions) {
+            revert InvalidFractionCount(shares);
+        }
+        if (_maxFractions > 0 && shares > _maxFractions) {
+            revert InvalidFractionCount(shares);
         }
         
         // Transfer NFT to this contract
@@ -106,6 +134,10 @@ contract ERC721FractionModule is
      * @param tokenId Token to redeem
      */
     function redeem(uint256 tokenId) external nonReentrant {
+        if (!_redemptionEnabled) {
+            revert RedemptionDisabled();
+        }
+        
         address shareToken = _shareTokens[tokenId];
         if (shareToken == address(0)) {
             revert NotFractionalized(tokenId);
@@ -126,6 +158,7 @@ contract ERC721FractionModule is
         // Clean up
         delete _shareTokens[tokenId];
         delete _totalShares[tokenId];
+        delete _buyoutPrices[tokenId];
         
         emit Redeemed(tokenId, msg.sender);
     }
@@ -157,6 +190,100 @@ contract ERC721FractionModule is
      */
     function getTotalShares(uint256 tokenId) external view returns (uint256 shares) {
         return _totalShares[tokenId];
+    }
+    
+    // ============ Buyout Mechanism ============
+    
+    /**
+     * @notice Initiate buyout of fractionalized NFT
+     * @param tokenId Token to buy out
+     */
+    function initiateBuyout(uint256 tokenId) external payable nonReentrant {
+        address shareToken = _shareTokens[tokenId];
+        if (shareToken == address(0)) {
+            revert NotFractionalized(tokenId);
+        }
+        
+        // Calculate required buyout price
+        uint256 totalShares = _totalShares[tokenId];
+        uint256 requiredPrice = (totalShares * _buyoutMultiplierBps) / 100; // Simplified calculation
+        
+        if (msg.value < requiredPrice) {
+            revert InsufficientBuyoutPrice(msg.value, requiredPrice);
+        }
+        
+        // Store buyout price for shareholders to claim
+        _buyoutPrices[tokenId] = msg.value;
+        
+        // Transfer NFT to buyer
+        IERC721(nftContract).transferFrom(address(this), msg.sender, tokenId);
+        
+        emit BuyoutInitiated(tokenId, msg.sender, msg.value);
+        emit BuyoutCompleted(tokenId, msg.sender);
+        
+        // Note: In production, would need mechanism for shareholders to claim their share
+        // This simplified version demonstrates the concept
+    }
+    
+    // ============ Configuration Functions ============
+    
+    /**
+     * @notice Get configuration parameters
+     */
+    function getConfiguration() external view returns (
+        uint256 minFractions,
+        uint256 maxFractions,
+        uint256 buyoutMultiplier,
+        bool redemptionEnabled,
+        uint256 fractionPrice,
+        bool tradingEnabled
+    ) {
+        return (
+            _minFractions,
+            _maxFractions,
+            _buyoutMultiplierBps,
+            _redemptionEnabled,
+            _fractionPrice,
+            _tradingEnabled
+        );
+    }
+    
+    /**
+     * @notice Set configuration parameters
+     */
+    function setConfiguration(
+        uint256 minFractions,
+        uint256 maxFractions,
+        uint256 buyoutMultiplierBps,
+        bool redemptionEnabled,
+        uint256 fractionPrice,
+        bool tradingEnabled
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(minFractions > 0, "Min fractions must be > 0");
+        require(maxFractions == 0 || maxFractions >= minFractions, "Max must be >= min");
+        require(buyoutMultiplierBps >= 100, "Multiplier must be >= 1.0x");
+        
+        uint256 oldPrice = _fractionPrice;
+        
+        _minFractions = minFractions;
+        _maxFractions = maxFractions;
+        _buyoutMultiplierBps = buyoutMultiplierBps;
+        _redemptionEnabled = redemptionEnabled;
+        _fractionPrice = fractionPrice;
+        _tradingEnabled = tradingEnabled;
+        
+        emit ConfigurationUpdated(
+            minFractions, 
+            maxFractions, 
+            buyoutMultiplierBps, 
+            redemptionEnabled,
+            fractionPrice,
+            tradingEnabled
+        );
+        
+        if (oldPrice != fractionPrice) {
+            emit FractionPriceUpdated(oldPrice, fractionPrice);
+        }
     }
     
     // ============ Admin Functions ============

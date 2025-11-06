@@ -1,7 +1,7 @@
 /**
  * Timelock Module Configuration Component
- * ✅ ENHANCED: Complete timelock with proposers and executors
- * Handles timelock delay settings with role management
+ * ✅ ENHANCED: Token timelock (individual locks, not governance)
+ * Handles token locking with configurable durations and lock managers
  */
 
 import React from 'react';
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Plus, Trash2, Clock, Shield } from 'lucide-react';
+import { Info, Plus, Trash2, Lock, Clock, Shield } from 'lucide-react';
 import type { ModuleConfigProps, TimelockModuleConfig } from '../types';
 
 export function TimelockModuleConfigPanel({
@@ -30,30 +30,40 @@ export function TimelockModuleConfigPanel({
     } else {
       onChange({
         enabled: true,
-        minDelay: config.minDelay || 86400, // Default 1 day
-        gracePeriod: config.gracePeriod || 604800, // Default 7 days
-        proposers: config.proposers || [],
-        executors: config.executors || []
+        minLockDuration: config.minLockDuration || 3600, // Default 1 hour
+        maxLockDuration: config.maxLockDuration || 31536000, // Default 1 year
+        lockManagers: config.lockManagers || [],
+        allowExtension: config.allowExtension !== false // Default true
       });
     }
   };
 
-  const handleDelayChange = (value: string) => {
-    const delay = parseInt(value);
-    if (!isNaN(delay) && delay >= 0) {
+  const handleMinDurationChange = (value: string) => {
+    const duration = parseInt(value);
+    if (!isNaN(duration) && duration >= 0) {
       onChange({
         ...config,
-        minDelay: delay
+        minLockDuration: duration
       });
     }
   };
 
-  const handleGracePeriodChange = (value: string) => {
-    const period = parseInt(value);
-    if (!isNaN(period) && period >= 0) {
+  const handleMaxDurationChange = (value: string) => {
+    const duration = parseInt(value);
+    if (!isNaN(duration) && duration >= 0) {
       onChange({
         ...config,
-        gracePeriod: period
+        maxLockDuration: duration
+      });
+    }
+  };
+
+  const handleDefaultDurationChange = (value: string) => {
+    const duration = parseInt(value);
+    if (!isNaN(duration) && duration >= 0) {
+      onChange({
+        ...config,
+        defaultLockDuration: duration
       });
     }
   };
@@ -71,55 +81,29 @@ export function TimelockModuleConfigPanel({
     return parts.length > 0 ? parts.join(' ') : '0m';
   };
 
-  // Proposers Management
-  const addProposer = () => {
+  // Lock Managers Management
+  const addLockManager = () => {
     onChange({
       ...config,
-      proposers: [...(config.proposers || []), '']
+      lockManagers: [...(config.lockManagers || []), '']
     });
   };
 
-  const removeProposer = (index: number) => {
-    const newProposers = [...(config.proposers || [])];
-    newProposers.splice(index, 1);
+  const removeLockManager = (index: number) => {
+    const newManagers = [...(config.lockManagers || [])];
+    newManagers.splice(index, 1);
     onChange({
       ...config,
-      proposers: newProposers
+      lockManagers: newManagers
     });
   };
 
-  const updateProposer = (index: number, value: string) => {
-    const newProposers = [...(config.proposers || [])];
-    newProposers[index] = value;
+  const updateLockManager = (index: number, value: string) => {
+    const newManagers = [...(config.lockManagers || [])];
+    newManagers[index] = value;
     onChange({
       ...config,
-      proposers: newProposers
-    });
-  };
-
-  // Executors Management
-  const addExecutor = () => {
-    onChange({
-      ...config,
-      executors: [...(config.executors || []), '']
-    });
-  };
-
-  const removeExecutor = (index: number) => {
-    const newExecutors = [...(config.executors || [])];
-    newExecutors.splice(index, 1);
-    onChange({
-      ...config,
-      executors: newExecutors
-    });
-  };
-
-  const updateExecutor = (index: number, value: string) => {
-    const newExecutors = [...(config.executors || [])];
-    newExecutors[index] = value;
-    onChange({
-      ...config,
-      executors: newExecutors
+      lockManagers: newManagers
     });
   };
 
@@ -128,9 +112,9 @@ export function TimelockModuleConfigPanel({
       {/* Main Toggle */}
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <Label className="text-sm font-medium">Timelock Controller</Label>
+          <Label className="text-sm font-medium">Token Timelock</Label>
           <p className="text-xs text-muted-foreground">
-            Delay administrative actions to provide transparency and security
+            Lock tokens for specific durations with customizable constraints
           </p>
         </div>
         <Switch
@@ -145,152 +129,146 @@ export function TimelockModuleConfigPanel({
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Delay administrative actions to provide transparency and security.
-              Governance proposals must wait the minimum delay before execution.
+              Token timelock allows users to lock their tokens for specific durations.
+              Useful for vesting, staking rewards, or voluntary lock-ups.
             </AlertDescription>
           </Alert>
 
-          {/* Delay Settings */}
+          {/* Lock Duration Settings */}
           <Card className="p-4">
             <div className="space-y-4">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Delay Settings
+                Lock Duration Constraints
               </Label>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Minimum Delay */}
+              <div className="grid grid-cols-3 gap-4">
+                {/* Minimum Lock Duration */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Minimum Delay (seconds) *</Label>
+                  <Label className="text-xs">Minimum Duration (seconds)</Label>
                   <Input
                     type="number"
                     min="0"
                     step="3600"
-                    value={config.minDelay}
-                    onChange={(e) => handleDelayChange(e.target.value)}
+                    value={config.minLockDuration || 3600}
+                    onChange={(e) => handleMinDurationChange(e.target.value)}
+                    disabled={disabled}
+                    placeholder="3600"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Min: {formatDuration(config.minLockDuration || 3600)}
+                  </p>
+                </div>
+
+                {/* Maximum Lock Duration */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Maximum Duration (seconds)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="86400"
+                    value={config.maxLockDuration || 31536000}
+                    onChange={(e) => handleMaxDurationChange(e.target.value)}
+                    disabled={disabled}
+                    placeholder="31536000"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Max: {formatDuration(config.maxLockDuration || 31536000)}
+                  </p>
+                </div>
+
+                {/* Default Lock Duration */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Default Duration (optional)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="86400"
+                    value={config.defaultLockDuration || ''}
+                    onChange={(e) => handleDefaultDurationChange(e.target.value)}
                     disabled={disabled}
                     placeholder="86400"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Current delay: {formatDuration(config.minDelay)}
-                  </p>
-                  {errors?.['minDelay'] && (
-                    <p className="text-xs text-destructive">{errors['minDelay']}</p>
+                  {config.defaultLockDuration && (
+                    <p className="text-xs text-muted-foreground">
+                      Default: {formatDuration(config.defaultLockDuration)}
+                    </p>
                   )}
-                </div>
-
-                {/* Grace Period */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Grace Period (seconds)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="3600"
-                    value={config.gracePeriod || 604800}
-                    onChange={(e) => handleGracePeriodChange(e.target.value)}
-                    disabled={disabled}
-                    placeholder="604800"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Current: {formatDuration(config.gracePeriod || 604800)}
-                  </p>
                 </div>
               </div>
 
-              {/* Common Values Helper */}
+              {/* Common Duration Values Helper */}
               <div className="text-xs text-muted-foreground space-y-1">
-                <p className="font-medium">Common delay values:</p>
-                <ul className="list-disc list-inside pl-2">
-                  <li>1 hour = 3600</li>
-                  <li>1 day = 86400</li>
-                  <li>2 days = 172800</li>
-                  <li>1 week = 604800</li>
-                </ul>
+                <p className="font-medium">Common duration values:</p>
+                <div className="grid grid-cols-2 gap-x-4">
+                  <ul className="list-disc list-inside pl-2">
+                    <li>1 hour = 3,600</li>
+                    <li>1 day = 86,400</li>
+                    <li>1 week = 604,800</li>
+                  </ul>
+                  <ul className="list-disc list-inside pl-2">
+                    <li>1 month = 2,592,000</li>
+                    <li>3 months = 7,776,000</li>
+                    <li>1 year = 31,536,000</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </Card>
 
-          {/* Proposers */}
-          <div className="space-y-3">
+          {/* Lock Extension Setting */}
+          <Card className="p-4">
             <div className="flex items-center justify-between">
-              <Label className="text-sm flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                Proposer Addresses
-              </Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addProposer}
-                disabled={disabled}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Proposer
-              </Button>
-            </div>
-
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                Proposers can schedule actions to be executed after the delay period. 
-                {(!config.proposers || config.proposers.length === 0) && ' Add at least one proposer address.'}
-              </AlertDescription>
-            </Alert>
-
-            {config.proposers && config.proposers.map((proposer, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  value={proposer}
-                  onChange={(e) => updateProposer(index, e.target.value)}
-                  disabled={disabled}
-                  placeholder="0x..."
-                  className="font-mono text-sm flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeProposer(index)}
-                  disabled={disabled}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div className="space-y-0.5">
+                <Label className="text-sm flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Allow Lock Extension
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Permit users to extend their lock durations
+                </p>
               </div>
-            ))}
-          </div>
+              <Switch
+                checked={config.allowExtension !== false}
+                onCheckedChange={(checked) => onChange({ ...config, allowExtension: checked })}
+                disabled={disabled}
+              />
+            </div>
+          </Card>
 
-          {/* Executors */}
+          {/* Lock Managers */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                Executor Addresses
+                Lock Manager Addresses
               </Label>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={addExecutor}
+                onClick={addLockManager}
                 disabled={disabled}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Executor
+                Add Manager
               </Button>
             </div>
 
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                Executors can execute actions after the delay period has passed. 
-                {(!config.executors || config.executors.length === 0) && ' Add at least one executor address.'}
+                Lock managers can cancel active locks in emergency situations. 
+                {(!config.lockManagers || config.lockManagers.length === 0) && 
+                  ' Add manager addresses to enable lock cancellation.'}
               </AlertDescription>
             </Alert>
 
-            {config.executors && config.executors.map((executor, index) => (
+            {config.lockManagers && config.lockManagers.map((manager, index) => (
               <div key={index} className="flex gap-2">
                 <Input
-                  value={executor}
-                  onChange={(e) => updateExecutor(index, e.target.value)}
+                  value={manager}
+                  onChange={(e) => updateLockManager(index, e.target.value)}
                   disabled={disabled}
                   placeholder="0x..."
                   className="font-mono text-sm flex-1"
@@ -299,7 +277,7 @@ export function TimelockModuleConfigPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => removeExecutor(index)}
+                  onClick={() => removeLockManager(index)}
                   disabled={disabled}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -314,32 +292,52 @@ export function TimelockModuleConfigPanel({
               <Label className="text-sm font-medium">Timelock Summary</Label>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Min Delay:</span>
-                  <span className="font-semibold">{formatDuration(config.minDelay)}</span>
+                  <span className="text-muted-foreground">Min Lock:</span>
+                  <span className="font-semibold">
+                    {formatDuration(config.minLockDuration || 3600)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Grace Period:</span>
-                  <span className="font-semibold">{formatDuration(config.gracePeriod || 604800)}</span>
+                  <span className="text-muted-foreground">Max Lock:</span>
+                  <span className="font-semibold">
+                    {formatDuration(config.maxLockDuration || 31536000)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Proposers:</span>
-                  <span className="font-semibold">{config.proposers?.length || 0}</span>
+                  <span className="text-muted-foreground">Extension:</span>
+                  <span className="font-semibold">
+                    {config.allowExtension !== false ? 'Allowed' : 'Disabled'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Executors:</span>
-                  <span className="font-semibold">{config.executors?.length || 0}</span>
+                  <span className="text-muted-foreground">Managers:</span>
+                  <span className="font-semibold">{config.lockManagers?.length || 0}</span>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* Info Alert */}
+          {/* How Token Locks Work */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-xs space-y-2">
+              <p><strong>How token locks work:</strong></p>
+              <ul className="list-disc list-inside space-y-1 pl-2">
+                <li>Users can lock specific amounts of their tokens for chosen durations</li>
+                <li>Locked tokens cannot be transferred until the lock expires</li>
+                <li>Multiple concurrent locks per user are supported</li>
+                <li>Users can unlock tokens after expiration or extend lock durations</li>
+                <li>Lock managers can cancel locks in emergency situations</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+
+          {/* Pre-deployment Notice */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              <strong>Pre-deployment configuration:</strong> Timelock settings will be configured 
-              automatically during deployment. Actions must be proposed, wait the minimum delay, 
-              then be executed within the grace period.
+              <strong>Pre-deployment configuration:</strong> Timelock constraints and managers will be 
+              configured during deployment. Users will create individual locks through the token contract.
             </AlertDescription>
           </Alert>
         </>

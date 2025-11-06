@@ -8,5 +8,8 @@ contract ConsecutiveStorage {
     // Track consecutive mint batches
     mapping(uint256 => bool) internal _isConsecutiveBatch;
     
-    uint256[48] private __gap;
+    // Maximum batch size for consecutive mints
+    uint256 internal _maxBatchSize;
+    
+    uint256[47] private __gap;
 }

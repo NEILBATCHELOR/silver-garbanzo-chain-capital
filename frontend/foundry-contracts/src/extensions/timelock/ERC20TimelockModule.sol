@@ -33,8 +33,19 @@ contract ERC20TimelockModule is
     
     /**
      * @notice Initialize timelock module
+     * @param admin Admin address
+     * @param token Token contract address
+     * @param minDuration Minimum lock duration (default: 1 hour)
+     * @param maxDuration Maximum lock duration (default: 1 year)
+     * @param allowExt Whether to allow lock extension
      */
-    function initialize(address admin, address token) public initializer {
+    function initialize(
+        address admin, 
+        address token,
+        uint256 minDuration,
+        uint256 maxDuration,
+        bool allowExt
+    ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
         
@@ -43,6 +54,11 @@ contract ERC20TimelockModule is
         _grantRole(UPGRADER_ROLE, admin);
         
         tokenContract = token;
+        
+        // Set defaults if not provided
+        _minLockDuration = minDuration > 0 ? minDuration : 3600; // Default: 1 hour
+        _maxLockDuration = maxDuration > 0 ? maxDuration : 31536000; // Default: 1 year
+        _allowExtension = allowExt;
     }
     
     // ============ Lock Management ============
@@ -57,6 +73,10 @@ contract ERC20TimelockModule is
     ) external override returns (uint256 lockId) {
         if (amount == 0) revert InsufficientBalance();
         if (duration == 0) revert InvalidUnlockTime();
+        
+        // Validate duration constraints
+        if (duration < _minLockDuration) revert DurationBelowMinimum();
+        if (_maxLockDuration > 0 && duration > _maxLockDuration) revert DurationAboveMaximum();
         
         lockId = _lockCount[msg.sender]++;
         uint256 unlockTime = block.timestamp + duration;
@@ -112,13 +132,23 @@ contract ERC20TimelockModule is
      * @notice Extend lock duration
      */
     function extendLock(uint256 lockId, uint256 additionalTime) external override {
+        if (!_allowExtension) revert ExtensionNotAllowed();
+        
         Lock storage lock = _locks[msg.sender][lockId];
         
         if (!lock.active) revert LockNotActive();
         if (additionalTime == 0) revert InvalidUnlockTime();
         
-        lock.unlockTime += additionalTime;
-        emit LockExtended(msg.sender, lockId, lock.unlockTime);
+        uint256 newUnlockTime = lock.unlockTime + additionalTime;
+        uint256 totalDuration = newUnlockTime - lock.createdAt;
+        
+        // Validate new total duration doesn't exceed max
+        if (_maxLockDuration > 0 && totalDuration > _maxLockDuration) {
+            revert DurationAboveMaximum();
+        }
+        
+        lock.unlockTime = newUnlockTime;
+        emit LockExtended(msg.sender, lockId, newUnlockTime);
     }
     
     /**
@@ -216,6 +246,56 @@ contract ERC20TimelockModule is
         }
         
         return lock.unlockTime - block.timestamp;
+    }
+    
+    // ============ Configuration Functions ============
+    
+    /**
+     * @notice Get lock configuration
+     */
+    function getLockConfiguration() 
+        external 
+        view 
+        override 
+        returns (
+            uint256 minDuration,
+            uint256 maxDuration,
+            uint256 defaultDuration,
+            bool extensionAllowed
+        ) 
+    {
+        return (
+            _minLockDuration,
+            _maxLockDuration,
+            _defaultLockDuration,
+            _allowExtension
+        );
+    }
+    
+    /**
+     * @notice Set lock duration constraints
+     */
+    function setLockDurationConstraints(
+        uint256 minDuration,
+        uint256 maxDuration,
+        uint256 defaultDuration
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(minDuration > 0, "Min duration must be > 0");
+        require(maxDuration >= minDuration, "Max must be >= min");
+        require(defaultDuration == 0 || 
+                (defaultDuration >= minDuration && defaultDuration <= maxDuration),
+                "Default must be in range");
+        
+        _minLockDuration = minDuration;
+        _maxLockDuration = maxDuration;
+        _defaultLockDuration = defaultDuration;
+    }
+    
+    /**
+     * @notice Set whether lock extension is allowed
+     */
+    function setExtensionAllowed(bool allowed) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        _allowExtension = allowed;
     }
     
     // ============ UUPS Upgrade ============

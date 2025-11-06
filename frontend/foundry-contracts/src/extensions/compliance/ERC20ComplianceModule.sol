@@ -53,6 +53,7 @@ contract ERC20ComplianceModule is
         
         _kycRequired = kycRequired;
         _whitelistRequired = whitelistRequired;
+        _accreditedOnly = false; // Default: allow all verified investors
     }
     
     // ============ Whitelist Management ============
@@ -68,6 +69,26 @@ contract ERC20ComplianceModule is
         emit InvestorWhitelisted(investor, jurisdiction);
     }
     
+    /**
+     * @notice Batch add investors to whitelist
+     * @param investors Array of investor addresses
+     * @param jurisdictions Array of jurisdictions (must match length)
+     */
+    function addToWhitelistBatch(
+        address[] calldata investors,
+        bytes32[] calldata jurisdictions
+    ) external onlyRole(COMPLIANCE_OFFICER_ROLE) {
+        require(investors.length == jurisdictions.length, "Length mismatch");
+        
+        for (uint256 i = 0; i < investors.length; i++) {
+            _investors[investors[i]].whitelisted = true;
+            _investors[investors[i]].jurisdiction = jurisdictions[i];
+            _investors[investors[i]].addedAt = block.timestamp;
+            
+            emit InvestorWhitelisted(investors[i], jurisdictions[i]);
+        }
+    }
+    
     function removeFromWhitelist(address investor) 
         external 
         onlyRole(COMPLIANCE_OFFICER_ROLE) 
@@ -81,6 +102,40 @@ contract ERC20ComplianceModule is
     
     function getJurisdiction(address investor) external view returns (bytes32) {
         return _investors[investor].jurisdiction;
+    }
+    
+    // ============ Investor Type Management ============
+    
+    /**
+     * @notice Set investor type (retail, accredited, institutional)
+     * @param investor Investor address
+     * @param investorType Type: 0=Retail, 1=Accredited, 2=Institutional
+     */
+    function setInvestorType(address investor, uint8 investorType)
+        external
+        onlyRole(COMPLIANCE_OFFICER_ROLE)
+    {
+        require(investorType <= 2, "Invalid investor type");
+        _investors[investor].investorType = investorType;
+    }
+    
+    /**
+     * @notice Set whether only accredited investors can hold tokens
+     * @param required True to restrict to accredited only
+     */
+    function setAccreditedOnly(bool required)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _accreditedOnly = required;
+    }
+    
+    function isAccreditedOnly() external view returns (bool) {
+        return _accreditedOnly;
+    }
+    
+    function getInvestorType(address investor) external view returns (uint8) {
+        return _investors[investor].investorType;
     }
     
     // ============ Blacklist Management ============
@@ -114,6 +169,23 @@ contract ERC20ComplianceModule is
     {
         _jurisdictionLimits[jurisdiction] = limit;
         emit JurisdictionLimitSet(jurisdiction, limit);
+    }
+    
+    /**
+     * @notice Set jurisdiction allowed status
+     * @param jurisdiction Jurisdiction code (e.g., keccak256("US"))
+     * @param allowed Whether jurisdiction is allowed
+     */
+    function setJurisdictionAllowed(bytes32 jurisdiction, bool allowed)
+        external
+        onlyRole(COMPLIANCE_OFFICER_ROLE)
+    {
+        _jurisdictionAllowed[jurisdiction] = allowed;
+    }
+    
+    function isJurisdictionAllowed(bytes32 jurisdiction) external view returns (bool) {
+        // If not set, default to allowed
+        return _jurisdictionAllowed[jurisdiction] != false;
     }
     
     function getJurisdictionHoldings(bytes32 jurisdiction) 
@@ -153,6 +225,23 @@ contract ERC20ComplianceModule is
     {
         _investors[investor].kycVerified = verified;
         emit KYCStatusUpdated(investor, verified);
+    }
+    
+    /**
+     * @notice Batch set KYC status
+     * @param investors Array of investor addresses
+     * @param verified Array of verification statuses
+     */
+    function setKYCStatusBatch(
+        address[] calldata investors,
+        bool[] calldata verified
+    ) external onlyRole(COMPLIANCE_OFFICER_ROLE) {
+        require(investors.length == verified.length, "Length mismatch");
+        
+        for (uint256 i = 0; i < investors.length; i++) {
+            _investors[investors[i]].kycVerified = verified[i];
+            emit KYCStatusUpdated(investors[i], verified[i]);
+        }
     }
     
     function isKYCRequired() external view returns (bool) {
@@ -207,9 +296,22 @@ contract ERC20ComplianceModule is
             }
         }
         
-        // Check jurisdiction limits
+        // Check accredited investor requirement
+        if (_accreditedOnly) {
+            // Type: 0=Retail, 1=Accredited, 2=Institutional
+            if (_investors[to].investorType == 0) {
+                return (false, "Recipient must be accredited investor");
+            }
+        }
+        
+        // Check jurisdiction allowed
         bytes32 toJurisdiction = _investors[to].jurisdiction;
         if (toJurisdiction != bytes32(0)) {
+            if (_jurisdictionAllowed[toJurisdiction] == false) {
+                return (false, "Jurisdiction not allowed");
+            }
+            
+            // Check jurisdiction limits
             uint256 limit = _jurisdictionLimits[toJurisdiction];
             if (limit > 0) {
                 uint256 currentHoldings = _jurisdictionHoldings[toJurisdiction];

@@ -39,4 +39,10 @@ interface IERC721ConsecutiveModule {
         address[] memory recipients,
         uint96[] memory amounts
     ) external;
+    
+    /**
+     * @notice Get maximum batch size
+     * @return maxSize Maximum tokens per batch
+     */
+    function getMaxBatchSize() external view returns (uint256 maxSize);
 }

@@ -47,11 +47,21 @@ contract ERC721RentalModule is
      * @param admin Admin address
      * @param recipient Platform fee recipient
      * @param feeBps Platform fee in basis points (250 = 2.5%)
+     * @param minDuration Minimum rental duration in seconds
+     * @param maxDuration Maximum rental duration in seconds
+     * @param minPrice Minimum rental price per day
+     * @param depositRequired Whether deposits are required
+     * @param depositBps Minimum deposit in basis points (1000 = 10%)
      */
     function initialize(
         address admin,
         address recipient,
-        uint256 feeBps
+        uint256 feeBps,
+        uint256 minDuration,
+        uint256 maxDuration,
+        uint256 minPrice,
+        bool depositRequired,
+        uint256 depositBps
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -63,6 +73,13 @@ contract ERC721RentalModule is
         
         _feeRecipient = recipient;
         _platformFeeBps = feeBps;
+        _minRentalDuration = minDuration;
+        _maxRentalDuration = maxDuration;
+        _minRentalPrice = minPrice;
+        _depositRequired = depositRequired;
+        _minDepositBps = depositBps;
+        _autoReturnEnabled = true; // Default enabled
+        _subRentalsAllowed = false; // Default disabled
     }
     
     // ============ Rental Management ============
@@ -72,6 +89,8 @@ contract ERC721RentalModule is
     {
         // Note: Ownership verification should be done by the calling NFT contract
         if (_rentals[tokenId].active) revert RentalActive();
+        if (pricePerDay < _minRentalPrice) revert("Price too low");
+        if (maxDuration > _maxRentalDuration && _maxRentalDuration > 0) revert MaxDurationExceeded();
         
         _listings[tokenId] = ListingInfo({
             pricePerDay: pricePerDay,
@@ -99,13 +118,19 @@ contract ERC721RentalModule is
         if (!listing.isListed) revert NotListedForRent();
         if (_rentals[tokenId].active) revert RentalActive();
         if (duration > listing.maxDuration) revert MaxDurationExceeded();
+        if (duration < _minRentalDuration) revert InvalidDuration();
         if (duration == 0) revert InvalidDuration();
         
         // Calculate costs
         uint256 numDays = (duration + SECONDS_PER_DAY - 1) / SECONDS_PER_DAY; // Round up
         uint256 totalPrice = listing.pricePerDay * numDays;
         uint256 feeAmount = (totalPrice * _platformFeeBps) / BASIS_POINTS;
-        uint256 deposit = totalPrice / 10; // 10% security deposit
+        
+        // Calculate deposit
+        uint256 deposit = 0;
+        if (_depositRequired) {
+            deposit = (totalPrice * _minDepositBps) / BASIS_POINTS;
+        }
         
         if (msg.value < totalPrice + deposit) revert InsufficientPayment();
         
@@ -209,6 +234,67 @@ contract ERC721RentalModule is
     
     function platformFee() external view returns (uint256) {
         return _platformFeeBps;
+    }
+    
+    // ============ Rental Configuration Getters ============
+    
+    function minRentalDuration() external view returns (uint256) {
+        return _minRentalDuration;
+    }
+    
+    function maxRentalDuration() external view returns (uint256) {
+        return _maxRentalDuration;
+    }
+    
+    function minRentalPrice() external view returns (uint256) {
+        return _minRentalPrice;
+    }
+    
+    function depositRequired() external view returns (bool) {
+        return _depositRequired;
+    }
+    
+    function minDepositBps() external view returns (uint256) {
+        return _minDepositBps;
+    }
+    
+    function autoReturnEnabled() external view returns (bool) {
+        return _autoReturnEnabled;
+    }
+    
+    function subRentalsAllowed() external view returns (bool) {
+        return _subRentalsAllowed;
+    }
+    
+    // ============ Rental Configuration Setters ============
+    
+    function setMinRentalDuration(uint256 duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _minRentalDuration = duration;
+    }
+    
+    function setMaxRentalDuration(uint256 duration) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _maxRentalDuration = duration;
+    }
+    
+    function setMinRentalPrice(uint256 price) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _minRentalPrice = price;
+    }
+    
+    function setDepositRequired(bool required) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _depositRequired = required;
+    }
+    
+    function setMinDepositBps(uint256 bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(bps <= BASIS_POINTS, "Invalid BPS");
+        _minDepositBps = bps;
+    }
+    
+    function setAutoReturnEnabled(bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _autoReturnEnabled = enabled;
+    }
+    
+    function setSubRentalsAllowed(bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _subRentalsAllowed = allowed;
     }
     
     // ============ UUPS Upgrade ============

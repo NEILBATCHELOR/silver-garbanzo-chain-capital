@@ -18,6 +18,12 @@ contract TimelockStorage {
     // account => total locked balance
     mapping(address => uint256) internal _totalLocked;
     
+    // ============ Lock Configuration ============
+    uint256 internal _minLockDuration;      // Minimum lock duration in seconds
+    uint256 internal _maxLockDuration;      // Maximum lock duration in seconds
+    uint256 internal _defaultLockDuration;  // Default lock duration (optional, 0 = none)
+    bool internal _allowExtension;          // Whether locks can be extended
+    
     // ============ Storage Gap ============
-    uint256[47] private __gap;
+    uint256[43] private __gap;
 }

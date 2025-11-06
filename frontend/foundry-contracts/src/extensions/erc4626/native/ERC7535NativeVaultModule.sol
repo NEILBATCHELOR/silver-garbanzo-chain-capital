@@ -66,11 +66,15 @@ contract ERC7535NativeVaultModule is
      * @param admin Admin address
      * @param vault_ The ERC-4626 vault address (must use WETH as asset)
      * @param weth_ WETH contract address
+     * @param acceptNativeToken_ Enable native ETH deposits
+     * @param unwrapOnWithdrawal_ Automatically unwrap to ETH on withdrawal
      */
     function initialize(
         address admin,
         address vault_,
-        address weth_
+        address weth_,
+        bool acceptNativeToken_,
+        bool unwrapOnWithdrawal_
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -80,6 +84,8 @@ contract ERC7535NativeVaultModule is
         
         vault = IERC4626(vault_);
         _weth = weth_;
+        _acceptNativeToken = acceptNativeToken_;
+        _unwrapOnWithdrawal = unwrapOnWithdrawal_;
         
         // Verify vault uses WETH as asset
         if (vault.asset() != weth_) revert NotNativeVault();
@@ -94,6 +100,7 @@ contract ERC7535NativeVaultModule is
      * @return shares Amount of shares minted
      */
     function depositNative(address receiver) external payable override returns (uint256 shares) {
+        if (!_acceptNativeToken) revert NativeTokenNotAccepted();
         if (msg.value == 0) revert InsufficientEthSent();
         
         // Wrap ETH to WETH
@@ -149,6 +156,16 @@ contract ERC7535NativeVaultModule is
         address receiver,
         address owner
     ) external override returns (uint256 shares) {
+        if (!_unwrapOnWithdrawal) revert UnwrapNotEnabled();
+        
+        // Calculate shares required
+        shares = vault.previewWithdraw(ethAmount); burned
+     */
+    function withdrawNative(
+        uint256 ethAmount,
+        address receiver,
+        address owner
+    ) external override returns (uint256 shares) {
         // Calculate shares required
         shares = vault.previewWithdraw(ethAmount);
         
@@ -183,6 +200,8 @@ contract ERC7535NativeVaultModule is
         address receiver,
         address owner
     ) external override returns (uint256 ethAmount) {
+        if (!_unwrapOnWithdrawal) revert UnwrapNotEnabled();
+        
         // If not owner, transfer shares to this contract first
         if (msg.sender != owner) {
             IERC20(address(vault)).safeTransferFrom(owner, address(this), shares);
@@ -245,6 +264,36 @@ contract ERC7535NativeVaultModule is
     
     function maxRedeemNative(address owner) external view override returns (uint256 maxShares) {
         return vault.maxRedeem(owner);
+    }
+    
+    /**
+     * @notice Check if native token deposits are accepted
+     */
+    function acceptsNativeToken() external view returns (bool) {
+        return _acceptNativeToken;
+    }
+    
+    /**
+     * @notice Check if automatic unwrapping is enabled on withdrawal
+     */
+    function unwrapsOnWithdrawal() external view returns (bool) {
+        return _unwrapOnWithdrawal;
+    }
+    
+    // ============ Admin Functions ============
+    
+    /**
+     * @notice Enable/disable native token deposits
+     */
+    function setAcceptNativeToken(bool accept) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _acceptNativeToken = accept;
+    }
+    
+    /**
+     * @notice Enable/disable automatic unwrapping on withdrawal
+     */
+    function setUnwrapOnWithdrawal(bool unwrap) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unwrapOnWithdrawal = unwrap;
     }
     
     // ============ UUPS Upgrade ============

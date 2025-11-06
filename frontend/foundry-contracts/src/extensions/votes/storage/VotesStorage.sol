@@ -39,6 +39,19 @@ contract VotesStorage {
     bytes32 internal _hashedName;
     bytes32 internal _hashedVersion;
     
+    // ============ Governance Parameters ============
+    /// @notice Delay (in blocks) between proposal creation and voting start
+    uint256 internal _votingDelay;
+    
+    /// @notice Duration (in blocks) of the voting period
+    uint256 internal _votingPeriod;
+    
+    /// @notice Minimum tokens required to create a proposal
+    uint256 internal _proposalThreshold;
+    
+    /// @notice Quorum percentage (in basis points, 400 = 4%)
+    uint256 internal _quorumPercentage;
+    
     // ============ Storage Gap ============
-    uint256[40] private __gap;
+    uint256[36] private __gap;
 }

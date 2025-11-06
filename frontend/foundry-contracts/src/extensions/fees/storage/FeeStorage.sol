@@ -15,9 +15,13 @@ contract FeeStorage {
     // account => exemption details
     mapping(address => IERC20FeeModule.FeeExemption) internal _exemptions;
     
+    // ============ DEX Pairs ============
+    // address => is DEX pair
+    mapping(address => bool) internal _dexPairs;
+    
     // ============ Fee Tracking ============
     uint256 internal _totalFeesCollected;
     
     // ============ Storage Gap ============
-    uint256[46] private __gap;
+    uint256[45] private __gap; // Reduced by 1 for new mapping
 }

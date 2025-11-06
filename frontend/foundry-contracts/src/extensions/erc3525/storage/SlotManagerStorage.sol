@@ -37,6 +37,17 @@ contract SlotManagerStorage {
     // Total number of slots created
     uint256 internal _totalSlots;
     
+    // ============ Slot Configuration ============
+    
+    /// @notice Whether dynamic slot creation is allowed
+    bool internal _allowSlotCreation;
+    
+    /// @notice Whether transfers between different slots are restricted
+    bool internal _restrictCrossSlotTransfers;
+    
+    /// @notice Whether merging values from different slots is allowed
+    bool internal _allowMerge;
+    
     // ============ Storage Gap ============
-    uint256[43] private __gap;
+    uint256[40] private __gap;
 }

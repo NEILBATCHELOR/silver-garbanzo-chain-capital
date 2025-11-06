@@ -35,7 +35,10 @@ contract ERC4626WithdrawalQueueModule is
         address vault_,
         uint256 liquidityBuffer,
         uint256 maxQueueSize,
-        uint256 minWithdrawalDelay
+        uint256 minWithdrawalDelay,
+        uint256 minWithdrawalAmount,
+        uint256 maxWithdrawalAmount,
+        uint256 priorityFeeBps
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -48,6 +51,9 @@ contract ERC4626WithdrawalQueueModule is
         _liquidityBuffer = liquidityBuffer;
         _maxQueueSize = maxQueueSize;
         _minWithdrawalDelay = minWithdrawalDelay;
+        _minWithdrawalAmount = minWithdrawalAmount;
+        _maxWithdrawalAmount = maxWithdrawalAmount;
+        _priorityFeeBps = priorityFeeBps;
         _nextRequestId = 1;
     }
     
@@ -57,6 +63,15 @@ contract ERC4626WithdrawalQueueModule is
         
         IERC20 vaultShares = IERC20(vault);
         if (vaultShares.balanceOf(msg.sender) < shares) revert InsufficientShares();
+        
+        // Check min/max withdrawal amounts (if set)
+        uint256 assets = _convertToAssets(shares);
+        if (_minWithdrawalAmount > 0 && assets < _minWithdrawalAmount) {
+            revert InvalidRequest(); // Below minimum
+        }
+        if (_maxWithdrawalAmount > 0 && assets > _maxWithdrawalAmount) {
+            revert InvalidRequest(); // Above maximum
+        }
         
         requestId = _nextRequestId++;
         
@@ -166,12 +181,41 @@ contract ERC4626WithdrawalQueueModule is
         return _liquidityBuffer;
     }
     
+    function getMinWithdrawalAmount() external view returns (uint256) {
+        return _minWithdrawalAmount;
+    }
+    
+    function getMaxWithdrawalAmount() external view returns (uint256) {
+        return _maxWithdrawalAmount;
+    }
+    
+    function getPriorityFeeBps() external view returns (uint256) {
+        return _priorityFeeBps;
+    }
+    
     function setLiquidityBuffer(uint256 buffer) 
         external 
         onlyRole(DEFAULT_ADMIN_ROLE) 
     {
         _liquidityBuffer = buffer;
         emit LiquidityBufferUpdated(buffer);
+    }
+    
+    function setWithdrawalLimits(
+        uint256 minAmount,
+        uint256 maxAmount
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (maxAmount > 0 && minAmount > maxAmount) revert InvalidRequest();
+        _minWithdrawalAmount = minAmount;
+        _maxWithdrawalAmount = maxAmount;
+    }
+    
+    function setPriorityFeeBps(uint256 feeBps)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (feeBps > 10000) revert InvalidRequest(); // Max 100%
+        _priorityFeeBps = feeBps;
     }
     
     function _getAvailableAssets() internal view returns (uint256) {

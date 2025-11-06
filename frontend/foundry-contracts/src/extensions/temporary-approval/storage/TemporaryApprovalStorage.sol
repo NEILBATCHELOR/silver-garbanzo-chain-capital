@@ -3,60 +3,63 @@ pragma solidity ^0.8.28;
 
 /**
  * @title TemporaryApprovalStorage
- * @notice Storage layout for ERC-7674 temporary approval module
- * @dev Uses minimal persistent storage - transient approvals stored via EIP-1153
+ * @notice Storage layout for time-based temporary approval module
+ * @dev Stores approval amounts with expiration timestamps
  * 
  * Storage Architecture:
- * - Transient Storage (EIP-1153): Approval values (auto-cleared)
- * - Persistent Storage: Configuration flags only
- * 
- * Gas Efficiency:
- * - No storage slots for individual approvals (uses TSTORE/TLOAD)
- * - Only 1 storage slot for module state
- * - Result: 99.5% gas reduction vs standard approval pattern
+ * - Approval struct: amount + expiry timestamp
+ * - Duration configuration: default, min, max durations
+ * - Module enabled/disabled flag
  */
 contract TemporaryApprovalStorage {
-    // ============ Configuration ============
+    // ============ Structs ============
+    
+    /**
+     * @notice Temporary approval data
+     * @param amount Approved token amount
+     * @param expiry Expiration timestamp (Unix timestamp)
+     */
+    struct TemporaryApproval {
+        uint256 amount;
+        uint256 expiry;
+    }
+    
+    // ============ State Variables ============
     
     /**
      * @notice Module enabled/disabled flag
-     * @dev Stored in persistent storage (SSTORE)
      */
     bool internal _enabled;
     
-    // ============ Transient Storage Keys ============
+    /**
+     * @notice Default approval duration in seconds
+     * @dev Used when no duration specified
+     */
+    uint256 internal _defaultDuration;
     
     /**
-     * @notice Base offset for transient storage slots
-     * @dev Used to compute unique slots per (owner, spender) pair
-     * Formula: slot = keccak256(abi.encodePacked(TEMPORARY_APPROVAL_SLOT, owner, spender))
+     * @notice Maximum approval duration in seconds
+     * @dev Enforces upper limit on approval lifetime
      */
-    bytes32 internal constant TEMPORARY_APPROVAL_SLOT = 
-        keccak256("ERC7674.TemporaryApproval");
+    uint256 internal _maxDuration;
+    
+    /**
+     * @notice Minimum approval duration in seconds
+     * @dev Enforces lower limit on approval lifetime
+     */
+    uint256 internal _minDuration;
+    
+    /**
+     * @notice Temporary approval mappings
+     * @dev owner => spender => approval data
+     */
+    mapping(address => mapping(address => TemporaryApproval)) internal _temporaryApprovals;
     
     // ============ Storage Gap ============
     
     /**
      * @notice Storage gap for future upgrades
-     * @dev Reserve 49 slots (50 - 1 for _enabled)
+     * @dev Reserve 45 slots (50 - 5 used)
      */
-    uint256[49] private __gap;
-    
-    // ============ Internal Helpers ============
-    
-    /**
-     * @notice Compute transient storage slot for approval
-     * @dev Returns unique slot per (owner, spender) pair
-     * @param owner Token owner
-     * @param spender Address allowed to spend
-     * @return slot Transient storage slot
-     */
-    function _getTemporaryApprovalSlot(
-        address owner,
-        address spender
-    ) internal pure returns (bytes32 slot) {
-        slot = keccak256(
-            abi.encodePacked(TEMPORARY_APPROVAL_SLOT, owner, spender)
-        );
-    }
+    uint256[45] private __gap;
 }

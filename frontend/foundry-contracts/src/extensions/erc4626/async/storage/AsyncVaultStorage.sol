@@ -58,11 +58,20 @@ abstract contract AsyncVaultStorage {
     /// @notice Maximum pending requests per user
     uint256 internal _maxPendingRequestsPerUser;
     
+    /// @notice Request expiry time (seconds) - 0 means no expiry
+    uint256 internal _requestExpiry;
+    
+    /// @notice Minimum request amount (assets/shares)
+    uint256 internal _minimumRequestAmount;
+    
+    /// @notice Allow partial fulfillment of requests
+    bool internal _partialFulfillmentEnabled;
+    
     // ============ Storage Gap ============
     
     /**
      * @dev Storage gap to allow for future storage layout changes
      * This gap ensures that storage slots aren't accidentally reused during upgrades
      */
-    uint256[42] private __gap;
+    uint256[39] private __gap;
 }

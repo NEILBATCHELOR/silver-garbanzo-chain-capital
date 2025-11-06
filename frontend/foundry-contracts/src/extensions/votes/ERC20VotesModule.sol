@@ -45,10 +45,18 @@ contract ERC20VotesModule is
      * @notice Initialize votes module
      * @param admin Admin address
      * @param tokenName Token name for EIP-712
+     * @param initialVotingDelay Voting delay in blocks (0 for immediate)
+     * @param initialVotingPeriod Voting period in blocks
+     * @param initialProposalThreshold Proposal threshold (0 for no threshold)
+     * @param initialQuorumPercentage Quorum percentage in basis points (400 = 4%)
      */
     function initialize(
         address admin,
-        string memory tokenName
+        string memory tokenName,
+        uint256 initialVotingDelay,
+        uint256 initialVotingPeriod,
+        uint256 initialProposalThreshold,
+        uint256 initialQuorumPercentage
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -57,6 +65,12 @@ contract ERC20VotesModule is
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GOVERNANCE_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
+        
+        // Initialize governance parameters
+        _votingDelay = initialVotingDelay;
+        _votingPeriod = initialVotingPeriod;
+        _proposalThreshold = initialProposalThreshold;
+        _quorumPercentage = initialQuorumPercentage;
     }
     
     // ============ Delegation Functions ============
@@ -229,6 +243,50 @@ contract ERC20VotesModule is
     
     function DOMAIN_SEPARATOR() external view override returns (bytes32) {
         return _domainSeparatorV4();
+    }
+    
+    // ============ Governance Parameters ============
+    
+    function votingDelay() external view override returns (uint256) {
+        return _votingDelay;
+    }
+    
+    function votingPeriod() external view override returns (uint256) {
+        return _votingPeriod;
+    }
+    
+    function proposalThreshold() external view override returns (uint256) {
+        return _proposalThreshold;
+    }
+    
+    function quorumPercentage() external view override returns (uint256) {
+        return _quorumPercentage;
+    }
+    
+    function setVotingDelay(uint256 newDelay) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldDelay = _votingDelay;
+        _votingDelay = newDelay;
+        emit VotingDelaySet(oldDelay, newDelay);
+    }
+    
+    function setVotingPeriod(uint256 newPeriod) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newPeriod == 0) revert InvalidGovernanceParameter();
+        uint256 oldPeriod = _votingPeriod;
+        _votingPeriod = newPeriod;
+        emit VotingPeriodSet(oldPeriod, newPeriod);
+    }
+    
+    function setProposalThreshold(uint256 newThreshold) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldThreshold = _proposalThreshold;
+        _proposalThreshold = newThreshold;
+        emit ProposalThresholdSet(oldThreshold, newThreshold);
+    }
+    
+    function setQuorumPercentage(uint256 newQuorum) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newQuorum > 10000) revert InvalidGovernanceParameter(); // Max 100%
+        uint256 oldQuorum = _quorumPercentage;
+        _quorumPercentage = newQuorum;
+        emit QuorumPercentageSet(oldQuorum, newQuorum);
     }
     
     // ============ UUPS Upgrade ============

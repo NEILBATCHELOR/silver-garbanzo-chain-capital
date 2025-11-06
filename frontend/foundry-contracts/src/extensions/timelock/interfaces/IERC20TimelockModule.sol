@@ -40,6 +40,9 @@ interface IERC20TimelockModule {
     error InsufficientBalance();
     error InvalidUnlockTime();
     error LockNotActive();
+    error DurationBelowMinimum();
+    error DurationAboveMaximum();
+    error ExtensionNotAllowed();
     
     // ============ Lock Management ============
     
@@ -128,4 +131,38 @@ interface IERC20TimelockModule {
      * @return uint256 Seconds until unlock (0 if expired)
      */
     function getTimeUntilUnlock(address account, uint256 lockId) external view returns (uint256);
+    
+    // ============ Configuration Functions ============
+    
+    /**
+     * @notice Get lock duration constraints
+     * @return minDuration Minimum lock duration
+     * @return maxDuration Maximum lock duration
+     * @return defaultDuration Default lock duration (0 if none)
+     * @return extensionAllowed Whether extension is allowed
+     */
+    function getLockConfiguration() external view returns (
+        uint256 minDuration,
+        uint256 maxDuration,
+        uint256 defaultDuration,
+        bool extensionAllowed
+    );
+    
+    /**
+     * @notice Set lock duration constraints (admin only)
+     * @param minDuration Minimum lock duration
+     * @param maxDuration Maximum lock duration
+     * @param defaultDuration Default lock duration (0 for none)
+     */
+    function setLockDurationConstraints(
+        uint256 minDuration,
+        uint256 maxDuration,
+        uint256 defaultDuration
+    ) external;
+    
+    /**
+     * @notice Set whether lock extension is allowed (admin only)
+     * @param allowed True to allow extension
+     */
+    function setExtensionAllowed(bool allowed) external;
 }

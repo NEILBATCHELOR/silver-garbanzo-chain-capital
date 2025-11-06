@@ -60,6 +60,8 @@ interface IERC7535NativeVault {
     error ExcessEthSent();
     error EthTransferFailed();
     error NotNativeVault();
+    error NativeTokenNotAccepted();
+    error UnwrapNotEnabled();
     
     // ============ Native ETH Functions ============
     

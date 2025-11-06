@@ -9,25 +9,25 @@ import "./storage/TemporaryApprovalStorage.sol";
 
 /**
  * @title ERC20TemporaryApprovalModule
- * @notice ERC-7674 implementation using EIP-1153 transient storage
- * @dev Gas-efficient temporary approvals that auto-expire after transaction
+ * @notice Time-based temporary approval system with configurable durations
+ * @dev Approvals automatically expire after a specified duration
  * 
- * Post-Cancun Upgrade Features:
- * - 99.5% gas savings: ~100 gas vs ~20,000 gas
- * - Auto-expiry: No cleanup needed
- * - Security: Zero cross-transaction exposure
- * - Backwards compatible: Works alongside standard approvals
+ * Features:
+ * - Time-based expiration (seconds)
+ * - Configurable default/min/max durations
+ * - Automatic expiry checking
+ * - Security: Reduces risk from forgotten approvals
  * 
  * Architecture:
- * - Uses TSTORE/TLOAD opcodes (EIP-1153)
- * - Minimal persistent storage (only config flag)
+ * - Stores approval amounts and expiration timestamps
+ * - Enforces duration limits (min/max)
  * - Separate contract to avoid stack depth in masters
  * 
  * Use Cases:
- * - DEX token swaps (approve + swap in one transaction)
- * - Batch operations (approve multiple spenders temporarily)
- * - Flash loans (approve + borrow + repay)
- * - Gasless meta-transactions
+ * - Short-term DEX approvals (reduce exposure window)
+ * - Time-limited marketplace approvals
+ * - Temporary vault access
+ * - Controlled spender permissions
  */
 contract ERC20TemporaryApprovalModule is 
     Initializable,
@@ -47,60 +47,104 @@ contract ERC20TemporaryApprovalModule is
     /**
      * @notice Initialize temporary approval module
      * @param admin Admin address
+     * @param defaultDuration Default approval duration (seconds)
+     * @param minDuration Minimum approval duration (seconds)
+     * @param maxDuration Maximum approval duration (seconds)
      */
-    function initialize(address admin) public initializer {
+    function initialize(
+        address admin,
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
+    ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
         
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         
+        // Set duration configuration
+        if (minDuration == 0) minDuration = 300; // 5 minutes default
+        if (maxDuration == 0) maxDuration = 86400; // 24 hours default
+        if (defaultDuration == 0) defaultDuration = 3600; // 1 hour default
+        
+        if (minDuration > defaultDuration || defaultDuration > maxDuration) {
+            revert InvalidDuration(defaultDuration, minDuration, maxDuration);
+        }
+        
+        _minDuration = minDuration;
+        _maxDuration = maxDuration;
+        _defaultDuration = defaultDuration;
         _enabled = true;
     }
     
-    // ============ Core ERC-7674 Functions ============
+    // ============ Core Functions ============
     
     /**
-     * @notice Grant temporary approval using transient storage
-     * @dev Uses TSTORE opcode (EIP-1153) - ~100 gas vs ~20,000 for SSTORE
+     * @notice Grant temporary approval with default duration
      */
     function temporaryApprove(
         address spender,
         uint256 value
     ) external override returns (bool) {
+        return temporaryApproveWithDuration(spender, value, _defaultDuration);
+    }
+    
+    /**
+     * @notice Grant temporary approval with custom duration
+     */
+    function temporaryApproveWithDuration(
+        address spender,
+        uint256 value,
+        uint256 duration
+    ) public override returns (bool) {
         if (spender == address(0)) revert InvalidSpender();
-        if (!_enabled) revert TransientStorageNotSupported();
-        
-        address owner = msg.sender;
-        bytes32 slot = _getTemporaryApprovalSlot(owner, spender);
-        
-        // Store approval in transient storage (TSTORE)
-        assembly {
-            tstore(slot, value)
+        if (!_enabled) revert InvalidDuration(duration, _minDuration, _maxDuration);
+        if (duration < _minDuration || duration > _maxDuration) {
+            revert InvalidDuration(duration, _minDuration, _maxDuration);
         }
         
-        emit TemporaryApproval(owner, spender, value);
+        address owner = msg.sender;
+        uint256 expiry = block.timestamp + duration;
+        
+        _temporaryApprovals[owner][spender] = TemporaryApproval({
+            amount: value,
+            expiry: expiry
+        });
+        
+        emit TemporaryApproval(owner, spender, value, expiry);
         return true;
     }
     
     /**
-     * @notice Get temporary allowance from transient storage
-     * @dev Uses TLOAD opcode (EIP-1153) - ~100 gas vs ~2,100 for SLOAD
+     * @notice Get temporary allowance (checks expiration)
      */
     function temporaryAllowance(
         address owner,
         address spender
-    ) public view override returns (uint256 allowance) {
-        bytes32 slot = _getTemporaryApprovalSlot(owner, spender);
+    ) public view override returns (uint256) {
+        TemporaryApproval memory approval = _temporaryApprovals[owner][spender];
         
-        // Load approval from transient storage (TLOAD)
-        assembly {
-            allowance := tload(slot)
+        // Return 0 if expired or no approval
+        if (approval.expiry == 0 || block.timestamp > approval.expiry) {
+            return 0;
         }
+        
+        return approval.amount;
     }
     
     /**
-     * @notice Increase temporary allowance
+     * @notice Get temporary allowance expiration time
+     */
+    function temporaryAllowanceExpiry(
+        address owner,
+        address spender
+    ) external view override returns (uint256) {
+        return _temporaryApprovals[owner][spender].expiry;
+    }
+    
+    /**
+     * @notice Increase temporary allowance (extends expiry with default duration)
      */
     function increaseTemporaryAllowance(
         address spender,
@@ -111,18 +155,19 @@ contract ERC20TemporaryApprovalModule is
         address owner = msg.sender;
         uint256 currentAllowance = temporaryAllowance(owner, spender);
         uint256 newAllowance = currentAllowance + addedValue;
+        uint256 expiry = block.timestamp + _defaultDuration;
         
-        bytes32 slot = _getTemporaryApprovalSlot(owner, spender);
-        assembly {
-            tstore(slot, newAllowance)
-        }
+        _temporaryApprovals[owner][spender] = TemporaryApproval({
+            amount: newAllowance,
+            expiry: expiry
+        });
         
-        emit TemporaryApproval(owner, spender, newAllowance);
+        emit TemporaryApproval(owner, spender, newAllowance, expiry);
         return true;
     }
     
     /**
-     * @notice Decrease temporary allowance
+     * @notice Decrease temporary allowance (keeps existing expiry)
      */
     function decreaseTemporaryAllowance(
         address spender,
@@ -143,42 +188,41 @@ contract ERC20TemporaryApprovalModule is
         }
         
         uint256 newAllowance = currentAllowance - subtractedValue;
-        bytes32 slot = _getTemporaryApprovalSlot(owner, spender);
+        TemporaryApproval storage approval = _temporaryApprovals[owner][spender];
+        approval.amount = newAllowance;
         
-        assembly {
-            tstore(slot, newAllowance)
-        }
-        
-        emit TemporaryApproval(owner, spender, newAllowance);
+        emit TemporaryApproval(owner, spender, newAllowance, approval.expiry);
         return true;
     }
     
     /**
-     * @notice Spend temporary allowance (called by token during transferFrom)
-     * @dev Reverts if insufficient allowance
+     * @notice Spend temporary allowance (checks expiration)
      */
     function spendTemporaryAllowance(
         address owner,
         address spender,
         uint256 value
     ) external override {
-        uint256 currentAllowance = temporaryAllowance(owner, spender);
+        TemporaryApproval storage approval = _temporaryApprovals[owner][spender];
         
-        if (currentAllowance < value) {
+        // Check if approval exists and not expired
+        if (approval.expiry == 0 || block.timestamp > approval.expiry) {
+            revert ApprovalExpired(owner, spender, approval.expiry);
+        }
+        
+        // Check if sufficient allowance
+        if (approval.amount < value) {
             revert InsufficientTemporaryAllowance(
                 owner,
                 spender,
                 value,
-                currentAllowance
+                approval.amount
             );
         }
         
-        uint256 newAllowance = currentAllowance - value;
-        bytes32 slot = _getTemporaryApprovalSlot(owner, spender);
-        
-        assembly {
-            tstore(slot, newAllowance)
-        }
+        // Decrease allowance
+        uint256 newAllowance = approval.amount - value;
+        approval.amount = newAllowance;
         
         emit TemporaryApprovalUsed(owner, spender, value, newAllowance);
     }
@@ -193,52 +237,42 @@ contract ERC20TemporaryApprovalModule is
     }
     
     /**
-     * @notice Check if chain supports EIP-1153 transient storage
-     * @dev Returns true if TSTORE/TLOAD opcodes available
+     * @notice Get duration configuration
      */
-    function supportsTransientStorage() external view override returns (bool) {
-        // Post-Cancun chains support EIP-1153
-        // Check by attempting TLOAD (will revert on pre-Cancun)
-        try this._testTransientStorage() returns (bool) {
-            return true;
-        } catch {
-            return false;
-        }
-    }
-    
-    /**
-     * @notice Internal test function for transient storage support
-     */
-    function _testTransientStorage() external view returns (bool) {
-        bytes32 slot = keccak256("TEST_SLOT");
-        uint256 value;
-        assembly {
-            value := tload(slot)
-        }
-        return true;
-    }
-    
-    /**
-     * @notice Get gas cost savings vs standard approval
-     */
-    function getGasSavings() external pure override returns (
-        uint256 standardCost,
-        uint256 temporaryCost,
-        uint256 savingsPercent
+    function getDurationConfig() external view override returns (
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
     ) {
-        standardCost = 20000;  // SSTORE cold slot
-        temporaryCost = 100;   // TSTORE operation
-        savingsPercent = 9950; // 99.5% savings (basis points)
+        return (_defaultDuration, _minDuration, _maxDuration);
     }
     
     // ============ Admin Functions ============
     
     /**
      * @notice Enable/disable temporary approvals
-     * @dev Only admin can toggle
      */
     function setEnabled(bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _enabled = enabled;
+    }
+    
+    /**
+     * @notice Update duration configuration
+     */
+    function setDurationConfig(
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (minDuration > defaultDuration || defaultDuration > maxDuration) {
+            revert InvalidDuration(defaultDuration, minDuration, maxDuration);
+        }
+        
+        _defaultDuration = defaultDuration;
+        _minDuration = minDuration;
+        _maxDuration = maxDuration;
+        
+        emit DurationConfigUpdated(defaultDuration, minDuration, maxDuration);
     }
     
     // ============ UUPS Upgrade ============

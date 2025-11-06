@@ -42,14 +42,26 @@ contract ERC3525SlotManagerModule is
     /**
      * @notice Initialize slot manager module
      * @param admin Admin address
+     * @param allowSlotCreation Whether dynamic slot creation is allowed
+     * @param restrictCrossSlot Whether cross-slot transfers are restricted
+     * @param allowMerge Whether merging between slots is allowed
      */
-    function initialize(address admin) public initializer {
+    function initialize(
+        address admin,
+        bool allowSlotCreation,
+        bool restrictCrossSlot,
+        bool allowMerge
+    ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
         
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(SLOT_ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
+        
+        _allowSlotCreation = allowSlotCreation;
+        _restrictCrossSlotTransfers = restrictCrossSlot;
+        _allowMerge = allowMerge;
     }
     
     // ============ Slot Creation & Management ============
@@ -258,6 +270,32 @@ contract ERC3525SlotManagerModule is
     {
         if (!_slots[slotId].exists) revert SlotDoesNotExist(slotId);
         return _slotPropertyKeys[slotId];
+    }
+    
+    // ============ Slot Configuration ============
+    
+    function allowSlotCreation() external view returns (bool) {
+        return _allowSlotCreation;
+    }
+    
+    function restrictCrossSlotTransfers() external view returns (bool) {
+        return _restrictCrossSlotTransfers;
+    }
+    
+    function allowMerge() external view returns (bool) {
+        return _allowMerge;
+    }
+    
+    function setAllowSlotCreation(bool allow) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _allowSlotCreation = allow;
+    }
+    
+    function setRestrictCrossSlotTransfers(bool restrict) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _restrictCrossSlotTransfers = restrict;
+    }
+    
+    function setAllowMerge(bool allow) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _allowMerge = allow;
     }
     
     // ============ UUPS Upgrade ============

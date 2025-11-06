@@ -162,12 +162,14 @@ export interface SnapshotConfig {
 
 /**
  * Timelock Module Configuration (ERC20)
+ * Individual token locking - not governance timelocks
  */
 export interface TimelockConfig {
-  minDelay: number; // Minimum delay in seconds before actions can be executed
-  gracePeriod?: number; // Optional grace period for executing queued actions
-  proposers?: string[]; // Addresses allowed to propose
-  executors?: string[]; // Addresses allowed to execute
+  defaultLockDuration?: number; // Default lock duration in seconds (optional)
+  minLockDuration?: number; // Minimum allowed lock duration
+  maxLockDuration?: number; // Maximum allowed lock duration
+  lockManagers?: string[]; // Addresses allowed to cancel locks
+  allowExtension?: boolean; // Whether locks can be extended
 }
 
 /**

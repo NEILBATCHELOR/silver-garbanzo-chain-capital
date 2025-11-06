@@ -17,10 +17,12 @@ interface IERC721RoyaltyModule {
     event DefaultRoyaltySet(address indexed receiver, uint96 feeNumerator);
     event TokenRoyaltySet(uint256 indexed tokenId, address indexed receiver, uint96 feeNumerator);
     event RoyaltyDeleted(uint256 indexed tokenId);
+    event MaxRoyaltyCapSet(uint96 maxRoyaltyBps);
     
     // ============ Errors ============
     error InvalidRoyaltyPercentage(uint96 feeNumerator);
     error InvalidReceiver();
+    error ExceedsMaxRoyaltyCap(uint96 feeNumerator, uint96 maxCap);
     
     // ============ Royalty Management ============
     
@@ -85,6 +87,18 @@ interface IERC721RoyaltyModule {
         uint96 feeNumerator,
         bool isSet
     );
+    
+    /**
+     * @notice Get maximum royalty cap
+     * @return uint96 Maximum royalty in basis points (0 = no cap, uses FEE_DENOMINATOR)
+     */
+    function getMaxRoyaltyCap() external view returns (uint96);
+    
+    /**
+     * @notice Set maximum royalty cap
+     * @param maxRoyaltyBps Maximum royalty in basis points (0 to disable cap)
+     */
+    function setMaxRoyaltyCap(uint96 maxRoyaltyBps) external;
     
     /**
      * @notice Check if interface is supported (EIP-165)

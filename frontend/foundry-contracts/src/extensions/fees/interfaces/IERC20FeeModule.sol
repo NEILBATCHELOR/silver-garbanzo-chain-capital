@@ -10,6 +10,8 @@ interface IERC20FeeModule {
     // ============ Structures ============
     struct FeeConfig {
         uint256 transferFee;      // Basis points (100 = 1%)
+        uint256 buyFee;           // Buy fee from DEX (basis points)
+        uint256 sellFee;          // Sell fee to DEX (basis points)
         uint256 maxFee;            // Maximum fee cap
         address feeRecipient;      // Where fees go
         bool enabled;              // Fee collection on/off

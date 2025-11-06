@@ -36,6 +36,29 @@ contract RentalStorage {
     // Platform fee recipient
     address internal _feeRecipient;
     
+    // ============ Global Rental Configuration ============
+    
+    /// @notice Minimum rental duration in seconds
+    uint256 internal _minRentalDuration;
+    
+    /// @notice Maximum rental duration in seconds (global cap)
+    uint256 internal _maxRentalDuration;
+    
+    /// @notice Minimum rental price per day
+    uint256 internal _minRentalPrice;
+    
+    /// @notice Whether deposits are required
+    bool internal _depositRequired;
+    
+    /// @notice Minimum deposit percentage in basis points (1000 = 10%)
+    uint256 internal _minDepositBps;
+    
+    /// @notice Whether auto-return at expiry is enabled
+    bool internal _autoReturnEnabled;
+    
+    /// @notice Whether sub-rentals are allowed
+    bool internal _subRentalsAllowed;
+    
     // ============ Storage Gap ============
-    uint256[45] private __gap;
+    uint256[38] private __gap;
 }

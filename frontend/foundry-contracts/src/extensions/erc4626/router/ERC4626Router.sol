@@ -46,14 +46,26 @@ contract ERC4626Router is
     /**
      * @notice Initialize the router
      * @param admin Address with admin privileges
+     * @param allowMultiHop Enable multi-hop routing
+     * @param maxHops Maximum number of hops (0 = unlimited)
+     * @param slippageTolerance Maximum slippage in basis points
      */
-    function initialize(address admin) public initializer {
+    function initialize(
+        address admin,
+        bool allowMultiHop,
+        uint256 maxHops,
+        uint256 slippageTolerance
+    ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
         
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(VAULT_MANAGER_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
+        
+        _allowMultiHop = allowMultiHop;
+        _maxHops = maxHops;
+        _slippageTolerance = slippageTolerance;
     }
     
     // ============ Single Vault Operations ============

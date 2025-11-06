@@ -10,11 +10,16 @@ interface IERC20VotesModule {
     // ============ Events ============
     event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
     event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
+    event VotingDelaySet(uint256 oldDelay, uint256 newDelay);
+    event VotingPeriodSet(uint256 oldPeriod, uint256 newPeriod);
+    event ProposalThresholdSet(uint256 oldThreshold, uint256 newThreshold);
+    event QuorumPercentageSet(uint256 oldQuorum, uint256 newQuorum);
     
     // ============ Errors ============
     error InvalidBlockNumber();
     error InvalidSignature();
     error SignatureExpired();
+    error InvalidGovernanceParameter();
     
     // ============ Delegation ============
     
@@ -114,4 +119,54 @@ interface IERC20VotesModule {
      * @return bytes32 Delegation typehash
      */
     function DELEGATION_TYPEHASH() external pure returns (bytes32);
+    
+    // ============ Governance Parameters ============
+    
+    /**
+     * @notice Get voting delay (blocks between proposal and vote start)
+     * @return uint256 Voting delay in blocks
+     */
+    function votingDelay() external view returns (uint256);
+    
+    /**
+     * @notice Get voting period (duration of voting)
+     * @return uint256 Voting period in blocks
+     */
+    function votingPeriod() external view returns (uint256);
+    
+    /**
+     * @notice Get proposal threshold (minimum tokens to propose)
+     * @return uint256 Proposal threshold
+     */
+    function proposalThreshold() external view returns (uint256);
+    
+    /**
+     * @notice Get quorum percentage (in basis points)
+     * @return uint256 Quorum percentage
+     */
+    function quorumPercentage() external view returns (uint256);
+    
+    /**
+     * @notice Set voting delay (admin only)
+     * @param newDelay New voting delay in blocks
+     */
+    function setVotingDelay(uint256 newDelay) external;
+    
+    /**
+     * @notice Set voting period (admin only)
+     * @param newPeriod New voting period in blocks
+     */
+    function setVotingPeriod(uint256 newPeriod) external;
+    
+    /**
+     * @notice Set proposal threshold (admin only)
+     * @param newThreshold New proposal threshold
+     */
+    function setProposalThreshold(uint256 newThreshold) external;
+    
+    /**
+     * @notice Set quorum percentage (admin only)
+     * @param newQuorum New quorum percentage in basis points
+     */
+    function setQuorumPercentage(uint256 newQuorum) external;
 }
