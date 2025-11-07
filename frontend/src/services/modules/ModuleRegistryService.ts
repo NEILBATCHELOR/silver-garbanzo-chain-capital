@@ -207,23 +207,29 @@ export interface ModuleSelection {
 export class ModuleRegistryService {
   /**
    * Get available modules for a network/environment
+   * ✅ ENHANCED: Now filters by is_template=true to get only template contracts
    */
   static async getAvailableModules(
     network: string,
     environment: string = 'testnet'
   ): Promise<Map<string, ModuleRegistryEntry>> {
+    console.log('[ModuleRegistry] Fetching module templates for', { network, environment });
+    
     const { data, error } = await supabase
       .from('contract_masters')
       .select('*')
       .eq('network', network)
       .eq('environment', environment)
       .eq('is_active', true)
+      .eq('is_template', true) // ✅ NEW: Only get template contracts
       .like('contract_type', '%module%');
 
     if (error) {
-      console.error('Failed to fetch module registry:', error);
+      console.error('[ModuleRegistry] Failed to fetch module registry:', error);
       throw new Error(`Module registry lookup failed: ${error.message}`);
     }
+
+    console.log('[ModuleRegistry] Found', data?.length || 0, 'module templates');
 
     const registry = new Map<string, ModuleRegistryEntry>();
     
@@ -449,12 +455,15 @@ export class ModuleRegistryService {
 
   /**
    * Get module metadata (for displaying in UI)
+   * ✅ ENHANCED: Now filters by is_template=true
    */
   static async getModuleMetadata(
     contractType: string,
     network: string,
     environment: string = 'testnet'
   ): Promise<ModuleRegistryEntry | null> {
+    console.log('[ModuleRegistry] Fetching metadata for', { contractType, network, environment });
+    
     const { data, error } = await supabase
       .from('contract_masters')
       .select('*')
@@ -462,9 +471,11 @@ export class ModuleRegistryService {
       .eq('network', network)
       .eq('environment', environment)
       .eq('is_active', true)
+      .eq('is_template', true) // ✅ NEW: Only get template contract
       .single();
 
     if (error || !data) {
+      console.warn('[ModuleRegistry] Module template not found:', contractType);
       return null;
     }
 
@@ -485,6 +496,7 @@ export class ModuleRegistryService {
 
   /**
    * Check if a module is available for a network
+   * ✅ ENHANCED: Now checks is_template=true
    */
   static async isModuleAvailable(
     moduleType: string,
@@ -498,9 +510,12 @@ export class ModuleRegistryService {
       .eq('network', network)
       .eq('environment', environment)
       .eq('is_active', true)
+      .eq('is_template', true) // ✅ NEW: Only check template contracts
       .single();
 
-    return !error && !!data;
+    const available = !error && !!data;
+    console.log('[ModuleRegistry] Module availability check:', { moduleType, network, available });
+    return available;
   }
 
   /**
@@ -570,5 +585,94 @@ export class ModuleRegistryService {
     }
 
     return availableFeatures;
+  }
+
+  /**
+   * Get master contract template address for a token standard
+   * ✅ NEW METHOD: Retrieves the master contract template to be used for deployment
+   */
+  static async getMasterTemplate(
+    tokenStandard: TokenStandard,
+    network: string,
+    environment: string = 'testnet'
+  ): Promise<ModuleRegistryEntry | null> {
+    const masterType = `${tokenStandard}_master`;
+    console.log('[ModuleRegistry] Fetching master template for', { tokenStandard, masterType, network, environment });
+    
+    const { data, error } = await supabase
+      .from('contract_masters')
+      .select('*')
+      .eq('contract_type', masterType)
+      .eq('network', network)
+      .eq('environment', environment)
+      .eq('is_active', true)
+      .eq('is_template', true) // Only get template contracts
+      .single();
+
+    if (error || !data) {
+      console.warn('[ModuleRegistry] Master template not found:', masterType);
+      return null;
+    }
+
+    console.log('[ModuleRegistry] Master template found:', {
+      type: data.contract_type,
+      address: data.contract_address,
+      version: data.version
+    });
+
+    return {
+      id: data.id,
+      contractType: data.contract_type,
+      contractAddress: data.contract_address,
+      network: data.network,
+      environment: data.environment,
+      version: data.version,
+      abiVersion: data.abi_version,
+      abi: data.abi,
+      deployedAt: data.deployed_at,
+      isActive: data.is_active,
+      contractDetails: data.contract_details
+    };
+  }
+
+  /**
+   * Get factory contract address
+   * ✅ NEW METHOD: Retrieves the factory contract used for deploying instances
+   */
+  static async getFactory(
+    network: string,
+    environment: string = 'testnet'
+  ): Promise<ModuleRegistryEntry | null> {
+    console.log('[ModuleRegistry] Fetching factory for', { network, environment });
+    
+    const { data, error } = await supabase
+      .from('contract_masters')
+      .select('*')
+      .eq('contract_type', 'beacon_proxy_factory')
+      .eq('network', network)
+      .eq('environment', environment)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      console.warn('[ModuleRegistry] Factory not found');
+      return null;
+    }
+
+    console.log('[ModuleRegistry] Factory found:', data.contract_address);
+
+    return {
+      id: data.id,
+      contractType: data.contract_type,
+      contractAddress: data.contract_address,
+      network: data.network,
+      environment: data.environment,
+      version: data.version,
+      abiVersion: data.abi_version,
+      abi: data.abi,
+      deployedAt: data.deployed_at,
+      isActive: data.is_active,
+      contractDetails: data.contract_details
+    };
   }
 }

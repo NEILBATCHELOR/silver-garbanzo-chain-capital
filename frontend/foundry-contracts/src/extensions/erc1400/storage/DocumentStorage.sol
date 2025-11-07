@@ -26,6 +26,17 @@ contract DocumentStorage {
     // document name => index in array (for removal)
     mapping(bytes32 => uint256) internal _documentIndexes;
     
+    // ============ Partition-Specific Documents ============
+    
+    // partition => document name => document data
+    mapping(bytes32 => mapping(bytes32 => DocumentData)) internal _partitionDocuments;
+    
+    // partition => array of document names
+    mapping(bytes32 => bytes32[]) internal _partitionDocumentNames;
+    
+    // partition => document name => index in array
+    mapping(bytes32 => mapping(bytes32 => uint256)) internal _partitionDocumentIndexes;
+    
     // ============ Storage Gap ============
-    uint256[47] private __gap;
+    uint256[44] private __gap;
 }

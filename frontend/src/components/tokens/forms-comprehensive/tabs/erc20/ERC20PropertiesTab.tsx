@@ -147,8 +147,7 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   });
 
   const [timelockConfig, setTimelockConfig] = useState<TimelockModuleConfig>({
-    enabled: !!propertiesData.timelock_module_address,
-    minDelay: 0
+    enabled: !!propertiesData.timelock_module_address
   });
 
   const [votesConfig, setVotesConfig] = useState<VotesModuleConfig>({

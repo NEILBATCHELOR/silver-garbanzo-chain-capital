@@ -303,6 +303,38 @@ contract ERC4626Router is
         return _vaultList;
     }
     
+    /**
+     * @notice Check if multi-hop routing is allowed
+     * @return allowed True if multi-hop is enabled
+     */
+    function isMultiHopAllowed() external view returns (bool allowed) {
+        return _allowMultiHop;
+    }
+    
+    /**
+     * @notice Set multi-hop routing setting
+     * @param allowed Whether to allow multi-hop routing
+     */
+    function setAllowMultiHop(bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _allowMultiHop = allowed;
+    }
+    
+    /**
+     * @notice Get maximum number of hops allowed
+     * @return hops Maximum hops (0 = unlimited)
+     */
+    function getMaxHops() external view returns (uint256 hops) {
+        return _maxHops;
+    }
+    
+    /**
+     * @notice Set maximum number of hops
+     * @param hops Maximum hops (0 = unlimited)
+     */
+    function setMaxHops(uint256 hops) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _maxHops = hops;
+    }
+    
     // ============ Preview Functions ============
     
     /**

@@ -337,12 +337,15 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
   async createTableData(table: string, tokenIdOrRecord: string | TokenTableData, records?: TokenTableData[]): Promise<TokenTableData | TokenTableData[]> {
     if (typeof tokenIdOrRecord === 'string' && records) {
       // Multiple records with explicit tokenId
-      const recordsToInsert = records.map(record => ({
-        ...record,
-        token_id: tokenIdOrRecord,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }));
+      const recordsToInsert = records.map(record => {
+        const cleanedRecord = this.filterFieldsForTable(table, record);
+        return {
+          ...cleanedRecord,
+          token_id: tokenIdOrRecord,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      });
 
       const { data, error } = await (supabase as any)
         .from(table)
@@ -354,8 +357,9 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
     } else {
       // Single record with tokenId in the record
       const record = tokenIdOrRecord as TokenTableData;
+      const cleanedRecord = this.filterFieldsForTable(table, record);
       const recordToInsert = {
-        ...record,
+        ...cleanedRecord,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -403,12 +407,15 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
     const results: TokenTableData[] = [];
     
     for (const record of records) {
+      // Filter out tokens-table-only fields when saving to properties tables
+      const cleanedRecord = this.filterFieldsForTable(table, record);
+      
       if (record.id) {
         // Update existing record
         const { data, error } = await (supabase as any)
           .from(table)
           .update({
-            ...record,
+            ...cleanedRecord,
             updated_at: new Date().toISOString()
           })
           .eq('id', record.id)
@@ -420,7 +427,7 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
       } else {
         // Insert new record
         const recordToInsert = {
-          ...record,
+          ...cleanedRecord,
           token_id: tokenId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -592,6 +599,58 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
       'token_erc1400_partition_transfers'
     ];
     return partitionTables.includes(table);
+  }
+
+  private filterFieldsForTable(table: string, record: TokenTableData): TokenTableData {
+    // Fields that ONLY belong in the tokens table and should be excluded from properties tables
+    const tokensOnlyFields = [
+      'name',
+      'symbol',
+      'decimals',
+      'standard',
+      'total_supply',
+      'blocks',
+      'metadata',
+      'status',
+      'reviewers',
+      'approvals',
+      'contract_preview',
+      'config_mode',
+      'address',
+      'blockchain',
+      'deployment_status',
+      'deployment_timestamp',
+      'deployment_transaction',
+      'deployment_error',
+      'deployed_by',
+      'deployment_environment',
+      'description',
+      'master_address',
+      'master_version',
+      'is_minimal_proxy',
+      'initialization_data',
+      'product_id',
+      'ratio',
+      'parity',
+      'product_type',
+      'project_id', // project_id is in tokens table only
+      'uri' // uri doesn't exist in properties tables
+    ];
+
+    // If this is the tokens table, return all fields
+    if (table === 'tokens') {
+      return record;
+    }
+
+    // For properties tables, filter out tokens-only fields
+    const cleanedRecord: TokenTableData = {};
+    for (const [key, value] of Object.entries(record)) {
+      if (!tokensOnlyFields.includes(key)) {
+        cleanedRecord[key] = value;
+      }
+    }
+
+    return cleanedRecord;
   }
 
   private getTableSchema(table: string): { required: string[]; fields: Record<string, any> } {

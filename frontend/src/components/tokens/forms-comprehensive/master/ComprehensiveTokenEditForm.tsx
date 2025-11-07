@@ -366,6 +366,10 @@ export const ComprehensiveTokenEditForm: React.FC<ComprehensiveTokenEditFormProp
 
   const tabConfig = getTabConfig(standard);
 
+  // ✅ FIX: Extract project_id from tokens table data
+  const projectId = formState.tabs['tokens']?.data?.[0]?.project_id;
+  console.log('[ComprehensiveTokenEditForm] Extracted projectId:', projectId, 'from tokens table');
+
   // Handle tab change
   const handleTabChange = (tabId: string) => {
     setActiveTabId(tabId);
@@ -523,6 +527,7 @@ export const ComprehensiveTokenEditForm: React.FC<ComprehensiveTokenEditFormProp
                 <CardContent>
                   <TabComponent
                     tokenId={tokenId}
+                    projectId={projectId} // ✅ FIX: Pass projectId to all tab components
                     data={tabState?.data}
                     validationErrors={tabState?.validationErrors || {}}
                     isModified={tabState?.isModified || false}

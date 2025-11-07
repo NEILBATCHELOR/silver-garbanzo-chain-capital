@@ -178,6 +178,112 @@ contract ERC1400DocumentModule is
         return documents;
     }
     
+    // ============ Partition-Specific Documents ============
+    
+    /**
+     * @notice Set a document for a specific partition
+     * @param partition The partition identifier
+     * @param name Document name
+     * @param uri Document URI
+     * @param documentHash Document hash for verification
+     */
+    function setPartitionDocument(
+        bytes32 partition,
+        bytes32 name,
+        string calldata uri,
+        bytes32 documentHash
+    ) external onlyRole(DOCUMENT_MANAGER_ROLE) {
+        if (bytes(uri).length == 0) revert EmptyDocumentURI();
+        if (documentHash == bytes32(0)) revert InvalidDocumentHash();
+        
+        DocumentData storage doc = _partitionDocuments[partition][name];
+        
+        if (!doc.exists) {
+            _partitionDocumentNames[partition].push(name);
+            _partitionDocumentIndexes[partition][name] = _partitionDocumentNames[partition].length - 1;
+            doc.exists = true;
+            doc.version = 1;
+        } else {
+            doc.version++;
+            emit DocumentUpdated(name, doc.version);
+        }
+        
+        doc.uri = uri;
+        doc.documentHash = documentHash;
+        doc.timestamp = block.timestamp;
+        
+        emit DocumentSet(name, uri, documentHash, doc.version);
+    }
+    
+    /**
+     * @notice Get a partition-specific document
+     * @param partition The partition identifier
+     * @param name Document name
+     * @return uri Document URI
+     * @return documentHash Document hash
+     * @return timestamp When document was set
+     */
+    function getPartitionDocument(bytes32 partition, bytes32 name)
+        external
+        view
+        returns (
+            string memory uri,
+            bytes32 documentHash,
+            uint256 timestamp
+        )
+    {
+        if (!_partitionDocuments[partition][name].exists) revert DocumentNotFound(name);
+        
+        DocumentData storage doc = _partitionDocuments[partition][name];
+        return (doc.uri, doc.documentHash, doc.timestamp);
+    }
+    
+    /**
+     * @notice Get all document names for a partition
+     * @param partition The partition identifier
+     * @return Array of document names
+     */
+    function getPartitionDocuments(bytes32 partition) external view returns (bytes32[] memory) {
+        return _partitionDocumentNames[partition];
+    }
+    
+    /**
+     * @notice Remove a partition-specific document
+     * @param partition The partition identifier
+     * @param name Document name
+     */
+    function removePartitionDocument(bytes32 partition, bytes32 name)
+        external
+        onlyRole(DOCUMENT_MANAGER_ROLE)
+    {
+        if (!_partitionDocuments[partition][name].exists) revert DocumentNotFound(name);
+        
+        uint256 index = _partitionDocumentIndexes[partition][name];
+        uint256 lastIndex = _partitionDocumentNames[partition].length - 1;
+        
+        if (index != lastIndex) {
+            bytes32 lastDoc = _partitionDocumentNames[partition][lastIndex];
+            _partitionDocumentNames[partition][index] = lastDoc;
+            _partitionDocumentIndexes[partition][lastDoc] = index;
+        }
+        
+        _partitionDocumentNames[partition].pop();
+        delete _partitionDocumentIndexes[partition][name];
+        delete _partitionDocuments[partition][name];
+        
+        emit DocumentRemoved(name);
+    }
+    
+    /**
+     * @notice Check if a partition document exists
+     * @param partition The partition identifier
+     * @param name Document name
+     * @return True if document exists
+     */
+    function partitionDocumentExists(bytes32 partition, bytes32 name) external view returns (bool) {
+        return _partitionDocuments[partition][name].exists;
+    }
+    
     // ============ UUPS Upgrade ============
     
     function _authorizeUpgrade(address newImplementation)

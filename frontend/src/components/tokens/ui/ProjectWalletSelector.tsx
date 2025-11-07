@@ -2,13 +2,15 @@
  * ProjectWalletSelector Component
  * Automatically populates initial owner from project wallets
  * Auto-selects if only one wallet, provides dropdown for multiple
+ * 
+ * ENHANCED: Added detailed logging and EVM/non-EVM wallet display
  */
 
 import React, { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Wallet, Loader2 } from 'lucide-react';
+import { AlertCircle, Wallet, Loader2, Info } from 'lucide-react';
 import { projectWalletService, type ProjectWalletData } from '@/services/project/project-wallet-service';
 
 interface ProjectWalletSelectorProps {
@@ -19,6 +21,10 @@ interface ProjectWalletSelectorProps {
   description?: string;
   required?: boolean;
   className?: string;
+  // Optional: Filter by network/chain compatibility
+  network?: string;
+  chainId?: string;
+  showAllWallets?: boolean; // If true, shows all wallets regardless of chain
 }
 
 export const ProjectWalletSelector: React.FC<ProjectWalletSelectorProps> = ({
@@ -28,30 +34,71 @@ export const ProjectWalletSelector: React.FC<ProjectWalletSelectorProps> = ({
   label = 'Initial Owner',
   description = 'Address that will receive all roles (ADMIN, MINTER, PAUSER, UPGRADER)',
   required = true,
-  className
+  className,
+  network,
+  chainId,
+  showAllWallets = true // Default to showing all wallets (owner can be any address)
 }) => {
   const [wallets, setWallets] = useState<ProjectWalletData[]>([]);
+  const [allWallets, setAllWallets] = useState<ProjectWalletData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load project wallets
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      console.warn('[ProjectWalletSelector] No projectId provided');
+      return;
+    }
 
     const loadWallets = async () => {
+      console.log('[ProjectWalletSelector] Loading wallets for project:', projectId);
       setLoading(true);
       setError(null);
       
       try {
         const projectWallets = await projectWalletService.getProjectWallets(projectId);
-        setWallets(projectWallets);
+        console.log('[ProjectWalletSelector] Loaded wallets:', {
+          count: projectWallets.length,
+          wallets: projectWallets.map(w => ({
+            address: w.wallet_address,
+            name: w.project_wallet_name,
+            chainId: w.chain_id,
+            network: w.non_evm_network
+          }))
+        });
+        
+        setAllWallets(projectWallets);
+
+        // Filter wallets if network/chainId specified and showAllWallets is false
+        let filteredWallets = projectWallets;
+        if (!showAllWallets && (network || chainId)) {
+          filteredWallets = projectWallets.filter(wallet => {
+            // For EVM chains, match by chainId
+            if (chainId && wallet.chain_id === chainId) return true;
+            // For non-EVM, match by network name
+            if (network && wallet.non_evm_network === network) return true;
+            return false;
+          });
+          console.log('[ProjectWalletSelector] Filtered to network-compatible wallets:', {
+            original: projectWallets.length,
+            filtered: filteredWallets.length,
+            chainId,
+            network
+          });
+        }
+
+        setWallets(filteredWallets);
 
         // Auto-select if only one wallet
-        if (projectWallets.length === 1 && !value) {
-          onChange(projectWallets[0].wallet_address);
+        if (filteredWallets.length === 1 && !value) {
+          console.log('[ProjectWalletSelector] Auto-selecting single wallet:', filteredWallets[0].wallet_address);
+          onChange(filteredWallets[0].wallet_address);
+        } else if (filteredWallets.length > 1) {
+          console.log('[ProjectWalletSelector] Multiple wallets available, user must select');
         }
       } catch (err) {
-        console.error('Failed to load project wallets:', err);
+        console.error('[ProjectWalletSelector] Failed to load project wallets:', err);
         setError('Failed to load project wallets');
       } finally {
         setLoading(false);
@@ -59,7 +106,28 @@ export const ProjectWalletSelector: React.FC<ProjectWalletSelectorProps> = ({
     };
 
     loadWallets();
-  }, [projectId]);
+  }, [projectId, network, chainId, showAllWallets]);
+
+  // Helper to format wallet display info
+  const getWalletDisplayInfo = (wallet: ProjectWalletData) => {
+    const parts: string[] = [];
+    
+    if (wallet.project_wallet_name) {
+      parts.push(wallet.project_wallet_name);
+    } else {
+      parts.push('Unnamed Wallet');
+    }
+    
+    // Add network info
+    if (wallet.non_evm_network) {
+      parts.push(`(${wallet.non_evm_network})`);
+    } else if (wallet.chain_id) {
+      // You might want to map chain IDs to friendly names
+      parts.push(`(Chain ${wallet.chain_id})`);
+    }
+    
+    return parts.join(' ');
+  };
 
   // Show loading state
   if (loading) {
@@ -95,9 +163,20 @@ export const ProjectWalletSelector: React.FC<ProjectWalletSelectorProps> = ({
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            No project wallets found. Please create a wallet before deploying.
+            {allWallets.length === 0 
+              ? 'No project wallets found. Please create a wallet before deploying.'
+              : `No wallets found for ${chainId ? `chain ${chainId}` : network}. ${allWallets.length} wallet(s) available for other networks.`
+            }
           </AlertDescription>
         </Alert>
+        {!showAllWallets && allWallets.length > 0 && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Tip: For token deployment, any EVM wallet address can be used as the initial owner, regardless of which chain the wallet was created for.
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
     );
   }
@@ -115,7 +194,7 @@ export const ProjectWalletSelector: React.FC<ProjectWalletSelectorProps> = ({
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">
-              {wallet.project_wallet_name || 'Default Wallet'}
+              {getWalletDisplayInfo(wallet)}
             </span>
           </div>
           <p className="text-xs font-mono text-muted-foreground">
@@ -145,7 +224,7 @@ export const ProjectWalletSelector: React.FC<ProjectWalletSelectorProps> = ({
             <SelectItem key={wallet.id} value={wallet.wallet_address}>
               <div className="flex flex-col">
                 <span className="font-medium">
-                  {wallet.project_wallet_name || 'Unnamed Wallet'}
+                  {getWalletDisplayInfo(wallet)}
                 </span>
                 <span className="text-xs font-mono text-muted-foreground">
                   {wallet.wallet_address.slice(0, 10)}...{wallet.wallet_address.slice(-8)}
