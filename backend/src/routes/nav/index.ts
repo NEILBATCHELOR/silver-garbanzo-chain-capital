@@ -9,6 +9,7 @@ export { bondCalculationRoutes } from './bondsCalculation'
 export { mmfDataInputRoutes } from './mmfDataInput'
 export { mmfCalculationRoutes } from './mmfCalculation'
 export { mmfEnhancementRoutes } from './mmfEnhancements'
+export { mmfSubscriptionRoutes } from './mmfSubscriptions'
 
 // TODO: Export additional asset type routes as implemented
 // export { equityDataInputRoutes } from './equityDataInput'

@@ -108,7 +108,7 @@ export async function mmfSubscriptionRoutes(fastify: FastifyInstance) {
       }, 'Calculated shares to issue')
       
       // 4. Create subscription record with project_id
-      const { data: subscription, error: subError } = await fastify.supabase
+      const { data: subscription, error: subError} = await fastify.supabase
         .from('subscriptions')
         .insert({
           investor_id: input.investorId,
@@ -116,7 +116,7 @@ export async function mmfSubscriptionRoutes(fastify: FastifyInstance) {
           fiat_amount: input.amount,
           currency: input.currency,
           project_id: fundProjectId,  // *** CRITICAL: Set project_id ***
-          fund_product_id: fundId,
+          product_id: fundId,  // *** USES product_id NOT fund_product_id ***
           nav_per_share: currentNAV.toNumber(),
           shares_calculated: sharesToIssue.toNumber(),
           transaction_type: 'subscription',
@@ -303,7 +303,7 @@ export async function mmfSubscriptionRoutes(fastify: FastifyInstance) {
           fiat_amount: -cashAmount.toNumber(),
           currency: 'USD',
           project_id: fundProjectId,  // *** CRITICAL: Set project_id ***
-          fund_product_id: fundId,
+          product_id: fundId,  // *** USES product_id NOT fund_product_id ***
           nav_per_share: currentNAV.toNumber(),
           shares_calculated: -shares.toNumber(),
           transaction_type: 'redemption',
@@ -425,7 +425,7 @@ export async function mmfSubscriptionRoutes(fastify: FastifyInstance) {
           *,
           investor:investors(*)
         `)
-        .eq('fund_product_id', fundId)
+        .eq('product_id', fundId)  // *** USES product_id NOT fund_product_id ***
         .eq('project_id', fundProjectId)  // *** CRITICAL: Project-scoped ***
         .order('subscription_date', { ascending: false })
       
