@@ -1,6 +1,6 @@
 /**
  * ENHANCEMENT 5: Transaction Manager
- * Pre-trade impact analysis with compliance checks
+ * Pre-trade impact analysis with compliance checks and execution
  * Following Bonds pattern - Zero hardcoded values
  */
 
@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MMFAPI } from '@/infrastructure/api/nav/mmf-api'
 import {
   Card,
@@ -78,6 +78,9 @@ type TransactionInput = z.infer<typeof transactionSchema>
 export function TransactionManager({ fundId }: TransactionManagerProps) {
   const [showImpactDialog, setShowImpactDialog] = useState(false)
   const [impactData, setImpactData] = useState<any>(null)
+  const [isExecuted, setIsExecuted] = useState(false) // Track if transaction was executed
+  
+  const queryClient = useQueryClient()
 
   const form = useForm<TransactionInput>({
     resolver: zodResolver(transactionSchema),
@@ -97,7 +100,6 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
 
   const analyzeMutation = useMutation({
     mutationFn: (data: TransactionInput) => {
-      // Ensure all required fields are present (Zod validation handles this)
       return MMFAPI.analyzeTransactionImpact(fundId, data as {
         type: 'buy' | 'sell' | 'mature'
         holdingType: string
@@ -113,6 +115,7 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
     },
     onSuccess: (response) => {
       setImpactData(response.data)
+      setIsExecuted(false) // This is just analysis
       setShowImpactDialog(true)
     },
     onError: (error) => {
@@ -120,9 +123,57 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
     }
   })
 
-  const onSubmit = (data: TransactionInput) => {
-    // Zod validation ensures all required fields are present
+  const executeMutation = useMutation({
+    mutationFn: (data: TransactionInput) => {
+      return MMFAPI.executeTransaction(fundId, data as {
+        type: 'buy' | 'sell' | 'mature'
+        holdingType: string
+        issuerName: string
+        quantity: number
+        price: number
+        maturityDate: Date
+        isGovernmentSecurity: boolean
+        isDailyLiquid: boolean
+        isWeeklyLiquid: boolean
+        creditRating: string
+      })
+    },
+    onSuccess: (response) => {
+      toast.success(response.data.message || 'Transaction executed successfully')
+      setImpactData(response.data)
+      setIsExecuted(true) // Transaction was executed
+      setShowImpactDialog(true)
+      form.reset()
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['mmf', fundId] })
+      queryClient.invalidateQueries({ queryKey: ['mmf-holdings', fundId] })
+      queryClient.invalidateQueries({ queryKey: ['mmf-calculations', fundId] })
+    },
+    onError: (error) => {
+      toast.error(`Failed to execute transaction: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  })
+
+  const onAnalyze = (data: TransactionInput) => {
     analyzeMutation.mutate(data)
+  }
+
+  const onExecute = () => {
+    const data = form.getValues()
+    executeMutation.mutate(data)
+    setShowImpactDialog(false)
+  }
+
+  const onSubmit = (data: TransactionInput) => {
+    // Default: analyze first
+    onAnalyze(data)
+  }
+
+  const handleCloseDialog = () => {
+    setShowImpactDialog(false)
+    setImpactData(null)
+    setIsExecuted(false)
   }
 
   return (
@@ -362,12 +413,17 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
 
       {/* Impact Analysis Dialog */}
       {impactData && (
-        <Dialog open={showImpactDialog} onOpenChange={setShowImpactDialog}>
+        <Dialog open={showImpactDialog} onOpenChange={handleCloseDialog}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Transaction Impact Analysis</DialogTitle>
+              <DialogTitle>
+                {isExecuted ? 'Transaction Executed Successfully' : 'Transaction Impact Analysis'}
+              </DialogTitle>
               <DialogDescription>
-                Review the impact before executing the transaction
+                {isExecuted 
+                  ? 'Below are the results of the executed transaction'
+                  : 'Review the impact before executing the transaction'
+                }
               </DialogDescription>
             </DialogHeader>
 
@@ -375,18 +431,27 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
               {/* Recommendation Banner */}
               <Alert
                 variant={
-                  impactData.recommendation === 'approve'
+                  isExecuted 
                     ? 'default'
-                    : impactData.recommendation === 'reject'
-                      ? 'destructive'
-                      : 'default'
+                    : impactData.recommendation === 'approve'
+                      ? 'default'
+                      : impactData.recommendation === 'reject'
+                        ? 'destructive'
+                        : 'default'
                 }
               >
-                {impactData.recommendation === 'approve' && <CheckCircle2 className="h-4 w-4" />}
-                {impactData.recommendation === 'review' && <AlertCircle className="h-4 w-4" />}
-                {impactData.recommendation === 'reject' && <XCircle className="h-4 w-4" />}
-                <AlertTitle className="uppercase">{impactData.recommendation}</AlertTitle>
-                <AlertDescription>{impactData.recommendationReason}</AlertDescription>
+                {(isExecuted || impactData.recommendation === 'approve') && <CheckCircle2 className="h-4 w-4" />}
+                {!isExecuted && impactData.recommendation === 'review' && <AlertCircle className="h-4 w-4" />}
+                {!isExecuted && impactData.recommendation === 'reject' && <XCircle className="h-4 w-4" />}
+                <AlertTitle className="uppercase">
+                  {isExecuted ? 'SUCCESS' : impactData.recommendation}
+                </AlertTitle>
+                <AlertDescription>
+                  {isExecuted 
+                    ? impactData.message || 'Transaction has been executed and holdings have been updated'
+                    : impactData.recommendationReason
+                  }
+                </AlertDescription>
               </Alert>
 
               {/* Transaction Summary */}
@@ -401,7 +466,7 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Security</div>
-                    <div className="font-medium">{impactData.transaction.security}</div>
+                    <div className="font-medium">{impactData.transaction.security || impactData.transaction.issuer}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Quantity</div>
@@ -415,6 +480,12 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                       ${(impactData.transaction.totalValue / 1_000_000).toFixed(2)}M
                     </div>
                   </div>
+                  {isExecuted && (
+                    <div className="col-span-2">
+                      <div className="text-sm text-muted-foreground">Transaction ID</div>
+                      <div className="font-mono text-sm">{impactData.transaction.id}</div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -428,8 +499,8 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Metric</TableHead>
-                        <TableHead>Current</TableHead>
-                        <TableHead>After Transaction</TableHead>
+                        <TableHead>Before</TableHead>
+                        <TableHead>After</TableHead>
                         <TableHead>Change</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -447,7 +518,7 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                             }
                           >
                             {impactData.impacts.navChange >= 0 ? '+' : ''}
-                            {impactData.impacts.navChange.toFixed(4)}
+                            ${impactData.impacts.navChange.toFixed(4)}
                           </span>
                         </TableCell>
                       </TableRow>
@@ -488,10 +559,10 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                       <TableRow>
                         <TableCell>Daily Liquidity</TableCell>
                         <TableCell>
-                          {impactData.preTransaction.dailyLiquidPercentage.toFixed(1)}%
+                          {(impactData.preTransaction.dailyLiquidPercentage || impactData.preTransaction.dailyLiquid).toFixed(1)}%
                         </TableCell>
                         <TableCell>
-                          {impactData.postTransaction.dailyLiquidPercentage.toFixed(1)}%
+                          {(impactData.postTransaction.dailyLiquidPercentage || impactData.postTransaction.dailyLiquid).toFixed(1)}%
                         </TableCell>
                         <TableCell>
                           <span
@@ -509,10 +580,10 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                       <TableRow>
                         <TableCell>Weekly Liquidity</TableCell>
                         <TableCell>
-                          {impactData.preTransaction.weeklyLiquidPercentage.toFixed(1)}%
+                          {(impactData.preTransaction.weeklyLiquidPercentage || impactData.preTransaction.weeklyLiquid).toFixed(1)}%
                         </TableCell>
                         <TableCell>
-                          {impactData.postTransaction.weeklyLiquidPercentage.toFixed(1)}%
+                          {(impactData.postTransaction.weeklyLiquidPercentage || impactData.postTransaction.weeklyLiquid).toFixed(1)}%
                         </TableCell>
                         <TableCell>
                           <span
@@ -532,8 +603,8 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                 </CardContent>
               </Card>
 
-              {/* Concentration Check */}
-              {impactData.transaction.type === 'buy' && (
+              {/* Concentration Check (only for buy transactions in analysis mode) */}
+              {!isExecuted && impactData.transaction.type === 'buy' && impactData.concentrationCheck && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Concentration Risk Check</CardTitle>
@@ -557,47 +628,57 @@ export function TransactionManager({ fundId }: TransactionManagerProps) {
                 </Card>
               )}
 
-              {/* Violations/Warnings */}
-              {(impactData.complianceCheck.violations.length > 0 ||
+              {/* Violations/Warnings (only in analysis mode) */}
+              {!isExecuted && impactData.complianceCheck && (
+                (impactData.complianceCheck.violations.length > 0 ||
                 impactData.complianceCheck.warnings.length > 0) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Compliance Checks</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {impactData.complianceCheck.violations.map((violation: string, idx: number) => (
-                      <Alert key={`v-${idx}`} variant="destructive">
-                        <XCircle className="h-4 w-4" />
-                        <AlertDescription>{violation}</AlertDescription>
-                      </Alert>
-                    ))}
-                    {impactData.complianceCheck.warnings.map((warning: string, idx: number) => (
-                      <Alert key={`w-${idx}`}>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{warning}</AlertDescription>
-                      </Alert>
-                    ))}
-                  </CardContent>
-                </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Compliance Checks</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {impactData.complianceCheck.violations.map((violation: string, idx: number) => (
+                        <Alert key={`v-${idx}`} variant="destructive">
+                          <XCircle className="h-4 w-4" />
+                          <AlertDescription>{violation}</AlertDescription>
+                        </Alert>
+                      ))}
+                      {impactData.complianceCheck.warnings.map((warning: string, idx: number) => (
+                        <Alert key={`w-${idx}`}>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{warning}</AlertDescription>
+                        </Alert>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )
               )}
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowImpactDialog(false)}>
-                Cancel
+              <Button variant="outline" onClick={handleCloseDialog}>
+                {isExecuted ? 'Close' : 'Cancel'}
               </Button>
-              <Button
-                disabled={impactData.recommendation === 'reject'}
-                variant={impactData.recommendation === 'approve' ? 'default' : 'secondary'}
-                onClick={() => {
-                  toast.success('Transaction execution would happen here')
-                  setShowImpactDialog(false)
-                }}
-              >
-                {impactData.recommendation === 'approve'
-                  ? 'Execute Transaction'
-                  : 'Review and Execute'}
-              </Button>
+              {!isExecuted && (
+                <Button
+                  disabled={impactData.recommendation === 'reject' || executeMutation.isPending}
+                  variant={impactData.recommendation === 'approve' ? 'default' : 'secondary'}
+                  onClick={onExecute}
+                >
+                  {executeMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Executing...
+                    </>
+                  ) : (
+                    <>
+                      {impactData.recommendation === 'approve'
+                        ? 'Execute Transaction'
+                        : 'Review and Execute'}
+                    </>
+                  )}
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

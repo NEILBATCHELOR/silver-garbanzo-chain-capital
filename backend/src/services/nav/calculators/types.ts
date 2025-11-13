@@ -6,6 +6,7 @@
  */
 
 import { Decimal } from 'decimal.js'
+import type { AllocationBreakdown } from '../models/traditional/EnhancedMMFModels'
 
 export interface CalculatorInput {
   productId: string
@@ -62,6 +63,7 @@ export interface NAVResult {
   dailyLiquidPercentage?: number   // Daily liquid assets %
   weeklyLiquidPercentage?: number  // Weekly liquid assets %
   complianceStatus?: any           // SEC Rule 2a-7 compliance
+  allocationBreakdown?: AllocationBreakdown[] // Asset class allocation breakdown
 }
 
 export interface NAVBreakdown {

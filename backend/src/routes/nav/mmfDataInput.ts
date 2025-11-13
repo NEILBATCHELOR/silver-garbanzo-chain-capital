@@ -860,7 +860,7 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
   
   /**
    * GET /api/nav/mmf/token-links/latest
-   * Get latest token link data
+   * Get latest token link data for a specific MMF product
    */
   fastify.get('/mmf/token-links/latest', async (request, reply) => {
     try {
@@ -873,10 +873,12 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
         })
       }
       
-      const { data, error } = await fastify.supabase
-        .from('product_token_links')
-        .select('*')
+      // ✅ FIX: Query tokens table instead of non-existent product_token_links
+      const { data: token, error } = await fastify.supabase
+        .from('tokens')
+        .select('id, name, symbol, product_id, product_type, ratio, parity, status, created_at, updated_at')
         .eq('product_id', product_id)
+        .eq('product_type', 'mmf')
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
@@ -884,13 +886,36 @@ export async function mmfDataInputRoutes(fastify: FastifyInstance) {
       if (error) {
         return reply.code(404).send({
           success: false,
-          error: 'No token link found'
+          error: 'No token link found for this MMF'
         })
+      }
+      
+      // Get MMF product details
+      const { data: product } = await fastify.supabase
+        .from('fund_products')
+        .select('id, fund_name, fund_ticker')
+        .eq('id', product_id)
+        .single()
+      
+      // Transform to match expected format
+      const tokenLink = {
+        id: token.id,
+        mmf_id: token.product_id,
+        token_id: token.id,
+        token_name: token.name,
+        token_symbol: token.symbol,
+        mmf_name: product?.fund_name || product?.fund_ticker || 'Unknown MMF',
+        parity: token.parity || 1.0,
+        ratio: token.ratio || 1.0,
+        effective_date: token.created_at,
+        status: token.status,
+        created_at: token.created_at,
+        updated_at: token.updated_at
       }
       
       return reply.send({
         success: true,
-        data
+        data: tokenLink
       })
       
     } catch (error) {

@@ -67,6 +67,8 @@ export interface MMFValuationResult {
   creditRisk?: CreditRiskMetrics
   // ENHANCED: Audit trail
   auditTrail: AuditTrail
+  // ENHANCEMENT: Asset allocation breakdown for historical tracking
+  allocationBreakdown?: AllocationBreakdown[]
 }
 
 export interface MMFValuationBreakdown {
@@ -540,7 +542,14 @@ export class EnhancedMMFModels {
     const dataQuality = this.assessDataQualityEnhanced(product, supporting, auditTrail)
     const confidence = this.assessConfidenceEnhanced(supporting, dataQuality, auditTrail)
     
-    // Step 19: Finalize audit trail
+    // Step 19: ENHANCEMENT - Calculate allocation breakdown for historical tracking
+    const allocationBreakdown = this.calculateAllocationBreakdown(
+      preparedHoldings,
+      product.fund_type,
+      totalAmortizedCost
+    )
+    
+    // Step 20: Finalize audit trail
     auditTrail.dataSourcesUsed = this.buildDataSources(supporting).map(s => s.table)
     
     console.log('=== MMF CALCULATION COMPLETE (ENHANCED) ===')
@@ -576,7 +585,8 @@ export class EnhancedMMFModels {
       trends,
       stressTests,
       creditRisk,
-      auditTrail
+      auditTrail,
+      allocationBreakdown  // ENHANCEMENT: For historical tracking
     }
   }
 

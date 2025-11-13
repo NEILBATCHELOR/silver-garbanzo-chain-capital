@@ -636,6 +636,80 @@ export const MMFAPI = {
     }>(response)
   },
 
+  /**
+   * ENHANCEMENT 6: Execute transaction (Buy/Sell/Mature)
+   * POST /api/v1/nav/mmf/:fundId/transactions/execute
+   * 
+   * Executes the transaction and automatically:
+   * - Updates holdings
+   * - Updates shares_outstanding
+   * - Records in mmf_transactions
+   * - Returns complete transaction results
+   */
+  executeTransaction: async (fundId: string, transaction: {
+    type: 'buy' | 'sell' | 'mature'
+    holdingType: string
+    issuerName: string
+    quantity: number
+    price: number
+    maturityDate: Date
+    isGovernmentSecurity: boolean
+    isDailyLiquid: boolean
+    isWeeklyLiquid: boolean
+    creditRating: string
+  }) => {
+    const response = await fetchWithAuth(
+      `${MMF_BASE}/${fundId}/transactions/execute`,
+      {
+        method: 'POST',
+        body: JSON.stringify(transaction)
+      }
+    )
+    return handleResponse<{
+      success: boolean
+      data: {
+        transaction: {
+          id: string
+          type: string
+          security: string
+          issuer: string
+          quantity: number
+          price: number
+          totalValue: number
+        }
+        preTransaction: {
+          nav: number
+          wam: number
+          wal: number
+          dailyLiquid: number
+          weeklyLiquid: number
+          totalAmortizedCost: number
+          totalMarketValue: number
+          sharesOutstanding: number
+        }
+        postTransaction: {
+          nav: number
+          wam: number
+          wal: number
+          dailyLiquid: number
+          weeklyLiquid: number
+          totalAmortizedCost: number
+          totalMarketValue: number
+          sharesOutstanding: number
+        }
+        impacts: {
+          navChange: number
+          wamChange: number
+          walChange: number
+          dailyLiquidChange: number
+          weeklyLiquidChange: number
+        }
+        recommendation: string
+        message: string
+      }
+    }>(response)
+  },
+
   // ========== Token Links ==========
   
   /**

@@ -204,7 +204,9 @@ export class MMFCalculator extends BaseCalculator<MMFProduct, MMFSupportingData,
         wal: valuationResult.riskMetrics.wal,
         dailyLiquidPercentage: valuationResult.riskMetrics.dailyLiquidPercentage,
         weeklyLiquidPercentage: valuationResult.riskMetrics.weeklyLiquidPercentage,
-        complianceStatus: valuationResult.compliance
+        complianceStatus: valuationResult.compliance,
+        // ENHANCEMENT: Allocation breakdown for historical tracking
+        allocationBreakdown: valuationResult.allocationBreakdown
       }
       
       console.log('=== NAV RESULT BUILT ===')
@@ -342,9 +344,64 @@ export class MMFCalculator extends BaseCalculator<MMFProduct, MMFSupportingData,
       
       console.log('[MMF] Successfully saved NAV to mmf_nav_history')
       
+      // ✅ ENHANCEMENT: Persist allocation breakdown for historical tracking
+      if (result.allocationBreakdown && Array.isArray(result.allocationBreakdown)) {
+        try {
+          await this.persistAllocationHistory(
+            result.productId,
+            result.allocationBreakdown,
+            result.valuationDate
+          )
+          console.log('[MMF] Successfully saved allocation history')
+        } catch (allocError) {
+          // Log but don't fail NAV save if allocation save fails
+          console.error('[MMF] Failed to save allocation history:', allocError)
+        }
+      }
+      
     } catch (error) {
       console.error('[MMF] Error in saveToDatabase:', error)
       throw error
+    }
+  }
+  
+  /**
+   * Persist allocation breakdown to mmf_allocation_history table
+   * Enables historical trending and portfolio composition analysis
+   */
+  private async persistAllocationHistory(
+    fundId: string,
+    breakdown: any[],
+    asOfDate: Date
+  ): Promise<void> {
+    if (!breakdown || breakdown.length === 0) {
+      console.log('[MMF] No allocation breakdown to persist')
+      return
+    }
+    
+    const records = breakdown.map(item => ({
+      fund_product_id: fundId,
+      as_of_date: asOfDate,
+      asset_class: item.assetClass,
+      total_value: typeof item.totalValue === 'object' && 'toNumber' in item.totalValue
+        ? item.totalValue.toNumber()
+        : item.totalValue,
+      percentage: item.percentage,
+      number_of_securities: item.numberOfSecurities,
+      average_maturity_days: item.averageMaturityDays,
+      typical_range_min: item.typicalRange?.min || null,
+      typical_range_max: item.typicalRange?.max || null,
+      typical_range_average: item.typicalRange?.average || null,
+      variance_from_typical: item.variance || null,
+      created_at: new Date()
+    }))
+    
+    const { error } = await this.dbClient
+      .from('mmf_allocation_history')
+      .insert(records)
+    
+    if (error) {
+      throw new Error(`Allocation history save failed: ${error.message}`)
     }
   }
   
