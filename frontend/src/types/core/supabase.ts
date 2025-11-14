@@ -5840,6 +5840,7 @@ export type Database = {
           id: string
           initial_owner: string | null
           is_active: boolean | null
+          is_template: boolean | null
           network: string
           updated_at: string | null
           version: string
@@ -5861,6 +5862,7 @@ export type Database = {
           id?: string
           initial_owner?: string | null
           is_active?: boolean | null
+          is_template?: boolean | null
           network: string
           updated_at?: string | null
           version?: string
@@ -5882,6 +5884,7 @@ export type Database = {
           id?: string
           initial_owner?: string | null
           is_active?: boolean | null
+          is_template?: boolean | null
           network?: string
           updated_at?: string | null
           version?: string
@@ -13946,6 +13949,7 @@ export type Database = {
           impact_on_liquidity: Json | null
           impact_on_wal: number | null
           impact_on_wam: number | null
+          investor_id: string | null
           is_regulatory_compliant: boolean | null
           is_stress_test_compliant: boolean | null
           net_amount: number
@@ -13956,6 +13960,7 @@ export type Database = {
           security_description: string | null
           settlement_date: string | null
           status: string | null
+          subscription_id: string | null
           trade_confirmation_number: string | null
           transaction_date: string
           transaction_purpose: string | null
@@ -13979,6 +13984,7 @@ export type Database = {
           impact_on_liquidity?: Json | null
           impact_on_wal?: number | null
           impact_on_wam?: number | null
+          investor_id?: string | null
           is_regulatory_compliant?: boolean | null
           is_stress_test_compliant?: boolean | null
           net_amount: number
@@ -13989,6 +13995,7 @@ export type Database = {
           security_description?: string | null
           settlement_date?: string | null
           status?: string | null
+          subscription_id?: string | null
           trade_confirmation_number?: string | null
           transaction_date: string
           transaction_purpose?: string | null
@@ -14012,6 +14019,7 @@ export type Database = {
           impact_on_liquidity?: Json | null
           impact_on_wal?: number | null
           impact_on_wam?: number | null
+          investor_id?: string | null
           is_regulatory_compliant?: boolean | null
           is_stress_test_compliant?: boolean | null
           net_amount?: number
@@ -14022,6 +14030,7 @@ export type Database = {
           security_description?: string | null
           settlement_date?: string | null
           status?: string | null
+          subscription_id?: string | null
           trade_confirmation_number?: string | null
           transaction_date?: string
           transaction_purpose?: string | null
@@ -14042,6 +14051,20 @@ export type Database = {
             columns: ["holding_id"]
             isOneToOne: false
             referencedRelation: "mmf_holdings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["investor_id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -25640,10 +25663,14 @@ export type Database = {
           fiat_amount: number
           id: string
           investor_id: string
+          nav_per_share: number | null
           notes: string | null
+          product_id: string | null
           project_id: string | null
+          shares_calculated: number | null
           subscription_date: string | null
           subscription_id: string
+          transaction_type: string | null
           updated_at: string | null
         }
         Insert: {
@@ -25655,10 +25682,14 @@ export type Database = {
           fiat_amount: number
           id?: string
           investor_id: string
+          nav_per_share?: number | null
           notes?: string | null
+          product_id?: string | null
           project_id?: string | null
+          shares_calculated?: number | null
           subscription_date?: string | null
           subscription_id: string
+          transaction_type?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -25670,10 +25701,14 @@ export type Database = {
           fiat_amount?: number
           id?: string
           investor_id?: string
+          nav_per_share?: number | null
           notes?: string | null
+          product_id?: string | null
           project_id?: string | null
+          shares_calculated?: number | null
           subscription_date?: string | null
           subscription_id?: string
+          transaction_type?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -25683,6 +25718,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "investors"
             referencedColumns: ["investor_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "subscriptions_project_id_fkey"
@@ -35408,6 +35450,45 @@ export type Database = {
         }
         Relationships: []
       }
+      mmf_investor_holdings_by_project: {
+        Row: {
+          average_nav: number | null
+          first_investment_date: string | null
+          fund_name: string | null
+          fund_product_id: string | null
+          fund_type: string | null
+          investor_id: string | null
+          investor_name: string | null
+          last_transaction_date: string | null
+          project_id: string | null
+          total_invested: number | null
+          total_shares: number | null
+          transaction_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["investor_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       multi_sig_wallet_roles: {
         Row: {
           added_at: string | null
@@ -36700,6 +36781,10 @@ export type Database = {
         Returns: undefined
       }
       create_transaction_events_table: { Args: never; Returns: undefined }
+      decrement_shares_outstanding: {
+        Args: { p_fund_id: string; p_project_id?: string; p_shares: number }
+        Returns: undefined
+      }
       delete_project_cascade: {
         Args: { project_id: string }
         Returns: undefined
@@ -36789,9 +36874,47 @@ export type Database = {
         Args: { p_environment: string; p_network: string }
         Returns: string
       }
+      get_fund_project_id: { Args: { p_fund_id: string }; Returns: string }
+      get_investor_mmf_shares: {
+        Args: { p_fund_id: string; p_investor_id: string }
+        Returns: {
+          average_nav: number
+          total_invested: number
+          total_shares: number
+        }[]
+      }
+      get_investor_mmf_shares_by_project: {
+        Args: { p_fund_id: string; p_investor_id: string; p_project_id: string }
+        Returns: {
+          average_nav: number
+          total_invested: number
+          total_shares: number
+        }[]
+      }
       get_master_address: {
         Args: { p_environment: string; p_network: string; p_standard: string }
         Returns: string
+      }
+      get_mmf_holdings_summary: {
+        Args: { p_fund_id: string }
+        Returns: {
+          holding_types: string[]
+          total_amortized_cost: number
+          total_holdings: number
+          total_market_value: number
+        }[]
+      }
+      get_mmf_nav: {
+        Args: { p_as_of_date?: string; p_fund_id: string }
+        Returns: {
+          daily_liquid_percentage: number
+          deviation_from_stable: number
+          shadow_nav: number
+          stable_nav: number
+          wal: number
+          wam: number
+          weekly_liquid_percentage: number
+        }[]
       }
       get_moonpay_webhook_stats: {
         Args: never
@@ -36966,6 +37089,10 @@ export type Database = {
         Returns: string[]
       }
       get_wallet_signers: { Args: { p_wallet_id: string }; Returns: string[] }
+      increment_shares_outstanding: {
+        Args: { p_fund_id: string; p_project_id?: string; p_shares: number }
+        Returns: undefined
+      }
       insert_energy_asset_safe: {
         Args: {
           p_capacity: number

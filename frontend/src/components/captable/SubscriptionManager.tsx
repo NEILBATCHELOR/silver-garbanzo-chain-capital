@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import ProjectSelector from "./ProjectSelector";
+import { useQuery } from "@tanstack/react-query"; // NEW: For data fetching
+import MMFAPI from "@/infrastructure/api/nav/mmf-api"; // NEW: MMF API
 import {
   Card,
   CardContent,
@@ -38,6 +40,7 @@ import {
   ChevronRight,
   AlertCircle,
   Download,
+  TrendingUp, // NEW: For NAV display
 } from "lucide-react";
 import {
   Table,
@@ -65,6 +68,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert"; // NEW: For NAV display
 import SubscriptionDialog from "./SubscriptionDialog";
 import SubscriptionUploadDialog from "./SubscriptionUploadDialog";
 import SubscriptionConfirmationDialog from "./SubscriptionConfirmationDialog";
@@ -75,13 +79,34 @@ import { Label } from "@/components/ui/label";
 
 interface SubscriptionManagerProps {
   projectId?: string;
+  fundType?: 'standard' | 'mmf'; // NEW: Support MMF mode
+  fundId?: string; // NEW: For MMF subscriptions
+  showNAVCalculations?: boolean; // NEW: Show NAV-based calculations
 }
 
-const SubscriptionManager = ({ projectId }: SubscriptionManagerProps) => {
+const SubscriptionManager = ({ 
+  projectId,
+  fundType = 'standard', // NEW: Default to standard
+  fundId, // NEW: MMF fund ID
+  showNAVCalculations = false // NEW: Default to false
+}: SubscriptionManagerProps) => {
   const navigate = useNavigate();
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // NEW: Fetch MMF NAV when in MMF mode
+  const { data: currentNAV, isLoading: navLoading, error: navError } = useQuery({
+    queryKey: ['mmf-latest-nav', fundId],
+    queryFn: async () => {
+      if (!fundId) throw new Error('Fund ID required for MMF mode');
+      const response = await MMFAPI.getLatestNAV(fundId);
+      return response.data;
+    },
+    enabled: fundType === 'mmf' && !!fundId, // Only fetch when in MMF mode and fundId exists
+    staleTime: 60000, // Consider data fresh for 1 minute
+    refetchOnWindowFocus: true // Refetch on window focus to get latest NAV
+  });
   const [selectedSubscriptionIds, setSelectedSubscriptionIds] = useState<
     string[]
   >([]);
@@ -802,6 +827,51 @@ const SubscriptionManager = ({ projectId }: SubscriptionManagerProps) => {
             Manage investor subscriptions and token allocations
           </p>
         </div>
+        
+        {/* NEW: MMF NAV Display */}
+        {fundType === 'mmf' && showNAVCalculations && (
+          <div className="w-full md:w-auto">
+            {navLoading ? (
+              <Alert>
+                <AlertDescription>Loading NAV...</AlertDescription>
+              </Alert>
+            ) : navError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Failed to load NAV. {navError instanceof Error ? navError.message : 'Please try again.'}
+                </AlertDescription>
+              </Alert>
+            ) : currentNAV ? (
+              <Alert className="border-green-200 bg-green-50">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <div className="font-semibold text-green-900">
+                      Current NAV: ${currentNAV.stable_nav?.toFixed(4) || 'N/A'} per share
+                    </div>
+                    <div className="text-xs text-green-700">
+                      As of {currentNAV.valuation_date ? new Date(currentNAV.valuation_date).toLocaleDateString() : 'N/A'}
+                      {currentNAV.market_based_nav && (
+                        <span className="ml-2">
+                          | Market NAV: ${currentNAV.market_based_nav.toFixed(4)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No NAV found. Please calculate NAV before creating subscriptions.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+        
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -1505,11 +1575,16 @@ const SubscriptionManager = ({ projectId }: SubscriptionManagerProps) => {
         onOpenChange={setIsAddDialogOpen}
         onSubmit={handleAddSubscription}
         projectId={projectId}
+        fundType={fundType} // NEW: Pass fund type
+        currentNAV={currentNAV?.stable_nav} // NEW: Pass current NAV (extract number from object)
+        fundId={fundId}
       />
       <SubscriptionUploadDialog
         open={isUploadDialogOpen}
         onOpenChange={setIsUploadDialogOpen}
         onUploadComplete={handleUploadSubscriptions}
+        fundType={fundType} // NEW: Pass fund type
+        currentNAV={currentNAV?.stable_nav} // NEW: Pass current NAV (extract number from object)
       />
       <SubscriptionConfirmationDialog
         open={isConfirmDialogOpen}

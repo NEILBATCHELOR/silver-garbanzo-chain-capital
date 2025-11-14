@@ -11,6 +11,7 @@ import {
   FileSliders,
   ChevronsRight,
   Settings,
+  Droplets,
 } from "lucide-react";
 
 const CapTableNavigation = ({ projectId }: { projectId: string }) => {
@@ -37,6 +38,11 @@ const CapTableNavigation = ({ projectId }: { projectId: string }) => {
       icon: <FileText className="h-4 w-4" />,
       label: "Subscriptions",
       href: `/projects/${projectId}/captable/subscriptions`,
+    },
+    {
+      icon: <Droplets className="h-4 w-4" />,
+      label: "MMF Subscriptions",
+      href: `/projects/${projectId}/captable/mmf-subscriptions`,
     },
     {
       icon: <Wallet className="h-4 w-4" />,

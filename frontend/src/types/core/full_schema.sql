@@ -2571,6 +2571,43 @@ $$;
 
 
 --
+-- Name: decrement_shares_outstanding(uuid, numeric, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid DEFAULT NULL::uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF p_project_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM fund_products 
+      WHERE id = p_fund_id AND project_id = p_project_id
+    ) THEN
+      RAISE EXCEPTION 'Fund % does not belong to project %', p_fund_id, p_project_id;
+    END IF;
+  END IF;
+
+  UPDATE fund_products
+  SET 
+    shares_outstanding = COALESCE(shares_outstanding, 0) - p_shares,
+    updated_at = NOW()
+  WHERE id = p_fund_id;
+  
+  UPDATE fund_products
+  SET shares_outstanding = 0
+  WHERE id = p_fund_id AND shares_outstanding < 0;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) IS 'Safely decrements shares_outstanding with project validation and zero floor';
+
+
+--
 -- Name: delete_project_cascade(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3300,6 +3337,83 @@ $$;
 
 
 --
+-- Name: get_fund_project_id(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_fund_project_id(p_fund_id uuid) RETURNS uuid
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+  v_project_id UUID;
+BEGIN
+  SELECT project_id INTO v_project_id
+  FROM fund_products
+  WHERE id = p_fund_id;
+  
+  RETURN v_project_id;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_fund_project_id(p_fund_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_fund_project_id(p_fund_id uuid) IS 'Returns the project_id for a given fund_product_id';
+
+
+--
+-- Name: get_investor_mmf_shares(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_investor_mmf_shares(p_investor_id uuid, p_fund_id uuid) RETURNS TABLE(total_shares numeric, total_invested numeric, average_nav numeric)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COALESCE(SUM(shares_calculated), 0) as total_shares,
+    COALESCE(SUM(fiat_amount), 0) as total_invested,
+    CASE 
+      WHEN COALESCE(SUM(shares_calculated), 0) > 0 
+      THEN COALESCE(SUM(fiat_amount), 0) / COALESCE(SUM(shares_calculated), 1)
+      ELSE 0
+    END as average_nav
+  FROM subscriptions
+  WHERE investor_id = p_investor_id
+  AND product_id = p_fund_id
+  AND confirmed = true;
+END;
+$$;
+
+
+--
+-- Name: get_investor_mmf_shares_by_project(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_investor_mmf_shares_by_project(p_investor_id uuid, p_fund_id uuid, p_project_id uuid) RETURNS TABLE(total_shares numeric, total_invested numeric, average_nav numeric)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COALESCE(SUM(shares_calculated), 0) as total_shares,
+    COALESCE(SUM(fiat_amount), 0) as total_invested,
+    CASE 
+      WHEN COALESCE(SUM(shares_calculated), 0) > 0 
+      THEN COALESCE(SUM(fiat_amount), 0) / COALESCE(SUM(shares_calculated), 1)
+      ELSE 0
+    END as average_nav
+  FROM subscriptions
+  WHERE investor_id = p_investor_id
+  AND product_id = p_fund_id
+  AND project_id = p_project_id
+  AND confirmed = true;
+END;
+$$;
+
+
+--
 -- Name: get_master_address(text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3335,6 +3449,67 @@ BEGIN
   );
 END;
 $$;
+
+
+--
+-- Name: get_mmf_holdings_summary(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_mmf_holdings_summary(p_fund_id uuid) RETURNS TABLE(total_holdings integer, total_amortized_cost numeric, total_market_value numeric, holding_types character varying[])
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COUNT(*)::INTEGER as total_holdings,
+    COALESCE(SUM(amortized_cost), 0) as total_amortized_cost,
+    COALESCE(SUM(market_value), 0) as total_market_value,
+    ARRAY_AGG(DISTINCT holding_type) as holding_types
+  FROM mmf_holdings
+  WHERE fund_product_id = p_fund_id
+  AND status = 'active';
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_mmf_holdings_summary(p_fund_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_mmf_holdings_summary(p_fund_id uuid) IS 'Returns summary statistics for MMF holdings';
+
+
+--
+-- Name: get_mmf_nav(uuid, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone DEFAULT now()) RETURNS TABLE(stable_nav numeric, shadow_nav numeric, deviation_from_stable numeric, wam integer, wal integer, daily_liquid_percentage numeric, weekly_liquid_percentage numeric)
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    mnh.stable_nav,
+    mnh.market_based_nav as shadow_nav,
+    mnh.deviation_from_stable,
+    mnh.weighted_average_maturity_days as wam,
+    mnh.weighted_average_life_days as wal,
+    mnh.daily_liquid_assets_percentage,
+    mnh.weekly_liquid_assets_percentage
+  FROM mmf_nav_history mnh
+  WHERE mnh.fund_product_id = p_fund_id
+  AND mnh.valuation_date <= p_as_of_date
+  ORDER BY mnh.valuation_date DESC
+  LIMIT 1;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone) IS 'Returns latest MMF NAV metrics as of a specific date';
 
 
 --
@@ -4325,6 +4500,39 @@ BEGIN
   RETURN OLD;
 END;
 $$;
+
+
+--
+-- Name: increment_shares_outstanding(uuid, numeric, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid DEFAULT NULL::uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF p_project_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM fund_products 
+      WHERE id = p_fund_id AND project_id = p_project_id
+    ) THEN
+      RAISE EXCEPTION 'Fund % does not belong to project %', p_fund_id, p_project_id;
+    END IF;
+  END IF;
+
+  UPDATE fund_products
+  SET 
+    shares_outstanding = COALESCE(shares_outstanding, 0) + p_shares,
+    updated_at = NOW()
+  WHERE id = p_fund_id;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) IS 'Safely increments shares_outstanding with project validation';
 
 
 --
@@ -7595,6 +7803,54 @@ BEGIN
         v_capacity_info.target_raise_amount;
 END;
 $$;
+
+
+--
+-- Name: validate_subscription_project_consistency(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_subscription_project_consistency() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  v_fund_project_id UUID;
+BEGIN
+  -- Skip if no product_id
+  IF NEW.product_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  
+  -- Get the project_id from fund_products
+  SELECT project_id INTO v_fund_project_id
+  FROM fund_products
+  WHERE id = NEW.product_id;
+  
+  -- If fund not found, raise error
+  IF v_fund_project_id IS NULL THEN
+    RAISE EXCEPTION 'Product % not found in fund_products', NEW.product_id;
+  END IF;
+  
+  -- If project_id doesn't match, raise error
+  IF NEW.project_id IS NOT NULL AND NEW.project_id != v_fund_project_id THEN
+    RAISE EXCEPTION 'Project ID mismatch: subscription project_id (%) does not match fund project_id (%)', 
+      NEW.project_id, v_fund_project_id;
+  END IF;
+  
+  -- Auto-set project_id if not provided
+  IF NEW.project_id IS NULL THEN
+    NEW.project_id := v_fund_project_id;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION validate_subscription_project_consistency(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.validate_subscription_project_consistency() IS 'Ensures subscription project_id matches the fund_products project_id';
 
 
 --
@@ -10872,6 +11128,7 @@ CREATE TABLE public.contract_masters (
     updated_at timestamp with time zone DEFAULT now(),
     contract_details jsonb,
     initial_owner text,
+    is_template boolean DEFAULT false,
     CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text, 'local'::text])))
 );
 
@@ -14719,6 +14976,93 @@ COMMENT ON TABLE public.mmf_holdings IS 'Money market fund holdings and securiti
 
 
 --
+-- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subscriptions (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    investor_id uuid NOT NULL,
+    subscription_id text NOT NULL,
+    fiat_amount numeric NOT NULL,
+    currency text NOT NULL,
+    confirmed boolean DEFAULT false NOT NULL,
+    allocated boolean DEFAULT false NOT NULL,
+    distributed boolean DEFAULT false NOT NULL,
+    notes text,
+    subscription_date timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    project_id uuid,
+    product_id uuid,
+    nav_per_share numeric,
+    shares_calculated numeric,
+    transaction_type character varying(50) DEFAULT 'subscription'::character varying
+);
+
+
+--
+-- Name: COLUMN subscriptions.product_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.subscriptions.product_id IS 'Links to fund_products (MMF or other fund types)';
+
+
+--
+-- Name: COLUMN subscriptions.nav_per_share; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.subscriptions.nav_per_share IS 'NAV per share at subscription/redemption time';
+
+
+--
+-- Name: COLUMN subscriptions.shares_calculated; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.subscriptions.shares_calculated IS 'MMF shares to issue (+) or redeem (-)';
+
+
+--
+-- Name: COLUMN subscriptions.transaction_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.subscriptions.transaction_type IS 'Type: subscription or redemption';
+
+
+--
+-- Name: mmf_investor_holdings_by_project; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.mmf_investor_holdings_by_project AS
+ SELECT s.project_id,
+    s.product_id AS fund_product_id,
+    fp.fund_name,
+    fp.fund_type,
+    s.investor_id,
+    i.name AS investor_name,
+    COALESCE(sum(s.shares_calculated), (0)::numeric) AS total_shares,
+    COALESCE(sum(s.fiat_amount), (0)::numeric) AS total_invested,
+        CASE
+            WHEN (COALESCE(sum(s.shares_calculated), (0)::numeric) > (0)::numeric) THEN (COALESCE(sum(s.fiat_amount), (0)::numeric) / COALESCE(sum(s.shares_calculated), (1)::numeric))
+            ELSE (0)::numeric
+        END AS average_nav,
+    count(*) AS transaction_count,
+    min(s.subscription_date) AS first_investment_date,
+    max(s.subscription_date) AS last_transaction_date
+   FROM ((public.subscriptions s
+     JOIN public.investors i ON ((i.investor_id = s.investor_id)))
+     JOIN public.fund_products fp ON ((fp.id = s.product_id)))
+  WHERE ((s.product_id IS NOT NULL) AND (s.confirmed = true))
+  GROUP BY s.project_id, s.product_id, fp.fund_name, fp.fund_type, s.investor_id, i.name;
+
+
+--
+-- Name: VIEW mmf_investor_holdings_by_project; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.mmf_investor_holdings_by_project IS 'Aggregated MMF holdings by investor and project';
+
+
+--
 -- Name: mmf_liquidity_buckets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -14839,7 +15183,9 @@ CREATE TABLE public.mmf_transactions (
     status character varying(20) DEFAULT 'settled'::character varying,
     notes text,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    investor_id uuid,
+    subscription_id uuid
 );
 
 
@@ -14848,6 +15194,20 @@ CREATE TABLE public.mmf_transactions (
 --
 
 COMMENT ON TABLE public.mmf_transactions IS 'Daily transaction activity for money market funds';
+
+
+--
+-- Name: COLUMN mmf_transactions.investor_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mmf_transactions.investor_id IS 'Investor who made the subscription/redemption';
+
+
+--
+-- Name: COLUMN mmf_transactions.subscription_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mmf_transactions.subscription_id IS 'Links to subscription record';
 
 
 --
@@ -21440,27 +21800,6 @@ CREATE TABLE public.stripe_webhook_events (
 --
 
 COMMENT ON TABLE public.stripe_webhook_events IS 'Stores Stripe webhook events for processing and audit trail';
-
-
---
--- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.subscriptions (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
-    investor_id uuid NOT NULL,
-    subscription_id text NOT NULL,
-    fiat_amount numeric NOT NULL,
-    currency text NOT NULL,
-    confirmed boolean DEFAULT false NOT NULL,
-    allocated boolean DEFAULT false NOT NULL,
-    distributed boolean DEFAULT false NOT NULL,
-    notes text,
-    subscription_date timestamp with time zone DEFAULT now(),
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    project_id uuid
-);
 
 
 --
@@ -33442,6 +33781,13 @@ CREATE INDEX idx_contract_masters_address ON public.contract_masters USING btree
 
 
 --
+-- Name: idx_contract_masters_is_template; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_is_template ON public.contract_masters USING btree (is_template, network, environment, is_active);
+
+
+--
 -- Name: idx_contract_masters_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36214,6 +36560,13 @@ CREATE INDEX idx_mmf_holdings_fund ON public.mmf_holdings USING btree (fund_prod
 
 
 --
+-- Name: idx_mmf_holdings_fund_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_holdings_fund_status ON public.mmf_holdings USING btree (fund_product_id, status);
+
+
+--
 -- Name: idx_mmf_holdings_issuer; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36284,6 +36637,13 @@ CREATE INDEX idx_mmf_nav_history_fund ON public.mmf_nav_history USING btree (fun
 
 
 --
+-- Name: idx_mmf_nav_history_fund_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_nav_history_fund_date ON public.mmf_nav_history USING btree (fund_product_id, valuation_date DESC);
+
+
+--
 -- Name: idx_mmf_transactions_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36298,10 +36658,31 @@ CREATE INDEX idx_mmf_transactions_fund ON public.mmf_transactions USING btree (f
 
 
 --
+-- Name: idx_mmf_transactions_fund_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_fund_date ON public.mmf_transactions USING btree (fund_product_id, transaction_date DESC);
+
+
+--
 -- Name: idx_mmf_transactions_holding; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_mmf_transactions_holding ON public.mmf_transactions USING btree (holding_id);
+
+
+--
+-- Name: idx_mmf_transactions_investor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_investor ON public.mmf_transactions USING btree (investor_id);
+
+
+--
+-- Name: idx_mmf_transactions_subscription; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mmf_transactions_subscription ON public.mmf_transactions USING btree (subscription_id);
 
 
 --
@@ -40099,6 +40480,27 @@ CREATE INDEX idx_structured_products_status ON public.structured_products USING 
 
 
 --
+-- Name: idx_subscriptions_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_subscriptions_product ON public.subscriptions USING btree (product_id);
+
+
+--
+-- Name: idx_subscriptions_product_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_subscriptions_product_project ON public.subscriptions USING btree (product_id, project_id) WHERE (product_id IS NOT NULL);
+
+
+--
+-- Name: idx_subscriptions_transaction_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_subscriptions_transaction_type ON public.subscriptions USING btree (transaction_type);
+
+
+--
 -- Name: idx_suspicious_reports_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41258,6 +41660,20 @@ CREATE TRIGGER document_expiry_trigger AFTER INSERT OR UPDATE OF expiry_date ON 
 --
 
 CREATE TRIGGER document_version_trigger BEFORE UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.create_document_version();
+
+
+--
+-- Name: subscriptions enforce_subscription_project_consistency; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enforce_subscription_project_consistency BEFORE INSERT OR UPDATE ON public.subscriptions FOR EACH ROW WHEN ((new.product_id IS NOT NULL)) EXECUTE FUNCTION public.validate_subscription_project_consistency();
+
+
+--
+-- Name: TRIGGER enforce_subscription_project_consistency ON subscriptions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TRIGGER enforce_subscription_project_consistency ON public.subscriptions IS 'Validates and auto-sets project_id based on product_id relationship';
 
 
 --
@@ -44574,6 +44990,22 @@ ALTER TABLE ONLY public.mmf_transactions
 
 
 --
+-- Name: mmf_transactions mmf_transactions_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_transactions
+    ADD CONSTRAINT mmf_transactions_investor_id_fkey FOREIGN KEY (investor_id) REFERENCES public.investors(investor_id) ON DELETE SET NULL;
+
+
+--
+-- Name: mmf_transactions mmf_transactions_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mmf_transactions
+    ADD CONSTRAINT mmf_transactions_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE SET NULL;
+
+
+--
 -- Name: multi_sig_audit_log multi_sig_audit_log_actor_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -45885,6 +46317,14 @@ ALTER TABLE ONLY public.subscriptions
 
 
 --
+-- Name: subscriptions subscriptions_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscriptions
+    ADD CONSTRAINT subscriptions_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: subscriptions subscriptions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -47168,6 +47608,16 @@ GRANT ALL ON FUNCTION public.create_transaction_events_table() TO prisma;
 
 
 --
+-- Name: FUNCTION decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO prisma;
+
+
+--
 -- Name: FUNCTION delete_project_cascade(project_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
@@ -47348,6 +47798,36 @@ GRANT ALL ON FUNCTION public.get_factory_address(p_network text, p_environment t
 
 
 --
+-- Name: FUNCTION get_fund_project_id(p_fund_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_fund_project_id(p_fund_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_fund_project_id(p_fund_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_fund_project_id(p_fund_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_fund_project_id(p_fund_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_investor_mmf_shares(p_investor_id uuid, p_fund_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares(p_investor_id uuid, p_fund_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares(p_investor_id uuid, p_fund_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares(p_investor_id uuid, p_fund_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares(p_investor_id uuid, p_fund_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_investor_mmf_shares_by_project(p_investor_id uuid, p_fund_id uuid, p_project_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares_by_project(p_investor_id uuid, p_fund_id uuid, p_project_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares_by_project(p_investor_id uuid, p_fund_id uuid, p_project_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares_by_project(p_investor_id uuid, p_fund_id uuid, p_project_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_investor_mmf_shares_by_project(p_investor_id uuid, p_fund_id uuid, p_project_id uuid) TO prisma;
+
+
+--
 -- Name: FUNCTION get_master_address(p_network text, p_environment text, p_standard text); Type: ACL; Schema: public; Owner: -
 --
 
@@ -47355,6 +47835,26 @@ GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment te
 GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO authenticated;
 GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO service_role;
 GRANT ALL ON FUNCTION public.get_master_address(p_network text, p_environment text, p_standard text) TO prisma;
+
+
+--
+-- Name: FUNCTION get_mmf_holdings_summary(p_fund_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_mmf_holdings_summary(p_fund_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_mmf_holdings_summary(p_fund_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_mmf_holdings_summary(p_fund_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_mmf_holdings_summary(p_fund_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.get_mmf_nav(p_fund_id uuid, p_as_of_date timestamp with time zone) TO prisma;
 
 
 --
@@ -47645,6 +48145,16 @@ GRANT ALL ON FUNCTION public.handle_user_deletion() TO anon;
 GRANT ALL ON FUNCTION public.handle_user_deletion() TO authenticated;
 GRANT ALL ON FUNCTION public.handle_user_deletion() TO service_role;
 GRANT ALL ON FUNCTION public.handle_user_deletion() TO prisma;
+
+
+--
+-- Name: FUNCTION increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO prisma;
 
 
 --
@@ -48675,6 +49185,16 @@ GRANT ALL ON FUNCTION public.validate_redemption_amount(p_redemption_rule_id uui
 GRANT ALL ON FUNCTION public.validate_redemption_amount(p_redemption_rule_id uuid, p_requested_amount numeric) TO authenticated;
 GRANT ALL ON FUNCTION public.validate_redemption_amount(p_redemption_rule_id uuid, p_requested_amount numeric) TO service_role;
 GRANT ALL ON FUNCTION public.validate_redemption_amount(p_redemption_rule_id uuid, p_requested_amount numeric) TO prisma;
+
+
+--
+-- Name: FUNCTION validate_subscription_project_consistency(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.validate_subscription_project_consistency() TO anon;
+GRANT ALL ON FUNCTION public.validate_subscription_project_consistency() TO authenticated;
+GRANT ALL ON FUNCTION public.validate_subscription_project_consistency() TO service_role;
+GRANT ALL ON FUNCTION public.validate_subscription_project_consistency() TO prisma;
 
 
 --
@@ -50948,6 +51468,26 @@ GRANT ALL ON TABLE public.mmf_holdings TO prisma;
 
 
 --
+-- Name: TABLE subscriptions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.subscriptions TO anon;
+GRANT ALL ON TABLE public.subscriptions TO authenticated;
+GRANT ALL ON TABLE public.subscriptions TO service_role;
+GRANT ALL ON TABLE public.subscriptions TO prisma;
+
+
+--
+-- Name: TABLE mmf_investor_holdings_by_project; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mmf_investor_holdings_by_project TO anon;
+GRANT ALL ON TABLE public.mmf_investor_holdings_by_project TO authenticated;
+GRANT ALL ON TABLE public.mmf_investor_holdings_by_project TO service_role;
+GRANT ALL ON TABLE public.mmf_investor_holdings_by_project TO prisma;
+
+
+--
 -- Name: TABLE mmf_liquidity_buckets; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52925,16 +53465,6 @@ GRANT ALL ON TABLE public.stripe_webhook_events TO anon;
 GRANT ALL ON TABLE public.stripe_webhook_events TO authenticated;
 GRANT ALL ON TABLE public.stripe_webhook_events TO service_role;
 GRANT ALL ON TABLE public.stripe_webhook_events TO prisma;
-
-
---
--- Name: TABLE subscriptions; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.subscriptions TO anon;
-GRANT ALL ON TABLE public.subscriptions TO authenticated;
-GRANT ALL ON TABLE public.subscriptions TO service_role;
-GRANT ALL ON TABLE public.subscriptions TO prisma;
 
 
 --

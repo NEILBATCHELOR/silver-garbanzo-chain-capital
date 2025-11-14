@@ -11,19 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Download, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, Download, AlertCircle, Loader2, TrendingUp } from "lucide-react"; // NEW: Added TrendingUp
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SubscriptionUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadComplete: (subscriptions: any[]) => void;
+  fundType?: 'standard' | 'mmf'; // NEW: Support MMF mode
+  currentNAV?: any; // NEW: Current NAV data for MMF
 }
 
 const SubscriptionUploadDialog = ({
   open,
   onOpenChange,
   onUploadComplete,
+  fundType = 'standard', // NEW: Default to standard
+  currentNAV, // NEW: NAV data
 }: SubscriptionUploadDialogProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [hasHeaders, setHasHeaders] = useState(true);
@@ -123,6 +127,12 @@ const SubscriptionUploadDialog = ({
             errors.push(
               `Row ${i + 1}: Invalid subscription amount '${row.amount}'`,
             );
+          } else if (fundType === 'mmf' && currentNAV) {
+            // NEW: Calculate shares for MMF subscriptions
+            const amount = parseFloat(row.amount);
+            const navPerShare = currentNAV.stable_nav || 1.0;
+            row.shares_calculated = (amount / navPerShare).toFixed(4);
+            row.nav_per_share = navPerShare.toFixed(4);
           }
 
           if (!row.currency) {
@@ -212,6 +222,23 @@ const SubscriptionUploadDialog = ({
           <DialogDescription>
             Upload a CSV file containing subscription information
           </DialogDescription>
+          
+          {/* NEW: MMF NAV Display */}
+          {fundType === 'mmf' && currentNAV && (
+            <Alert className="mt-4 border-green-200 bg-green-50">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              <AlertDescription>
+                <div className="space-y-1">
+                  <div className="font-semibold text-green-900">
+                    Current NAV: ${currentNAV.stable_nav?.toFixed(4) || 'N/A'} per share
+                  </div>
+                  <div className="text-xs text-green-700">
+                    Shares will be calculated: Amount / NAV
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -276,6 +303,13 @@ const SubscriptionUploadDialog = ({
                       <th className="px-4 py-2 text-left">Investor</th>
                       <th className="px-4 py-2 text-left">Currency</th>
                       <th className="px-4 py-2 text-right">Amount</th>
+                      {/* NEW: MMF-specific columns */}
+                      {fundType === 'mmf' && (
+                        <>
+                          <th className="px-4 py-2 text-right">NAV/Share</th>
+                          <th className="px-4 py-2 text-right">Shares</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -293,12 +327,23 @@ const SubscriptionUploadDialog = ({
                         <td className="px-4 py-2 text-right">
                           {parseFloat(row.amount).toLocaleString()}
                         </td>
+                        {/* NEW: MMF-specific data */}
+                        {fundType === 'mmf' && (
+                          <>
+                            <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                              ${row.nav_per_share || 'N/A'}
+                            </td>
+                            <td className="px-4 py-2 text-right text-green-600 font-medium">
+                              {row.shares_calculated || 'N/A'}
+                            </td>
+                          </>
+                        )}
                       </tr>
                     ))}
                     {parsedData.length > 5 && (
                       <tr>
                         <td
-                          colSpan={3}
+                          colSpan={fundType === 'mmf' ? 5 : 3}
                           className="px-4 py-2 text-center text-muted-foreground"
                         >
                           ... and {parsedData.length - 5} more

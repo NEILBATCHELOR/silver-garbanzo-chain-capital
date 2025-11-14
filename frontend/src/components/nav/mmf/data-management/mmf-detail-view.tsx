@@ -17,7 +17,8 @@ import {
   PieChart,
   AlertTriangle,
   DollarSign,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Users
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -199,7 +200,7 @@ export function MMFDetailView({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-11">
           {/* Original 5 Tabs */}
           <TabsTrigger value="overview">
             <Briefcase className="mr-2 h-4 w-4" />
@@ -242,6 +243,10 @@ export function MMFDetailView({
           <TabsTrigger value="transactions">
             <ArrowRightLeft className="mr-2 h-4 w-4" />
             Transactions
+          </TabsTrigger>
+          <TabsTrigger value="investors">
+            <Users className="mr-2 h-4 w-4" />
+            Investors
           </TabsTrigger>
         </TabsList>
 
@@ -485,6 +490,49 @@ export function MMFDetailView({
         {/* Transactions Tab */}
         <TabsContent value="transactions">
           <TransactionManager fundId={fundId} />
+        </TabsContent>
+
+        {/* Investors Tab */}
+        <TabsContent value="investors">
+          <Card>
+            <CardHeader>
+              <CardTitle>MMF Shareholders</CardTitle>
+              <CardDescription>
+                View and manage investors holding shares in this money market fund
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium">Investor Holdings</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Total shares outstanding: {latestNAV?.shares_outstanding.toLocaleString() || '0'}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      window.location.href = `/projects/${fundId}/captable/mmf-subscriptions`
+                    }}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Manage Subscriptions
+                  </Button>
+                </div>
+                
+                <Separator />
+                
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="mb-2">Investor management for MMF shares</p>
+                  <p className="text-sm">
+                    Go to the MMF Subscriptions tab to view and manage investor share holdings
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

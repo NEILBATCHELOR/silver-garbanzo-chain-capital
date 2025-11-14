@@ -28,10 +28,11 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search, TrendingUp } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/infrastructure/database/client";
 import { v4 as uuidv4 } from "uuid";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Form validation schema
 const subscriptionFormSchema = z.object({
@@ -49,6 +50,9 @@ interface SubscriptionDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
   projectId?: string;
+  fundType?: 'standard' | 'mmf';
+  currentNAV?: number;
+  fundId?: string;
 }
 
 // Common currencies
@@ -59,6 +63,9 @@ const SubscriptionDialog = ({
   onOpenChange,
   onSubmit,
   projectId,
+  fundType = 'standard',
+  currentNAV,
+  fundId,
 }: SubscriptionDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [investors, setInvestors] = useState<any[]>([]);
@@ -75,6 +82,12 @@ const SubscriptionDialog = ({
       amount: undefined,
     },
   });
+
+  // Watch the amount field for real-time calculations
+  const watchedAmount = form.watch('amount');
+  const calculatedShares = fundType === 'mmf' && currentNAV && watchedAmount
+    ? watchedAmount / currentNAV
+    : 0;
 
   // Fetch investors when dialog opens
   useEffect(() => {
@@ -160,6 +173,12 @@ const SubscriptionDialog = ({
         currency: formData.currency,
         amount: formData.amount,
         project_id: projectId, // Include the project ID
+        // Add MMF-specific fields
+        ...(fundType === 'mmf' && currentNAV && {
+          fund_product_id: fundId,
+          nav_per_share: currentNAV,
+          shares_calculated: calculatedShares,
+        }),
       };
 
       console.log("Creating subscription with data:", subscriptionData);
@@ -198,6 +217,20 @@ const SubscriptionDialog = ({
             Add a new investor subscription to the project
           </DialogDescription>
         </DialogHeader>
+
+        {/* Show current NAV for MMF funds */}
+        {fundType === 'mmf' && currentNAV && (
+          <Alert>
+            <TrendingUp className="h-4 w-4" />
+            <AlertDescription>
+              Current NAV: <strong>${currentNAV.toFixed(4)}</strong> per share
+              <br />
+              <span className="text-xs text-muted-foreground">
+                Shares will be calculated automatically based on investment amount
+              </span>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Form {...form}>
           <form
@@ -318,6 +351,37 @@ const SubscriptionDialog = ({
                   </FormItem>
                 )}
               />
+
+              {/* Show calculated shares for MMF */}
+              {fundType === 'mmf' && watchedAmount > 0 && currentNAV && (
+                <Alert>
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Investment Amount:</span>
+                        <span className="font-medium">
+                          ${watchedAmount.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>NAV per Share:</span>
+                        <span className="font-medium">
+                          ${currentNAV.toFixed(4)}
+                        </span>
+                      </div>
+                      <div className="border-t pt-2 mt-2 flex justify-between font-bold">
+                        <span>Shares to Issue:</span>
+                        <span className="text-green-600">
+                          {calculatedShares.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
 
             <DialogFooter>

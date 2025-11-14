@@ -15,6 +15,8 @@ import { supabase, checkSupabaseConnection, debugQuery } from "@/infrastructure/
 import { useToast } from "@/components/ui/use-toast";
 import { Tables } from "@/types/core/database";
 import { getPrimaryOrFirstProject } from "@/services/project/primaryProjectService";
+import { useQuery } from "@tanstack/react-query";
+import { MMFAPI } from "@/infrastructure/api/nav/mmf-api";
 
 // Define project type based on database structure
 type Project = Tables<"projects">;
@@ -60,6 +62,13 @@ function CapTableManagerNew({ projectId, section }: CapTableManagerProps) {
   console.log("[CapTableManagerNew] projectId from props:", projectId);
   console.log("[CapTableManagerNew] projectId from params:", params.projectId);
   console.log("[CapTableManagerNew] Final currentProjectId:", currentProjectId);
+
+  // Fetch current NAV for MMF if applicable
+  const { data: currentMMFNAV } = useQuery({
+    queryKey: ['mmf-latest-nav', currentProjectId],
+    queryFn: () => MMFAPI.getLatestNAV(currentProjectId!),
+    enabled: !!currentProjectId && currentSection === 'mmf-subscriptions',
+  });
 
   // If no projectId is provided, fetch the primary project
   useEffect(() => {
@@ -363,6 +372,19 @@ function CapTableManagerNew({ projectId, section }: CapTableManagerProps) {
           currentProjectId,
         );
         return <SubscriptionManager projectId={currentProjectId} />;
+      case "mmf-subscriptions":
+        console.log(
+          "[CapTableManagerNew] Rendering MMF SubscriptionManager with projectId:",
+          currentProjectId,
+        );
+        return (
+          <SubscriptionManager 
+            projectId={currentProjectId}
+            fundType="mmf"
+            fundId={currentProjectId}
+            showNAVCalculations={true}
+          />
+        );
       case "allocations":
         console.log(
           "[CapTableManagerNew] Rendering TokenAllocationManager with projectId:",
