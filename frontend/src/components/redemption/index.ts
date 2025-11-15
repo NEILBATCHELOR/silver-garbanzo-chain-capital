@@ -20,3 +20,4 @@ export * from './requests';
 export * from './approvals';
 export * from './notifications';
 export * from './dashboard';
+export * from './pricing';
