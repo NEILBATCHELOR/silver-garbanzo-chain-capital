@@ -1,403 +1,415 @@
 /**
- * FoundryOperationExecutor.ts
- * Executes token operations through Foundry-deployed smart contracts with policy integration
+ * Foundry Operation Executor
+ * Executes token operations through Foundry-deployed smart contracts
+ * Integrates with PolicyEngine for on-chain validation
  */
 
 import { ethers } from 'ethers';
-import type { TransactionReceipt } from 'ethers';
-import type { 
-  OperationRequest, 
-  TransactionResult,
-  GasEstimate 
-} from '../gateway/types';
+import type { SupportedChain } from '../web3/adapters/IBlockchainAdapter';
+import type { OperationRequest, TransactionResult, GasEstimate } from '../gateway/types';
+import { FoundryPolicyAdapter } from './FoundryPolicyAdapter';
 
-export interface FoundryConfig {
-  rpcUrl: string;
-  privateKey?: string;
-  tokenAddress: string;
+// Token contract ABIs (minimal interfaces)
+const ERC20_ABI = [
+  'function mint(address to, uint256 amount) external',
+  'function burn(uint256 amount) external',
+  'function transfer(address to, uint256 amount) external returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)'
+] as const;
+
+const ENHANCED_TOKEN_ABI = [
+  ...ERC20_ABI,
+  'function lockTokens(uint256 amount, uint256 duration) external',
+  'function unlockTokens() external',
+  'function blockAddress(address account, string reason) external',
+  'function unblockAddress(address account) external',
+  'function pause() external',
+  'function unpause() external',
+  'function grantRole(bytes32 role, address account) external',
+  'function revokeRole(bytes32 role, address account) external',
+  'function lockedBalances(address account) external view returns (uint256)',
+  'function unlockTime(address account) external view returns (uint256)',
+  'function blockedAddresses(address account) external view returns (bool)',
+  'event TokensMinted(address indexed to, uint256 amount, bytes32 policyId)',
+  'event TokensBurned(address indexed from, uint256 amount, bytes32 policyId)',
+  'event TokensLocked(address indexed account, uint256 amount, uint256 unlockTime)',
+  'event TokensUnlocked(address indexed account, uint256 amount)',
+  'event AddressBlocked(address indexed account, string reason)',
+  'event AddressUnblocked(address indexed account)'
+] as const;
+
+export interface FoundryExecutorConfig {
+  provider: ethers.Provider;
+  signer: ethers.Signer;
   policyEngineAddress: string;
-  network?: string;
+  defaultGasLimit?: bigint;
 }
-
-export interface FoundryTransactionResult extends TransactionResult {
-  receipt?: TransactionReceipt;
-  policyId?: string;
-  events?: ethers.EventLog[];
-}
-
-// ABI for PolicyProtectedToken contract
-const TOKEN_ABI = [
-  // Mint function
-  "function mint(address to, uint256 amount) public",
-  // Burn function  
-  "function burn(uint256 amount) public",
-  // Transfer function
-  "function transfer(address to, uint256 amount) public returns (bool)",
-  // Lock functions
-  "function lockTokens(uint256 amount, uint256 duration) public",
-  "function unlockTokens() public",
-  // Block/Unblock functions
-  "function blockAddress(address account, string reason) public",
-  "function unblockAddress(address account) public",
-  // View functions
-  "function balanceOf(address account) public view returns (uint256)",
-  "function lockedBalances(address account) public view returns (uint256)",
-  "function blockedAddresses(address account) public view returns (bool)",
-  "function unlockTime(address account) public view returns (uint256)",
-  // Events
-  "event TokensMinted(address indexed to, uint256 amount, bytes32 policyId)",
-  "event TokensBurned(address indexed from, uint256 amount, bytes32 policyId)",
-  "event TokensLocked(address indexed account, uint256 amount, uint256 unlockTime)",
-  "event TokensUnlocked(address indexed account, uint256 amount)",
-  "event AddressBlocked(address indexed account, string reason)",
-  "event AddressUnblocked(address indexed account)",
-  "event Transfer(address indexed from, address indexed to, uint256 value)"
-];
-
-// ABI for PolicyEngine contract
-const POLICY_ENGINE_ABI = [
-  "function validateOperation(address operator, string operation, uint256 amount) public returns (bool)",
-  "function getLastPolicyId() public view returns (bytes32)",
-  "function createPolicy(string operation, string name, uint256 maxAmount, uint256 dailyLimit, uint256 cooldownPeriod) public",
-  "event PolicyValidated(address operator, string operation, bool approved)"
-];
 
 export class FoundryOperationExecutor {
   private provider: ethers.Provider;
-  private signer?: ethers.Signer;
-  private tokenContract: ethers.Contract;
-  private policyEngineContract: ethers.Contract;
-  private config: FoundryConfig;
+  private signer: ethers.Signer;
+  private policyAdapter: FoundryPolicyAdapter;
+  private defaultGasLimit: bigint;
 
-  constructor(config: FoundryConfig) {
-    this.config = config;
+  constructor(config: FoundryExecutorConfig) {
+    this.provider = config.provider;
+    this.signer = config.signer;
+    this.defaultGasLimit = config.defaultGasLimit || BigInt(500000);
     
-    // Initialize provider
-    this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
-    
-    // Initialize signer if private key provided
-    if (config.privateKey) {
-      this.signer = new ethers.Wallet(config.privateKey, this.provider);
-    }
-    
-    // Initialize contracts
-    this.tokenContract = new ethers.Contract(
-      config.tokenAddress,
-      TOKEN_ABI,
-      this.signer || this.provider
-    );
-    
-    this.policyEngineContract = new ethers.Contract(
-      config.policyEngineAddress,
-      POLICY_ENGINE_ABI,
-      this.signer || this.provider
-    );
-  }
-
-  /**
-   * Connect a signer (wallet) to execute transactions
-   */
-  connectSigner(signer: ethers.Signer): void {
-    this.signer = signer;
-    this.tokenContract = this.tokenContract.connect(signer) as ethers.Contract;
-    this.policyEngineContract = this.policyEngineContract.connect(signer) as ethers.Contract;
+    this.policyAdapter = new FoundryPolicyAdapter({
+      policyEngineAddress: config.policyEngineAddress,
+      provider: this.provider,
+      signer: this.signer
+    });
   }
 
   /**
    * Execute mint operation
    */
   async executeMint(
-    to: string, 
-    amount: bigint
-  ): Promise<FoundryTransactionResult> {
-    try {
-      // Pre-check policy validation
-      const signerAddress = await this.signer!.getAddress();
-      const isValid = await this.policyEngineContract.validateOperation(
-        signerAddress,
-        'mint',
-        amount
-      );
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
 
-      if (!isValid) {
-        throw new Error('Operation violates policy');
-      }
+    const to = request.parameters.to;
+    const amount = ethers.parseUnits(
+      request.parameters.amount?.toString() || '0',
+      18
+    );
 
-      // Execute mint
-      const tx = await this.tokenContract.mint(to, amount);
-      const receipt = await tx.wait();
-
-      // Get policy ID from events
-      const policyId = await this.policyEngineContract.getLastPolicyId();
-
-      return await this.buildTransactionResult(receipt, policyId.toString());
-      
-    } catch (error: any) {
-      throw this.handleError(error);
+    if (!to) {
+      throw new Error('Recipient address required for mint operation');
     }
+
+    // On-chain policy validation happens inside the contract's mint function
+    // via the policyCompliant modifier, but we can pre-check here
+    const operator = await this.signer.getAddress();
+    const preCheck = await this.policyAdapter.canOperate(
+      request.tokenAddress,
+      operator,
+      {
+        type: 'mint',
+        amount: request.parameters.amount,
+        to,
+        metadata: request.metadata
+      }
+    );
+
+    if (!preCheck.approved) {
+      throw new Error(`On-chain policy pre-check failed: ${preCheck.reason}`);
+    }
+
+    // Execute mint with gas limit
+    const tx = await tokenContract.mint(to, amount, {
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
    * Execute burn operation
    */
-  async executeBurn(amount: bigint): Promise<FoundryTransactionResult> {
-    try {
-      const tx = await this.tokenContract.burn(amount);
-      const receipt = await tx.wait();
-      
-      const policyId = await this.policyEngineContract.getLastPolicyId();
-      
-      return await this.buildTransactionResult(receipt, policyId.toString());
-      
-    } catch (error: any) {
-      throw this.handleError(error);
-    }
+  async executeBurn(
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const amount = ethers.parseUnits(
+      request.parameters.amount?.toString() || '0',
+      18
+    );
+
+    const tx = await tokenContract.burn(amount, {
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
    * Execute transfer operation
    */
   async executeTransfer(
-    to: string, 
-    amount: bigint
-  ): Promise<FoundryTransactionResult> {
-    try {
-      const tx = await this.tokenContract.transfer(to, amount);
-      const receipt = await tx.wait();
-      
-      return await this.buildTransactionResult(receipt);
-      
-    } catch (error: any) {
-      throw this.handleError(error);
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const to = request.parameters.to;
+    const amount = ethers.parseUnits(
+      request.parameters.amount?.toString() || '0',
+      18
+    );
+
+    if (!to) {
+      throw new Error('Recipient address required for transfer');
     }
+
+    const tx = await tokenContract.transfer(to, amount, {
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
    * Execute lock operation
    */
   async executeLock(
-    amount: bigint, 
-    duration: number
-  ): Promise<FoundryTransactionResult> {
-    try {
-      const tx = await this.tokenContract.lockTokens(amount, duration);
-      const receipt = await tx.wait();
-      
-      return await this.buildTransactionResult(receipt);
-      
-    } catch (error: any) {
-      throw this.handleError(error);
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const amount = ethers.parseUnits(
+      request.parameters.amount?.toString() || '0',
+      18
+    );
+    const duration = request.parameters.duration || 0;
+
+    if (duration <= 0) {
+      throw new Error('Lock duration must be positive');
     }
+
+    const tx = await tokenContract.lockTokens(amount, duration, {
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
    * Execute unlock operation
    */
-  async executeUnlock(): Promise<FoundryTransactionResult> {
-    try {
-      const tx = await this.tokenContract.unlockTokens();
-      const receipt = await tx.wait();
-      
-      return await this.buildTransactionResult(receipt);
-      
-    } catch (error: any) {
-      throw this.handleError(error);
-    }
+  async executeUnlock(
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const tx = await tokenContract.unlockTokens({
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
    * Execute block address operation
    */
   async executeBlock(
-    account: string, 
-    reason: string
-  ): Promise<FoundryTransactionResult> {
-    try {
-      const tx = await this.tokenContract.blockAddress(account, reason);
-      const receipt = await tx.wait();
-      
-      return await this.buildTransactionResult(receipt);
-      
-    } catch (error: any) {
-      throw this.handleError(error);
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const addressToBlock = request.parameters.to;
+    const reason = request.parameters.reason || 'Administrative action';
+
+    if (!addressToBlock) {
+      throw new Error('Address to block is required');
     }
+
+    const tx = await tokenContract.blockAddress(addressToBlock, reason, {
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
    * Execute unblock address operation
    */
-  async executeUnblock(account: string): Promise<FoundryTransactionResult> {
-    try {
-      const tx = await this.tokenContract.unblockAddress(account);
-      const receipt = await tx.wait();
-      
-      return await this.buildTransactionResult(receipt);
-      
-    } catch (error: any) {
-      throw this.handleError(error);
+  async executeUnblock(
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const addressToUnblock = request.parameters.to;
+
+    if (!addressToUnblock) {
+      throw new Error('Address to unblock is required');
     }
+
+    const tx = await tokenContract.unblockAddress(addressToUnblock, {
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
-   * Get balance of an address
+   * Execute pause operation
    */
-  async getBalance(address: string): Promise<bigint> {
-    return await this.tokenContract.balanceOf(address);
+  async executePause(
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const tx = await tokenContract.pause({
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
   }
 
   /**
-   * Get locked balance of an address
+   * Execute unpause operation
    */
-  async getLockedBalance(address: string): Promise<bigint> {
-    return await this.tokenContract.lockedBalances(address);
+  async executeUnpause(
+    request: OperationRequest,
+    gasEstimate: GasEstimate
+  ): Promise<TransactionResult> {
+    const tokenContract = new ethers.Contract(
+      request.tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.signer
+    );
+
+    const tx = await tokenContract.unpause({
+      gasLimit: gasEstimate.limit || this.defaultGasLimit
+    });
+
+    const receipt = await tx.wait();
+
+    return this.buildTransactionResult(receipt, request);
+  }
+
+  /**
+   * Get account balance
+   */
+  async getBalance(tokenAddress: string, account: string): Promise<string> {
+    const tokenContract = new ethers.Contract(
+      tokenAddress,
+      ERC20_ABI,
+      this.provider
+    );
+
+    const balance = await tokenContract.balanceOf(account);
+    return ethers.formatUnits(balance, 18);
+  }
+
+  /**
+   * Get locked balance
+   */
+  async getLockedBalance(tokenAddress: string, account: string): Promise<string> {
+    const tokenContract = new ethers.Contract(
+      tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.provider
+    );
+
+    const locked = await tokenContract.lockedBalances(account);
+    return ethers.formatUnits(locked, 18);
+  }
+
+  /**
+   * Get unlock time
+   */
+  async getUnlockTime(tokenAddress: string, account: string): Promise<number> {
+    const tokenContract = new ethers.Contract(
+      tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.provider
+    );
+
+    const unlockTime = await tokenContract.unlockTime(account);
+    return Number(unlockTime);
   }
 
   /**
    * Check if address is blocked
    */
-  async isBlocked(address: string): Promise<boolean> {
-    return await this.tokenContract.blockedAddresses(address);
-  }
+  async isBlocked(tokenAddress: string, account: string): Promise<boolean> {
+    const tokenContract = new ethers.Contract(
+      tokenAddress,
+      ENHANCED_TOKEN_ABI,
+      this.provider
+    );
 
-  /**
-   * Get unlock time for an address
-   */
-  async getUnlockTime(address: string): Promise<bigint> {
-    return await this.tokenContract.unlockTime(address);
-  }
-
-  /**
-   * Validate operation against policy engine
-   */
-  async validateOperation(
-    operator: string,
-    operation: string,
-    amount: bigint
-  ): Promise<boolean> {
-    try {
-      return await this.policyEngineContract.validateOperation(
-        operator,
-        operation,
-        amount
-      );
-    } catch (error: any) {
-      console.error('Policy validation failed:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Create a new policy
-   */
-  async createPolicy(
-    operation: string,
-    name: string,
-    maxAmount: bigint,
-    dailyLimit: bigint,
-    cooldownPeriod: number
-  ): Promise<string> {
-    try {
-      const tx = await this.policyEngineContract.createPolicy(
-        operation,
-        name,
-        maxAmount,
-        dailyLimit,
-        cooldownPeriod
-      );
-      
-      const receipt = await tx.wait();
-      
-      // Extract policy ID from event
-      const event = receipt.logs.find(
-        (log: any) => log.fragment?.name === 'PolicyCreated'
-      );
-      
-      return event?.args?.[0] || 'unknown';
-      
-    } catch (error: any) {
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Estimate gas for an operation
-   */
-  async estimateGas(
-    operation: string,
-    params: any[]
-  ): Promise<bigint> {
-    try {
-      const method = this.tokenContract[operation];
-      if (!method) {
-        throw new Error(`Unknown operation: ${operation}`);
-      }
-      
-      return await method.estimateGas(...params);
-      
-    } catch (error: any) {
-      console.error('Gas estimation failed:', error);
-      // Return default gas limit
-      return BigInt(300000);
-    }
+    return await tokenContract.blockedAddresses(account);
   }
 
   /**
    * Build transaction result from receipt
    */
-  private async buildTransactionResult(
-    receipt: TransactionReceipt,
-    policyId?: string
-  ): Promise<FoundryTransactionResult> {
-    const confirmations = await receipt.confirmations();
-    
+  private buildTransactionResult(
+    receipt: ethers.TransactionReceipt,
+    request: OperationRequest
+  ): TransactionResult {
     return {
       hash: receipt.hash,
-      blockNumber: receipt.blockNumber || 0,
+      blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed,
       status: receipt.status === 1 ? 'success' : 'failed',
-      confirmations,
+      confirmations: 1, // Default to 1 confirmation since receipt is already confirmed
       timestamp: Date.now(),
-      receipt,
-      policyId,
-      events: receipt.logs as ethers.EventLog[]
+      logs: receipt.logs.map(log => ({
+        address: log.address,
+        topics: log.topics,
+        data: log.data
+      }))
     };
   }
 
   /**
-   * Handle and format errors
+   * Get policy adapter for advanced policy operations
    */
-  private handleError(error: any): Error {
-    if (error.reason) {
-      // Ethers error with reason
-      return new Error(`Transaction failed: ${error.reason}`);
-    } else if (error.error?.message) {
-      // RPC error
-      return new Error(`RPC error: ${error.error.message}`);
-    } else if (error.code === 'INSUFFICIENT_FUNDS') {
-      return new Error('Insufficient funds for transaction');
-    } else if (error.code === 'NONCE_TOO_LOW') {
-      return new Error('Transaction nonce too low');
-    } else if (error.code === 'REPLACEMENT_UNDERPRICED') {
-      return new Error('Replacement transaction underpriced');
-    } else {
-      return new Error(`Operation failed: ${error.message || 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Get current network information
-   */
-  async getNetwork(): Promise<ethers.Network> {
-    return await this.provider.getNetwork();
-  }
-
-  /**
-   * Wait for transaction confirmation
-   */
-  async waitForTransaction(
-    hash: string,
-    confirmations: number = 1
-  ): Promise<TransactionReceipt | null> {
-    return await this.provider.waitForTransaction(hash, confirmations);
+  getPolicyAdapter(): FoundryPolicyAdapter {
+    return this.policyAdapter;
   }
 }

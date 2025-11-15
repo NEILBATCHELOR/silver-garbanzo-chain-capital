@@ -1,363 +1,319 @@
 /**
- * FoundryPolicyAdapter.ts
- * Bridge between off-chain policy engine and on-chain PolicyEngine contract
+ * Foundry Policy Adapter
+ * Connects frontend PolicyEngine to on-chain PolicyEngine.sol contract
+ * Provides dual-layer policy enforcement: off-chain (DB) + on-chain (smart contract)
  */
 
 import { ethers } from 'ethers';
-import type { PolicyContext } from '../policy/types';
-import type { PolicyRule } from '@/services/rule/enhancedRuleService';
-import type { FoundryConfig } from './FoundryOperationExecutor';
-import { supabase } from '../supabaseClient';
+import type { SupportedChain } from '../web3/adapters/IBlockchainAdapter';
+import type { CryptoOperation } from '../policy/types';
+
+// PolicyEngine.sol ABI (minimal interface needed)
+const POLICY_ENGINE_ABI = [
+  'function validateOperation(address token, address operator, string operationType, uint256 amount) external returns (bool approved, string reason)',
+  'function validateOperationWithTarget(address token, address operator, address target, string operationType, uint256 amount) external returns (bool approved, string reason)',
+  'function canOperate(address token, address operator, string operationType, uint256 amount) external view returns (bool, string)',
+  'function getPolicy(address token, string operationType) external view returns (tuple(bool active, uint256 maxAmount, uint256 dailyLimit, uint256 cooldownPeriod, bool requiresApproval, uint8 approvalThreshold))',
+  'function getRemainingDailyLimit(address token, address operator, string operationType) external view returns (uint256)',
+  'function requestApproval(address token, string operationType, uint256 amount, address target) external returns (uint256 requestId)',
+  'function approveRequest(address token, uint256 requestId) external',
+  'function isOperationApproved(address token, uint256 requestId) external view returns (bool)',
+  'event OperationValidated(address indexed token, address indexed operator, string operationType, uint256 amount, bool approved)',
+  'event PolicyViolation(address indexed token, address indexed operator, string operationType, string reason)'
+] as const;
 
 export interface OnChainPolicy {
-  token: string;
-  operation: string;
+  active: boolean;
   maxAmount: bigint;
   dailyLimit: bigint;
-  monthlyLimit: bigint;
-  cooldownPeriod: number;
+  cooldownPeriod: bigint;
   requiresApproval: boolean;
   approvalThreshold: number;
-  approvers: string[];
-  active: boolean;
 }
 
-export interface PolicySyncResult {
-  success: boolean;
-  policiesSynced: number;
-  errors: string[];
-  transactionHashes: string[];
+export interface ValidationResult {
+  approved: boolean;
+  reason: string;
+  onChainValidated: boolean;
 }
 
-// PolicyEngine contract ABI
-const POLICY_ENGINE_ABI = [
-  "function registerTokenPolicy(address token, string operation, uint256 maxAmount, uint256 dailyLimit, uint256 monthlyLimit, uint256 cooldownPeriod) public",
-  "function updateTokenPolicy(address token, string operation, uint256 maxAmount, uint256 dailyLimit, uint256 monthlyLimit, uint256 cooldownPeriod) public",
-  "function deactivatePolicy(address token, string operation) public",
-  "function activatePolicy(address token, string operation) public",
-  "function setApprovalRequirement(address token, string operation, bool required, uint256 threshold, address[] approvers) public",
-  "function validateOperation(address operator, address token, string operation, uint256 amount) public view returns (bool)",
-  "function getPolicyDetails(address token, string operation) public view returns (bool active, uint256 maxAmount, uint256 dailyLimit, uint256 monthlyLimit, uint256 cooldownPeriod)",
-  "function whitelistAddress(address account) public",
-  "function blacklistAddress(address account) public",
-  "function removeFromWhitelist(address account) public",
-  "function removeFromBlacklist(address account) public",
-  "function isWhitelisted(address account) public view returns (bool)",
-  "function isBlacklisted(address account) public view returns (bool)",
-  "event PolicyRegistered(address indexed token, string operation, uint256 maxAmount, uint256 dailyLimit)",
-  "event PolicyUpdated(address indexed token, string operation)",
-  "event OperationValidated(address indexed token, address indexed operator, string operation, uint256 amount)",
-  "event OperationRejected(address indexed token, address indexed operator, string operation, string reason)"
-];
+export interface FoundryPolicyConfig {
+  policyEngineAddress: string;
+  provider: ethers.Provider;
+  signer?: ethers.Signer;
+}
 
 export class FoundryPolicyAdapter {
+  private policyEngineContract: ethers.Contract;
   private provider: ethers.Provider;
-  private signer: ethers.Signer;
-  private policyEngineAddress: string;
-  private policyEngine: ethers.Contract;
+  private signer?: ethers.Signer;
 
-  constructor(config: FoundryConfig & { policyEngineAddress: string }) {
-    this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
-    this.signer = new ethers.Wallet(config.privateKey, this.provider);
-    this.policyEngineAddress = config.policyEngineAddress;
-    this.policyEngine = new ethers.Contract(
-      this.policyEngineAddress,
+  constructor(config: FoundryPolicyConfig) {
+    this.provider = config.provider;
+    this.signer = config.signer;
+    
+    this.policyEngineContract = new ethers.Contract(
+      config.policyEngineAddress,
       POLICY_ENGINE_ABI,
-      this.signer
+      this.signer || this.provider
     );
   }
 
   /**
-   * Sync database policies to on-chain PolicyEngine contract
+   * Validate operation against on-chain policy (view function - no gas)
    */
-  async syncPoliciesToChain(tokenAddress: string): Promise<PolicySyncResult> {
-    const result: PolicySyncResult = {
-      success: false,
-      policiesSynced: 0,
-      errors: [],
-      transactionHashes: []
-    };
-
-    try {
-      // Fetch policies from database
-      const { data: policies, error } = await supabase
-        .from('policies')
-        .select(`
-          *,
-          policy_operation_mappings!inner(operation_type)
-        `)
-        .eq('status', 'active')
-        .eq('enforcement_level', 'strict');
-
-      if (error) {
-        result.errors.push(`Database error: ${error.message}`);
-        return result;
-      }
-
-      if (!policies || policies.length === 0) {
-        result.errors.push('No active policies found');
-        return result;
-      }
-
-      // Sync each policy to chain
-      for (const policy of policies) {
-        try {
-          const operation = policy.policy_operation_mappings[0]?.operation_type || 'transfer';
-          
-          // Extract limits from policy conditions
-          const maxAmount = this.extractMaxAmount(policy.conditions);
-          const dailyLimit = this.extractDailyLimit(policy.conditions);
-          const monthlyLimit = this.extractMonthlyLimit(policy.conditions);
-          const cooldownPeriod = this.extractCooldownPeriod(policy.conditions);
-
-          // Register policy on-chain
-          const tx = await this.policyEngine.registerTokenPolicy(
-            tokenAddress,
-            operation,
-            maxAmount,
-            dailyLimit,
-            monthlyLimit,
-            cooldownPeriod
-          );
-
-          const receipt = await tx.wait();
-          result.transactionHashes.push(receipt.hash);
-          result.policiesSynced++;
-
-          console.log(`✅ Synced policy ${policy.name} for operation ${operation}`);
-        } catch (policyError: any) {
-          result.errors.push(`Failed to sync policy ${policy.name}: ${policyError.message}`);
-        }
-      }
-
-      result.success = result.policiesSynced > 0;
-      return result;
-
-    } catch (error: any) {
-      result.errors.push(`Sync failed: ${error.message}`);
-      return result;
-    }
-  }
-
-  /**
-   * Validate operation against on-chain policies
-   */
-  async validateOnChain(
-    operator: string,
+  async canOperate(
     tokenAddress: string,
-    operation: string,
-    amount: string | bigint
-  ): Promise<boolean> {
+    operator: string,
+    operation: CryptoOperation
+  ): Promise<ValidationResult> {
     try {
-      const amountBigInt = typeof amount === 'string' ? 
-        ethers.parseUnits(amount, 18) : amount;
+      const amount = this.formatAmount(operation.amount);
+      const operationType = this.mapOperationType(operation.type);
 
-      const isValid = await this.policyEngine.validateOperation(
-        operator,
+      const [approved, reason] = await this.policyEngineContract.canOperate(
         tokenAddress,
-        operation,
-        amountBigInt
+        operator,
+        operationType,
+        amount
       );
 
-      return isValid;
-    } catch (error: any) {
-      console.error('On-chain validation failed:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get policy details from chain
-   */
-  async getPolicyDetails(tokenAddress: string, operation: string) {
-    try {
-      const details = await this.policyEngine.getPolicyDetails(tokenAddress, operation);
-      
       return {
-        active: details.active,
-        maxAmount: details.maxAmount.toString(),
-        dailyLimit: details.dailyLimit.toString(),
-        monthlyLimit: details.monthlyLimit.toString(),
-        cooldownPeriod: Number(details.cooldownPeriod)
+        approved,
+        reason: reason || '',
+        onChainValidated: true
       };
     } catch (error: any) {
-      console.error('Failed to get policy details:', error);
-      return null;
+      console.error('On-chain validation failed:', error);
+      return {
+        approved: false,
+        reason: `On-chain validation error: ${error.message}`,
+        onChainValidated: false
+      };
     }
   }
 
   /**
-   * Update policy on-chain
+   * Execute on-chain validation (creates transaction)
+   * Only call this when actually executing the operation
    */
-  async updatePolicy(
+  async validateOperation(
     tokenAddress: string,
-    operation: string,
-    maxAmount: bigint,
-    dailyLimit: bigint,
-    monthlyLimit: bigint,
-    cooldownPeriod: number
-  ): Promise<string | null> {
+    operator: string,
+    operation: CryptoOperation,
+    target?: string
+  ): Promise<ValidationResult> {
+    if (!this.signer) {
+      throw new Error('Signer required for transaction validation');
+    }
+
     try {
-      const tx = await this.policyEngine.updateTokenPolicy(
-        tokenAddress,
-        operation,
-        maxAmount,
-        dailyLimit,
-        monthlyLimit,
-        cooldownPeriod
-      );
+      const amount = this.formatAmount(operation.amount);
+      const operationType = this.mapOperationType(operation.type);
+
+      let tx;
+      if (target) {
+        tx = await this.policyEngineContract.validateOperationWithTarget(
+          tokenAddress,
+          operator,
+          target,
+          operationType,
+          amount
+        );
+      } else {
+        tx = await this.policyEngineContract.validateOperation(
+          tokenAddress,
+          operator,
+          operationType,
+          amount
+        );
+      }
 
       const receipt = await tx.wait();
-      return receipt.hash;
+
+      // Parse validation event
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsed = this.policyEngineContract.interface.parseLog(log);
+          return parsed?.name === 'OperationValidated';
+        } catch {
+          return false;
+        }
+      });
+
+      if (event) {
+        const parsed = this.policyEngineContract.interface.parseLog(event);
+        return {
+          approved: parsed?.args.approved || false,
+          reason: '',
+          onChainValidated: true
+        };
+      }
+
+      // Check for violation event
+      const violation = receipt.logs.find((log: any) => {
+        try {
+          const parsed = this.policyEngineContract.interface.parseLog(log);
+          return parsed?.name === 'PolicyViolation';
+        } catch {
+          return false;
+        }
+      });
+
+      if (violation) {
+        const parsed = this.policyEngineContract.interface.parseLog(violation);
+        return {
+          approved: false,
+          reason: parsed?.args.reason || 'Policy violation',
+          onChainValidated: true
+        };
+      }
+
+      return {
+        approved: true,
+        reason: '',
+        onChainValidated: true
+      };
     } catch (error: any) {
-      console.error('Failed to update policy:', error);
+      return {
+        approved: false,
+        reason: `Transaction failed: ${error.message}`,
+        onChainValidated: false
+      };
+    }
+  }
+
+  /**
+   * Get on-chain policy for token and operation
+   */
+  async getPolicy(
+    tokenAddress: string,
+    operationType: string
+  ): Promise<OnChainPolicy | null> {
+    try {
+      const policy = await this.policyEngineContract.getPolicy(
+        tokenAddress,
+        operationType
+      );
+
+      return {
+        active: policy.active,
+        maxAmount: policy.maxAmount,
+        dailyLimit: policy.dailyLimit,
+        cooldownPeriod: policy.cooldownPeriod,
+        requiresApproval: policy.requiresApproval,
+        approvalThreshold: policy.approvalThreshold
+      };
+    } catch (error) {
+      console.error('Failed to get on-chain policy:', error);
       return null;
     }
   }
 
   /**
-   * Deactivate policy
+   * Get remaining daily limit for operator
    */
-  async deactivatePolicy(tokenAddress: string, operation: string): Promise<boolean> {
+  async getRemainingDailyLimit(
+    tokenAddress: string,
+    operator: string,
+    operationType: string
+  ): Promise<bigint> {
     try {
-      const tx = await this.policyEngine.deactivatePolicy(tokenAddress, operation);
-      await tx.wait();
-      return true;
-    } catch (error: any) {
-      console.error('Failed to deactivate policy:', error);
+      return await this.policyEngineContract.getRemainingDailyLimit(
+        tokenAddress,
+        operator,
+        operationType
+      );
+    } catch (error) {
+      console.error('Failed to get remaining daily limit:', error);
+      return BigInt(0);
+    }
+  }
+
+  /**
+   * Request approval for operation requiring multi-sig
+   */
+  async requestApproval(
+    tokenAddress: string,
+    operation: CryptoOperation,
+    target?: string
+  ): Promise<number> {
+    if (!this.signer) {
+      throw new Error('Signer required for approval requests');
+    }
+
+    const amount = this.formatAmount(operation.amount);
+    const operationType = this.mapOperationType(operation.type);
+
+    const tx = await this.policyEngineContract.requestApproval(
+      tokenAddress,
+      operationType,
+      amount,
+      target || ethers.ZeroAddress
+    );
+
+    const receipt = await tx.wait();
+
+    // Parse ApprovalRequested event to get requestId
+    const event = receipt.logs.find((log: any) => {
+      try {
+        const parsed = this.policyEngineContract.interface.parseLog(log);
+        return parsed?.name === 'ApprovalRequested';
+      } catch {
+        return false;
+      }
+    });
+
+    if (event) {
+      const parsed = this.policyEngineContract.interface.parseLog(event);
+      return Number(parsed?.args.requestId || 0);
+    }
+
+    throw new Error('Failed to parse request ID from event');
+  }
+
+  /**
+   * Check if approval request has been approved
+   */
+  async isOperationApproved(
+    tokenAddress: string,
+    requestId: number
+  ): Promise<boolean> {
+    try {
+      return await this.policyEngineContract.isOperationApproved(
+        tokenAddress,
+        requestId
+      );
+    } catch (error) {
+      console.error('Failed to check approval status:', error);
       return false;
     }
   }
 
   /**
-   * Whitelist address
+   * Helper: Format amount for smart contract
    */
-  async whitelistAddress(address: string): Promise<boolean> {
-    try {
-      const tx = await this.policyEngine.whitelistAddress(address);
-      await tx.wait();
-      return true;
-    } catch (error: any) {
-      console.error('Failed to whitelist address:', error);
-      return false;
-    }
+  private formatAmount(amount?: string | bigint): bigint {
+    if (!amount) return BigInt(0);
+    if (typeof amount === 'bigint') return amount;
+    return ethers.parseUnits(amount, 18); // Assuming 18 decimals
   }
 
   /**
-   * Blacklist address
+   * Helper: Map frontend operation type to contract operation type
    */
-  async blacklistAddress(address: string): Promise<boolean> {
-    try {
-      const tx = await this.policyEngine.blacklistAddress(address);
-      await tx.wait();
-      return true;
-    } catch (error: any) {
-      console.error('Failed to blacklist address:', error);
-      return false;
-    }
+  private mapOperationType(type: string): string {
+    const typeMap: Record<string, string> = {
+      'mint': 'mint',
+      'burn': 'burn',
+      'transfer': 'transfer',
+      'lock': 'lock',
+      'unlock': 'unlock',
+      'block': 'block',
+      'unblock': 'unblock',
+      'pause': 'pause',
+      'unpause': 'unpause'
+    };
+    return typeMap[type] || type;
   }
-
-  /**
-   * Check if address is whitelisted
-   */
-  async isWhitelisted(address: string): Promise<boolean> {
-    try {
-      return await this.policyEngine.isWhitelisted(address);
-    } catch (error: any) {
-      console.error('Failed to check whitelist status:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Check if address is blacklisted
-   */
-  async isBlacklisted(address: string): Promise<boolean> {
-    try {
-      return await this.policyEngine.isBlacklisted(address);
-    } catch (error: any) {
-      console.error('Failed to check blacklist status:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Listen to PolicyEngine events
-   */
-  async subscribeToEvents(handlers: {
-    onPolicyRegistered?: (token: string, operation: string, maxAmount: bigint, dailyLimit: bigint) => void;
-    onPolicyUpdated?: (token: string, operation: string) => void;
-    onOperationValidated?: (token: string, operator: string, operation: string, amount: bigint) => void;
-    onOperationRejected?: (token: string, operator: string, operation: string, reason: string) => void;
-  }) {
-    if (handlers.onPolicyRegistered) {
-      this.policyEngine.on('PolicyRegistered', handlers.onPolicyRegistered);
-    }
-    
-    if (handlers.onPolicyUpdated) {
-      this.policyEngine.on('PolicyUpdated', handlers.onPolicyUpdated);
-    }
-    
-    if (handlers.onOperationValidated) {
-      this.policyEngine.on('OperationValidated', handlers.onOperationValidated);
-    }
-    
-    if (handlers.onOperationRejected) {
-      this.policyEngine.on('OperationRejected', handlers.onOperationRejected);
-    }
-  }
-
-  /**
-   * Cleanup event listeners
-   */
-  async unsubscribeFromEvents() {
-    await this.policyEngine.removeAllListeners();
-  }
-
-  /**
-   * Helper: Extract max amount from policy conditions
-   */
-  private extractMaxAmount(conditions: any): bigint {
-    if (conditions?.maxAmount) {
-      return ethers.parseUnits(conditions.maxAmount.toString(), 18);
-    }
-    return ethers.parseUnits('1000000', 18); // Default: 1M tokens
-  }
-
-  /**
-   * Helper: Extract daily limit from policy conditions
-   */
-  private extractDailyLimit(conditions: any): bigint {
-    if (conditions?.dailyLimit) {
-      return ethers.parseUnits(conditions.dailyLimit.toString(), 18);
-    }
-    return ethers.parseUnits('10000000', 18); // Default: 10M tokens
-  }
-
-  /**
-   * Helper: Extract monthly limit from policy conditions
-   */
-  private extractMonthlyLimit(conditions: any): bigint {
-    if (conditions?.monthlyLimit) {
-      return ethers.parseUnits(conditions.monthlyLimit.toString(), 18);
-    }
-    return ethers.parseUnits('100000000', 18); // Default: 100M tokens
-  }
-
-  /**
-   * Helper: Extract cooldown period from policy conditions
-   */
-  private extractCooldownPeriod(conditions: any): number {
-    if (conditions?.cooldownPeriod) {
-      return Number(conditions.cooldownPeriod);
-    }
-    return 60; // Default: 60 seconds
-  }
-}
-
-/**
- * Factory function to create FoundryPolicyAdapter instance
- */
-export function createFoundryPolicyAdapter(config: FoundryConfig & { policyEngineAddress: string }) {
-  return new FoundryPolicyAdapter(config);
 }

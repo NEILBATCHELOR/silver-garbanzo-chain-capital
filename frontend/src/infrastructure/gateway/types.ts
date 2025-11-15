@@ -168,6 +168,24 @@ export interface GatewayConfig {
   cacheEnabled?: boolean;
   retryCount?: number;
   timeout?: number;
+  // 🆕 Foundry Integration
+  useFoundry?: boolean; // Enable Foundry smart contract execution
+  foundryConfig?: FoundryGatewayConfig;
+}
+
+// Foundry Gateway Configuration
+export interface FoundryGatewayConfig {
+  policyEngineAddress: string;
+  provider: any; // ethers.Provider
+  signer?: any; // ethers.Signer
+  defaultGasLimit?: bigint;
+  networks?: {
+    [chain: string]: {
+      rpcUrl: string;
+      chainId: number;
+      policyEngineAddress?: string; // Override per network
+    };
+  };
 }
 
 // Operation Context
