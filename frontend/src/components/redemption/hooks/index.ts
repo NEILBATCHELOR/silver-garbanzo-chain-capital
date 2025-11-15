@@ -13,6 +13,8 @@ export type { UseRedemptionApprovalsParams, UseRedemptionApprovalsReturn } from 
 export { useGlobalRedemptions } from './useGlobalRedemptions';
 export type { UseGlobalRedemptionsParams, UseGlobalRedemptionsReturn } from './useGlobalRedemptions';
 
+export { useBlackoutPeriods } from './useBlackoutPeriods';
+
 // Re-export types for convenience
 export type {
   RedemptionRequest,

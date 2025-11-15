@@ -1,14 +1,40 @@
 /**
  * Window Validator
  * Validates that redemption request is within an active redemption window
+ * and not during a blackout period
  */
 
 import { supabase } from '@/infrastructure/database/client';
 import type { RedemptionRequest, ValidatorResult } from '../types';
+import { BlackoutPeriodManager } from '../services/BlackoutPeriodManager';
 
 export class WindowValidator {
+  private blackoutManager: BlackoutPeriodManager;
+
+  constructor() {
+    this.blackoutManager = new BlackoutPeriodManager();
+  }
+
   async validate(request: RedemptionRequest): Promise<ValidatorResult> {
     try {
+      // First check for blackout periods (most restrictive)
+      const blackoutCheck = await this.blackoutManager.isInBlackoutPeriod(
+        request.tokenId,
+        'redemption'
+      );
+
+      if (blackoutCheck.isInBlackout) {
+        return {
+          passed: false,
+          message: blackoutCheck.message,
+          errorCode: 'BLACKOUT_PERIOD',
+          metadata: {
+            tokenId: request.tokenId,
+            blackoutPeriod: blackoutCheck.blackoutPeriod
+          }
+        };
+      }
+
       // Query active redemption windows for this token
       const { data: windows, error } = await supabase
         .from('redemption_windows')
