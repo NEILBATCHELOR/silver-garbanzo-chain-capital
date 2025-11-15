@@ -7261,6 +7261,20 @@ $$;
 
 
 --
+-- Name: update_token_exchange_configs_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_token_exchange_configs_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_token_modules_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -13131,6 +13145,45 @@ CREATE TABLE public.equity_products (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: exchange_rate_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.exchange_rate_history (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    token_id uuid NOT NULL,
+    currency text NOT NULL,
+    rate numeric(20,8) NOT NULL,
+    source jsonb NOT NULL,
+    confidence numeric(5,2) DEFAULT 100.00,
+    effective_from timestamp with time zone DEFAULT now() NOT NULL,
+    effective_to timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT exchange_rate_history_currency_check CHECK ((currency = ANY (ARRAY['USDC'::text, 'USDT'::text])))
+);
+
+
+--
+-- Name: TABLE exchange_rate_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.exchange_rate_history IS 'Historical exchange rates with source tracking';
+
+
+--
+-- Name: COLUMN exchange_rate_history.source; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.exchange_rate_history.source IS 'Source info: {type: oracle|manual|aggregated, provider, references, methodology}';
+
+
+--
+-- Name: COLUMN exchange_rate_history.confidence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.exchange_rate_history.confidence IS 'Confidence score 0-100';
 
 
 --
@@ -24907,6 +24960,50 @@ CREATE TABLE public.token_events (
 
 
 --
+-- Name: token_exchange_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.token_exchange_configs (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    token_id uuid NOT NULL,
+    currency text NOT NULL,
+    base_currency text NOT NULL,
+    update_frequency integer DEFAULT 300 NOT NULL,
+    sources jsonb DEFAULT '[]'::jsonb NOT NULL,
+    fallback_rate numeric(20,8),
+    max_deviation numeric(5,2) DEFAULT 5.00,
+    require_multi_source boolean DEFAULT false,
+    active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    created_by uuid,
+    CONSTRAINT token_exchange_configs_base_currency_check CHECK ((base_currency = ANY (ARRAY['USDC'::text, 'USDT'::text]))),
+    CONSTRAINT token_exchange_configs_currency_check CHECK ((currency = ANY (ARRAY['USDC'::text, 'USDT'::text])))
+);
+
+
+--
+-- Name: TABLE token_exchange_configs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.token_exchange_configs IS 'Configuration for token exchange rates (USDC/USDT)';
+
+
+--
+-- Name: COLUMN token_exchange_configs.sources; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_exchange_configs.sources IS 'Array of price oracle sources: [{type, provider, endpoint}]';
+
+
+--
+-- Name: COLUMN token_exchange_configs.max_deviation; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_exchange_configs.max_deviation IS 'Maximum allowed deviation percentage from previous rate';
+
+
+--
 -- Name: token_extensions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -25817,6 +25914,47 @@ CREATE TABLE public.validation_cache (
     hit_count integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: valuation_price_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.valuation_price_history (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    token_id uuid NOT NULL,
+    period_start timestamp with time zone NOT NULL,
+    period_end timestamp with time zone NOT NULL,
+    open_price numeric(20,8),
+    high_price numeric(20,8),
+    low_price numeric(20,8),
+    close_price numeric(20,8),
+    volume numeric(30,0),
+    price_count integer DEFAULT 0,
+    sources text[] DEFAULT ARRAY[]::text[],
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE valuation_price_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.valuation_price_history IS 'OHLCV data for 4-hour valuation periods';
+
+
+--
+-- Name: COLUMN valuation_price_history.period_start; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.valuation_price_history.period_start IS 'Start of 4-hour period (UTC)';
+
+
+--
+-- Name: COLUMN valuation_price_history.sources; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.valuation_price_history.sources IS 'Array of data sources used for this period';
 
 
 --
@@ -28386,6 +28524,14 @@ ALTER TABLE ONLY public.equity_products
 --
 
 COMMENT ON CONSTRAINT equity_products_project_id_key ON public.equity_products IS 'Ensures only one product per project in this table';
+
+
+--
+-- Name: exchange_rate_history exchange_rate_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exchange_rate_history
+    ADD CONSTRAINT exchange_rate_history_pkey PRIMARY KEY (id);
 
 
 --
@@ -31534,6 +31680,22 @@ ALTER TABLE ONLY public.token_events
 
 
 --
+-- Name: token_exchange_configs token_exchange_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_exchange_configs
+    ADD CONSTRAINT token_exchange_configs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: token_exchange_configs token_exchange_configs_token_id_currency_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_exchange_configs
+    ADD CONSTRAINT token_exchange_configs_token_id_currency_key UNIQUE (token_id, currency);
+
+
+--
 -- Name: token_extensions token_extensions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32003,6 +32165,22 @@ ALTER TABLE ONLY public.validation_alerts
 
 ALTER TABLE ONLY public.validation_cache
     ADD CONSTRAINT validation_cache_pkey PRIMARY KEY (cache_key);
+
+
+--
+-- Name: valuation_price_history valuation_price_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.valuation_price_history
+    ADD CONSTRAINT valuation_price_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: valuation_price_history valuation_price_history_token_id_period_start_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.valuation_price_history
+    ADD CONSTRAINT valuation_price_history_token_id_period_start_key UNIQUE (token_id, period_start);
 
 
 --
@@ -35472,6 +35650,13 @@ CREATE INDEX idx_erc721_vesting_config ON public.token_erc721_properties USING g
 --
 
 CREATE INDEX idx_erc721_whitelist_sale ON public.token_erc721_properties USING btree (whitelist_sale_enabled, whitelist_sale_start_time);
+
+
+--
+-- Name: idx_exchange_rate_token_currency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_rate_token_currency ON public.exchange_rate_history USING btree (token_id, currency, effective_from DESC);
 
 
 --
@@ -41180,6 +41365,13 @@ CREATE INDEX idx_validations_from ON public.transaction_validations USING btree 
 
 
 --
+-- Name: idx_valuation_token_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_valuation_token_period ON public.valuation_price_history USING btree (token_id, period_start DESC);
+
+
+--
 -- Name: idx_violation_patterns_detected; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42206,6 +42398,13 @@ CREATE TRIGGER sync_owners_on_role_add AFTER INSERT OR DELETE ON public.multi_si
 --
 
 CREATE TRIGGER template_approval_trigger BEFORE INSERT OR UPDATE ON public.policy_templates FOR EACH ROW EXECUTE FUNCTION public.add_template_to_approval_queue();
+
+
+--
+-- Name: token_exchange_configs token_exchange_configs_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER token_exchange_configs_updated_at BEFORE UPDATE ON public.token_exchange_configs FOR EACH ROW EXECUTE FUNCTION public.update_token_exchange_configs_updated_at();
 
 
 --
@@ -44219,6 +44418,14 @@ ALTER TABLE ONLY public.energy_assets
 
 ALTER TABLE ONLY public.environmental_certifications
     ADD CONSTRAINT environmental_certifications_real_estate_product_id_fkey FOREIGN KEY (real_estate_product_id) REFERENCES public.real_estate_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: exchange_rate_history exchange_rate_history_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exchange_rate_history
+    ADD CONSTRAINT exchange_rate_history_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
 
 
 --
@@ -46693,6 +46900,22 @@ ALTER TABLE ONLY public.token_erc721_trait_definitions
 
 
 --
+-- Name: token_exchange_configs token_exchange_configs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_exchange_configs
+    ADD CONSTRAINT token_exchange_configs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: token_exchange_configs token_exchange_configs_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_exchange_configs
+    ADD CONSTRAINT token_exchange_configs_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
+
+
+--
 -- Name: token_extensions token_extensions_attached_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -46962,6 +47185,14 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.validation_alerts
     ADD CONSTRAINT validation_alerts_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id);
+
+
+--
+-- Name: valuation_price_history valuation_price_history_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.valuation_price_history
+    ADD CONSTRAINT valuation_price_history_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
 
 
 --
@@ -48998,6 +49229,16 @@ GRANT ALL ON FUNCTION public.update_timestamp_column() TO prisma;
 
 
 --
+-- Name: FUNCTION update_token_exchange_configs_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_token_exchange_configs_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_token_exchange_configs_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_token_exchange_configs_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_token_exchange_configs_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_token_modules_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -50955,6 +51196,16 @@ GRANT ALL ON TABLE public.equity_products TO anon;
 GRANT ALL ON TABLE public.equity_products TO authenticated;
 GRANT ALL ON TABLE public.equity_products TO service_role;
 GRANT ALL ON TABLE public.equity_products TO prisma;
+
+
+--
+-- Name: TABLE exchange_rate_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.exchange_rate_history TO anon;
+GRANT ALL ON TABLE public.exchange_rate_history TO authenticated;
+GRANT ALL ON TABLE public.exchange_rate_history TO service_role;
+GRANT ALL ON TABLE public.exchange_rate_history TO prisma;
 
 
 --
@@ -54008,6 +54259,16 @@ GRANT ALL ON TABLE public.token_events TO prisma;
 
 
 --
+-- Name: TABLE token_exchange_configs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.token_exchange_configs TO anon;
+GRANT ALL ON TABLE public.token_exchange_configs TO authenticated;
+GRANT ALL ON TABLE public.token_exchange_configs TO service_role;
+GRANT ALL ON TABLE public.token_exchange_configs TO prisma;
+
+
+--
 -- Name: TABLE token_extensions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -54315,6 +54576,16 @@ GRANT ALL ON TABLE public.validation_cache TO anon;
 GRANT ALL ON TABLE public.validation_cache TO authenticated;
 GRANT ALL ON TABLE public.validation_cache TO service_role;
 GRANT ALL ON TABLE public.validation_cache TO prisma;
+
+
+--
+-- Name: TABLE valuation_price_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.valuation_price_history TO anon;
+GRANT ALL ON TABLE public.valuation_price_history TO authenticated;
+GRANT ALL ON TABLE public.valuation_price_history TO service_role;
+GRANT ALL ON TABLE public.valuation_price_history TO prisma;
 
 
 --

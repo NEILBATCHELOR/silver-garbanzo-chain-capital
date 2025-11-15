@@ -10162,6 +10162,113 @@ export type Database = {
           },
         ]
       }
+      exchange_rate_history: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          currency: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          rate: number
+          source: Json
+          token_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          currency: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          rate: number
+          source: Json
+          token_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          currency?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          rate?: number
+          source?: Json
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "exchange_rate_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_api_cache: {
         Row: {
           api_source: string | null
@@ -32205,6 +32312,132 @@ export type Database = {
           },
         ]
       }
+      token_exchange_configs: {
+        Row: {
+          active: boolean | null
+          base_currency: string
+          created_at: string | null
+          created_by: string | null
+          currency: string
+          fallback_rate: number | null
+          id: string
+          max_deviation: number | null
+          require_multi_source: boolean | null
+          sources: Json
+          token_id: string
+          update_frequency: number
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          base_currency: string
+          created_at?: string | null
+          created_by?: string | null
+          currency: string
+          fallback_rate?: number | null
+          id?: string
+          max_deviation?: number | null
+          require_multi_source?: boolean | null
+          sources?: Json
+          token_id: string
+          update_frequency?: number
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          base_currency?: string
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string
+          fallback_rate?: number | null
+          id?: string
+          max_deviation?: number | null
+          require_multi_source?: boolean | null
+          sources?: Json
+          token_id?: string
+          update_frequency?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_exchange_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_exchange_configs_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_extensions: {
         Row: {
           attached_at: string | null
@@ -34213,6 +34446,122 @@ export type Database = {
           validation_result?: Json
         }
         Relationships: []
+      }
+      valuation_price_history: {
+        Row: {
+          close_price: number | null
+          created_at: string | null
+          high_price: number | null
+          id: string
+          low_price: number | null
+          open_price: number | null
+          period_end: string
+          period_start: string
+          price_count: number | null
+          sources: string[] | null
+          token_id: string
+          volume: number | null
+        }
+        Insert: {
+          close_price?: number | null
+          created_at?: string | null
+          high_price?: number | null
+          id?: string
+          low_price?: number | null
+          open_price?: number | null
+          period_end: string
+          period_start: string
+          price_count?: number | null
+          sources?: string[] | null
+          token_id: string
+          volume?: number | null
+        }
+        Update: {
+          close_price?: number | null
+          created_at?: string | null
+          high_price?: number | null
+          id?: string
+          low_price?: number | null
+          open_price?: number | null
+          period_end?: string
+          period_start?: string
+          price_count?: number | null
+          sources?: string[] | null
+          token_id?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "valuation_price_history_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       violation_patterns: {
         Row: {
