@@ -666,6 +666,8 @@ const BusinessRulesConfiguration: React.FC<{
         updated_at: new Date().toISOString()
       };
 
+      // Continue with existing database save logic
+
       let result;
       if (editingRule) {
         // Update existing rule

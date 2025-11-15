@@ -1,15 +1,21 @@
 /**
  * Redemption Infrastructure - Main Exports
- * Stage 7: Redemption Request Management
+ * Stages 7-9: Complete Redemption System
  */
 
-// Core components
+// Stage 7: Core components
 export { RedemptionRequestManager } from './RedemptionRequestManager';
 export { RequestValidator } from './RequestValidator';
 export { RequestQueue } from './RequestQueue';
 
-// Validators
+// Stage 7: Validators
 export * from './validators';
 
-// Types
+// Stage 7: Types
 export * from './types';
+
+// Stage 8: Pricing
+export * from './pricing';
+
+// Stage 9: Rules & Windows
+export * from './rules';
