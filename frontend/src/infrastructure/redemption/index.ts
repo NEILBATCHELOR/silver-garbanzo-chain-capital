@@ -19,3 +19,8 @@ export * from './pricing';
 
 // Stage 9: Rules & Windows
 export * from './rules';
+// Stage 9: Rules & Windows
+export * from './rules';
+
+// Stage 10: Multi-Party Approval
+export * from './approval';

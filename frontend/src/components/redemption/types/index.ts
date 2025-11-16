@@ -1,6 +1,9 @@
 // Main types export for redemption module
 // Centralizes all redemption-related type definitions
 
+// Import types for internal use
+import type { ApprovalDecisionType } from './approvals';
+
 // Core redemption types
 export type {
   RedemptionRequest,
@@ -39,6 +42,8 @@ export type { GlobalCreateRedemptionRequestInput } from '../services/globalRedem
 export type {
   ApprovalRequest,
   ApprovalRecord,
+  ApprovalStatus,
+  ApprovalDecision,
   ApprovalWorkflowConfig,
   AutoApprovalRule,
   ApprovalCondition,
@@ -61,6 +66,9 @@ export type {
   ApprovalQueueResponse,
   ApprovalInfo
 } from './approvals';
+
+// Re-export ApprovalDecisionType from approvals module to avoid conflict
+export type { ApprovalDecisionType } from './approvals';
 
 // Settlement process types
 export type {
@@ -107,7 +115,7 @@ export const RedemptionStatus = {
   CANCELLED: 'cancelled' as const
 } as const;
 
-export const ApprovalStatus = {
+export const ApprovalStatusEnum = {
   PENDING: 'pending' as const,
   APPROVED: 'approved' as const,
   REJECTED: 'rejected' as const,
@@ -148,7 +156,7 @@ export const TransferStatus = {
   EXPIRED: 'expired' as const
 } as const;
 
-export const ApprovalDecision = {
+export const ApprovalDecisionEnum = {
   PENDING: 'pending' as const,
   APPROVED: 'approved' as const,
   REJECTED: 'rejected' as const
@@ -156,11 +164,11 @@ export const ApprovalDecision = {
 
 // Type aliases for the enum values
 export type RedemptionStatusType = typeof RedemptionStatus[keyof typeof RedemptionStatus];
-export type ApprovalStatusType = typeof ApprovalStatus[keyof typeof ApprovalStatus];
+export type ApprovalStatusType = typeof ApprovalStatusEnum[keyof typeof ApprovalStatusEnum];
 export type SettlementStatusType = typeof SettlementStatus[keyof typeof SettlementStatus];
 export type BurnStatusType = typeof BurnStatus[keyof typeof BurnStatus];
 export type TransferStatusType = typeof TransferStatus[keyof typeof TransferStatus];
-export type ApprovalDecisionType = typeof ApprovalDecision[keyof typeof ApprovalDecision];
+// ApprovalDecisionType is imported at the top and re-exported below for external use
 
 // Utility type guards for runtime type checking
 export const isRedemptionStatus = (status: string): status is RedemptionStatusType => {
@@ -168,7 +176,7 @@ export const isRedemptionStatus = (status: string): status is RedemptionStatusTy
 };
 
 export const isApprovalStatus = (status: string): status is ApprovalStatusType => {
-  return Object.values(ApprovalStatus).includes(status as ApprovalStatusType);
+  return Object.values(ApprovalStatusEnum).includes(status as ApprovalStatusType);
 };
 
 export const isSettlementStatus = (status: string): status is SettlementStatusType => {
@@ -184,7 +192,7 @@ export const isTransferStatus = (status: string): status is TransferStatusType =
 };
 
 export const isApprovalDecision = (decision: string): decision is ApprovalDecisionType => {
-  return Object.values(ApprovalDecision).includes(decision as ApprovalDecisionType);
+  return Object.values(ApprovalDecisionEnum).includes(decision as ApprovalDecisionType);
 };
 
 export const isRedemptionType = (type: string): type is 'standard' | 'interval' => {

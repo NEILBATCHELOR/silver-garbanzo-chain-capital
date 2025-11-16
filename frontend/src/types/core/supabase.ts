@@ -945,6 +945,149 @@ export type Database = {
           },
         ]
       }
+      approval_delegations: {
+        Row: {
+          conditions: Json | null
+          created_at: string | null
+          delegate_id: string
+          delegator_id: string
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          scope: string | null
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string | null
+          delegate_id: string
+          delegator_id: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          scope?: string | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string | null
+          delegate_id?: string
+          delegator_id?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          scope?: string | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_delegations_delegate_id_fkey"
+            columns: ["delegate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_delegations_delegator_id_fkey"
+            columns: ["delegator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_notifications: {
+        Row: {
+          channel: string
+          created_at: string | null
+          error: string | null
+          id: string
+          request_id: string
+          sent_at: string
+          success: boolean
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          request_id: string
+          sent_at: string
+          success: boolean
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          request_id?: string
+          sent_at?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      approval_processes: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_approvals: number | null
+          deadline: string | null
+          escalation_level: number | null
+          id: string
+          metadata: Json | null
+          pending_approvers: string[] | null
+          request_id: string
+          required_approvals: number
+          started_at: string | null
+          status: string
+          updated_at: string | null
+          workflow_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_approvals?: number | null
+          deadline?: string | null
+          escalation_level?: number | null
+          id?: string
+          metadata?: Json | null
+          pending_approvers?: string[] | null
+          request_id: string
+          required_approvals?: number
+          started_at?: string | null
+          status: string
+          updated_at?: string | null
+          workflow_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_approvals?: number | null
+          deadline?: string | null
+          escalation_level?: number | null
+          id?: string
+          metadata?: Json | null
+          pending_approvers?: string[] | null
+          request_id?: string
+          required_approvals?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_processes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "redemption_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_requests: {
         Row: {
           action: string
@@ -992,6 +1135,155 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      approval_signatures: {
+        Row: {
+          approver_id: string
+          created_at: string | null
+          id: string
+          message: string
+          request_id: string | null
+          signature: string
+          updated_at: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string | null
+          id?: string
+          message: string
+          request_id?: string | null
+          signature: string
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string | null
+          id?: string
+          message?: string
+          request_id?: string | null
+          signature?: string
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      approval_workflows: {
+        Row: {
+          approvers: Json
+          created_at: string | null
+          escalation_rules: Json | null
+          id: string
+          name: string
+          required_approvals: number
+          status: string | null
+          thresholds: Json
+          timeouts: Json | null
+          token_id: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          approvers: Json
+          created_at?: string | null
+          escalation_rules?: Json | null
+          id?: string
+          name: string
+          required_approvals: number
+          status?: string | null
+          thresholds: Json
+          timeouts?: Json | null
+          token_id?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          approvers?: Json
+          created_at?: string | null
+          escalation_rules?: Json | null
+          id?: string
+          name?: string
+          required_approvals?: number
+          status?: string | null
+          thresholds?: Json
+          timeouts?: Json | null
+          token_id?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "approval_workflows_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asset_backed_products: {
         Row: {
@@ -1556,6 +1848,60 @@ export type Database = {
           severity?: string | null
         }
         Relationships: []
+      }
+      blackout_periods: {
+        Row: {
+          active: boolean | null
+          affected_operations: string[] | null
+          created_at: string | null
+          created_by: string | null
+          end_date: string
+          id: string
+          project_id: string | null
+          reason: string | null
+          start_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          affected_operations?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date: string
+          id?: string
+          project_id?: string | null
+          reason?: string | null
+          start_date: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          affected_operations?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          project_id?: string | null
+          reason?: string | null
+          start_date?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blackout_periods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blackout_periods_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bond_amortization_schedule: {
         Row: {
@@ -9764,6 +10110,36 @@ export type Database = {
           },
         ]
       }
+      email_log: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          id: string
+          priority: string | null
+          sent_at: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          priority?: string | null
+          sent_at: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          priority?: string | null
+          sent_at?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       energy_assets: {
         Row: {
           asset_id: string
@@ -10161,6 +10537,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      escalation_notifications: {
+        Row: {
+          created_at: string | null
+          escalated_from: string[] | null
+          escalated_to: string[] | null
+          id: string
+          level: number
+          process_id: string
+          reason: string | null
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string | null
+          escalated_from?: string[] | null
+          escalated_to?: string[] | null
+          id?: string
+          level: number
+          process_id: string
+          reason?: string | null
+          timestamp: string
+        }
+        Update: {
+          created_at?: string | null
+          escalated_from?: string[] | null
+          escalated_to?: string[] | null
+          id?: string
+          level?: number
+          process_id?: string
+          reason?: string | null
+          timestamp?: string
+        }
+        Relationships: []
+      }
+      escalation_schedule: {
+        Row: {
+          created_at: string | null
+          executed_at: string | null
+          id: string
+          process_id: string
+          scheduled_at: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          executed_at?: string | null
+          id?: string
+          process_id: string
+          scheduled_at: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          executed_at?: string | null
+          id?: string
+          process_id?: string
+          scheduled_at?: string
+          status?: string | null
+        }
+        Relationships: []
       }
       exchange_rate_history: {
         Row: {
@@ -19325,6 +19761,36 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_approvals: {
+        Row: {
+          created_at: string | null
+          delegation_id: string
+          id: string
+          original_approver_id: string
+          proxy_approver_id: string
+          reason: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delegation_id: string
+          id?: string
+          original_approver_id: string
+          proxy_approver_id: string
+          reason?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delegation_id?: string
+          id?: string
+          original_approver_id?: string
+          proxy_approver_id?: string
+          reason?: string | null
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
       psp_api_keys: {
         Row: {
           created_at: string | null
@@ -24024,6 +24490,81 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      settlement_operations: {
+        Row: {
+          amount: string
+          block_number: number | null
+          chain_id: number
+          confirmations: number | null
+          created_at: string | null
+          currency: string
+          error: Json | null
+          from_wallet: string
+          id: string
+          redemption_id: string
+          settled_at: string | null
+          status: string
+          to_wallet: string
+          token_transfer_id: string
+          transaction_hash: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: string
+          block_number?: number | null
+          chain_id: number
+          confirmations?: number | null
+          created_at?: string | null
+          currency: string
+          error?: Json | null
+          from_wallet: string
+          id?: string
+          redemption_id: string
+          settled_at?: string | null
+          status: string
+          to_wallet: string
+          token_transfer_id: string
+          transaction_hash?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: string
+          block_number?: number | null
+          chain_id?: number
+          confirmations?: number | null
+          created_at?: string | null
+          currency?: string
+          error?: Json | null
+          from_wallet?: string
+          id?: string
+          redemption_id?: string
+          settled_at?: string | null
+          status?: string
+          to_wallet?: string
+          token_transfer_id?: string
+          transaction_hash?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_operations_redemption_id_fkey"
+            columns: ["redemption_id"]
+            isOneToOne: false
+            referencedRelation: "redemption_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_operations_token_transfer_id_fkey"
+            columns: ["token_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_operations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sidebar_configurations: {
         Row: {
@@ -33939,6 +34480,104 @@ export type Database = {
         }
         Relationships: []
       }
+      transfer_batches: {
+        Row: {
+          created_at: string | null
+          executed_at: string | null
+          gas_optimization: Json | null
+          id: string
+          status: string
+          total_gas_saved: string | null
+          transfer_ids: string[]
+        }
+        Insert: {
+          created_at?: string | null
+          executed_at?: string | null
+          gas_optimization?: Json | null
+          id?: string
+          status: string
+          total_gas_saved?: string | null
+          transfer_ids: string[]
+        }
+        Update: {
+          created_at?: string | null
+          executed_at?: string | null
+          gas_optimization?: Json | null
+          id?: string
+          status?: string
+          total_gas_saved?: string | null
+          transfer_ids?: string[]
+        }
+        Relationships: []
+      }
+      transfer_operations: {
+        Row: {
+          amount: string
+          block_number: number | null
+          chain_id: number
+          confirmations: number | null
+          confirmed_at: string | null
+          created_at: string | null
+          error: Json | null
+          from_wallet: string
+          gas_estimate: Json | null
+          id: string
+          redemption_id: string
+          status: string
+          to_wallet: string
+          token_address: string
+          transaction_hash: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: string
+          block_number?: number | null
+          chain_id: number
+          confirmations?: number | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          error?: Json | null
+          from_wallet: string
+          gas_estimate?: Json | null
+          id?: string
+          redemption_id: string
+          status: string
+          to_wallet: string
+          token_address: string
+          transaction_hash?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: string
+          block_number?: number | null
+          chain_id?: number
+          confirmations?: number | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          error?: Json | null
+          from_wallet?: string
+          gas_estimate?: Json | null
+          id?: string
+          redemption_id?: string
+          status?: string
+          to_wallet?: string
+          token_address?: string
+          transaction_hash?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_operations_redemption_id_fkey"
+            columns: ["redemption_id"]
+            isOneToOne: false
+            referencedRelation: "redemption_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_addresses: {
         Row: {
           address: string | null
@@ -33981,6 +34620,36 @@ export type Database = {
           signing_method?: string | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_approval_conditions: {
+        Row: {
+          created_at: string | null
+          field: string
+          id: string
+          operator: string
+          updated_at: string | null
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string | null
+          field: string
+          id?: string
+          operator: string
+          updated_at?: string | null
+          user_id: string
+          value: Json
+        }
+        Update: {
+          created_at?: string | null
+          field?: string
+          id?: string
+          operator?: string
+          updated_at?: string | null
+          user_id?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -34187,6 +34856,30 @@ export type Database = {
           },
         ]
       }
+      user_preferences: {
+        Row: {
+          created_at: string | null
+          id: string
+          notification_preferences: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notification_preferences?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notification_preferences?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -34303,6 +34996,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_token_access: {
+        Row: {
+          access_level: string | null
+          created_at: string | null
+          has_access: boolean | null
+          id: string
+          token_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_level?: string | null
+          created_at?: string | null
+          has_access?: boolean | null
+          id?: string
+          token_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_level?: string | null
+          created_at?: string | null
+          has_access?: boolean | null
+          id?: string
+          token_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_verifications: {
         Row: {

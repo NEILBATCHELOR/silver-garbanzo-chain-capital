@@ -6548,6 +6548,20 @@ COMMENT ON FUNCTION public.universal_update_timestamp() IS 'Universal function f
 
 
 --
+-- Name: update_blackout_periods_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_blackout_periods_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_bulk_operation_progress(text, double precision, integer, integer, character varying); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7055,6 +7069,20 @@ $$;
 
 
 --
+-- Name: update_settlement_operations_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_settlement_operations_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_settlement_status(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7301,6 +7329,20 @@ BEGIN
       updated_at = NOW()
   WHERE asset_id = NEW.asset_id AND date = CURRENT_DATE;  -- Respects unique_asset_date
   RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_transfer_operations_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_transfer_operations_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$;
 
@@ -8729,6 +8771,63 @@ COMMENT ON VIEW public.approval_configs_with_approvers IS 'Consolidated view of 
 
 
 --
+-- Name: approval_delegations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.approval_delegations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    delegator_id uuid NOT NULL,
+    delegate_id uuid NOT NULL,
+    scope text DEFAULT 'all'::text,
+    start_date timestamp with time zone DEFAULT now(),
+    end_date timestamp with time zone,
+    is_active boolean DEFAULT true,
+    conditions jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT approval_delegations_check CHECK ((delegator_id <> delegate_id))
+);
+
+
+--
+-- Name: approval_notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.approval_notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    request_id uuid NOT NULL,
+    channel text NOT NULL,
+    success boolean NOT NULL,
+    sent_at timestamp with time zone NOT NULL,
+    error text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: approval_processes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.approval_processes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    request_id uuid NOT NULL,
+    workflow_id uuid NOT NULL,
+    status text NOT NULL,
+    required_approvals integer DEFAULT 2 NOT NULL,
+    current_approvals integer DEFAULT 0,
+    pending_approvers uuid[] DEFAULT ARRAY[]::uuid[],
+    started_at timestamp with time zone DEFAULT now(),
+    deadline timestamp with time zone,
+    completed_at timestamp with time zone,
+    escalation_level integer DEFAULT 0,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT approval_processes_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'escalated'::text, 'expired'::text])))
+);
+
+
+--
 -- Name: approval_requests; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8747,6 +8846,42 @@ CREATE TABLE public.approval_requests (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT approval_requests_status_check CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('approved'::character varying)::text, ('rejected'::character varying)::text])))
+);
+
+
+--
+-- Name: approval_signatures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.approval_signatures (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    signature text NOT NULL,
+    approver_id uuid NOT NULL,
+    request_id uuid,
+    message text NOT NULL,
+    verified boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: approval_workflows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.approval_workflows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    token_id uuid,
+    type text NOT NULL,
+    required_approvals integer NOT NULL,
+    approvers jsonb NOT NULL,
+    thresholds jsonb NOT NULL,
+    escalation_rules jsonb,
+    timeouts jsonb,
+    status text DEFAULT 'active'::text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -9005,6 +9140,47 @@ CREATE TABLE public.blacklisted_addresses (
     created_at timestamp with time zone DEFAULT now(),
     CONSTRAINT blacklisted_addresses_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'high'::text, 'medium'::text, 'low'::text])))
 );
+
+
+--
+-- Name: blackout_periods; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.blackout_periods (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    start_date timestamp with time zone NOT NULL,
+    end_date timestamp with time zone NOT NULL,
+    reason text,
+    affected_operations text[] DEFAULT ARRAY['redemption'::text],
+    created_by uuid,
+    active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT valid_date_range CHECK ((end_date > start_date)),
+    CONSTRAINT valid_operations CHECK ((affected_operations <@ ARRAY['redemption'::text, 'transfer'::text, 'mint'::text, 'burn'::text]))
+);
+
+
+--
+-- Name: TABLE blackout_periods; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.blackout_periods IS 'Manages blackout periods during which certain operations (like redemptions) are not allowed';
+
+
+--
+-- Name: COLUMN blackout_periods.affected_operations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.blackout_periods.affected_operations IS 'Array of operations affected by this blackout period (redemption, transfer, mint, burn)';
+
+
+--
+-- Name: COLUMN blackout_periods.active; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.blackout_periods.active IS 'Whether this blackout period is currently active and should be enforced';
 
 
 --
@@ -12942,6 +13118,21 @@ COMMENT ON TABLE public.dtf_token_metadata IS 'Blockchain token metadata and sma
 
 
 --
+-- Name: email_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.email_log (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    subject text NOT NULL,
+    body text,
+    priority text,
+    sent_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: energy_assets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13144,6 +13335,36 @@ CREATE TABLE public.equity_products (
     target_raise numeric,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: escalation_notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.escalation_notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    process_id uuid NOT NULL,
+    level integer NOT NULL,
+    reason text,
+    escalated_to uuid[],
+    escalated_from uuid[],
+    "timestamp" timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: escalation_schedule; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.escalation_schedule (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    process_id uuid NOT NULL,
+    scheduled_at timestamp with time zone NOT NULL,
+    status text DEFAULT 'scheduled'::text,
+    executed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -18557,6 +18778,21 @@ ALTER TABLE public.provider ALTER COLUMN provider_id ADD GENERATED ALWAYS AS IDE
 
 
 --
+-- Name: proxy_approvals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.proxy_approvals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    original_approver_id uuid NOT NULL,
+    proxy_approver_id uuid NOT NULL,
+    delegation_id uuid NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    reason text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: psp_api_keys; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -21099,6 +21335,40 @@ CREATE TABLE public.settlement_metrics (
 --
 
 COMMENT ON TABLE public.settlement_metrics IS 'Daily aggregated metrics for settlement processing performance';
+
+
+--
+-- Name: settlement_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.settlement_operations (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    redemption_id uuid NOT NULL,
+    token_transfer_id uuid NOT NULL,
+    type text DEFAULT 'stablecoin_settlement'::text NOT NULL,
+    currency text NOT NULL,
+    amount text NOT NULL,
+    from_wallet text NOT NULL,
+    to_wallet text NOT NULL,
+    status text NOT NULL,
+    transaction_hash text,
+    confirmations integer DEFAULT 0,
+    block_number bigint,
+    chain_id integer NOT NULL,
+    error jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    settled_at timestamp with time zone,
+    CONSTRAINT settlement_operations_currency_check CHECK ((currency = ANY (ARRAY['USDC'::text, 'USDT'::text]))),
+    CONSTRAINT settlement_operations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'simulating'::text, 'approved'::text, 'broadcasting'::text, 'confirming'::text, 'confirmed'::text, 'failed'::text, 'reversed'::text])))
+);
+
+
+--
+-- Name: TABLE settlement_operations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.settlement_operations IS 'Stage 11: Settlement operations (USDC/USDT payments)';
 
 
 --
@@ -25572,6 +25842,29 @@ COMMENT ON TABLE public.transactions IS 'General blockchain transactions table f
 
 
 --
+-- Name: transfer_batches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transfer_batches (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    transfer_ids uuid[] NOT NULL,
+    status text NOT NULL,
+    gas_optimization jsonb,
+    total_gas_saved text,
+    executed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT transfer_batches_status_check CHECK ((status = ANY (ARRAY['preparing'::text, 'executing'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: TABLE transfer_batches; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.transfer_batches IS 'Stage 11: Batched transfers for gas optimization';
+
+
+--
 -- Name: transfer_history; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -25602,6 +25895,40 @@ CREATE VIEW public.transfer_history AS
 --
 
 COMMENT ON VIEW public.transfer_history IS 'Unified view of all transfer transactions across different blockchains';
+
+
+--
+-- Name: transfer_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transfer_operations (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    redemption_id uuid NOT NULL,
+    type text NOT NULL,
+    status text NOT NULL,
+    from_wallet text NOT NULL,
+    to_wallet text NOT NULL,
+    token_address text NOT NULL,
+    amount text NOT NULL,
+    gas_estimate jsonb,
+    transaction_hash text,
+    confirmations integer DEFAULT 0,
+    block_number bigint,
+    chain_id integer NOT NULL,
+    error jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    confirmed_at timestamp with time zone,
+    CONSTRAINT transfer_operations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'simulating'::text, 'approved'::text, 'broadcasting'::text, 'confirming'::text, 'confirmed'::text, 'failed'::text, 'reversed'::text]))),
+    CONSTRAINT transfer_operations_type_check CHECK ((type = ANY (ARRAY['token_collection'::text, 'settlement_payment'::text])))
+);
+
+
+--
+-- Name: TABLE transfer_operations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.transfer_operations IS 'Stage 11: Automated transfer operations for redemptions';
 
 
 --
@@ -25686,6 +26013,21 @@ COMMENT ON COLUMN public.user_addresses.is_active IS 'Whether this address is ac
 --
 
 COMMENT ON COLUMN public.user_addresses.contract_roles IS 'Array of contract role names (JSONB) assigned to this specific address';
+
+
+--
+-- Name: user_approval_conditions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_approval_conditions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    field text NOT NULL,
+    operator text NOT NULL,
+    value jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
 
 
 --
@@ -25819,6 +26161,19 @@ UNION ALL
 
 
 --
+-- Name: user_preferences; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_preferences (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    notification_preferences jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: user_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -25845,6 +26200,21 @@ CREATE TABLE public.user_sidebar_preferences (
     collapsed_sections text[],
     hidden_items text[],
     custom_order jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: user_token_access; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_token_access (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    token_id uuid NOT NULL,
+    has_access boolean DEFAULT false,
+    access_level text DEFAULT 'view'::text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -26685,11 +27055,51 @@ ALTER TABLE ONLY public.approval_configs
 
 
 --
+-- Name: approval_delegations approval_delegations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_delegations
+    ADD CONSTRAINT approval_delegations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: approval_notifications approval_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_notifications
+    ADD CONSTRAINT approval_notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: approval_processes approval_processes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_processes
+    ADD CONSTRAINT approval_processes_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: approval_requests approval_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.approval_requests
     ADD CONSTRAINT approval_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: approval_signatures approval_signatures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_signatures
+    ADD CONSTRAINT approval_signatures_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: approval_workflows approval_workflows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_workflows
+    ADD CONSTRAINT approval_workflows_pkey PRIMARY KEY (id);
 
 
 --
@@ -26793,6 +27203,14 @@ ALTER TABLE ONLY public.blacklisted_addresses
 
 ALTER TABLE ONLY public.blacklisted_addresses
     ADD CONSTRAINT blacklisted_addresses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: blackout_periods blackout_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blackout_periods
+    ADD CONSTRAINT blackout_periods_pkey PRIMARY KEY (id);
 
 
 --
@@ -28449,6 +28867,14 @@ ALTER TABLE ONLY public.dtf_token_metadata
 
 
 --
+-- Name: email_log email_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_log
+    ADD CONSTRAINT email_log_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: energy_assets energy_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -28524,6 +28950,22 @@ ALTER TABLE ONLY public.equity_products
 --
 
 COMMENT ON CONSTRAINT equity_products_project_id_key ON public.equity_products IS 'Ensures only one product per project in this table';
+
+
+--
+-- Name: escalation_notifications escalation_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.escalation_notifications
+    ADD CONSTRAINT escalation_notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: escalation_schedule escalation_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.escalation_schedule
+    ADD CONSTRAINT escalation_schedule_pkey PRIMARY KEY (id);
 
 
 --
@@ -30196,6 +30638,14 @@ ALTER TABLE ONLY public.provider
 
 
 --
+-- Name: proxy_approvals proxy_approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.proxy_approvals
+    ADD CONSTRAINT proxy_approvals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: psp_api_keys psp_api_keys_key_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -30991,6 +31441,14 @@ ALTER TABLE ONLY public.settlement_metrics
 
 ALTER TABLE ONLY public.settlement_metrics
     ADD CONSTRAINT settlement_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: settlement_operations settlement_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settlement_operations
+    ADD CONSTRAINT settlement_operations_pkey PRIMARY KEY (id);
 
 
 --
@@ -31840,6 +32298,22 @@ ALTER TABLE ONLY public.transactions
 
 
 --
+-- Name: transfer_batches transfer_batches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_batches
+    ADD CONSTRAINT transfer_batches_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: transfer_operations transfer_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_operations
+    ADD CONSTRAINT transfer_operations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: asset_nav_data unique_asset_date; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32040,6 +32514,14 @@ ALTER TABLE ONLY public.user_addresses
 
 
 --
+-- Name: user_approval_conditions user_approval_conditions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_approval_conditions
+    ADD CONSTRAINT user_approval_conditions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: user_contract_roles user_contract_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32096,6 +32578,22 @@ ALTER TABLE ONLY public.user_organization_roles
 
 
 --
+-- Name: user_preferences user_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_preferences
+    ADD CONSTRAINT user_preferences_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_preferences user_preferences_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_preferences
+    ADD CONSTRAINT user_preferences_user_id_key UNIQUE (user_id);
+
+
+--
 -- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32117,6 +32615,14 @@ ALTER TABLE ONLY public.user_sessions
 
 ALTER TABLE ONLY public.user_sidebar_preferences
     ADD CONSTRAINT user_sidebar_preferences_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_token_access user_token_access_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_token_access
+    ADD CONSTRAINT user_token_access_pkey PRIMARY KEY (id);
 
 
 --
@@ -32601,6 +33107,55 @@ CREATE INDEX idx_approval_configs_created_by ON public.approval_configs USING bt
 
 
 --
+-- Name: idx_approval_delegations_delegate; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_delegations_delegate ON public.approval_delegations USING btree (delegate_id, is_active);
+
+
+--
+-- Name: idx_approval_delegations_delegator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_delegations_delegator ON public.approval_delegations USING btree (delegator_id, is_active);
+
+
+--
+-- Name: idx_approval_notifications_request; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_notifications_request ON public.approval_notifications USING btree (request_id);
+
+
+--
+-- Name: idx_approval_processes_request; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_processes_request ON public.approval_processes USING btree (request_id);
+
+
+--
+-- Name: idx_approval_processes_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_processes_status ON public.approval_processes USING btree (status, deadline);
+
+
+--
+-- Name: idx_approval_processes_workflow; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_processes_workflow ON public.approval_processes USING btree (workflow_id);
+
+
+--
+-- Name: idx_approval_workflows_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_approval_workflows_token ON public.approval_workflows USING btree (token_id, status);
+
+
+--
 -- Name: idx_asset_backed_products_asset_number; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -32941,6 +33496,27 @@ CREATE INDEX idx_batch_operations_user_op ON public.batch_operations USING btree
 --
 
 CREATE INDEX idx_blacklisted_addresses_address ON public.blacklisted_addresses USING btree (address);
+
+
+--
+-- Name: idx_blackout_periods_date_range; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_blackout_periods_date_range ON public.blackout_periods USING btree (start_date, end_date) WHERE (active = true);
+
+
+--
+-- Name: idx_blackout_periods_operations; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_blackout_periods_operations ON public.blackout_periods USING gin (affected_operations);
+
+
+--
+-- Name: idx_blackout_periods_project_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_blackout_periods_project_active ON public.blackout_periods USING btree (project_id, active) WHERE (active = true);
 
 
 --
@@ -35016,6 +35592,13 @@ CREATE INDEX idx_dtf_token_metadata_network ON public.dtf_token_metadata USING b
 
 
 --
+-- Name: idx_email_log_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_log_user ON public.email_log USING btree (user_id, sent_at);
+
+
+--
 -- Name: idx_energy_assets_capacity_factor; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35650,6 +36233,20 @@ CREATE INDEX idx_erc721_vesting_config ON public.token_erc721_properties USING g
 --
 
 CREATE INDEX idx_erc721_whitelist_sale ON public.token_erc721_properties USING btree (whitelist_sale_enabled, whitelist_sale_start_time);
+
+
+--
+-- Name: idx_escalation_notifications_process; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_escalation_notifications_process ON public.escalation_notifications USING btree (process_id);
+
+
+--
+-- Name: idx_escalation_schedule_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_escalation_schedule_status ON public.escalation_schedule USING btree (status, scheduled_at);
 
 
 --
@@ -40189,6 +40786,27 @@ CREATE INDEX idx_settlement_metrics_date ON public.settlement_metrics USING btre
 
 
 --
+-- Name: idx_settlement_ops_redemption; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settlement_ops_redemption ON public.settlement_operations USING btree (redemption_id);
+
+
+--
+-- Name: idx_settlement_ops_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settlement_ops_status ON public.settlement_operations USING btree (status) WHERE (status = ANY (ARRAY['pending'::text, 'confirming'::text]));
+
+
+--
+-- Name: idx_settlement_ops_token_transfer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_settlement_ops_token_transfer ON public.settlement_operations USING btree (token_transfer_id);
+
+
+--
 -- Name: idx_sidebar_configs_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41218,6 +41836,27 @@ CREATE INDEX idx_transactions_to_address ON public.transactions USING btree (to_
 
 
 --
+-- Name: idx_transfer_ops_redemption; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_ops_redemption ON public.transfer_operations USING btree (redemption_id);
+
+
+--
+-- Name: idx_transfer_ops_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_ops_status ON public.transfer_operations USING btree (status) WHERE (status = ANY (ARRAY['pending'::text, 'confirming'::text]));
+
+
+--
+-- Name: idx_transfer_ops_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_ops_tx_hash ON public.transfer_operations USING btree (transaction_hash) WHERE (transaction_hash IS NOT NULL);
+
+
+--
 -- Name: idx_user_addresses_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41827,6 +42466,13 @@ CREATE TRIGGER before_token_allocation_delete BEFORE DELETE ON public.token_allo
 
 
 --
+-- Name: blackout_periods blackout_periods_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER blackout_periods_updated_at BEFORE UPDATE ON public.blackout_periods FOR EACH ROW EXECUTE FUNCTION public.update_blackout_periods_updated_at();
+
+
+--
 -- Name: tokens create_token_version_on_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -42387,6 +43033,13 @@ CREATE TRIGGER set_updated_at_timestamp BEFORE UPDATE ON public.security_events 
 
 
 --
+-- Name: settlement_operations settlement_operations_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER settlement_operations_updated_at BEFORE UPDATE ON public.settlement_operations FOR EACH ROW EXECUTE FUNCTION public.update_settlement_operations_updated_at();
+
+
+--
 -- Name: multi_sig_wallet_owners sync_owners_on_role_add; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -42440,6 +43093,13 @@ CREATE TRIGGER tr_redemption_requests_update_statistics AFTER INSERT OR DELETE O
 --
 
 CREATE TRIGGER tr_redemption_windows_updated_at BEFORE UPDATE ON public.redemption_windows FOR EACH ROW EXECUTE FUNCTION public.update_redemption_window_timestamp();
+
+
+--
+-- Name: transfer_operations transfer_operations_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER transfer_operations_updated_at BEFORE UPDATE ON public.transfer_operations FOR EACH ROW EXECUTE FUNCTION public.update_transfer_operations_updated_at();
 
 
 --
@@ -43549,11 +44209,43 @@ ALTER TABLE ONLY public.approval_configs
 
 
 --
+-- Name: approval_delegations approval_delegations_delegate_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_delegations
+    ADD CONSTRAINT approval_delegations_delegate_id_fkey FOREIGN KEY (delegate_id) REFERENCES public.users(id);
+
+
+--
+-- Name: approval_delegations approval_delegations_delegator_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_delegations
+    ADD CONSTRAINT approval_delegations_delegator_id_fkey FOREIGN KEY (delegator_id) REFERENCES public.users(id);
+
+
+--
+-- Name: approval_processes approval_processes_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_processes
+    ADD CONSTRAINT approval_processes_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.redemption_requests(id) ON DELETE CASCADE;
+
+
+--
 -- Name: approval_requests approval_requests_requested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.approval_requests
     ADD CONSTRAINT approval_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: approval_workflows approval_workflows_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approval_workflows
+    ADD CONSTRAINT approval_workflows_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
 
 
 --
@@ -43594,6 +44286,22 @@ ALTER TABLE ONLY public.audit_logs
 
 ALTER TABLE ONLY public.batch_operations
     ADD CONSTRAINT batch_operations_user_operation_id_fkey FOREIGN KEY (user_operation_id) REFERENCES public.user_operations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: blackout_periods blackout_periods_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blackout_periods
+    ADD CONSTRAINT blackout_periods_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: blackout_periods blackout_periods_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blackout_periods
+    ADD CONSTRAINT blackout_periods_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -46316,6 +47024,22 @@ ALTER TABLE ONLY public.session_keys
 
 
 --
+-- Name: settlement_operations settlement_operations_redemption_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settlement_operations
+    ADD CONSTRAINT settlement_operations_redemption_id_fkey FOREIGN KEY (redemption_id) REFERENCES public.redemption_requests(id) ON DELETE CASCADE;
+
+
+--
+-- Name: settlement_operations settlement_operations_token_transfer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settlement_operations
+    ADD CONSTRAINT settlement_operations_token_transfer_id_fkey FOREIGN KEY (token_transfer_id) REFERENCES public.transfer_operations(id);
+
+
+--
 -- Name: sidebar_configurations sidebar_configurations_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -47073,6 +47797,14 @@ ALTER TABLE ONLY public.transaction_signatures
 
 ALTER TABLE ONLY public.transaction_validations
     ADD CONSTRAINT transaction_validations_override_by_fkey FOREIGN KEY (override_by) REFERENCES public.users(id);
+
+
+--
+-- Name: transfer_operations transfer_operations_redemption_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_operations
+    ADD CONSTRAINT transfer_operations_redemption_id_fkey FOREIGN KEY (redemption_id) REFERENCES public.redemption_requests(id) ON DELETE CASCADE;
 
 
 --
@@ -48879,6 +49611,16 @@ GRANT ALL ON FUNCTION public.universal_update_timestamp() TO prisma;
 
 
 --
+-- Name: FUNCTION update_blackout_periods_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_blackout_periods_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_blackout_periods_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_blackout_periods_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_blackout_periods_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_bulk_operation_progress(p_operation_id text, p_progress double precision, p_processed_count integer, p_failed_count integer, p_status character varying); Type: ACL; Schema: public; Owner: -
 --
 
@@ -49109,6 +49851,16 @@ GRANT ALL ON FUNCTION public.update_security_events_updated_at() TO prisma;
 
 
 --
+-- Name: FUNCTION update_settlement_operations_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_settlement_operations_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_settlement_operations_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_settlement_operations_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_settlement_operations_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_settlement_status(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -49256,6 +50008,16 @@ GRANT ALL ON FUNCTION public.update_total_assets() TO anon;
 GRANT ALL ON FUNCTION public.update_total_assets() TO authenticated;
 GRANT ALL ON FUNCTION public.update_total_assets() TO service_role;
 GRANT ALL ON FUNCTION public.update_total_assets() TO prisma;
+
+
+--
+-- Name: FUNCTION update_transfer_operations_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_transfer_operations_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_transfer_operations_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_transfer_operations_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_transfer_operations_updated_at() TO prisma;
 
 
 --
@@ -49669,6 +50431,36 @@ GRANT ALL ON TABLE public.approval_configs_with_approvers TO prisma;
 
 
 --
+-- Name: TABLE approval_delegations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.approval_delegations TO anon;
+GRANT ALL ON TABLE public.approval_delegations TO authenticated;
+GRANT ALL ON TABLE public.approval_delegations TO service_role;
+GRANT ALL ON TABLE public.approval_delegations TO prisma;
+
+
+--
+-- Name: TABLE approval_notifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.approval_notifications TO anon;
+GRANT ALL ON TABLE public.approval_notifications TO authenticated;
+GRANT ALL ON TABLE public.approval_notifications TO service_role;
+GRANT ALL ON TABLE public.approval_notifications TO prisma;
+
+
+--
+-- Name: TABLE approval_processes; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.approval_processes TO anon;
+GRANT ALL ON TABLE public.approval_processes TO authenticated;
+GRANT ALL ON TABLE public.approval_processes TO service_role;
+GRANT ALL ON TABLE public.approval_processes TO prisma;
+
+
+--
 -- Name: TABLE approval_requests; Type: ACL; Schema: public; Owner: -
 --
 
@@ -49676,6 +50468,26 @@ GRANT ALL ON TABLE public.approval_requests TO anon;
 GRANT ALL ON TABLE public.approval_requests TO authenticated;
 GRANT ALL ON TABLE public.approval_requests TO service_role;
 GRANT ALL ON TABLE public.approval_requests TO prisma;
+
+
+--
+-- Name: TABLE approval_signatures; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.approval_signatures TO anon;
+GRANT ALL ON TABLE public.approval_signatures TO authenticated;
+GRANT ALL ON TABLE public.approval_signatures TO service_role;
+GRANT ALL ON TABLE public.approval_signatures TO prisma;
+
+
+--
+-- Name: TABLE approval_workflows; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.approval_workflows TO anon;
+GRANT ALL ON TABLE public.approval_workflows TO authenticated;
+GRANT ALL ON TABLE public.approval_workflows TO service_role;
+GRANT ALL ON TABLE public.approval_workflows TO prisma;
 
 
 --
@@ -49776,6 +50588,16 @@ GRANT ALL ON TABLE public.blacklisted_addresses TO anon;
 GRANT ALL ON TABLE public.blacklisted_addresses TO authenticated;
 GRANT ALL ON TABLE public.blacklisted_addresses TO service_role;
 GRANT ALL ON TABLE public.blacklisted_addresses TO prisma;
+
+
+--
+-- Name: TABLE blackout_periods; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.blackout_periods TO anon;
+GRANT ALL ON TABLE public.blackout_periods TO authenticated;
+GRANT ALL ON TABLE public.blackout_periods TO service_role;
+GRANT ALL ON TABLE public.blackout_periods TO prisma;
 
 
 --
@@ -51149,6 +51971,16 @@ GRANT ALL ON TABLE public.dtf_token_metadata TO prisma;
 
 
 --
+-- Name: TABLE email_log; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.email_log TO anon;
+GRANT ALL ON TABLE public.email_log TO authenticated;
+GRANT ALL ON TABLE public.email_log TO service_role;
+GRANT ALL ON TABLE public.email_log TO prisma;
+
+
+--
 -- Name: TABLE energy_assets; Type: ACL; Schema: public; Owner: -
 --
 
@@ -51196,6 +52028,26 @@ GRANT ALL ON TABLE public.equity_products TO anon;
 GRANT ALL ON TABLE public.equity_products TO authenticated;
 GRANT ALL ON TABLE public.equity_products TO service_role;
 GRANT ALL ON TABLE public.equity_products TO prisma;
+
+
+--
+-- Name: TABLE escalation_notifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.escalation_notifications TO anon;
+GRANT ALL ON TABLE public.escalation_notifications TO authenticated;
+GRANT ALL ON TABLE public.escalation_notifications TO service_role;
+GRANT ALL ON TABLE public.escalation_notifications TO prisma;
+
+
+--
+-- Name: TABLE escalation_schedule; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.escalation_schedule TO anon;
+GRANT ALL ON TABLE public.escalation_schedule TO authenticated;
+GRANT ALL ON TABLE public.escalation_schedule TO service_role;
+GRANT ALL ON TABLE public.escalation_schedule TO prisma;
 
 
 --
@@ -52789,6 +53641,16 @@ GRANT ALL ON SEQUENCE public.provider_provider_id_seq TO prisma;
 
 
 --
+-- Name: TABLE proxy_approvals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.proxy_approvals TO anon;
+GRANT ALL ON TABLE public.proxy_approvals TO authenticated;
+GRANT ALL ON TABLE public.proxy_approvals TO service_role;
+GRANT ALL ON TABLE public.proxy_approvals TO prisma;
+
+
+--
 -- Name: TABLE psp_api_keys; Type: ACL; Schema: public; Owner: -
 --
 
@@ -53486,6 +54348,16 @@ GRANT ALL ON TABLE public.settlement_metrics TO anon;
 GRANT ALL ON TABLE public.settlement_metrics TO authenticated;
 GRANT ALL ON TABLE public.settlement_metrics TO service_role;
 GRANT ALL ON TABLE public.settlement_metrics TO prisma;
+
+
+--
+-- Name: TABLE settlement_operations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.settlement_operations TO anon;
+GRANT ALL ON TABLE public.settlement_operations TO authenticated;
+GRANT ALL ON TABLE public.settlement_operations TO service_role;
+GRANT ALL ON TABLE public.settlement_operations TO prisma;
 
 
 --
@@ -54429,6 +55301,16 @@ GRANT ALL ON TABLE public.transactions TO prisma;
 
 
 --
+-- Name: TABLE transfer_batches; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.transfer_batches TO anon;
+GRANT ALL ON TABLE public.transfer_batches TO authenticated;
+GRANT ALL ON TABLE public.transfer_batches TO service_role;
+GRANT ALL ON TABLE public.transfer_batches TO prisma;
+
+
+--
 -- Name: TABLE transfer_history; Type: ACL; Schema: public; Owner: -
 --
 
@@ -54436,6 +55318,16 @@ GRANT ALL ON TABLE public.transfer_history TO anon;
 GRANT ALL ON TABLE public.transfer_history TO authenticated;
 GRANT ALL ON TABLE public.transfer_history TO service_role;
 GRANT ALL ON TABLE public.transfer_history TO prisma;
+
+
+--
+-- Name: TABLE transfer_operations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.transfer_operations TO anon;
+GRANT ALL ON TABLE public.transfer_operations TO authenticated;
+GRANT ALL ON TABLE public.transfer_operations TO service_role;
+GRANT ALL ON TABLE public.transfer_operations TO prisma;
 
 
 --
@@ -54456,6 +55348,16 @@ GRANT ALL ON TABLE public.user_addresses TO anon;
 GRANT ALL ON TABLE public.user_addresses TO authenticated;
 GRANT ALL ON TABLE public.user_addresses TO service_role;
 GRANT ALL ON TABLE public.user_addresses TO prisma;
+
+
+--
+-- Name: TABLE user_approval_conditions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.user_approval_conditions TO anon;
+GRANT ALL ON TABLE public.user_approval_conditions TO authenticated;
+GRANT ALL ON TABLE public.user_approval_conditions TO service_role;
+GRANT ALL ON TABLE public.user_approval_conditions TO prisma;
 
 
 --
@@ -54519,6 +55421,16 @@ GRANT ALL ON TABLE public.user_permissions_view TO prisma;
 
 
 --
+-- Name: TABLE user_preferences; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.user_preferences TO anon;
+GRANT ALL ON TABLE public.user_preferences TO authenticated;
+GRANT ALL ON TABLE public.user_preferences TO service_role;
+GRANT ALL ON TABLE public.user_preferences TO prisma;
+
+
+--
 -- Name: TABLE user_sessions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -54536,6 +55448,16 @@ GRANT ALL ON TABLE public.user_sidebar_preferences TO anon;
 GRANT ALL ON TABLE public.user_sidebar_preferences TO authenticated;
 GRANT ALL ON TABLE public.user_sidebar_preferences TO service_role;
 GRANT ALL ON TABLE public.user_sidebar_preferences TO prisma;
+
+
+--
+-- Name: TABLE user_token_access; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.user_token_access TO anon;
+GRANT ALL ON TABLE public.user_token_access TO authenticated;
+GRANT ALL ON TABLE public.user_token_access TO service_role;
+GRANT ALL ON TABLE public.user_token_access TO prisma;
 
 
 --
