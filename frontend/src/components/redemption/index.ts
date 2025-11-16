@@ -21,3 +21,5 @@ export * from './approvals';
 export * from './notifications';
 export * from './dashboard';
 export * from './pricing';
+export * from './transfer';
+export * from './integration';
