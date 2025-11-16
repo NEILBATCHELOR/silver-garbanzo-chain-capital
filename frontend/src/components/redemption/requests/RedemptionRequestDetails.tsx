@@ -48,6 +48,7 @@ import {
 } from '../types';
 import { useRedemptionStatus, useRedemptionApprovals } from '../hooks';
 import { supabase } from '@/infrastructure/supabaseClient';
+import { RedemptionTransferExecutor } from '../transfer/RedemptionTransferExecutor';
 
 interface RedemptionRequestDetailsProps {
   redemptionId: string;
@@ -634,6 +635,22 @@ export const RedemptionRequestDetails: React.FC<RedemptionRequestDetailsProps> =
                 </Button>
               )}
             </div>
+
+            {/* Transfer Executor - Show when redemption is approved */}
+            {currentStatus === 'approved' && (
+              <RedemptionTransferExecutor
+                redemptionId={redemption.id}
+                tokenAmount={redemption.tokenAmount}
+                usdcAmount={redemption.usdcAmount}
+                investorWallet={redemption.sourceWallet}
+                blockchain={enhancedData.distribution?.blockchain}
+                autoExecuteEnabled={true}
+                onExecutionComplete={() => {
+                  refreshStatus();
+                  fetchEnhancedData();
+                }}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="investor" className="space-y-6">

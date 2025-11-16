@@ -9,6 +9,7 @@ import { approvalWorkflowManager, type ApprovalProcess, type ApprovalWorkflow } 
 import { roleBasedApprover } from './RoleBasedApprover';
 import { approvalDelegationService } from './ApprovalDelegation';
 import { MultiSignature } from './MultiSignature';
+import { approvalToTransferBridge } from '@/infrastructure/redemption/ApprovalToTransferBridge';
 import type { 
   ApprovalDecision,
   ApprovalRecord
@@ -223,6 +224,24 @@ export class ApprovalOrchestrator {
       );
 
       console.log(`✅ Approval submitted: ${result.status}`);
+
+      // 4. AUTO-TRIGGER TRANSFER if approval is completed and approved
+      if (result.status === 'completed' && result.approved) {
+        console.log(`🔄 Auto-triggering transfer for approved request: ${submission.requestId}`);
+        
+        // Trigger transfer asynchronously (don't wait for completion)
+        approvalToTransferBridge.autoTriggerTransfer(submission.requestId)
+          .then(transferResult => {
+            if (transferResult.success) {
+              console.log(`✅ Transfer auto-triggered: ${transferResult.orchestrationId}`);
+            } else {
+              console.error(`❌ Auto-trigger failed: ${transferResult.error}`);
+            }
+          })
+          .catch(error => {
+            console.error(`❌ Auto-trigger error:`, error);
+          });
+      }
 
       return {
         success: true,

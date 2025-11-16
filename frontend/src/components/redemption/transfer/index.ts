@@ -3,3 +3,4 @@
  */
 
 export { RedemptionTransferStatus } from './RedemptionTransferStatus';
+export { RedemptionTransferExecutor } from './RedemptionTransferExecutor';

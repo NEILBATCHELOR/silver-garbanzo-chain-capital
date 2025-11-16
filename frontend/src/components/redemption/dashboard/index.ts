@@ -12,3 +12,6 @@ export { default as RedemptionDashboardSummaryCards } from './RedemptionDashboar
 export { default as RedemptionRecentRequests } from './RedemptionRecentRequests';
 export { default as RedemptionRequestTimeline, createRedemptionTimeline } from './RedemptionRequestTimeline';
 export { default as RedemptionRequestDetailsInvestor } from './RedemptionRequestDetailsInvestor';
+
+// Transfer execution components
+export { PendingTransferExecutions } from './PendingTransferExecutions';
