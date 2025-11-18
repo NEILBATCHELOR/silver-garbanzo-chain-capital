@@ -42,15 +42,15 @@ contract ERC3525SlotManagerModule is
     /**
      * @notice Initialize slot manager module
      * @param admin Admin address
-     * @param allowSlotCreation Whether dynamic slot creation is allowed
+     * @param allowDynamicSlotCreation Whether dynamic slot creation is allowed
      * @param restrictCrossSlot Whether cross-slot transfers are restricted
-     * @param allowMerge Whether merging between slots is allowed
+     * @param allowSlotMerging Whether merging between slots is allowed
      */
     function initialize(
         address admin,
-        bool allowSlotCreation,
+        bool allowDynamicSlotCreation,
         bool restrictCrossSlot,
-        bool allowMerge
+        bool allowSlotMerging
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -59,9 +59,9 @@ contract ERC3525SlotManagerModule is
         _grantRole(SLOT_ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         
-        _allowSlotCreation = allowSlotCreation;
+        _allowSlotCreation = allowDynamicSlotCreation;
         _restrictCrossSlotTransfers = restrictCrossSlot;
-        _allowMerge = allowMerge;
+        _allowMerge = allowSlotMerging;
     }
     
     // ============ Slot Creation & Management ============

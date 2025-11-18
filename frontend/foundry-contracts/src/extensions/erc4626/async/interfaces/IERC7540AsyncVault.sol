@@ -93,6 +93,7 @@ interface IERC7540AsyncVault {
     error TooManyPendingRequests();
     error InsufficientAssets();
     error InsufficientShares();
+    error InvalidAmount();
     
     // ============ Deposit Request Functions ============
     

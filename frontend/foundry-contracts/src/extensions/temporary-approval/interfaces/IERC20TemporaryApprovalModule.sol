@@ -28,7 +28,7 @@ interface IERC20TemporaryApprovalModule {
      * @param value Amount approved
      * @param expiry Expiration timestamp
      */
-    event TemporaryApproval(
+    event TemporaryApprovalGranted(
         address indexed owner,
         address indexed spender,
         uint256 value,

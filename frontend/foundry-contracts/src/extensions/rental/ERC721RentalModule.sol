@@ -50,7 +50,7 @@ contract ERC721RentalModule is
      * @param minDuration Minimum rental duration in seconds
      * @param maxDuration Maximum rental duration in seconds
      * @param minPrice Minimum rental price per day
-     * @param depositRequired Whether deposits are required
+     * @param requireDeposit Whether deposits are required
      * @param depositBps Minimum deposit in basis points (1000 = 10%)
      */
     function initialize(
@@ -60,7 +60,7 @@ contract ERC721RentalModule is
         uint256 minDuration,
         uint256 maxDuration,
         uint256 minPrice,
-        bool depositRequired,
+        bool requireDeposit,
         uint256 depositBps
     ) public initializer {
         __AccessControl_init();
@@ -76,7 +76,7 @@ contract ERC721RentalModule is
         _minRentalDuration = minDuration;
         _maxRentalDuration = maxDuration;
         _minRentalPrice = minPrice;
-        _depositRequired = depositRequired;
+        _depositRequired = requireDeposit;
         _minDepositBps = depositBps;
         _autoReturnEnabled = true; // Default enabled
         _subRentalsAllowed = false; // Default disabled

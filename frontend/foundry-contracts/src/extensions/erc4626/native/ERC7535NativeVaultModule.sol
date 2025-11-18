@@ -156,16 +156,6 @@ contract ERC7535NativeVaultModule is
         address receiver,
         address owner
     ) external override returns (uint256 shares) {
-        if (!_unwrapOnWithdrawal) revert UnwrapNotEnabled();
-        
-        // Calculate shares required
-        shares = vault.previewWithdraw(ethAmount); burned
-     */
-    function withdrawNative(
-        uint256 ethAmount,
-        address receiver,
-        address owner
-    ) external override returns (uint256 shares) {
         // Calculate shares required
         shares = vault.previewWithdraw(ethAmount);
         

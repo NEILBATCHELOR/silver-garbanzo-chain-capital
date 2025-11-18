@@ -12,6 +12,10 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URISto
 import "../policy/interfaces/IPolicyEngine.sol";
 import "../policy/libraries/PolicyOperationTypes.sol";
 
+// Extension Infrastructure
+import "../interfaces/IExtensible.sol";
+import "../factories/ExtensionRegistry.sol";
+
 /**
  * @title ERC721WrapperMaster
  * @notice ERC-721 (NFT) wrapper implementation with policy enforcement
@@ -44,7 +48,8 @@ contract ERC721WrapperMaster is
     ERC721WrapperUpgradeable,
     ERC721URIStorageUpgradeable,
     OwnableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    IExtensible
 {
     // ============ State Variables ============
     bool public transfersPaused;
@@ -54,8 +59,21 @@ contract ERC721WrapperMaster is
     /// @notice Policy engine for operation validation
     address public policyEngine;
     
+    // ============ IExtensible Storage ============
+    /// @notice Extension registry for validation and queries
+    address public extensionRegistry;
+    
+    /// @notice Array of all attached extensions
+    address[] private _extensions;
+    
+    /// @notice Mapping to check if extension is attached
+    mapping(address => bool) private _isExtension;
+    
+    /// @notice Mapping from extension type to extension address
+    mapping(uint8 => address) private _extensionByType;
+    
     // ============ Storage Gap ============
-    uint256[46] private __gap;
+    uint256[42] private __gap; // Reduced for IExtensible storage
     
     // ============ Events ============
     event PolicyEngineUpdated(address indexed oldEngine, address indexed newEngine);
@@ -361,5 +379,100 @@ contract ERC721WrapperMaster is
         bytes4 interfaceId
     ) public view override(ERC721Upgradeable, ERC721URIStorageUpgradeable) returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+    
+    // ============ IExtensible Implementation ============
+    
+    /**
+     * @notice Attach an extension module to this wrapped NFT
+     * @dev Implements IExtensible.attachExtension()
+     */
+    function attachExtension(address extension) external override onlyOwner {
+        if (extension == address(0)) revert InvalidExtensionAddress();
+        if (_isExtension[extension]) revert ExtensionAlreadyAttached(extension);
+        
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            
+            require(info.extensionAddress == extension, "Extension not registered");
+            require(
+                registry.isCompatible(ExtensionRegistry.TokenStandard.ERC721, info.extensionType),
+                "Extension not compatible with ERC721"
+            );
+            
+            uint8 extType = uint8(info.extensionType);
+            if (_extensionByType[extType] != address(0)) {
+                revert ExtensionTypeAlreadyAttached(extType);
+            }
+            
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            _extensionByType[extType] = extension;
+            
+            emit ExtensionAttached(extension, extType);
+        } else {
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            emit ExtensionAttached(extension, 0);
+        }
+    }
+    
+    /**
+     * @notice Detach an extension module from this wrapped NFT
+     * @dev Implements IExtensible.detachExtension()
+     */
+    function detachExtension(address extension) external override onlyOwner {
+        if (!_isExtension[extension]) revert ExtensionNotAttached(extension);
+        
+        uint8 extType = 0;
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            extType = uint8(info.extensionType);
+        }
+        
+        for (uint256 i = 0; i < _extensions.length; i++) {
+            if (_extensions[i] == extension) {
+                _extensions[i] = _extensions[_extensions.length - 1];
+                _extensions.pop();
+                break;
+            }
+        }
+        
+        _isExtension[extension] = false;
+        if (extType != 0) {
+            delete _extensionByType[extType];
+        }
+        
+        emit ExtensionDetached(extension, extType);
+    }
+    
+    /**
+     * @notice Get all extensions attached to this wrapped NFT
+     */
+    function getExtensions() external view override returns (address[] memory) {
+        return _extensions;
+    }
+    
+    /**
+     * @notice Check if a specific extension is attached
+     */
+    function hasExtension(address extension) external view override returns (bool) {
+        return _isExtension[extension];
+    }
+    
+    /**
+     * @notice Get the extension address for a specific extension type
+     */
+    function getExtensionByType(uint8 extensionType) external view override returns (address) {
+        return _extensionByType[extensionType];
+    }
+    
+    /**
+     * @notice Set the extension registry address
+     */
+    function setExtensionRegistry(address registry_) external onlyOwner {
+        extensionRegistry = registry_;
     }
 }

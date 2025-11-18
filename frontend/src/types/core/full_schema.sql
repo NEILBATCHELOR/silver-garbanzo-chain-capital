@@ -155,6 +155,17 @@ COMMENT ON TYPE public.document_type IS 'Document types supporting both business
 
 
 --
+-- Name: execution_mode; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.execution_mode AS ENUM (
+    'automatic',
+    'manual',
+    'batched'
+);
+
+
+--
 -- Name: individual_document_type; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -19860,9 +19871,50 @@ CREATE TABLE public.redemption_requests (
     redemption_fee numeric(78,18) DEFAULT 0,
     net_redemption_amount numeric(78,18),
     pro_rata_adjustment numeric(78,18) DEFAULT 0,
+    auto_execute_transfer boolean DEFAULT true,
+    execution_mode public.execution_mode DEFAULT 'automatic'::public.execution_mode,
+    transfer_execution_triggered_at timestamp with time zone,
+    transfer_execution_triggered_by uuid,
+    transfer_execution_method text,
     CONSTRAINT chk_redemption_requests_compliance_status CHECK ((compliance_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'requires_review'::text]))),
-    CONSTRAINT chk_redemption_requests_priority_level CHECK (((priority_level >= 1) AND (priority_level <= 5)))
+    CONSTRAINT chk_redemption_requests_priority_level CHECK (((priority_level >= 1) AND (priority_level <= 5))),
+    CONSTRAINT redemption_requests_transfer_execution_method_check CHECK ((transfer_execution_method = ANY (ARRAY['auto'::text, 'manual'::text, 'batch'::text])))
 );
+
+
+--
+-- Name: COLUMN redemption_requests.auto_execute_transfer; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.redemption_requests.auto_execute_transfer IS 'When true, transfer executes automatically after approval';
+
+
+--
+-- Name: COLUMN redemption_requests.execution_mode; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.redemption_requests.execution_mode IS 'Controls how transfer execution is triggered: automatic, manual, or batched';
+
+
+--
+-- Name: COLUMN redemption_requests.transfer_execution_triggered_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.redemption_requests.transfer_execution_triggered_at IS 'Timestamp when transfer execution was triggered';
+
+
+--
+-- Name: COLUMN redemption_requests.transfer_execution_triggered_by; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.redemption_requests.transfer_execution_triggered_by IS 'User who triggered the transfer execution';
+
+
+--
+-- Name: COLUMN redemption_requests.transfer_execution_method; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.redemption_requests.transfer_execution_method IS 'Method used to trigger: auto, manual, or batch';
 
 
 --
@@ -39813,10 +39865,24 @@ CREATE INDEX idx_redemption_notifications_user_id ON public.redemption_notificat
 
 
 --
+-- Name: idx_redemption_requests_approved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_redemption_requests_approved ON public.redemption_requests USING btree (status, updated_at) WHERE (status = 'approved'::text);
+
+
+--
 -- Name: idx_redemption_requests_compliance_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_redemption_requests_compliance_status ON public.redemption_requests USING btree (compliance_status);
+
+
+--
+-- Name: idx_redemption_requests_pending_execution; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_redemption_requests_pending_execution ON public.redemption_requests USING btree (status, auto_execute_transfer) WHERE ((status = 'approved'::text) AND (auto_execute_transfer = true));
 
 
 --
@@ -46749,6 +46815,14 @@ ALTER TABLE ONLY public.recent_address_selections
 
 ALTER TABLE ONLY public.redemption_approvers
     ADD CONSTRAINT redemption_approvers_redemption_id_fkey FOREIGN KEY (redemption_id) REFERENCES public.redemption_requests(id) ON DELETE CASCADE;
+
+
+--
+-- Name: redemption_requests redemption_requests_transfer_execution_triggered_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.redemption_requests
+    ADD CONSTRAINT redemption_requests_transfer_execution_triggered_by_fkey FOREIGN KEY (transfer_execution_triggered_by) REFERENCES auth.users(id);
 
 
 --

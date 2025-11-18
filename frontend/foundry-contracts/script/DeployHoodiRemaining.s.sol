@@ -10,7 +10,7 @@ import "../src/masters/ERC721WrapperMaster.sol";
 
 // Deployers
 import "../src/deployers/CREATE2Deployer.sol";
-import "../src/deployers/ExtensionModuleFactory.sol";
+// import "../src/deployers/ExtensionModuleFactory.sol"; // Deprecated - using new modular extension factories
 import "../src/deployers/UniversalDeployer.sol";
 import "../src/deployers/beacon/BeaconProxyFactory.sol";
 import "../src/deployers/beacon/TokenBeacon.sol";
@@ -247,6 +247,9 @@ contract DeployHoodiRemaining is Script {
         contractCount++;
         console.log(unicode"  ✅", contractCount, "CREATE2Deployer:", deployed.create2Deployer);
         
+        // DEPRECATED: ExtensionModuleFactory replaced with modular extension factories
+        // See /src/factories/ for new architecture
+        /*
         // ExtensionModuleFactory needs: compliance, vesting, fee, royalty master addresses + owner
         // We already deployed these as extension modules, so we'll use those addresses
         deployed.extensionModuleFactory = address(new ExtensionModuleFactory(
@@ -258,6 +261,7 @@ contract DeployHoodiRemaining is Script {
         ));
         contractCount++;
         console.log(unicode"  ✅", contractCount, "ExtensionModuleFactory:", deployed.extensionModuleFactory);
+        */
         
         deployed.universalDeployer = address(new UniversalDeployer());
         contractCount++;

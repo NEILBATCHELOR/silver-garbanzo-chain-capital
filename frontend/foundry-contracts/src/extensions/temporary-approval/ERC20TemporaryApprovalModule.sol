@@ -112,7 +112,7 @@ contract ERC20TemporaryApprovalModule is
             expiry: expiry
         });
         
-        emit TemporaryApproval(owner, spender, value, expiry);
+        emit TemporaryApprovalGranted(owner, spender, value, expiry);
         return true;
     }
     
@@ -162,7 +162,7 @@ contract ERC20TemporaryApprovalModule is
             expiry: expiry
         });
         
-        emit TemporaryApproval(owner, spender, newAllowance, expiry);
+        emit TemporaryApprovalGranted(owner, spender, newAllowance, expiry);
         return true;
     }
     
@@ -191,7 +191,7 @@ contract ERC20TemporaryApprovalModule is
         TemporaryApproval storage approval = _temporaryApprovals[owner][spender];
         approval.amount = newAllowance;
         
-        emit TemporaryApproval(owner, spender, newAllowance, approval.expiry);
+        emit TemporaryApprovalGranted(owner, spender, newAllowance, approval.expiry);
         return true;
     }
     

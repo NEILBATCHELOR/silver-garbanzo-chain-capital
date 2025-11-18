@@ -18,6 +18,10 @@ import "../extensions/consecutive/interfaces/IERC721ConsecutiveModule.sol";
 import "../policy/interfaces/IPolicyEngine.sol";
 import "../policy/libraries/PolicyOperationTypes.sol";
 
+// Extension Infrastructure
+import "../interfaces/IExtensible.sol";
+import "../factories/ExtensionRegistry.sol";
+
 /**
  * @title ERC721Master
  * @notice Modern ERC-721 (NFT) implementation with modular extension support
@@ -49,7 +53,8 @@ contract ERC721Master is
     ERC721EnumerableUpgradeable,
     ERC721URIStorageUpgradeable,
     OwnableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    IExtensible
 {
     // ============ Configuration ============
     uint256 public maxSupply;
@@ -99,9 +104,22 @@ contract ERC721Master is
     /// @notice Vesting module for token lock schedules
     address public vestingModule;
     
+    // ============ IExtensible Storage ============
+    /// @notice Extension registry for validation and queries
+    address public extensionRegistry;
+    
+    /// @notice Array of all attached extensions
+    address[] private _extensions;
+    
+    /// @notice Mapping to check if extension is attached
+    mapping(address => bool) private _isExtension;
+    
+    /// @notice Mapping from extension type to extension address
+    mapping(uint8 => address) private _extensionByType;
+    
     // ============ Storage Gap ============
-    // Reserve 30 slots for future upgrades (40 - 10 module addresses)
-    uint256[30] private __gap;
+    // Reserve 25 slots for future upgrades (40 - 15 variables)
+    uint256[25] private __gap;
 
     // ============ Events ============
     event NFTMinted(address indexed to, uint256 indexed tokenId, string uri);
@@ -802,5 +820,139 @@ contract ERC721Master is
         modules[3] = soulboundModule;
         modules[4] = fractionModule;
         modules[5] = consecutiveModule;
+    }
+    
+    // ============ IExtensible Implementation ============
+    
+    /**
+     * @notice Attach an extension module to this token
+     * @dev Implements IExtensible.attachExtension()
+     * @param extension Address of the extension module to attach
+     * 
+     * Validation Process:
+     * 1. Verify extension address is not zero
+     * 2. Check extension is not already attached
+     * 3. Query ExtensionRegistry for extension info
+     * 4. Verify extension is compatible with ERC721 standard
+     * 5. Check extension type is not already attached
+     * 6. Add to tracking arrays and mappings
+     * 7. Emit ExtensionAttached event
+     */
+    function attachExtension(address extension) external override onlyOwner {
+        // Validate extension address
+        if (extension == address(0)) revert InvalidExtensionAddress();
+        if (_isExtension[extension]) revert ExtensionAlreadyAttached(extension);
+        
+        // Query extension registry for validation
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            
+            // Verify extension is registered
+            require(info.extensionAddress == extension, "Extension not registered");
+            
+            // Verify compatibility with ERC721
+            require(
+                registry.isCompatible(ExtensionRegistry.TokenStandard.ERC721, info.extensionType),
+                "Extension not compatible with ERC721"
+            );
+            
+            // Check if extension type already attached
+            uint8 extType = uint8(info.extensionType);
+            if (_extensionByType[extType] != address(0)) {
+                revert ExtensionTypeAlreadyAttached(extType);
+            }
+            
+            // Add to tracking
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            _extensionByType[extType] = extension;
+            
+            emit ExtensionAttached(extension, extType);
+        } else {
+            // If no registry configured, just add extension without validation
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            emit ExtensionAttached(extension, 0); // Unknown type
+        }
+    }
+    
+    /**
+     * @notice Detach an extension module from this token
+     * @dev Implements IExtensible.detachExtension()
+     * @param extension Address of the extension module to detach
+     * 
+     * Process:
+     * 1. Verify extension is attached
+     * 2. Find and remove from extensions array (swap and pop)
+     * 3. Clear isExtension mapping
+     * 4. Clear extensionByType mapping
+     * 5. Emit ExtensionDetached event
+     */
+    function detachExtension(address extension) external override onlyOwner {
+        if (!_isExtension[extension]) revert ExtensionNotAttached(extension);
+        
+        // Get extension type before removal
+        uint8 extType = 0;
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            extType = uint8(info.extensionType);
+        }
+        
+        // Remove from array (swap and pop pattern for gas efficiency)
+        for (uint256 i = 0; i < _extensions.length; i++) {
+            if (_extensions[i] == extension) {
+                _extensions[i] = _extensions[_extensions.length - 1];
+                _extensions.pop();
+                break;
+            }
+        }
+        
+        // Clear mappings
+        _isExtension[extension] = false;
+        if (extType != 0) {
+            delete _extensionByType[extType];
+        }
+        
+        emit ExtensionDetached(extension, extType);
+    }
+    
+    /**
+     * @notice Get all extensions attached to this token
+     * @dev Implements IExtensible.getExtensions()
+     * @return Array of extension module addresses
+     */
+    function getExtensions() external view override returns (address[] memory) {
+        return _extensions;
+    }
+    
+    /**
+     * @notice Check if a specific extension is attached
+     * @dev Implements IExtensible.hasExtension()
+     * @param extension Address of the extension to check
+     * @return True if extension is attached, false otherwise
+     */
+    function hasExtension(address extension) external view override returns (bool) {
+        return _isExtension[extension];
+    }
+    
+    /**
+     * @notice Get the extension address for a specific extension type
+     * @dev Implements IExtensible.getExtensionByType()
+     * @param extensionType Type of extension to query (from ExtensionRegistry enum)
+     * @return Address of the extension, or address(0) if not attached
+     */
+    function getExtensionByType(uint8 extensionType) external view override returns (address) {
+        return _extensionByType[extensionType];
+    }
+    
+    /**
+     * @notice Set the extension registry address
+     * @param registry_ Address of the ExtensionRegistry contract
+     * @dev Only owner can update registry
+     */
+    function setExtensionRegistry(address registry_) external onlyOwner {
+        extensionRegistry = registry_;
     }
 }

@@ -21927,6 +21927,7 @@ export type Database = {
         Row: {
           actual_processing_time: unknown
           approved_by: string | null
+          auto_execute_transfer: boolean | null
           business_rules_version: string | null
           compliance_status: string | null
           conversion_rate: number
@@ -21938,6 +21939,7 @@ export type Database = {
           distribution_tx_hash: string | null
           eligibility_check_id: string | null
           estimated_processing_time: unknown
+          execution_mode: Database["public"]["Enums"]["execution_mode"] | null
           id: string
           investor_count: number | null
           investor_id: string | null
@@ -21962,6 +21964,9 @@ export type Database = {
           token_amount: number
           token_symbol: string | null
           token_type: string
+          transfer_execution_method: string | null
+          transfer_execution_triggered_at: string | null
+          transfer_execution_triggered_by: string | null
           updated_at: string
           usdc_amount: number | null
           validation_results: Json | null
@@ -21970,6 +21975,7 @@ export type Database = {
         Insert: {
           actual_processing_time?: unknown
           approved_by?: string | null
+          auto_execute_transfer?: boolean | null
           business_rules_version?: string | null
           compliance_status?: string | null
           conversion_rate: number
@@ -21981,6 +21987,7 @@ export type Database = {
           distribution_tx_hash?: string | null
           eligibility_check_id?: string | null
           estimated_processing_time?: unknown
+          execution_mode?: Database["public"]["Enums"]["execution_mode"] | null
           id?: string
           investor_count?: number | null
           investor_id?: string | null
@@ -22005,6 +22012,9 @@ export type Database = {
           token_amount: number
           token_symbol?: string | null
           token_type: string
+          transfer_execution_method?: string | null
+          transfer_execution_triggered_at?: string | null
+          transfer_execution_triggered_by?: string | null
           updated_at?: string
           usdc_amount?: number | null
           validation_results?: Json | null
@@ -22013,6 +22023,7 @@ export type Database = {
         Update: {
           actual_processing_time?: unknown
           approved_by?: string | null
+          auto_execute_transfer?: boolean | null
           business_rules_version?: string | null
           compliance_status?: string | null
           conversion_rate?: number
@@ -22024,6 +22035,7 @@ export type Database = {
           distribution_tx_hash?: string | null
           eligibility_check_id?: string | null
           estimated_processing_time?: unknown
+          execution_mode?: Database["public"]["Enums"]["execution_mode"] | null
           id?: string
           investor_count?: number | null
           investor_id?: string | null
@@ -22048,6 +22060,9 @@ export type Database = {
           token_amount?: number
           token_symbol?: string | null
           token_type?: string
+          transfer_execution_method?: string | null
+          transfer_execution_triggered_at?: string | null
+          transfer_execution_triggered_by?: string | null
           updated_at?: string
           usdc_amount?: number | null
           validation_results?: Json | null
@@ -38438,6 +38453,7 @@ export type Database = {
         | "employment_letter"
         | "tax_return"
         | "social_security"
+      execution_mode: "automatic" | "manual" | "batched"
       individual_document_type:
         | "passport"
         | "drivers_license"
@@ -38726,6 +38742,7 @@ export const Constants = {
         "tax_return",
         "social_security",
       ],
+      execution_mode: ["automatic", "manual", "batched"],
       individual_document_type: [
         "passport",
         "drivers_license",

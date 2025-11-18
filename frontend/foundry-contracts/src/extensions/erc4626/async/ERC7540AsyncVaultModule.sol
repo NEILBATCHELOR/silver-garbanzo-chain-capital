@@ -157,10 +157,8 @@ contract ERC7540AsyncVaultModule is
             _pendingDepositAssets -= request.assets;
             // Return assets to owner
             asset.safeTransfer(request.owner, request.assets);
-            emit DepositRequestCancelled(requestId);
+            emit DepositCancelled(requestId, request.controller);
             return;
-        }
-            revert FulfillmentDelayNotMet();
         }
         
         // Calculate shares at current vault exchange rate
@@ -299,7 +297,7 @@ contract ERC7540AsyncVaultModule is
             _pendingRedeemShares -= request.shares;
             // Return shares to owner
             IERC20(address(vault)).safeTransfer(request.owner, request.shares);
-            emit RedeemRequestCancelled(requestId);
+            emit RedeemCancelled(requestId, request.controller);
             return;
         }
         

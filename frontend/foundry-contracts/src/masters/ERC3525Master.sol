@@ -12,6 +12,10 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../policy/interfaces/IPolicyEngine.sol";
 import "../policy/libraries/PolicyOperationTypes.sol";
 
+// Extension Infrastructure
+import "../interfaces/IExtensible.sol";
+import "../factories/ExtensionRegistry.sol";
+
 /**
  * @title ERC3525Master
  * @notice Semi-Fungible Token implementation with slot-based value system
@@ -44,7 +48,8 @@ contract ERC3525Master is
     Initializable,
     AccessControlUpgradeable,
     PausableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    IExtensible
 {
     using Strings for uint256;
     using Address for address;
@@ -101,9 +106,22 @@ contract ERC3525Master is
     /// @notice Value exchange module for value transfers between tokens
     address public valueExchangeModule;
     
+    // ============ IExtensible Storage ============
+    /// @notice Extension registry for validation and queries
+    address public extensionRegistry;
+    
+    /// @notice Array of all attached extensions
+    address[] private _extensions;
+    
+    /// @notice Mapping to check if extension is attached
+    mapping(address => bool) private _isExtension;
+    
+    /// @notice Mapping from extension type to extension address
+    mapping(uint8 => address) private _extensionByType;
+    
     // ============ Storage Gap ============
-    // Reserve 33 slots for future upgrades (40 - 7 module addresses)
-    uint256[33] private __gap;
+    // Reserve 29 slots for future upgrades (40 - 11 variables)
+    uint256[29] private __gap;
     
     // ============ Events ============
     event TransferValue(
@@ -626,6 +644,107 @@ contract ERC3525Master is
         }
         
         return string(abi.encodePacked(base, slot.toString()));
+    }
+    
+    // ============ IExtensible Implementation ============
+    
+    /**
+     * @notice Attach an extension module to this token
+     * @dev Implements IExtensible.attachExtension()
+     * @param extension Address of the extension module to attach
+     */
+    function attachExtension(address extension) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (extension == address(0)) revert InvalidExtensionAddress();
+        if (_isExtension[extension]) revert ExtensionAlreadyAttached(extension);
+        
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            
+            require(info.extensionAddress == extension, "Extension not registered");
+            require(
+                registry.isCompatible(ExtensionRegistry.TokenStandard.ERC3525, info.extensionType),
+                "Extension not compatible with ERC3525"
+            );
+            
+            uint8 extType = uint8(info.extensionType);
+            if (_extensionByType[extType] != address(0)) {
+                revert ExtensionTypeAlreadyAttached(extType);
+            }
+            
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            _extensionByType[extType] = extension;
+            
+            emit ExtensionAttached(extension, extType);
+        } else {
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            emit ExtensionAttached(extension, 0);
+        }
+    }
+    
+    /**
+     * @notice Detach an extension module from this token
+     * @dev Implements IExtensible.detachExtension()
+     * @param extension Address of the extension module to detach
+     */
+    function detachExtension(address extension) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!_isExtension[extension]) revert ExtensionNotAttached(extension);
+        
+        uint8 extType = 0;
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            extType = uint8(info.extensionType);
+        }
+        
+        for (uint256 i = 0; i < _extensions.length; i++) {
+            if (_extensions[i] == extension) {
+                _extensions[i] = _extensions[_extensions.length - 1];
+                _extensions.pop();
+                break;
+            }
+        }
+        
+        _isExtension[extension] = false;
+        if (extType != 0) {
+            delete _extensionByType[extType];
+        }
+        
+        emit ExtensionDetached(extension, extType);
+    }
+    
+    /**
+     * @notice Get all extensions attached to this token
+     * @dev Implements IExtensible.getExtensions()
+     */
+    function getExtensions() external view override returns (address[] memory) {
+        return _extensions;
+    }
+    
+    /**
+     * @notice Check if a specific extension is attached
+     * @dev Implements IExtensible.hasExtension()
+     */
+    function hasExtension(address extension) external view override returns (bool) {
+        return _isExtension[extension];
+    }
+    
+    /**
+     * @notice Get the extension address for a specific extension type
+     * @dev Implements IExtensible.getExtensionByType()
+     */
+    function getExtensionByType(uint8 extensionType) external view override returns (address) {
+        return _extensionByType[extensionType];
+    }
+    
+    /**
+     * @notice Set the extension registry address
+     * @param registry_ Address of the ExtensionRegistry contract
+     */
+    function setExtensionRegistry(address registry_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        extensionRegistry = registry_;
     }
     
     // ============ UUPS Upgrade ============

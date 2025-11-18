@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// DEPRECATED: ExtensionModuleFactory has been replaced with modular extension factories
+// See new architecture in /src/factories/
+// - ExtensionRegistry.sol
+// - ExtensionBase.sol
+// - UniversalExtensionFactory.sol
+// - ERC20ExtensionFactory.sol (coming in Phase 2)
+// - ERC721ExtensionFactory.sol (coming in Phase 2)
+// etc.
+
+/*
 import "forge-std/Test.sol";
 import "../../src/deployers/ExtensionModuleFactory.sol";
 import "../../src/extensions/compliance/ERC20ComplianceModule.sol";
@@ -132,15 +142,16 @@ contract ExtensionModuleFactoryTest is Test {
     function testDeployRoyaltyModule() public {
         address receiver = address(0x123);
         uint96 feeNumerator = 500; // 5%
+        uint96 maxCap = 1000; // 10% max
         
-        address module = factory.deployRoyaltyModule(collectionAddress, receiver, feeNumerator);
+        address module = factory.deployRoyaltyModule(collectionAddress, receiver, feeNumerator, maxCap);
         
         assertTrue(module != address(0));
     }
     
     function testCannotDeployRoyaltyWithHighFee() public {
         vm.expectRevert("Fee too high");
-        factory.deployRoyaltyModule(collectionAddress, feeRecipient, 10001);
+        factory.deployRoyaltyModule(collectionAddress, feeRecipient, 10001, 1000);
     }
     
     // ============ Multiple Module Deployment Tests ============
@@ -241,7 +252,7 @@ contract ExtensionModuleFactoryTest is Test {
     }
     
     function testUpgradeAllRoyaltyModules() public {
-        factory.deployRoyaltyModule(collectionAddress, feeRecipient, 500);
+        factory.deployRoyaltyModule(collectionAddress, feeRecipient, 500, 1000);
         
         ERC721RoyaltyModule newImpl = new ERC721RoyaltyModule();
         
@@ -321,3 +332,5 @@ contract ExtensionModuleFactoryTest is Test {
         assertTrue(gasUsed < 200_000);
     }
 }
+}
+*/

@@ -16,6 +16,10 @@ import "../extensions/fees/interfaces/IERC20FeeModule.sol";
 import "../policy/interfaces/IPolicyEngine.sol";
 import "../policy/libraries/PolicyOperationTypes.sol";
 
+// Extension Infrastructure
+import "../interfaces/IExtensible.sol";
+import "../factories/ExtensionRegistry.sol";
+
 /**
  * @title ERC20Master
  * @notice Modern ERC-20 implementation with modular extension support
@@ -35,13 +39,20 @@ import "../policy/libraries/PolicyOperationTypes.sol";
  * - Policy: On-chain policy enforcement for operations
  * - Votes: Governance delegation (future)
  * - Permit: Gasless approvals via EIP-2612 (future)
+ * 
+ * Extension Pattern (IExtensible):
+ * - Generic attachExtension()/detachExtension() methods
+ * - Extensions tracked in array and mappings
+ * - Compatibility validated via ExtensionRegistry
+ * - One extension per type per token
  */
 contract ERC20Master is 
     Initializable,
     ERC20Upgradeable,
     AccessControlUpgradeable,
     ERC20PausableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    IExtensible
 {
     // ============ Roles ============
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -85,9 +96,23 @@ contract ERC20Master is
     /// @notice Temporary approval module for time-limited approvals
     address public temporaryApprovalModule;
     
+    // ============ IExtensible Storage ============
+    
+    /// @notice Extension registry for validation and queries
+    address public extensionRegistry;
+    
+    /// @notice Array of all attached extensions
+    address[] private _extensions;
+    
+    /// @notice Mapping to check if extension is attached
+    mapping(address => bool) private _isExtension;
+    
+    /// @notice Mapping from extension type to extension address
+    mapping(uint8 => address) private _extensionByType;
+    
     // ============ Storage Gap ============
-    // Reserve 36 slots for future upgrades (43 - 7 new modules)
-    uint256[36] private __gap;
+    // Reserve 32 slots for future upgrades (36 - 4 new variables)
+    uint256[32] private __gap;
     
     // ============ Events ============
     event MaxSupplyUpdated(uint256 newMaxSupply);
@@ -351,6 +376,140 @@ contract ERC20Master is
         address oldModule = temporaryApprovalModule;
         temporaryApprovalModule = module_;
         emit TemporaryApprovalModuleUpdated(oldModule, module_);
+    }
+    
+    // ============ IExtensible Implementation ============
+    
+    /**
+     * @notice Attach an extension module to this token
+     * @dev Implements IExtensible.attachExtension()
+     * @param extension Address of the extension module to attach
+     * 
+     * Validation Process:
+     * 1. Verify extension address is not zero
+     * 2. Check extension is not already attached
+     * 3. Query ExtensionRegistry for extension info
+     * 4. Verify extension is compatible with ERC20 standard
+     * 5. Check extension type is not already attached
+     * 6. Add to tracking arrays and mappings
+     * 7. Emit ExtensionAttached event
+     */
+    function attachExtension(address extension) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Validate extension address
+        if (extension == address(0)) revert InvalidExtensionAddress();
+        if (_isExtension[extension]) revert ExtensionAlreadyAttached(extension);
+        
+        // Query extension registry for validation
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            
+            // Verify extension is registered
+            require(info.extensionAddress == extension, "Extension not registered");
+            
+            // Verify compatibility with ERC20
+            require(
+                registry.isCompatible(ExtensionRegistry.TokenStandard.ERC20, info.extensionType),
+                "Extension not compatible with ERC20"
+            );
+            
+            // Check if extension type already attached
+            uint8 extType = uint8(info.extensionType);
+            if (_extensionByType[extType] != address(0)) {
+                revert ExtensionTypeAlreadyAttached(extType);
+            }
+            
+            // Add to tracking
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            _extensionByType[extType] = extension;
+            
+            emit ExtensionAttached(extension, extType);
+        } else {
+            // If no registry configured, just add extension without validation
+            _extensions.push(extension);
+            _isExtension[extension] = true;
+            emit ExtensionAttached(extension, 0); // Unknown type
+        }
+    }
+    
+    /**
+     * @notice Detach an extension module from this token
+     * @dev Implements IExtensible.detachExtension()
+     * @param extension Address of the extension module to detach
+     * 
+     * Process:
+     * 1. Verify extension is attached
+     * 2. Find and remove from extensions array (swap and pop)
+     * 3. Clear isExtension mapping
+     * 4. Clear extensionByType mapping
+     * 5. Emit ExtensionDetached event
+     */
+    function detachExtension(address extension) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!_isExtension[extension]) revert ExtensionNotAttached(extension);
+        
+        // Get extension type before removal
+        uint8 extType = 0;
+        if (extensionRegistry != address(0)) {
+            ExtensionRegistry registry = ExtensionRegistry(extensionRegistry);
+            ExtensionRegistry.ExtensionInfo memory info = registry.getExtensionInfo(extension);
+            extType = uint8(info.extensionType);
+        }
+        
+        // Remove from array (swap and pop pattern for gas efficiency)
+        for (uint256 i = 0; i < _extensions.length; i++) {
+            if (_extensions[i] == extension) {
+                _extensions[i] = _extensions[_extensions.length - 1];
+                _extensions.pop();
+                break;
+            }
+        }
+        
+        // Clear mappings
+        _isExtension[extension] = false;
+        if (extType != 0) {
+            delete _extensionByType[extType];
+        }
+        
+        emit ExtensionDetached(extension, extType);
+    }
+    
+    /**
+     * @notice Get all extensions attached to this token
+     * @dev Implements IExtensible.getExtensions()
+     * @return Array of extension module addresses
+     */
+    function getExtensions() external view override returns (address[] memory) {
+        return _extensions;
+    }
+    
+    /**
+     * @notice Check if a specific extension is attached
+     * @dev Implements IExtensible.hasExtension()
+     * @param extension Address of the extension to check
+     * @return True if extension is attached, false otherwise
+     */
+    function hasExtension(address extension) external view override returns (bool) {
+        return _isExtension[extension];
+    }
+    
+    /**
+     * @notice Get the extension address for a specific extension type
+     * @dev Implements IExtensible.getExtensionByType()
+     * @param extensionType Type of extension to query (from ExtensionRegistry enum)
+     * @return Address of the extension, or address(0) if not attached
+     */
+    function getExtensionByType(uint8 extensionType) external view override returns (address) {
+        return _extensionByType[extensionType];
+    }
+    
+    /**
+     * @notice Set the extension registry address
+     * @param registry_ Address of the ExtensionRegistry contract
+     * @dev Only admin can update registry
+     */
+    function setExtensionRegistry(address registry_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        extensionRegistry = registry_;
     }
     
     // ============ Policy Validation Helpers ============
