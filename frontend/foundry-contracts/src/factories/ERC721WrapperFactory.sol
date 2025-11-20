@@ -81,6 +81,7 @@ contract ERC721WrapperFactory is FactoryBase {
      * @param underlyingToken Address of NFT collection to wrap
      * @param name Wrapper collection name (e.g., "Wrapped Bored Apes")
      * @param symbol Wrapper collection symbol (e.g., "wBAYC")
+     * @param baseTokenURI Base URI for wrapper metadata
      * @param owner Wrapper collection owner
      * @return wrapper Deployed wrapper address
      */
@@ -88,6 +89,7 @@ contract ERC721WrapperFactory is FactoryBase {
         address underlyingToken,
         string memory name,
         string memory symbol,
+        string memory baseTokenURI,
         address owner
     ) external returns (address wrapper) {
         // Validate parameters
@@ -97,7 +99,7 @@ contract ERC721WrapperFactory is FactoryBase {
 
         // Clone and initialize
         wrapper = wrapperMaster.clone();
-        ERC721WrapperMaster(wrapper).initialize(underlyingToken, name, symbol, owner);
+        ERC721WrapperMaster(wrapper).initialize(underlyingToken, name, symbol, baseTokenURI, owner);
 
         // Register and validate
         _validateAndRegister(
@@ -120,6 +122,7 @@ contract ERC721WrapperFactory is FactoryBase {
      * @param underlyingToken Address of NFT collection to wrap
      * @param name Wrapper collection name
      * @param symbol Wrapper collection symbol
+     * @param baseTokenURI Base URI for wrapper metadata
      * @param owner Wrapper collection owner
      * @return wrapper Deployed wrapper address
      */
@@ -128,6 +131,7 @@ contract ERC721WrapperFactory is FactoryBase {
         address underlyingToken,
         string memory name,
         string memory symbol,
+        string memory baseTokenURI,
         address owner
     ) external returns (address wrapper) {
         ValidationLibrary.validateDeploymentParams(name, symbol, owner);
@@ -135,7 +139,7 @@ contract ERC721WrapperFactory is FactoryBase {
         require(underlyingToken.code.length > 0, "Underlying token must be contract");
 
         wrapper = wrapperMaster.cloneDeterministic(salt);
-        ERC721WrapperMaster(wrapper).initialize(underlyingToken, name, symbol, owner);
+        ERC721WrapperMaster(wrapper).initialize(underlyingToken, name, symbol, baseTokenURI, owner);
 
         _validateAndRegister(
             wrapper,
@@ -158,6 +162,7 @@ contract ERC721WrapperFactory is FactoryBase {
      * @param underlyingToken Address of NFT collection to wrap
      * @param name Wrapper collection name
      * @param symbol Wrapper collection symbol
+     * @param baseTokenURI Base URI for wrapper metadata
      * @param owner Wrapper collection owner
      * @return wrapper Deployed wrapper address
      */
@@ -165,6 +170,7 @@ contract ERC721WrapperFactory is FactoryBase {
         address underlyingToken,
         string memory name,
         string memory symbol,
+        string memory baseTokenURI,
         address owner
     ) external returns (address wrapper) {
         ValidationLibrary.validateDeploymentParams(name, symbol, owner);
@@ -173,7 +179,7 @@ contract ERC721WrapperFactory is FactoryBase {
 
         bytes memory initData = abi.encodeCall(
             ERC721WrapperMaster.initialize,
-            (underlyingToken, name, symbol, owner)
+            (underlyingToken, name, symbol, baseTokenURI, owner)
         );
 
         BeaconProxy proxy = new BeaconProxy(wrapperBeacon, initData);
