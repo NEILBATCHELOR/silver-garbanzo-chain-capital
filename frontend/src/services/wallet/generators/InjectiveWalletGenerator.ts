@@ -1,5 +1,6 @@
-import { PrivateKey, Address } from '@injectivelabs/sdk-ts';
+import { PrivateKey, Address, getEthereumAddress } from '@injectivelabs/sdk-ts';
 import * as bip39 from 'bip39';
+import { ethers } from 'ethers';
 import { WalletGenerator, Wallet as WalletInterface, WalletMetadata } from '../WalletGenerator';
 import { injectiveWalletService } from '../injective/InjectiveWalletService';
 
@@ -148,5 +149,34 @@ export class InjectiveWalletGenerator implements WalletGenerator {
     }
 
     return result;
+  }
+
+  /**
+   * Derive EVM address from Injective bech32 address
+   * @param injectiveAddress The Injective bech32 address (inj1...)
+   * @returns The corresponding EVM address (0x...)
+   */
+  public static getEvmAddress(injectiveAddress: string): string {
+    try {
+      return getEthereumAddress(injectiveAddress);
+    } catch (error) {
+      throw new Error(`Failed to derive EVM address: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Derive EVM-compatible private key from mnemonic
+   * This derives an Ethereum private key using BIP44 path m/44'/60'/0'/0/0
+   * @param mnemonic The mnemonic phrase
+   * @returns The EVM private key (64 hex characters with 0x prefix)
+   */
+  public static getEvmPrivateKey(mnemonic: string): string {
+    try {
+      // Derive Ethereum private key from mnemonic using standard BIP44 path
+      const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic);
+      return hdNode.privateKey; // Returns 0x... 64 hex chars
+    } catch (error) {
+      throw new Error(`Failed to derive EVM private key: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }

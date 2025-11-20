@@ -23,7 +23,7 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
 
   constructor() {
     const config: BalanceServiceConfig = {
-      chainId: 888, // Injective mainnet chain ID
+      chainId: 'injective-1', // Injective mainnet Cosmos chain ID (different from testnet 'injective-888')
       chainName: 'Injective',
       name: 'Injective',
       symbol: 'INJ',
@@ -36,16 +36,17 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
       retryAttempts: 3,
       isEVM: false
     };
-    
+
     super(config);
-    
-    // Use custom RPC URL if configured, otherwise fall back to SDK defaults
-    const restEndpoint = config.rpcUrl || getNetworkEndpoints(Network.Mainnet).rest;
+
+    // Use official Injective public REST LCD endpoint
+    // SDK defaults may be outdated, use official endpoint from docs.injective.network
+    const restEndpoint = import.meta.env.VITE_INJECTIVE_REST_URL || 'https://sentry.lcd.injective.network:443';
     this.bankApi = new ChainRestBankApi(restEndpoint);
-    
-    // Store endpoints for reference (even if using custom URL)
+
+    // Store endpoints for reference
     this.endpoints = getNetworkEndpoints(Network.Mainnet);
-    
+
     console.log(`🔧 Injective Mainnet Service initialized with REST: ${restEndpoint}`);
   }
 
@@ -57,12 +58,12 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
     try {
       // Sanitize and validate address
       const sanitizedAddress = address.trim();
-      
+
       if (!this.validateAddress(sanitizedAddress)) {
         console.warn(`⚠️ Invalid Injective address format: ${sanitizedAddress}`);
         return '0.000000000000000000';
       }
-      
+
       console.log(`🔍 Fetching INJ balance for ${sanitizedAddress}`);
 
       // Use REST API's fetchBalance method with separate arguments
@@ -70,7 +71,7 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
         sanitizedAddress,
         'inj'
       );
-      
+
       if (!balanceResponse || !balanceResponse.amount) {
         console.log(`💰 No INJ balance found for ${sanitizedAddress}`);
         return '0.000000000000000000';
@@ -80,10 +81,10 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
       const wei = BigInt(balanceResponse.amount);
       const injAmount = Number(wei) / Math.pow(10, 18);
       const balanceFormatted = injAmount.toFixed(18);
-      
+
       console.log(`💰 Injective balance: ${balanceFormatted} INJ`);
       return balanceFormatted;
-      
+
     } catch (error) {
       // Comprehensive error handling - catch ALL errors and return zero balance
       if (error instanceof Error) {
@@ -118,12 +119,12 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
           }
 
           const amount = BigInt(balance.amount);
-          
+
           if (amount > 0n) {
             const tokenMetadata = this.getTokenMetadata(balance.denom);
             const balanceFormatted = (Number(amount) / Math.pow(10, tokenMetadata.decimals)).toFixed(tokenMetadata.decimals);
             const tokenPrice = await this.getTokenPrice(tokenMetadata.symbol);
-            
+
             tokens.push({
               symbol: tokenMetadata.symbol,
               balance: balanceFormatted,
@@ -171,7 +172,7 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
     if (denom.startsWith('ibc/')) {
       const knownToken = knownTokens[denom];
       if (knownToken) return knownToken;
-      
+
       return {
         symbol: `IBC-${denom.slice(4, 12)}`,
         name: 'IBC Token',
@@ -179,10 +180,10 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
       };
     }
 
-    return knownTokens[denom] || { 
-      symbol: denom.toUpperCase().slice(0, 8), 
-      name: 'Unknown Token', 
-      decimals: 18 
+    return knownTokens[denom] || {
+      symbol: denom.toUpperCase().slice(0, 8),
+      name: 'Unknown Token',
+      decimals: 18
     };
   }
 }

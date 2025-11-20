@@ -6,7 +6,7 @@ interface MultiChainBalance {
   address: string;
   totalUsdValue: number;
   chains: Array<{
-    chainId: number;
+    chainId: number | string; // Support both numeric (EVM) and string (Cosmos) chain IDs
     chainName: string;
     symbol: string;
     icon?: string; // Optional to match ChainBalance interface
@@ -51,18 +51,18 @@ export function TestnetBalanceChecker() {
   const testBalances = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       console.log(`🧪 FIXED: Testing balance fetch for address: ${selectedAddress}`);
-      
+
       // Debug RPC configuration first
       BalanceService.debugConfiguration();
-      
+
       const balances = await BalanceService.fetchMultiChainBalance(selectedAddress);
       setBalanceData(balances);
-      
+
       console.log('✅ Balance results:', balances);
-      
+
     } catch (err) {
       console.error('❌ Error fetching balances:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -81,9 +81,9 @@ export function TestnetBalanceChecker() {
   const formatUsdValue = (value: number) => {
     if (value === 0) return '$0.00';
     if (value < 0.01) return '< $0.01';
-    return `$${value.toLocaleString(undefined, { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
+    return `$${value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     })}`;
   };
 
@@ -98,7 +98,7 @@ export function TestnetBalanceChecker() {
           Test wallet balance fetching for Sepolia and Holesky testnets to diagnose zero balance issues
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Address Selection */}
         <div className="space-y-2">
@@ -121,8 +121,8 @@ export function TestnetBalanceChecker() {
         </div>
 
         {/* Test Button */}
-        <Button 
-          onClick={testBalances} 
+        <Button
+          onClick={testBalances}
           disabled={isLoading}
           className="w-full"
         >
@@ -167,7 +167,7 @@ export function TestnetBalanceChecker() {
                         <span className="text-lg">{chain.icon}</span>
                         <div>
                           <CardTitle className="text-base">{chain.chainName}</CardTitle>
-                          <Badge 
+                          <Badge
                             variant={chain.isOnline ? "default" : "destructive"}
                             className="text-xs"
                           >
@@ -184,7 +184,7 @@ export function TestnetBalanceChecker() {
                       </div>
                     </div>
                   </CardHeader>
-                  
+
                   <CardContent className="pt-0 space-y-3">
                     {/* Native Balance */}
                     <div className="flex items-center justify-between">
@@ -237,7 +237,7 @@ export function TestnetBalanceChecker() {
             <strong>Instructions:</strong> This tool tests the updated MultiChainBalanceService with proper RPC integration.
             It now uses your configured Alchemy endpoints instead of public nodes for better reliability.
           </div>
-          
+
           {/* RPC Configuration Debug */}
           <div className="text-xs text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
             <strong>FIXED Service - RPC Configuration:</strong>
@@ -249,7 +249,7 @@ export function TestnetBalanceChecker() {
               <div>Mainnet: {import.meta.env.VITE_MAINNET_RPC_URL ? '✅ Configured' : '❌ Missing'}</div>
             </div>
           </div>
-          
+
           {/* Expected Transactions */}
           <div className="text-xs text-green-600 bg-green-50 p-3 rounded border border-green-200">
             <strong>Expected Transactions:</strong>

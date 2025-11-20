@@ -267,10 +267,10 @@ const FALLBACK_RPC_URLS: Record<number, string[]> = {
 
   // Avalanche Networks
   [CHAIN_IDS.avalanche]: [
-    'https://avax.rpc.grove.city/v1/01fdb492'
+    'https://avalanche-c-chain-rpc.publicnode.com'
   ],
   [CHAIN_IDS.avalancheFuji]: [
-    'https://avalanche-fuji-c-chain.publicnode.com',
+    'https://avalanche-fuji-c-chain-rpc.publicnode.com',
     'https://api.avax-test.network/ext/bc/C/rpc',
     'https://ava-testnet.public.blastapi.io/ext/bc/C/rpc',
     'https://avalanche-fuji.drpc.org/',

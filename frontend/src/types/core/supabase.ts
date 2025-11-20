@@ -19091,6 +19091,8 @@ export type Database = {
           bitcoin_network_type: string | null
           chain_id: string | null
           created_at: string
+          evm_address: string | null
+          evm_chain_id: string | null
           id: string
           mnemonic: string | null
           mnemonic_vault_id: string | null
@@ -19108,6 +19110,8 @@ export type Database = {
           bitcoin_network_type?: string | null
           chain_id?: string | null
           created_at?: string
+          evm_address?: string | null
+          evm_chain_id?: string | null
           id?: string
           mnemonic?: string | null
           mnemonic_vault_id?: string | null
@@ -19125,6 +19129,8 @@ export type Database = {
           bitcoin_network_type?: string | null
           chain_id?: string | null
           created_at?: string
+          evm_address?: string | null
+          evm_chain_id?: string | null
           id?: string
           mnemonic?: string | null
           mnemonic_vault_id?: string | null
@@ -19155,79 +19161,6 @@ export type Database = {
           },
           {
             foreignKeyName: "project_wallets_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_wallets_backup_do_not_use: {
-        Row: {
-          chain_id: string | null
-          created_at: string
-          id: string
-          mnemonic: string | null
-          mnemonic_vault_id: string | null
-          net: string | null
-          private_key: string | null
-          private_key_vault_id: string | null
-          project_id: string
-          project_wallet_name: string | null
-          public_key: string
-          updated_at: string
-          wallet_address: string
-          wallet_type: string
-        }
-        Insert: {
-          chain_id?: string | null
-          created_at?: string
-          id?: string
-          mnemonic?: string | null
-          mnemonic_vault_id?: string | null
-          net?: string | null
-          private_key?: string | null
-          private_key_vault_id?: string | null
-          project_id: string
-          project_wallet_name?: string | null
-          public_key: string
-          updated_at?: string
-          wallet_address: string
-          wallet_type: string
-        }
-        Update: {
-          chain_id?: string | null
-          created_at?: string
-          id?: string
-          mnemonic?: string | null
-          mnemonic_vault_id?: string | null
-          net?: string | null
-          private_key?: string | null
-          private_key_vault_id?: string | null
-          project_id?: string
-          project_wallet_name?: string | null
-          public_key?: string
-          updated_at?: string
-          wallet_address?: string
-          wallet_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_wallets_duplicate_mnemonic_vault_id_fkey"
-            columns: ["mnemonic_vault_id"]
-            isOneToOne: false
-            referencedRelation: "key_vault_keys"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_wallets_duplicate_private_key_vault_id_fkey"
-            columns: ["private_key_vault_id"]
-            isOneToOne: false
-            referencedRelation: "key_vault_keys"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_wallets_duplicate_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

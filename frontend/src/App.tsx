@@ -58,6 +58,9 @@ import WalletDashboardPage from "@/pages/wallet/WalletDashboardPage";
 import WalletDemoPage from "@/pages/WalletDemoPage";
 import InternalWalletDashboard from "@/components/wallet/InternalWalletDashboard";
 
+// Contract Deployment
+import { ContractDeployment } from "@/components/contract-deployment";
+
 // Enhanced Wallet Pages (Production-Ready with Real Blockchain Integration)
 import RipplePaymentsPage from "@/pages/wallet/RipplePaymentsPage";
 import MoonpayPage from "@/pages/wallet/MoonpayPage";
@@ -86,8 +89,8 @@ import EnhancedIssuerUploadPage from "@/components/compliance/pages/EnhancedIssu
 import EnhancedInvestorUploadPage from "@/components/compliance/pages/EnhancedInvestorUploadPage";
 
 // Import Organization and Investor Management Components
-import { 
-  OrganizationManagementDashboard, 
+import {
+  OrganizationManagementDashboard,
   OrganizationDetailPage,
   InvestorManagementDashboardEnhanced,
   InvestorDetailPage
@@ -200,7 +203,7 @@ const TokenRedirect = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   useEffect(() => {
     if (projectId && projectId !== "undefined") {
       // If projectId is provided and valid, redirect to project tokens
@@ -215,10 +218,10 @@ const TokenRedirect = () => {
   const findPrimaryProject = async () => {
     try {
       setIsLoading(true);
-      
+
       // Use the primaryProjectService to get the primary or first project
       const project = await getPrimaryOrFirstProject();
-      
+
       if (project) {
         // If a project is found, navigate to it
         console.log(`Found project: ${project.name} (${project.id}), redirecting...`);
@@ -240,7 +243,7 @@ const TokenRedirect = () => {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div className="w-full h-full flex items-center justify-center p-6">
       <div className="text-center">
@@ -261,13 +264,13 @@ const TokenRedirect = () => {
 const TokenDetailRedirect = () => {
   const { projectId, tokenId } = useParams();
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     if (projectId && tokenId) {
       navigate(`/projects/${projectId}/tokens/${tokenId}/operations`, { replace: true });
     }
   }, [projectId, tokenId, navigate]);
-  
+
   return (
     <div className="w-full h-full flex items-center justify-center p-6">
       <div className="text-center">
@@ -285,7 +288,7 @@ const RedemptionConfigurationWrapper = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [project, setProject] = useState<any>(null);
-  
+
   useEffect(() => {
     findPrimaryProject();
   }, []);
@@ -294,10 +297,10 @@ const RedemptionConfigurationWrapper = () => {
   const findPrimaryProject = async () => {
     try {
       setIsLoading(true);
-      
+
       // Use the primaryProjectService to get the primary or first project
       const projectData = await getPrimaryOrFirstProject();
-      
+
       if (projectData) {
         // If a project is found, use it for the redemption configuration
         console.log(`Using project: ${projectData.name} (${projectData.id}) for redemption configuration`);
@@ -336,7 +339,7 @@ const RedemptionConfigurationWrapper = () => {
   const handleRefresh = () => {
     findPrimaryProject();
   };
-  
+
   if (isLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
@@ -347,7 +350,7 @@ const RedemptionConfigurationWrapper = () => {
       </div>
     );
   }
-  
+
   if (!projectId) {
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
@@ -371,8 +374,8 @@ const RedemptionConfigurationWrapper = () => {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <CombinedOrgProjectSelector 
-              currentProjectId={projectId} 
+            <CombinedOrgProjectSelector
+              currentProjectId={projectId}
               onProjectChange={handleProjectChange}
               layout="horizontal"
               compact={true}
@@ -404,7 +407,7 @@ const RedemptionWindowWrapper = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [project, setProject] = useState<any>(null);
-  
+
   useEffect(() => {
     findPrimaryProject();
   }, []);
@@ -413,10 +416,10 @@ const RedemptionWindowWrapper = () => {
   const findPrimaryProject = async () => {
     try {
       setIsLoading(true);
-      
+
       // Use the primaryProjectService to get the primary or first project
       const projectData = await getPrimaryOrFirstProject();
-      
+
       if (projectData) {
         // If a project is found, use it for the redemption windows
         console.log(`Using project: ${projectData.name} (${projectData.id}) for redemption windows`);
@@ -455,7 +458,7 @@ const RedemptionWindowWrapper = () => {
   const handleRefresh = () => {
     findPrimaryProject();
   };
-  
+
   if (isLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
@@ -466,7 +469,7 @@ const RedemptionWindowWrapper = () => {
       </div>
     );
   }
-  
+
   if (!projectId) {
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
@@ -490,8 +493,8 @@ const RedemptionWindowWrapper = () => {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <CombinedOrgProjectSelector 
-              currentProjectId={projectId} 
+            <CombinedOrgProjectSelector
+              currentProjectId={projectId}
               onProjectChange={handleProjectChange}
               layout="horizontal"
               compact={true}
@@ -543,10 +546,10 @@ function App() {
   useEffect(() => {
     // Initialize browser error handling for console cleanup
     initializeBrowserErrorHandling();
-    
+
     // Initialize Enhanced Activity Service v2
     console.log('✅ Enhanced Activity Service v2 initialized - Performance monitoring active');
-    
+
     // Initialize Universal Database Audit Service for automatic CRUD tracking
     const initializeAuditService = async () => {
       try {
@@ -556,13 +559,13 @@ function App() {
         console.warn('⚠️ Failed to initialize Universal Database Audit Service:', error);
       }
     };
-    
+
     initializeAuditService();
-    
+
     // Initialize Comprehensive Audit System
     console.log('🔍 Comprehensive Audit System activated - Frontend user action tracking enabled');
     console.log('📊 Audit Coverage: >95% (Frontend + Backend + System processes)');
-    
+
     // Log application startup
     enhancedActivityService.logActivity({
       source: ActivitySource.SYSTEM,
@@ -589,314 +592,319 @@ function App() {
                       <MultiSigListenerHealthBadge health={multiSigHealth} />
                     </div>
                   )}
-            
-            <Suspense fallback={<div>Loading...</div>}>
-          <Routes>
-            {/* Root Route - Show Welcome Screen for unauthenticated users, redirect authenticated users to projects */}
-            <Route path="/" element={
-              <GuestGuard redirectTo="/projects">
-                <WelcomeScreen />
-              </GuestGuard>
-            } />
-            
-            {/* Auth Routes - Publicly accessible */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
-            
-            {/* Comprehensive Auth Routes */}
-            <Route path="/auth/welcome" element={<WelcomeScreen />} />
-            <Route path="/auth/login" element={<LoginPage />} />
-            <Route path="/auth/signup" element={<SignupPage />} />
-            <Route path="/auth/magic-link" element={<MagicLinkPage />} />
-            <Route path="/auth/phone" element={<PhoneOtpPage />} />
-            <Route path="/auth/oauth" element={<OAuthLoginPage />} />
-            <Route path="/auth/anonymous" element={<AnonymousLoginPage />} />
-            <Route path="/auth/mfa" element={<MFALoginPage />} />
-            <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="/auth/verify-email" element={<EmailVerificationPage />} />
-            <Route path="/auth/setup-totp" element={<TOTPSetupPage />} />
-            <Route path="/auth/forgot-password" element={<PasswordResetPage />} />
-            <Route path="/auth/reset-password" element={<PasswordResetPage />} />
-            
-            {/* DFNS Mobile Authentication Route */}
-            <Route path="/mobile-auth" element={<MobileAuthPage />} />
-            
-            {/* Settings Routes - Protected */}
-            <Route path="/settings/security" element={
-              <ProtectedRoute>
-                <SecuritySettingsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings/identity" element={
-              <ProtectedRoute>
-                <IdentityManagementPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Auth Routes - Protected with admin role */}
-            <Route path="/admin/auth" element={
-              <ProtectedRoute requiredRoles={['admin']}>
-                <AdminDashboardPage />
-              </ProtectedRoute>
-            } />
 
-            {/* Add redirect for tokens/:projectId to projects/:projectId/tokens */}
-            <Route path="/tokens/:projectId" element={
-              <ProtectedRoute>
-                <TokenRedirect />
-              </ProtectedRoute>
-            } />
-            
-            {/* Main Layout - Protected - Ensures Sidebar Renders Only Once */}
-            <Route element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
-              <Route path="dashboard" element={<CapTableDashboard />} />
-              <Route path="projects" element={<Home />} />
-              <Route path="offerings" element={<OfferingsPageWrapper />} />
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <Routes>
+                      {/* Root Route - Show Welcome Screen for unauthenticated users, redirect authenticated users to projects */}
+                      <Route path="/" element={
+                        <GuestGuard redirectTo="/projects">
+                          <WelcomeScreen />
+                        </GuestGuard>
+                      } />
 
-              {/* Global Token Routes */}
-              <Route path="tokens" element={<TokenDashboardPage />} />
-              <Route path="tokens/compare" element={<TokenDashboardComparison />} />
-              <Route path="tokens/create" element={<CreateTokenPage />} />
-              <Route path="tokens/test" element={<TokenTestingPage />} />
+                      {/* Auth Routes - Publicly accessible */}
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-              {/* Investor Portal Routes */}
-              <Route path="compliance/portal/profile" element={<ProfilePage />} />
-              <Route path="compliance/portal/documents" element={<DocumentsPage />} />
+                      {/* Comprehensive Auth Routes */}
+                      <Route path="/auth/welcome" element={<WelcomeScreen />} />
+                      <Route path="/auth/login" element={<LoginPage />} />
+                      <Route path="/auth/signup" element={<SignupPage />} />
+                      <Route path="/auth/magic-link" element={<MagicLinkPage />} />
+                      <Route path="/auth/phone" element={<PhoneOtpPage />} />
+                      <Route path="/auth/oauth" element={<OAuthLoginPage />} />
+                      <Route path="/auth/anonymous" element={<AnonymousLoginPage />} />
+                      <Route path="/auth/mfa" element={<MFALoginPage />} />
+                      <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                      <Route path="/auth/verify-email" element={<EmailVerificationPage />} />
+                      <Route path="/auth/setup-totp" element={<TOTPSetupPage />} />
+                      <Route path="/auth/forgot-password" element={<PasswordResetPage />} />
+                      <Route path="/auth/reset-password" element={<PasswordResetPage />} />
 
-              {/* Project Routes */}
-              <Route path="projects/:projectId" element={<ProjectDetailsPage />} />
-              <Route path="projects/:projectId/documents" element={<Navigate to="../?tab=issuer-documents" replace />} />
+                      {/* DFNS Mobile Authentication Route */}
+                      <Route path="/mobile-auth" element={<MobileAuthPage />} />
 
-              {/* Wallet Routes */}
-              <Route path="wallet/new" element={<NewWalletPage />} />
-              <Route path="wallet/:projectId/new" element={<NewWalletPage />} />
-              <Route path="wallet/dashboard" element={<WalletDashboardPage />} />
-              <Route path="wallet/demo" element={<WalletDemoPage />} />
-              
-              {/* Enhanced Wallet Routes (Production-Ready) */}
-              <Route path="wallet/enhanced/ripple" element={<RipplePaymentsPage />} />
-              <Route path="wallet/enhanced/moonpay" element={<MoonpayPage />} />
-              
-              {/* Guardian Wallet Routes */}
-              <Route path="wallet/guardian/test" element={<GuardianTestPageRedesigned />} />
-              
-              {/* DFNS Wallet Routes - Enterprise blockchain infrastructure */}
-              <Route path="wallet/dfns/*" element={<DfnsWalletDashboard />} />
-              
-              {/* Production Wallet Routes (Default to Internal Dashboard) */}
-              <Route path="wallet/internal" element={<InternalWalletDashboard />} />
+                      {/* Settings Routes - Protected */}
+                      <Route path="/settings/security" element={
+                        <ProtectedRoute>
+                          <SecuritySettingsPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/settings/identity" element={
+                        <ProtectedRoute>
+                          <IdentityManagementPage />
+                        </ProtectedRoute>
+                      } />
 
-              {/* Cap Table Routes */}
-              <Route path="captable" element={<CapTableManagerNew section="overview" />} />
-              <Route path="captable/investors" element={<CapTableManagerNew section="investors" />} />
-              <Route path="captable/subscriptions" element={<CapTableManagerNew section="subscriptions" />} />
-              <Route path="captable/allocations" element={<CapTableManagerNew section="allocations" />} />
-              <Route path="captable/distributions" element={<CapTableManagerNew section="distributions" />} />
-              <Route path="captable/compliance" element={<CapTableManagerNew section="compliance" />} />
-              <Route path="captable/reports" element={<CapTableManagerNew section="reports" />} />
-              <Route path="captable/documents" element={<CapTableManagerNew section="documents" />} />
-              <Route path="captable/minting" element={<CapTableManagerNew section="minting" />} />
+                      {/* Admin Auth Routes - Protected with admin role */}
+                      <Route path="/admin/auth" element={
+                        <ProtectedRoute requiredRoles={['admin']}>
+                          <AdminDashboardPage />
+                        </ProtectedRoute>
+                      } />
 
-              {/* Token Management */}
-              <Route path="tokens" element={<TokenDashboardPage />} />
-              <Route path="tokens/create" element={<CreateTokenPage />} />
-              <Route path="tokens/:tokenId/edit" element={<TokenEditPage />} />
-              <Route path="tokens/:tokenId/deploy" element={<TokenDeployPageEnhanced />} />
-              <Route path="tokens/:tokenId/operations" element={<TokenOperationsPage />} />
+                      {/* Add redirect for tokens/:projectId to projects/:projectId/tokens */}
+                      <Route path="/tokens/:projectId" element={
+                        <ProtectedRoute>
+                          <TokenRedirect />
+                        </ProtectedRoute>
+                      } />
 
-              {/* Project-specific Token Routes */}
-              <Route path="projects/:projectId/tokens" element={<TokenDashboardPage />}/>
-              <Route path="projects/:projectId/tokens/compare" element={<TokenDashboardComparison />}/>
-              <Route path="projects/:projectId/tokens/create" element={<CreateTokenPage />} />
-              <Route path="projects/:projectId/tokens/test" element={<TokenTestingPage />} />
-              
-              {/* Token Selection Routes */}
-              <Route path="projects/:projectId/tokens/select/details" element={<TokenSelectionPage actionType="details" />} />
-              <Route path="projects/:projectId/tokens/select/deploy" element={<TokenSelectionPage actionType="deploy" />} />
-              <Route path="projects/:projectId/tokens/select/mint" element={<TokenSelectionPage actionType="mint" />} />
-              <Route path="projects/:projectId/tokens/select/operations" element={<TokenOperationsPage />} />
-              
-              {/* Token-specific Routes */}
-              <Route path="projects/:projectId/tokens/:tokenId" element={<TokenDetailRedirect />} />
-              <Route path="projects/:projectId/tokens/:tokenId/deploy" element={<TokenDeployPageEnhanced />} />
-              <Route path="projects/:projectId/tokens/:tokenId/events" element={<TokenEventsPage />} />
-              <Route path="projects/:projectId/tokens/:tokenId/analytics" element={<TokenAnalyticsPage />} />
-              <Route path="projects/:projectId/tokens/:tokenId/operations" element={<TokenOperationsPage />} />
+                      {/* Main Layout - Protected - Ensures Sidebar Renders Only Once */}
+                      <Route element={
+                        <ProtectedRoute>
+                          <MainLayout />
+                        </ProtectedRoute>
+                      }>
+                        <Route path="dashboard" element={<CapTableDashboard />} />
+                        <Route path="projects" element={<Home />} />
+                        <Route path="offerings" element={<OfferingsPageWrapper />} />
 
-              {/* NAV Routes */}
-              <Route path="nav" element={<NavDashboardPage />} />
-              <Route path="projects/:projectId/nav/" element={<NavDashboardPage />} />
-              
-              {/* Bond Routes */}
-              <Route path="nav/bonds" element={<BondsListPage />} />
-              <Route path="nav/bonds/new" element={<BondAddPage />} />
-              <Route path="nav/bonds/upload" element={<BondUploadPage />} />
-              <Route path="nav/bonds/analytics" element={<BondAnalyticsPage />} />
-              <Route path="nav/bonds/token-links" element={<BondTokenLinksPage />} />
-              <Route path="nav/bonds/history" element={<BondHistoryPage />} />
-              <Route path="nav/bonds/:bondId" element={<BondDetailPage />} />
-              <Route path="nav/bonds/:bondId/edit" element={<BondDetailPage />} />
-              <Route path="nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
+                        {/* Global Token Routes */}
+                        <Route path="tokens" element={<TokenDashboardPage />} />
+                        <Route path="tokens/compare" element={<TokenDashboardComparison />} />
+                        <Route path="tokens/create" element={<CreateTokenPage />} />
+                        <Route path="tokens/test" element={<TokenTestingPage />} />
 
-              {/* Project-specific Bond Routes */}
-              <Route path="projects/:projectId/nav/bonds" element={<BondsListPage />} />
-              <Route path="projects/:projectId/nav/bonds/new" element={<BondAddPage />} />
-              <Route path="projects/:projectId/nav/bonds/upload" element={<BondUploadPage />} />
-              <Route path="projects/:projectId/nav/bonds/analytics" element={<BondAnalyticsPage />} />
-              <Route path="projects/:projectId/nav/bonds/token-links" element={<BondTokenLinksPage />} />
-              <Route path="projects/:projectId/nav/bonds/history" element={<BondHistoryPage />} />
-              <Route path="projects/:projectId/nav/bonds/:bondId" element={<BondDetailPage />} />
-              <Route path="projects/:projectId/nav/bonds/:bondId/edit" element={<BondDetailPage />} />
-              <Route path="projects/:projectId/nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
+                        {/* Investor Portal Routes */}
+                        <Route path="compliance/portal/profile" element={<ProfilePage />} />
+                        <Route path="compliance/portal/documents" element={<DocumentsPage />} />
 
-              {/* MMF Routes */}
-              <Route path="nav/mmf" element={<MMFsListPage />} />
-              <Route path="nav/mmf/create" element={<MMFAddPage />} />
-              <Route path="nav/mmf/upload" element={<MMFUploadPage />} />
-              <Route path="nav/mmf/analytics" element={<MMFAnalyticsPage />} />
-              <Route path="nav/mmf/nav-tracker" element={<MMFNAVTrackerPage />} />
-              <Route path="nav/mmf/token-links" element={<MMFTokenLinksPage />} />
-              <Route path="nav/mmf/history" element={<MMFHistoryPage />} />
-              <Route path="nav/mmf/:fundId" element={<MMFDetailPage />} />
-              <Route path="nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
+                        {/* Project Routes */}
+                        <Route path="projects/:projectId" element={<ProjectDetailsPage />} />
+                        <Route path="projects/:projectId/documents" element={<Navigate to="../?tab=issuer-documents" replace />} />
 
-              {/* Project-specific MMF Routes */}
-              <Route path="projects/:projectId/nav/mmf" element={<MMFsListPage />} />
-              <Route path="projects/:projectId/nav/mmf/create" element={<MMFAddPage />} />
-              <Route path="projects/:projectId/nav/mmf/upload" element={<MMFUploadPage />} />
-              <Route path="projects/:projectId/nav/mmf/analytics" element={<MMFAnalyticsPage />} />
-              <Route path="projects/:projectId/nav/mmf/nav-tracker" element={<MMFNAVTrackerPage />} />
-              <Route path="projects/:projectId/nav/mmf/token-links" element={<MMFTokenLinksPage />} />
-              <Route path="projects/:projectId/nav/mmf/history" element={<MMFHistoryPage />} />
-              <Route path="projects/:projectId/nav/mmf/:fundId" element={<MMFDetailPage />} />
-              <Route path="projects/:projectId/nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
+                        {/* Wallet Routes */}
+                        <Route path="wallet/new" element={<NewWalletPage />} />
+                        <Route path="wallet/:projectId/new" element={<NewWalletPage />} />
+                        <Route path="wallet/dashboard" element={<WalletDashboardPage />} />
+                        <Route path="wallet/demo" element={<WalletDemoPage />} />
 
-              {/* Factoring Routes */}
-              <Route path="factoring/" element={<FactoringManager/>} />
-              <Route path="factoring/dashboard" element={<FactoringManager section="dashboard" />} />
-              <Route path="factoring/invoices" element={<FactoringManager section="invoices" />} />
-              <Route path="factoring/pools" element={<FactoringManager section="pools" />} />
-              <Route path="factoring/tokenization" element={<FactoringManager section="tokenization" />} />
-              <Route path="factoring/distribution" element={<FactoringManager section="distribution" />} />
+                        {/* Enhanced Wallet Routes (Production-Ready) */}
+                        <Route path="wallet/enhanced/ripple" element={<RipplePaymentsPage />} />
+                        <Route path="wallet/enhanced/moonpay" element={<MoonpayPage />} />
 
-              {/* Project-specific Factoring Routes */}
-              <Route path="/projects/:projectId/factoring/" element={<FactoringManager/>} />
-              <Route path="/projects/:projectId/factoring/dashboard" element={<FactoringManager section="dashboard" />} />
-              <Route path="/projects/:projectId/factoring/invoices" element={<FactoringManager section="invoices" />} />
-              <Route path="/projects/:projectId/factoring/pools" element={<FactoringManager section="pools" />} />
-              <Route path="/projects/:projectId/factoring/tokenization" element={<FactoringManager section="tokenization" />} />
-              <Route path="/projects/:projectId/factoring/distribution" element={<FactoringManager section="distribution" />} />
+                        {/* Guardian Wallet Routes */}
+                        <Route path="wallet/guardian/test" element={<GuardianTestPageRedesigned />} />
 
-              {/* Climate Receivables Routes */}
-              <Route path="climate-receivables/*" element={<ClimateReceivablesManager />} />
-              
-              {/* Project-specific Climate Receivables Routes */}
-              <Route path="/projects/:projectId/climate-receivables/*" element={<ClimateReceivablesManager />} />
+                        {/* DFNS Wallet Routes - Enterprise blockchain infrastructure */}
+                        <Route path="wallet/dfns/*" element={<DfnsWalletDashboard />} />
 
-              {/* PSP Routes */}
-              <Route path="psp/" element={<PspLayout/>} />
-              <Route path="psp/:section" element={<PspLayout />} />
+                        {/* Production Wallet Routes (Default to Internal Dashboard) */}
+                        <Route path="wallet/internal" element={<InternalWalletDashboard />} />
 
-              {/* Project-specific PSP Routes */}
-              <Route path="/projects/:projectId/psp/" element={<PspLayout/>} />
-              <Route path="/projects/:projectId/psp/:section" element={<PspLayout />} />
+                        {/* Contract Deployment Routes */}
+                        <Route path="deploy-contracts" element={<ContractDeployment />} />
+                        <Route path="projects/:projectId/deploy-contracts" element={<ContractDeployment />} />
+                        <Route path="organizations/:organizationId/projects/:projectId/deploy-contracts" element={<ContractDeployment />} />
 
-              {/* Project-specific Cap Table Routes */}
-              <Route path="/projects/:projectId/captable" element={<CapTableManagerNew />} />
-              <Route path="/projects/:projectId/captable/investors" element={<CapTableManagerNew section="investors" />} />
-              <Route path="/projects/:projectId/captable/subscriptions" element={<CapTableManagerNew section="subscriptions" />} />
-              <Route path="/projects/:projectId/captable/allocations" element={<CapTableManagerNew section="allocations" />} />
-              <Route path="/projects/:projectId/captable/distributions" element={<CapTableManagerNew section="distributions" />} />
-              <Route path="/projects/:projectId/captable/minting" element={<CapTableManagerNew section="minting" />} />
+                        {/* Cap Table Routes */}
+                        <Route path="captable" element={<CapTableManagerNew section="overview" />} />
+                        <Route path="captable/investors" element={<CapTableManagerNew section="investors" />} />
+                        <Route path="captable/subscriptions" element={<CapTableManagerNew section="subscriptions" />} />
+                        <Route path="captable/allocations" element={<CapTableManagerNew section="allocations" />} />
+                        <Route path="captable/distributions" element={<CapTableManagerNew section="distributions" />} />
+                        <Route path="captable/compliance" element={<CapTableManagerNew section="compliance" />} />
+                        <Route path="captable/reports" element={<CapTableManagerNew section="reports" />} />
+                        <Route path="captable/documents" element={<CapTableManagerNew section="documents" />} />
+                        <Route path="captable/minting" element={<CapTableManagerNew section="minting" />} />
 
-              {/* Management and Reporting Routes */}
-              <Route path="rule-management" element={<RuleManagementDashboard />} />
-              <Route path="role-management" element={<RoleManagementDashboard />} />
-              <Route path="mfa-settings" element={<MFALoginPage />} />
-              <Route path="account/security" element={
-                <UserMFAControls 
-                  userId="current-user" 
-                  userName="Current User" 
-                  mfaEnabled={false}
-                />
-              } />
-              <Route path="redemption" element={<RedemptionDashboard />} />
-              <Route path="redemption/operations" element={<OperationsRedemptionPage />} />
-              <Route path="redemption/configure" element={<RedemptionConfigurationWrapper />} />
-              <Route path="redemption/windows" element={<RedemptionWindowWrapper />} />
-              <Route path="redemption/request/:requestId" element={<RedemptionRequestDetailsPage />} />
-              <Route path="redemption/calendar" element={<RedemptionEventsCalendar />} />
-              <Route path="redemption/calendar/test" element={<CalendarIntegrationTest />} />
-              
-              <Route path="investors" element={<InvestorsList />} />
-              <Route path="reports" element={<ReportsDashboard />} />
-              
-              {/* Policy Template Routes */}
-              <Route path="templates" element={<PolicyTemplateDashboard />} />
-              <Route path="templates/:templateId" element={<PolicyTemplateVersionManagement />} />
-              <Route path="templates/:templateId/versions" element={<PolicyTemplateVersionManagement />} />
-              
-              {/* Compliance Routes - Moved inside MainLayout */}
-              <Route path="compliance/investor-onboarding/*" element={<InvestorOnboarding />} />
-              <Route path="compliance/issuer-onboarding" element={<IssuerOnboardingFlow />} />
-              
-              {/* Enhanced Upload Routes */}
-              <Route path="compliance/upload/investor" element={<EnhancedInvestorUploadPage />} />
-              <Route path="compliance/upload/issuer" element={<EnhancedIssuerUploadPage />} />
-              
-              {/* Organization Management Routes */}
-              <Route path="compliance/management" element={<OrganizationManagementDashboard />} />
-              <Route path="compliance/organization/:organizationId" element={<OrganizationDetailPage />} />
-              <Route path="compliance/organization/:organizationId/edit" element={<OrganizationDetailPage />} />
-              <Route path="compliance/organization/:organizationId/documents" element={<OrganizationDetailPage />} />
-              
-              {/* Investor Management Routes */}
-              <Route path="compliance/management/investors" element={<InvestorManagementDashboardEnhanced />} />
-              <Route path="compliance/investor/:investorId" element={<InvestorDetailPage />} />
-              <Route path="compliance/investor/:investorId/edit" element={<InvestorDetailPage />} />
-              <Route path="compliance/investor/:investorId/documents" element={<InvestorDetailPage />} />
-              
-              <Route path="compliance/operations/dashboard" element={<ComplianceDashboard />} />
-              <Route path="compliance/documents" element={<DocumentManagement mode="issuer" entityId="general" />} />
-              <Route path="compliance/rules" element={<RuleManagementDashboard />} />
-              <Route path="compliance/restrictions" element={<RestrictionManager />} />
-              <Route path="compliance/operations/investor/wallets" element={<WalletOperationsPage />} />
-              <Route path="compliance/operations/investor/:projectId/wallets" element={<WalletOperationsPage />} />
-              
-              {/* Issuer Onboarding */}
-              <Route path="compliance/issuer/onboarding/*" element={<IssuerOnboardingFlow />} />
-              
-              {/* Activity Monitoring Routes (Legacy) */}
-              <Route path="activity" element={<ActivityMonitorPage />} />
-              <Route path="activity/metrics" element={<ActivityMetricsPage />} />
-              
-              {/* NAV Engine Routes */}
-              <Route path="nav" element={<NavDashboardPage />} />
-              {/* Admin Configuration Routes */}
-              <Route path="admin/sidebar-configuration" element={<SidebarAdminDashboard />} />
-            </Route>
+                        {/* Token Management */}
+                        <Route path="tokens" element={<TokenDashboardPage />} />
+                        <Route path="tokens/create" element={<CreateTokenPage />} />
+                        <Route path="tokens/:tokenId/edit" element={<TokenEditPage />} />
+                        <Route path="tokens/:tokenId/deploy" element={<TokenDeployPageEnhanced />} />
+                        <Route path="tokens/:tokenId/operations" element={<TokenOperationsPage />} />
 
-            {/* Fallback route */}
-            <Route path="*" element={
-              <div style={{padding: "2rem", textAlign: "center"}}>
-                <h1>Page Not Found</h1>
-                <p>The route {window.location.pathname} doesn't exist.</p>
-                <div style={{marginTop: "2rem"}}>
-                  <a href="/" style={{color: "blue", textDecoration: "underline"}}>Go Home</a>
-                </div>
-              </div>
-            } />
-            </Routes>
-          </Suspense>
-          </NotificationProvider>
-        </UnifiedWalletProvider>
-        </WagmiRouteWrapper>
-      </AuditProvider>
-      </OrganizationProvider>
+                        {/* Project-specific Token Routes */}
+                        <Route path="projects/:projectId/tokens" element={<TokenDashboardPage />} />
+                        <Route path="projects/:projectId/tokens/compare" element={<TokenDashboardComparison />} />
+                        <Route path="projects/:projectId/tokens/create" element={<CreateTokenPage />} />
+                        <Route path="projects/:projectId/tokens/test" element={<TokenTestingPage />} />
+
+                        {/* Token Selection Routes */}
+                        <Route path="projects/:projectId/tokens/select/details" element={<TokenSelectionPage actionType="details" />} />
+                        <Route path="projects/:projectId/tokens/select/deploy" element={<TokenSelectionPage actionType="deploy" />} />
+                        <Route path="projects/:projectId/tokens/select/mint" element={<TokenSelectionPage actionType="mint" />} />
+                        <Route path="projects/:projectId/tokens/select/operations" element={<TokenOperationsPage />} />
+
+                        {/* Token-specific Routes */}
+                        <Route path="projects/:projectId/tokens/:tokenId" element={<TokenDetailRedirect />} />
+                        <Route path="projects/:projectId/tokens/:tokenId/deploy" element={<TokenDeployPageEnhanced />} />
+                        <Route path="projects/:projectId/tokens/:tokenId/events" element={<TokenEventsPage />} />
+                        <Route path="projects/:projectId/tokens/:tokenId/analytics" element={<TokenAnalyticsPage />} />
+                        <Route path="projects/:projectId/tokens/:tokenId/operations" element={<TokenOperationsPage />} />
+
+                        {/* NAV Routes */}
+                        <Route path="nav" element={<NavDashboardPage />} />
+                        <Route path="projects/:projectId/nav/" element={<NavDashboardPage />} />
+
+                        {/* Bond Routes */}
+                        <Route path="nav/bonds" element={<BondsListPage />} />
+                        <Route path="nav/bonds/new" element={<BondAddPage />} />
+                        <Route path="nav/bonds/upload" element={<BondUploadPage />} />
+                        <Route path="nav/bonds/analytics" element={<BondAnalyticsPage />} />
+                        <Route path="nav/bonds/token-links" element={<BondTokenLinksPage />} />
+                        <Route path="nav/bonds/history" element={<BondHistoryPage />} />
+                        <Route path="nav/bonds/:bondId" element={<BondDetailPage />} />
+                        <Route path="nav/bonds/:bondId/edit" element={<BondDetailPage />} />
+                        <Route path="nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
+
+                        {/* Project-specific Bond Routes */}
+                        <Route path="projects/:projectId/nav/bonds" element={<BondsListPage />} />
+                        <Route path="projects/:projectId/nav/bonds/new" element={<BondAddPage />} />
+                        <Route path="projects/:projectId/nav/bonds/upload" element={<BondUploadPage />} />
+                        <Route path="projects/:projectId/nav/bonds/analytics" element={<BondAnalyticsPage />} />
+                        <Route path="projects/:projectId/nav/bonds/token-links" element={<BondTokenLinksPage />} />
+                        <Route path="projects/:projectId/nav/bonds/history" element={<BondHistoryPage />} />
+                        <Route path="projects/:projectId/nav/bonds/:bondId" element={<BondDetailPage />} />
+                        <Route path="projects/:projectId/nav/bonds/:bondId/edit" element={<BondDetailPage />} />
+                        <Route path="projects/:projectId/nav/bonds/:bondId/calculate" element={<BondCalculatorPage />} />
+
+                        {/* MMF Routes */}
+                        <Route path="nav/mmf" element={<MMFsListPage />} />
+                        <Route path="nav/mmf/create" element={<MMFAddPage />} />
+                        <Route path="nav/mmf/upload" element={<MMFUploadPage />} />
+                        <Route path="nav/mmf/analytics" element={<MMFAnalyticsPage />} />
+                        <Route path="nav/mmf/nav-tracker" element={<MMFNAVTrackerPage />} />
+                        <Route path="nav/mmf/token-links" element={<MMFTokenLinksPage />} />
+                        <Route path="nav/mmf/history" element={<MMFHistoryPage />} />
+                        <Route path="nav/mmf/:fundId" element={<MMFDetailPage />} />
+                        <Route path="nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
+
+                        {/* Project-specific MMF Routes */}
+                        <Route path="projects/:projectId/nav/mmf" element={<MMFsListPage />} />
+                        <Route path="projects/:projectId/nav/mmf/create" element={<MMFAddPage />} />
+                        <Route path="projects/:projectId/nav/mmf/upload" element={<MMFUploadPage />} />
+                        <Route path="projects/:projectId/nav/mmf/analytics" element={<MMFAnalyticsPage />} />
+                        <Route path="projects/:projectId/nav/mmf/nav-tracker" element={<MMFNAVTrackerPage />} />
+                        <Route path="projects/:projectId/nav/mmf/token-links" element={<MMFTokenLinksPage />} />
+                        <Route path="projects/:projectId/nav/mmf/history" element={<MMFHistoryPage />} />
+                        <Route path="projects/:projectId/nav/mmf/:fundId" element={<MMFDetailPage />} />
+                        <Route path="projects/:projectId/nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
+
+                        {/* Factoring Routes */}
+                        <Route path="factoring/" element={<FactoringManager />} />
+                        <Route path="factoring/dashboard" element={<FactoringManager section="dashboard" />} />
+                        <Route path="factoring/invoices" element={<FactoringManager section="invoices" />} />
+                        <Route path="factoring/pools" element={<FactoringManager section="pools" />} />
+                        <Route path="factoring/tokenization" element={<FactoringManager section="tokenization" />} />
+                        <Route path="factoring/distribution" element={<FactoringManager section="distribution" />} />
+
+                        {/* Project-specific Factoring Routes */}
+                        <Route path="/projects/:projectId/factoring/" element={<FactoringManager />} />
+                        <Route path="/projects/:projectId/factoring/dashboard" element={<FactoringManager section="dashboard" />} />
+                        <Route path="/projects/:projectId/factoring/invoices" element={<FactoringManager section="invoices" />} />
+                        <Route path="/projects/:projectId/factoring/pools" element={<FactoringManager section="pools" />} />
+                        <Route path="/projects/:projectId/factoring/tokenization" element={<FactoringManager section="tokenization" />} />
+                        <Route path="/projects/:projectId/factoring/distribution" element={<FactoringManager section="distribution" />} />
+
+                        {/* Climate Receivables Routes */}
+                        <Route path="climate-receivables/*" element={<ClimateReceivablesManager />} />
+
+                        {/* Project-specific Climate Receivables Routes */}
+                        <Route path="/projects/:projectId/climate-receivables/*" element={<ClimateReceivablesManager />} />
+
+                        {/* PSP Routes */}
+                        <Route path="psp/" element={<PspLayout />} />
+                        <Route path="psp/:section" element={<PspLayout />} />
+
+                        {/* Project-specific PSP Routes */}
+                        <Route path="/projects/:projectId/psp/" element={<PspLayout />} />
+                        <Route path="/projects/:projectId/psp/:section" element={<PspLayout />} />
+
+                        {/* Project-specific Cap Table Routes */}
+                        <Route path="/projects/:projectId/captable" element={<CapTableManagerNew />} />
+                        <Route path="/projects/:projectId/captable/investors" element={<CapTableManagerNew section="investors" />} />
+                        <Route path="/projects/:projectId/captable/subscriptions" element={<CapTableManagerNew section="subscriptions" />} />
+                        <Route path="/projects/:projectId/captable/allocations" element={<CapTableManagerNew section="allocations" />} />
+                        <Route path="/projects/:projectId/captable/distributions" element={<CapTableManagerNew section="distributions" />} />
+                        <Route path="/projects/:projectId/captable/minting" element={<CapTableManagerNew section="minting" />} />
+
+                        {/* Management and Reporting Routes */}
+                        <Route path="rule-management" element={<RuleManagementDashboard />} />
+                        <Route path="role-management" element={<RoleManagementDashboard />} />
+                        <Route path="mfa-settings" element={<MFALoginPage />} />
+                        <Route path="account/security" element={
+                          <UserMFAControls
+                            userId="current-user"
+                            userName="Current User"
+                            mfaEnabled={false}
+                          />
+                        } />
+                        <Route path="redemption" element={<RedemptionDashboard />} />
+                        <Route path="redemption/operations" element={<OperationsRedemptionPage />} />
+                        <Route path="redemption/configure" element={<RedemptionConfigurationWrapper />} />
+                        <Route path="redemption/windows" element={<RedemptionWindowWrapper />} />
+                        <Route path="redemption/request/:requestId" element={<RedemptionRequestDetailsPage />} />
+                        <Route path="redemption/calendar" element={<RedemptionEventsCalendar />} />
+                        <Route path="redemption/calendar/test" element={<CalendarIntegrationTest />} />
+
+                        <Route path="investors" element={<InvestorsList />} />
+                        <Route path="reports" element={<ReportsDashboard />} />
+
+                        {/* Policy Template Routes */}
+                        <Route path="templates" element={<PolicyTemplateDashboard />} />
+                        <Route path="templates/:templateId" element={<PolicyTemplateVersionManagement />} />
+                        <Route path="templates/:templateId/versions" element={<PolicyTemplateVersionManagement />} />
+
+                        {/* Compliance Routes - Moved inside MainLayout */}
+                        <Route path="compliance/investor-onboarding/*" element={<InvestorOnboarding />} />
+                        <Route path="compliance/issuer-onboarding" element={<IssuerOnboardingFlow />} />
+
+                        {/* Enhanced Upload Routes */}
+                        <Route path="compliance/upload/investor" element={<EnhancedInvestorUploadPage />} />
+                        <Route path="compliance/upload/issuer" element={<EnhancedIssuerUploadPage />} />
+
+                        {/* Organization Management Routes */}
+                        <Route path="compliance/management" element={<OrganizationManagementDashboard />} />
+                        <Route path="compliance/organization/:organizationId" element={<OrganizationDetailPage />} />
+                        <Route path="compliance/organization/:organizationId/edit" element={<OrganizationDetailPage />} />
+                        <Route path="compliance/organization/:organizationId/documents" element={<OrganizationDetailPage />} />
+
+                        {/* Investor Management Routes */}
+                        <Route path="compliance/management/investors" element={<InvestorManagementDashboardEnhanced />} />
+                        <Route path="compliance/investor/:investorId" element={<InvestorDetailPage />} />
+                        <Route path="compliance/investor/:investorId/edit" element={<InvestorDetailPage />} />
+                        <Route path="compliance/investor/:investorId/documents" element={<InvestorDetailPage />} />
+
+                        <Route path="compliance/operations/dashboard" element={<ComplianceDashboard />} />
+                        <Route path="compliance/documents" element={<DocumentManagement mode="issuer" entityId="general" />} />
+                        <Route path="compliance/rules" element={<RuleManagementDashboard />} />
+                        <Route path="compliance/restrictions" element={<RestrictionManager />} />
+                        <Route path="compliance/operations/investor/wallets" element={<WalletOperationsPage />} />
+                        <Route path="compliance/operations/investor/:projectId/wallets" element={<WalletOperationsPage />} />
+
+                        {/* Issuer Onboarding */}
+                        <Route path="compliance/issuer/onboarding/*" element={<IssuerOnboardingFlow />} />
+
+                        {/* Activity Monitoring Routes (Legacy) */}
+                        <Route path="activity" element={<ActivityMonitorPage />} />
+                        <Route path="activity/metrics" element={<ActivityMetricsPage />} />
+
+                        {/* NAV Engine Routes */}
+                        <Route path="nav" element={<NavDashboardPage />} />
+                        {/* Admin Configuration Routes */}
+                        <Route path="admin/sidebar-configuration" element={<SidebarAdminDashboard />} />
+                      </Route>
+
+                      {/* Fallback route */}
+                      <Route path="*" element={
+                        <div style={{ padding: "2rem", textAlign: "center" }}>
+                          <h1>Page Not Found</h1>
+                          <p>The route {window.location.pathname} doesn't exist.</p>
+                          <div style={{ marginTop: "2rem" }}>
+                            <a href="/" style={{ color: "blue", textDecoration: "underline" }}>Go Home</a>
+                          </div>
+                        </div>
+                      } />
+                    </Routes>
+                  </Suspense>
+                </NotificationProvider>
+              </UnifiedWalletProvider>
+            </WagmiRouteWrapper>
+          </AuditProvider>
+        </OrganizationProvider>
       </QueryClientProvider>
     </AuthProvider>
   );

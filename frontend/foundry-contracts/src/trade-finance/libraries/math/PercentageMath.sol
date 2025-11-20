@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title PercentageMath library
- * @author Aave
+ * @author Chain Capital
  * @notice Provides functions to perform percentage calculations
  * @dev Percentages are defined with 2 decimals of precision (10000 = 100.00%)
  * 

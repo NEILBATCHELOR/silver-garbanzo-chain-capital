@@ -102,40 +102,43 @@ export class InternalWalletService {
       '11155111': 'sepolia',
       '17000': 'holesky',
       '560048': 'hoodi',
-      
+
       // Polygon networks
       '137': 'polygon',
       '80002': 'amoy',
-      
+
       // Arbitrum networks
       '42161': 'arbitrum',
       '421614': 'arbitrum-sepolia',
-      
+
       // Avalanche networks
       '43114': 'avalanche',
       '43113': 'avalanche-testnet', // Fuji
-      
+
       // Optimism networks
       '10': 'optimism',
       '11155420': 'optimism-sepolia',
-      
+
       // Base networks
       '8453': 'base',
       '84532': 'base-sepolia',
-      
+
       // BSC networks
       '56': 'bsc',
       '97': 'bsc-testnet',
-      
+
       // zkSync networks
       '324': 'zksync',
       '300': 'zksync-sepolia',
-      
-      // Injective networks
-      '888': 'injective',
-      '1776': 'injective-testnet',
+
+      // Injective networks - Use Cosmos chain ID format (injective-888) and EVM chain IDs (1776/1439)
+      'injective-888': 'injective-testnet',  // Injective Cosmos Testnet (inj1... addresses)
+      '888': 'injective-testnet',            // Backward compatibility (legacy numeric format)
+      '1439': 'injective-testnet',           // Injective EVM Testnet (0x... addresses)
+      'injective-1': 'injective',            // Injective Cosmos Mainnet
+      '1776': 'injective',                   // Injective EVM Mainnet (0x... addresses)
     };
-    
+
     // Use chain_id if available
     if (chainId) {
       const chainIdStr = String(chainId);
@@ -143,7 +146,7 @@ export class InternalWalletService {
         return chainIdToNetwork[chainIdStr];
       }
     }
-    
+
     // Fall back to ethereum if chain ID not recognized
     return 'ethereum';
   }
@@ -388,7 +391,7 @@ export class InternalWalletService {
       let query = supabase
         .from('user_addresses')
         .select('*', { count: 'exact', head: true });
-      
+
       // If userId provided, filter by it
       if (userId) {
         query = query.eq('user_id', userId);
@@ -612,7 +615,7 @@ export class InternalWalletService {
       });
 
       console.log(`✅ Updated ${balances.length} wallet balance(s)`);
-      
+
       // Return the updated wallets
       return allWallets;
     } catch (error) {

@@ -7,7 +7,6 @@
 
 // Get API keys from environment variables with fallbacks
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || 'Z3UXs7SblJNf-xGhHBc63iDRi9xqWCYP';
-const QUICKNODE_API_KEY = import.meta.env.VITE_QUICKNODE_API_KEY || '5dc455368b6e13a2f7885bd651641ef622fe2151';
 
 // RPC endpoint configuration - matching the user's .env variables
 export const RPC_CONFIG = {
@@ -55,32 +54,31 @@ export const RPC_CONFIG = {
   
   // Bitcoin Networks
   bitcoin: {
-    mainnet: `https://proud-skilled-fog.blast-mainnet.quiknode.pro/${QUICKNODE_API_KEY}`,
-    testnet: `https://proud-skilled-fog.btc-testnet.quiknode.pro/${QUICKNODE_API_KEY}`
+    mainnet: `https://bitcoin-rpc.publicnode.com`,
   },
   
   // Aptos Networks
   aptos: {
-    mainnet: `https://proud-skilled-fog.aptos-mainnet.quiknode.pro/${QUICKNODE_API_KEY}`,
-    testnet: `https://proud-skilled-fog.aptos-testnet.quiknode.pro/${QUICKNODE_API_KEY}`
+    mainnet: `https://aptos-rpc.publicnode.com`,
+    testnet: `https://fullnode.testnet.aptoslabs.com/v1`
   },
   
   // Sui Networks
   sui: {
-    mainnet: `https://proud-skilled-fog.sui-mainnet.quiknode.pro/${QUICKNODE_API_KEY}`,
-    testnet: `https://proud-skilled-fog.sui-testnet.quiknode.pro/${QUICKNODE_API_KEY}`
+    mainnet: `https://sui-rpc.publicnode.com`,
+    testnet: `https://sui-testnet-rpc.publicnode.com`
   },
   
   // NEAR Networks
   near: {
-    mainnet: `https://proud-skilled-fog.near-mainnet.quiknode.pro/${QUICKNODE_API_KEY}`,
-    testnet: `https://proud-skilled-fog.near-testnet.quiknode.pro/${QUICKNODE_API_KEY}`
+    mainnet: `https://rpc.mainnet.near.org`,
+    testnet: `https://rpc.testnet.near.org`
   },
   
-  // Avalanche Networks
+  // Avalanche Networks - Use Alchemy instead of disabled QuickNode
   avalanche: {
-    mainnet: `https://proud-skilled-fog.avalanche-mainnet.quiknode.pro/${QUICKNODE_API_KEY}/ext/bc/C/rpc/`,
-    testnet: `https://proud-skilled-fog.avalanche-testnet.quiknode.pro/${QUICKNODE_API_KEY}/ext/bc/C/rpc/`
+    mainnet: `https://avax-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    testnet: `https://avax-fuji.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
   },
   
   // Mantle Networks
@@ -95,10 +93,10 @@ export const RPC_CONFIG = {
     testnet: "https://testnet.hashio.io/api"
   },
   
-  // Injective Networks
+  // Injective EVM Networks (EVM-compatible endpoints, not Cosmos RPC)
   injective: {
-    mainnet: "https://sentry.tm.injective.network:443",
-    testnet: "https://testnet.sentry.tm.injective.network:443"
+    mainnet: "https://sentry.evm-rpc.injective.network",
+    testnet: "https://k8s.testnet.json-rpc.injective.network"
   },
   
   // Holesky and Hoodi Testnets

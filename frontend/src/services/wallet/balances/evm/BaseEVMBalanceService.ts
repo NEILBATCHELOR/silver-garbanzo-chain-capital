@@ -24,6 +24,11 @@ export abstract class BaseEVMBalanceService extends BaseChainBalanceService {
     // Create provider if not exists
     if (!this.provider) {
       try {
+        // Ensure chainId is numeric for EVM chains
+        if (typeof this.config.chainId !== 'number') {
+          throw new Error(`EVM chains require numeric chainId, got: ${this.config.chainId}`);
+        }
+
         // Create JsonRpcProvider with explicit URL and network config
         // staticNetwork prevents ethers from trying to detect network via wallet
         this.provider = new ethers.JsonRpcProvider(
@@ -90,22 +95,22 @@ export abstract class BaseEVMBalanceService extends BaseChainBalanceService {
       for (const tokenConfig of tokenContracts) {
         try {
           const contract = new ethers.Contract(tokenConfig.address, erc20ABI, provider);
-          
+
           // Add timeout to prevent hanging
           const balancePromise = contract.balanceOf(address);
-          const timeoutPromise = new Promise((_, reject) => 
+          const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Token balance timeout')), 3000)
           );
-          
+
           const balance = await Promise.race([balancePromise, timeoutPromise]) as bigint;
-          
+
           if (balance > 0n) {
             const balanceFormatted = ethers.formatUnits(balance, tokenConfig.decimals);
             const numericBalance = parseFloat(balanceFormatted);
-            
+
             if (numericBalance > 0.000001) {
               const tokenPrice = await this.getTokenPrice(tokenConfig.symbol);
-              
+
               tokens.push({
                 symbol: tokenConfig.symbol,
                 balance: balanceFormatted,

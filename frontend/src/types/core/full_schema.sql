@@ -18494,7 +18494,9 @@ CREATE TABLE public.project_wallets (
     project_wallet_name text,
     non_evm_network text,
     bitcoin_network_type text,
-    wallet_type text
+    wallet_type text,
+    evm_address text,
+    evm_chain_id text
 );
 
 
@@ -18541,46 +18543,17 @@ COMMENT ON COLUMN public.project_wallets.wallet_type IS 'Role/purpose of the wal
 
 
 --
--- Name: project_wallets_backup_do_not_use; Type: TABLE; Schema: public; Owner: -
+-- Name: COLUMN project_wallets.evm_address; Type: COMMENT; Schema: public; Owner: -
 --
 
-CREATE TABLE public.project_wallets_backup_do_not_use (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
-    project_id uuid NOT NULL,
-    wallet_type text NOT NULL,
-    wallet_address text NOT NULL,
-    public_key text NOT NULL,
-    private_key text,
-    mnemonic text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    chain_id text,
-    net text,
-    private_key_vault_id uuid,
-    mnemonic_vault_id uuid,
-    project_wallet_name text
-);
+COMMENT ON COLUMN public.project_wallets.evm_address IS 'EVM address (0x...) corresponding to Injective bech32 address (inj1...)';
 
 
 --
--- Name: TABLE project_wallets_backup_do_not_use; Type: COMMENT; Schema: public; Owner: -
+-- Name: COLUMN project_wallets.evm_chain_id; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.project_wallets_backup_do_not_use IS 'This is a backup of project_wallets DO NOT USE';
-
-
---
--- Name: COLUMN project_wallets_backup_do_not_use.private_key_vault_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.project_wallets_backup_do_not_use.private_key_vault_id IS 'Foreign key to key_vault_keys.id for the private key record (key_type = project_private_key)';
-
-
---
--- Name: COLUMN project_wallets_backup_do_not_use.mnemonic_vault_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.project_wallets_backup_do_not_use.mnemonic_vault_id IS 'Foreign key to key_vault_keys.id for the mnemonic record (key_type = project_mnemonic)';
+COMMENT ON COLUMN public.project_wallets.evm_chain_id IS 'EVM chain ID for networks with EVM compatibility (e.g., Injective EVM: 1776 mainnet, 1439 testnet)';
 
 
 --
@@ -30602,22 +30575,6 @@ ALTER TABLE ONLY public.project_organization_assignments
 
 
 --
--- Name: project_wallets_backup_do_not_use project_wallets_duplicate_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_wallets_backup_do_not_use
-    ADD CONSTRAINT project_wallets_duplicate_pkey PRIMARY KEY (id);
-
-
---
--- Name: project_wallets_backup_do_not_use project_wallets_duplicate_wallet_address_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_wallets_backup_do_not_use
-    ADD CONSTRAINT project_wallets_duplicate_wallet_address_key UNIQUE (wallet_address);
-
-
---
 -- Name: project_wallets project_wallets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -37198,6 +37155,13 @@ CREATE INDEX idx_key_vault_keys_key_type ON public.key_vault_keys USING btree (k
 
 
 --
+-- Name: idx_key_vault_keys_metadata; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_key_vault_keys_metadata ON public.key_vault_keys USING gin (metadata);
+
+
+--
 -- Name: idx_key_vault_keys_project_wallet_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38987,6 +38951,20 @@ CREATE INDEX idx_project_organization_assignments_project_id ON public.project_o
 --
 
 CREATE INDEX idx_project_organization_assignments_relationship_type ON public.project_organization_assignments USING btree (relationship_type);
+
+
+--
+-- Name: idx_project_wallets_evm_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_wallets_evm_address ON public.project_wallets USING btree (evm_address) WHERE (evm_address IS NOT NULL);
+
+
+--
+-- Name: idx_project_wallets_evm_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_wallets_evm_chain_id ON public.project_wallets USING btree (evm_chain_id) WHERE (evm_chain_id IS NOT NULL);
 
 
 --
@@ -42466,34 +42444,6 @@ CREATE INDEX profiles_profile_type_idx ON public.profiles USING btree (profile_t
 --
 
 CREATE INDEX profiles_user_id_idx ON public.profiles USING btree (user_id);
-
-
---
--- Name: project_wallets_duplicate_mnemonic_vault_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX project_wallets_duplicate_mnemonic_vault_id_idx ON public.project_wallets_backup_do_not_use USING btree (mnemonic_vault_id);
-
-
---
--- Name: project_wallets_duplicate_private_key_vault_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX project_wallets_duplicate_private_key_vault_id_idx ON public.project_wallets_backup_do_not_use USING btree (private_key_vault_id);
-
-
---
--- Name: project_wallets_duplicate_project_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX project_wallets_duplicate_project_id_idx ON public.project_wallets_backup_do_not_use USING btree (project_id);
-
-
---
--- Name: project_wallets_duplicate_wallet_type_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX project_wallets_duplicate_wallet_type_idx ON public.project_wallets_backup_do_not_use USING btree (wallet_type);
 
 
 --
@@ -46463,30 +46413,6 @@ ALTER TABLE ONLY public.project_organization_assignments
 
 ALTER TABLE ONLY public.project_organization_assignments
     ADD CONSTRAINT project_organization_assignments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
-
-
---
--- Name: project_wallets_backup_do_not_use project_wallets_duplicate_mnemonic_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_wallets_backup_do_not_use
-    ADD CONSTRAINT project_wallets_duplicate_mnemonic_vault_id_fkey FOREIGN KEY (mnemonic_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE RESTRICT;
-
-
---
--- Name: project_wallets_backup_do_not_use project_wallets_duplicate_private_key_vault_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_wallets_backup_do_not_use
-    ADD CONSTRAINT project_wallets_duplicate_private_key_vault_id_fkey FOREIGN KEY (private_key_vault_id) REFERENCES public.key_vault_keys(id) ON DELETE RESTRICT;
-
-
---
--- Name: project_wallets_backup_do_not_use project_wallets_duplicate_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_wallets_backup_do_not_use
-    ADD CONSTRAINT project_wallets_duplicate_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -53632,16 +53558,6 @@ GRANT ALL ON TABLE public.project_wallets TO anon;
 GRANT ALL ON TABLE public.project_wallets TO authenticated;
 GRANT ALL ON TABLE public.project_wallets TO service_role;
 GRANT ALL ON TABLE public.project_wallets TO prisma;
-
-
---
--- Name: TABLE project_wallets_backup_do_not_use; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO anon;
-GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO authenticated;
-GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO service_role;
-GRANT ALL ON TABLE public.project_wallets_backup_do_not_use TO prisma;
 
 
 --

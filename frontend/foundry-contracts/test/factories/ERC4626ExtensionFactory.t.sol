@@ -102,7 +102,7 @@ contract ERC4626ExtensionFactoryTest is Test {
         assertEq(uint(supported[2]), uint(ExtensionRegistry.ExtensionType.FEE_STRATEGY));
         assertEq(uint(supported[3]), uint(ExtensionRegistry.ExtensionType.ASYNC_VAULT));
         assertEq(uint(supported[4]), uint(ExtensionRegistry.ExtensionType.NATIVE_VAULT));
-        assertEq(uint(supported[5]), uint(ExtensionRegistry.ExtensionType.ROUTER));
+        assertEq(uint(supported[5]), uint(ExtensionRegistry.ExtensionType.VAULT_ROUTER));
         assertEq(uint(supported[6]), uint(ExtensionRegistry.ExtensionType.MULTI_ASSET_VAULT));
     }
     
@@ -221,7 +221,7 @@ contract ERC4626ExtensionFactoryTest is Test {
         
         address registered = registry.getTokenExtensionByType(
             mockVault,
-            ExtensionRegistry.ExtensionType.ROUTER
+            ExtensionRegistry.ExtensionType.VAULT_ROUTER
         );
         assertEq(registered, routerExtension);
     }

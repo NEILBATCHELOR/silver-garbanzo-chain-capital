@@ -29,6 +29,7 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
+import contractDeploymentRoutes from './src/routes/contract-deployment'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes } from './src/routes/nav/index'
 
 // PSP (Payment Service Provider) Routes (10 services)
@@ -81,7 +82,7 @@ const SERVICE_CATALOG = {
         description: 'Project lifecycle management, analytics, and reporting'
       },
       {
-        name: 'Investors', 
+        name: 'Investors',
         endpoints: 20,
         routes: [
           'GET /investors (list)', 'GET /investors/:id (get)', 'POST /investors (create)',
@@ -288,10 +289,30 @@ const SERVICE_CATALOG = {
         operations: ['Encryption', 'Decryption', 'Secure Storage', 'Key Rotation', 'Backup'],
         prefix: '/api/wallet',
         description: 'Wallet encryption and secure key management services'
+      },
+      {
+        name: 'Contract Deployment',
+        endpoints: 3,
+        routes: [
+          'POST /api/contract-deployment/deploy (deploy-contracts)',
+          'GET /api/contract-deployment/progress/:id (get-progress)',
+          'GET /api/contract-deployment/contract-types (list-25-contract-types)'
+        ],
+        operations: ['Smart Contract Deployment', 'Progress Tracking', 'Multi-Network Support', 'Factory Architecture'],
+        prefix: '/api/contract-deployment',
+        description: 'Foundry smart contract deployment - 25 contracts: 6 Token Factories, 6 Extension Factories (33 extension types), 6 Master Implementations, 7 Infrastructure contracts',
+        contract_types: {
+          token_factories: ['ERC20Factory', 'ERC721Factory', 'ERC1155Factory', 'ERC3525Factory', 'ERC4626Factory', 'ERC1400Factory'],
+          extension_factories: ['ERC20Extensions (10 types)', 'ERC721Extensions (7 types)', 'ERC1155Extensions (3 types)', 'ERC3525Extensions (3 types)', 'ERC4626Extensions (7 types)', 'ERC1400Extensions (3 types)'],
+          master_implementations: ['ERC20Master', 'ERC721Master', 'ERC1155Master', 'ERC3525Master', 'ERC4626Master', 'ERC1400Master'],
+          infrastructure: ['UniversalExtensionFactory', 'ExtensionRegistry', 'TokenRegistry', 'PolicyEngine', 'UpgradeGovernor', 'BeaconProxyFactory', 'MultiSigWalletFactory']
+        },
+        total_deployable_contracts: 25,
+        extension_types: 33
       }
     ],
-    total_endpoints: 79,
-    total_services: 3
+    total_endpoints: 90,
+    total_services: 4
   },
   compliance_governance: {
     category: 'Compliance & Governance',
@@ -589,7 +610,7 @@ async function buildApp(): Promise<FastifyInstance> {
     await app.register(import('@fastify/cors'), {
       origin: [
         'http://localhost:3000',
-        'http://localhost:3001', 
+        'http://localhost:3001',
         'http://localhost:5173',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
@@ -614,7 +635,7 @@ async function buildApp(): Promise<FastifyInstance> {
 
     // Register authentication middleware
     await app.register(import('./src/middleware/auth/jwt-auth'))
-    
+
     // Register PSP API key authentication middleware
     await app.register(import('./src/middleware/pspApiKeyAuth'))
 
@@ -693,7 +714,7 @@ Comprehensive platform supporting:
     })
 
   } catch (error) {
-    logger.error('Plugin registration failed:', error)
+    logger.error({ error }, 'Plugin registration failed')
     throw error
   }
 
@@ -703,7 +724,7 @@ Comprehensive platform supporting:
       const { checkDatabaseHealth } = await import('./src/infrastructure/database/client')
       const dbHealth = await checkDatabaseHealth()
       const memUsage = process.memoryUsage()
-      
+
       return reply.send({
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -712,9 +733,9 @@ Comprehensive platform supporting:
         version: '2.0.0',
         database: dbHealth.status,
         uptime: Math.floor(process.uptime()),
-        services: { 
-          database: 'connected', 
-          api: 'operational', 
+        services: {
+          database: 'connected',
+          api: 'operational',
           swagger: 'available',
           psp: 'operational',
           total_services: TOTAL_SERVICES,
@@ -758,7 +779,7 @@ Comprehensive platform supporting:
       capabilities: [
         'Asset Tokenization & Management',
         'Investor Onboarding & KYC/AML',
-        'Multi-Signature Wallet Infrastructure', 
+        'Multi-Signature Wallet Infrastructure',
         'Smart Contract Deployment',
         'Bond NAV Calculations & Analytics',
         'Regulatory Compliance & Reporting',
@@ -776,10 +797,10 @@ Comprehensive platform supporting:
         services: SERVICE_CATALOG[key as keyof typeof SERVICE_CATALOG].total_services,
         endpoints: SERVICE_CATALOG[key as keyof typeof SERVICE_CATALOG].total_endpoints
       })),
-      quick_access: { 
-        health: '/health', 
-        docs: '/docs', 
-        ready: '/ready', 
+      quick_access: {
+        health: '/health',
+        docs: '/docs',
+        ready: '/ready',
         api: '/api/v1',
         psp: '/api/psp',
         services: '/debug/services',
@@ -793,17 +814,17 @@ Comprehensive platform supporting:
     try {
       const { checkDatabaseHealth } = await import('./src/infrastructure/database/client')
       const dbHealth = await checkDatabaseHealth()
-      return reply.send({ 
-        status: 'ready', 
-        database: dbHealth.status, 
+      return reply.send({
+        status: 'ready',
+        database: dbHealth.status,
         services: TOTAL_SERVICES,
         endpoints: TOTAL_ENDPOINTS,
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString()
       })
     } catch (error) {
-      return reply.status(503).send({ 
-        status: 'not_ready', 
-        reason: error instanceof Error ? error.message : 'Unknown error' 
+      return reply.status(503).send({
+        status: 'not_ready',
+        reason: error instanceof Error ? error.message : 'Unknown error'
       })
     }
   })
@@ -821,8 +842,9 @@ Comprehensive platform supporting:
     await app.register(documentRoutes, { prefix: apiPrefix })
     await app.register(walletRoutes, { prefix: apiPrefix })
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
+    await app.register(contractDeploymentRoutes)  // Contract deployment at /api/contract-deployment/*
     await app.register(calendarRoutes, { prefix: apiPrefix })
-    
+
     // NAV routes (includes bond and MMF data input and calculations)
     await app.register(bondDataInputRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(bondCalculationRoutes, { prefix: `${apiPrefix}/nav` })
@@ -846,13 +868,13 @@ Comprehensive platform supporting:
     // PSP (Payment Service Provider) routes - 10 services, 50 endpoints
     // Auth routes don't need authentication (they create/manage API keys)
     await app.register(authPspRoutes)  // Handles /api/psp/auth/*
-    
+
     // All other PSP routes require API key authentication
     // TEMPORARY: Disabled for development - TODO: Re-enable after API key creation UI is ready
     await app.register(async (fastify) => {
       // COMMENTED OUT: API key validation temporarily disabled for development
       // await fastify.register(pspApiKeyPlugin)
-      
+
       // Register PSP routes (currently accessible without API key for development)
       await fastify.register(balancesPspRoutes)  // Handles /api/psp/balances and /api/psp/wallets
       await fastify.register(externalAccountsPspRoutes)  // Handles /api/psp/external-accounts/*
@@ -866,7 +888,7 @@ Comprehensive platform supporting:
     })
 
   } catch (error) {
-    logger.error('Route registration failed:', error)
+    logger.error({ error }, 'Route registration failed')
     throw error
   }
 
@@ -916,7 +938,7 @@ Comprehensive platform supporting:
         },
         development_endpoints: {
           routes: '/debug/routes',
-          services: '/debug/services', 
+          services: '/debug/services',
           catalog: '/debug/catalog'
         },
         timestamp: new Date().toISOString()
@@ -961,7 +983,7 @@ Comprehensive platform supporting:
  */
 async function start() {
   let app: FastifyInstance | null = null
-  
+
   try {
     console.log('🚀 Chain Capital Enhanced Accurate Server Starting...')
     console.log('📍 Port:', PORT)
@@ -982,15 +1004,23 @@ async function start() {
     // Start server
     console.log(`🌐 Starting server on ${HOST}:${PORT}...`)
     await app.listen({ port: PORT, host: HOST })
-    
+
     // Success!
     console.log('')
     console.log('🎉 SUCCESS! Enhanced accurate server started with all services')
     console.log('')
+    console.log('🏭 FACTORY ARCHITECTURE ACTIVE:')
+    console.log('   🔧 25 Deployable Contracts:')
+    console.log('      • 6 Token Factories (ERC20, ERC721, ERC1155, ERC3525, ERC4626, ERC1400)')
+    console.log('      • 6 Extension Factories (33 total extension types)')
+    console.log('      • 6 Master Implementations (UUPS upgradeable)')
+    console.log('      • 7 Infrastructure Contracts (Registry, Governance, Beacon)')
+    console.log('   📡 Endpoint: /api/contract-deployment/contract-types')
+    console.log('')
     console.log(`📊 AVAILABLE SERVICES (${TOTAL_SERVICES}):`)
     console.log('   🏢 Core Business (6): Projects, Investors, Cap Tables, Tokens, Subscriptions, Documents')
     console.log('   📊 NAV Operations (5): Bond Data Input, Bond Calculations, MMF Data, MMF Calcs, MMF Enhancements')
-    console.log('   💰 Financial Ops (3): Wallets, Factoring, Wallet Encryption')
+    console.log('   💰 Financial Ops (4): Wallets, Factoring, Wallet Encryption, Contract Deployment (25 contracts: 6 factories, 6 extensions, 6 masters, 7 infrastructure)')
     console.log('   ⚖️  Compliance (4): Compliance, Organizations, Policies, Rules')
     console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
     console.log('   💳 PSP Services (10): Auth, Balances, External Accounts, Identity, Payments, Settings, Trades, Transactions, Virtual Accounts, Webhooks')
@@ -1028,11 +1058,11 @@ async function start() {
 
     process.on('SIGTERM', () => shutdown('SIGTERM'))
     process.on('SIGINT', () => shutdown('SIGINT'))
-    
+
   } catch (error: any) {
     console.error('\n❌ STARTUP FAILED:')
     console.error('Error:', error?.message || error)
-    
+
     if (error?.code === 'EADDRINUSE') {
       console.error(`\n🔴 Port ${PORT} is already in use!`)
       console.error('Solutions:')
@@ -1053,7 +1083,7 @@ async function start() {
         stack: error?.stack
       })
     }
-    
+
     process.exit(1)
   }
 }

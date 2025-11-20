@@ -41,7 +41,14 @@ import ERC3525MasterArtifact from '../../../../foundry-contracts/out/ERC3525Mast
 import ERC4626MasterArtifact from '../../../../foundry-contracts/out/ERC4626Master.sol/ERC4626Master.json';
 import ERC1400MasterArtifact from '../../../../foundry-contracts/out/ERC1400Master.sol/ERC1400Master.json';
 import ERC20RebasingMasterArtifact from '../../../../foundry-contracts/out/ERC20RebasingMaster.sol/ERC20RebasingMaster.json';
-import TokenFactoryArtifact from '../../../../foundry-contracts/out/TokenFactory.sol/TokenFactory.json';
+
+// Import specialized factory artifacts (replaced monolithic TokenFactory)
+import ERC20FactoryArtifact from '../../../../foundry-contracts/out/ERC20Factory.sol/ERC20Factory.json';
+import ERC721FactoryArtifact from '../../../../foundry-contracts/out/ERC721Factory.sol/ERC721Factory.json';
+import ERC1155FactoryArtifact from '../../../../foundry-contracts/out/ERC1155Factory.sol/ERC1155Factory.json';
+import ERC3525FactoryArtifact from '../../../../foundry-contracts/out/ERC3525Factory.sol/ERC3525Factory.json';
+import ERC4626FactoryArtifact from '../../../../foundry-contracts/out/ERC4626Factory.sol/ERC4626Factory.json';
+import ERC1400FactoryArtifact from '../../../../foundry-contracts/out/ERC1400Factory.sol/ERC1400Factory.json';
 
 /**
  * Extract ABI from Foundry artifact
@@ -875,9 +882,14 @@ export class FoundryDeploymentService {
     params: FoundryDeploymentParams,
     factoryAddress: string
   ): Promise<DeployedContract> {
+    const normalizedType = this.normalizeTokenType(params.tokenType);
+    
+    // Get the appropriate factory artifact based on token type
+    const factoryArtifact = this.getFactoryArtifact(normalizedType);
+    
     const factory = new ethers.Contract(
       factoryAddress, 
-      getABI(TokenFactoryArtifact), 
+      getABI(factoryArtifact), 
       wallet
     );
     
@@ -902,7 +914,6 @@ export class FoundryDeploymentService {
       'EnhancedERC1400': 'deployERC1400Token',
     };
 
-    const normalizedType = this.normalizeTokenType(params.tokenType);
     const methodName = tokenTypeMap[normalizedType];
     if (!methodName) {
       throw new Error(`Unsupported token type: ${params.tokenType}`);
@@ -976,6 +987,38 @@ export class FoundryDeploymentService {
       receipt.blockNumber,
       receipt.blockHash
     );
+  }
+
+  /**
+   * Get the appropriate factory artifact based on token type
+   */
+  private getFactoryArtifact(tokenType: string): any {
+    switch (tokenType) {
+      case 'ERC20':
+      case 'EnhancedERC20':
+        return ERC20FactoryArtifact;
+      case 'ERC721':
+      case 'EnhancedERC721':
+        return ERC721FactoryArtifact;
+      case 'ERC1155':
+      case 'EnhancedERC1155':
+        return ERC1155FactoryArtifact;
+      case 'ERC3525':
+      case 'EnhancedERC3525':
+        return ERC3525FactoryArtifact;
+      case 'ERC4626':
+      case 'EnhancedERC4626':
+        return ERC4626FactoryArtifact;
+      case 'ERC1400':
+      case 'BaseERC1400':
+      case 'EnhancedERC1400':
+        return ERC1400FactoryArtifact;
+      case 'ERC20Rebasing':
+        // ERC20Rebasing might use ERC20Factory or have its own - adjust as needed
+        return ERC20FactoryArtifact;
+      default:
+        throw new Error(`No factory artifact available for token type: ${tokenType}`);
+    }
   }
 
   /**

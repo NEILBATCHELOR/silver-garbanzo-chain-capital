@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
 } from "@/components/ui/card";
 import {
   Table,
@@ -101,12 +101,12 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
-  
+
   // Wallet name editing state
   const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
   const [editingWalletName, setEditingWalletName] = useState('');
   const [savingWalletName, setSavingWalletName] = useState(false);
-  
+
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -117,10 +117,18 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const fetchWallets = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
+      console.log(`📥 Fetching wallets for project: ${projectId}`);
       const walletData = await projectWalletService.getProjectWallets(projectId);
-      
+      console.log(`📦 Retrieved ${walletData.length} wallets from database:`, walletData.map(w => ({
+        id: w.id,
+        address: w.wallet_address.substring(0, 10) + '...',
+        chain_id: w.chain_id,
+        wallet_type: w.wallet_type,
+        non_evm_network: w.non_evm_network
+      })));
+
       const initializedWallets = walletData.map(wallet => ({
         ...wallet,
         isLoadingBalance: false,
@@ -129,16 +137,17 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
         wallet_type: deriveWalletType(wallet.chain_id, wallet.non_evm_network),
         environment: wallet.chain_id ? getNetworkEnvironment(wallet.chain_id) : undefined,
       }));
-      
+
+      console.log(`✅ Initialized ${initializedWallets.length} wallets with derived wallet_type`);
       setWallets(initializedWallets);
-      
+
       // Auto-load balances after wallets are fetched
       if (initializedWallets.length > 0) {
         setTimeout(() => {
           fetchBalances(false);
         }, 100);
       }
-      
+
     } catch (err) {
       console.error('Error fetching project wallets:', err);
       setError('Failed to load project wallets');
@@ -157,7 +166,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     if (fetchingBalances || wallets.length === 0) return;
 
     setFetchingBalances(true);
-    
+
     console.log(`🔄 Fetching balances for ${wallets.length} wallet addresses (project-specific networks)${forceRefresh ? ' (force refresh)' : ''}`);
 
     try {
@@ -165,7 +174,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
       const walletsToFetch = wallets.map(w => {
         // Start with the wallet type as base
         let networkKey = w.wallet_type.toLowerCase();
-        
+
         // Use chain_id to determine the specific network
         // This maps chain IDs to the correct balance service keys
         const chainIdToNetwork: Record<string, string> = {
@@ -174,42 +183,45 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           '11155111': 'sepolia',
           '17000': 'holesky',
           '560048': 'hoodi',
-          
+
           // Polygon networks
           '137': 'polygon',
           '80002': 'amoy',
-          
+
           // Arbitrum networks
           '42161': 'arbitrum',
           '421614': 'arbitrum-sepolia',
-          
+
           // Avalanche networks
           '43114': 'avalanche',
           '43113': 'avalanche-testnet', // Fuji
-          
+
           // Optimism networks
           '10': 'optimism',
           '11155420': 'optimism-sepolia',
-          
+
           // Base networks
           '8453': 'base',
           '84532': 'base-sepolia',
-          
+
           // BSC networks
           '56': 'bsc',
           '97': 'bsc-testnet',
-          
+
           // zkSync networks
           '324': 'zksync',
           '300': 'zksync-sepolia',
-          
-          // Injective networks
-          '888': 'injective',
-          '1776': 'injective-testnet', // injective-888 testnet
-          
+
+          // Injective networks - Support both numeric EVM chain IDs and Cosmos chain IDs
+          '888': 'injective-testnet',      // Injective Cosmos Testnet (numeric)
+          'injective-888': 'injective-testnet',  // Injective Cosmos Testnet (Cosmos format)
+          '1776': 'injective',             // Injective EVM Mainnet
+          'injective-1': 'injective',      // Injective Mainnet (Cosmos format)
+          '1439': 'injective-testnet',     // Injective EVM Testnet chain ID
+
           // Add more chain IDs as needed
         };
-        
+
         // Use chain_id if available
         if (w.chain_id) {
           const chainIdStr = String(w.chain_id);
@@ -230,38 +242,38 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           networkKey = `${w.wallet_type}-testnet`;
           console.log(`🧪 Derived testnet network: ${networkKey}`);
         }
-        
+
         return {
           address: w.wallet_address.toLowerCase(),
           walletType: networkKey
         };
       });
-      
+
       console.log(`📋 Fetching balances for ${walletsToFetch.length} wallet(s) with specific chain types`);
       console.log('🔍 Wallet mappings:', walletsToFetch);
-      
+
       // Fetch all balances using the new method that respects wallet-specific chains
       const allBalances = await balanceService.fetchBalancesForWallets(walletsToFetch);
-      
+
       // Create a map to store balances by address
       const addressBalancesMap = new Map<string, WalletBalance[]>();
-      
+
       allBalances.forEach(balance => {
         const existing = addressBalancesMap.get(balance.address) || [];
         addressBalancesMap.set(balance.address, [...existing, balance]);
       });
-      
+
       console.log(`✅ Found ${allBalances.length} total balance(s) across ${addressBalancesMap.size} address(es)`);
 
       // Update wallet data with found balances
       setWallets(prev => prev.map(wallet => {
         const addressBalances = addressBalancesMap.get(wallet.wallet_address.toLowerCase());
-        
+
         if (addressBalances && addressBalances.length > 0) {
           // Find the most relevant balance for this wallet:
           // Try to match by network name or use the first available balance
           const balance = addressBalances[0];
-          
+
           return {
             ...wallet,
             balance,
@@ -269,7 +281,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             balanceError: undefined
           };
         }
-        
+
         // No balance found - return wallet with zero balance
         return {
           ...wallet,
@@ -280,7 +292,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
       }));
 
       setLastFetchTime(new Date());
-      
+
       const totalBalances = Array.from(addressBalancesMap.values()).reduce((sum, arr) => sum + arr.length, 0);
       if (forceRefresh) {
         toast({
@@ -288,10 +300,10 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           description: `Found ${totalBalances} balance(s) across all networks`,
         });
       }
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       if (errorMessage.includes('Rate limited')) {
         toast({
           title: "Rate Limited",
@@ -322,20 +334,24 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
       console.log('⏰ Auto-refreshing balances...');
       fetchBalances(false);
     }, 15 * 60 * 1000);
-    
+
     return () => clearInterval(interval);
   }, [fetchBalances]);
 
   // Sort and filter wallets
   const sortedAndFilteredWallets = useMemo(() => {
+    console.log(`🔍 Filtering ${wallets.length} wallets with search: "${debouncedSearch}"`);
+
     let filtered = wallets.filter(wallet => {
-      // Search filter only
+      // Search filter only - defensive coding for wallet_type
       const matchesSearch = debouncedSearch === '' ||
-        wallet.wallet_address.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        wallet.wallet_type.toLowerCase().includes(debouncedSearch.toLowerCase());
+        wallet.wallet_address?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (wallet.wallet_type || '').toLowerCase().includes(debouncedSearch.toLowerCase());
 
       return matchesSearch;
     });
+
+    console.log(`✅ After filtering: ${filtered.length} wallets match`);
 
     // Sort wallets
     filtered.sort((a, b) => {
@@ -371,7 +387,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
 
   const handleDeleteWallet = async () => {
     if (!walletToDelete) return;
-    
+
     try {
       await projectWalletService.deleteProjectWallet(walletToDelete);
       setWallets(wallets.filter(wallet => wallet.id !== walletToDelete));
@@ -412,7 +428,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
 
     // Check if encrypted
     const isEncrypted = WalletEncryptionClient.isEncrypted(wallet.private_key);
-    
+
     if (isEncrypted) {
       // Need to decrypt first
       if (decryptedPrivateKeys[walletId]) {
@@ -469,7 +485,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
 
     // Check if encrypted
     const isEncrypted = WalletEncryptionClient.isEncrypted(wallet.mnemonic);
-    
+
     if (isEncrypted) {
       // Need to decrypt first
       if (decryptedMnemonics[walletId]) {
@@ -514,7 +530,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
   const copyToClipboard = async (text: string, label: string, walletId?: string, isPrivateKey?: boolean, isMnemonic?: boolean) => {
     try {
       let textToCopy = text;
-      
+
       // If it's encrypted and we have a decrypted version, use that
       if (walletId) {
         if (isPrivateKey && decryptedPrivateKeys[walletId]) {
@@ -530,7 +546,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           textToCopy = await WalletEncryptionClient.decrypt(text);
         }
       }
-      
+
       await navigator.clipboard.writeText(textToCopy);
       toast({
         title: "Copied",
@@ -569,18 +585,18 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
 
     setSavingWalletName(true);
     try {
-      await projectWalletService.updateProjectWallet(walletId, { 
-        project_wallet_name: editingWalletName.trim() 
+      await projectWalletService.updateProjectWallet(walletId, {
+        project_wallet_name: editingWalletName.trim()
       });
-      
+
       // Update local state
-      setWallets(prev => prev.map(w => 
+      setWallets(prev => prev.map(w =>
         w.id === walletId ? { ...w, project_wallet_name: editingWalletName.trim() } : w
       ));
-      
+
       setEditingWalletId(null);
       setEditingWalletName('');
-      
+
       toast({
         title: "Success",
         description: "Wallet name updated successfully",
@@ -627,14 +643,14 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
     const { balance } = wallet;
     const hasTokens = balance.tokens.length > 0;
     const isTestnet = balance.isTestnet;
-    
+
     return (
       <div className="space-y-1">
         {/* Native Balance */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">
             {BalanceFormatter.formatBalance(
-              balance.nativeBalance, 
+              balance.nativeBalance,
               balance.network.toUpperCase(),
               { showFullPrecision: true, useAbbreviation: false }
             )}
@@ -647,7 +663,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             )}
           </span>
         </div>
-        
+
         {/* Token Details - Show actual amounts and symbols */}
         {hasTokens && (
           <div className="text-xs text-muted-foreground space-y-0.5">
@@ -674,7 +690,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             )}
           </div>
         )}
-        
+
         {/* Total Value (mainnet only) */}
         {!isTestnet && balance.totalValueUsd > 0 && (
           <div className="text-sm font-semibold text-green-600 pt-1 border-t border-muted">
@@ -779,9 +795,9 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             )}
 
             {/* Force Refresh Button */}
-            <Button 
+            <Button
               variant="outline"
-              onClick={() => fetchBalances(true)} 
+              onClick={() => fetchBalances(true)}
               disabled={fetchingBalances || loading}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${fetchingBalances ? 'animate-spin' : ''}`} />
@@ -819,7 +835,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
               {wallets.length === 0 ? 'No wallets yet' : 'No wallets match your filters'}
             </h3>
             <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-              {wallets.length === 0 
+              {wallets.length === 0
                 ? 'Use the wallet generator above to create blockchain wallets for this project.'
                 : 'Try adjusting your search or filter criteria.'}
             </p>
@@ -840,12 +856,28 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
               </TableHeader>
               <TableBody>
                 {sortedAndFilteredWallets.map(wallet => {
-                  // Get chain info from chain_id
-                  const chainId = wallet.chain_id ? parseInt(wallet.chain_id, 10) : null;
+                  // Get chain info from chain_id - handle both numeric and Cosmos formats
+                  let chainId: number | null = null;
+                  let chainIdDisplay: string | null = wallet.chain_id || null;
+
+                  if (wallet.chain_id) {
+                    // Try parsing as number first
+                    const parsed = parseInt(wallet.chain_id, 10);
+                    if (!isNaN(parsed)) {
+                      chainId = parsed;
+                    } else {
+                      // Handle Cosmos chain ID format (e.g., 'injective-888')
+                      const match = wallet.chain_id.match(/(\d+)$/);
+                      if (match) {
+                        chainId = parseInt(match[1], 10);
+                      }
+                    }
+                  }
+
                   const chainInfo = chainId ? getChainInfo(chainId) : null;
                   const chainName = chainInfo?.name || wallet.wallet_type;
                   const isTestnetChain = chainId ? isTestnet(chainId) : false;
-                  
+
                   return (
                     <TableRow key={wallet.id}>
                       {/* Wallet Name Cell with Edit Functionality */}
@@ -905,7 +937,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                           </div>
                         )}
                       </TableCell>
-                      
+
                       {/* Network Cell with Chain ID Mapping */}
                       <TableCell>
                         <Badge variant="outline" className="font-normal flex items-center space-x-1">
@@ -917,139 +949,139 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                             Testnet
                           </Badge>
                         )}
-                        {chainId && (
+                        {chainIdDisplay && (
                           <div className="text-xs text-muted-foreground mt-1">
-                            Chain ID: {chainId}
+                            Chain ID: {chainIdDisplay}
                           </div>
                         )}
                       </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <div className="flex items-center space-x-2">
-                        <span className="truncate max-w-[150px]">
-                          {BalanceFormatter.formatAddress(wallet.wallet_address, 8)}
-                        </span>
+                      <TableCell className="font-mono text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="truncate max-w-[150px]">
+                            {BalanceFormatter.formatAddress(wallet.wallet_address, 8)}
+                          </span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => copyToClipboard(wallet.wallet_address, 'Wallet address')}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[180px]">
+                        {renderBalanceCell(wallet)}
+                      </TableCell>
+                      <TableCell>
+                        {wallet.private_key ? (
+                          <div className="flex items-center space-x-2">
+                            {decryptingPrivateKey[wallet.id || ''] ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                <span className="text-xs text-muted-foreground">Decrypting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-mono text-xs truncate max-w-[150px]">
+                                  {showPrivateKey[wallet.id || '']
+                                    ? (decryptedPrivateKeys[wallet.id || ''] || wallet.private_key)
+                                    : '••••••••••••••••••••'}
+                                </span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => toggleShowPrivateKey(wallet.id || '')}
+                                  disabled={decryptingPrivateKey[wallet.id || '']}
+                                >
+                                  {showPrivateKey[wallet.id || '']
+                                    ? <EyeOff className="h-3 w-3" />
+                                    : <Eye className="h-3 w-3" />}
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => copyToClipboard(
+                                    wallet.private_key || '',
+                                    'Private key',
+                                    wallet.id,
+                                    true,
+                                    false
+                                  )}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="bg-amber-100 text-amber-800">
+                            <Shield className="h-3 w-3 mr-1" />
+                            Secured
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {wallet.mnemonic ? (
+                          <div className="flex items-center space-x-2">
+                            {decryptingMnemonic[wallet.id || ''] ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                <span className="text-xs text-muted-foreground">Decrypting...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-mono text-xs truncate max-w-[150px]">
+                                  {showMnemonic[wallet.id || '']
+                                    ? (decryptedMnemonics[wallet.id || ''] || wallet.mnemonic)
+                                    : '•••••• •••••• ••••••'}
+                                </span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => toggleShowMnemonic(wallet.id || '')}
+                                  disabled={decryptingMnemonic[wallet.id || '']}
+                                >
+                                  {showMnemonic[wallet.id || '']
+                                    ? <EyeOff className="h-3 w-3" />
+                                    : <Eye className="h-3 w-3" />}
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => copyToClipboard(
+                                    wallet.mnemonic || '',
+                                    'Mnemonic',
+                                    wallet.id,
+                                    false,
+                                    true
+                                  )}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Not available</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Button
-                          size="icon"
                           variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => copyToClipboard(wallet.wallet_address, 'Wallet address')}
+                          size="icon"
+                          onClick={() => confirmDelete(wallet.id || '')}
                         >
-                          <Copy className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="min-w-[180px]">
-                      {renderBalanceCell(wallet)}
-                    </TableCell>
-                    <TableCell>
-                      {wallet.private_key ? (
-                        <div className="flex items-center space-x-2">
-                          {decryptingPrivateKey[wallet.id || ''] ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                              <span className="text-xs text-muted-foreground">Decrypting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-mono text-xs truncate max-w-[150px]">
-                                {showPrivateKey[wallet.id || ''] 
-                                  ? (decryptedPrivateKeys[wallet.id || ''] || wallet.private_key)
-                                  : '••••••••••••••••••••'}
-                              </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => toggleShowPrivateKey(wallet.id || '')}
-                                disabled={decryptingPrivateKey[wallet.id || '']}
-                              >
-                                {showPrivateKey[wallet.id || ''] 
-                                  ? <EyeOff className="h-3 w-3" /> 
-                                  : <Eye className="h-3 w-3" />}
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => copyToClipboard(
-                                  wallet.private_key || '', 
-                                  'Private key',
-                                  wallet.id,
-                                  true,
-                                  false
-                                )}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="bg-amber-100 text-amber-800">
-                          <Shield className="h-3 w-3 mr-1" />
-                          Secured
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {wallet.mnemonic ? (
-                        <div className="flex items-center space-x-2">
-                          {decryptingMnemonic[wallet.id || ''] ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                              <span className="text-xs text-muted-foreground">Decrypting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-mono text-xs truncate max-w-[150px]">
-                                {showMnemonic[wallet.id || ''] 
-                                  ? (decryptedMnemonics[wallet.id || ''] || wallet.mnemonic)
-                                  : '•••••• •••••• ••••••'}
-                              </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => toggleShowMnemonic(wallet.id || '')}
-                                disabled={decryptingMnemonic[wallet.id || '']}
-                              >
-                                {showMnemonic[wallet.id || ''] 
-                                  ? <EyeOff className="h-3 w-3" /> 
-                                  : <Eye className="h-3 w-3" />}
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => copyToClipboard(
-                                  wallet.mnemonic || '', 
-                                  'Mnemonic',
-                                  wallet.id,
-                                  false,
-                                  true
-                                )}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Not available</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => confirmDelete(wallet.id || '')}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

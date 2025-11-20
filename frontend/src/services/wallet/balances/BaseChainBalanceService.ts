@@ -42,15 +42,20 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
   getChainConfig(): BalanceServiceConfig {
     // Determine if this is an EVM chain based on chainId ranges
     const isEVM = this.isEVMChain(this.config.chainId);
-    
-    return { 
+
+    return {
       ...this.config,
       name: this.config.chainName, // Alias for backward compatibility
       isEVM // Required for TransactionHistoryService routing
     };
   }
 
-  private isEVMChain(chainId: number): boolean {
+  private isEVMChain(chainId: number | string): boolean {
+    // String chainIds (like 'injective-888') are not EVM chains
+    if (typeof chainId !== 'number') {
+      return false;
+    }
+
     // EVM chains typically have chainId > 0 and are not Bitcoin (0) or other non-EVM chains
     const evmChainIds = [
       1, 3, 4, 5, 42, // Ethereum mainnet and testnets
@@ -69,7 +74,7 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
       534352, 534351, // Scroll
       11155111, 17000 // Sepolia, Holesky
     ];
-    
+
     return evmChainIds.includes(chainId);
   }
 
@@ -82,7 +87,7 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
    */
   async fetchBalance(address: string): Promise<ChainBalance> {
     const cacheKey = `balance_${this.config.chainName}_${address}`;
-    
+
     // Check cache first
     const cached = this.cache.get<ChainBalance>(cacheKey);
     if (cached) {
@@ -106,10 +111,10 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
     try {
       // Wait for rate limit
       await this.rateLimiter.canMakeRequest();
-      
+
       // Fetch native balance
       const nativeBalance = await this.withRetry(() => this.fetchNativeBalance(address));
-      
+
       // Get native token price
       const nativePrice = await this.getNativeTokenPrice();
       const nativeValueUsd = parseFloat(nativeBalance) * nativePrice;
@@ -140,13 +145,13 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
         lastUpdated: new Date(),
         isOnline: true,
         rpcProvider: this.getRpcProviderName(),
-        
+
         // Compatibility aliases for existing code
         totalUsdValue: totalValueUsd, // Alias for totalValueUsd
         nativeUsdValue: nativeValueUsd, // Alias for nativeValueUsd (backward compatibility)
         erc20Tokens: tokens, // Alias for tokens
         enhancedTokens: tokens, // Additional alias for enhanced tokens
-        
+
         // Additional missing properties from wallet components (optional defaults)
         icon: this.getChainIcon(),
         color: this.getChainColor(),
@@ -155,7 +160,7 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
 
       // Cache for 30 seconds
       this.cache.set(cacheKey, result, 30);
-      
+
       this.rateLimiter.recordRequest();
       return result;
 
@@ -185,7 +190,7 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
       console.log(`🧪 ${this.config.chainName} is a testnet - using $0 value`);
       return 0;
     }
-    
+
     try {
       // Use the chain's native symbol (e.g., 'ETH', 'MATIC', 'AVAX') instead of CoinGecko ID
       const tokenPrice = await priceFeedService.getTokenPrice(this.config.symbol);
@@ -228,24 +233,24 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
             reject(new Error(`${this.config.chainName} request timeout`));
           });
         });
-        
+
         // Execute operation with timeout
         const result = await Promise.race([operation(), timeoutPromise]);
-        
+
         // Clean up timeout
         clearTimeout(timeoutId);
-        
+
         return result;
       } catch (error) {
         lastError = error as Error;
         console.warn(`⚠️ ${this.config.chainName} attempt ${attempt}/${this.retryAttempts} failed:`, error.message);
-        
+
         if (attempt < this.retryAttempts) {
           // Exponential backoff with jitter
           const baseDelay = 1000 * attempt;
           const jitter = Math.random() * 500; // Add up to 500ms random jitter
           const delay = baseDelay + jitter;
-          
+
           console.log(`⏱️ Retrying ${this.config.chainName} in ${delay.toFixed(0)}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -260,7 +265,7 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
    */
   protected getRpcProviderName(): string {
     if (!this.config.rpcUrl) return 'Not configured';
-    
+
     const url = this.config.rpcUrl;
     if (url.includes('alchemy.com')) return 'Alchemy';
     if (url.includes('quiknode.pro')) return 'QuickNode';
@@ -288,13 +293,13 @@ export abstract class BaseChainBalanceService implements BaseBalanceService {
       isOnline: false,
       error,
       rpcProvider: 'Error',
-      
+
       // Compatibility aliases for existing code
       totalUsdValue: 0, // Alias for totalValueUsd
       nativeUsdValue: 0, // Alias for nativeValueUsd (backward compatibility)
       erc20Tokens: [], // Alias for tokens
       enhancedTokens: [], // Additional alias for enhanced tokens
-      
+
       // Additional missing properties from wallet components (error defaults)
       icon: this.getChainIcon(),
       color: this.getChainColor(),

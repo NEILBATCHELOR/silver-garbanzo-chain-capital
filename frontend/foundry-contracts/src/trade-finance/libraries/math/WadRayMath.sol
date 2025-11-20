@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title WadRayMath library
- * @author Aave
+ * @author Chain Capital
  * @notice Provides functions for fixed-point arithmetic with 18 and 27 decimal precision
  * @dev Provides mul and div function for wads (decimal numbers with 18 digits of precision) and rays (decimal numbers with 27 digits of precision)
  * 

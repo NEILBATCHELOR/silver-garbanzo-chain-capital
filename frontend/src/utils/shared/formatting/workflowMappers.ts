@@ -53,7 +53,14 @@ export const mapDbRedemptionRequestToRedemptionRequest = (dbRedemption: any): Re
     rejected_by: dbRedemption.rejected_by || null,
     rejection_reason: dbRedemption.rejection_reason || null,
     rejection_timestamp: dbRedemption.rejection_timestamp || null,
-    window_id: dbRedemption.window_id || ""
+    window_id: dbRedemption.window_id || "",
+    
+    // ✅ FIX: Missing fields causing TypeScript error
+    execution_mode: dbRedemption.execution_mode || null,
+    auto_execute_transfer: dbRedemption.auto_execute_transfer || null,
+    transfer_execution_method: dbRedemption.transfer_execution_method || null,
+    transfer_execution_triggered_at: dbRedemption.transfer_execution_triggered_at || null,
+    transfer_execution_triggered_by: dbRedemption.transfer_execution_triggered_by || null
   };
 };
 

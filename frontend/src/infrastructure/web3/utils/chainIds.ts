@@ -91,8 +91,10 @@ export const CHAIN_IDS = {
   berachainBepolia: 80069,
   sei: 1329,
   seiTestnet: 1328,
-  injective: 1776, // EVM Chain ID (native: injective-1)
-  injectiveTestnet: 1439, // EVM Chain ID (native: injective-888)
+  // Note: Injective uses native chain IDs 'injective-1' and 'injective-888' 
+  // EVM compatibility uses different chain IDs - see CHAIN_INFO for details
+  injective: 1776, // EVM Chain ID for Injective Mainnet
+  injectiveTestnet: 1439, // EVM Chain ID for Injective Testnet
   katana: 747474,
   world: 480,
   worldSepolia: 4801,

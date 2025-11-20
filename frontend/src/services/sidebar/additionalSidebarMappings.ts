@@ -303,6 +303,15 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         minRolePriority: 100
       },
       {
+        id: 'contract-deployment',
+        label: 'Base Contract Deployment',
+        href: 'deploy-contracts',
+        icon: PanelLeft,
+        permissions: ['system.configure'],
+        roles: ['Super Admin'],
+        minRolePriority: 100
+      },
+      {
         id: 'activity-monitor',
         label: 'Activity Monitor',
         href: '/activity',

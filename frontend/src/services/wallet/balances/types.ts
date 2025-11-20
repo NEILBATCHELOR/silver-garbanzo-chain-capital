@@ -17,7 +17,7 @@ export interface TokenBalance {
 
 export interface ChainBalance {
   address: string;
-  chainId: number;
+  chainId: number | string; // Support both numeric (EVM) and string (Cosmos) chain IDs
   chainName: string;
   symbol: string;
   networkType: 'mainnet' | 'testnet' | 'devnet';
@@ -30,13 +30,13 @@ export interface ChainBalance {
   isOnline: boolean;
   error?: string;
   rpcProvider?: string;
-  
+
   // Compatibility aliases for existing code
   totalUsdValue: number; // Alias for totalValueUsd
   nativeUsdValue: number; // Alias for nativeValueUsd (backward compatibility)
   erc20Tokens: TokenBalance[]; // Alias for tokens
   enhancedTokens: TokenBalance[]; // Additional alias for enhanced tokens
-  
+
   // Additional missing properties from wallet components
   icon?: string;
   color?: string;
@@ -44,7 +44,7 @@ export interface ChainBalance {
 }
 
 export interface BalanceServiceConfig {
-  chainId: number;
+  chainId: number | string; // Support both numeric (EVM) and string (Cosmos) chain IDs
   chainName: string;
   name: string; // Alias for chainName for backward compatibility
   symbol: string;
@@ -91,7 +91,7 @@ export class SimpleRateLimiter implements RateLimiter {
   async canMakeRequest(): Promise<boolean> {
     const now = Date.now();
     this.requests = this.requests.filter(time => now - time < this.windowMs);
-    
+
     if (this.requests.length >= this.maxRequests) {
       const oldestRequest = Math.min(...this.requests);
       const waitTime = this.windowMs - (now - oldestRequest);
@@ -100,7 +100,7 @@ export class SimpleRateLimiter implements RateLimiter {
       }
       return this.canMakeRequest();
     }
-    
+
     return true;
   }
 

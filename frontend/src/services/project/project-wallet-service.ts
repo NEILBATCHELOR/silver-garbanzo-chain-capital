@@ -1,5 +1,6 @@
 import { supabase } from "@/infrastructure/database/client";
 import { WalletGeneratorFactory } from "../wallet/generators/WalletGeneratorFactory";
+import { InjectiveWalletGenerator } from "../wallet/generators/InjectiveWalletGenerator";
 import { WalletEncryptionClient } from "../security/walletEncryptionService";
 import { WalletAuditService } from "../security/walletAuditService";
 import { v4 as uuidv4 } from 'uuid';
@@ -26,6 +27,8 @@ export interface ProjectWalletData {
   wallet_address: string;
   public_key: string;
   wallet_type?: string; // ✅ FIX #9: Add wallet_type field for backward compatibility
+  evm_address?: string | null; // EVM address for Injective wallets
+  evm_chain_id?: string | null; // EVM chain ID for Injective (1776 mainnet, 1439 testnet)
   private_key?: string;
   mnemonic?: string;
   private_key_vault_id?: string;
@@ -64,7 +67,7 @@ export const projectWalletService = {
    */
   async getProjectWallets(projectId: string): Promise<ProjectWalletData[]> {
     console.log(`[ProjectWalletService] Fetching wallets for project: ${projectId}`);
-    
+
     const { data, error } = await supabase
       .from('project_wallets')
       .select('*')
@@ -108,7 +111,7 @@ export const projectWalletService = {
         .select('*')
         .eq('id', existing.id)
         .single();
-      
+
       if (fetchError) {
         console.error('[ProjectWalletService] Error fetching existing wallet data:', fetchError);
         throw fetchError;
@@ -117,32 +120,32 @@ export const projectWalletService = {
     }
 
     console.log(`[ProjectWalletService] Creating wallet for project: ${walletData.project_id}, network: ${networkInfo}, address: ${walletData.wallet_address}`);
-    
+
     // If this is part of a wallet generation, check if it's a duplicate request
     if (requestId) {
       const inProgressWallet = Array.from(inProgressGenerations.values())
         .find(w => w.address === walletData.wallet_address && w.requestId !== requestId);
-      
+
       if (inProgressWallet) {
         console.warn(`[ProjectWalletService] Duplicate creation detected for wallet: ${walletData.wallet_address}`);
-        
+
         // Wait a bit to let the other request finish
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Check if the wallet was created by the other request
         const { data: existingWallet } = await supabase
           .from('project_wallets')
           .select('*')
           .eq('wallet_address', walletData.wallet_address)
           .maybeSingle();
-          
+
         if (existingWallet) {
           console.log(`[ProjectWalletService] Using wallet created by another request: ${existingWallet.id}`);
           return existingWallet;
         }
       }
     }
-    
+
     // Create the wallet in the database
     const { data, error } = await supabase
       .from('project_wallets')
@@ -167,7 +170,7 @@ export const projectWalletService = {
    */
   async updateProjectWallet(walletId: string, walletData: Partial<ProjectWalletData>): Promise<ProjectWalletData> {
     console.log(`[ProjectWalletService] Updating wallet: ${walletId}`);
-    
+
     const { data, error } = await supabase
       .from('project_wallets')
       .update(walletData)
@@ -191,7 +194,7 @@ export const projectWalletService = {
    */
   async deleteProjectWallet(walletId: string): Promise<boolean> {
     console.log(`[ProjectWalletService] Deleting wallet: ${walletId}`);
-    
+
     const { error } = await supabase
       .from('project_wallets')
       .delete()
@@ -217,66 +220,86 @@ export const enhancedProjectWalletService = {
    * @returns The generated wallet result
    */
   async generateWalletForProject(params: WalletGenerationParams): Promise<ProjectWalletResult> {
-    const { 
-      projectId, 
+    const {
+      projectId,
       network = 'ethereum',
       networkEnvironment = 'testnet',
       chainId,
       nonEvmNetwork,
-      includePrivateKey = true, 
-      includeMnemonic = true 
+      includePrivateKey = true,
+      includeMnemonic = true
     } = params;
-    
+
     // Generate a unique request ID
     const requestId = `req-${uuidv4()}`;
     const environmentType = networkEnvironment === 'mainnet' ? 'mainnet' : 'testnet';
     console.log(`[ProjectWalletService] Starting wallet generation for project: ${projectId}, network: ${network}, environment: ${environmentType}, request ID: ${requestId}`);
-    
+
     try {
       // Use provided chainId and nonEvmNetwork, or fall back to chain config
       let finalChainId = chainId;
       let finalNonEvmNetwork = nonEvmNetwork;
-      
-      // If chainId not provided and this is an EVM network, get from chain config
-      if (!finalChainId && !finalNonEvmNetwork) {
+
+      // Special handling for Injective - use Cosmos chain ID format
+      if (network === 'injective' || network === 'injective-testnet') {
+        // Use official Cosmos chain ID format ('injective-888' for testnet, 'injective-1' for mainnet)
+        finalChainId = networkEnvironment === 'mainnet' ? 'injective-1' : 'injective-888';
+        finalNonEvmNetwork = 'injective';
+        console.log(`[ProjectWalletService] Injective wallet - using Cosmos chain ID '${finalChainId}' and non_evm_network 'injective'`);
+      } else if (!finalChainId && !finalNonEvmNetwork) {
+        // If chainId not provided and this is an EVM network, get from chain config
         const envConfig = getChainEnvironment(network, environmentType);
         if (!envConfig) {
           throw new Error(`Unsupported network environment: ${network} ${environmentType}`);
         }
-        
+
         console.log(`[ProjectWalletService] Resolved network '${network}' to chain ID '${envConfig.chainId}'`);
         finalChainId = envConfig.chainId;
       }
-      
+
       console.log(`[ProjectWalletService] Network identifiers - chain_id: ${finalChainId}, non_evm_network: ${finalNonEvmNetwork}`);
-      
+
       // Generate a new wallet using the WalletGeneratorFactory for consistency
       console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
-      
+
       const generator = WalletGeneratorFactory.getGenerator(network);
       const wallet = await generator.generateWallet();
-      
+
       // For mnemonic generation, use ethers.js for all chains as a consistent approach
       let mnemonic: string | undefined;
       if (includeMnemonic) {
         const ethWallet = ethers.Wallet.createRandom();
         mnemonic = ethWallet.mnemonic?.phrase;
       }
-      
+
       console.log(`[ProjectWalletService] Generated ${network} wallet: ${wallet.address}`);
-      
+
       // Ensure we have the required properties from the generator
       const walletAddress = wallet.address;
       const publicKey = wallet.publicKey || wallet.address;
-      const privateKey = wallet.privateKey;
-      
+      let privateKey = wallet.privateKey;
+
+      // CRITICAL FIX: For Injective wallets, derive EVM-compatible private key from mnemonic
+      // The Injective private key cannot be used with ethers.js for contract deployment
+      // We need the EVM private key derived from the same mnemonic using BIP44 path m/44'/60'/0'/0/0
+      if ((network === 'injective' || network === 'injective-testnet') && mnemonic) {
+        try {
+          console.log(`[ProjectWalletService] Deriving EVM private key for Injective wallet from mnemonic`);
+          privateKey = InjectiveWalletGenerator.getEvmPrivateKey(mnemonic);
+          console.log(`[ProjectWalletService] ✓ EVM private key derived successfully (length: ${privateKey?.length})`);
+        } catch (error) {
+          console.error('[ProjectWalletService] Failed to derive EVM private key from mnemonic:', error);
+          throw new Error('Failed to derive EVM private key for Injective wallet');
+        }
+      }
+
       // Register this generation to prevent duplicates
       inProgressGenerations.set(requestId, { address: walletAddress, requestId });
-      
+
       // Encrypt sensitive data before storing
       let encryptedPrivateKey: string | undefined;
       let encryptedMnemonic: string | undefined;
-      
+
       if (includePrivateKey && privateKey) {
         try {
           encryptedPrivateKey = await WalletEncryptionClient.encrypt(privateKey);
@@ -286,7 +309,7 @@ export const enhancedProjectWalletService = {
           throw new Error('Failed to encrypt private key');
         }
       }
-      
+
       if (includeMnemonic && mnemonic) {
         try {
           encryptedMnemonic = await WalletEncryptionClient.encrypt(mnemonic);
@@ -296,12 +319,26 @@ export const enhancedProjectWalletService = {
           throw new Error('Failed to encrypt mnemonic');
         }
       }
-      
+
+      // Derive EVM address and chain ID for Injective wallets BEFORE creating vault keys
+      let evmAddress: string | null = null;
+      let evmChainId: string | null = null;
+      if (network === 'injective' || network === 'injective-testnet') {
+        try {
+          evmAddress = InjectiveWalletGenerator.getEvmAddress(walletAddress);
+          // EVM compatibility chain IDs: 1776 (mainnet), 1439 (testnet)
+          evmChainId = networkEnvironment === 'mainnet' ? '1776' : '1439';
+          console.log(`[ProjectWalletService] Derived EVM address for Injective wallet: ${evmAddress}, EVM chain ID: ${evmChainId}`);
+        } catch (error) {
+          console.error('[ProjectWalletService] Failed to derive EVM address:', error);
+        }
+      }
+
       // PHASE 2: Dual-Write Implementation
       // Create key_vault_keys records FIRST (for proper FK)
       let privateKeyVaultId: string | undefined;
       let mnemonicVaultId: string | undefined;
-      
+
       if (encryptedPrivateKey) {
         const { data: privateKeyRecord, error: pkError } = await supabase
           .from('key_vault_keys')
@@ -314,22 +351,27 @@ export const enhancedProjectWalletService = {
               wallet_address: walletAddress,
               network: network,
               chain_id: finalChainId,
-              non_evm_network: finalNonEvmNetwork
+              non_evm_network: finalNonEvmNetwork,
+              // For Injective, also store EVM chain ID and EVM address
+              ...(network === 'injective' || network === 'injective-testnet' ? {
+                evm_chain_id: evmChainId,
+                evm_address: evmAddress
+              } : {})
             },
             created_by: params.userId || null
           })
           .select('id')
           .single();
-          
+
         if (pkError) {
           console.error('[ProjectWalletService] Failed to create private key vault record:', pkError);
           throw new Error('Failed to create private key vault record');
         }
-        
+
         privateKeyVaultId = privateKeyRecord.id;
         console.log(`[ProjectWalletService] Created private_key vault record: ${privateKeyVaultId}`);
       }
-      
+
       if (encryptedMnemonic) {
         const { data: mnemonicRecord, error: mnError } = await supabase
           .from('key_vault_keys')
@@ -342,22 +384,34 @@ export const enhancedProjectWalletService = {
               wallet_address: walletAddress,
               network: network,
               chain_id: finalChainId,
-              non_evm_network: finalNonEvmNetwork
+              non_evm_network: finalNonEvmNetwork,
+              // For Injective, also store EVM chain ID and EVM address
+              ...(network === 'injective' || network === 'injective-testnet' ? {
+                evm_chain_id: evmChainId,
+                evm_address: evmAddress
+              } : {})
             },
             created_by: params.userId || null
           })
           .select('id')
           .single();
-          
+
         if (mnError) {
           console.error('[ProjectWalletService] Failed to create mnemonic vault record:', mnError);
           throw new Error('Failed to create mnemonic vault record');
         }
-        
+
         mnemonicVaultId = mnemonicRecord.id;
         console.log(`[ProjectWalletService] Created mnemonic vault record: ${mnemonicVaultId}`);
       }
-      
+
+      // CRITICAL: Wait for database to commit vault key records before proceeding
+      // This prevents race conditions where project_wallet is created before vault keys are fully committed
+      if (privateKeyVaultId || mnemonicVaultId) {
+        console.log(`[ProjectWalletService] Waiting for vault key records to be committed...`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       // Create project_wallets record with dual FK references
       // - private_key_vault_id → key_vault_keys(project_private_key)
       // - mnemonic_vault_id → key_vault_keys(project_mnemonic)
@@ -367,6 +421,8 @@ export const enhancedProjectWalletService = {
         wallet_address: walletAddress,
         public_key: publicKey,
         wallet_type: network, // ✅ FIX #9: Set wallet_type for backward compatibility and filtering
+        evm_address: evmAddress, // Store EVM address for Injective wallets
+        evm_chain_id: evmChainId, // Store EVM chain ID (1776 mainnet, 1439 testnet)
         private_key_vault_id: privateKeyVaultId, // FK to private key record
         mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
         chain_id: finalChainId,
@@ -377,40 +433,125 @@ export const enhancedProjectWalletService = {
       };
 
       console.log(`[ProjectWalletService] Saving wallet to database: ${walletAddress}, wallet_type: ${network}, chain_id: ${finalChainId}, request ID: ${requestId}`);
-      
+
       // Pass the request ID to track duplicates
       const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
       console.log(`[ProjectWalletService] Wallet saved successfully: ${savedWallet.id}`);
-      
+
+      // CRITICAL: Wait for database to commit project_wallet record before updating vault keys
+      // This prevents race conditions and ensures proper ordering
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Update key_vault_keys with project_wallet_id reference (bidirectional link)
+      // IMPORTANT: We only update the project_wallet_id column, metadata is preserved
       if (privateKeyVaultId) {
+        console.log(`[ProjectWalletService] Updating private key vault record with project_wallet_id: ${savedWallet.id}`);
+
+        // First verify the metadata still exists
+        const { data: pkVaultCheck, error: pkCheckError } = await supabase
+          .from('key_vault_keys')
+          .select('metadata')
+          .eq('id', privateKeyVaultId)
+          .single();
+
+        if (pkCheckError) {
+          console.error('[ProjectWalletService] Failed to verify private key vault metadata:', pkCheckError);
+        } else {
+          console.log(`[ProjectWalletService] Private key vault metadata verified:`, JSON.stringify(pkVaultCheck.metadata));
+
+          // Check if EVM address is in metadata for Injective wallets
+          if ((network === 'injective' || network === 'injective-testnet') && pkVaultCheck.metadata) {
+            if (!pkVaultCheck.metadata.evm_address) {
+              console.warn(`[ProjectWalletService] WARNING: Private key vault metadata missing evm_address!`);
+            } else {
+              console.log(`[ProjectWalletService] ✓ Private key vault has evm_address: ${pkVaultCheck.metadata.evm_address}`);
+            }
+          }
+        }
+
+        // Now update with project_wallet_id
         const { error: updatePkError } = await supabase
           .from('key_vault_keys')
           .update({ project_wallet_id: savedWallet.id })
           .eq('id', privateKeyVaultId);
-          
+
         if (updatePkError) {
           console.error('[ProjectWalletService] Failed to update private key vault record with project_wallet_id:', updatePkError);
           // Non-fatal - record still created
         } else {
-          console.log(`[ProjectWalletService] Updated private_key vault record with project_wallet_id`);
+          console.log(`[ProjectWalletService] ✓ Updated private_key vault record with project_wallet_id`);
+
+          // Verify metadata was preserved after update
+          const { data: pkVaultVerify } = await supabase
+            .from('key_vault_keys')
+            .select('metadata')
+            .eq('id', privateKeyVaultId)
+            .single();
+
+          if (pkVaultVerify && (network === 'injective' || network === 'injective-testnet')) {
+            if (!pkVaultVerify.metadata?.evm_address) {
+              console.error(`[ProjectWalletService] ERROR: Metadata lost evm_address after update!`);
+            } else {
+              console.log(`[ProjectWalletService] ✓ Metadata preserved after update, evm_address: ${pkVaultVerify.metadata.evm_address}`);
+            }
+          }
         }
       }
-      
+
       if (mnemonicVaultId) {
+        console.log(`[ProjectWalletService] Updating mnemonic vault record with project_wallet_id: ${savedWallet.id}`);
+
+        // First verify the metadata still exists
+        const { data: mnVaultCheck, error: mnCheckError } = await supabase
+          .from('key_vault_keys')
+          .select('metadata')
+          .eq('id', mnemonicVaultId)
+          .single();
+
+        if (mnCheckError) {
+          console.error('[ProjectWalletService] Failed to verify mnemonic vault metadata:', mnCheckError);
+        } else {
+          console.log(`[ProjectWalletService] Mnemonic vault metadata verified:`, JSON.stringify(mnVaultCheck.metadata));
+
+          // Check if EVM address is in metadata for Injective wallets
+          if ((network === 'injective' || network === 'injective-testnet') && mnVaultCheck.metadata) {
+            if (!mnVaultCheck.metadata.evm_address) {
+              console.warn(`[ProjectWalletService] WARNING: Mnemonic vault metadata missing evm_address!`);
+            } else {
+              console.log(`[ProjectWalletService] ✓ Mnemonic vault has evm_address: ${mnVaultCheck.metadata.evm_address}`);
+            }
+          }
+        }
+
+        // Now update with project_wallet_id
         const { error: updateMnError } = await supabase
           .from('key_vault_keys')
           .update({ project_wallet_id: savedWallet.id })
           .eq('id', mnemonicVaultId);
-          
+
         if (updateMnError) {
           console.error('[ProjectWalletService] Failed to update mnemonic vault record with project_wallet_id:', updateMnError);
           // Non-fatal - record still created
         } else {
-          console.log(`[ProjectWalletService] Updated mnemonic vault record with project_wallet_id`);
+          console.log(`[ProjectWalletService] ✓ Updated mnemonic vault record with project_wallet_id`);
+
+          // Verify metadata was preserved after update
+          const { data: mnVaultVerify } = await supabase
+            .from('key_vault_keys')
+            .select('metadata')
+            .eq('id', mnemonicVaultId)
+            .single();
+
+          if (mnVaultVerify && (network === 'injective' || network === 'injective-testnet')) {
+            if (!mnVaultVerify.metadata?.evm_address) {
+              console.error(`[ProjectWalletService] ERROR: Metadata lost evm_address after update!`);
+            } else {
+              console.log(`[ProjectWalletService] ✓ Metadata preserved after update, evm_address: ${mnVaultVerify.metadata.evm_address}`);
+            }
+          }
         }
       }
-      
+
       // Log wallet creation
       if (params.userId) {
         await WalletAuditService.logAccess({
@@ -427,7 +568,7 @@ export const enhancedProjectWalletService = {
           }
         });
       }
-      
+
       // Return UNENCRYPTED data for immediate display
       // The encrypted versions are already stored in the database
       return {
@@ -468,10 +609,10 @@ export const enhancedProjectWalletService = {
     params: WalletGenerationParams,
     networksWithEnvironments: Array<{ network: string; environment: any }>
   ): Promise<ProjectWalletResult[]> {
-    const { 
-      projectId, 
-      includePrivateKey = true, 
-      includeMnemonic = true 
+    const {
+      projectId,
+      includePrivateKey = true,
+      includeMnemonic = true
     } = params;
     console.log(`[ProjectWalletService] Starting multi-wallet generation for project: ${projectId}, networks: ${networksWithEnvironments.map(n => n.network).join(', ')}`);
 
@@ -482,14 +623,14 @@ export const enhancedProjectWalletService = {
         console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
         const generator = WalletGeneratorFactory.getGenerator(network);
         const wallet = await generator.generateWallet();
-        
+
         // Generate mnemonic consistently for all chains
         let mnemonic: string | undefined;
         if (includeMnemonic) {
           const ethWallet = ethers.Wallet.createRandom();
           mnemonic = ethWallet.mnemonic?.phrase;
         }
-        
+
         // Ensure we have the required properties from the generator
         const walletAddress = wallet.address;
         const publicKey = wallet.publicKey || wallet.address;
@@ -497,11 +638,11 @@ export const enhancedProjectWalletService = {
 
         // Register this generation to prevent duplicates
         inProgressGenerations.set(requestId, { address: walletAddress, requestId });
-        
+
         // Encrypt sensitive data before storing
         let encryptedPrivateKey: string | undefined;
         let encryptedMnemonic: string | undefined;
-        
+
         if (includePrivateKey && privateKey) {
           try {
             encryptedPrivateKey = await WalletEncryptionClient.encrypt(privateKey);
@@ -510,7 +651,7 @@ export const enhancedProjectWalletService = {
             throw new Error('Failed to encrypt private key');
           }
         }
-        
+
         if (includeMnemonic && mnemonic) {
           try {
             encryptedMnemonic = await WalletEncryptionClient.encrypt(mnemonic);
@@ -519,12 +660,23 @@ export const enhancedProjectWalletService = {
             throw new Error('Failed to encrypt mnemonic');
           }
         }
-        
+
         // PHASE 2: Dual-Write Implementation
         // Create key_vault_keys records FIRST (for proper FK)
         let privateKeyVaultId: string | undefined;
         let mnemonicVaultId: string | undefined;
-        
+
+        // Determine chain IDs for metadata - use Cosmos chain ID format for Injective
+        const metadataChainId = (network === 'injective' || network === 'injective-testnet')
+          ? (environment.name === 'mainnet' ? 'injective-1' : 'injective-888')
+          : environment.chainId;
+        const metadataNonEvmNetwork = (network === 'injective' || network === 'injective-testnet')
+          ? 'injective'
+          : environment.net;
+        const metadataEvmChainId = (network === 'injective' || network === 'injective-testnet')
+          ? (environment.name === 'mainnet' ? '1776' : '1439')
+          : undefined;
+
         if (encryptedPrivateKey) {
           const { data: privateKeyRecord, error: pkError } = await supabase
             .from('key_vault_keys')
@@ -536,23 +688,25 @@ export const enhancedProjectWalletService = {
                 project_id: projectId,
                 wallet_address: walletAddress,
                 network: network,
-                chain_id: environment.chainId,
-                net: environment.net
+                chain_id: metadataChainId,
+                non_evm_network: metadataNonEvmNetwork,
+                // For Injective, also store EVM chain ID for EVM compatibility
+                ...(metadataEvmChainId ? { evm_chain_id: metadataEvmChainId } : {})
               },
               created_by: params.userId || null
             })
             .select('id')
             .single();
-            
+
           if (pkError) {
             console.error(`[ProjectWalletService] Failed to create private key vault record for ${network}:`, pkError);
             throw new Error('Failed to create private key vault record');
           }
-          
+
           privateKeyVaultId = privateKeyRecord.id;
           console.log(`[ProjectWalletService] Created private_key vault record for ${network}: ${privateKeyVaultId}`);
         }
-        
+
         if (encryptedMnemonic) {
           const { data: mnemonicRecord, error: mnError } = await supabase
             .from('key_vault_keys')
@@ -564,61 +718,90 @@ export const enhancedProjectWalletService = {
                 project_id: projectId,
                 wallet_address: walletAddress,
                 network: network,
-                chain_id: environment.chainId,
-                net: environment.net
+                chain_id: metadataChainId,
+                non_evm_network: metadataNonEvmNetwork,
+                // For Injective, also store EVM chain ID for EVM compatibility
+                ...(metadataEvmChainId ? { evm_chain_id: metadataEvmChainId } : {})
               },
               created_by: params.userId || null
             })
             .select('id')
             .single();
-            
+
           if (mnError) {
             console.error(`[ProjectWalletService] Failed to create mnemonic vault record for ${network}:`, mnError);
             throw new Error('Failed to create mnemonic vault record');
           }
-          
+
           mnemonicVaultId = mnemonicRecord.id;
           console.log(`[ProjectWalletService] Created mnemonic vault record for ${network}: ${mnemonicVaultId}`);
         }
-        
+
+        // Derive EVM address and chain ID for Injective wallets
+        let evmAddress: string | null = null;
+        let evmChainId: string | null = null;
+        if (network === 'injective' || network === 'injective-testnet') {
+          try {
+            evmAddress = InjectiveWalletGenerator.getEvmAddress(walletAddress);
+            // EVM compatibility chain IDs: 1776 (mainnet), 1439 (testnet)
+            evmChainId = environment.name === 'mainnet' ? '1776' : '1439';
+            console.log(`[ProjectWalletService] Derived EVM address for ${network} wallet: ${evmAddress}, EVM chain ID: ${evmChainId}`);
+          } catch (error) {
+            console.error(`[ProjectWalletService] Failed to derive EVM address for ${network}:`, error);
+          }
+        }
+
+        // Special handling for Injective chain IDs
+        let finalChainId: string | null = environment.chainId;
+        let finalNonEvmNetwork: string | null = environment.net;
+
+        if (network === 'injective' || network === 'injective-testnet') {
+          // Use official Cosmos chain ID format ('injective-888' for testnet, 'injective-1' for mainnet)
+          finalChainId = environment.name === 'mainnet' ? 'injective-1' : 'injective-888';
+          finalNonEvmNetwork = 'injective';
+          console.log(`[ProjectWalletService] Injective wallet - using Cosmos chain ID '${finalChainId}' and non_evm_network 'injective'`);
+        }
+
         const walletData: ProjectWalletData = {
           project_id: projectId,
           wallet_address: walletAddress,
           public_key: publicKey,
+          evm_address: evmAddress, // Store EVM address for Injective wallets
+          evm_chain_id: evmChainId, // Store EVM chain ID (1776 mainnet, 1439 testnet)
           private_key_vault_id: privateKeyVaultId, // FK to private key record
           mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
-          chain_id: environment.chainId,
-          non_evm_network: environment.net,
+          chain_id: finalChainId,
+          non_evm_network: finalNonEvmNetwork,
           // Store encrypted data for backward compatibility
           private_key: encryptedPrivateKey,
           mnemonic: encryptedMnemonic,
         };
 
         const savedWallet = await projectWalletService.createProjectWallet(walletData, requestId);
-        
+
         // Update key_vault_keys with project_wallet_id reference (bidirectional link)
         if (privateKeyVaultId) {
           const { error: updatePkError } = await supabase
             .from('key_vault_keys')
             .update({ project_wallet_id: savedWallet.id })
             .eq('id', privateKeyVaultId);
-            
+
           if (updatePkError) {
             console.error(`[ProjectWalletService] Failed to update private key vault record with project_wallet_id for ${network}:`, updatePkError);
           }
         }
-        
+
         if (mnemonicVaultId) {
           const { error: updateMnError } = await supabase
             .from('key_vault_keys')
             .update({ project_wallet_id: savedWallet.id })
             .eq('id', mnemonicVaultId);
-            
+
           if (updateMnError) {
             console.error(`[ProjectWalletService] Failed to update mnemonic vault record with project_wallet_id for ${network}:`, updateMnError);
           }
         }
-        
+
         // Log wallet creation
         if (params.userId) {
           await WalletAuditService.logAccess({
@@ -635,7 +818,7 @@ export const enhancedProjectWalletService = {
             }
           });
         }
-        
+
         // Return UNENCRYPTED data for immediate display
         return {
           success: true,
