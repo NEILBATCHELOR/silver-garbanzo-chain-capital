@@ -29,7 +29,6 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
-import contractDeploymentRoutes from './src/routes/contract-deployment'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes } from './src/routes/nav/index'
 
 // PSP (Payment Service Provider) Routes (10 services)
@@ -289,30 +288,10 @@ const SERVICE_CATALOG = {
         operations: ['Encryption', 'Decryption', 'Secure Storage', 'Key Rotation', 'Backup'],
         prefix: '/api/wallet',
         description: 'Wallet encryption and secure key management services'
-      },
-      {
-        name: 'Contract Deployment',
-        endpoints: 3,
-        routes: [
-          'POST /api/contract-deployment/deploy (deploy-contracts)',
-          'GET /api/contract-deployment/progress/:id (get-progress)',
-          'GET /api/contract-deployment/contract-types (list-25-contract-types)'
-        ],
-        operations: ['Smart Contract Deployment', 'Progress Tracking', 'Multi-Network Support', 'Factory Architecture'],
-        prefix: '/api/contract-deployment',
-        description: 'Foundry smart contract deployment - 25 contracts: 6 Token Factories, 6 Extension Factories (33 extension types), 6 Master Implementations, 7 Infrastructure contracts',
-        contract_types: {
-          token_factories: ['ERC20Factory', 'ERC721Factory', 'ERC1155Factory', 'ERC3525Factory', 'ERC4626Factory', 'ERC1400Factory'],
-          extension_factories: ['ERC20Extensions (10 types)', 'ERC721Extensions (7 types)', 'ERC1155Extensions (3 types)', 'ERC3525Extensions (3 types)', 'ERC4626Extensions (7 types)', 'ERC1400Extensions (3 types)'],
-          master_implementations: ['ERC20Master', 'ERC721Master', 'ERC1155Master', 'ERC3525Master', 'ERC4626Master', 'ERC1400Master'],
-          infrastructure: ['UniversalExtensionFactory', 'ExtensionRegistry', 'TokenRegistry', 'PolicyEngine', 'UpgradeGovernor', 'BeaconProxyFactory', 'MultiSigWalletFactory']
-        },
-        total_deployable_contracts: 25,
-        extension_types: 33
       }
     ],
-    total_endpoints: 90,
-    total_services: 4
+    total_endpoints: 87,
+    total_services: 3
   },
   compliance_governance: {
     category: 'Compliance & Governance',
@@ -842,7 +821,6 @@ Comprehensive platform supporting:
     await app.register(documentRoutes, { prefix: apiPrefix })
     await app.register(walletRoutes, { prefix: apiPrefix })
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
-    await app.register(contractDeploymentRoutes)  // Contract deployment at /api/contract-deployment/*
     await app.register(calendarRoutes, { prefix: apiPrefix })
 
     // NAV routes (includes bond and MMF data input and calculations)
@@ -1009,18 +987,10 @@ async function start() {
     console.log('')
     console.log('🎉 SUCCESS! Enhanced accurate server started with all services')
     console.log('')
-    console.log('🏭 FACTORY ARCHITECTURE ACTIVE:')
-    console.log('   🔧 25 Deployable Contracts:')
-    console.log('      • 6 Token Factories (ERC20, ERC721, ERC1155, ERC3525, ERC4626, ERC1400)')
-    console.log('      • 6 Extension Factories (33 total extension types)')
-    console.log('      • 6 Master Implementations (UUPS upgradeable)')
-    console.log('      • 7 Infrastructure Contracts (Registry, Governance, Beacon)')
-    console.log('   📡 Endpoint: /api/contract-deployment/contract-types')
-    console.log('')
     console.log(`📊 AVAILABLE SERVICES (${TOTAL_SERVICES}):`)
     console.log('   🏢 Core Business (6): Projects, Investors, Cap Tables, Tokens, Subscriptions, Documents')
     console.log('   📊 NAV Operations (5): Bond Data Input, Bond Calculations, MMF Data, MMF Calcs, MMF Enhancements')
-    console.log('   💰 Financial Ops (4): Wallets, Factoring, Wallet Encryption, Contract Deployment (25 contracts: 6 factories, 6 extensions, 6 masters, 7 infrastructure)')
+    console.log('   💰 Financial Ops (3): Wallets, Factoring, Wallet Encryption')
     console.log('   ⚖️  Compliance (4): Compliance, Organizations, Policies, Rules')
     console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
     console.log('   💳 PSP Services (10): Auth, Balances, External Accounts, Identity, Payments, Settings, Trades, Transactions, Virtual Accounts, Webhooks')

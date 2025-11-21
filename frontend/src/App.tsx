@@ -58,9 +58,6 @@ import WalletDashboardPage from "@/pages/wallet/WalletDashboardPage";
 import WalletDemoPage from "@/pages/WalletDemoPage";
 import InternalWalletDashboard from "@/components/wallet/InternalWalletDashboard";
 
-// Contract Deployment
-import { ContractDeployment } from "@/components/contract-deployment";
-
 // Enhanced Wallet Pages (Production-Ready with Real Blockchain Integration)
 import RipplePaymentsPage from "@/pages/wallet/RipplePaymentsPage";
 import MoonpayPage from "@/pages/wallet/MoonpayPage";
@@ -83,6 +80,9 @@ import { ComplianceDashboard } from "@/components/activity";
 
 // Import Admin Sidebar Configuration Components (Lazy-loaded to prevent auto-execution)
 const SidebarAdminDashboard = lazy(() => import("@/components/admin/sidebar").then(module => ({ default: module.SidebarAdminDashboard })));
+
+// Import Admin Template and Factory Management Components
+import { TemplateManagementPage, FactoryConfigurationPage } from "@/components/admin";
 
 // Import Enhanced Upload Pages
 import EnhancedIssuerUploadPage from "@/components/compliance/pages/EnhancedIssuerUploadPage";
@@ -693,11 +693,6 @@ function App() {
                         {/* Production Wallet Routes (Default to Internal Dashboard) */}
                         <Route path="wallet/internal" element={<InternalWalletDashboard />} />
 
-                        {/* Contract Deployment Routes */}
-                        <Route path="deploy-contracts" element={<ContractDeployment />} />
-                        <Route path="projects/:projectId/deploy-contracts" element={<ContractDeployment />} />
-                        <Route path="organizations/:organizationId/projects/:projectId/deploy-contracts" element={<ContractDeployment />} />
-
                         {/* Cap Table Routes */}
                         <Route path="captable" element={<CapTableManagerNew section="overview" />} />
                         <Route path="captable/investors" element={<CapTableManagerNew section="investors" />} />
@@ -884,8 +879,11 @@ function App() {
 
                         {/* NAV Engine Routes */}
                         <Route path="nav" element={<NavDashboardPage />} />
+                        
                         {/* Admin Configuration Routes */}
                         <Route path="admin/sidebar-configuration" element={<SidebarAdminDashboard />} />
+                        <Route path="admin/templates" element={<TemplateManagementPage />} />
+                        <Route path="admin/factory-config" element={<FactoryConfigurationPage />} />
                       </Route>
 
                       {/* Fallback route */}
