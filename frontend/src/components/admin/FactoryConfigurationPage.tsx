@@ -9,11 +9,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  ExternalLink, 
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ExternalLink,
   RefreshCw,
   AlertCircle,
   Info,
@@ -162,8 +162,8 @@ export function FactoryConfigurationPage() {
     };
 
     const relevantTypes = mappings[factoryType] || [];
-    
-    return templateList.filter(t => 
+
+    return templateList.filter(t =>
       relevantTypes.some(type => t.contract_type.includes(type))
     );
   };
@@ -176,7 +176,7 @@ export function FactoryConfigurationPage() {
         return;
       }
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum);
       const factoryContract = new ethers.Contract(
         registration.factoryAddress,
         FACTORY_ABI,
@@ -188,25 +188,25 @@ export function FactoryConfigurationPage() {
         const registeredAddress = await factoryContract.getTemplateAddress(
           registration.templateType
         );
-        
-        const isRegistered = 
+
+        const isRegistered =
           registeredAddress.toLowerCase() === registration.templateAddress.toLowerCase();
 
         // Update registration status
-        setRegistrations(prev => 
+        setRegistrations(prev =>
           prev.map(r =>
             r.factoryAddress === registration.factoryAddress &&
-            r.templateType === registration.templateType
+              r.templateType === registration.templateType
               ? { ...r, isRegistered, checking: false }
               : r
           )
         );
       } catch (err) {
         // Factory might not have the method or template not registered
-        setRegistrations(prev => 
+        setRegistrations(prev =>
           prev.map(r =>
             r.factoryAddress === registration.factoryAddress &&
-            r.templateType === registration.templateType
+              r.templateType === registration.templateType
               ? { ...r, isRegistered: false, checking: false }
               : r
           )
@@ -214,10 +214,10 @@ export function FactoryConfigurationPage() {
       }
     } catch (err) {
       console.error('Failed to check registration:', err);
-      setRegistrations(prev => 
+      setRegistrations(prev =>
         prev.map(r =>
           r.factoryAddress === registration.factoryAddress &&
-          r.templateType === registration.templateType
+            r.templateType === registration.templateType
             ? { ...r, checking: false }
             : r
         )
@@ -242,9 +242,9 @@ export function FactoryConfigurationPage() {
         throw new Error('No ethereum provider found. Please install MetaMask.');
       }
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum);
       await provider.send('eth_requestAccounts', []);
-      const signer = provider.getSigner();
+      const signer = await provider.getSigner();
 
       const factoryContract = new ethers.Contract(
         factoryAddress,
@@ -257,7 +257,7 @@ export function FactoryConfigurationPage() {
       await tx.wait();
 
       // Update registration status
-      setRegistrations(prev => 
+      setRegistrations(prev =>
         prev.map(r =>
           r.factoryAddress === factoryAddress && r.templateType === templateType
             ? { ...r, isRegistered: true }
@@ -410,9 +410,8 @@ export function FactoryConfigurationPage() {
                       return (
                         <div
                           key={registrationKey}
-                          className={`flex items-center justify-between p-3 border rounded ${
-                            registration.isRegistered ? 'border-green-500 bg-green-50/50' : ''
-                          }`}
+                          className={`flex items-center justify-between p-3 border rounded ${registration.isRegistered ? 'border-green-500 bg-green-50/50' : ''
+                            }`}
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -441,7 +440,7 @@ export function FactoryConfigurationPage() {
                           </div>
 
                           <Button
-                            onClick={() => 
+                            onClick={() =>
                               registerTemplate(
                                 registration.factoryAddress,
                                 registration.templateType,
