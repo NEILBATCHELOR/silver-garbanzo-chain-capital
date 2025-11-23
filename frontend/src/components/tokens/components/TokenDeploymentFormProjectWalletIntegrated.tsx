@@ -48,6 +48,7 @@ import { BlockchainFactory } from '@/infrastructure/web3/factories/BlockchainFac
 import { enhancedTokenDeploymentService } from '@/components/tokens/services/tokenDeploymentService';
 import { unifiedTokenDeploymentService } from '@/components/tokens/services/unifiedTokenDeploymentService';
 import { tokenProjectWalletIntegrationService, TokenWalletIntegrationResult } from '@/services/token/tokenProjectWalletIntegrationService';
+import { FactoryDeploymentService } from '@/services/tokens/FactoryDeploymentService'; // ✅ ADD: Factory deployment service
 import { useToast } from '@/components/ui/use-toast';
 import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
 import { FeePriority } from '@/services/blockchain/FeeEstimator';
@@ -91,6 +92,13 @@ interface TokenDeploymentFormProjectWalletIntegratedProps {
   maxPriorityFeePerGas?: string;
   onMaxFeePerGasChange?: (maxFeePerGas: string) => void;
   onMaxPriorityFeePerGasChange?: (maxPriorityFeePerGas: string) => void;
+  // ✅ Factory deployment props
+  factoryAddress?: string;
+  factoryConfigured?: boolean;
+  useFactoryDeployment?: boolean;
+  // ✅ Module and role props
+  moduleAddresses?: Record<string, string>;
+  roleAddresses?: Record<string, string>;
 }
 
 const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormProjectWalletIntegratedProps> = ({
@@ -106,7 +114,14 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   maxFeePerGas: parentMaxFeePerGas,
   maxPriorityFeePerGas: parentMaxPriorityFeePerGas,
   onMaxFeePerGasChange,
-  onMaxPriorityFeePerGasChange
+  onMaxPriorityFeePerGasChange,
+  // ✅ ADD: Factory deployment props
+  factoryAddress,
+  factoryConfigured,
+  useFactoryDeployment = false,
+  // ✅ ADD: Module and role props
+  moduleAddresses,
+  roleAddresses
 }) => {
   const { toast } = useToast();
   
@@ -150,6 +165,10 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [maxFeePerGas, setMaxFeePerGas] = useState<string>(parentMaxFeePerGas || '');
   const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>(parentMaxPriorityFeePerGas || '');
   const [isEIP1559Network, setIsEIP1559Network] = useState<boolean>(false);
+  
+  // ✅ ADD: Module selection state
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [moduleConfigs, setModuleConfigs] = useState<Record<string, any>>({});
   
   // ✅ FIX #1: Fetch current user on component mount with loading state
   useEffect(() => {
@@ -523,7 +542,54 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       
       console.log(`✅ FIX #3 & #4: Updated token ${tokenId} with blockchain: ${blockchain}, environment: ${environment}, deployed_by: ${currentUserId}`);
       
-      if (useOptimization) {
+      // ✅ NEW: Check if factory deployment is available and configured
+      if (factoryConfigured && factoryAddress && useFactoryDeployment) {
+        console.log('🏭 Using factory-based deployment (template cloning)');
+        console.log(`Factory Address: ${factoryAddress}`);
+        console.log(`Selected Modules:`, selectedModules);
+        console.log(`Role Addresses:`, roleAddresses);
+        
+        // ✅ NEW: Deploy via FactoryDeploymentService
+        const factoryResult = await FactoryDeploymentService.deployToken({
+          tokenId,
+          userId: currentUserId,
+          projectId,
+          blockchain,
+          environment: environment as 'mainnet' | 'testnet',
+          standard: tokenConfig.standard || 'ERC20',
+          name: tokenConfig.name,
+          symbol: tokenConfig.symbol,
+          decimals: tokenConfig.decimals,
+          totalSupply: tokenConfig.totalSupply,
+          selectedModules: selectedModules,
+          moduleConfigs: moduleConfigs,
+          roleAddresses: roleAddresses || {},
+          gasConfig: {
+            gasPrice,
+            gasLimit,
+            maxFeePerGas: maxFeePerGas || undefined,
+            maxPriorityFeePerGas: maxPriorityFeePerGas || undefined
+          }
+        });
+        
+        if (factoryResult.success && factoryResult.masterAddress) {
+          console.log('✅ Factory deployment successful:', factoryResult);
+          
+          toast({
+            title: "Token Deployed via Factory!",
+            description: `Token cloned from template and deployed at ${factoryResult.masterAddress.substring(0, 10)}...`,
+            variant: "default",
+          });
+          
+          // Use the last transaction hash from the deployment
+          const txHash = factoryResult.transactionHashes[factoryResult.transactionHashes.length - 1] || '';
+          onDeploymentSuccess(factoryResult.masterAddress, txHash);
+        } else {
+          throw new Error(factoryResult.error || 'Factory deployment failed');
+        }
+      } else if (useOptimization) {
+        console.log('⚡ Using optimized deployment service (not factory)');
+        
         // ✅ Use unified deployment service with optimization
         // ✅ FIX #5: Pass gas configuration from form
         const result = await unifiedTokenDeploymentService.deployToken(
@@ -552,6 +618,8 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
           throw new Error(result.error || 'Optimized deployment failed');
         }
       } else {
+        console.log('🔧 Using standard deployment service (not factory, not optimized)');
+        
         // ✅ Use enhanced deployment service without optimization
         // Note: enhancedTokenDeploymentService doesn't support gas config yet
         // This is acceptable as it uses default gas estimation

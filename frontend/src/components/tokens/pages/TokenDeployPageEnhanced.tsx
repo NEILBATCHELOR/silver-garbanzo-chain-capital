@@ -51,6 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import TokenDeploymentFormProjectWalletIntegrated from '@/components/tokens/components/TokenDeploymentFormProjectWalletIntegrated';
 import TokenDeploymentStatusSection from '@/components/tokens/components/deployment/TokenDeploymentStatusSection';
 import TokenNavigation from '@/components/tokens/components/TokenNavigation';
+import { RoleAssignmentForm } from '@/components/tokens/forms-comprehensive/RoleAssignmentForm';
 
 // Services
 import { 
@@ -60,6 +61,7 @@ import {
 import { 
   useTokenization 
 } from '@/components/tokens/hooks/useTokenization';
+import { supabase } from '@/infrastructure/database/client';
 
 // Hooks
 import { useDeploymentConfig } from '@/hooks/useDeploymentConfig';
@@ -74,8 +76,8 @@ import { TokenDetails } from '@/components/tokens/interfaces/TokenInterfaces';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
 
 /**
- * Enhanced TokenDeployPage with real-time deployment status monitoring
- * and integration with TokenDeploymentService
+ * Enhanced TokenDeployPage with factory-based deployment
+ * and role assignment integration
  */
 const TokenDeployPageEnhanced: React.FC = () => {
   // Replace direct useParams with useTokenProjectContext
@@ -92,7 +94,7 @@ const TokenDeployPageEnhanced: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('configure');
   const [standardInfo, setStandardInfo] = useState<Record<string, any>>({});
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus | null>(null);
-  const [selectedChain, setSelectedChain] = useState<string>('polygon');
+  const [selectedChain, setSelectedChain] = useState<string>('hoodi'); // Default to Hoodi
   
   // Gas configuration state
   const [gasPrice, setGasPrice] = useState<string>('20'); // Default 20 Gwei
@@ -101,6 +103,15 @@ const TokenDeployPageEnhanced: React.FC = () => {
   // EIP-1559 specific state
   const [maxFeePerGas, setMaxFeePerGas] = useState<string>('');
   const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>('');
+  
+  // 🆕 Factory configuration state
+  const [factoryAddress, setFactoryAddress] = useState<string>('');
+  const [factoryConfigured, setFactoryConfigured] = useState<boolean>(false);
+  const [activeTemplates, setActiveTemplates] = useState<any[]>([]);
+  const [loadingFactory, setLoadingFactory] = useState<boolean>(false);
+  
+  // 🆕 Role assignment state
+  const [roleAddresses, setRoleAddresses] = useState<Record<string, string>>({});
   
   // Use deployment config hook to get dynamic configuration
   const { 
@@ -269,6 +280,61 @@ const TokenDeployPageEnhanced: React.FC = () => {
     return statusMap[status] || DeploymentStatus.PENDING;
   };
   
+  // 🆕 Check factory configuration
+  useEffect(() => {
+    const checkFactoryConfiguration = async () => {
+      if (!selectedChain) return;
+      
+      try {
+        setLoadingFactory(true);
+        
+        // Check for factory contract
+        const { data: factoryData, error: factoryError } = await supabase
+          .from('contract_masters')
+          .select('contract_address, is_active')
+          .eq('network', selectedChain)
+          .eq('environment', 'testnet')
+          .like('contract_type', '%factory%')
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (factoryError) {
+          console.error('Error checking factory:', factoryError);
+        }
+        
+        if (factoryData) {
+          setFactoryAddress(factoryData.contract_address);
+          setFactoryConfigured(true);
+        } else {
+          setFactoryAddress('');
+          setFactoryConfigured(false);
+        }
+        
+        // Get active templates
+        const { data: templatesData, error: templatesError } = await supabase
+          .from('contract_masters')
+          .select('*')
+          .eq('network', selectedChain)
+          .eq('environment', 'testnet')
+          .eq('is_template', true)
+          .eq('is_active', true);
+        
+        if (templatesError) {
+          console.error('Error fetching templates:', templatesError);
+        } else {
+          setActiveTemplates(templatesData || []);
+        }
+        
+      } catch (error) {
+        console.error('Error checking factory configuration:', error);
+      } finally {
+        setLoadingFactory(false);
+      }
+    };
+    
+    checkFactoryConfiguration();
+  }, [selectedChain]);
+  
   /**
    * Fetch token data and deployment status
    */
@@ -417,6 +483,14 @@ const TokenDeployPageEnhanced: React.FC = () => {
     }
   };
   
+  // 🆕 Handle role address change
+  const handleRoleChange = (role: string, address: string) => {
+    setRoleAddresses(prev => ({
+      ...prev,
+      [role]: address
+    }));
+  };
+  
   return (
     <TokenPageLayout>
       {/* Loading state */}
@@ -438,11 +512,42 @@ const TokenDeployPageEnhanced: React.FC = () => {
                 Deploy {token.name}
               </h1>
               <p className="text-muted-foreground">
-                Deploy your token to a blockchain network.
+                Deploy your token to a blockchain network using factory-based template cloning.
               </p>
             </div>
-            {/* Second TokenNavigation removed */}
           </div>
+          
+          {/* 🆕 Factory Configuration Status Alert */}
+          {!loadingFactory && !factoryConfigured && (
+            <Alert variant="default" className="mb-4 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300">Factory Not Configured</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                <div className="space-y-2">
+                  <p>
+                    No factory contract found for <strong>{selectedChain}</strong> network.
+                    Template-based deployment requires a configured factory.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/admin/templates`)}
+                    >
+                      Manage Templates
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/admin/factory-config`)}
+                    >
+                      Configure Factory
+                    </Button>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
           
           {error && (
             <Alert variant="destructive" className="mb-6">
@@ -486,7 +591,7 @@ const TokenDeployPageEnhanced: React.FC = () => {
               <Separator className="my-4" />
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="col-span-2">
+                <div className="col-span-2 space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle>Deployment Configuration</CardTitle>
@@ -494,7 +599,7 @@ const TokenDeployPageEnhanced: React.FC = () => {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <TokenDeploymentFormProjectWalletIntegrated
-                        tokenId={tokenId || ''} // ADD: Pass tokenId from URL params
+                        tokenId={tokenId || ''}
                         tokenConfig={{
                           name: token.name,
                           symbol: token.symbol,
@@ -515,12 +620,98 @@ const TokenDeployPageEnhanced: React.FC = () => {
                         maxPriorityFeePerGas={maxPriorityFeePerGas}
                         onMaxFeePerGasChange={setMaxFeePerGas}
                         onMaxPriorityFeePerGasChange={setMaxPriorityFeePerGas}
+                        // 🆕 Pass factory and role props
+                        factoryAddress={factoryAddress}
+                        factoryConfigured={factoryConfigured}
+                        roleAddresses={roleAddresses}
                       />
                     </CardContent>
                   </Card>
+                  
+                  {/* 🆕 Role Assignment Form */}
+                  <RoleAssignmentForm
+                    projectId={projectId || ''}
+                    roleAddresses={roleAddresses}
+                    onRoleChange={handleRoleChange}
+                    availableRoles={['minter', 'pauser', 'burner', 'upgrader']}
+                  />
                 </div>
                 
-                <div className="col-span-1">
+                <div className="col-span-1 space-y-6">
+                  {/* 🆕 Factory Infrastructure Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Server className="h-4 w-4" />
+                        Deployment Infrastructure
+                      </CardTitle>
+                      <CardDescription>
+                        Factory contract for template-based deployment
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {loadingFactory ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      ) : factoryConfigured ? (
+                        <>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Status:</span>
+                              <Badge variant="success" className="flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Configured
+                              </Badge>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Factory:</span>
+                              <code className="text-xs">{formatAddress(factoryAddress)}</code>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Network:</span>
+                              <span>{selectedChain}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Templates:</span>
+                              <span>{activeTemplates.length}</span>
+                            </div>
+                          </div>
+                          
+                          <Separator />
+                          
+                          <div className="space-y-1">
+                            <h4 className="text-xs font-medium">Deployment Method</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Template cloning via factory (gas-efficient)
+                            </p>
+                          </div>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => window.open(getExplorerUrl(selectedChain, factoryAddress), '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-2" />
+                            View on Explorer
+                          </Button>
+                        </>
+                      ) : (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            Factory not configured. Deployment will use direct deployment (higher gas cost).
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Standard Info Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle>{standardInfo.title || token.standard}</CardTitle>
