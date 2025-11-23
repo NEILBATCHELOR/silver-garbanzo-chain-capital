@@ -146,12 +146,12 @@ import "../src/extensions/votes/ERC20VotesModule.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
- * @title DeployHoodiComplete
- * @notice MAXIMAL comprehensive deployment script for Hoodi Testnet
+ * @title DeployInjectiveComplete
+ * @notice MAXIMAL comprehensive deployment script for Injective Testnet
  * @dev Deploys Infrastructure, Masters, Factories, Extensions, Utilities, and configures entire system
  *
- * Network: Hoodi Testnet (Chain ID: 560048)
- * RPC: https://ethereum-hoodi-rpc.publicnode.com/
+ * Network: Injective EVM Testnet (Chain ID: 1439)
+ * RPC: https://k8s.testnet.json-rpc.injective.network
  * Super Admin: 0xAD69315aD80648c0C8ce66EF06a7F9eB3c685C41
  *
  * Deployment Phases:
@@ -166,7 +166,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
  * 9. Deployment Validation
  * 10. Ownership Transfer
  */
-contract DeployHoodiComplete is Script {
+contract DeployInjectiveComplete is Script {
 
     // Super Admin address from Supabase
     address constant SUPER_ADMIN = 0xAD69315aD80648c0C8ce66EF06a7F9eB3c685C41;
@@ -278,18 +278,18 @@ contract DeployHoodiComplete is Script {
 
     function run() external {
         // Pre-flight checks
-        require(block.chainid == 560048, "Must deploy to Hoodi Testnet (560048)");
+        require(block.chainid == 1439, "Must deploy to Injective EVM Testnet (1439)");
 
-        uint256 deployerPrivateKey = vm.envUint("HOODI_PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("INJECTIVE_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("========================================");
-        console.log("HOODI MAXIMAL DEPLOYMENT");
+        console.log("INJECTIVE MAXIMAL DEPLOYMENT");
         console.log("========================================");
         console.log("Chain ID:", block.chainid);
         console.log("Deployer:", deployer);
         console.log("Super Admin:", SUPER_ADMIN);
-        console.log("Balance:", deployer.balance / 1e18, "ETH");
+        console.log("Balance:", deployer.balance / 1e18, "INJ");
         console.log("========================================\n");
 
         require(deployer.balance > 0.5 ether, "Need 0.5+ ETH for deployment");

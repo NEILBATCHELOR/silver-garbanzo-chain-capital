@@ -31,6 +31,14 @@ import { PolicyAwareRoleManagementOperation } from "./PolicyAwareRoleManagementO
 import { ModuleManagementPanel } from "./ModuleManagementPanel";
 import { UpdateMaxSupplyOperation } from "./UpdateMaxSupplyOperation";
 
+// 🆕 Module-Specific Operations
+import {
+  VestingModuleOperations,
+  TimelockModuleOperations,
+  ComplianceModuleOperations,
+  DocumentModuleOperations
+} from './modules';
+
 import type { SupportedChain } from "@/infrastructure/web3/adapters/IBlockchainAdapter";
 import { useSupabaseClient as useSupabase } from "@/hooks/shared/supabase/useSupabaseClient";
 
@@ -42,6 +50,7 @@ interface PolicyAwareOperationsPanelProps {
   tokenName: string;
   tokenSymbol: string;
   chain: SupportedChain;
+  environment?: 'mainnet' | 'testnet'; // 🆕 For module operations
   isDeployed: boolean;
   isPaused?: boolean;
   hasPauseFeature?: boolean;
@@ -50,6 +59,7 @@ interface PolicyAwareOperationsPanelProps {
   currentMaxSupply?: string; // 🆕 For max supply operation
   currentTotalSupply?: string; // 🆕 For max supply operation
   decimals?: number; // 🆕 For max supply operation
+  moduleAddresses?: Record<string, string>; // 🆕 For module operations
   refreshTokenData?: () => void;
 }
 
@@ -72,6 +82,7 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
   tokenName,
   tokenSymbol,
   chain,
+  environment = 'testnet', // 🆕 Default to testnet
   isDeployed,
   isPaused = false,
   hasPauseFeature = false,
@@ -80,6 +91,7 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
   currentMaxSupply = '0',
   currentTotalSupply = '0',
   decimals = 18,
+  moduleAddresses = {}, // 🆕 Module addresses
   refreshTokenData
 }) => {
   const [activeTab, setActiveTab] = useState("mint");
@@ -156,7 +168,12 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
     // 🆕 Advanced operations
     roles: true, // Always available
     modules: true, // Always available
-    maxSupply: ["ERC-20", "ERC-1400"].includes(tokenStandard) // Only for tokens with max supply
+    maxSupply: ["ERC-20", "ERC-1400"].includes(tokenStandard), // Only for tokens with max supply
+    // 🆕 Module-specific operations
+    vesting: !!moduleAddresses?.vesting,
+    timelock: !!moduleAddresses?.timelock,
+    compliance: !!moduleAddresses?.compliance,
+    document: !!moduleAddresses?.document
   };
 
   // Count available operations for grid layout
@@ -266,6 +283,11 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
                     Max Supply
                   </TabsTrigger>
                 )}
+                {/* 🆕 Module-Specific Operations */}
+                {operations.vesting && <TabsTrigger value="vesting">Vesting</TabsTrigger>}
+                {operations.timelock && <TabsTrigger value="timelock">Timelock</TabsTrigger>}
+                {operations.compliance && <TabsTrigger value="compliance">Compliance</TabsTrigger>}
+                {operations.document && <TabsTrigger value="document">Documents</TabsTrigger>}
               </TabsList>
               
               <div className="mt-6">
@@ -435,6 +457,51 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
                       currentTotalSupply={currentTotalSupply}
                       decimals={decimals}
                       onSuccess={handleOperationSuccess}
+                    />
+                  </TabsContent>
+                )}
+
+                {/* 🆕 Module-Specific Operations */}
+                {operations.vesting && moduleAddresses.vesting && (
+                  <TabsContent value="vesting">
+                    <VestingModuleOperations
+                      moduleAddress={moduleAddresses.vesting}
+                      tokenAddress={tokenAddress}
+                      chain={chain}
+                      environment={environment === 'testnet' ? 'testnet' : 'mainnet'}
+                    />
+                  </TabsContent>
+                )}
+
+                {operations.timelock && moduleAddresses.timelock && (
+                  <TabsContent value="timelock">
+                    <TimelockModuleOperations
+                      moduleAddress={moduleAddresses.timelock}
+                      tokenAddress={tokenAddress}
+                      chain={chain}
+                      environment={environment === 'testnet' ? 'testnet' : 'mainnet'}
+                    />
+                  </TabsContent>
+                )}
+
+                {operations.compliance && moduleAddresses.compliance && (
+                  <TabsContent value="compliance">
+                    <ComplianceModuleOperations
+                      moduleAddress={moduleAddresses.compliance}
+                      tokenAddress={tokenAddress}
+                      chain={chain}
+                      environment={environment === 'testnet' ? 'testnet' : 'mainnet'}
+                    />
+                  </TabsContent>
+                )}
+
+                {operations.document && moduleAddresses.document && (
+                  <TabsContent value="document">
+                    <DocumentModuleOperations
+                      moduleAddress={moduleAddresses.document}
+                      tokenAddress={tokenAddress}
+                      chain={chain}
+                      environment={environment === 'testnet' ? 'testnet' : 'mainnet'}
                     />
                   </TabsContent>
                 )}

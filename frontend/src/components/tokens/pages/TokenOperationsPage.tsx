@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Settings, Coins } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Settings, Coins, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/infrastructure/database/client';
 
 // Import the PolicyAware operations panel
 import PolicyAwareOperationsPanel from '@/components/tokens/operations/PolicyAwareOperationsPanel';
 import { getToken, getTokens } from '@/components/tokens/services/tokenService';
 import TokenPageLayout from '@/components/tokens/layout/TokenPageLayout';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
+import { formatAddress } from '@/utils/shared/addressUtils';
+import { getExplorerUrl } from '@/utils/shared/explorerUtils';
 
 // Types
 interface Token {
@@ -28,6 +31,15 @@ interface Token {
   hasBlockFeature?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+interface TokenModule {
+  id: string;
+  module_type: string;
+  module_address: string;
+  master_address: string;
+  is_active: boolean;
+  deployed_at: string;
 }
 
 interface TokenOperationsPageProps {}
@@ -48,6 +60,11 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTokenSelection, setShowTokenSelection] = useState(false);
+  
+  // 🆕 Module state
+  const [tokenModules, setTokenModules] = useState<TokenModule[]>([]);
+  const [loadingModules, setLoadingModules] = useState(false);
+  const [moduleAddresses, setModuleAddresses] = useState<Record<string, string>>({});
 
   // Validate UUID format
   const isValidUUID = (uuid: string): boolean => {
@@ -68,6 +85,42 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
       setTokens(deployedTokens);
     } catch (error) {
       console.error('Error fetching tokens:', error);
+    }
+  };
+
+  // 🆕 Fetch token modules
+  const fetchTokenModules = async (tokenId: string) => {
+    try {
+      setLoadingModules(true);
+      
+      const { data, error } = await supabase
+        .from('token_modules')
+        .select('*')
+        .eq('token_id', tokenId)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      
+      const modules = data || [];
+      setTokenModules(modules);
+      
+      // Create module addresses map
+      const addressMap: Record<string, string> = {};
+      modules.forEach(module => {
+        addressMap[module.module_type] = module.module_address;
+      });
+      setModuleAddresses(addressMap);
+      
+      console.log(`✅ Loaded ${modules.length} modules for token`);
+    } catch (error) {
+      console.error('Error fetching token modules:', error);
+      toast({
+        title: "Failed to load modules",
+        description: "Some operations may not be available",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingModules(false);
     }
   };
 
@@ -120,6 +173,11 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
 
       setToken(tokenData);
       setShowTokenSelection(false);
+      
+      // 🆕 Load modules for this token
+      if (tokenData.id) {
+        await fetchTokenModules(tokenData.id);
+      }
     } catch (error) {
       console.error('Error fetching token:', error);
       setError('Failed to load token data');
@@ -322,8 +380,63 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
           tokenStandard={token.standard}
           tokenAddress={token.address}
           chain={(token.chain as SupportedChain) || 'ethereum'}
+          environment="testnet" // 🆕 Add environment (Hoodi testnet)
           isDeployed={!!token.address && token.address !== ''}
+          moduleAddresses={moduleAddresses} // 🆕 Pass module addresses
         />
+
+        {/* 🆕 Deployed Modules Card */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Deployed Modules</CardTitle>
+            <CardDescription>
+              Active modules for this token
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingModules ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : tokenModules.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No modules deployed for this token
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-3">
+                {tokenModules.map((module) => (
+                  <div 
+                    key={module.id} 
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div>
+                      <h4 className="font-medium capitalize">{module.module_type.replace('_', ' ')}</h4>
+                      <code className="text-xs text-muted-foreground">
+                        {formatAddress(module.module_address)}
+                      </code>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-green-500">Active</Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(
+                          getExplorerUrl(token.chain || 'ethereum', module.module_address),
+                          '_blank'
+                        )}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Feature Availability Info */}
         <Card className="mt-6">
