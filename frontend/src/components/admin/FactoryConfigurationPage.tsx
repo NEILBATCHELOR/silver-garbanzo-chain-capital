@@ -82,6 +82,7 @@ export function FactoryConfigurationPage() {
   const [batchRegistering, setBatchRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [currentChainId, setCurrentChainId] = useState<number | null>(null);
   const [networkCorrect, setNetworkCorrect] = useState(false);
 
@@ -205,6 +206,87 @@ export function FactoryConfigurationPage() {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Sync database with on-chain state
+   * Reads the actual registered templates from blockchain and updates database
+   */
+  const syncDatabaseWithChain = async () => {
+    if (!networkCorrect) {
+      setError('Please switch to Hoodi Testnet first');
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      setError(null);
+      setSuccess('Syncing database with on-chain state...');
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      let syncedCount = 0;
+
+      for (const factory of factories) {
+        const factoryContract = new ethers.Contract(
+          factory.contract_address,
+          FACTORY_ABI,
+          provider
+        );
+
+        // Get relevant templates for this factory
+        const relevantTemplates = getRelevantTemplates(factory.contract_type, templates);
+        const registeredTemplates: Record<string, string> = {};
+
+        // Check each template on-chain
+        for (const template of relevantTemplates) {
+          try {
+            const registeredAddress = await factoryContract.getTemplateAddress(
+              template.contract_type
+            );
+
+            // If registered (not zero address)
+            if (registeredAddress && registeredAddress !== '0x0000000000000000000000000000000000000000') {
+              registeredTemplates[template.contract_type] = registeredAddress;
+            }
+          } catch (err) {
+            // Template not registered or method not available
+            console.log(`Template ${template.contract_type} not registered in ${factory.contract_type}`);
+          }
+        }
+
+        // Update database if we found any registrations
+        if (Object.keys(registeredTemplates).length > 0) {
+          const { error: updateError } = await supabase
+            .from('contract_masters')
+            .update({
+              contract_details: {
+                ...factory.contract_details,
+                registeredTemplates
+              }
+            })
+            .eq('id', factory.id);
+
+          if (updateError) {
+            console.error(`Failed to update factory ${factory.contract_type}:`, updateError);
+          } else {
+            syncedCount++;
+            console.log(`✅ Synced ${factory.contract_type}: ${Object.keys(registeredTemplates).length} templates`);
+          }
+        }
+      }
+
+      setSuccess(`Synced ${syncedCount} factories with on-chain state. Reloading...`);
+      
+      // Reload data to reflect changes
+      await loadData();
+      
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      console.error('Sync failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to sync with chain');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -587,7 +669,7 @@ export function FactoryConfigurationPage() {
         throw new Error('Transaction failed');
       }
 
-      // Update registration status
+      // Update local state
       setRegistrations(prev =>
         prev.map(r =>
           r.factoryAddress === factoryAddress && r.templateType === templateType
@@ -595,6 +677,61 @@ export function FactoryConfigurationPage() {
             : r
         )
       );
+
+      // ============================================
+      // UPDATE DATABASE WITH ON-CHAIN TRUTH
+      // ============================================
+      try {
+        // Find the factory record
+        const factory = factories.find(f => 
+          f.contract_address.toLowerCase() === factoryAddress.toLowerCase()
+        );
+
+        if (factory) {
+          // Get existing registered_templates or create new object
+          const existingRegistered = factory.contract_details?.registeredTemplates || {};
+          
+          // Add the new registration
+          const updatedRegistered = {
+            ...existingRegistered,
+            [templateType]: templateAddress
+          };
+
+          // Update database
+          const { error: updateError } = await supabase
+            .from('contract_masters')
+            .update({
+              contract_details: {
+                ...factory.contract_details,
+                registeredTemplates: updatedRegistered
+              }
+            })
+            .eq('id', factory.id);
+
+          if (updateError) {
+            console.error('Failed to update database:', updateError);
+            // Don't throw - on-chain registration succeeded, database sync is secondary
+          } else {
+            console.log(`✅ Database updated: ${templateType} registered in factory ${factoryAddress}`);
+            
+            // Update local factories state to reflect database change
+            setFactories(prev => prev.map(f => 
+              f.id === factory.id 
+                ? {
+                    ...f,
+                    contract_details: {
+                      ...f.contract_details,
+                      registeredTemplates: updatedRegistered
+                    }
+                  }
+                : f
+            ));
+          }
+        }
+      } catch (dbError) {
+        console.error('Database sync error:', dbError);
+        // Don't throw - on-chain is source of truth, database sync is best-effort
+      }
 
       setSuccess(`Successfully registered ${templateType} template`);
 
@@ -726,6 +863,25 @@ export function FactoryConfigurationPage() {
           <Button onClick={loadData} variant="outline" size="sm" disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
+          </Button>
+          <Button 
+            onClick={syncDatabaseWithChain} 
+            variant="outline" 
+            size="sm" 
+            disabled={syncing || !networkCorrect}
+            title="Sync database with on-chain state"
+          >
+            {syncing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                Sync DB
+              </>
+            )}
           </Button>
         </div>
       </div>
