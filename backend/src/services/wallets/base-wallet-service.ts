@@ -1,141 +1,106 @@
 /**
- * Base Network Wallet Service
+ * Base Network Wallet Service - Simplified Version
  * 
- * Provides wallet generation and management for Base Network (Ethereum L2)
- * using the Coinbase Developer Platform (CDP) SDK.
+ * Provides wallet generation for Base Network using ethers.js
+ * This version focuses on local wallet generation without CDP SDK complexity
  * 
  * Features:
- * - Developer-managed wallet creation
- * - Coinbase-managed wallet creation (optional)
+ * - Local wallet generation using ethers.js
  * - Multi-network support (Base Mainnet & Base Sepolia)
- * - Integration with CDP SDK for enhanced features
- * - Wallet import/export capabilities
  * - Address validation
+ * - HD wallet support
  * 
  * Chain IDs:
  * - Base Mainnet: 8453
  * - Base Sepolia Testnet: 84532
  */
 
-import { Coinbase, Wallet } from '@coinbase/cdp-sdk';
+import { ethers } from 'ethers';
 
 export interface BaseWalletConfig {
-  apiKeyName: string;
-  apiKeyPrivateKey: string;
-  network?: 'base-mainnet' | 'base-sepolia';
+  // Configuration for future CDP SDK integration
+  apiKeyId?: string;
+  apiKeySecret?: string;
+  walletSecret?: string;
 }
 
 export interface BaseWalletResult {
   address: string;
-  walletId?: string;
-  networkId: string;
-  seed?: string; // For developer-managed wallets
+  publicKey: string;
   privateKey?: string;
   mnemonic?: string;
-}
-
-export interface WalletImportOptions {
-  seed: string;
-  network?: 'base-mainnet' | 'base-sepolia';
+  network: string;
+  chainId: number;
 }
 
 /**
- * Base Wallet Service using Coinbase Developer Platform SDK
+ * Base Wallet Service using ethers.js for local wallet generation
  */
 export class BaseWalletService {
-  private cdp: typeof Coinbase;
-  private isConfigured: boolean = false;
-
   constructor(private config?: BaseWalletConfig) {
-    this.cdp = Coinbase;
-    if (config) {
-      this.configure(config);
-    }
+    // Config stored for future CDP SDK integration
   }
 
   /**
-   * Configure the CDP SDK with API credentials
-   */
-  public configure(config: BaseWalletConfig): void {
-    try {
-      this.cdp.configure({
-        apiKeyName: config.apiKeyName,
-        privateKey: config.apiKeyPrivateKey
-      });
-      this.config = config;
-      this.isConfigured = true;
-    } catch (error) {
-      throw new Error(`Failed to configure CDP SDK: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Ensure CDP is configured before operations
-   */
-  private ensureConfigured(): void {
-    if (!this.isConfigured || !this.config) {
-      throw new Error('CDP SDK is not configured. Call configure() first.');
-    }
-  }
-
-  /**
-   * Create a new developer-managed wallet
-   * Developer-managed wallets give you full control of the private keys
+   * Create a new wallet for Base network
    * 
-   * @param network Target network (defaults to base-sepolia for safety)
-   * @returns Wallet creation result with address and seed
+   * @param network Target network
+   * @param name Optional account name (for future use)
+   * @param includePrivateKey Whether to include private key in response
+   * @param includeMnemonic Whether to include mnemonic in response
+   * @returns Wallet creation result
    */
-  public async createDeveloperManagedWallet(
-    network: 'base-mainnet' | 'base-sepolia' = 'base-sepolia'
+  public async createAccount(
+    network: 'base' | 'base-sepolia' = 'base-sepolia',
+    name?: string,
+    includePrivateKey: boolean = false,
+    includeMnemonic: boolean = false
   ): Promise<BaseWalletResult> {
-    this.ensureConfigured();
-
     try {
-      // Create a wallet on the specified network
-      const wallet = await Wallet.create({ networkId: network });
-      
-      // Get the default address
-      const address = await wallet.getDefaultAddress();
-      
-      // Export the wallet data (includes seed for backup)
-      const walletData = wallet.export();
+      const wallet = ethers.Wallet.createRandom();
+      const chainId = network === 'base' ? 8453 : 84532;
 
-      return {
-        address: address.toString(),
-        walletId: wallet.getId(),
-        networkId: network,
-        seed: walletData.seed
+      const result: BaseWalletResult = {
+        address: wallet.address,
+        publicKey: wallet.address, // For EVM, address serves as public key
+        network,
+        chainId
       };
+
+      if (includePrivateKey) {
+        result.privateKey = wallet.privateKey;
+      }
+
+      if (includeMnemonic && wallet.mnemonic) {
+        result.mnemonic = wallet.mnemonic.phrase;
+      }
+
+      return result;
     } catch (error) {
-      throw new Error(`Failed to create developer-managed wallet: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to create account: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
-   * Import an existing wallet from seed phrase
+   * Create a wallet from private key
    * 
-   * @param options Import options including seed and network
-   * @returns Imported wallet result
+   * @param privateKey The private key
+   * @param network Target network
+   * @returns Wallet result
    */
-  public async importWallet(options: WalletImportOptions): Promise<BaseWalletResult> {
-    this.ensureConfigured();
-
+  public async importFromPrivateKey(
+    privateKey: string,
+    network: 'base' | 'base-sepolia' = 'base-sepolia'
+  ): Promise<BaseWalletResult> {
     try {
-      const network = options.network || 'base-sepolia';
-      
-      // Import the wallet from seed
-      const wallet = await Wallet.import({
-        seed: options.seed,
-        networkId: network
-      });
-
-      const address = await wallet.getDefaultAddress();
+      const wallet = new ethers.Wallet(privateKey);
+      const chainId = network === 'base' ? 8453 : 84532;
 
       return {
-        address: address.toString(),
-        walletId: wallet.getId(),
-        networkId: network,
-        seed: options.seed
+        address: wallet.address,
+        publicKey: wallet.address,
+        network,
+        chainId
       };
     } catch (error) {
       throw new Error(`Failed to import wallet: ${error instanceof Error ? error.message : String(error)}`);
@@ -143,114 +108,67 @@ export class BaseWalletService {
   }
 
   /**
-   * List all wallets (paginated)
+   * Create a wallet from mnemonic
    * 
-   * @param limit Maximum number of wallets to return
-   * @param page Page number for pagination
-   * @returns Array of wallet information
+   * @param mnemonic The mnemonic phrase
+   * @param network Target network
+   * @param path Optional derivation path
+   * @returns Wallet result
    */
-  public async listWallets(limit: number = 20, page?: string): Promise<{
-    wallets: Array<{
-      id: string;
-      networkId: string;
-      defaultAddress: string;
-    }>;
-    hasMore: boolean;
-    nextPage?: string;
-  }> {
-    this.ensureConfigured();
-
+  public async importFromMnemonic(
+    mnemonic: string,
+    network: 'base' | 'base-sepolia' = 'base-sepolia',
+    path?: string
+  ): Promise<BaseWalletResult> {
     try {
-      const walletList = await Wallet.list({ limit, page });
-      
-      const wallets = await Promise.all(
-        walletList.data.map(async (wallet) => ({
-          id: wallet.getId(),
-          networkId: wallet.getNetworkId(),
-          defaultAddress: (await wallet.getDefaultAddress()).toString()
-        }))
-      );
+      const derivationPath = path || "m/44'/60'/0'/0/0";
+      const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, derivationPath);
+      const chainId = network === 'base' ? 8453 : 84532;
 
       return {
-        wallets,
-        hasMore: walletList.hasMore,
-        nextPage: walletList.nextPage
+        address: hdNode.address,
+        publicKey: hdNode.address,
+        network,
+        chainId,
+        mnemonic: hdNode.mnemonic?.phrase
       };
     } catch (error) {
-      throw new Error(`Failed to list wallets: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to import from mnemonic: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
-   * Get wallet by ID
+   * Generate multiple wallets from one mnemonic
    * 
-   * @param walletId The wallet ID
-   * @returns Wallet information
+   * @param mnemonic The mnemonic phrase
+   * @param count Number of wallets to generate
+   * @param network Target network
+   * @returns Array of wallet results
    */
-  public async getWallet(walletId: string): Promise<{
-    id: string;
-    networkId: string;
-    defaultAddress: string;
-  }> {
-    this.ensureConfigured();
-
+  public async generateHDWallets(
+    mnemonic: string,
+    count: number,
+    network: 'base' | 'base-sepolia' = 'base-sepolia'
+  ): Promise<BaseWalletResult[]> {
     try {
-      const wallet = await Wallet.fetch(walletId);
-      const address = await wallet.getDefaultAddress();
+      const wallets: BaseWalletResult[] = [];
+      const chainId = network === 'base' ? 8453 : 84532;
 
-      return {
-        id: wallet.getId(),
-        networkId: wallet.getNetworkId(),
-        defaultAddress: address.toString()
-      };
-    } catch (error) {
-      throw new Error(`Failed to get wallet: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Request testnet funds from faucet (Base Sepolia only)
-   * 
-   * @param walletId The wallet ID to fund
-   * @returns Transaction hash of the faucet transaction
-   */
-  public async requestFaucetFunds(walletId: string): Promise<string> {
-    this.ensureConfigured();
-
-    try {
-      const wallet = await Wallet.fetch(walletId);
-      
-      // Faucet is only available on Base Sepolia
-      if (wallet.getNetworkId() !== 'base-sepolia') {
-        throw new Error('Faucet is only available on Base Sepolia testnet');
+      for (let i = 0; i < count; i++) {
+        const path = `m/44'/60'/0'/0/${i}`;
+        const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic).derivePath(path);
+        
+        wallets.push({
+          address: hdNode.address,
+          publicKey: hdNode.address,
+          network,
+          chainId
+        });
       }
 
-      const faucetTx = await wallet.faucet();
-      await faucetTx.wait();
-      
-      return faucetTx.getTransactionHash() || 'Transaction completed';
+      return wallets;
     } catch (error) {
-      throw new Error(`Failed to request faucet funds: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Get wallet balance
-   * 
-   * @param walletId The wallet ID
-   * @param assetId Asset to check (default: 'eth')
-   * @returns Balance as a string
-   */
-  public async getBalance(walletId: string, assetId: string = 'eth'): Promise<string> {
-    this.ensureConfigured();
-
-    try {
-      const wallet = await Wallet.fetch(walletId);
-      const balance = await wallet.getBalance(assetId);
-      
-      return balance.toString();
-    } catch (error) {
-      throw new Error(`Failed to get balance: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to generate HD wallets: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -261,9 +179,11 @@ export class BaseWalletService {
    * @returns True if valid, false otherwise
    */
   public validateAddress(address: string): boolean {
-    // Base uses Ethereum address format (0x + 40 hex characters)
-    const addressRegex = /^0x[a-fA-F0-9]{40}$/;
-    return addressRegex.test(address);
+    try {
+      return ethers.isAddress(address);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -272,7 +192,7 @@ export class BaseWalletService {
    * @param network The network
    * @returns Chain configuration
    */
-  public static getChainConfig(network: 'base-mainnet' | 'base-sepolia' = 'base-mainnet'): {
+  public static getChainConfig(network: 'base' | 'base-sepolia' = 'base'): {
     chainId: number;
     name: string;
     symbol: string;
@@ -280,14 +200,14 @@ export class BaseWalletService {
     rpcUrl: string;
     networkId: string;
   } {
-    if (network === 'base-mainnet') {
+    if (network === 'base') {
       return {
         chainId: 8453,
         name: 'Base Mainnet',
         symbol: 'ETH',
         explorer: 'https://basescan.org',
         rpcUrl: 'https://mainnet.base.org',
-        networkId: 'base-mainnet'
+        networkId: 'base'
       };
     } else {
       return {

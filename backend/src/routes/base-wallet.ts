@@ -1,41 +1,42 @@
 /**
  * Base Network Wallet Routes
  * 
- * API endpoints for Base wallet management using CDP SDK
+ * API endpoints for Base wallet management
  * 
  * Endpoints:
- * - POST /base-wallet/create - Create a new developer-managed wallet
- * - POST /base-wallet/import - Import wallet from seed
- * - GET /base-wallet/list - List all wallets
- * - GET /base-wallet/:walletId - Get wallet details
- * - POST /base-wallet/:walletId/faucet - Request testnet funds
- * - GET /base-wallet/:walletId/balance - Get wallet balance
+ * - POST /base-wallet/create - Create a new wallet
+ * - POST /base-wallet/import/private-key - Import from private key
+ * - POST /base-wallet/import/mnemonic - Import from mnemonic
+ * - POST /base-wallet/generate-hd - Generate HD wallets
  * - POST /base-wallet/validate - Validate Base address
+ * - GET /base-wallet/chain-config - Get chain configuration
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createBaseWalletService, BaseWalletService } from '../services/wallets/base-wallet-service';
 
-interface CreateWalletBody {
-  network?: 'base-mainnet' | 'base-sepolia';
+interface CreateAccountBody {
+  network?: 'base' | 'base-sepolia';
+  name?: string;
+  includePrivateKey?: boolean;
+  includeMnemonic?: boolean;
 }
 
-interface ImportWalletBody {
-  seed: string;
-  network?: 'base-mainnet' | 'base-sepolia';
+interface ImportPrivateKeyBody {
+  privateKey: string;
+  network?: 'base' | 'base-sepolia';
 }
 
-interface ListWalletsQuery {
-  limit?: string;
-  page?: string;
+interface ImportMnemonicBody {
+  mnemonic: string;
+  network?: 'base' | 'base-sepolia';
+  path?: string;
 }
 
-interface WalletParams {
-  walletId: string;
-}
-
-interface BalanceQuery {
-  assetId?: string;
+interface GenerateHDWalletsBody {
+  mnemonic: string;
+  count: number;
+  network?: 'base' | 'base-sepolia';
 }
 
 interface ValidateAddressBody {
@@ -43,191 +44,151 @@ interface ValidateAddressBody {
 }
 
 export async function baseWalletRoutes(fastify: FastifyInstance) {
-  // Initialize service with configuration from environment
-  let walletService: BaseWalletService;
-
-  try {
-    const apiKeyName = process.env.CDP_API_KEY_NAME || process.env.COINBASE_API_KEY_NAME;
-    const apiKeyPrivateKey = process.env.CDP_API_PRIVATE_KEY || process.env.COINBASE_API_PRIVATE_KEY;
-
-    if (!apiKeyName || !apiKeyPrivateKey) {
-      fastify.log.warn('CDP API credentials not configured. Base wallet endpoints will be unavailable.');
-      walletService = createBaseWalletService(); // Create unconfigured service
-    } else {
-      walletService = createBaseWalletService({
-        apiKeyName,
-        apiKeyPrivateKey
-      });
-      fastify.log.info('Base wallet service configured successfully');
-    }
-  } catch (error) {
-    fastify.log.error('Failed to initialize Base wallet service:', error);
-    walletService = createBaseWalletService(); // Create unconfigured service
-  }
+  // Initialize service
+  const walletService = createBaseWalletService();
+  fastify.log.info('Base wallet service initialized');
 
   /**
-   * Create a new developer-managed wallet
+   * Create a new wallet
    */
-  fastify.post<{ Body: CreateWalletBody }>(
+  fastify.post<{ Body: CreateAccountBody }>(
     '/base-wallet/create',
-    async (request: FastifyRequest<{ Body: CreateWalletBody }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Body: CreateAccountBody }>, reply: FastifyReply) => {
       try {
-        const { network = 'base-sepolia' } = request.body;
+        const { 
+          network = 'base-sepolia', 
+          name,
+          includePrivateKey = false,
+          includeMnemonic = false
+        } = request.body;
 
-        const result = await walletService.createDeveloperManagedWallet(network);
+        const result = await walletService.createAccount(
+          network, 
+          name, 
+          includePrivateKey, 
+          includeMnemonic
+        );
 
         return reply.code(201).send({
           success: true,
           data: result,
           message: `Base wallet created successfully on ${network}`
         });
-      } catch (error) {
-        fastify.log.error('Error creating Base wallet:', error);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create wallet';
+        fastify.log.error(`Error creating Base wallet: ${errorMessage}`);
         return reply.code(500).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to create wallet'
+          error: errorMessage
         });
       }
     }
   );
 
   /**
-   * Import wallet from seed phrase
+   * Import wallet from private key
    */
-  fastify.post<{ Body: ImportWalletBody }>(
-    '/base-wallet/import',
-    async (request: FastifyRequest<{ Body: ImportWalletBody }>, reply: FastifyReply) => {
+  fastify.post<{ Body: ImportPrivateKeyBody }>(
+    '/base-wallet/import/private-key',
+    async (request: FastifyRequest<{ Body: ImportPrivateKeyBody }>, reply: FastifyReply) => {
       try {
-        const { seed, network = 'base-sepolia' } = request.body;
+        const { privateKey, network = 'base-sepolia' } = request.body;
 
-        if (!seed) {
+        if (!privateKey) {
           return reply.code(400).send({
             success: false,
-            error: 'Seed phrase is required'
+            error: 'Private key is required'
           });
         }
 
-        const result = await walletService.importWallet({ seed, network });
+        const result = await walletService.importFromPrivateKey(privateKey, network);
 
         return reply.code(200).send({
           success: true,
           data: result,
-          message: 'Wallet imported successfully'
+          message: 'Wallet imported successfully from private key'
         });
-      } catch (error) {
-        fastify.log.error('Error importing wallet:', error);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to import wallet';
+        fastify.log.error(`Error importing wallet from private key: ${errorMessage}`);
         return reply.code(500).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to import wallet'
+          error: errorMessage
         });
       }
     }
   );
 
   /**
-   * List all wallets (paginated)
+   * Import wallet from mnemonic
    */
-  fastify.get<{ Querystring: ListWalletsQuery }>(
-    '/base-wallet/list',
-    async (request: FastifyRequest<{ Querystring: ListWalletsQuery }>, reply: FastifyReply) => {
+  fastify.post<{ Body: ImportMnemonicBody }>(
+    '/base-wallet/import/mnemonic',
+    async (request: FastifyRequest<{ Body: ImportMnemonicBody }>, reply: FastifyReply) => {
       try {
-        const limit = request.query.limit ? parseInt(request.query.limit) : 20;
-        const page = request.query.page;
+        const { mnemonic, network = 'base-sepolia', path } = request.body;
 
-        const result = await walletService.listWallets(limit, page);
+        if (!mnemonic) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Mnemonic phrase is required'
+          });
+        }
+
+        const result = await walletService.importFromMnemonic(mnemonic, network, path);
 
         return reply.code(200).send({
           success: true,
-          data: result
+          data: result,
+          message: 'Wallet imported successfully from mnemonic'
         });
-      } catch (error) {
-        fastify.log.error('Error listing wallets:', error);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to import wallet';
+        fastify.log.error(`Error importing wallet from mnemonic: ${errorMessage}`);
         return reply.code(500).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to list wallets'
+          error: errorMessage
         });
       }
     }
   );
 
   /**
-   * Get wallet details by ID
+   * Generate HD wallets from mnemonic
    */
-  fastify.get<{ Params: WalletParams }>(
-    '/base-wallet/:walletId',
-    async (request: FastifyRequest<{ Params: WalletParams }>, reply: FastifyReply) => {
+  fastify.post<{ Body: GenerateHDWalletsBody }>(
+    '/base-wallet/generate-hd',
+    async (request: FastifyRequest<{ Body: GenerateHDWalletsBody }>, reply: FastifyReply) => {
       try {
-        const { walletId } = request.params;
+        const { mnemonic, count, network = 'base-sepolia' } = request.body;
 
-        const result = await walletService.getWallet(walletId);
+        if (!mnemonic) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Mnemonic phrase is required'
+          });
+        }
+
+        if (!count || count < 1 || count > 20) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Count must be between 1 and 20'
+          });
+        }
+
+        const result = await walletService.generateHDWallets(mnemonic, count, network);
 
         return reply.code(200).send({
           success: true,
-          data: result
+          data: result,
+          message: `Generated ${count} HD wallets successfully`
         });
-      } catch (error) {
-        fastify.log.error('Error getting wallet:', error);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to generate HD wallets';
+        fastify.log.error(`Error generating HD wallets: ${errorMessage}`);
         return reply.code(500).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to get wallet'
-        });
-      }
-    }
-  );
-
-  /**
-   * Request testnet funds from faucet (Base Sepolia only)
-   */
-  fastify.post<{ Params: WalletParams }>(
-    '/base-wallet/:walletId/faucet',
-    async (request: FastifyRequest<{ Params: WalletParams }>, reply: FastifyReply) => {
-      try {
-        const { walletId } = request.params;
-
-        const txHash = await walletService.requestFaucetFunds(walletId);
-
-        return reply.code(200).send({
-          success: true,
-          data: {
-            transactionHash: txHash
-          },
-          message: 'Faucet funds requested successfully'
-        });
-      } catch (error) {
-        fastify.log.error('Error requesting faucet funds:', error);
-        return reply.code(500).send({
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to request faucet funds'
-        });
-      }
-    }
-  );
-
-  /**
-   * Get wallet balance
-   */
-  fastify.get<{ Params: WalletParams; Querystring: BalanceQuery }>(
-    '/base-wallet/:walletId/balance',
-    async (request: FastifyRequest<{ Params: WalletParams; Querystring: BalanceQuery }>, reply: FastifyReply) => {
-      try {
-        const { walletId } = request.params;
-        const { assetId = 'eth' } = request.query;
-
-        const balance = await walletService.getBalance(walletId, assetId);
-
-        return reply.code(200).send({
-          success: true,
-          data: {
-            walletId,
-            assetId,
-            balance
-          }
-        });
-      } catch (error) {
-        fastify.log.error('Error getting balance:', error);
-        return reply.code(500).send({
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to get balance'
+          error: errorMessage
         });
       }
     }
@@ -258,11 +219,12 @@ export async function baseWalletRoutes(fastify: FastifyInstance) {
             isValid
           }
         });
-      } catch (error) {
-        fastify.log.error('Error validating address:', error);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to validate address';
+        fastify.log.error(`Error validating address: ${errorMessage}`);
         return reply.code(500).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to validate address'
+          error: errorMessage
         });
       }
     }
@@ -271,11 +233,11 @@ export async function baseWalletRoutes(fastify: FastifyInstance) {
   /**
    * Get chain configuration
    */
-  fastify.get<{ Querystring: { network?: 'base-mainnet' | 'base-sepolia' } }>(
+  fastify.get<{ Querystring: { network?: 'base' | 'base-sepolia' } }>(
     '/base-wallet/chain-config',
-    async (request: FastifyRequest<{ Querystring: { network?: 'base-mainnet' | 'base-sepolia' } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Querystring: { network?: 'base' | 'base-sepolia' } }>, reply: FastifyReply) => {
       try {
-        const { network = 'base-mainnet' } = request.query;
+        const { network = 'base' } = request.query;
 
         const config = BaseWalletService.getChainConfig(network);
 
@@ -283,15 +245,16 @@ export async function baseWalletRoutes(fastify: FastifyInstance) {
           success: true,
           data: config
         });
-      } catch (error) {
-        fastify.log.error('Error getting chain config:', error);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to get chain config';
+        fastify.log.error(`Error getting chain config: ${errorMessage}`);
         return reply.code(500).send({
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to get chain config'
+          error: errorMessage
         });
       }
     }
   );
 
-  fastify.log.info('Base wallet routes registered');
+  fastify.log.info('Base wallet routes registered successfully');
 }

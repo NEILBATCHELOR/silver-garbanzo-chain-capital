@@ -19,6 +19,7 @@ import tokenRoutes from './src/routes/tokens'
 import subscriptionRoutes from './src/routes/subscriptions'
 import documentRoutes from './src/routes/documents'
 import walletRoutes from './src/routes/wallets'
+import { baseWalletRoutes } from './src/routes/base-wallet'
 import auditRoutes from './src/routes/audit'
 import userRoutes from './src/routes/users'
 import policyRoutes from './src/routes/policy'
@@ -849,6 +850,7 @@ Comprehensive platform supporting:
     await app.register(documentRoutes, { prefix: apiPrefix })
     await app.register(walletRoutes, { prefix: apiPrefix })
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
+    await app.register(baseWalletRoutes, { prefix: '/api' })  // Base Network wallet service
     await app.register(calendarRoutes, { prefix: apiPrefix })
 
     // NAV routes (includes bond and MMF data input and calculations)
