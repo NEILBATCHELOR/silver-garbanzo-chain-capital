@@ -26,16 +26,19 @@ export interface WalletGenerationOptions {
 export class ETHWalletGenerator implements WalletGenerator {
   /**
    * Generate a new Ethereum wallet
-   * @returns A wallet generation result with address and private key
+   * @param options Wallet generation options
+   * @returns A wallet generation result with address, private key, and optionally mnemonic
    */
-  public async generateWallet(): Promise<WalletInterface> {
-    // Create a new random wallet
-    const wallet = EthersWallet.createRandom();
+  public async generateWallet(options: WalletGenerationOptions = {}): Promise<WalletInterface> {
+    // Use the static method which already supports all options
+    const generatedWallet = ETHWalletGenerator.generateWallet(options);
     
+    // Convert to WalletInterface format
     return {
-      address: wallet.address,
-      privateKey: wallet.privateKey,
-      publicKey: wallet.address, // In ethers.js v6, we use the address as there's no direct publicKey property
+      address: generatedWallet.address,
+      privateKey: generatedWallet.privateKey || '',
+      publicKey: generatedWallet.publicKey,
+      mnemonic: generatedWallet.mnemonic,
       metadata: this.getMetadata()
     };
   }

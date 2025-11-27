@@ -6189,6 +6189,10 @@ export type Database = {
           is_template: boolean | null
           network: string
           updated_at: string | null
+          verification_error: string | null
+          verification_status: string | null
+          verification_url: string | null
+          verified_at: string | null
           version: string
         }
         Insert: {
@@ -6211,6 +6215,10 @@ export type Database = {
           is_template?: boolean | null
           network: string
           updated_at?: string | null
+          verification_error?: string | null
+          verification_status?: string | null
+          verification_url?: string | null
+          verified_at?: string | null
           version?: string
         }
         Update: {
@@ -6233,6 +6241,10 @@ export type Database = {
           is_template?: boolean | null
           network?: string
           updated_at?: string | null
+          verification_error?: string | null
+          verification_status?: string | null
+          verification_url?: string | null
+          verified_at?: string | null
           version?: string
         }
         Relationships: [
@@ -6244,6 +6256,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contract_masters_backup_20251121: {
+        Row: {
+          abi: Json | null
+          abi_hash: string | null
+          abi_version: string | null
+          contract_address: string | null
+          contract_details: Json | null
+          contract_type: string | null
+          created_at: string | null
+          deployed_at: string | null
+          deployed_by: string | null
+          deployment_data: Json | null
+          deployment_tx_hash: string | null
+          deprecated_at: string | null
+          environment: string | null
+          id: string | null
+          initial_owner: string | null
+          is_active: boolean | null
+          is_template: boolean | null
+          network: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          abi?: Json | null
+          abi_hash?: string | null
+          abi_version?: string | null
+          contract_address?: string | null
+          contract_details?: Json | null
+          contract_type?: string | null
+          created_at?: string | null
+          deployed_at?: string | null
+          deployed_by?: string | null
+          deployment_data?: Json | null
+          deployment_tx_hash?: string | null
+          deprecated_at?: string | null
+          environment?: string | null
+          id?: string | null
+          initial_owner?: string | null
+          is_active?: boolean | null
+          is_template?: boolean | null
+          network?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          abi?: Json | null
+          abi_hash?: string | null
+          abi_version?: string | null
+          contract_address?: string | null
+          contract_details?: Json | null
+          contract_type?: string | null
+          created_at?: string | null
+          deployed_at?: string | null
+          deployed_by?: string | null
+          deployment_data?: Json | null
+          deployment_tx_hash?: string | null
+          deprecated_at?: string | null
+          environment?: string | null
+          id?: string | null
+          initial_owner?: string | null
+          is_active?: boolean | null
+          is_template?: boolean | null
+          network?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
       }
       contract_role_assignments: {
         Row: {
@@ -6539,6 +6620,51 @@ export type Database = {
             referencedColumns: ["source_id"]
           },
         ]
+      }
+      deployment_audit_logs: {
+        Row: {
+          action: string
+          command: string
+          created_at: string
+          duration_ms: number
+          error: string | null
+          exit_code: number
+          id: string
+          metadata: Json | null
+          network: string
+          output: string | null
+          success: boolean
+          user_id: string
+        }
+        Insert: {
+          action: string
+          command: string
+          created_at?: string
+          duration_ms: number
+          error?: string | null
+          exit_code: number
+          id?: string
+          metadata?: Json | null
+          network: string
+          output?: string | null
+          success: boolean
+          user_id: string
+        }
+        Update: {
+          action?: string
+          command?: string
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          exit_code?: number
+          id?: string
+          metadata?: Json | null
+          network?: string
+          output?: string | null
+          success?: boolean
+          user_id?: string
+        }
+        Relationships: []
       }
       deployment_rate_limits: {
         Row: {

@@ -45,6 +45,9 @@ import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
 // import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
 
+// Admin & Deployment Routes
+import { deploymentRoutes } from './src/routes/deploymentRoutes'
+
 // Plugins
 import supabasePlugin from './src/plugins/supabase'
 
@@ -545,6 +548,25 @@ const SERVICE_CATALOG = {
     ],
     total_endpoints: 50,
     total_services: 10
+  },
+  admin_deployment: {
+    category: 'Admin & Deployment',
+    services: [
+      {
+        name: 'Contract Deployment',
+        endpoints: 6,
+        routes: [
+          'GET /deployment/health (health)', 'POST /deployment/execute-command (execute)',
+          'POST /deployment/deploy (deploy)', 'POST /deployment/verify (verify)',
+          'GET /deployment/history (history)', 'GET /deployment/stats (stats)'
+        ],
+        operations: ['Contract Deployment', 'Verification', 'Command Execution', 'Audit Logging'],
+        prefix: '/api/deployment',
+        description: 'Smart contract deployment and verification with security validation and audit logging'
+      }
+    ],
+    total_endpoints: 6,
+    total_services: 1
   }
 }
 
@@ -607,9 +629,15 @@ async function buildApp(): Promise<FastifyInstance> {
 
     await app.register(import('@fastify/sensible'))
 
-    // Register JWT authentication
+    // Register JWT authentication with Supabase JWT secret
+    // This is critical for verifying JWT tokens issued by Supabase Auth
+    const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
+    if (!supabaseJwtSecret) {
+      logger.warn('SUPABASE_JWT_SECRET not configured - JWT authentication will not work with Supabase tokens');
+    }
+    
     await app.register(import('@fastify/jwt'), {
-      secret: process.env.JWT_SECRET || 'development-secret-key-not-for-production'
+      secret: supabaseJwtSecret || process.env.JWT_SECRET || 'development-secret-key-not-for-production'
     })
 
     // Register authentication middleware
@@ -842,6 +870,9 @@ Comprehensive platform supporting:
     await app.register(factoringRoutes, { prefix: apiPrefix })
     await app.register(complianceRoutes, { prefix: apiPrefix })
     await app.register(organizationRoutes, { prefix: '/api/v1/organizations' })
+
+    // Admin & Deployment routes
+    await app.register(deploymentRoutes)  // Handles /api/deployment/*
 
     // PSP (Payment Service Provider) routes - 10 services, 50 endpoints
     // Auth routes don't need authentication (they create/manage API keys)

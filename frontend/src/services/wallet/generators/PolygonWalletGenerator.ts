@@ -8,16 +8,21 @@ import { Wallet as EthersWallet } from 'ethers';
 export class PolygonWalletGenerator implements WalletGenerator {
   /**
    * Generate a new Polygon wallet
-   * @returns A wallet generation result with address and private key
+   * @param options Wallet generation options
+   * @returns A wallet generation result with address, private key, and optionally mnemonic
    */
   public async generateWallet(options?: WalletGenerationOptions): Promise<Wallet> {
+    const includePrivateKey = options?.includePrivateKey ?? true;
+    const includeMnemonic = options?.includeMnemonic ?? false;
+    
     // Create a new random wallet
     const wallet = EthersWallet.createRandom();
     
     return {
       address: wallet.address,
-      privateKey: wallet.privateKey,
+      privateKey: includePrivateKey ? wallet.privateKey : '',
       publicKey: wallet.publicKey,
+      mnemonic: includeMnemonic && wallet.mnemonic ? wallet.mnemonic.phrase : undefined,
       metadata: this.getMetadata()
     };
   }

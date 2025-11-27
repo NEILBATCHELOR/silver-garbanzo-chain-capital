@@ -1,1116 +1,754 @@
 /**
- * Factory Configuration Page - Enhanced
- * Admin interface for configuring factory contracts with templates
- * Manages which templates each factory should use for deployment
+ * Factory Configuration Page - DYNAMIC VERSION
  * 
- * Features:
- * - Network detection (ensures Hoodi Testnet)
- * - Batch registration
- * - Proper explorer URLs from chainIds
- * - Enhanced error handling
- * - Gas estimation
+ * Loads all contract data from the database dynamically.
+ * Supports multiple deployments with version/date selector.
+ * 
+ * ARCHITECTURE (Actual Deployed System):
+ * ═══════════════════════════════════════
+ * BeaconProxyFactory → deploys BeaconProxy → points to TokenBeacon → points to Master
+ * 
+ * Key Points:
+ * - NO template registration needed - factories take beacon addresses directly
+ * - Token-specific factories (ERC20Factory, etc.) handle token deployment
+ * - Extension factories handle module attachment
+ * - Masters are template implementations that beacons point to
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   CheckCircle2,
-  XCircle,
   Loader2,
   ExternalLink,
   RefreshCw,
   AlertCircle,
   Info,
-  Settings,
+  Layers,
+  Box,
   Zap,
-  Network,
-  CheckCheck
+  Settings,
+  Cpu,
+  Shield,
+  Search,
+  Copy,
+  Check,
+  Database,
+  Factory,
+  Package,
+  Calendar,
+  GitBranch
 } from 'lucide-react';
 import { supabase } from '@/infrastructure/database/client';
-import { ethers } from 'ethers';
-import { CHAIN_IDS, getExplorerUrl, getChainName } from '@/infrastructure/web3/utils/chainIds';
-import { getAddressUrl } from '@/infrastructure/web3/utils/blockchainExplorerConfig';
+import { useToast } from '@/components/ui/use-toast';
+import { DeploymentImportDialog } from './DeploymentImportDialog';
+import { DeploymentDialog } from './DeploymentDialog';
 
-interface Template {
+// ============================================
+// Types
+// ============================================
+
+interface ContractMaster {
   id: string;
   contract_type: string;
   contract_address: string;
+  is_template: boolean;
   is_active: boolean;
+  network: string;
+  environment: string;
+  abi: unknown;
+  version: string | null;
+  deployment_tx_hash: string | null;
   contract_details: {
     name?: string;
-    verified?: boolean;
-  };
+    description?: string;
+    standard?: string;
+    category?: string;
+    forStandard?: string;
+    master?: string;
+  } | null;
+  created_at: string;
+  updated_at: string;
 }
 
-interface Factory {
-  id: string;
-  contract_type: string;
-  contract_address: string;
-  contract_details: {
-    name?: string;
-    verified?: boolean;
-    registeredTemplates?: Record<string, string>;
-  };
+interface CategoryConfig {
+  label: string;
+  icon: React.ReactNode;
+  description: string;
+  color: string;
 }
 
-interface TemplateRegistration {
-  factoryAddress: string;
-  factoryType: string;
-  templateType: string;
-  templateAddress: string;
-  isRegistered: boolean;
-  checking: boolean;
+interface Deployment {
+  date: string;
+  label: string;
+  count: number;
+  network: string;
 }
 
-const FACTORY_ABI = [
-  'function registerTemplate(string memory templateType, address templateAddress) external',
-  'function getTemplateAddress(string memory templateType) external view returns (address)',
-  'function isTemplateRegistered(string memory templateType) external view returns (bool)',
-];
-
-const HOODI_TESTNET_CHAIN_ID = CHAIN_IDS.hoodi;
-
-export function FactoryConfigurationPage() {
-  const [loading, setLoading] = useState(true);
-  const [factories, setFactories] = useState<Factory[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [registrations, setRegistrations] = useState<TemplateRegistration[]>([]);
-  const [registering, setRegistering] = useState<string | null>(null);
-  const [batchRegistering, setBatchRegistering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [currentChainId, setCurrentChainId] = useState<number | null>(null);
-  const [networkCorrect, setNetworkCorrect] = useState(false);
-
-  useEffect(() => {
-    loadData();
-    checkNetwork();
-    
-    // Listen for network changes
-    if (window.ethereum) {
-      window.ethereum.on('chainChanged', handleChainChanged);
-      return () => {
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
-      };
-    }
-  }, []);
-
-  const handleChainChanged = (chainIdHex: string) => {
-    const chainId = parseInt(chainIdHex, 16);
-    setCurrentChainId(chainId);
-    setNetworkCorrect(chainId === HOODI_TESTNET_CHAIN_ID);
-    
-    // Reload data if switched to correct network
-    if (chainId === HOODI_TESTNET_CHAIN_ID) {
-      loadData();
-    }
-  };
-
-  const checkNetwork = async () => {
-    try {
-      if (!window.ethereum) {
-        setError('No ethereum provider found. Please install MetaMask.');
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      const chainId = Number(network.chainId);
-      
-      setCurrentChainId(chainId);
-      setNetworkCorrect(chainId === HOODI_TESTNET_CHAIN_ID);
-    } catch (err) {
-      console.error('Failed to check network:', err);
-    }
-  };
-
-  const switchToHoodiTestnet = async () => {
-    try {
-      if (!window.ethereum) {
-        throw new Error('No ethereum provider found');
-      }
-
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${HOODI_TESTNET_CHAIN_ID.toString(16)}` }],
-      });
-    } catch (err: any) {
-      // Chain not added to MetaMask
-      if (err.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: `0x${HOODI_TESTNET_CHAIN_ID.toString(16)}`,
-              chainName: 'Hoodi Testnet',
-              nativeCurrency: {
-                name: 'ETH',
-                symbol: 'ETH',
-                decimals: 18
-              },
-              rpcUrls: ['https://rpc.hoodi.network'], // Update with actual RPC
-              blockExplorerUrls: [getExplorerUrl(HOODI_TESTNET_CHAIN_ID)]
-            }]
-          });
-        } catch (addError) {
-          console.error('Failed to add Hoodi Testnet:', addError);
-          setError('Failed to add Hoodi Testnet to MetaMask');
-        }
-      } else {
-        console.error('Failed to switch network:', err);
-        setError('Failed to switch to Hoodi Testnet');
-      }
-    }
-  };
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load factories
-      const { data: factoryData, error: factoryError } = await supabase
-        .from('contract_masters')
-        .select('*')
-        .eq('network', 'hoodi')
-        .eq('environment', 'testnet')
-        .like('contract_type', '%factory%')
-        .eq('is_template', false)
-        .order('contract_type', { ascending: true });
-
-      if (factoryError) throw factoryError;
-
-      // Load active templates
-      const { data: templateData, error: templateError } = await supabase
-        .from('contract_masters')
-        .select('*')
-        .eq('network', 'hoodi')
-        .eq('environment', 'testnet')
-        .eq('is_template', true)
-        .eq('is_active', true)
-        .order('contract_type', { ascending: true });
-
-      if (templateError) throw templateError;
-
-      setFactories(factoryData || []);
-      setTemplates(templateData || []);
-
-      // Initialize registrations to check
-      await initializeRegistrationChecks(factoryData || [], templateData || []);
-    } catch (err) {
-      console.error('Failed to load data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Sync database with on-chain state
-   * Reads the actual registered templates from blockchain and updates database
-   */
-  const syncDatabaseWithChain = async () => {
-    if (!networkCorrect) {
-      setError('Please switch to Hoodi Testnet first');
-      return;
-    }
-
-    try {
-      setSyncing(true);
-      setError(null);
-      setSuccess('Syncing database with on-chain state...');
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      let syncedCount = 0;
-
-      for (const factory of factories) {
-        const factoryContract = new ethers.Contract(
-          factory.contract_address,
-          FACTORY_ABI,
-          provider
-        );
-
-        // Get relevant templates for this factory
-        const relevantTemplates = getRelevantTemplates(factory.contract_type, templates);
-        const registeredTemplates: Record<string, string> = {};
-
-        // Check each template on-chain
-        for (const template of relevantTemplates) {
-          try {
-            const registeredAddress = await factoryContract.getTemplateAddress(
-              template.contract_type
-            );
-
-            // If registered (not zero address)
-            if (registeredAddress && registeredAddress !== '0x0000000000000000000000000000000000000000') {
-              registeredTemplates[template.contract_type] = registeredAddress;
-            }
-          } catch (err) {
-            // Template not registered or method not available
-            console.log(`Template ${template.contract_type} not registered in ${factory.contract_type}`);
-          }
-        }
-
-        // Update database if we found any registrations
-        if (Object.keys(registeredTemplates).length > 0) {
-          const { error: updateError } = await supabase
-            .from('contract_masters')
-            .update({
-              contract_details: {
-                ...factory.contract_details,
-                registeredTemplates
-              }
-            })
-            .eq('id', factory.id);
-
-          if (updateError) {
-            console.error(`Failed to update factory ${factory.contract_type}:`, updateError);
-          } else {
-            syncedCount++;
-            console.log(`✅ Synced ${factory.contract_type}: ${Object.keys(registeredTemplates).length} templates`);
-          }
-        }
-      }
-
-      setSuccess(`Synced ${syncedCount} factories with on-chain state. Reloading...`);
-      
-      // Reload data to reflect changes
-      await loadData();
-      
-      setTimeout(() => setSuccess(null), 5000);
-    } catch (err) {
-      console.error('Sync failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sync with chain');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const initializeRegistrationChecks = async (
-    factoryList: Factory[],
-    templateList: Template[]
-  ) => {
-    // Create registration entries for all factory-template combinations
-    const registrationEntries: TemplateRegistration[] = [];
-
-    for (const factory of factoryList) {
-      // Get relevant templates for this factory type
-      const relevantTemplates = getRelevantTemplates(factory.contract_type, templateList);
-
-      for (const template of relevantTemplates) {
-        registrationEntries.push({
-          factoryAddress: factory.contract_address,
-          factoryType: factory.contract_type,
-          templateType: template.contract_type,
-          templateAddress: template.contract_address,
-          isRegistered: false,
-          checking: true,
-        });
-      }
-    }
-
-    setRegistrations(registrationEntries);
-
-    // Check registration status for each entry
-    for (const entry of registrationEntries) {
-      await checkRegistrationStatus(entry);
-    }
-  };
-
-  const getRelevantTemplates = (factoryType: string, templateList: Template[]): Template[] => {
-    // Map factory types to relevant template types
-    // Comprehensive mappings for all 45+ templates deployed on Hoodi Testnet
-    const mappings: Record<string, string[]> = {
-      // ========================================
-      // TOKEN STANDARD FACTORIES
-      // ========================================
-      
-      // ERC20 Factory - Fungible Tokens
-      'erc20_factory': [
-        'erc20_master',
-        'erc20_rebasing_master',
-        'erc20_wrapper_master',
-        'erc20_snapshot_master',
-        'erc20_capped_master',
-        'erc20_burnable_master'
-      ],
-      
-      // ERC721 Factory - NFTs
-      'erc721_factory': [
-        'erc721_master',
-        'erc721_wrapper_master',
-        'erc721_enumerable_master',
-        'erc721_royalty_master',
-        'erc721_burnable_master'
-      ],
-      
-      // ERC1155 Factory - Multi-Token Standard
-      'erc1155_factory': [
-        'erc1155_master',
-        'erc1155_supply_master',
-        'erc1155_burnable_master'
-      ],
-      
-      // ERC1400 Factory - Security Tokens
-      'erc1400_factory': [
-        'erc1400_master',
-        'erc1400_partition_master',
-        'erc1400_document_master'
-      ],
-      
-      // ERC3525 Factory - Semi-Fungible Tokens
-      'erc3525_factory': [
-        'erc3525_master',
-        'erc3525_slot_master',
-        'erc3525_metadata_master'
-      ],
-      
-      // ERC4626 Factory - Tokenized Vaults
-      'erc4626_factory': [
-        'erc4626_master',
-        'erc4626_yield_master',
-        'erc4626_strategy_master'
-      ],
-      
-      // ========================================
-      // UNIVERSAL FACTORIES
-      // ========================================
-      
-      // Beacon Proxy Factory - All Standards
-      'beacon_proxy_factory': [
-        // All master templates
-        'erc20_master',
-        'erc721_master',
-        'erc1155_master',
-        'erc1400_master',
-        'erc3525_master',
-        'erc4626_master',
-        // All variants
-        'erc20_rebasing_master',
-        'erc20_wrapper_master',
-        'erc721_enumerable_master',
-        'erc1155_supply_master'
-      ],
-      
-      // Clone Factory - Minimal Proxy Pattern
-      'clone_factory': [
-        'erc20_master',
-        'erc721_master',
-        'erc1155_master'
-      ],
-      
-      // ========================================
-      // EXTENSION MODULE FACTORIES
-      // ========================================
-      
-      // ERC20 Extension Factory - Token Extensions
-      'erc20_extension_factory': [
-        // Core Extensions
-        'compliance_module',
-        'vesting_module',
-        'timelock_module',
-        'fee_module',
-        'document_module',
-        'snapshot_module',
-        'voting_module',
-        'delegation_module',
-        // DeFi Extensions
-        'staking_module',
-        'reward_module',
-        'dividend_module',
-        'buyback_module',
-        'liquidity_module',
-        // Security Extensions
-        'pausable_module',
-        'blacklist_module',
-        'whitelist_module',
-        'transfer_restrictions_module',
-        'accredited_investor_module',
-        // Governance Extensions
-        'proposal_module',
-        'timelock_controller_module',
-        'multisig_module'
-      ],
-      
-      // ERC721 Extension Factory - NFT Extensions
-      'erc721_extension_factory': [
-        // Core Extensions
-        'rental_module',
-        'royalty_module',
-        'fractionalization_module',
-        'metadata_module',
-        'enumerable_module',
-        // Marketplace Extensions
-        'auction_module',
-        'offer_module',
-        'bundle_module',
-        // Social Extensions
-        'social_module',
-        'reputation_module',
-        'achievement_module'
-      ],
-      
-      // ERC1155 Extension Factory - Multi-Token Extensions
-      'erc1155_extension_factory': [
-        'supply_tracking_module',
-        'batch_operations_module',
-        'metadata_uri_module',
-        'royalty_module'
-      ],
-      
-      // ERC1400 Extension Factory - Security Token Extensions
-      'erc1400_extension_factory': [
-        'partition_module',
-        'document_module',
-        'issuance_module',
-        'redemption_module',
-        'transfer_restrictions_module',
-        'compliance_module',
-        'dividend_distribution_module'
-      ],
-      
-      // ========================================
-      // SPECIALIZED FACTORIES
-      // ========================================
-      
-      // Governance Factory
-      'governance_factory': [
-        'timelock_controller_module',
-        'proposal_module',
-        'voting_module',
-        'delegation_module',
-        'multisig_module'
-      ],
-      
-      // DeFi Factory
-      'defi_factory': [
-        'staking_module',
-        'reward_module',
-        'liquidity_module',
-        'yield_module',
-        'farming_module'
-      ],
-      
-      // Compliance Factory
-      'compliance_factory': [
-        'kyc_module',
-        'aml_module',
-        'accredited_investor_module',
-        'jurisdiction_module',
-        'sanctions_module',
-        'transfer_restrictions_module'
-      ],
-      
-      // Treasury Factory
-      'treasury_factory': [
-        'dividend_module',
-        'buyback_module',
-        'vesting_module',
-        'distribution_module'
-      ],
-      
-      // ========================================
-      // INFRASTRUCTURE FACTORIES
-      // ========================================
-      
-      // Deployer Factory
-      'deployer_factory': [
-        'deterministic_deployer_module',
-        'minimal_proxy_deployer_module',
-        'beacon_deployer_module'
-      ],
-      
-      // Registry Factory
-      'registry_factory': [
-        'token_registry_module',
-        'module_registry_module',
-        'factory_registry_module'
-      ],
-      
-      // ========================================
-      // FALLBACK: MATCH ALL MODULES
-      // ========================================
-      // If factory type not recognized, try to match modules generically
-      'default_factory': [
-        'compliance_module',
-        'vesting_module',
-        'timelock_module',
-        'fee_module',
-        'document_module'
-      ]
-    };
-
-    // Get relevant template types for this factory
-    const relevantTypes = mappings[factoryType] || mappings['default_factory'] || [];
-
-    // Filter templates that match any of the relevant types
-    return templateList.filter(t =>
-      relevantTypes.some(type => t.contract_type.includes(type))
-    );
-  };
-
-  const checkRegistrationStatus = async (registration: TemplateRegistration) => {
-    try {
-      // Connect to blockchain
-      if (!window.ethereum) {
-        console.warn('No ethereum provider');
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const factoryContract = new ethers.Contract(
-        registration.factoryAddress,
-        FACTORY_ABI,
-        provider
-      );
-
-      // Check if template is registered
-      try {
-        const registeredAddress = await factoryContract.getTemplateAddress(
-          registration.templateType
-        );
-
-        const isRegistered =
-          registeredAddress.toLowerCase() === registration.templateAddress.toLowerCase();
-
-        // Update registration status
-        setRegistrations(prev =>
-          prev.map(r =>
-            r.factoryAddress === registration.factoryAddress &&
-              r.templateType === registration.templateType
-              ? { ...r, isRegistered, checking: false }
-              : r
-          )
-        );
-      } catch (err) {
-        // Factory might not have the method or template not registered
-        setRegistrations(prev =>
-          prev.map(r =>
-            r.factoryAddress === registration.factoryAddress &&
-              r.templateType === registration.templateType
-              ? { ...r, isRegistered: false, checking: false }
-              : r
-          )
-        );
-      }
-    } catch (err) {
-      console.error('Failed to check registration:', err);
-      setRegistrations(prev =>
-        prev.map(r =>
-          r.factoryAddress === registration.factoryAddress &&
-            r.templateType === registration.templateType
-            ? { ...r, checking: false }
-            : r
-        )
-      );
-    }
-  };
-
-  const registerTemplate = async (
-    factoryAddress: string,
-    templateType: string,
-    templateAddress: string
-  ) => {
-    const registrationKey = `${factoryAddress}-${templateType}`;
-
-    try {
-      setRegistering(registrationKey);
-      setError(null);
-      setSuccess(null);
-
-      // Check network
-      if (!networkCorrect) {
-        throw new Error('Please switch to Hoodi Testnet first');
-      }
-
-      // Connect to blockchain
-      if (!window.ethereum) {
-        throw new Error('No ethereum provider found. Please install MetaMask.');
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send('eth_requestAccounts', []);
-      const signer = await provider.getSigner();
-
-      const factoryContract = new ethers.Contract(
-        factoryAddress,
-        FACTORY_ABI,
-        signer
-      );
-
-      // Estimate gas
-      let gasEstimate;
-      try {
-        gasEstimate = await factoryContract.registerTemplate.estimateGas(
-          templateType,
-          templateAddress
-        );
-        console.log('Estimated gas:', gasEstimate.toString());
-      } catch (estimateErr) {
-        console.warn('Failed to estimate gas, will use default:', estimateErr);
-      }
-
-      // Register template
-      const tx = await factoryContract.registerTemplate(
-        templateType,
-        templateAddress,
-        gasEstimate ? { gasLimit: gasEstimate * BigInt(120) / BigInt(100) } : {}
-      );
-      
-      setSuccess(`Transaction submitted. Waiting for confirmation...`);
-      
-      const receipt = await tx.wait();
-      
-      if (receipt.status === 0) {
-        throw new Error('Transaction failed');
-      }
-
-      // Update local state
-      setRegistrations(prev =>
-        prev.map(r =>
-          r.factoryAddress === factoryAddress && r.templateType === templateType
-            ? { ...r, isRegistered: true }
-            : r
-        )
-      );
-
-      // ============================================
-      // UPDATE DATABASE WITH ON-CHAIN TRUTH
-      // ============================================
-      try {
-        // Find the factory record
-        const factory = factories.find(f => 
-          f.contract_address.toLowerCase() === factoryAddress.toLowerCase()
-        );
-
-        if (factory) {
-          // Get existing registered_templates or create new object
-          const existingRegistered = factory.contract_details?.registeredTemplates || {};
-          
-          // Add the new registration
-          const updatedRegistered = {
-            ...existingRegistered,
-            [templateType]: templateAddress
-          };
-
-          // Update database
-          const { error: updateError } = await supabase
-            .from('contract_masters')
-            .update({
-              contract_details: {
-                ...factory.contract_details,
-                registeredTemplates: updatedRegistered
-              }
-            })
-            .eq('id', factory.id);
-
-          if (updateError) {
-            console.error('Failed to update database:', updateError);
-            // Don't throw - on-chain registration succeeded, database sync is secondary
-          } else {
-            console.log(`✅ Database updated: ${templateType} registered in factory ${factoryAddress}`);
-            
-            // Update local factories state to reflect database change
-            setFactories(prev => prev.map(f => 
-              f.id === factory.id 
-                ? {
-                    ...f,
-                    contract_details: {
-                      ...f.contract_details,
-                      registeredTemplates: updatedRegistered
-                    }
-                  }
-                : f
-            ));
-          }
-        }
-      } catch (dbError) {
-        console.error('Database sync error:', dbError);
-        // Don't throw - on-chain is source of truth, database sync is best-effort
-      }
-
-      setSuccess(`Successfully registered ${templateType} template`);
-
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccess(null), 5000);
-    } catch (err: any) {
-      console.error('Failed to register template:', err);
-      
-      // Better error messages
-      let errorMessage = 'Failed to register template';
-      if (err.code === 'ACTION_REJECTED') {
-        errorMessage = 'Transaction rejected by user';
-      } else if (err.message?.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setRegistering(null);
-    }
-  };
-
-  const registerAllUnregistered = async () => {
-    try {
-      setBatchRegistering(true);
-      setError(null);
-      setSuccess(null);
-
-      // Check network
-      if (!networkCorrect) {
-        throw new Error('Please switch to Hoodi Testnet first');
-      }
-
-      const unregistered = registrations.filter(r => !r.isRegistered && !r.checking);
-      
-      if (unregistered.length === 0) {
-        setSuccess('All templates are already registered!');
-        return;
-      }
-
-      setSuccess(`Starting batch registration of ${unregistered.length} templates...`);
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const registration of unregistered) {
-        try {
-          await registerTemplate(
-            registration.factoryAddress,
-            registration.templateType,
-            registration.templateAddress
-          );
-          successCount++;
-        } catch (err) {
-          console.error('Failed to register:', registration.templateType, err);
-          failCount++;
-        }
-      }
-
-      if (failCount === 0) {
-        setSuccess(`Successfully registered all ${successCount} templates!`);
-      } else {
-        setSuccess(`Registered ${successCount} templates. ${failCount} failed.`);
-      }
-
-      // Clear success message after 7 seconds
-      setTimeout(() => setSuccess(null), 7000);
-    } catch (err) {
-      console.error('Batch registration failed:', err);
-      setError(err instanceof Error ? err.message : 'Batch registration failed');
-    } finally {
-      setBatchRegistering(false);
-    }
-  };
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const getNetworkName = (chainId: number) => {
-    return getChainName(chainId) || `Chain ${chainId}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+// ============================================
+// Constants
+// ============================================
+
+const NETWORK_EXPLORERS: Record<string, string> = {
+  hoodi: 'https://hoodi.etherscan.io',
+  mainnet: 'https://etherscan.io',
+  sepolia: 'https://sepolia.etherscan.io',
+};
+
+const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
+  factories: {
+    label: 'Token Factories',
+    icon: <Factory className="h-4 w-4" />,
+    description: 'Deploy new token instances via beacon proxies',
+    color: 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+  },
+  beacons: {
+    label: 'Token Beacons',
+    icon: <Layers className="h-4 w-4" />,
+    description: 'Upgradeable pointers to master implementations',
+    color: 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+  },
+  masters: {
+    label: 'Master Implementations',
+    icon: <Box className="h-4 w-4" />,
+    description: 'Template contracts that beacons point to',
+    color: 'bg-green-500/10 text-green-500 border-green-500/20'
+  },
+  modules: {
+    label: 'Extension Modules',
+    icon: <Zap className="h-4 w-4" />,
+    description: 'Attachable functionality for tokens',
+    color: 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+  },
+  extensionFactories: {
+    label: 'Extension Factories',
+    icon: <Package className="h-4 w-4" />,
+    description: 'Deploy extension instances for tokens',
+    color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+  },
+  infrastructure: {
+    label: 'Infrastructure',
+    icon: <Cpu className="h-4 w-4" />,
+    description: 'Core system contracts (registries, deployers)',
+    color: 'bg-slate-500/10 text-slate-500 border-slate-500/20'
+  },
+  governance: {
+    label: 'Governance',
+    icon: <Shield className="h-4 w-4" />,
+    description: 'Upgrade control and multi-sig contracts',
+    color: 'bg-red-500/10 text-red-500 border-red-500/20'
+  },
+  other: {
+    label: 'Other Contracts',
+    icon: <Settings className="h-4 w-4" />,
+    description: 'Uncategorized contracts',
+    color: 'bg-gray-500/10 text-gray-500 border-gray-500/20'
   }
+};
 
-  const unregisteredCount = registrations.filter(r => !r.isRegistered && !r.checking).length;
-  const totalCount = registrations.length;
-  const registeredCount = totalCount - unregisteredCount;
+// ============================================
+// Helpers
+// ============================================
 
+const formatAddress = (address: string): string => {
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+const getExplorerLink = (address: string, network: string): string => {
+  const base = NETWORK_EXPLORERS[network] || NETWORK_EXPLORERS.hoodi;
+  return `${base}/address/${address}`;
+};
+
+const categorizeContract = (contractType: string): string => {
+  const t = contractType.toLowerCase();
+  
+  if (t.includes('factory') && !t.includes('extension') && !t.includes('wallet')) {
+    if (t.includes('erc20') || t.includes('erc721') || t.includes('erc1155') || 
+        t.includes('erc1400') || t.includes('erc3525') || t.includes('erc4626') ||
+        t === 'beacon_proxy_factory') {
+      return 'factories';
+    }
+  }
+  
+  if (t.includes('extension') && t.includes('factory')) {
+    return 'extensionFactories';
+  }
+  
+  if (t.includes('beacon') && !t.includes('factory')) {
+    return 'beacons';
+  }
+  
+  if (t.includes('master')) {
+    return 'masters';
+  }
+  
+  if (t.includes('module') || t === 'extension_module') {
+    return 'modules';
+  }
+  
+  if (t.includes('registry') || t.includes('deployer') || 
+      t.includes('policy') || t === 'haircut_engine') {
+    return 'infrastructure';
+  }
+  
+  if (t.includes('governance') || t.includes('governor') || 
+      t.includes('multisig') || t.includes('multi_sig')) {
+    return 'governance';
+  }
+  
+  return 'other';
+};
+
+const getDisplayName = (contractType: string, details: ContractMaster['contract_details']): string => {
+  if (details?.name) return details.name;
+  
+  return contractType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const getTokenStandard = (contractType: string): string | null => {
+  const match = contractType.match(/erc\d+/i);
+  return match ? match[0].toUpperCase() : null;
+};
+
+
+// ============================================
+// Components
+// ============================================
+
+interface CopyButtonProps {
+  text: string;
+}
+
+const CopyButton: React.FC<CopyButtonProps> = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast({ title: 'Copied to clipboard' });
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Factory Configuration</h1>
-          <p className="text-muted-foreground mt-2">
-            Register active templates in factory contracts for deployment
-          </p>
-        </div>
+    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 w-6 p-0">
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+    </Button>
+  );
+};
+
+interface ContractCardProps {
+  contract: ContractMaster;
+}
+
+const ContractCard: React.FC<ContractCardProps> = ({ contract }) => {
+  const standard = getTokenStandard(contract.contract_type);
+  const displayName = getDisplayName(contract.contract_type, contract.contract_details);
+  
+  return (
+    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          {unregisteredCount > 0 && (
-            <Button
-              onClick={registerAllUnregistered}
-              disabled={batchRegistering || !networkCorrect}
-              variant="default"
-              size="sm"
-            >
-              {batchRegistering ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Registering...
-                </>
-              ) : (
-                <>
-                  <CheckCheck className="h-4 w-4 mr-2" />
-                  Register All ({unregisteredCount})
-                </>
-              )}
-            </Button>
+          <span className="font-medium text-sm truncate">{displayName}</span>
+          {standard && (
+            <Badge variant="outline" className="text-xs">
+              {standard}
+            </Badge>
           )}
-          <Button onClick={loadData} variant="outline" size="sm" disabled={loading}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button 
-            onClick={syncDatabaseWithChain} 
-            variant="outline" 
-            size="sm" 
-            disabled={syncing || !networkCorrect}
-            title="Sync database with on-chain state"
+          {contract.is_template && (
+            <Badge variant="secondary" className="text-xs">
+              Template
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <code className="text-xs text-muted-foreground font-mono">
+            {formatAddress(contract.contract_address)}
+          </code>
+          <CopyButton text={contract.contract_address} />
+          <a
+            href={getExplorerLink(contract.contract_address, contract.network)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-foreground"
           >
-            {syncing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <Zap className="h-4 w-4 mr-2" />
-                Sync DB
-              </>
-            )}
-          </Button>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          v{contract.version || '1.0.0'} • {contract.network}
         </div>
       </div>
-
-      {/* Network Warning */}
-      {currentChainId !== null && !networkCorrect && (
-        <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
-          <Network className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <AlertTitle className="text-amber-800 dark:text-amber-300">Wrong Network</AlertTitle>
-          <AlertDescription className="text-amber-700 dark:text-amber-400">
-            <div className="space-y-2">
-              <p>
-                You are connected to <strong>{getNetworkName(currentChainId)}</strong>.
-                Please switch to <strong>Hoodi Testnet</strong> to register templates.
-              </p>
-              <Button onClick={switchToHoodiTestnet} size="sm" variant="outline">
-                Switch to Hoodi Testnet
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Progress */}
-      {totalCount > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Registration Progress</span>
-                <span className="text-sm text-muted-foreground">
-                  {registeredCount} / {totalCount} templates
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                <div
-                  className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${(registeredCount / totalCount) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Alerts */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {success && (
-        <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
-          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-          <AlertDescription className="text-green-800 dark:text-green-300">{success}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Info Alert */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>About Factory Configuration</AlertTitle>
-        <AlertDescription>
-          <div className="space-y-1 mt-2">
-            <p>Factories need to know which templates to use when deploying new tokens.</p>
-            <p className="font-medium">
-              Click "Register" to connect a template to a factory via a blockchain transaction.
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Network: Hoodi Testnet (Chain ID: {HOODI_TESTNET_CHAIN_ID})
-            </p>
-          </div>
-        </AlertDescription>
-      </Alert>
-
-      {/* No Factories Alert */}
-      {factories.length === 0 && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No Factories Found</AlertTitle>
-          <AlertDescription>
-            No factory contracts found. Deploy factory contracts first before configuring templates.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Factory Cards */}
-      <div className="space-y-6">
-        {factories.map((factory) => {
-          const factoryRegistrations = registrations.filter(
-            r => r.factoryAddress === factory.contract_address
-          );
-
-          const factoryRegisteredCount = factoryRegistrations.filter(r => r.isRegistered).length;
-          const factoryTotalCount = factoryRegistrations.length;
-          const allRegistered = factoryRegisteredCount === factoryTotalCount && factoryTotalCount > 0;
-
-          return (
-            <Card key={factory.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>
-                      {factory.contract_details?.name || factory.contract_type}
-                    </CardTitle>
-                    <CardDescription className="mt-1 flex items-center gap-2">
-                      <a
-                        href={getAddressUrl(HOODI_TESTNET_CHAIN_ID, factory.contract_address) || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {formatAddress(factory.contract_address)}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                      {factory.contract_details?.verified && (
-                        <Badge variant="outline" className="text-blue-600 border-blue-600">
-                          Verified
-                        </Badge>
-                      )}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={allRegistered ? 'default' : 'outline'} className={allRegistered ? 'bg-green-600' : ''}>
-                      {factoryRegisteredCount}/{factoryTotalCount} templates
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                {factoryRegistrations.length === 0 ? (
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription>
-                      No active templates found for this factory type.
-                      Activate templates in Template Management first.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="space-y-3">
-                    {factoryRegistrations.map((registration) => {
-                      const registrationKey = `${registration.factoryAddress}-${registration.templateType}`;
-                      const isRegistering = registering === registrationKey;
-
-                      return (
-                        <div
-                          key={registrationKey}
-                          className={`flex items-center justify-between p-3 border rounded transition-colors ${
-                            registration.isRegistered 
-                              ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10' 
-                              : 'border-gray-200 dark:border-gray-700'
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium">{registration.templateType}</h4>
-                              {registration.checking ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              ) : registration.isRegistered ? (
-                                <Badge variant="default" className="bg-green-600">
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Registered
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-orange-600 border-orange-600">
-                                  <AlertCircle className="h-3 w-3 mr-1" />
-                                  Not Registered
-                                </Badge>
-                              )}
-                            </div>
-                            <a
-                              href={getAddressUrl(HOODI_TESTNET_CHAIN_ID, registration.templateAddress) || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-muted-foreground flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 mt-1"
-                            >
-                              {formatAddress(registration.templateAddress)}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </div>
-
-                          <Button
-                            onClick={() =>
-                              registerTemplate(
-                                registration.factoryAddress,
-                                registration.templateType,
-                                registration.templateAddress
-                              )
-                            }
-                            disabled={
-                              isRegistering || 
-                              registration.isRegistered || 
-                              registration.checking || 
-                              !networkCorrect ||
-                              batchRegistering
-                            }
-                            variant={registration.isRegistered ? 'default' : 'outline'}
-                            size="sm"
-                          >
-                            {isRegistering ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                Registering...
-                              </>
-                            ) : registration.isRegistered ? (
-                              <>
-                                <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Registered
-                              </>
-                            ) : (
-                              <>
-                                <Settings className="h-4 w-4 mr-2" />
-                                Register
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="flex items-center gap-2">
+        {contract.is_active ? (
+          <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Active
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-muted-foreground">
+            Inactive
+          </Badge>
+        )}
       </div>
     </div>
   );
+};
+
+interface CategorySectionProps {
+  category: string;
+  contracts: ContractMaster[];
+  config: CategoryConfig;
 }
+
+const CategorySection: React.FC<CategorySectionProps> = ({ category, contracts, config }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  
+  if (contracts.length === 0) return null;
+  
+  return (
+    <Card className="mb-4">
+      <CardHeader 
+        className="cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${config.color}`}>
+              {config.icon}
+            </div>
+            <div>
+              <CardTitle className="text-lg">{config.label}</CardTitle>
+              <CardDescription>{config.description}</CardDescription>
+            </div>
+          </div>
+          <Badge variant="secondary">{contracts.length}</Badge>
+        </div>
+      </CardHeader>
+      {isExpanded && (
+        <CardContent className="space-y-2">
+          {contracts.map(contract => (
+            <ContractCard key={contract.id} contract={contract} />
+          ))}
+        </CardContent>
+      )}
+    </Card>
+  );
+};
+
+// ============================================
+// Main Component
+// ============================================
+
+export const FactoryConfigurationPage: React.FC = () => {
+  const { toast } = useToast();
+  const [allContracts, setAllContracts] = useState<ContractMaster[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedNetwork, setSelectedNetwork] = useState<string>('hoodi');
+  const [selectedDeployment, setSelectedDeployment] = useState<string>('latest');
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Get unique deployments from all contracts
+  const deployments = useMemo((): Deployment[] => {
+    const deploymentMap = new Map<string, Deployment>();
+    
+    allContracts.forEach(contract => {
+      const dateKey = contract.created_at.split('T')[0];
+      const key = `${contract.network}-${dateKey}`;
+      const existing = deploymentMap.get(key);
+      
+      if (existing) {
+        existing.count++;
+      } else {
+        deploymentMap.set(key, {
+          date: dateKey,
+          label: new Date(dateKey).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }),
+          count: 1,
+          network: contract.network
+        });
+      }
+    });
+    
+    return Array.from(deploymentMap.values())
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [allContracts]);
+
+  // Get unique networks
+  const networks = useMemo(() => {
+    const networkSet = new Set(allContracts.map(c => c.network));
+    return Array.from(networkSet);
+  }, [allContracts]);
+
+  // Filter by deployment and network
+  const networkFilteredContracts = useMemo(() => {
+    let filtered = allContracts.filter(c => c.network === selectedNetwork);
+    
+    if (selectedDeployment !== 'all' && selectedDeployment !== 'latest') {
+      filtered = filtered.filter(c => c.created_at.startsWith(selectedDeployment));
+    } else if (selectedDeployment === 'latest' && deployments.length > 0) {
+      const latestDate = deployments.find(d => d.network === selectedNetwork)?.date;
+      if (latestDate) {
+        filtered = filtered.filter(c => c.created_at.startsWith(latestDate));
+      }
+    }
+    
+    return filtered;
+  }, [allContracts, selectedNetwork, selectedDeployment, deployments]);
+
+  // Filter by search query
+  const filteredContracts = useMemo(() => {
+    if (!searchQuery) return networkFilteredContracts;
+    
+    const query = searchQuery.toLowerCase();
+    return networkFilteredContracts.filter(contract => {
+      const matchesType = contract.contract_type.toLowerCase().includes(query);
+      const matchesAddress = contract.contract_address.toLowerCase().includes(query);
+      const matchesName = contract.contract_details?.name?.toLowerCase().includes(query);
+      return matchesType || matchesAddress || matchesName;
+    });
+  }, [networkFilteredContracts, searchQuery]);
+  
+  // Group contracts by category
+  const categorizedContracts = useMemo(() => {
+    const groups: Record<string, ContractMaster[]> = {};
+    
+    for (const contract of filteredContracts) {
+      const category = categorizeContract(contract.contract_type);
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(contract);
+    }
+    
+    return groups;
+  }, [filteredContracts]);
+  
+  // Stats
+  const stats = useMemo(() => ({
+    total: filteredContracts.length,
+    templates: filteredContracts.filter(c => c.is_template).length,
+    factories: (categorizedContracts.factories?.length || 0) + (categorizedContracts.extensionFactories?.length || 0),
+    modules: categorizedContracts.modules?.length || 0
+  }), [filteredContracts, categorizedContracts]);
+  
+  // Load contracts from database
+  const loadContracts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error: dbError } = await supabase
+        .from('contract_masters')
+        .select('*')
+        .order('contract_type', { ascending: true });
+      
+      if (dbError) throw dbError;
+      
+      setAllContracts(data || []);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load contracts';
+      setError(message);
+      toast({
+        title: 'Error loading contracts',
+        description: message,
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+  
+  // Initial load
+  useEffect(() => {
+    loadContracts();
+  }, [loadContracts]);
+  
+  // Refresh handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadContracts();
+    setRefreshing(false);
+    toast({ title: 'Contracts refreshed' });
+  };
+  
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Factory Configuration</h1>
+            <p className="text-muted-foreground">Loading deployed contracts...</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={loadContracts} className="mt-4">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Factory Configuration</h1>
+          <p className="text-muted-foreground">
+            View deployed contracts and manage deployments
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <DeploymentDialog onDeploymentComplete={loadContracts} />
+          <DeploymentImportDialog onImportComplete={loadContracts} />
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+      
+      {/* Deployment & Network Selectors */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">
+                <Calendar className="h-4 w-4 inline mr-2" />
+                Deployment Version
+              </label>
+              <Select value={selectedDeployment} onValueChange={setSelectedDeployment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select deployment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latest">Latest Deployment</SelectItem>
+                  <SelectItem value="all">All Deployments</SelectItem>
+                  {deployments
+                    .filter(d => d.network === selectedNetwork)
+                    .map(deployment => (
+                      <SelectItem key={deployment.date} value={deployment.date}>
+                        {deployment.label} ({deployment.count} contracts)
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">
+                <GitBranch className="h-4 w-4 inline mr-2" />
+                Network
+              </label>
+              <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select network" />
+                </SelectTrigger>
+                <SelectContent>
+                  {networks.length === 0 ? (
+                    <SelectItem value="hoodi">Hoodi</SelectItem>
+                  ) : (
+                    networks.map(network => (
+                      <SelectItem key={network} value={network}>
+                        {network.charAt(0).toUpperCase() + network.slice(1)}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Architecture Info */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Beacon Proxy Architecture</AlertTitle>
+        <AlertDescription className="mt-2">
+          <div className="font-mono text-xs bg-muted p-2 rounded mt-2">
+            BeaconProxyFactory → BeaconProxy → TokenBeacon → Master Implementation
+          </div>
+          <p className="text-sm mt-2">
+            Tokens are deployed via factories that create beacon proxies. Beacons point to upgradeable 
+            master implementations, allowing centralized upgrades across all tokens.
+          </p>
+        </AlertDescription>
+      </Alert>
+
+      
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Total Contracts</span>
+          </div>
+          <p className="text-2xl font-bold mt-1">{stats.total}</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Factory className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Factories</span>
+          </div>
+          <p className="text-2xl font-bold mt-1">{stats.factories}</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Modules</span>
+          </div>
+          <p className="text-2xl font-bold mt-1">{stats.modules}</p>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <Box className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Templates</span>
+          </div>
+          <p className="text-2xl font-bold mt-1">{stats.templates}</p>
+        </Card>
+      </div>
+      
+      {/* Search Filter */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search contracts by name, type, or address..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+      
+      {/* Contract Categories */}
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList className="">
+          <TabsTrigger value="all">All Categories</TabsTrigger>
+          <TabsTrigger value="factories">Factories</TabsTrigger>
+          <TabsTrigger value="beacons">Beacons</TabsTrigger>
+          <TabsTrigger value="masters">Masters</TabsTrigger>
+          <TabsTrigger value="modules">Modules</TabsTrigger>
+          <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="all" className="mt-4">
+          {Object.entries(CATEGORY_CONFIG).map(([category, config]) => (
+            <CategorySection
+              key={category}
+              category={category}
+              contracts={categorizedContracts[category] || []}
+              config={config}
+            />
+          ))}
+        </TabsContent>
+        
+        <TabsContent value="factories" className="mt-4">
+          <CategorySection
+            category="factories"
+            contracts={categorizedContracts.factories || []}
+            config={CATEGORY_CONFIG.factories}
+          />
+          <CategorySection
+            category="extensionFactories"
+            contracts={categorizedContracts.extensionFactories || []}
+            config={CATEGORY_CONFIG.extensionFactories}
+          />
+        </TabsContent>
+        
+        <TabsContent value="beacons" className="mt-4">
+          <CategorySection
+            category="beacons"
+            contracts={categorizedContracts.beacons || []}
+            config={CATEGORY_CONFIG.beacons}
+          />
+        </TabsContent>
+        
+        <TabsContent value="masters" className="mt-4">
+          <CategorySection
+            category="masters"
+            contracts={categorizedContracts.masters || []}
+            config={CATEGORY_CONFIG.masters}
+          />
+        </TabsContent>
+        
+        <TabsContent value="modules" className="mt-4">
+          <CategorySection
+            category="modules"
+            contracts={categorizedContracts.modules || []}
+            config={CATEGORY_CONFIG.modules}
+          />
+        </TabsContent>
+        
+        <TabsContent value="infrastructure" className="mt-4">
+          <CategorySection
+            category="infrastructure"
+            contracts={categorizedContracts.infrastructure || []}
+            config={CATEGORY_CONFIG.infrastructure}
+          />
+          <CategorySection
+            category="governance"
+            contracts={categorizedContracts.governance || []}
+            config={CATEGORY_CONFIG.governance}
+          />
+        </TabsContent>
+      </Tabs>
+      
+      {filteredContracts.length === 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No contracts found</AlertTitle>
+          <AlertDescription>
+            {searchQuery 
+              ? `No contracts match "${searchQuery}"`
+              : `No contracts found for ${selectedNetwork} network`}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+};
+
+export default FactoryConfigurationPage;

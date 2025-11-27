@@ -11330,6 +11330,10 @@ CREATE TABLE public.contract_masters (
     contract_details jsonb,
     initial_owner text,
     is_template boolean DEFAULT false,
+    verification_status text DEFAULT 'unverified'::text,
+    verified_at timestamp with time zone,
+    verification_url text,
+    verification_error text,
     CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text, 'local'::text])))
 );
 
@@ -11338,7 +11342,7 @@ CREATE TABLE public.contract_masters (
 -- Name: TABLE contract_masters; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.contract_masters IS 'Stores deployed smart contract master implementations, beacons, extension modules, and infrastructure contracts';
+COMMENT ON TABLE public.contract_masters IS 'Master contract templates and deployed infrastructure contracts. Records must have deployment_tx_hash for Hoodi network (enforced by sync scripts).';
 
 
 --
@@ -11374,6 +11378,34 @@ COMMENT ON COLUMN public.contract_masters.is_active IS 'Whether this is the curr
 --
 
 COMMENT ON COLUMN public.contract_masters.deployment_data IS 'JSONB field for additional metadata: source_file, implementation_address, features, category, etherscan_link, etc.';
+
+
+--
+-- Name: contract_masters_backup_20251121; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contract_masters_backup_20251121 (
+    id uuid,
+    network text,
+    environment text,
+    contract_type text,
+    contract_address text,
+    version text,
+    abi_version text,
+    abi json,
+    abi_hash text,
+    deployed_at timestamp with time zone,
+    deployed_by uuid,
+    deployment_tx_hash text,
+    is_active boolean,
+    deprecated_at timestamp with time zone,
+    deployment_data jsonb,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone,
+    contract_details jsonb,
+    initial_owner text,
+    is_template boolean
+);
 
 
 --
@@ -11581,6 +11613,104 @@ CREATE VIEW public.database_audit_coverage AS
 --
 
 COMMENT ON VIEW public.database_audit_coverage IS 'Shows audit coverage across all database tables';
+
+
+--
+-- Name: deployment_audit_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.deployment_audit_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    network text NOT NULL,
+    action text NOT NULL,
+    command text NOT NULL,
+    success boolean NOT NULL,
+    exit_code integer NOT NULL,
+    duration_ms integer NOT NULL,
+    output text,
+    error text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT deployment_audit_logs_action_check CHECK ((action = ANY (ARRAY['deployment'::text, 'verification'::text, 'command_execution'::text])))
+);
+
+
+--
+-- Name: TABLE deployment_audit_logs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.deployment_audit_logs IS 'Audit log for all deployment and verification activities';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.user_id IS 'User who initiated the deployment';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.network; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.network IS 'Network where deployment occurred (hoodi, sepolia, mainnet, etc.)';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.action; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.action IS 'Type of action: deployment, verification, or command_execution';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.command; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.command IS 'Sanitized command that was executed (private keys removed)';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.success; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.success IS 'Whether the command succeeded';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.exit_code; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.exit_code IS 'Exit code of the command (0 = success)';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.duration_ms; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.duration_ms IS 'Duration of command execution in milliseconds';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.output; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.output IS 'Command output (truncated to 10,000 characters)';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.error; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.error IS 'Error message if command failed';
+
+
+--
+-- Name: COLUMN deployment_audit_logs.metadata; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.deployment_audit_logs.metadata IS 'Additional metadata (RPC URL, contract addresses, etc.)';
 
 
 --
@@ -27997,6 +28127,14 @@ ALTER TABLE ONLY public.data_source_mappings
 
 
 --
+-- Name: deployment_audit_logs deployment_audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deployment_audit_logs
+    ADD CONSTRAINT deployment_audit_logs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: deployment_rate_limits deployment_rate_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -34632,6 +34770,41 @@ CREATE INDEX idx_critical_alerts_escalated ON public.critical_alerts USING btree
 --
 
 CREATE INDEX idx_data_source_mappings_source ON public.data_source_mappings USING btree (source_id);
+
+
+--
+-- Name: idx_deployment_audit_logs_action; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deployment_audit_logs_action ON public.deployment_audit_logs USING btree (action);
+
+
+--
+-- Name: idx_deployment_audit_logs_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deployment_audit_logs_created_at ON public.deployment_audit_logs USING btree (created_at DESC);
+
+
+--
+-- Name: idx_deployment_audit_logs_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deployment_audit_logs_network ON public.deployment_audit_logs USING btree (network);
+
+
+--
+-- Name: idx_deployment_audit_logs_success; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deployment_audit_logs_success ON public.deployment_audit_logs USING btree (success);
+
+
+--
+-- Name: idx_deployment_audit_logs_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deployment_audit_logs_user_id ON public.deployment_audit_logs USING btree (user_id);
 
 
 --
@@ -44769,6 +44942,14 @@ ALTER TABLE ONLY public.data_source_mappings
 
 
 --
+-- Name: deployment_audit_logs deployment_audit_logs_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deployment_audit_logs
+    ADD CONSTRAINT deployment_audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: dfns_broadcast_transactions dfns_broadcast_transactions_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -51361,6 +51542,16 @@ GRANT ALL ON TABLE public.contract_masters TO prisma;
 
 
 --
+-- Name: TABLE contract_masters_backup_20251121; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO anon;
+GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO authenticated;
+GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO service_role;
+GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO prisma;
+
+
+--
 -- Name: TABLE contract_role_assignments; Type: ACL; Schema: public; Owner: -
 --
 
@@ -51428,6 +51619,16 @@ GRANT ALL ON TABLE public.database_audit_coverage TO anon;
 GRANT ALL ON TABLE public.database_audit_coverage TO authenticated;
 GRANT ALL ON TABLE public.database_audit_coverage TO service_role;
 GRANT ALL ON TABLE public.database_audit_coverage TO prisma;
+
+
+--
+-- Name: TABLE deployment_audit_logs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.deployment_audit_logs TO anon;
+GRANT ALL ON TABLE public.deployment_audit_logs TO authenticated;
+GRANT ALL ON TABLE public.deployment_audit_logs TO service_role;
+GRANT ALL ON TABLE public.deployment_audit_logs TO prisma;
 
 
 --

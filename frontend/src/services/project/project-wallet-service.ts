@@ -263,14 +263,13 @@ export const enhancedProjectWalletService = {
       console.log(`[ProjectWalletService] Generating wallet for network: ${network} using WalletGeneratorFactory`);
 
       const generator = WalletGeneratorFactory.getGenerator(network);
-      const wallet = await generator.generateWallet();
-
-      // For mnemonic generation, use ethers.js for all chains as a consistent approach
-      let mnemonic: string | undefined;
-      if (includeMnemonic) {
-        const ethWallet = ethers.Wallet.createRandom();
-        mnemonic = ethWallet.mnemonic?.phrase;
-      }
+      
+      // CRITICAL FIX: Generate wallet WITH mnemonic from the generator itself
+      // Don't create a separate random mnemonic - use the one from the wallet!
+      const wallet = await generator.generateWallet({
+        includePrivateKey: true,
+        includeMnemonic: includeMnemonic
+      });
 
       console.log(`[ProjectWalletService] Generated ${network} wallet: ${wallet.address}`);
 
@@ -278,6 +277,7 @@ export const enhancedProjectWalletService = {
       const walletAddress = wallet.address;
       const publicKey = wallet.publicKey || wallet.address;
       let privateKey = wallet.privateKey;
+      let mnemonic = wallet.mnemonic; // ✅ FIX: Use mnemonic FROM the generator, not a random one!
 
       // CRITICAL FIX: For Injective wallets, derive EVM-compatible private key from mnemonic
       // The Injective private key cannot be used with ethers.js for contract deployment

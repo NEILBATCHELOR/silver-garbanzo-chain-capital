@@ -14,9 +14,9 @@ export class BTCWalletGenerator implements WalletGenerator {
   async generateWallet(options?: WalletGenerationOptions): Promise<Wallet> {
     try {
       const account = await bitcoinWalletService.generateAccount({
-        includePrivateKey: true,
+        includePrivateKey: options?.includePrivateKey ?? true,
         includeWIF: true,
-        includeMnemonic: options?.includeMnemonic,
+        includeMnemonic: options?.includeMnemonic ?? false,
         addressType: 'bech32' // Default to modern bech32 addresses
       });
       
@@ -24,6 +24,7 @@ export class BTCWalletGenerator implements WalletGenerator {
         address: account.address,
         privateKey: account.privateKey || '',
         publicKey: account.publicKey,
+        mnemonic: account.mnemonic, // ✅ FIX: Return mnemonic if generated
         metadata: this.getMetadata()
       };
     } catch (error) {

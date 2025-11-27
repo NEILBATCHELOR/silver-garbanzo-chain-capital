@@ -8,18 +8,21 @@ export interface WalletMetadata {
   [key: string]: any; // Allow for additional properties
 }
 
-// Define wallet interface
+// Define wallet interface - ENHANCED to include optional mnemonic
 export interface Wallet {
   address: string;
   privateKey: string;
   publicKey?: string;
+  mnemonic?: string; // ✅ ADDED: Support mnemonic in base wallet interface
   metadata: WalletMetadata;
 }
 
-// Define wallet generation options
+// Define wallet generation options - ENHANCED with standard options
 export interface WalletGenerationOptions {
   chainId?: number;
   entropy?: string;
+  includePrivateKey?: boolean; // ✅ ADDED: Control private key inclusion
+  includeMnemonic?: boolean; // ✅ ADDED: Control mnemonic inclusion
   [key: string]: any; // Allow for additional properties
 }
 
@@ -30,7 +33,7 @@ export interface WalletGenerator {
    * @param options Optional wallet generation options
    * @returns Generated wallet
    */
-  generateWallet(options?: WalletGenerationOptions): Promise<Wallet>;
+  generateWallet(options?: WalletGenerationOptions): Promise<Wallet>; // ✅ FIXED: Now accepts options
   
   /**
    * Get metadata for this wallet generator

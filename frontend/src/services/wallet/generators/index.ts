@@ -18,6 +18,7 @@ export { StellarWalletGenerator } from './StellarWalletGenerator';
 export { ETHWalletGenerator } from './ETHWalletGenerator';
 export { PolygonWalletGenerator } from './PolygonWalletGenerator';
 export { InjectiveWalletGenerator } from './InjectiveWalletGenerator';
+export { BaseWalletGenerator } from './BaseWalletGenerator';
 
 // Factory
 export { WalletGeneratorFactory } from './WalletGeneratorFactory';

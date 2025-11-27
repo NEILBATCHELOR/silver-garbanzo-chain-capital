@@ -27,6 +27,8 @@ import {
   TrendingUp,
   ArrowLeftRight,
   DollarSign,
+  Factory,
+  ReceiptText,
   Percent
 } from 'lucide-react';
 import type { SidebarSection } from '@/types/sidebar';
@@ -292,6 +294,24 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         icon: UserRoundCog,
         permissions: ['user.assign_role', 'user.view'],
         roles: ['Owner', 'Super Admin']
+      },
+      {
+        id: 'factory-templates',
+        label: 'Factory Templates',
+        href: 'admin/templates',
+        icon: ReceiptText,
+        permissions: ['system.configure'],
+        roles: ['Super Admin'],
+        minRolePriority: 100
+      },
+      {
+        id: 'factory-config',
+        label: 'Factory Contract Configuration',
+        href: 'admin/factory-config',
+        icon: Factory,
+        permissions: ['system.configure'],
+        roles: ['Super Admin'],
+        minRolePriority: 100
       },
       {
         id: 'sidebar-configuration',

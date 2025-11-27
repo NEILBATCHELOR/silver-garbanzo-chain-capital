@@ -22,6 +22,7 @@ export class AptosWalletGenerator implements WalletGenerator {
         address: account.address,
         privateKey: account.privateKey || '',
         publicKey: account.publicKey,
+        mnemonic: account.mnemonic, // ✅ FIX: Return mnemonic if generated
         metadata: this.getMetadata()
       };
     } catch (error) {

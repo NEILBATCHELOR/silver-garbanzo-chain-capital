@@ -112,20 +112,21 @@ model mfa_challenges {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model mfa_factors {
-  id                   String           @id @db.Uuid
-  user_id              String           @db.Uuid
-  friendly_name        String?
-  factor_type          factor_type
-  status               factor_status
-  created_at           DateTime         @db.Timestamptz(6)
-  updated_at           DateTime         @db.Timestamptz(6)
-  secret               String?
-  phone                String?
-  last_challenged_at   DateTime?        @unique @db.Timestamptz(6)
-  web_authn_credential Json?
-  web_authn_aaguid     String?          @db.Uuid
-  mfa_challenges       mfa_challenges[]
-  users                auth_users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                           String           @id @db.Uuid
+  user_id                      String           @db.Uuid
+  friendly_name                String?
+  factor_type                  factor_type
+  status                       factor_status
+  created_at                   DateTime         @db.Timestamptz(6)
+  updated_at                   DateTime         @db.Timestamptz(6)
+  secret                       String?
+  phone                        String?
+  last_challenged_at           DateTime?        @unique @db.Timestamptz(6)
+  web_authn_credential         Json?
+  web_authn_aaguid             String?          @db.Uuid
+  last_webauthn_challenge_data Json?
+  mfa_challenges               mfa_challenges[]
+  users                        auth_users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, phone], map: "unique_phone_factor_per_user")
   @@index([user_id, created_at], map: "factor_id_created_at_idx")
@@ -224,22 +225,24 @@ model schema_migrations {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model sessions {
-  id              String           @id @db.Uuid
-  user_id         String           @db.Uuid
-  created_at      DateTime?        @db.Timestamptz(6)
-  updated_at      DateTime?        @db.Timestamptz(6)
-  factor_id       String?          @db.Uuid
-  aal             aal_level?
-  not_after       DateTime?        @db.Timestamptz(6)
-  refreshed_at    DateTime?        @db.Timestamp(6)
-  user_agent      String?
-  ip              String?          @db.Inet
-  tag             String?
-  oauth_client_id String?          @db.Uuid
-  mfa_amr_claims  mfa_amr_claims[]
-  refresh_tokens  refresh_tokens[]
-  oauth_clients   oauth_clients?   @relation(fields: [oauth_client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users           auth_users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                     String           @id @db.Uuid
+  user_id                String           @db.Uuid
+  created_at             DateTime?        @db.Timestamptz(6)
+  updated_at             DateTime?        @db.Timestamptz(6)
+  factor_id              String?          @db.Uuid
+  aal                    aal_level?
+  not_after              DateTime?        @db.Timestamptz(6)
+  refreshed_at           DateTime?        @db.Timestamp(6)
+  user_agent             String?
+  ip                     String?          @db.Inet
+  tag                    String?
+  oauth_client_id        String?          @db.Uuid
+  refresh_token_hmac_key String?
+  refresh_token_counter  BigInt?
+  mfa_amr_claims         mfa_amr_claims[]
+  refresh_tokens         refresh_tokens[]
+  oauth_clients          oauth_clients?   @relation(fields: [oauth_client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                  auth_users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([not_after(sort: Desc)])
   @@index([user_id])
@@ -287,120 +290,123 @@ model sso_providers {
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model auth_users {
-  instance_id                                                     String?                            @db.Uuid
-  id                                                              String                             @id @db.Uuid
-  aud                                                             String?                            @db.VarChar(255)
-  role                                                            String?                            @db.VarChar(255)
-  email                                                           String?                            @db.VarChar(255)
-  encrypted_password                                              String?                            @db.VarChar(255)
-  email_confirmed_at                                              DateTime?                          @db.Timestamptz(6)
-  invited_at                                                      DateTime?                          @db.Timestamptz(6)
-  confirmation_token                                              String?                            @db.VarChar(255)
-  confirmation_sent_at                                            DateTime?                          @db.Timestamptz(6)
-  recovery_token                                                  String?                            @db.VarChar(255)
-  recovery_sent_at                                                DateTime?                          @db.Timestamptz(6)
-  email_change_token_new                                          String?                            @db.VarChar(255)
-  email_change                                                    String?                            @db.VarChar(255)
-  email_change_sent_at                                            DateTime?                          @db.Timestamptz(6)
-  last_sign_in_at                                                 DateTime?                          @db.Timestamptz(6)
-  raw_app_meta_data                                               Json?
-  raw_user_meta_data                                              Json?
-  is_super_admin                                                  Boolean?
-  created_at                                                      DateTime?                          @db.Timestamptz(6)
-  updated_at                                                      DateTime?                          @db.Timestamptz(6)
-  phone                                                           String?                            @unique
-  phone_confirmed_at                                              DateTime?                          @db.Timestamptz(6)
-  phone_change                                                    String?                            @default("")
-  phone_change_token                                              String?                            @default("") @db.VarChar(255)
-  phone_change_sent_at                                            DateTime?                          @db.Timestamptz(6)
-  confirmed_at                                                    DateTime?                          @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
-  email_change_token_current                                      String?                            @default("") @db.VarChar(255)
-  email_change_confirm_status                                     Int?                               @default(0) @db.SmallInt
-  banned_until                                                    DateTime?                          @db.Timestamptz(6)
-  reauthentication_token                                          String?                            @default("") @db.VarChar(255)
-  reauthentication_sent_at                                        DateTime?                          @db.Timestamptz(6)
-  is_sso_user                                                     Boolean                            @default(false)
-  deleted_at                                                      DateTime?                          @db.Timestamptz(6)
-  is_anonymous                                                    Boolean                            @default(false)
-  identities                                                      identities[]
-  mfa_factors                                                     mfa_factors[]
-  oauth_authorizations                                            oauth_authorizations[]
-  oauth_consents                                                  oauth_consents[]
-  one_time_tokens                                                 one_time_tokens[]
-  sessions                                                        sessions[]
-  approval_requests                                               approval_requests[]
-  asset_nav_data_asset_nav_data_created_byTousers                 asset_nav_data[]                   @relation("asset_nav_data_created_byTousers")
-  asset_nav_data_asset_nav_data_validated_byTousers               asset_nav_data[]                   @relation("asset_nav_data_validated_byTousers")
-  audit_logs                                                      audit_logs[]
-  climate_reports                                                 climate_reports[]
-  climate_user_data_sources                                       climate_user_data_sources[]
-  compliance_reports_compliance_reports_created_byTousers         compliance_reports[]               @relation("compliance_reports_created_byTousers")
-  compliance_reports_compliance_reports_updated_byTousers         compliance_reports[]               @relation("compliance_reports_updated_byTousers")
-  contract_role_assignments                                       contract_role_assignments[]
-  credential_usage_logs                                           credential_usage_logs[]
-  document_workflows_document_workflows_created_byTousers         document_workflows[]               @relation("document_workflows_created_byTousers")
-  document_workflows_document_workflows_updated_byTousers         document_workflows[]               @relation("document_workflows_updated_byTousers")
-  fund_nav_data_fund_nav_data_created_byTousers                   fund_nav_data[]                    @relation("fund_nav_data_created_byTousers")
-  fund_nav_data_fund_nav_data_validated_byTousers                 fund_nav_data[]                    @relation("fund_nav_data_validated_byTousers")
-  individual_documents_individual_documents_reviewed_byTousers    individual_documents[]             @relation("individual_documents_reviewed_byTousers")
-  individual_documents_individual_documents_uploaded_byTousers    individual_documents[]             @relation("individual_documents_uploaded_byTousers")
-  investor_approvals                                              investor_approvals[]
-  investor_documents_investor_documents_created_byTousers         investor_documents[]               @relation("investor_documents_created_byTousers")
-  investor_documents_investor_documents_reviewed_byTousers        investor_documents[]               @relation("investor_documents_reviewed_byTousers")
-  investor_documents_investor_documents_updated_byTousers         investor_documents[]               @relation("investor_documents_updated_byTousers")
-  investors                                                       investors[]
-  issuer_access_roles_issuer_access_roles_created_byTousers       issuer_access_roles[]              @relation("issuer_access_roles_created_byTousers")
-  issuer_access_roles_issuer_access_roles_updated_byTousers       issuer_access_roles[]              @relation("issuer_access_roles_updated_byTousers")
-  issuer_access_roles_issuer_access_roles_user_idTousers          issuer_access_roles[]              @relation("issuer_access_roles_user_idTousers")
-  issuer_documents_issuer_documents_created_byTousers             issuer_documents[]                 @relation("issuer_documents_created_byTousers")
-  issuer_documents_issuer_documents_reviewed_byTousers            issuer_documents[]                 @relation("issuer_documents_reviewed_byTousers")
-  issuer_documents_issuer_documents_updated_byTousers             issuer_documents[]                 @relation("issuer_documents_updated_byTousers")
-  key_vault_keys_key_vault_keys_user_idTousers                    key_vault_keys[]                   @relation("key_vault_keys_user_idTousers")
-  key_vault_keys_key_vault_keys_created_byTousers                 key_vault_keys[]                   @relation("key_vault_keys_created_byTousers")
-  multi_sig_audit_log                                             multi_sig_audit_log[]
-  multi_sig_proposals                                             multi_sig_proposals[]
-  multi_sig_wallet_owners_multi_sig_wallet_owners_added_byTousers multi_sig_wallet_owners[]          @relation("multi_sig_wallet_owners_added_byTousers")
-  multi_sig_wallet_owners_multi_sig_wallet_owners_user_idTousers  multi_sig_wallet_owners[]          @relation("multi_sig_wallet_owners_user_idTousers")
-  multi_sig_wallets                                               multi_sig_wallets[]
-  nav_oracle_configs                                              nav_oracle_configs[]
-  notification_settings                                           notification_settings[]
-  onchain_identities                                              onchain_identities[]
-  profiles                                                        profiles?
-  project_organization_assignments                                project_organization_assignments[]
-  recent_address_selections                                       recent_address_selections[]
-  redemption_notifications                                        redemption_notifications[]
-  redemption_requests_redemption_requests_approved_byTousers      redemption_requests[]              @relation("redemption_requests_approved_byTousers")
-  redemption_requests_redemption_requests_processed_byTousers     redemption_requests[]              @relation("redemption_requests_processed_byTousers")
-  redemption_requests_redemption_requests_requested_byTousers     redemption_requests[]              @relation("redemption_requests_requested_byTousers")
-  redemption_settlements                                          redemption_settlements[]
-  redemption_window_templates                                     redemption_window_templates[]
-  redemption_windows_redemption_windows_approved_byTousers        redemption_windows[]               @relation("redemption_windows_approved_byTousers")
-  redemption_windows_redemption_windows_last_modified_byTousers   redemption_windows[]               @relation("redemption_windows_last_modified_byTousers")
-  redemption_windows_redemption_windows_created_byTousers         redemption_windows[]               @relation("redemption_windows_created_byTousers")
-  redemption_windows_redemption_windows_processed_byTousers       redemption_windows[]               @relation("redemption_windows_processed_byTousers")
-  ripple_dex_orders                                               ripple_dex_orders[]
-  ripple_escrows                                                  ripple_escrows[]
-  ripple_multisig_accounts                                        ripple_multisig_accounts[]
-  ripple_multisig_proposals                                       ripple_multisig_proposals[]
-  ripple_trust_lines                                              ripple_trust_lines[]
-  role_addresses                                                  role_addresses[]
-  security_events                                                 security_events[]
-  sidebar_configurations_sidebar_configurations_created_byTousers sidebar_configurations[]           @relation("sidebar_configurations_created_byTousers")
-  sidebar_configurations_sidebar_configurations_updated_byTousers sidebar_configurations[]           @relation("sidebar_configurations_updated_byTousers")
-  sidebar_items_sidebar_items_created_byTousers                   sidebar_items[]                    @relation("sidebar_items_created_byTousers")
-  sidebar_items_sidebar_items_updated_byTousers                   sidebar_items[]                    @relation("sidebar_items_updated_byTousers")
-  sidebar_sections_sidebar_sections_created_byTousers             sidebar_sections[]                 @relation("sidebar_sections_created_byTousers")
-  sidebar_sections_sidebar_sections_updated_byTousers             sidebar_sections[]                 @relation("sidebar_sections_updated_byTousers")
-  signer_keys                                                     signer_keys[]
-  tokens                                                          tokens[]
-  transaction_proposals                                           transaction_proposals[]
-  transaction_signatures                                          transaction_signatures[]
-  user_addresses                                                  user_addresses[]
-  user_contract_roles                                             user_contract_roles?
-  user_mfa_settings                                               user_mfa_settings[]
-  user_sidebar_preferences                                        user_sidebar_preferences[]
-  users_users_auth_idTousers                                      public_users?                      @relation("users_auth_idTousers")
-  users                                                           public_users?
+  instance_id                                                                    String?                            @db.Uuid
+  id                                                                             String                             @id @db.Uuid
+  aud                                                                            String?                            @db.VarChar(255)
+  role                                                                           String?                            @db.VarChar(255)
+  email                                                                          String?                            @db.VarChar(255)
+  encrypted_password                                                             String?                            @db.VarChar(255)
+  email_confirmed_at                                                             DateTime?                          @db.Timestamptz(6)
+  invited_at                                                                     DateTime?                          @db.Timestamptz(6)
+  confirmation_token                                                             String?                            @db.VarChar(255)
+  confirmation_sent_at                                                           DateTime?                          @db.Timestamptz(6)
+  recovery_token                                                                 String?                            @db.VarChar(255)
+  recovery_sent_at                                                               DateTime?                          @db.Timestamptz(6)
+  email_change_token_new                                                         String?                            @db.VarChar(255)
+  email_change                                                                   String?                            @db.VarChar(255)
+  email_change_sent_at                                                           DateTime?                          @db.Timestamptz(6)
+  last_sign_in_at                                                                DateTime?                          @db.Timestamptz(6)
+  raw_app_meta_data                                                              Json?
+  raw_user_meta_data                                                             Json?
+  is_super_admin                                                                 Boolean?
+  created_at                                                                     DateTime?                          @db.Timestamptz(6)
+  updated_at                                                                     DateTime?                          @db.Timestamptz(6)
+  phone                                                                          String?                            @unique
+  phone_confirmed_at                                                             DateTime?                          @db.Timestamptz(6)
+  phone_change                                                                   String?                            @default("")
+  phone_change_token                                                             String?                            @default("") @db.VarChar(255)
+  phone_change_sent_at                                                           DateTime?                          @db.Timestamptz(6)
+  confirmed_at                                                                   DateTime?                          @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
+  email_change_token_current                                                     String?                            @default("") @db.VarChar(255)
+  email_change_confirm_status                                                    Int?                               @default(0) @db.SmallInt
+  banned_until                                                                   DateTime?                          @db.Timestamptz(6)
+  reauthentication_token                                                         String?                            @default("") @db.VarChar(255)
+  reauthentication_sent_at                                                       DateTime?                          @db.Timestamptz(6)
+  is_sso_user                                                                    Boolean                            @default(false)
+  deleted_at                                                                     DateTime?                          @db.Timestamptz(6)
+  is_anonymous                                                                   Boolean                            @default(false)
+  identities                                                                     identities[]
+  mfa_factors                                                                    mfa_factors[]
+  oauth_authorizations                                                           oauth_authorizations[]
+  oauth_consents                                                                 oauth_consents[]
+  one_time_tokens                                                                one_time_tokens[]
+  sessions                                                                       sessions[]
+  approval_requests                                                              approval_requests[]
+  asset_nav_data_asset_nav_data_created_byTousers                                asset_nav_data[]                   @relation("asset_nav_data_created_byTousers")
+  asset_nav_data_asset_nav_data_validated_byTousers                              asset_nav_data[]                   @relation("asset_nav_data_validated_byTousers")
+  audit_logs                                                                     audit_logs[]
+  climate_reports                                                                climate_reports[]
+  climate_user_data_sources                                                      climate_user_data_sources[]
+  compliance_reports_compliance_reports_created_byTousers                        compliance_reports[]               @relation("compliance_reports_created_byTousers")
+  compliance_reports_compliance_reports_updated_byTousers                        compliance_reports[]               @relation("compliance_reports_updated_byTousers")
+  contract_role_assignments                                                      contract_role_assignments[]
+  credential_usage_logs                                                          credential_usage_logs[]
+  deployment_audit_logs                                                          deployment_audit_logs[]
+  document_workflows_document_workflows_created_byTousers                        document_workflows[]               @relation("document_workflows_created_byTousers")
+  document_workflows_document_workflows_updated_byTousers                        document_workflows[]               @relation("document_workflows_updated_byTousers")
+  fund_nav_data_fund_nav_data_created_byTousers                                  fund_nav_data[]                    @relation("fund_nav_data_created_byTousers")
+  fund_nav_data_fund_nav_data_validated_byTousers                                fund_nav_data[]                    @relation("fund_nav_data_validated_byTousers")
+  individual_documents_individual_documents_reviewed_byTousers                   individual_documents[]             @relation("individual_documents_reviewed_byTousers")
+  individual_documents_individual_documents_uploaded_byTousers                   individual_documents[]             @relation("individual_documents_uploaded_byTousers")
+  investor_approvals                                                             investor_approvals[]
+  investor_documents_investor_documents_created_byTousers                        investor_documents[]               @relation("investor_documents_created_byTousers")
+  investor_documents_investor_documents_reviewed_byTousers                       investor_documents[]               @relation("investor_documents_reviewed_byTousers")
+  investor_documents_investor_documents_updated_byTousers                        investor_documents[]               @relation("investor_documents_updated_byTousers")
+  investors                                                                      investors[]
+  issuer_access_roles_issuer_access_roles_created_byTousers                      issuer_access_roles[]              @relation("issuer_access_roles_created_byTousers")
+  issuer_access_roles_issuer_access_roles_updated_byTousers                      issuer_access_roles[]              @relation("issuer_access_roles_updated_byTousers")
+  issuer_access_roles_issuer_access_roles_user_idTousers                         issuer_access_roles[]              @relation("issuer_access_roles_user_idTousers")
+  issuer_documents_issuer_documents_created_byTousers                            issuer_documents[]                 @relation("issuer_documents_created_byTousers")
+  issuer_documents_issuer_documents_reviewed_byTousers                           issuer_documents[]                 @relation("issuer_documents_reviewed_byTousers")
+  issuer_documents_issuer_documents_updated_byTousers                            issuer_documents[]                 @relation("issuer_documents_updated_byTousers")
+  key_vault_keys_key_vault_keys_user_idTousers                                   key_vault_keys[]                   @relation("key_vault_keys_user_idTousers")
+  key_vault_keys_key_vault_keys_created_byTousers                                key_vault_keys[]                   @relation("key_vault_keys_created_byTousers")
+  multi_sig_audit_log                                                            multi_sig_audit_log[]
+  multi_sig_proposals                                                            multi_sig_proposals[]
+  multi_sig_wallet_owners_multi_sig_wallet_owners_added_byTousers                multi_sig_wallet_owners[]          @relation("multi_sig_wallet_owners_added_byTousers")
+  multi_sig_wallet_owners_multi_sig_wallet_owners_user_idTousers                 multi_sig_wallet_owners[]          @relation("multi_sig_wallet_owners_user_idTousers")
+  multi_sig_wallets                                                              multi_sig_wallets[]
+  nav_oracle_configs                                                             nav_oracle_configs[]
+  notification_settings                                                          notification_settings[]
+  onchain_identities                                                             onchain_identities[]
+  profiles                                                                       profiles?
+  project_organization_assignments                                               project_organization_assignments[]
+  recent_address_selections                                                      recent_address_selections[]
+  redemption_notifications                                                       redemption_notifications[]
+  redemption_requests_redemption_requests_approved_byTousers                     redemption_requests[]              @relation("redemption_requests_approved_byTousers")
+  redemption_requests_redemption_requests_processed_byTousers                    redemption_requests[]              @relation("redemption_requests_processed_byTousers")
+  redemption_requests_redemption_requests_requested_byTousers                    redemption_requests[]              @relation("redemption_requests_requested_byTousers")
+  redemption_requests_redemption_requests_transfer_execution_triggered_byTousers redemption_requests[]              @relation("redemption_requests_transfer_execution_triggered_byTousers")
+  redemption_settlements                                                         redemption_settlements[]
+  redemption_window_templates                                                    redemption_window_templates[]
+  redemption_windows_redemption_windows_approved_byTousers                       redemption_windows[]               @relation("redemption_windows_approved_byTousers")
+  redemption_windows_redemption_windows_last_modified_byTousers                  redemption_windows[]               @relation("redemption_windows_last_modified_byTousers")
+  redemption_windows_redemption_windows_created_byTousers                        redemption_windows[]               @relation("redemption_windows_created_byTousers")
+  redemption_windows_redemption_windows_processed_byTousers                      redemption_windows[]               @relation("redemption_windows_processed_byTousers")
+  ripple_dex_orders                                                              ripple_dex_orders[]
+  ripple_escrows                                                                 ripple_escrows[]
+  ripple_multisig_accounts                                                       ripple_multisig_accounts[]
+  ripple_multisig_proposals                                                      ripple_multisig_proposals[]
+  ripple_trust_lines                                                             ripple_trust_lines[]
+  role_addresses                                                                 role_addresses[]
+  security_events                                                                security_events[]
+  sidebar_configurations_sidebar_configurations_created_byTousers                sidebar_configurations[]           @relation("sidebar_configurations_created_byTousers")
+  sidebar_configurations_sidebar_configurations_updated_byTousers                sidebar_configurations[]           @relation("sidebar_configurations_updated_byTousers")
+  sidebar_items_sidebar_items_created_byTousers                                  sidebar_items[]                    @relation("sidebar_items_created_byTousers")
+  sidebar_items_sidebar_items_updated_byTousers                                  sidebar_items[]                    @relation("sidebar_items_updated_byTousers")
+  sidebar_sections_sidebar_sections_created_byTousers                            sidebar_sections[]                 @relation("sidebar_sections_created_byTousers")
+  sidebar_sections_sidebar_sections_updated_byTousers                            sidebar_sections[]                 @relation("sidebar_sections_updated_byTousers")
+  signer_keys                                                                    signer_keys[]
+  token_modules                                                                  token_modules[]
+  tokens                                                                         tokens[]
+  transaction_proposals                                                          transaction_proposals[]
+  transaction_signatures                                                         transaction_signatures[]
+  user_addresses                                                                 user_addresses[]
+  user_contract_roles                                                            user_contract_roles?
+  user_mfa_settings                                                              user_mfa_settings[]
+  user_sidebar_preferences                                                       user_sidebar_preferences[]
+  users_users_auth_idTousers                                                     public_users?                      @relation("users_auth_idTousers")
+  users                                                                          public_users?
 
   @@index([instance_id])
   @@index([is_anonymous])
@@ -2114,6 +2120,7 @@ model investors {
   authUsers                 auth_users?                 @relation(fields: [compliance_checked_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   key_vault_keys            key_vault_keys[]
   kyc_screening_logs        kyc_screening_logs[]
+  mmf_transactions          mmf_transactions[]
   subscriptions             subscriptions[]
   token_allocations         token_allocations[]
   wallets                   wallets[]
@@ -2687,6 +2694,7 @@ model multi_sig_wallets {
   migrated_to_roles               Boolean?                          @default(false)
   migration_date                  DateTime?                         @db.Timestamptz(6)
   funded_by_wallet_id             String?                           @db.Uuid
+  abi                             Json?
   contract_role_assignments       contract_role_assignments[]
   distributions                   distributions[]
   multi_sig_audit_log             multi_sig_audit_log[]
@@ -3003,6 +3011,7 @@ model projects {
   authorized_shares                           BigInt?
   asset_backed_products                       asset_backed_products?
   asset_nav_data                              asset_nav_data[]
+  blackout_periods                            blackout_periods[]
   bond_products                               bond_products[]
   cap_tables                                  cap_tables[]
   climate_incentives                          climate_incentives[]
@@ -3031,7 +3040,6 @@ model projects {
   private_equity_products                     private_equity_products?
   project_organization_assignments            project_organization_assignments[]
   project_wallets                             project_wallets[]
-  project_wallets_backup_do_not_use           project_wallets_backup_do_not_use[]
   organizations                               organizations?                               @relation(fields: [organization_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_projects_organization")
   psp_api_keys                                psp_api_keys[]
   psp_balances                                psp_balances[]
@@ -3199,54 +3207,63 @@ model redemption_approvers {
 }
 
 model redemption_requests {
-  id                                            String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  token_amount                                  Decimal                    @db.Decimal
-  token_type                                    String
-  redemption_type                               String
-  status                                        String
-  source_wallet_address                         String
-  destination_wallet_address                    String
-  conversion_rate                               Decimal                    @db.Decimal
-  investor_name                                 String?
-  investor_id                                   String?
-  required_approvals                            Int                        @default(1)
-  is_bulk_redemption                            Boolean?                   @default(false)
-  investor_count                                Int?                       @default(1)
-  rejection_reason                              String?
-  rejected_by                                   String?
-  rejection_timestamp                           DateTime?                  @db.Timestamptz(6)
-  created_at                                    DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at                                    DateTime                   @default(now()) @db.Timestamptz(6)
-  project_id                                    String?                    @db.Uuid
-  organization_id                               String?                    @db.Uuid
-  eligibility_check_id                          String?                    @db.Uuid
-  window_id                                     String?                    @db.Uuid
-  distribution_ids                              String[]                   @default([]) @db.Uuid
-  validation_results                            Json?                      @default("{}")
-  business_rules_version                        String?                    @default("1.0")
-  token_symbol                                  String?
-  distribution_id                               String?                    @db.Uuid
-  distribution_date                             DateTime?                  @db.Timestamptz(6)
-  distribution_tx_hash                          String?
-  usdc_amount                                   Decimal?                   @db.Decimal
-  redemption_window_id                          String?                    @db.Uuid
-  requested_by                                  String?                    @db.Uuid
-  approved_by                                   String?                    @db.Uuid
-  processed_by                                  String?                    @db.Uuid
-  priority_level                                Int?                       @default(1)
-  estimated_processing_time                     Unsupported("interval")?
-  actual_processing_time                        Unsupported("interval")?
-  compliance_status                             String?                    @default("pending")
-  redemption_fee                                Decimal?                   @default(0) @db.Decimal(78, 18)
-  net_redemption_amount                         Decimal?                   @db.Decimal(78, 18)
-  pro_rata_adjustment                           Decimal?                   @default(0) @db.Decimal(78, 18)
-  distribution_redemptions                      distribution_redemptions[]
-  redemption_approvers                          redemption_approvers[]
-  users_redemption_requests_approved_byTousers  auth_users?                @relation("redemption_requests_approved_byTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_redemption_requests_approved_by")
-  users_redemption_requests_processed_byTousers auth_users?                @relation("redemption_requests_processed_byTousers", fields: [processed_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_redemption_requests_processed_by")
-  users_redemption_requests_requested_byTousers auth_users?                @relation("redemption_requests_requested_byTousers", fields: [requested_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_redemption_requests_requested_by")
-  redemption_windows                            redemption_windows?        @relation(fields: [redemption_window_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_redemption_requests_window")
-  redemption_settlements                        redemption_settlements[]
+  id                                                               String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  token_amount                                                     Decimal                    @db.Decimal
+  token_type                                                       String
+  redemption_type                                                  String
+  status                                                           String
+  source_wallet_address                                            String
+  destination_wallet_address                                       String
+  conversion_rate                                                  Decimal                    @db.Decimal
+  investor_name                                                    String?
+  investor_id                                                      String?
+  required_approvals                                               Int                        @default(1)
+  is_bulk_redemption                                               Boolean?                   @default(false)
+  investor_count                                                   Int?                       @default(1)
+  rejection_reason                                                 String?
+  rejected_by                                                      String?
+  rejection_timestamp                                              DateTime?                  @db.Timestamptz(6)
+  created_at                                                       DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                       DateTime                   @default(now()) @db.Timestamptz(6)
+  project_id                                                       String?                    @db.Uuid
+  organization_id                                                  String?                    @db.Uuid
+  eligibility_check_id                                             String?                    @db.Uuid
+  window_id                                                        String?                    @db.Uuid
+  distribution_ids                                                 String[]                   @default([]) @db.Uuid
+  validation_results                                               Json?                      @default("{}")
+  business_rules_version                                           String?                    @default("1.0")
+  token_symbol                                                     String?
+  distribution_id                                                  String?                    @db.Uuid
+  distribution_date                                                DateTime?                  @db.Timestamptz(6)
+  distribution_tx_hash                                             String?
+  usdc_amount                                                      Decimal?                   @db.Decimal
+  redemption_window_id                                             String?                    @db.Uuid
+  requested_by                                                     String?                    @db.Uuid
+  approved_by                                                      String?                    @db.Uuid
+  processed_by                                                     String?                    @db.Uuid
+  priority_level                                                   Int?                       @default(1)
+  estimated_processing_time                                        Unsupported("interval")?
+  actual_processing_time                                           Unsupported("interval")?
+  compliance_status                                                String?                    @default("pending")
+  redemption_fee                                                   Decimal?                   @default(0) @db.Decimal(78, 18)
+  net_redemption_amount                                            Decimal?                   @db.Decimal(78, 18)
+  pro_rata_adjustment                                              Decimal?                   @default(0) @db.Decimal(78, 18)
+  auto_execute_transfer                                            Boolean?                   @default(true)
+  execution_mode                                                   execution_mode?            @default(automatic)
+  transfer_execution_triggered_at                                  DateTime?                  @db.Timestamptz(6)
+  transfer_execution_triggered_by                                  String?                    @db.Uuid
+  transfer_execution_method                                        String?
+  approval_processes                                               approval_processes[]
+  distribution_redemptions                                         distribution_redemptions[]
+  redemption_approvers                                             redemption_approvers[]
+  users_redemption_requests_approved_byTousers                     auth_users?                @relation("redemption_requests_approved_byTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_redemption_requests_approved_by")
+  users_redemption_requests_processed_byTousers                    auth_users?                @relation("redemption_requests_processed_byTousers", fields: [processed_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_redemption_requests_processed_by")
+  users_redemption_requests_requested_byTousers                    auth_users?                @relation("redemption_requests_requested_byTousers", fields: [requested_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_redemption_requests_requested_by")
+  redemption_windows                                               redemption_windows?        @relation(fields: [redemption_window_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_redemption_requests_window")
+  users_redemption_requests_transfer_execution_triggered_byTousers auth_users?                @relation("redemption_requests_transfer_execution_triggered_byTousers", fields: [transfer_execution_triggered_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  redemption_settlements                                           redemption_settlements[]
+  settlement_operations                                            settlement_operations[]
+  transfer_operations                                              transfer_operations[]
 
   @@index([compliance_status], map: "idx_redemption_requests_compliance_status")
   @@index([priority_level], map: "idx_redemption_requests_priority")
@@ -3740,11 +3757,19 @@ model subscriptions {
   created_at        DateTime?           @default(now()) @db.Timestamptz(6)
   updated_at        DateTime?           @default(now()) @db.Timestamptz(6)
   project_id        String?             @db.Uuid
+  product_id        String?             @db.Uuid
+  nav_per_share     Decimal?            @db.Decimal
+  shares_calculated Decimal?            @db.Decimal
+  transaction_type  String?             @default("subscription") @db.VarChar(50)
   distributions     distributions[]
+  mmf_transactions  mmf_transactions[]
   investors         investors           @relation(fields: [investor_id], references: [investor_id], onDelete: Cascade, onUpdate: NoAction)
+  fund_products     fund_products?      @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   projects          projects?           @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   token_allocations token_allocations[]
 
+  @@index([product_id], map: "idx_subscriptions_product")
+  @@index([transaction_type], map: "idx_subscriptions_transaction_type")
   @@schema("public")
 }
 
@@ -3918,82 +3943,101 @@ model token_erc1155_discount_tiers {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model token_erc1155_properties {
-  id                          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_id                    String    @unique(map: "one_erc1155_property_per_token") @db.Uuid
-  base_uri                    String?
-  metadata_storage            String?   @default("ipfs")
-  has_royalty                 Boolean?  @default(false)
-  royalty_percentage          String?
-  royalty_receiver            String?
-  is_burnable                 Boolean?  @default(false)
-  is_pausable                 Boolean?  @default(false)
-  access_control              String?   @default("ownable")
-  updatable_uris              Boolean?  @default(false)
-  supply_tracking             Boolean?  @default(true)
-  enable_approval_for_all     Boolean?  @default(true)
-  sales_config                Json?
-  whitelist_config            Json?
-  batch_transfer_limits       Json?
-  created_at                  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime? @default(now()) @db.Timestamptz(6)
-  dynamic_uri_config          Json?
-  batch_minting_config        Json?
-  transfer_restrictions       Json?
-  container_config            Json?
-  dynamic_uris                Boolean?
-  batch_minting_enabled       Boolean?  @default(false)
-  container_enabled           Boolean?  @default(false)
-  use_geographic_restrictions Boolean?  @default(false)
-  default_restriction_policy  String?   @default("allowed")
-  mint_roles                  String[]
-  burning_enabled             Boolean?  @default(false)
-  burn_roles                  String[]
-  updatable_metadata          Boolean?  @default(false)
-  metadata_update_roles       String[]
-  supply_tracking_advanced    Boolean?  @default(false)
-  max_supply_per_type         String?
-  pricing_model               String?   @default("fixed")
-  base_price                  String?
-  price_multipliers           Json?
-  bulk_discount_enabled       Boolean?  @default(false)
-  bulk_discount_tiers         Json?
-  referral_rewards_enabled    Boolean?  @default(false)
-  referral_percentage         String?
-  lazy_minting_enabled        Boolean?  @default(false)
-  airdrop_enabled             Boolean?  @default(false)
-  airdrop_snapshot_block      Int?
-  claim_period_enabled        Boolean?  @default(false)
-  claim_start_time            DateTime? @db.Timestamptz(6)
-  claim_end_time              DateTime? @db.Timestamptz(6)
-  crafting_enabled            Boolean?  @default(false)
-  fusion_enabled              Boolean?  @default(false)
-  token_recipes               Json?
-  experience_points_enabled   Boolean?  @default(false)
-  leveling_enabled            Boolean?  @default(false)
-  consumable_tokens           Boolean?  @default(false)
-  marketplace_fees_enabled    Boolean?  @default(false)
-  marketplace_fee_percentage  String?
-  marketplace_fee_recipient   String?
-  bundle_trading_enabled      Boolean?  @default(false)
-  atomic_swaps_enabled        Boolean?  @default(false)
-  cross_collection_trading    Boolean?  @default(false)
-  voting_power_enabled        Boolean?  @default(false)
-  voting_weight_per_token     Json?
-  community_treasury_enabled  Boolean?  @default(false)
-  treasury_percentage         String?
-  proposal_creation_threshold String?
-  bridge_enabled              Boolean?  @default(false)
-  bridgeable_token_types      String[]
-  wrapped_versions            Json?
-  layer2_support_enabled      Boolean?  @default(false)
-  supported_layer2_networks   String[]
-  tokens                      tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id                      String    @unique(map: "one_erc1155_property_per_token") @db.Uuid
+  base_uri                      String?
+  metadata_storage              String?   @default("ipfs")
+  has_royalty                   Boolean?  @default(false)
+  royalty_percentage            String?
+  royalty_receiver              String?
+  is_burnable                   Boolean?  @default(false)
+  is_pausable                   Boolean?  @default(false)
+  access_control                String?   @default("ownable")
+  updatable_uris                Boolean?  @default(false)
+  supply_tracking               Boolean?  @default(true)
+  enable_approval_for_all       Boolean?  @default(true)
+  sales_config                  Json?
+  whitelist_config              Json?
+  batch_transfer_limits         Json?
+  created_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  dynamic_uri_config            Json?
+  batch_minting_config          Json?
+  transfer_restrictions         Json?
+  container_config              Json?
+  dynamic_uris                  Boolean?
+  batch_minting_enabled         Boolean?  @default(false)
+  container_enabled             Boolean?  @default(false)
+  use_geographic_restrictions   Boolean?  @default(false)
+  default_restriction_policy    String?   @default("allowed")
+  mint_roles                    String[]
+  burning_enabled               Boolean?  @default(false)
+  burn_roles                    String[]
+  updatable_metadata            Boolean?  @default(false)
+  metadata_update_roles         String[]
+  supply_tracking_advanced      Boolean?  @default(false)
+  max_supply_per_type           String?
+  pricing_model                 String?   @default("fixed")
+  base_price                    String?
+  price_multipliers             Json?
+  bulk_discount_enabled         Boolean?  @default(false)
+  bulk_discount_tiers           Json?
+  referral_rewards_enabled      Boolean?  @default(false)
+  referral_percentage           String?
+  lazy_minting_enabled          Boolean?  @default(false)
+  airdrop_enabled               Boolean?  @default(false)
+  airdrop_snapshot_block        Int?
+  claim_period_enabled          Boolean?  @default(false)
+  claim_start_time              DateTime? @db.Timestamptz(6)
+  claim_end_time                DateTime? @db.Timestamptz(6)
+  crafting_enabled              Boolean?  @default(false)
+  fusion_enabled                Boolean?  @default(false)
+  token_recipes                 Json?
+  experience_points_enabled     Boolean?  @default(false)
+  leveling_enabled              Boolean?  @default(false)
+  consumable_tokens             Boolean?  @default(false)
+  marketplace_fees_enabled      Boolean?  @default(false)
+  marketplace_fee_percentage    String?
+  marketplace_fee_recipient     String?
+  bundle_trading_enabled        Boolean?  @default(false)
+  atomic_swaps_enabled          Boolean?  @default(false)
+  cross_collection_trading      Boolean?  @default(false)
+  voting_power_enabled          Boolean?  @default(false)
+  voting_weight_per_token       Json?
+  community_treasury_enabled    Boolean?  @default(false)
+  treasury_percentage           String?
+  proposal_creation_threshold   String?
+  bridge_enabled                Boolean?  @default(false)
+  bridgeable_token_types        String[]
+  wrapped_versions              Json?
+  layer2_support_enabled        Boolean?  @default(false)
+  supported_layer2_networks     String[]
+  compliance_module_address     String?
+  policy_engine_address         String?
+  vesting_module_address        String?
+  document_module_address       String?
+  royalty_module_address        String?
+  supply_cap_module_address     String?
+  uri_management_module_address String?
+  initial_owner                 String?
+  royalty_config                Json?
+  supply_cap_config             Json?
+  uri_management_config         Json?
+  document_config               Json?
+  vesting_config                Json?
+  compliance_config             Json?
+  policy_engine_config          Json?
+  granular_approval_config      Json?
+  tokens                        tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([bridge_enabled], map: "idx_erc1155_bridge")
   @@index([crafting_enabled], map: "idx_erc1155_crafting")
   @@index([lazy_minting_enabled], map: "idx_erc1155_lazy_minting")
   @@index([pricing_model], map: "idx_erc1155_pricing_model")
   @@index([voting_power_enabled], map: "idx_erc1155_voting_power")
+  @@index([royalty_config], map: "idx_erc1155_royalty_config", type: Gin)
+  @@index([supply_cap_config], map: "idx_erc1155_supply_cap_config", type: Gin)
+  @@index([uri_management_config], map: "idx_erc1155_uri_management_config", type: Gin)
   @@schema("public")
 }
 
@@ -4324,6 +4368,19 @@ model token_erc1400_properties {
   collateral_management_enabled             Boolean?  @default(false)
   insurance_coverage_enabled                Boolean?  @default(false)
   disaster_recovery_enabled                 Boolean?  @default(false)
+  compliance_module_address                 String?
+  policy_engine_address                     String?
+  vesting_module_address                    String?
+  document_module_address                   String?
+  controller_module_address                 String?
+  erc1400_document_module_address           String?
+  transfer_restrictions_module_address      String?
+  initial_owner                             String?
+  controller_config                         Json?
+  default_partitions                        Json?     @default("[\"DEFAULT\"]")
+  enhanced_transfer_restrictions_config     Json?
+  enhanced_document_config                  Json?
+  partition_config                          Json?
   tokens                                    tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([advanced_governance_enabled], map: "idx_erc1400_advanced_governance")
@@ -4332,6 +4389,8 @@ model token_erc1400_properties {
   @@index([custody_integration_enabled], map: "idx_erc1400_custody_integration")
   @@index([institutional_grade], map: "idx_erc1400_institutional_grade")
   @@index([traditional_finance_integration], map: "idx_erc1400_traditional_finance")
+  @@index([controller_config], map: "idx_erc1400_controller_config", type: Gin)
+  @@index([enhanced_transfer_restrictions_config], map: "idx_erc1400_transfer_restrictions", type: Gin)
   @@schema("public")
 }
 
@@ -4358,75 +4417,101 @@ model token_erc1400_regulatory_filings {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model token_erc20_properties {
-  id                          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_id                    String    @unique(map: "one_property_per_token") @db.Uuid
-  initial_supply              String?
-  cap                         String?
-  is_mintable                 Boolean?  @default(false)
-  is_burnable                 Boolean?  @default(false)
-  is_pausable                 Boolean?  @default(false)
-  token_type                  String?   @default("utility")
-  access_control              String?   @default("ownable")
-  allow_management            Boolean?  @default(false)
-  permit                      Boolean?  @default(false)
-  snapshot                    Boolean?  @default(false)
-  fee_on_transfer             Json?
-  rebasing                    Json?
-  governance_features         Json?
-  created_at                  DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime? @default(now()) @db.Timestamptz(6)
-  transfer_config             Json?
-  gas_config                  Json?
-  compliance_config           Json?
-  whitelist_config            Json?
-  governance_enabled          Boolean?  @default(false)
-  quorum_percentage           String?
-  proposal_threshold          String?
-  voting_delay                Int?
-  voting_period               Int?
-  timelock_delay              Int?
-  governance_token_address    String?
-  pausable_by                 String?
-  mintable_by                 String?
-  burnable_by                 String?
-  max_total_supply            String?
-  anti_whale_enabled          Boolean?  @default(false)
-  max_wallet_amount           String?
-  cooldown_period             Int?
-  blacklist_enabled           Boolean?  @default(false)
-  deflation_enabled           Boolean?  @default(false)
-  deflation_rate              String?
-  staking_enabled             Boolean?  @default(false)
-  staking_rewards_rate        String?
-  buy_fee_enabled             Boolean?  @default(false)
-  sell_fee_enabled            Boolean?  @default(false)
-  liquidity_fee_percentage    String?
-  marketing_fee_percentage    String?
-  charity_fee_percentage      String?
-  auto_liquidity_enabled      Boolean?  @default(false)
-  reflection_enabled          Boolean?  @default(false)
-  reflection_percentage       String?
-  burn_on_transfer            Boolean?  @default(false)
-  burn_percentage             String?
-  lottery_enabled             Boolean?  @default(false)
-  lottery_percentage          String?
-  trading_start_time          DateTime? @db.Timestamptz(6)
-  presale_enabled             Boolean?  @default(false)
-  presale_rate                String?
-  presale_start_time          DateTime? @db.Timestamptz(6)
-  presale_end_time            DateTime? @db.Timestamptz(6)
-  vesting_enabled             Boolean?  @default(false)
-  vesting_cliff_period        Int?
-  vesting_total_period        Int?
-  vesting_release_frequency   String?   @default("monthly")
-  use_geographic_restrictions Boolean?  @default(false)
-  default_restriction_policy  String?   @default("allowed")
-  tokens                      tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id                          String    @unique(map: "one_property_per_token") @db.Uuid
+  initial_supply                    String?
+  cap                               String?
+  is_mintable                       Boolean?  @default(false)
+  is_burnable                       Boolean?  @default(false)
+  is_pausable                       Boolean?  @default(false)
+  token_type                        String?   @default("utility")
+  access_control                    String?   @default("ownable")
+  allow_management                  Boolean?  @default(false)
+  permit                            Boolean?  @default(false)
+  snapshot                          Boolean?  @default(false)
+  fee_on_transfer                   Json?
+  rebasing                          Json?
+  governance_features               Json?
+  created_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  transfer_config                   Json?
+  gas_config                        Json?
+  compliance_config                 Json?
+  whitelist_config                  Json?
+  governance_enabled                Boolean?  @default(false)
+  quorum_percentage                 String?
+  proposal_threshold                String?
+  voting_delay                      Int?
+  voting_period                     Int?
+  timelock_delay                    Int?
+  governance_token_address          String?
+  pausable_by                       String?
+  mintable_by                       String?
+  burnable_by                       String?
+  max_total_supply                  String?
+  anti_whale_enabled                Boolean?  @default(false)
+  max_wallet_amount                 String?
+  cooldown_period                   Int?
+  blacklist_enabled                 Boolean?  @default(false)
+  deflation_enabled                 Boolean?  @default(false)
+  deflation_rate                    String?
+  staking_enabled                   Boolean?  @default(false)
+  staking_rewards_rate              String?
+  buy_fee_enabled                   Boolean?  @default(false)
+  sell_fee_enabled                  Boolean?  @default(false)
+  liquidity_fee_percentage          String?
+  marketing_fee_percentage          String?
+  charity_fee_percentage            String?
+  auto_liquidity_enabled            Boolean?  @default(false)
+  reflection_enabled                Boolean?  @default(false)
+  reflection_percentage             String?
+  burn_on_transfer                  Boolean?  @default(false)
+  burn_percentage                   String?
+  lottery_enabled                   Boolean?  @default(false)
+  lottery_percentage                String?
+  trading_start_time                DateTime? @db.Timestamptz(6)
+  presale_enabled                   Boolean?  @default(false)
+  presale_rate                      String?
+  presale_start_time                DateTime? @db.Timestamptz(6)
+  presale_end_time                  DateTime? @db.Timestamptz(6)
+  vesting_enabled                   Boolean?  @default(false)
+  vesting_cliff_period              Int?
+  vesting_total_period              Int?
+  vesting_release_frequency         String?   @default("monthly")
+  use_geographic_restrictions       Boolean?  @default(false)
+  default_restriction_policy        String?   @default("allowed")
+  compliance_module_address         String?
+  vesting_module_address            String?
+  fees_module_address               String?
+  policy_engine_address             String?
+  flash_mint_module_address         String?
+  permit_module_address             String?
+  snapshot_module_address           String?
+  timelock_module_address           String?
+  votes_module_address              String?
+  payable_token_module_address      String?
+  temporary_approval_module_address String?
+  initial_owner                     String?
+  timelock_config                   Json?
+  temporary_approval_config         Json?
+  vesting_config                    Json?
+  document_config                   Json?
+  policy_engine_config              Json?
+  fees_config                       Json?
+  flash_mint_config                 Json?
+  permit_config                     Json?
+  snapshot_config                   Json?
+  votes_config                      Json?
+  payable_token_config              Json?
+  tokens                            tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([governance_enabled], map: "idx_erc20_governance_enabled")
   @@index([presale_enabled], map: "idx_erc20_presale_enabled")
   @@index([token_type], map: "idx_erc20_token_type")
   @@index([trading_start_time], map: "idx_erc20_trading_start")
+  @@index([compliance_config], map: "idx_erc20_compliance_config", type: Gin)
+  @@index([document_config], map: "idx_erc20_document_config", type: Gin)
+  @@index([vesting_config], map: "idx_erc20_vesting_config", type: Gin)
   @@schema("public")
 }
 
@@ -4469,114 +4554,128 @@ model token_erc3525_payment_schedules {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model token_erc3525_properties {
-  id                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_id                      String    @unique(map: "one_erc3525_property_per_token") @db.Uuid
-  value_decimals                Int?      @default(0)
-  base_uri                      String?
-  metadata_storage              String?   @default("ipfs")
-  slot_type                     String?   @default("generic")
-  is_burnable                   Boolean?  @default(false)
-  is_pausable                   Boolean?  @default(false)
-  has_royalty                   Boolean?  @default(false)
-  royalty_percentage            String?
-  royalty_receiver              String?
-  slot_approvals                Boolean?  @default(true)
-  value_approvals               Boolean?  @default(true)
-  access_control                String?   @default("ownable")
-  updatable_uris                Boolean?  @default(false)
-  updatable_slots               Boolean?  @default(false)
-  value_transfers_enabled       Boolean?  @default(true)
-  sales_config                  Json?
-  mergable                      Boolean?  @default(false)
-  splittable                    Boolean?  @default(false)
-  slot_transfer_validation      Json?
-  created_at                    DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at                    DateTime? @default(now()) @db.Timestamptz(6)
-  dynamic_metadata              Boolean?  @default(false)
-  allows_slot_enumeration       Boolean?  @default(true)
-  value_aggregation             Boolean?  @default(false)
-  permissioning_enabled         Boolean?  @default(false)
-  supply_tracking               Boolean?  @default(false)
-  updatable_values              Boolean?  @default(false)
-  custom_extensions             String?
-  fractionalizable              Boolean?  @default(false)
-  metadata                      Json?
-  fractional_ownership_enabled  Boolean?  @default(false)
-  auto_unit_calculation         Boolean?  @default(false)
-  custom_slot_properties        Json?
-  slot_enumeration_enabled      Boolean?  @default(true)
-  value_aggregation_enabled     Boolean?  @default(false)
-  permissioning_advanced        Boolean?  @default(false)
-  slot_transfer_restrictions    Json?
-  value_transfer_restrictions   Json?
-  financial_instrument_type     String?
-  principal_amount              String?
-  interest_rate                 String?
-  maturity_date                 DateTime? @db.Timestamptz(6)
-  coupon_frequency              String?
-  payment_schedule              Json?
-  early_redemption_enabled      Boolean?  @default(false)
-  redemption_penalty_rate       String?
-  derivative_type               String?
-  underlying_asset              String?
-  underlying_asset_address      String?
-  strike_price                  String?
-  expiration_date               DateTime? @db.Timestamptz(6)
-  settlement_type               String?
-  margin_requirements           Json?
-  leverage_ratio                String?
-  slot_creation_enabled         Boolean?  @default(false)
-  dynamic_slot_creation         Boolean?  @default(false)
-  slot_admin_roles              String[]
-  slot_freeze_enabled           Boolean?  @default(false)
-  slot_merge_enabled            Boolean?  @default(false)
-  slot_split_enabled            Boolean?  @default(false)
-  cross_slot_transfers          Boolean?  @default(false)
-  value_computation_method      String?
-  value_oracle_address          String?
-  value_calculation_formula     String?
-  accrual_enabled               Boolean?  @default(false)
-  accrual_rate                  String?
-  accrual_frequency             String?
-  value_adjustment_enabled      Boolean?  @default(false)
-  slot_marketplace_enabled      Boolean?  @default(false)
-  value_marketplace_enabled     Boolean?  @default(false)
-  partial_value_trading         Boolean?  @default(false)
-  minimum_trade_value           String?
-  trading_fees_enabled          Boolean?  @default(false)
-  trading_fee_percentage        String?
-  market_maker_enabled          Boolean?  @default(false)
-  slot_voting_enabled           Boolean?  @default(false)
-  value_weighted_voting         Boolean?  @default(false)
-  voting_power_calculation      String?
-  quorum_calculation_method     String?
-  proposal_value_threshold      String?
-  delegate_enabled              Boolean?  @default(false)
-  yield_farming_enabled         Boolean?  @default(false)
-  liquidity_provision_enabled   Boolean?  @default(false)
-  staking_yield_rate            String?
-  compound_interest_enabled     Boolean?  @default(false)
-  flash_loan_enabled            Boolean?  @default(false)
-  collateral_factor             String?
-  liquidation_threshold         String?
-  regulatory_compliance_enabled Boolean?  @default(false)
-  kyc_required                  Boolean?  @default(false)
-  accredited_investor_only      Boolean?  @default(false)
-  holding_period_restrictions   Int?
-  transfer_limits               Json?
-  reporting_requirements        Json?
-  multi_signature_required      Boolean?  @default(false)
-  approval_workflow_enabled     Boolean?  @default(false)
-  institutional_custody_support Boolean?  @default(false)
-  audit_trail_enhanced          Boolean?  @default(false)
-  batch_operations_enabled      Boolean?  @default(false)
-  emergency_pause_enabled       Boolean?  @default(false)
-  recovery_mechanisms           Json?
-  whitelist_config              Json?
-  use_geographic_restrictions   Boolean?  @default(false)
-  default_restriction_policy    String?   @default("blocked")
-  geographic_restrictions       String[]
-  tokens                        tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id                       String    @unique(map: "one_erc3525_property_per_token") @db.Uuid
+  value_decimals                 Int?      @default(0)
+  base_uri                       String?
+  metadata_storage               String?   @default("ipfs")
+  slot_type                      String?   @default("generic")
+  is_burnable                    Boolean?  @default(false)
+  is_pausable                    Boolean?  @default(false)
+  has_royalty                    Boolean?  @default(false)
+  royalty_percentage             String?
+  royalty_receiver               String?
+  slot_approvals                 Boolean?  @default(true)
+  value_approvals                Boolean?  @default(true)
+  access_control                 String?   @default("ownable")
+  updatable_uris                 Boolean?  @default(false)
+  updatable_slots                Boolean?  @default(false)
+  value_transfers_enabled        Boolean?  @default(true)
+  sales_config                   Json?
+  mergable                       Boolean?  @default(false)
+  splittable                     Boolean?  @default(false)
+  slot_transfer_validation       Json?
+  created_at                     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime? @default(now()) @db.Timestamptz(6)
+  dynamic_metadata               Boolean?  @default(false)
+  allows_slot_enumeration        Boolean?  @default(true)
+  value_aggregation              Boolean?  @default(false)
+  permissioning_enabled          Boolean?  @default(false)
+  supply_tracking                Boolean?  @default(false)
+  updatable_values               Boolean?  @default(false)
+  custom_extensions              String?
+  fractionalizable               Boolean?  @default(false)
+  metadata                       Json?
+  fractional_ownership_enabled   Boolean?  @default(false)
+  auto_unit_calculation          Boolean?  @default(false)
+  custom_slot_properties         Json?
+  slot_enumeration_enabled       Boolean?  @default(true)
+  value_aggregation_enabled      Boolean?  @default(false)
+  permissioning_advanced         Boolean?  @default(false)
+  slot_transfer_restrictions     Json?
+  value_transfer_restrictions    Json?
+  financial_instrument_type      String?
+  principal_amount               String?
+  interest_rate                  String?
+  maturity_date                  DateTime? @db.Timestamptz(6)
+  coupon_frequency               String?
+  payment_schedule               Json?
+  early_redemption_enabled       Boolean?  @default(false)
+  redemption_penalty_rate        String?
+  derivative_type                String?
+  underlying_asset               String?
+  underlying_asset_address       String?
+  strike_price                   String?
+  expiration_date                DateTime? @db.Timestamptz(6)
+  settlement_type                String?
+  margin_requirements            Json?
+  leverage_ratio                 String?
+  slot_creation_enabled          Boolean?  @default(false)
+  dynamic_slot_creation          Boolean?  @default(false)
+  slot_admin_roles               String[]
+  slot_freeze_enabled            Boolean?  @default(false)
+  slot_merge_enabled             Boolean?  @default(false)
+  slot_split_enabled             Boolean?  @default(false)
+  cross_slot_transfers           Boolean?  @default(false)
+  value_computation_method       String?
+  value_oracle_address           String?
+  value_calculation_formula      String?
+  accrual_enabled                Boolean?  @default(false)
+  accrual_rate                   String?
+  accrual_frequency              String?
+  value_adjustment_enabled       Boolean?  @default(false)
+  slot_marketplace_enabled       Boolean?  @default(false)
+  value_marketplace_enabled      Boolean?  @default(false)
+  partial_value_trading          Boolean?  @default(false)
+  minimum_trade_value            String?
+  trading_fees_enabled           Boolean?  @default(false)
+  trading_fee_percentage         String?
+  market_maker_enabled           Boolean?  @default(false)
+  slot_voting_enabled            Boolean?  @default(false)
+  value_weighted_voting          Boolean?  @default(false)
+  voting_power_calculation       String?
+  quorum_calculation_method      String?
+  proposal_value_threshold       String?
+  delegate_enabled               Boolean?  @default(false)
+  yield_farming_enabled          Boolean?  @default(false)
+  liquidity_provision_enabled    Boolean?  @default(false)
+  staking_yield_rate             String?
+  compound_interest_enabled      Boolean?  @default(false)
+  flash_loan_enabled             Boolean?  @default(false)
+  collateral_factor              String?
+  liquidation_threshold          String?
+  regulatory_compliance_enabled  Boolean?  @default(false)
+  kyc_required                   Boolean?  @default(false)
+  accredited_investor_only       Boolean?  @default(false)
+  holding_period_restrictions    Int?
+  transfer_limits                Json?
+  reporting_requirements         Json?
+  multi_signature_required       Boolean?  @default(false)
+  approval_workflow_enabled      Boolean?  @default(false)
+  institutional_custody_support  Boolean?  @default(false)
+  audit_trail_enhanced           Boolean?  @default(false)
+  batch_operations_enabled       Boolean?  @default(false)
+  emergency_pause_enabled        Boolean?  @default(false)
+  recovery_mechanisms            Json?
+  whitelist_config               Json?
+  use_geographic_restrictions    Boolean?  @default(false)
+  default_restriction_policy     String?   @default("blocked")
+  geographic_restrictions        String[]
+  compliance_module_address      String?
+  policy_engine_address          String?
+  vesting_module_address         String?
+  document_module_address        String?
+  slot_approvable_module_address String?
+  slot_manager_module_address    String?
+  value_exchange_module_address  String?
+  initial_owner                  String?
+  value_exchange_config          Json?
+  slot_manager_config            Json?
+  slot_approvable_config         Json?
+  document_config                Json?
+  compliance_config              Json?
+  policy_engine_config           Json?
+  tokens                         tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([regulatory_compliance_enabled], map: "idx_erc3525_compliance")
   @@index([derivative_type], map: "idx_erc3525_derivative_type")
@@ -4586,6 +4685,8 @@ model token_erc3525_properties {
   @@index([slot_marketplace_enabled], map: "idx_erc3525_slot_marketplace")
   @@index([yield_farming_enabled], map: "idx_erc3525_yield_farming")
   @@index([token_id], map: "idx_token_erc3525_properties_token_id")
+  @@index([slot_manager_config], map: "idx_erc3525_slot_manager_config", type: Gin)
+  @@index([value_exchange_config], map: "idx_erc3525_value_exchange_config", type: Gin)
   @@schema("public")
 }
 
@@ -4708,117 +4809,138 @@ model token_erc4626_performance_metrics {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model token_erc4626_properties {
-  id                              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_id                        String    @unique(map: "one_erc4626_property_per_token") @db.Uuid
-  asset_address                   String?
-  asset_name                      String?
-  asset_symbol                    String?
-  asset_decimals                  Int?      @default(18)
-  vault_type                      String?   @default("yield")
-  is_mintable                     Boolean?  @default(false)
-  is_burnable                     Boolean?  @default(false)
-  is_pausable                     Boolean?  @default(false)
-  vault_strategy                  String?   @default("simple")
-  custom_strategy                 Boolean?  @default(false)
-  strategy_controller             String?
-  access_control                  String?   @default("ownable")
-  permit                          Boolean?  @default(false)
-  flash_loans                     Boolean?  @default(false)
-  emergency_shutdown              Boolean?  @default(false)
-  fee_structure                   Json?
-  rebalancing_rules               Json?
-  performance_metrics             Boolean?  @default(false)
-  created_at                      DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at                      DateTime? @default(now()) @db.Timestamptz(6)
-  yield_source                    String?   @default("external")
-  strategy_documentation          String?
-  rebalance_threshold             String?
-  liquidity_reserve               String?   @default("10")
-  max_slippage                    String?
-  deposit_limit                   String?
-  withdrawal_limit                String?
-  min_deposit                     String?
-  max_deposit                     String?
-  min_withdrawal                  String?
-  max_withdrawal                  String?
-  performance_tracking            Boolean?  @default(false)
-  deposit_fee                     String?
-  withdrawal_fee                  String?
-  management_fee                  String?
-  performance_fee                 String?
-  fee_recipient                   String?
-  withdrawal_rules                Json?
-  yield_optimization_enabled      Boolean?  @default(false)
-  automated_rebalancing           Boolean?  @default(false)
-  whitelist_config                Json?
-  use_geographic_restrictions     Boolean?  @default(false)
-  default_restriction_policy      String?   @default("allowed")
-  strategy_complexity             String?   @default("simple")
-  multi_asset_enabled             Boolean?  @default(false)
-  rebalancing_enabled             Boolean?  @default(false)
-  auto_compounding_enabled        Boolean?  @default(false)
-  yield_optimization_strategy     String?
-  risk_management_enabled         Boolean?  @default(false)
-  risk_tolerance                  String?
-  diversification_enabled         Boolean?  @default(false)
-  apy_tracking_enabled            Boolean?  @default(false)
-  benchmark_tracking_enabled      Boolean?  @default(false)
-  benchmark_index                 String?
-  performance_history_retention   Int?      @default(365)
-  yield_sources                   Json?
-  yield_distribution_schedule     String?
-  compound_frequency              String?   @default("continuous")
-  insurance_enabled               Boolean?  @default(false)
-  insurance_provider              String?
-  insurance_coverage_amount       String?
-  emergency_exit_enabled          Boolean?  @default(false)
-  circuit_breaker_enabled         Boolean?  @default(false)
-  max_drawdown_threshold          String?
-  stop_loss_enabled               Boolean?  @default(false)
-  stop_loss_threshold             String?
-  governance_token_enabled        Boolean?  @default(false)
-  governance_token_address        String?
-  voting_power_per_share          String?   @default("1")
-  strategy_voting_enabled         Boolean?  @default(false)
-  fee_voting_enabled              Boolean?  @default(false)
-  manager_performance_threshold   String?
-  manager_replacement_enabled     Boolean?  @default(false)
-  dynamic_fees_enabled            Boolean?  @default(false)
-  performance_fee_high_water_mark Boolean?  @default(false)
-  fee_tier_system_enabled         Boolean?  @default(false)
-  early_withdrawal_penalty        String?
-  late_withdrawal_penalty         String?
-  gas_fee_optimization            Boolean?  @default(false)
-  fee_rebate_enabled              Boolean?  @default(false)
-  liquidity_mining_enabled        Boolean?  @default(false)
-  liquidity_incentives_rate       String?
-  market_making_enabled           Boolean?  @default(false)
-  arbitrage_enabled               Boolean?  @default(false)
-  cross_dex_optimization          Boolean?  @default(false)
-  liquidity_provider_rewards      Json?
-  impermanent_loss_protection     Boolean?  @default(false)
-  defi_protocol_integrations      String[]
-  lending_protocol_enabled        Boolean?  @default(false)
-  borrowing_enabled               Boolean?  @default(false)
-  leverage_enabled                Boolean?  @default(false)
-  max_leverage_ratio              String?
-  cross_chain_yield_enabled       Boolean?  @default(false)
-  bridge_protocols                String[]
-  portfolio_analytics_enabled     Boolean?  @default(false)
-  real_time_pnl_tracking          Boolean?  @default(false)
-  tax_reporting_enabled           Boolean?  @default(false)
-  automated_reporting             Boolean?  @default(false)
-  notification_system_enabled     Boolean?  @default(false)
-  mobile_app_integration          Boolean?  @default(false)
-  social_trading_enabled          Boolean?  @default(false)
-  institutional_grade             Boolean?  @default(false)
-  custody_integration             Boolean?  @default(false)
-  audit_trail_comprehensive       Boolean?  @default(false)
-  compliance_reporting_enabled    Boolean?  @default(false)
-  regulatory_framework            String?
-  fund_administration_enabled     Boolean?  @default(false)
-  third_party_audits_enabled      Boolean?  @default(false)
-  tokens                          tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id                         String    @unique(map: "one_erc4626_property_per_token") @db.Uuid
+  asset_address                    String?
+  asset_name                       String?
+  asset_symbol                     String?
+  asset_decimals                   Int?      @default(18)
+  vault_type                       String?   @default("yield")
+  is_mintable                      Boolean?  @default(false)
+  is_burnable                      Boolean?  @default(false)
+  is_pausable                      Boolean?  @default(false)
+  vault_strategy                   String?   @default("simple")
+  custom_strategy                  Boolean?  @default(false)
+  strategy_controller              String?
+  access_control                   String?   @default("ownable")
+  permit                           Boolean?  @default(false)
+  flash_loans                      Boolean?  @default(false)
+  emergency_shutdown               Boolean?  @default(false)
+  fee_structure                    Json?
+  rebalancing_rules                Json?
+  performance_metrics              Boolean?  @default(false)
+  created_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  yield_source                     String?   @default("external")
+  strategy_documentation           String?
+  rebalance_threshold              String?
+  liquidity_reserve                String?   @default("10")
+  max_slippage                     String?
+  deposit_limit                    String?
+  withdrawal_limit                 String?
+  min_deposit                      String?
+  max_deposit                      String?
+  min_withdrawal                   String?
+  max_withdrawal                   String?
+  performance_tracking             Boolean?  @default(false)
+  deposit_fee                      String?
+  withdrawal_fee                   String?
+  management_fee                   String?
+  performance_fee                  String?
+  fee_recipient                    String?
+  withdrawal_rules                 Json?
+  yield_optimization_enabled       Boolean?  @default(false)
+  automated_rebalancing            Boolean?  @default(false)
+  whitelist_config                 Json?
+  use_geographic_restrictions      Boolean?  @default(false)
+  default_restriction_policy       String?   @default("allowed")
+  strategy_complexity              String?   @default("simple")
+  multi_asset_enabled              Boolean?  @default(false)
+  rebalancing_enabled              Boolean?  @default(false)
+  auto_compounding_enabled         Boolean?  @default(false)
+  yield_optimization_strategy      String?
+  risk_management_enabled          Boolean?  @default(false)
+  risk_tolerance                   String?
+  diversification_enabled          Boolean?  @default(false)
+  apy_tracking_enabled             Boolean?  @default(false)
+  benchmark_tracking_enabled       Boolean?  @default(false)
+  benchmark_index                  String?
+  performance_history_retention    Int?      @default(365)
+  yield_sources                    Json?
+  yield_distribution_schedule      String?
+  compound_frequency               String?   @default("continuous")
+  insurance_enabled                Boolean?  @default(false)
+  insurance_provider               String?
+  insurance_coverage_amount        String?
+  emergency_exit_enabled           Boolean?  @default(false)
+  circuit_breaker_enabled          Boolean?  @default(false)
+  max_drawdown_threshold           String?
+  stop_loss_enabled                Boolean?  @default(false)
+  stop_loss_threshold              String?
+  governance_token_enabled         Boolean?  @default(false)
+  governance_token_address         String?
+  voting_power_per_share           String?   @default("1")
+  strategy_voting_enabled          Boolean?  @default(false)
+  fee_voting_enabled               Boolean?  @default(false)
+  manager_performance_threshold    String?
+  manager_replacement_enabled      Boolean?  @default(false)
+  dynamic_fees_enabled             Boolean?  @default(false)
+  performance_fee_high_water_mark  Boolean?  @default(false)
+  fee_tier_system_enabled          Boolean?  @default(false)
+  early_withdrawal_penalty         String?
+  late_withdrawal_penalty          String?
+  gas_fee_optimization             Boolean?  @default(false)
+  fee_rebate_enabled               Boolean?  @default(false)
+  liquidity_mining_enabled         Boolean?  @default(false)
+  liquidity_incentives_rate        String?
+  market_making_enabled            Boolean?  @default(false)
+  arbitrage_enabled                Boolean?  @default(false)
+  cross_dex_optimization           Boolean?  @default(false)
+  liquidity_provider_rewards       Json?
+  impermanent_loss_protection      Boolean?  @default(false)
+  defi_protocol_integrations       String[]
+  lending_protocol_enabled         Boolean?  @default(false)
+  borrowing_enabled                Boolean?  @default(false)
+  leverage_enabled                 Boolean?  @default(false)
+  max_leverage_ratio               String?
+  cross_chain_yield_enabled        Boolean?  @default(false)
+  bridge_protocols                 String[]
+  portfolio_analytics_enabled      Boolean?  @default(false)
+  real_time_pnl_tracking           Boolean?  @default(false)
+  tax_reporting_enabled            Boolean?  @default(false)
+  automated_reporting              Boolean?  @default(false)
+  notification_system_enabled      Boolean?  @default(false)
+  mobile_app_integration           Boolean?  @default(false)
+  social_trading_enabled           Boolean?  @default(false)
+  institutional_grade              Boolean?  @default(false)
+  custody_integration              Boolean?  @default(false)
+  audit_trail_comprehensive        Boolean?  @default(false)
+  compliance_reporting_enabled     Boolean?  @default(false)
+  regulatory_framework             String?
+  fund_administration_enabled      Boolean?  @default(false)
+  third_party_audits_enabled       Boolean?  @default(false)
+  compliance_module_address        String?
+  policy_engine_address            String?
+  document_module_address          String?
+  fee_strategy_module_address      String?
+  withdrawal_queue_module_address  String?
+  yield_strategy_module_address    String?
+  multi_asset_vault_module_address String?
+  async_vault_module_address       String?
+  native_vault_module_address      String?
+  router_module_address            String?
+  initial_owner                    String?
+  fee_strategy_config              Json?
+  withdrawal_queue_config          Json?
+  yield_strategy_config            Json?
+  async_vault_config               Json?
+  multi_asset_vault_config         Json?
+  document_config                  Json?
+  compliance_config                Json?
+  policy_engine_config             Json?
+  native_vault_config              Json?
+  router_config                    Json?
+  tokens                           tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([compound_frequency], map: "idx_erc4626_compound_frequency")
   @@index([governance_token_enabled], map: "idx_erc4626_governance")
@@ -4827,6 +4949,11 @@ model token_erc4626_properties {
   @@index([rebalancing_enabled], map: "idx_erc4626_rebalancing")
   @@index([strategy_complexity], map: "idx_erc4626_strategy_complexity")
   @@index([yield_optimization_enabled], map: "idx_erc4626_yield_optimization")
+  @@index([async_vault_config], map: "idx_erc4626_async_vault_config", type: Gin)
+  @@index([fee_strategy_config], map: "idx_erc4626_fee_strategy_config", type: Gin)
+  @@index([multi_asset_vault_config], map: "idx_erc4626_multi_asset_vault_config", type: Gin)
+  @@index([withdrawal_queue_config], map: "idx_erc4626_withdrawal_queue_config", type: Gin)
+  @@index([yield_strategy_config], map: "idx_erc4626_yield_strategy_config", type: Gin)
   @@schema("public")
 }
 
@@ -4907,97 +5034,130 @@ model token_erc721_mint_phases {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model token_erc721_properties {
-  id                             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  token_id                       String    @unique(map: "one_erc721_property_per_token") @db.Uuid
-  base_uri                       String?
-  metadata_storage               String?   @default("ipfs")
-  max_supply                     String?
-  has_royalty                    Boolean?  @default(false)
-  royalty_percentage             String?
-  royalty_receiver               String?
-  is_burnable                    Boolean?  @default(false)
-  is_pausable                    Boolean?  @default(false)
-  asset_type                     String?   @default("unique_asset")
-  minting_method                 String?   @default("open")
-  auto_increment_ids             Boolean?  @default(true)
-  enumerable                     Boolean?  @default(true)
-  uri_storage                    String?   @default("tokenId")
-  access_control                 String?   @default("ownable")
-  updatable_uris                 Boolean?  @default(false)
-  sales_config                   Json?
-  whitelist_config               Json?
-  permission_config              Json?
-  created_at                     DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at                     DateTime? @default(now()) @db.Timestamptz(6)
-  is_mintable                    Boolean?
-  dynamic_uri_config             Json?
-  batch_minting_config           Json?
-  transfer_restrictions          Json?
-  supply_validation_enabled      Boolean?  @default(true)
-  contract_uri                   String?
-  custom_base_uri                String?
-  revealable                     Boolean?  @default(false)
-  pre_reveal_uri                 String?
-  reserved_tokens                Int?      @default(0)
-  minting_price                  String?
-  max_mints_per_tx               Int?
-  max_mints_per_wallet           Int?
-  enable_fractional_ownership    Boolean?  @default(false)
-  enable_dynamic_metadata        Boolean?  @default(false)
-  use_safe_transfer              Boolean?  @default(true)
-  public_sale_enabled            Boolean?  @default(false)
-  public_sale_price              String?
-  public_sale_start_time         DateTime? @db.Timestamptz(6)
-  public_sale_end_time           DateTime? @db.Timestamptz(6)
-  whitelist_sale_enabled         Boolean?  @default(false)
-  whitelist_sale_price           String?
-  whitelist_sale_start_time      DateTime? @db.Timestamptz(6)
-  whitelist_sale_end_time        DateTime? @db.Timestamptz(6)
-  reveal_batch_size              Int?
-  auto_reveal                    Boolean?  @default(false)
-  reveal_delay                   Int?
-  placeholder_image_uri          String?
-  metadata_frozen                Boolean?  @default(false)
-  metadata_provenance_hash       String?
-  mint_roles                     String[]
-  admin_mint_enabled             Boolean?  @default(true)
-  public_mint_enabled            Boolean?  @default(false)
-  burn_roles                     String[]
-  transfer_locked                Boolean?  @default(false)
-  soulbound                      Boolean?  @default(false)
-  creator_earnings_enabled       Boolean?  @default(false)
-  creator_earnings_percentage    String?
-  creator_earnings_address       String?
-  marketplace_approved           String[]
-  operator_filter_enabled        Boolean?  @default(false)
-  custom_operator_filter_address String?
-  utility_enabled                Boolean?  @default(false)
-  utility_type                   String?
-  staking_enabled                Boolean?  @default(false)
-  staking_rewards_token_address  String?
-  staking_rewards_rate           String?
-  breeding_enabled               Boolean?  @default(false)
-  evolution_enabled              Boolean?  @default(false)
-  supply_cap_enabled             Boolean?  @default(false)
-  total_supply_cap               String?
-  mint_phases_enabled            Boolean?  @default(false)
-  dutch_auction_enabled          Boolean?  @default(false)
-  dutch_auction_start_price      String?
-  dutch_auction_end_price        String?
-  dutch_auction_duration         Int?
-  cross_chain_enabled            Boolean?  @default(false)
-  bridge_contracts               Json?
-  layer2_enabled                 Boolean?  @default(false)
-  layer2_networks                String[]
-  use_geographic_restrictions    Boolean?  @default(false)
-  default_restriction_policy     String?   @default("allowed")
-  tokens                         tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id                         String    @unique(map: "one_erc721_property_per_token") @db.Uuid
+  base_uri                         String?
+  metadata_storage                 String?   @default("ipfs")
+  max_supply                       String?
+  has_royalty                      Boolean?  @default(false)
+  royalty_percentage               String?
+  royalty_receiver                 String?
+  is_burnable                      Boolean?  @default(false)
+  is_pausable                      Boolean?  @default(false)
+  asset_type                       String?   @default("unique_asset")
+  minting_method                   String?   @default("open")
+  auto_increment_ids               Boolean?  @default(true)
+  enumerable                       Boolean?  @default(true)
+  uri_storage                      String?   @default("tokenId")
+  access_control                   String?   @default("ownable")
+  updatable_uris                   Boolean?  @default(false)
+  sales_config                     Json?
+  whitelist_config                 Json?
+  permission_config                Json?
+  created_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime? @default(now()) @db.Timestamptz(6)
+  is_mintable                      Boolean?
+  dynamic_uri_config               Json?
+  batch_minting_config             Json?
+  transfer_restrictions            Json?
+  supply_validation_enabled        Boolean?  @default(true)
+  contract_uri                     String?
+  custom_base_uri                  String?
+  revealable                       Boolean?  @default(false)
+  pre_reveal_uri                   String?
+  reserved_tokens                  Int?      @default(0)
+  minting_price                    String?
+  max_mints_per_tx                 Int?
+  max_mints_per_wallet             Int?
+  enable_fractional_ownership      Boolean?  @default(false)
+  enable_dynamic_metadata          Boolean?  @default(false)
+  use_safe_transfer                Boolean?  @default(true)
+  public_sale_enabled              Boolean?  @default(false)
+  public_sale_price                String?
+  public_sale_start_time           DateTime? @db.Timestamptz(6)
+  public_sale_end_time             DateTime? @db.Timestamptz(6)
+  whitelist_sale_enabled           Boolean?  @default(false)
+  whitelist_sale_price             String?
+  whitelist_sale_start_time        DateTime? @db.Timestamptz(6)
+  whitelist_sale_end_time          DateTime? @db.Timestamptz(6)
+  reveal_batch_size                Int?
+  auto_reveal                      Boolean?  @default(false)
+  reveal_delay                     Int?
+  placeholder_image_uri            String?
+  metadata_frozen                  Boolean?  @default(false)
+  metadata_provenance_hash         String?
+  mint_roles                       String[]
+  admin_mint_enabled               Boolean?  @default(true)
+  public_mint_enabled              Boolean?  @default(false)
+  burn_roles                       String[]
+  transfer_locked                  Boolean?  @default(false)
+  soulbound                        Boolean?  @default(false)
+  creator_earnings_enabled         Boolean?  @default(false)
+  creator_earnings_percentage      String?
+  creator_earnings_address         String?
+  marketplace_approved             String[]
+  operator_filter_enabled          Boolean?  @default(false)
+  custom_operator_filter_address   String?
+  utility_enabled                  Boolean?  @default(false)
+  utility_type                     String?
+  staking_enabled                  Boolean?  @default(false)
+  staking_rewards_token_address    String?
+  staking_rewards_rate             String?
+  breeding_enabled                 Boolean?  @default(false)
+  evolution_enabled                Boolean?  @default(false)
+  supply_cap_enabled               Boolean?  @default(false)
+  total_supply_cap                 String?
+  mint_phases_enabled              Boolean?  @default(false)
+  dutch_auction_enabled            Boolean?  @default(false)
+  dutch_auction_start_price        String?
+  dutch_auction_end_price          String?
+  dutch_auction_duration           Int?
+  cross_chain_enabled              Boolean?  @default(false)
+  bridge_contracts                 Json?
+  layer2_enabled                   Boolean?  @default(false)
+  layer2_networks                  String[]
+  use_geographic_restrictions      Boolean?  @default(false)
+  default_restriction_policy       String?   @default("allowed")
+  compliance_module_address        String?
+  policy_engine_address            String?
+  vesting_module_address           String?
+  document_module_address          String?
+  consecutive_module_address       String?
+  fractionalization_module_address String?
+  rental_module_address            String?
+  royalty_module_address           String?
+  soulbound_module_address         String?
+  metadata_events_module_address   String?
+  initial_owner                    String?
+  rental_enabled                   Boolean?  @default(false)
+  rental_config                    Json?
+  fractionalization_config         Json?
+  compliance_enabled               Boolean?  @default(false)
+  compliance_config                Json?
+  vesting_enabled                  Boolean?  @default(false)
+  vesting_config                   Json?
+  document_enabled                 Boolean?  @default(false)
+  consecutive                      Boolean?  @default(false)
+  metadata_events                  Boolean?  @default(false)
+  policy_engine_enabled            Boolean?  @default(false)
+  policy_rules_enabled             String?
+  policy_validators_enabled        String?
+  document_config                  Json?
+  consecutive_config               Json?
+  metadata_events_config           Json?
+  soulbound_config                 Json?
+  tokens                           tokens    @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([public_sale_enabled, public_sale_start_time], map: "idx_erc721_public_sale")
   @@index([revealable], map: "idx_erc721_revealable")
   @@index([staking_enabled], map: "idx_erc721_staking")
   @@index([utility_enabled, utility_type], map: "idx_erc721_utility")
   @@index([whitelist_sale_enabled, whitelist_sale_start_time], map: "idx_erc721_whitelist_sale")
+  @@index([compliance_config], map: "idx_erc721_compliance_config", type: Gin)
+  @@index([document_config], map: "idx_erc721_document_config", type: Gin)
+  @@index([fractionalization_config], map: "idx_erc721_fractionalization_config", type: Gin)
+  @@index([rental_config], map: "idx_erc721_rental_config", type: Gin)
+  @@index([vesting_config], map: "idx_erc721_vesting_config", type: Gin)
   @@schema("public")
 }
 
@@ -5225,7 +5385,9 @@ model tokens {
   ratio                                                                       Decimal?                            @db.Decimal
   parity                                                                      Decimal?                            @db.Decimal
   product_type                                                                String?                             @db.VarChar(50)
+  approval_workflows                                                          approval_workflows[]
   deployment_rate_limits                                                      deployment_rate_limits[]
+  exchange_rate_history                                                       exchange_rate_history[]
   token_allocations                                                           token_allocations[]
   token_climate_properties                                                    token_climate_properties?
   token_deployment_history                                                    token_deployment_history[]
@@ -5264,14 +5426,17 @@ model tokens {
   token_erc721_properties                                                     token_erc721_properties?
   token_erc721_trait_definitions                                              token_erc721_trait_definitions[]
   token_events                                                                token_events[]
+  token_exchange_configs                                                      token_exchange_configs[]
   token_extensions                                                            token_extensions[]
   token_geographic_restrictions                                               token_geographic_restrictions[]
+  token_modules                                                               token_modules[]
   token_operations                                                            token_operations[]
   token_sanctions_rules                                                       token_sanctions_rules[]
   token_versions                                                              token_versions[]
   token_whitelists                                                            token_whitelists[]
   users                                                                       auth_users?                         @relation(fields: [deployed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   projects                                                                    projects                            @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  valuation_price_history                                                     valuation_price_history[]
 
   @@index([blockchain], map: "idx_tokens_blockchain")
   @@index([deployment_status], map: "idx_tokens_deployment_status")
@@ -5456,6 +5621,9 @@ model public_users {
   approval_config_history                                                     approval_config_history[]
   approval_configs_approval_configs_created_byTousers                         approval_configs[]               @relation("approval_configs_created_byTousers")
   approval_configs_approval_configs_last_modified_byTousers                   approval_configs[]               @relation("approval_configs_last_modified_byTousers")
+  approval_delegations_approval_delegations_delegate_idTousers                approval_delegations[]           @relation("approval_delegations_delegate_idTousers")
+  approval_delegations_approval_delegations_delegator_idTousers               approval_delegations[]           @relation("approval_delegations_delegator_idTousers")
+  blackout_periods                                                            blackout_periods[]
   compliance_violations                                                       compliance_violations[]
   contract_masters                                                            contract_masters[]
   document_approvals                                                          document_approvals[]
@@ -5472,6 +5640,7 @@ model public_users {
   stripe_conversion_transactions                                              stripe_conversion_transactions[]
   stripe_stablecoin_accounts                                                  stripe_stablecoin_accounts[]
   token_deployment_verifications                                              token_deployment_verifications[]
+  token_exchange_configs                                                      token_exchange_configs[]
   token_extensions_token_extensions_attached_byTousers                        token_extensions[]               @relation("token_extensions_attached_byTousers")
   token_extensions_token_extensions_detached_byTousers                        token_extensions[]               @relation("token_extensions_detached_byTousers")
   transaction_validations                                                     transaction_validations[]
@@ -8083,31 +8252,37 @@ model contract_master_versions {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model contract_masters {
-  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  network            String
-  environment        String
-  contract_type      String
-  contract_address   String
-  version            String        @default("1.0.0")
-  abi_version        String        @default("1.0.0")
-  abi                Json?         @db.Json
-  abi_hash           String?
-  deployed_at        DateTime?     @default(now()) @db.Timestamptz(6)
-  deployed_by        String?       @db.Uuid
-  deployment_tx_hash String?
-  is_active          Boolean?      @default(true)
-  deprecated_at      DateTime?     @db.Timestamptz(6)
-  deployment_data    Json?         @default("{}")
-  created_at         DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime?     @default(now()) @db.Timestamptz(6)
-  contract_details   Json?
-  initial_owner      String?
-  users              public_users? @relation(fields: [deployed_by], references: [id], onUpdate: NoAction)
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  network             String
+  environment         String
+  contract_type       String
+  contract_address    String
+  version             String        @default("1.0.0")
+  abi_version         String        @default("1.0.0")
+  abi                 Json?         @db.Json
+  abi_hash            String?
+  deployed_at         DateTime?     @default(now()) @db.Timestamptz(6)
+  deployed_by         String?       @db.Uuid
+  deployment_tx_hash  String?
+  is_active           Boolean?      @default(true)
+  deprecated_at       DateTime?     @db.Timestamptz(6)
+  deployment_data     Json?         @default("{}")
+  created_at          DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?     @default(now()) @db.Timestamptz(6)
+  contract_details    Json?
+  initial_owner       String?
+  is_template         Boolean?      @default(false)
+  verification_status String?       @default("unverified")
+  verified_at         DateTime?     @db.Timestamptz(6)
+  verification_url    String?
+  verification_error  String?
+  users               public_users? @relation(fields: [deployed_by], references: [id], onUpdate: NoAction)
 
   @@unique([network, environment, contract_address], map: "contract_masters_network_environment_address_unique")
   @@index([contract_address], map: "idx_contract_masters_address")
   @@index([contract_type, is_active], map: "idx_contract_masters_type")
   @@index([network, environment], map: "idx_contract_masters_network_env")
+  @@index([is_template, network, environment, is_active], map: "idx_contract_masters_is_template")
   @@schema("public")
 }
 
@@ -8829,6 +9004,7 @@ model fund_products {
   mmf_liquidity_buckets       mmf_liquidity_buckets[]
   mmf_nav_history             mmf_nav_history[]
   mmf_transactions            mmf_transactions[]
+  subscriptions               subscriptions[]
 
   @@index([fund_ticker], map: "idx_fund_products_fund_ticker")
   @@index([project_id], map: "idx_fund_products_project_id")
@@ -9587,6 +9763,7 @@ model mmf_holdings {
   @@index([effective_maturity_date], map: "idx_mmf_holdings_maturity")
   @@index([credit_rating], map: "idx_mmf_holdings_rating")
   @@index([holding_type], map: "idx_mmf_holdings_type")
+  @@index([fund_product_id, status], map: "idx_mmf_holdings_fund_status")
   @@schema("public")
 }
 
@@ -9663,49 +9840,57 @@ model mmf_nav_history {
   @@index([is_breaking_the_buck], map: "idx_mmf_nav_history_breaking_buck")
   @@index([valuation_date], map: "idx_mmf_nav_history_date")
   @@index([fund_product_id], map: "idx_mmf_nav_history_fund")
+  @@index([fund_product_id, valuation_date(sort: Desc)], map: "idx_mmf_nav_history_fund_date")
   @@schema("public")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model mmf_transactions {
-  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fund_product_id           String        @db.Uuid
-  transaction_date          DateTime      @db.Timestamptz(6)
-  settlement_date           DateTime?     @db.Timestamptz(6)
-  transaction_type          String        @db.VarChar(50)
-  holding_id                String?       @db.Uuid
+  id                        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id           String         @db.Uuid
+  transaction_date          DateTime       @db.Timestamptz(6)
+  settlement_date           DateTime?      @db.Timestamptz(6)
+  transaction_type          String         @db.VarChar(50)
+  holding_id                String?        @db.Uuid
   security_description      String?
-  cusip                     String?       @db.VarChar(9)
-  quantity                  Decimal?      @db.Decimal(20, 2)
-  price                     Decimal?      @db.Decimal(20, 8)
-  gross_amount              Decimal       @db.Decimal(20, 2)
-  net_amount                Decimal       @db.Decimal(20, 2)
-  currency                  String?       @default("USD") @db.VarChar(3)
-  accrued_interest          Decimal?      @db.Decimal(20, 6)
-  fees                      Decimal?      @db.Decimal(20, 2)
-  realized_gain_loss        Decimal?      @db.Decimal(20, 2)
-  yield                     Decimal?      @db.Decimal(5, 4)
-  counterparty              String?       @db.VarChar(255)
-  broker_dealer             String?       @db.VarChar(255)
-  trade_confirmation_number String?       @db.VarChar(100)
+  cusip                     String?        @db.VarChar(9)
+  quantity                  Decimal?       @db.Decimal(20, 2)
+  price                     Decimal?       @db.Decimal(20, 8)
+  gross_amount              Decimal        @db.Decimal(20, 2)
+  net_amount                Decimal        @db.Decimal(20, 2)
+  currency                  String?        @default("USD") @db.VarChar(3)
+  accrued_interest          Decimal?       @db.Decimal(20, 6)
+  fees                      Decimal?       @db.Decimal(20, 2)
+  realized_gain_loss        Decimal?       @db.Decimal(20, 2)
+  yield                     Decimal?       @db.Decimal(5, 4)
+  counterparty              String?        @db.VarChar(255)
+  broker_dealer             String?        @db.VarChar(255)
+  trade_confirmation_number String?        @db.VarChar(100)
   impact_on_wam             Int?
   impact_on_wal             Int?
   impact_on_liquidity       Json?
   transaction_purpose       String?
-  is_stress_test_compliant  Boolean?      @default(true)
-  is_regulatory_compliant   Boolean?      @default(true)
+  is_stress_test_compliant  Boolean?       @default(true)
+  is_regulatory_compliant   Boolean?       @default(true)
   compliance_notes          String?
-  status                    String?       @default("settled") @db.VarChar(20)
+  status                    String?        @default("settled") @db.VarChar(20)
   notes                     String?
-  created_at                DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at                DateTime?     @default(now()) @db.Timestamptz(6)
-  fund_products             fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  mmf_holdings              mmf_holdings? @relation(fields: [holding_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  created_at                DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime?      @default(now()) @db.Timestamptz(6)
+  investor_id               String?        @db.Uuid
+  subscription_id           String?        @db.Uuid
+  fund_products             fund_products  @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  mmf_holdings              mmf_holdings?  @relation(fields: [holding_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  investors                 investors?     @relation(fields: [investor_id], references: [investor_id], onUpdate: NoAction)
+  subscriptions             subscriptions? @relation(fields: [subscription_id], references: [id], onUpdate: NoAction)
 
   @@index([transaction_date], map: "idx_mmf_transactions_date")
   @@index([fund_product_id], map: "idx_mmf_transactions_fund")
   @@index([holding_id], map: "idx_mmf_transactions_holding")
   @@index([transaction_type], map: "idx_mmf_transactions_type")
+  @@index([fund_product_id, transaction_date(sort: Desc)], map: "idx_mmf_transactions_fund_date")
+  @@index([investor_id], map: "idx_mmf_transactions_investor")
+  @@index([subscription_id], map: "idx_mmf_transactions_subscription")
   @@schema("public")
 }
 
@@ -9773,6 +9958,7 @@ model multi_sig_proposals {
   on_chain_tx_hash      String?
   submitted_on_chain    Boolean?                @default(false)
   project_id            String?                 @db.Uuid
+  submitted_by          String?
   multi_sig_audit_log   multi_sig_audit_log[]
   users                 auth_users?             @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   multi_sig_wallets     multi_sig_wallets?      @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -10907,6 +11093,9 @@ model project_wallets {
   project_wallet_name                                                 String?
   non_evm_network                                                     String?
   bitcoin_network_type                                                String?
+  wallet_type                                                         String?
+  evm_address                                                         String?
+  evm_chain_id                                                        String?
   key_vault_keys_key_vault_keys_project_wallet_idToproject_wallets    key_vault_keys[]     @relation("key_vault_keys_project_wallet_idToproject_wallets")
   multi_sig_wallets                                                   multi_sig_wallets[]
   key_vault_keys_project_wallets_mnemonic_vault_idTokey_vault_keys    key_vault_keys?      @relation("project_wallets_mnemonic_vault_idTokey_vault_keys", fields: [mnemonic_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -10917,6 +11106,7 @@ model project_wallets {
   @@index([project_id], map: "idx_project_wallets_project_id")
   @@index([mnemonic_vault_id], map: "idx_project_wallets_mnemonic_vault_id")
   @@index([private_key_vault_id], map: "idx_project_wallets_private_key_vault_id")
+  @@index([wallet_type], map: "idx_project_wallets_wallet_type")
   @@schema("public")
 }
 
@@ -12970,34 +13160,32 @@ model contract_role_assignments {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model key_vault_keys {
-  id                                                                                                       String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key_id                                                                                                   String                              @unique
-  encrypted_key                                                                                            String
-  key_type                                                                                                 String                              @default("private_key")
-  metadata                                                                                                 Json?                               @default("{}")
-  created_by                                                                                               String?                             @db.Uuid
-  created_at                                                                                               DateTime?                           @default(now()) @db.Timestamptz(6)
-  updated_at                                                                                               DateTime?                           @default(now()) @db.Timestamptz(6)
-  project_wallet_id                                                                                        String?                             @db.Uuid
-  wallet_id                                                                                                String?                             @db.Uuid
-  investor_id                                                                                              String?                             @db.Uuid
-  user_id                                                                                                  String?                             @db.Uuid
-  investors                                                                                                investors?                          @relation(fields: [investor_id], references: [investor_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_key_vault_keys_investor_id")
-  users_key_vault_keys_user_idTousers                                                                      auth_users?                         @relation("key_vault_keys_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_key_vault_keys_user_id")
-  users_key_vault_keys_created_byTousers                                                                   auth_users?                         @relation("key_vault_keys_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  project_wallets_key_vault_keys_project_wallet_idToproject_wallets                                        project_wallets?                    @relation("key_vault_keys_project_wallet_idToproject_wallets", fields: [project_wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  wallets_key_vault_keys_wallet_idTowallets                                                                wallets?                            @relation("key_vault_keys_wallet_idTowallets", fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project_wallets_project_wallets_mnemonic_vault_idTokey_vault_keys                                        project_wallets[]                   @relation("project_wallets_mnemonic_vault_idTokey_vault_keys")
-  project_wallets_project_wallets_private_key_vault_idTokey_vault_keys                                     project_wallets[]                   @relation("project_wallets_private_key_vault_idTokey_vault_keys")
-  project_wallets_backup_do_not_use_project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys    project_wallets_backup_do_not_use[] @relation("project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys")
-  project_wallets_backup_do_not_use_project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys project_wallets_backup_do_not_use[] @relation("project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys")
-  psp_api_keys                                                                                             psp_api_keys[]
-  psp_external_accounts_psp_external_accounts_account_number_vault_idTokey_vault_keys                      psp_external_accounts[]             @relation("psp_external_accounts_account_number_vault_idTokey_vault_keys")
-  psp_external_accounts_psp_external_accounts_routing_number_vault_idTokey_vault_keys                      psp_external_accounts[]             @relation("psp_external_accounts_routing_number_vault_idTokey_vault_keys")
-  psp_webhooks                                                                                             psp_webhooks[]
-  wallets_wallets_mnemonic_vault_idTokey_vault_keys                                                        wallets[]                           @relation("wallets_mnemonic_vault_idTokey_vault_keys")
-  wallets_wallets_private_key_vault_idTokey_vault_keys                                                     wallets[]                           @relation("wallets_private_key_vault_idTokey_vault_keys")
-  wallets_wallets_public_key_vault_idTokey_vault_keys                                                      wallets[]                           @relation("wallets_public_key_vault_idTokey_vault_keys")
+  id                                                                                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key_id                                                                              String                  @unique
+  encrypted_key                                                                       String
+  key_type                                                                            String                  @default("private_key")
+  metadata                                                                            Json?                   @default("{}")
+  created_by                                                                          String?                 @db.Uuid
+  created_at                                                                          DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at                                                                          DateTime?               @default(now()) @db.Timestamptz(6)
+  project_wallet_id                                                                   String?                 @db.Uuid
+  wallet_id                                                                           String?                 @db.Uuid
+  investor_id                                                                         String?                 @db.Uuid
+  user_id                                                                             String?                 @db.Uuid
+  investors                                                                           investors?              @relation(fields: [investor_id], references: [investor_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_key_vault_keys_investor_id")
+  users_key_vault_keys_user_idTousers                                                 auth_users?             @relation("key_vault_keys_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_key_vault_keys_user_id")
+  users_key_vault_keys_created_byTousers                                              auth_users?             @relation("key_vault_keys_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project_wallets_key_vault_keys_project_wallet_idToproject_wallets                   project_wallets?        @relation("key_vault_keys_project_wallet_idToproject_wallets", fields: [project_wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  wallets_key_vault_keys_wallet_idTowallets                                           wallets?                @relation("key_vault_keys_wallet_idTowallets", fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project_wallets_project_wallets_mnemonic_vault_idTokey_vault_keys                   project_wallets[]       @relation("project_wallets_mnemonic_vault_idTokey_vault_keys")
+  project_wallets_project_wallets_private_key_vault_idTokey_vault_keys                project_wallets[]       @relation("project_wallets_private_key_vault_idTokey_vault_keys")
+  psp_api_keys                                                                        psp_api_keys[]
+  psp_external_accounts_psp_external_accounts_account_number_vault_idTokey_vault_keys psp_external_accounts[] @relation("psp_external_accounts_account_number_vault_idTokey_vault_keys")
+  psp_external_accounts_psp_external_accounts_routing_number_vault_idTokey_vault_keys psp_external_accounts[] @relation("psp_external_accounts_routing_number_vault_idTokey_vault_keys")
+  psp_webhooks                                                                        psp_webhooks[]
+  wallets_wallets_mnemonic_vault_idTokey_vault_keys                                   wallets[]               @relation("wallets_mnemonic_vault_idTokey_vault_keys")
+  wallets_wallets_private_key_vault_idTokey_vault_keys                                wallets[]               @relation("wallets_private_key_vault_idTokey_vault_keys")
+  wallets_wallets_public_key_vault_idTokey_vault_keys                                 wallets[]               @relation("wallets_public_key_vault_idTokey_vault_keys")
 
   @@index([created_by], map: "idx_key_vault_keys_created_by")
   @@index([investor_id], map: "idx_key_vault_keys_investor_id")
@@ -13006,6 +13194,7 @@ model key_vault_keys {
   @@index([project_wallet_id], map: "idx_key_vault_keys_project_wallet_id")
   @@index([user_id], map: "idx_key_vault_keys_user_id")
   @@index([wallet_id], map: "idx_key_vault_keys_wallet_id")
+  @@index([metadata], map: "idx_key_vault_keys_metadata", type: Gin)
   @@schema("public")
 }
 
@@ -13136,43 +13325,6 @@ model multi_sig_wallet_owners {
   @@index([role_id], map: "idx_wallet_owners_role_id")
   @@index([user_id], map: "idx_wallet_owners_user_id")
   @@index([wallet_id], map: "idx_wallet_owners_wallet_id")
-  @@schema("public")
-}
-
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model project_members {
-  project_id String? @db.Uuid
-  user_id    String? @db.Uuid
-
-  @@unique([project_id, user_id])
-  @@ignore
-  @@schema("public")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model project_wallets_backup_do_not_use {
-  id                                                                                    String          @id(map: "project_wallets_duplicate_pkey") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  project_id                                                                            String          @db.Uuid
-  wallet_type                                                                           String
-  wallet_address                                                                        String          @unique(map: "project_wallets_duplicate_wallet_address_key")
-  public_key                                                                            String
-  private_key                                                                           String?
-  mnemonic                                                                              String?
-  created_at                                                                            DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at                                                                            DateTime        @default(now()) @db.Timestamptz(6)
-  chain_id                                                                              String?
-  net                                                                                   String?
-  private_key_vault_id                                                                  String?         @db.Uuid
-  mnemonic_vault_id                                                                     String?         @db.Uuid
-  project_wallet_name                                                                   String?
-  key_vault_keys_project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys    key_vault_keys? @relation("project_wallets_backup_do_not_use_mnemonic_vault_idTokey_vault_keys", fields: [mnemonic_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "project_wallets_duplicate_mnemonic_vault_id_fkey")
-  key_vault_keys_project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys key_vault_keys? @relation("project_wallets_backup_do_not_use_private_key_vault_idTokey_vault_keys", fields: [private_key_vault_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "project_wallets_duplicate_private_key_vault_id_fkey")
-  projects                                                                              projects        @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "project_wallets_duplicate_project_id_fkey")
-
-  @@index([mnemonic_vault_id], map: "project_wallets_duplicate_mnemonic_vault_id_idx")
-  @@index([private_key_vault_id], map: "project_wallets_duplicate_private_key_vault_id_idx")
-  @@index([project_id], map: "project_wallets_duplicate_project_id_idx")
-  @@index([wallet_type], map: "project_wallets_duplicate_wallet_type_idx")
   @@schema("public")
 }
 
@@ -13605,6 +13757,411 @@ model psp_fiat_crypto_spreads {
   @@index([network], map: "idx_psp_spreads_network")
   @@index([project_id], map: "idx_psp_spreads_project")
   @@index([tier_min, tier_max], map: "idx_psp_spreads_tier")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model approval_delegations {
+  id                                             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  delegator_id                                   String       @db.Uuid
+  delegate_id                                    String       @db.Uuid
+  scope                                          String?      @default("all")
+  start_date                                     DateTime?    @default(now()) @db.Timestamptz(6)
+  end_date                                       DateTime?    @db.Timestamptz(6)
+  is_active                                      Boolean?     @default(true)
+  conditions                                     Json?        @default("{}")
+  created_at                                     DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime?    @default(now()) @db.Timestamptz(6)
+  users_approval_delegations_delegate_idTousers  public_users @relation("approval_delegations_delegate_idTousers", fields: [delegate_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_approval_delegations_delegator_idTousers public_users @relation("approval_delegations_delegator_idTousers", fields: [delegator_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([delegate_id, is_active], map: "idx_approval_delegations_delegate")
+  @@index([delegator_id, is_active], map: "idx_approval_delegations_delegator")
+  @@schema("public")
+}
+
+model approval_notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_id String    @db.Uuid
+  channel    String
+  success    Boolean
+  sent_at    DateTime  @db.Timestamptz(6)
+  error      String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([request_id], map: "idx_approval_notifications_request")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model approval_processes {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_id          String              @db.Uuid
+  workflow_id         String              @db.Uuid
+  status              String
+  required_approvals  Int                 @default(2)
+  current_approvals   Int?                @default(0)
+  pending_approvers   String[]            @default([]) @db.Uuid
+  started_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  deadline            DateTime?           @db.Timestamptz(6)
+  completed_at        DateTime?           @db.Timestamptz(6)
+  escalation_level    Int?                @default(0)
+  metadata            Json?               @default("{}")
+  created_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  redemption_requests redemption_requests @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([request_id], map: "idx_approval_processes_request")
+  @@index([status, deadline], map: "idx_approval_processes_status")
+  @@index([workflow_id], map: "idx_approval_processes_workflow")
+  @@schema("public")
+}
+
+model approval_signatures {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  signature   String
+  approver_id String    @db.Uuid
+  request_id  String?   @db.Uuid
+  message     String
+  verified    Boolean?  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model approval_workflows {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  token_id           String?   @db.Uuid
+  type               String
+  required_approvals Int
+  approvers          Json
+  thresholds         Json
+  escalation_rules   Json?
+  timeouts           Json?
+  status             String?   @default("active")
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  tokens             tokens?   @relation(fields: [token_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([token_id, status], map: "idx_approval_workflows_token")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model blackout_periods {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id          String?       @db.Uuid
+  start_date          DateTime      @db.Timestamptz(6)
+  end_date            DateTime      @db.Timestamptz(6)
+  reason              String?
+  affected_operations String[]      @default(["redemption"])
+  created_by          String?       @db.Uuid
+  active              Boolean?      @default(true)
+  created_at          DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?     @default(now()) @db.Timestamptz(6)
+  users               public_users? @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projects            projects?     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([affected_operations], map: "idx_blackout_periods_operations", type: Gin)
+  @@schema("public")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model contract_masters_backup_20251121 {
+  id                 String?   @db.Uuid
+  network            String?
+  environment        String?
+  contract_type      String?
+  contract_address   String?
+  version            String?
+  abi_version        String?
+  abi                Json?     @db.Json
+  abi_hash           String?
+  deployed_at        DateTime? @db.Timestamptz(6)
+  deployed_by        String?   @db.Uuid
+  deployment_tx_hash String?
+  is_active          Boolean?
+  deprecated_at      DateTime? @db.Timestamptz(6)
+  deployment_data    Json?
+  created_at         DateTime? @db.Timestamptz(6)
+  updated_at         DateTime? @db.Timestamptz(6)
+  contract_details   Json?
+  initial_owner      String?
+  is_template        Boolean?
+
+  @@ignore
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model deployment_audit_logs {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String     @db.Uuid
+  network     String
+  action      String
+  command     String
+  success     Boolean
+  exit_code   Int
+  duration_ms Int
+  output      String?
+  error       String?
+  metadata    Json?      @default("{}")
+  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  users       auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([action], map: "idx_deployment_audit_logs_action")
+  @@index([created_at(sort: Desc)], map: "idx_deployment_audit_logs_created_at")
+  @@index([network], map: "idx_deployment_audit_logs_network")
+  @@index([success], map: "idx_deployment_audit_logs_success")
+  @@index([user_id], map: "idx_deployment_audit_logs_user_id")
+  @@schema("public")
+}
+
+model email_log {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  subject    String
+  body       String?
+  priority   String?
+  sent_at    DateTime  @db.Timestamptz(6)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id, sent_at], map: "idx_email_log_user")
+  @@schema("public")
+}
+
+model escalation_notifications {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_id     String    @db.Uuid
+  level          Int
+  reason         String?
+  escalated_to   String[]  @db.Uuid
+  escalated_from String[]  @db.Uuid
+  timestamp      DateTime  @db.Timestamptz(6)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([process_id], map: "idx_escalation_notifications_process")
+  @@schema("public")
+}
+
+model escalation_schedule {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_id   String    @db.Uuid
+  scheduled_at DateTime  @db.Timestamptz(6)
+  status       String?   @default("scheduled")
+  executed_at  DateTime? @db.Timestamptz(6)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([status, scheduled_at], map: "idx_escalation_schedule_status")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model exchange_rate_history {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  token_id       String    @db.Uuid
+  currency       String
+  rate           Decimal   @db.Decimal(20, 8)
+  source         Json
+  confidence     Decimal?  @default(100.00) @db.Decimal(5, 2)
+  effective_from DateTime  @default(now()) @db.Timestamptz(6)
+  effective_to   DateTime? @db.Timestamptz(6)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  tokens         tokens    @relation(fields: [token_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([token_id, currency, effective_from(sort: Desc)], map: "idx_exchange_rate_token_currency")
+  @@schema("public")
+}
+
+model proxy_approvals {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_approver_id String    @db.Uuid
+  proxy_approver_id    String    @db.Uuid
+  delegation_id        String    @db.Uuid
+  timestamp            DateTime? @default(now()) @db.Timestamptz(6)
+  reason               String?
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model settlement_operations {
+  id                  String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  redemption_id       String              @db.Uuid
+  token_transfer_id   String              @db.Uuid
+  type                String              @default("stablecoin_settlement")
+  currency            String
+  amount              String
+  from_wallet         String
+  to_wallet           String
+  status              String
+  transaction_hash    String?
+  confirmations       Int?                @default(0)
+  block_number        BigInt?
+  chain_id            Int
+  error               Json?
+  created_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?           @default(now()) @db.Timestamptz(6)
+  settled_at          DateTime?           @db.Timestamptz(6)
+  redemption_requests redemption_requests @relation(fields: [redemption_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transfer_operations transfer_operations @relation(fields: [token_transfer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([redemption_id], map: "idx_settlement_ops_redemption")
+  @@index([token_transfer_id], map: "idx_settlement_ops_token_transfer")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model token_exchange_configs {
+  id                   String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  token_id             String        @db.Uuid
+  currency             String
+  base_currency        String
+  update_frequency     Int           @default(300)
+  sources              Json          @default("[]")
+  fallback_rate        Decimal?      @db.Decimal(20, 8)
+  max_deviation        Decimal?      @default(5.00) @db.Decimal(5, 2)
+  require_multi_source Boolean?      @default(false)
+  active               Boolean?      @default(true)
+  created_at           DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?     @default(now()) @db.Timestamptz(6)
+  created_by           String?       @db.Uuid
+  users                public_users? @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tokens               tokens        @relation(fields: [token_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([token_id, currency])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model token_modules {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id           String      @db.Uuid
+  module_type        String
+  module_address     String
+  master_address     String?
+  deployment_tx_hash String?
+  configuration      Json?       @default("{}")
+  is_active          Boolean?    @default(true)
+  attached_at        DateTime?   @default(now()) @db.Timestamptz(6)
+  deployed_at        DateTime?   @db.Timestamptz(6)
+  detached_at        DateTime?   @db.Timestamptz(6)
+  deployed_by        String?     @db.Uuid
+  created_at         DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?   @default(now()) @db.Timestamptz(6)
+  users              auth_users? @relation(fields: [deployed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tokens             tokens      @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([attached_at], map: "idx_token_modules_attached_at")
+  @@index([is_active], map: "idx_token_modules_is_active")
+  @@index([module_address], map: "idx_token_modules_module_address")
+  @@index([module_type], map: "idx_token_modules_module_type")
+  @@index([token_id], map: "idx_token_modules_token_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model transfer_batches {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  transfer_ids     String[]  @db.Uuid
+  status           String
+  gas_optimization Json?
+  total_gas_saved  String?
+  executed_at      DateTime? @db.Timestamptz(6)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model transfer_operations {
+  id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  redemption_id         String                  @db.Uuid
+  type                  String
+  status                String
+  from_wallet           String
+  to_wallet             String
+  token_address         String
+  amount                String
+  gas_estimate          Json?
+  transaction_hash      String?
+  confirmations         Int?                    @default(0)
+  block_number          BigInt?
+  chain_id              Int
+  error                 Json?
+  created_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?               @default(now()) @db.Timestamptz(6)
+  confirmed_at          DateTime?               @db.Timestamptz(6)
+  settlement_operations settlement_operations[]
+  redemption_requests   redemption_requests     @relation(fields: [redemption_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([redemption_id], map: "idx_transfer_ops_redemption")
+  @@schema("public")
+}
+
+model user_approval_conditions {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  field      String
+  operator   String
+  value      Json
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model user_preferences {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                  String    @unique @db.Uuid
+  notification_preferences Json?     @default("{}")
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model user_token_access {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  token_id     String    @db.Uuid
+  has_access   Boolean?  @default(false)
+  access_level String?   @default("view")
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model valuation_price_history {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  token_id     String    @db.Uuid
+  period_start DateTime  @db.Timestamptz(6)
+  period_end   DateTime  @db.Timestamptz(6)
+  open_price   Decimal?  @db.Decimal(20, 8)
+  high_price   Decimal?  @db.Decimal(20, 8)
+  low_price    Decimal?  @db.Decimal(20, 8)
+  close_price  Decimal?  @db.Decimal(20, 8)
+  volume       Decimal?  @db.Decimal(30, 0)
+  price_count  Int?      @default(0)
+  sources      String[]  @default([])
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  tokens       tokens    @relation(fields: [token_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([token_id, period_start])
+  @@index([token_id, period_start(sort: Desc)], map: "idx_valuation_token_period")
   @@schema("public")
 }
 
@@ -14615,6 +15172,24 @@ view wallet_with_keys {
   @@schema("public")
 }
 
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view mmf_investor_holdings_by_project {
+  project_id            String?   @db.Uuid
+  fund_product_id       String?   @db.Uuid
+  fund_name             String?
+  fund_type             String?   @db.VarChar(50)
+  investor_id           String?   @db.Uuid
+  investor_name         String?
+  total_shares          Decimal?  @db.Decimal
+  total_invested        Decimal?  @db.Decimal
+  average_nav           Decimal?  @db.Decimal
+  transaction_count     BigInt?
+  first_investment_date DateTime? @db.Timestamptz(6)
+  last_transaction_date DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
 enum aal_level {
   aal1
   aal2
@@ -14971,4 +15546,12 @@ enum oauth_response_type {
   code
 
   @@schema("auth")
+}
+
+enum execution_mode {
+  automatic
+  manual
+  batched
+
+  @@schema("public")
 }

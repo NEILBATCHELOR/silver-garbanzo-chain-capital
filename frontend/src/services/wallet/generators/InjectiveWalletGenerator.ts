@@ -25,7 +25,8 @@ export interface WalletGenerationOptions {
 export class InjectiveWalletGenerator implements WalletGenerator {
   /**
    * Generate a new Injective wallet
-   * @returns A wallet generation result with address and private key
+   * @param options Wallet generation options
+   * @returns A wallet generation result with address, private key, and optionally mnemonic
    */
   public async generateWallet(options?: WalletGenerationOptions): Promise<WalletInterface> {
     const includePrivateKey = options?.includePrivateKey ?? true;
@@ -40,6 +41,7 @@ export class InjectiveWalletGenerator implements WalletGenerator {
       address: account.address,
       privateKey: includePrivateKey ? account.privateKey ?? '' : '',
       publicKey: account.publicKey,
+      mnemonic: includeMnemonic ? account.mnemonic : undefined, // ✅ FIX: Return mnemonic if requested
       metadata: this.getMetadata()
     };
   }

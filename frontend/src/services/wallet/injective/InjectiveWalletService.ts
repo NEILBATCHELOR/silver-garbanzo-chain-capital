@@ -42,6 +42,7 @@ import { Buffer } from 'buffer';
 import { BigNumberInBase, DEFAULT_STD_FEE } from '@injectivelabs/utils';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { HDKey } from '@scure/bip32';
+import { ethers } from 'ethers';
 
 // Local imports
 import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
@@ -162,6 +163,7 @@ export class InjectiveWalletService {
 
   /**
    * Generate a new Injective account with HSM support
+   * FIXED: Properly derives both EVM and native Injective addresses from the same private key
    */
   async generateAccount(options: InjectiveGenerationOptions = {}): Promise<InjectiveAccountInfo> {
     try {
@@ -186,31 +188,40 @@ export class InjectiveWalletService {
       } else {
         // Generate mnemonic for local key
         const mnemonic = generateMnemonic();
-        const seed = mnemonicToSeedSync(mnemonic);
-        const hdKey = HDKey.fromMasterSeed(seed);
-        const derivedKey = hdKey.derive("m/44'/60'/0'/0/0");
-
-        if (!derivedKey.privateKey) {
-          throw new Error('Failed to derive private key');
-        }
-
-        // Create Injective keys
-        const privateKey = PrivateKey.fromHex(Buffer.from(derivedKey.privateKey).toString('hex'));
+        
+        // FIXED: Use ethers to derive the Ethereum key properly
+        const hdWallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0/0");
+        const evmPrivateKey = hdWallet.privateKey; // 0x...
+        const evmAddress = hdWallet.address; // 0x...
+        
+        // Convert EVM address to Injective bech32 format
+        // Remove 0x prefix and convert to buffer
+        const addressBuffer = Buffer.from(evmAddress.slice(2), 'hex');
+        
+        // Use Injective SDK's Address class to create the proper public key representation
+        // But derive the addresses from the ethers wallet
+        const privateKey = PrivateKey.fromHex(evmPrivateKey.slice(2)); // Remove 0x for Injective SDK
         const publicKey = privateKey.toPublicKey();
-        const address = publicKey.toAddress();
 
         const accountInfo: InjectiveAccountInfo = {
-          address: address.toBech32(),
+          address: publicKey.toAddress().toBech32(), // Native inj1... address
           publicKey: publicKey.toBase64()
         };
 
         if (includePrivateKey) {
-          accountInfo.privateKey = privateKey.toHex();
+          accountInfo.privateKey = evmPrivateKey; // Return with 0x prefix
         }
 
         if (includeMnemonic) {
           accountInfo.mnemonic = mnemonic;
         }
+
+        console.log('✅ Generated Injective wallet:', {
+          nativeAddress: accountInfo.address,
+          evmAddress: evmAddress,
+          publicKey: accountInfo.publicKey,
+          derivationPath: "m/44'/60'/0'/0/0"
+        });
 
         return accountInfo;
       }

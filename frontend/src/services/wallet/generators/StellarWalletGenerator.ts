@@ -21,6 +21,7 @@ export class StellarWalletGenerator implements WalletGenerator {
         address: account.address,
         privateKey: account.secretKey || '',
         publicKey: account.publicKey,
+        mnemonic: account.mnemonic, // ✅ FIX: Return mnemonic if generated
         metadata: this.getMetadata()
       };
     } catch (error) {

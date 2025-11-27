@@ -9,6 +9,7 @@ import { SuiWalletGenerator } from './SuiWalletGenerator';
 import { NEARWalletGenerator } from './NEARWalletGenerator';
 import { StellarWalletGenerator } from './StellarWalletGenerator';
 import { InjectiveWalletGenerator } from './InjectiveWalletGenerator';
+import { BaseWalletGenerator } from './BaseWalletGenerator';
 
 /**
  * Factory to create the appropriate wallet generator for a blockchain
@@ -59,10 +60,13 @@ export class WalletGeneratorFactory {
         return new StellarWalletGenerator();
       case 'injective':
         return new InjectiveWalletGenerator();
+      case 'base':
+      case 'base-mainnet':
+      case 'base-sepolia':
+        return new BaseWalletGenerator();
       // EVM-compatible chains use ETHWalletGenerator
       case 'avalanche':
       case 'optimism':
-      case 'base':
       case 'zksync':
       case 'arbitrum':
       case 'bsc':
@@ -99,11 +103,13 @@ export class WalletGeneratorFactory {
       'avalanche',
       'optimism',
       'arbitrum',
-      'base',
       'bsc',
       'zksync',
       'mantle',
       'hedera',
+      
+      // Base Network with dedicated generator
+      'base',        // ✅ Base Mainnet & Sepolia with dedicated generator
       
       // Other supported chains
       'injective'

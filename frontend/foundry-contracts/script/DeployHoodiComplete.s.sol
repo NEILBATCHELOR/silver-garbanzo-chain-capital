@@ -292,7 +292,7 @@ contract DeployHoodiComplete is Script {
         console.log("Balance:", deployer.balance / 1e18, "ETH");
         console.log("========================================\n");
 
-        require(deployer.balance > 0.5 ether, "Need 0.5+ ETH for deployment");
+        require(deployer.balance > 0.1 ether, "Need 0.1+ ETH for deployment");
 
         vm.startBroadcast(deployerPrivateKey);
 

@@ -146,13 +146,17 @@ import "../src/extensions/votes/ERC20VotesModule.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
- * @title DeployInjectiveComplete
- * @notice MAXIMAL comprehensive deployment script for Injective Testnet
+ * @title DeployUniversalComplete
+ * @notice Universal deployment script for ANY EVM-compatible blockchain
  * @dev Deploys Infrastructure, Masters, Factories, Extensions, Utilities, and configures entire system
  *
- * Network: Injective EVM Testnet (Chain ID: 1439)
- * RPC: https://k8s.testnet.json-rpc.injective.network
- * Super Admin: 0xAD69315aD80648c0C8ce66EF06a7F9eB3c685C41
+ * ENVIRONMENT VARIABLES:
+ *   PRIVATE_KEY          - Deployer's private key (required)
+ *   SUPER_ADMIN_ADDRESS  - Admin address (optional, defaults to deployer)
+ *
+ * USAGE:
+ *   forge script script/DeployUniversalComplete.s.sol:DeployUniversalComplete \
+ *     --rpc-url <ANY_RPC_URL> --broadcast -vvv
  *
  * Deployment Phases:
  * 1. Infrastructure (registries, policies, governance)
@@ -166,10 +170,10 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
  * 9. Deployment Validation
  * 10. Ownership Transfer
  */
-contract DeployInjectiveComplete is Script {
+contract DeployUniversalComplete is Script {
 
-    // Super Admin address from Supabase
-    address constant SUPER_ADMIN = 0xAD69315aD80648c0C8ce66EF06a7F9eB3c685C41;
+    // Super Admin address - loaded from environment or defaults to deployer
+    address public SUPER_ADMIN;
 
     struct Deployment {
         // Infrastructure
@@ -275,24 +279,39 @@ contract DeployInjectiveComplete is Script {
 
     Deployment public deployed;
     uint256 public contractCount = 0;
+    
+    // Nonce tracking for resilient deployment on networks with RPC issues
+    uint256 public initialNonce;
+    uint256 public expectedNonce;
+    uint256 public transactionCount;
 
     function run() external {
-        // Pre-flight checks
-        require(block.chainid == 1439, "Must deploy to Injective EVM Testnet (1439)");
-
-        uint256 deployerPrivateKey = vm.envUint("INJECTIVE_PRIVATE_KEY");
+        // Load private key
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
+        // Load super admin from env or default to deployer
+        SUPER_ADMIN = vm.envOr("SUPER_ADMIN_ADDRESS", deployer);
+
+        // Get network name for logging
+        string memory networkName = getNetworkName(block.chainid);
+        string memory nativeToken = getNativeTokenSymbol(block.chainid);
+
         console.log("========================================");
-        console.log("INJECTIVE MAXIMAL DEPLOYMENT");
+        console.log("CHAIN CAPITAL UNIVERSAL DEPLOYMENT");
         console.log("========================================");
+        console.log("Network:", networkName);
         console.log("Chain ID:", block.chainid);
         console.log("Deployer:", deployer);
         console.log("Super Admin:", SUPER_ADMIN);
-        console.log("Balance:", deployer.balance / 1e18, "INJ");
+        console.log("Balance:", deployer.balance / 1e18, nativeToken);
+        
+        // Initialize nonce tracking BEFORE broadcast starts
+        initialNonce = vm.getNonce(deployer);
+        expectedNonce = initialNonce;
+        transactionCount = 0;
+        console.log("Initial Nonce:", initialNonce);
         console.log("========================================\n");
-
-        require(deployer.balance > 0.1 ether, "Need 0.1+ INJ for deployment");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -300,41 +319,49 @@ contract DeployInjectiveComplete is Script {
         console.log("PHASE 1: Infrastructure");
         deployInfrastructure(deployer);
         checkGas("After Phase 1");
+        logNonceStatus(deployer, "Phase 1 Complete");
 
         // Phase 2: Masters & Beacons
         console.log("\nPHASE 2: Masters & Beacons");
         deployMastersAndBeacons(deployer);
         checkGas("After Phase 2");
+        logNonceStatus(deployer, "Phase 2 Complete");
 
         // Phase 3: Extension Modules
         console.log("\nPHASE 3: Extension Modules");
         deployExtensionModules();
         checkGas("After Phase 3");
+        logNonceStatus(deployer, "Phase 3 Complete");
 
         // Phase 4: Extension Factories
         console.log("\nPHASE 4: Extension Factories");
         deployExtensionFactories(deployer);
         checkGas("After Phase 4");
+        logNonceStatus(deployer, "Phase 4 Complete");
 
         // Phase 5: Token Factories
         console.log("\nPHASE 5: Token Factories");
         deployTokenFactories();
         checkGas("After Phase 5");
+        logNonceStatus(deployer, "Phase 5 Complete");
 
         // Phase 6: Deployers
         console.log("\nPHASE 6: Deployers");
         deployDeployers(deployer);
         checkGas("After Phase 6");
+        logNonceStatus(deployer, "Phase 6 Complete");
 
         // Phase 7: Governance & MultiSig
         console.log("\nPHASE 7: Governance & MultiSig");
         deployGovernanceAndMultiSig(deployer);
         checkGas("After Phase 7");
+        logNonceStatus(deployer, "Phase 7 Complete");
 
         // Phase 8: System Configuration (CRITICAL)
         console.log("\nPHASE 8: System Configuration");
         configureSystem(deployer);
         checkGas("After Phase 8");
+        logNonceStatus(deployer, "Phase 8 Complete");
 
         // Phase 9: Validation
         console.log("\nPHASE 9: Deployment Validation");
@@ -343,6 +370,7 @@ contract DeployInjectiveComplete is Script {
         // Phase 10: Ownership Transfer
         console.log("\nPHASE 10: Ownership Transfer to Super Admin");
         transferOwnership();
+        logNonceStatus(deployer, "Phase 10 Complete");
 
         vm.stopBroadcast();
 
@@ -354,9 +382,11 @@ contract DeployInjectiveComplete is Script {
     function deployInfrastructure(address deployer) internal {
         // PolicyRegistry
         address policyRegistryImpl = address(new PolicyRegistry());
+        trackTransaction("PolicyRegistry Implementation");
         require(policyRegistryImpl != address(0), "PolicyRegistry impl failed");
         bytes memory policyRegistryInit = abi.encodeCall(PolicyRegistry.initialize, (deployer));
         ERC1967Proxy policyRegistryProxy = new ERC1967Proxy(policyRegistryImpl, policyRegistryInit);
+        trackTransaction("PolicyRegistry Proxy");
         deployed.policyRegistry = address(policyRegistryProxy);
         require(deployed.policyRegistry != address(0), "PolicyRegistry proxy failed");
         contractCount++;
@@ -364,9 +394,11 @@ contract DeployInjectiveComplete is Script {
 
         // PolicyEngine
         address policyEngineImpl = address(new PolicyEngine());
+        trackTransaction("PolicyEngine Implementation");
         require(policyEngineImpl != address(0), "PolicyEngine impl failed");
         bytes memory policyEngineInit = abi.encodeCall(PolicyEngine.initialize, (deployer));
         ERC1967Proxy policyEngineProxy = new ERC1967Proxy(policyEngineImpl, policyEngineInit);
+        trackTransaction("PolicyEngine Proxy");
         deployed.policyEngine = address(policyEngineProxy);
         require(deployed.policyEngine != address(0), "PolicyEngine proxy failed");
         contractCount++;
@@ -374,31 +406,44 @@ contract DeployInjectiveComplete is Script {
 
         // TokenRegistry
         address tokenRegistryImpl = address(new TokenRegistry());
+        trackTransaction("TokenRegistry Implementation");
         require(tokenRegistryImpl != address(0), "TokenRegistry impl failed");
         bytes memory tokenRegistryInit = abi.encodeCall(TokenRegistry.initialize, (deployer));
         ERC1967Proxy tokenRegistryProxy = new ERC1967Proxy(tokenRegistryImpl, tokenRegistryInit);
+        trackTransaction("TokenRegistry Proxy");
         deployed.tokenRegistry = address(tokenRegistryProxy);
         require(deployed.tokenRegistry != address(0), "TokenRegistry proxy failed");
         contractCount++;
         console.log(unicode"  ✔ TokenRegistry:", deployed.tokenRegistry);
 
-        // UpgradeGovernor
-        address[] memory upgraders = new address[](2);
-        upgraders[0] = deployer;
-        upgraders[1] = SUPER_ADMIN;
+        // UpgradeGovernor - Handle case where SUPER_ADMIN == deployer
+        address[] memory upgraders;
+        if (SUPER_ADMIN == deployer) {
+            // Single upgrader if SUPER_ADMIN not separately specified
+            upgraders = new address[](1);
+            upgraders[0] = deployer;
+        } else {
+            // Two upgraders if SUPER_ADMIN is different
+            upgraders = new address[](2);
+            upgraders[0] = deployer;
+            upgraders[1] = SUPER_ADMIN;
+        }
         deployed.upgradeGovernor = address(new UpgradeGovernor(upgraders, 1, 1 days));
+        trackTransaction("UpgradeGovernor");
         require(deployed.upgradeGovernor != address(0), "UpgradeGovernor failed");
         contractCount++;
         console.log(unicode"  ✔ UpgradeGovernor:", deployed.upgradeGovernor);
 
         // HaircutEngine
         deployed.haircutEngine = address(new HaircutEngine(deployer, deployed.upgradeGovernor));
+        trackTransaction("HaircutEngine");
         require(deployed.haircutEngine != address(0), "HaircutEngine failed");
         contractCount++;
         console.log(unicode"  ✔ HaircutEngine:", deployed.haircutEngine);
 
         // ExtensionRegistry
         address extensionRegistryImpl = address(new ExtensionRegistry());
+        trackTransaction("ExtensionRegistry Implementation");
         require(extensionRegistryImpl != address(0), "ExtensionRegistry impl failed");
         bytes memory extensionRegistryInit = abi.encodeCall(ExtensionRegistry.initialize, (deployer));
         ERC1967Proxy extensionRegistryProxy = new ERC1967Proxy(extensionRegistryImpl, extensionRegistryInit);
@@ -880,14 +925,29 @@ contract DeployInjectiveComplete is Script {
         contractCount++;
         console.log(unicode"  ✔ UpgradeGovernance:", deployed.upgradeGovernance);
 
-        // MultiSig
-        address[] memory owners = new address[](2);
-        owners[0] = deployer;
-        owners[1] = SUPER_ADMIN;
+        // MultiSig - Handle case where SUPER_ADMIN == deployer
+        address[] memory owners;
+        uint256 requiredSigs;
+        
+        if (SUPER_ADMIN == deployer) {
+            // Single owner if SUPER_ADMIN not separately specified
+            owners = new address[](1);
+            owners[0] = deployer;
+            requiredSigs = 1;
+            console.log(unicode"  ℹ️  MultiSig: Single owner (SUPER_ADMIN == deployer)");
+        } else {
+            // Two owners if SUPER_ADMIN is different
+            owners = new address[](2);
+            owners[0] = deployer;
+            owners[1] = SUPER_ADMIN;
+            requiredSigs = 1;
+            console.log(unicode"  ℹ️  MultiSig: Two owners (deployer + SUPER_ADMIN)");
+        }
+        
         deployed.multiSigWallet = address(new MultiSigWallet(
             "Chain Capital MultiSig",
             owners,
-            1
+            requiredSigs
         ));
         require(deployed.multiSigWallet != address(0), "MultiSigWallet failed");
         contractCount++;
@@ -1136,15 +1196,77 @@ contract DeployInjectiveComplete is Script {
         vm.serializeAddress(json, "vestingModule", deployed.vestingModule);
         string memory finalJson = vm.serializeAddress(json, "votesModule", deployed.votesModule);
 
-        vm.writeJson(finalJson, "./deployments/hoodi-complete.json");
-        console.log(unicode"\n📁 Saved: deployments/hoodi-complete.json");
+        // Dynamic filename based on chain ID
+        string memory filename = string.concat("./deployments/chain-", vm.toString(block.chainid), "-complete.json");
+        vm.writeJson(finalJson, filename);
+        console.log(unicode"\n📁 Saved:", filename);
+    }
+
+    function getNetworkName(uint256 chainId) internal pure returns (string memory) {
+        if (chainId == 1) return "Ethereum Mainnet";
+        if (chainId == 11155111) return "Sepolia";
+        if (chainId == 17000) return "Holesky";
+        if (chainId == 560048) return "Hoodi";
+        if (chainId == 1439) return "Injective EVM Testnet";
+        if (chainId == 42161) return "Arbitrum One";
+        if (chainId == 421614) return "Arbitrum Sepolia";
+        if (chainId == 8453) return "Base";
+        if (chainId == 84532) return "Base Sepolia";
+        if (chainId == 10) return "Optimism";
+        if (chainId == 11155420) return "Optimism Sepolia";
+        if (chainId == 137) return "Polygon";
+        if (chainId == 80002) return "Polygon Amoy";
+        if (chainId == 56) return "BNB Chain";
+        if (chainId == 97) return "BNB Testnet";
+        if (chainId == 43114) return "Avalanche";
+        if (chainId == 43113) return "Avalanche Fuji";
+        if (chainId == 100) return "Gnosis";
+        if (chainId == 324) return "zkSync Era";
+        if (chainId == 59144) return "Linea";
+        if (chainId == 534352) return "Scroll";
+        if (chainId == 81457) return "Blast";
+        if (chainId == 5000) return "Mantle";
+        return string.concat("Chain ", vm.toString(chainId));
+    }
+
+    function getNativeTokenSymbol(uint256 chainId) internal pure returns (string memory) {
+        // Injective uses INJ
+        if (chainId == 1439) return "INJ";
+        
+        // BNB Chain uses BNB
+        if (chainId == 56 || chainId == 97) return "BNB";
+        
+        // Polygon uses MATIC/POL
+        if (chainId == 137 || chainId == 80002) return "MATIC";
+        
+        // Avalanche uses AVAX
+        if (chainId == 43114 || chainId == 43113) return "AVAX";
+        
+        // Gnosis uses xDAI
+        if (chainId == 100) return "xDAI";
+        
+        // Mantle uses MNT
+        if (chainId == 5000) return "MNT";
+        
+        // Default to ETH for most EVM chains
+        return "ETH";
     }
 
     function printSummary() internal view {
         console.log(unicode"\n========================================");
-        console.log(unicode"  ✔ MAXIMAL DEPLOYMENT COMPLETE");
+        console.log(unicode"  ✔ DEPLOYMENT COMPLETE");
         console.log("========================================");
+        console.log("Network:", getNetworkName(block.chainid));
+        console.log("Chain ID:", block.chainid);
         console.log("Super Admin:", SUPER_ADMIN);
+        
+        // Nonce Summary
+        console.log("\nNonce Tracking:");
+        console.log("  Initial Nonce:", initialNonce);
+        console.log("  Final Nonce:", expectedNonce);
+        console.log("  Total Transactions:", transactionCount);
+        console.log("  Contracts Deployed:", contractCount);
+        
         console.log("\nInfrastructure:");
         console.log("  PolicyEngine:", deployed.policyEngine);
         console.log("  PolicyRegistry:", deployed.policyRegistry);
@@ -1182,5 +1304,49 @@ contract DeployInjectiveComplete is Script {
         console.log("Status: FULLY CONFIGURED & OPERATIONAL");
         console.log("Ownership: Transferred to Super Admin");
         console.log("========================================\n");
+    }
+    
+    /**
+     * @notice Track a transaction being sent and increment expected nonce
+     * @dev Call this after every contract deployment or transaction
+     */
+    function trackTransaction(string memory description) internal {
+        expectedNonce++;
+        transactionCount++;
+        console.log(string.concat(
+            "  [Nonce ", 
+            vm.toString(expectedNonce - 1), 
+            " -> ", 
+            vm.toString(expectedNonce), 
+            "] ", 
+            description
+        ));
+    }
+    
+    /**
+     * @notice Verify nonce is in sync between expected and actual
+     * @dev Logs warning if nonce drift detected
+     */
+    function verifyNonceSync(address deployer) internal view {
+        uint256 actualNonce = vm.getNonce(deployer);
+        if (actualNonce != expectedNonce) {
+            console.log(unicode"\n⚠️  NONCE DRIFT DETECTED:");
+            console.log("  Expected Nonce:", expectedNonce);
+            console.log("  Actual Nonce:", actualNonce);
+            console.log("  Drift:", actualNonce > expectedNonce ? actualNonce - expectedNonce : expectedNonce - actualNonce);
+        } else {
+            console.log(unicode"  ✓ Nonce in sync:", actualNonce);
+        }
+    }
+    
+    /**
+     * @notice Log current nonce status for debugging
+     */
+    function logNonceStatus(address deployer, string memory phase) internal view {
+        uint256 actualNonce = vm.getNonce(deployer);
+        console.log(string.concat("\n", phase, " - Nonce Status:"));
+        console.log("  Expected:", expectedNonce);
+        console.log("  Actual:", actualNonce);
+        console.log("  Transactions:", transactionCount);
     }
 }

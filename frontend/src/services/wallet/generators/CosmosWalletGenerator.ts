@@ -81,6 +81,7 @@ export class CosmosWalletGenerator implements WalletGenerator {
       // Note: DirectSecp256k1HdWallet doesn't expose private keys for security
       privateKey: '', // Not available from HD wallet
       publicKey: toHex(account.pubkey),
+      mnemonic: mnemonic, // ✅ FIX: Return mnemonic that was generated
       metadata: this.getMetadata()
     };
   }

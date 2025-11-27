@@ -548,16 +548,16 @@ export const CHAIN_INFO: Record<number, ChainInfo> = {
     id: 1776,
     name: 'Injective Mainnet',
     type: 'mainnet',
-    explorer: 'https://explorer.injective.network',
-    rpcUrl: 'https://sentry.tm.injective.network:443',
+    explorer: 'https://blockscout.injective.network',
+    rpcUrl: 'https://sentry.evm-rpc.injective.network',
     eip1559: true, // Note: EVM Chain ID 1776 maps to native chain ID 'injective-1'
   },
   1439: {
     id: 1439,
     name: 'Injective Testnet',
     type: 'testnet',
-    explorer: 'https://testnet.explorer.injective.network',
-    rpcUrl: 'https://testnet.sentry.tm.injective.network:443',
+    explorer: 'https://testnet.blockscout.injective.network',
+    rpcUrl: 'https://k8s.testnet.json-rpc.injective.network',
     eip1559: true, // Note: EVM Chain ID 1439 maps to native chain ID 'injective-888'
   },
   747474: {
