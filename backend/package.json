@@ -50,8 +50,6 @@
     "@azure/identity": "^4.13.0",
     "@azure/keyvault-admin": "^4.7.0",
     "@azure/keyvault-keys": "^4.10.0",
-    "@coinbase/cdp-core": "^0.0.68",
-    "@coinbase/cdp-sdk": "^1.38.6",
     "@fastify/auth": "^4.6.1",
     "@fastify/autoload": "^5.10.0",
     "@fastify/cors": "^9.0.1",
