@@ -22,6 +22,11 @@ export {
   multiSigProposalService
 } from './MultiSigProposalService';
 
+export {
+  EnhancedProposalService,
+  enhancedProposalService
+} from './EnhancedProposalService';
+
 // Shared helpers for wallet and proposal services
 export * from './MultiSigHelpers';
 
@@ -75,6 +80,16 @@ export {
   MultiSigABIService,
   multiSigABIService
 } from './MultiSigABIService';
+
+export {
+  MultiSigOnChainService,
+  multiSigOnChainService
+} from './MultiSigOnChainService';
+
+export {
+  MultiSigMigrationService,
+  multiSigMigrationService
+} from './MultiSigMigrationService';
 
 export { SignatureAggregator } from './SignatureAggregator';
 export { LocalSigner } from './LocalSigner';
@@ -161,5 +176,18 @@ export type {
 } from './LocalSigner';
 
 export type {
+  OnChainTransactionWithConfirmations,
+  CreateOnChainTransactionParams,
+  CreateOnChainConfirmationParams,
+  UpdateExecutionParams
+} from './MultiSigOnChainService';
+
+export type {
   RoleAssignment
 } from './RoleManagementService';
+
+// Enhanced types
+export type {
+  EnhancedProposalDetails,
+  EnhancedProposalSigner
+} from './EnhancedProposalService';

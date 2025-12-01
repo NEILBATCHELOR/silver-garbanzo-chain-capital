@@ -240,7 +240,7 @@ const LifecycleEventForm: React.FC<LifecycleEventFormProps> = ({
                 <FormItem>
                   <FormLabel>User</FormLabel>
                   <FormControl>
-                    <Input value={currentUserName} disabled {...field} />
+                    <Input {...field} value={field.value ?? currentUserName ?? ""} disabled />
                   </FormControl>
                   <FormDescription>
                     User responsible for this event (automatically populated)

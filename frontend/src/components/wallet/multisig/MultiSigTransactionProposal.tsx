@@ -585,12 +585,26 @@ export function MultiSigTransactionProposal({
       // Map blockchain name to ChainType for address validation
       const chainType = blockchainToChainType(blockchain);
 
+      // Validate and convert value to wei (base units with 18 decimals for native currency)
+      let valueInWei = '0';
+      if (value && value !== '0') {
+        // Validate that value is a valid decimal number
+        if (isNaN(parseFloat(value)) || parseFloat(value) < 0) {
+          throw new Error('Invalid amount: Please enter a valid positive number');
+        }
+        try {
+          valueInWei = ethers.parseUnits(value, 18).toString();
+        } catch (err: any) {
+          throw new Error(`Invalid amount format: ${err.message}`);
+        }
+      }
+
       // Step 1: Create proposal in database
       const proposal = await multiSigProposalService.createProposal(
         walletId,
         {
           to,
-          value: value || '0',
+          value: valueInWei,
           data: data || '0x'
         },
         chainType,
@@ -805,7 +819,7 @@ export function MultiSigTransactionProposal({
 
           {addressInputMode === 'select' ? (
             <Select
-              value={selectedWalletId || undefined}
+              value={selectedWalletId}
               onValueChange={(value) => {
                 setSelectedWalletId(value);
                 const wallet = availableAddresses.find(w => w.id === value);
@@ -851,15 +865,15 @@ export function MultiSigTransactionProposal({
           <Input
             id="value"
             type="number"
-            step="0.001"
+            step="0.000001"
             min="0"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="0"
+            placeholder="0.00"
             disabled={isCreating}
           />
           <p className="text-xs text-muted-foreground">
-            Amount of ETH to send (0 for contract calls)
+            Amount of ETH to send (e.g., 0.99, 1.1, 5). Value is automatically converted to wei. Use 0 for contract calls.
           </p>
         </div>
 

@@ -38,6 +38,7 @@ import { EnhancedWalletList } from './components/dashboard/EnhancedWalletList';
 import { TokenBalances } from './components/dashboard/TokenBalances';
 import { TransferTab } from './components/dashboard/TransferTab';
 import { TestnetBalanceChecker } from './TestnetBalanceChecker';
+import { MultiSigTransactionList } from './multisig/MultiSigTransactionList';
 
 // Import wallet connection utilities
 import { useAppKit } from '@reown/appkit/react';
@@ -537,7 +538,7 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="external">Connect External</TabsTrigger>
-          <TabsTrigger value="tokens">Tokens</TabsTrigger>
+          <TabsTrigger value="multisig">Multi-Sig</TabsTrigger>
           <TabsTrigger value="transfer">Transfer</TabsTrigger>
         </TabsList>
 
@@ -608,8 +609,33 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
           </Card>
         </TabsContent>
 
-        <TabsContent value="tokens" className="space-y-6">
-          <TokenBalances />
+        <TabsContent value="multisig" className="space-y-6">
+          {internalWallets.multiSigWallets.length > 0 ? (
+            <div className="space-y-6">
+              {internalWallets.multiSigWallets.map((wallet) => (
+                <MultiSigTransactionList
+                  key={wallet.id}
+                  walletId={wallet.id}
+                  walletAddress={wallet.address}
+                  autoRefresh={true}
+                  refreshInterval={30000}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>No Multi-Sig Wallets</CardTitle>
+                <CardDescription>Create a multi-sig wallet to see transactions here</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => navigate('/wallet/new')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Multi-Sig Wallet
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="transfer" className="space-y-6">

@@ -573,6 +573,59 @@ export class InternalWalletService {
   }
 
   /**
+   * Get decrypted private key for user wallet by blockchain address
+   * Convenience method that accepts blockchain address instead of UUID
+   */
+  async getUserWalletPrivateKeyByAddress(blockchainAddress: string): Promise<string> {
+    try {
+      // First, look up the user_addresses record by blockchain address
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .select('id, encrypted_private_key, key_vault_reference, signing_method')
+        .eq('address', blockchainAddress)
+        .single();
+
+      if (error || !data) {
+        throw new Error(`User wallet not found for address ${blockchainAddress}`);
+      }
+
+      if (data.signing_method !== 'private_key') {
+        throw new Error(
+          `Cannot retrieve private key for ${data.signing_method} signing method`
+        );
+      }
+
+      // Method 1: Direct encrypted key
+      if (data.encrypted_private_key) {
+        if (WalletEncryptionClient.isEncrypted(data.encrypted_private_key)) {
+          return await WalletEncryptionClient.decrypt(data.encrypted_private_key);
+        }
+        return data.encrypted_private_key;
+      }
+
+      // Method 2: Vault reference (uses key_id for lookup)
+      if (data.key_vault_reference) {
+        const { data: vaultData, error: vaultError } = await supabase
+          .from('key_vault_keys')
+          .select('encrypted_key')
+          .eq('key_id', data.key_vault_reference)
+          .single();
+
+        if (vaultError || !vaultData) {
+          throw new Error('Key not found in vault');
+        }
+
+        return await WalletEncryptionClient.decrypt(vaultData.encrypted_key);
+      }
+
+      throw new Error('No private key available for this user wallet');
+    } catch (error) {
+      console.error('Failed to get user wallet private key by address:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Refresh balances for all wallets in a project using BalanceService
    * RETURNS the updated wallets with balance data populated
    */
