@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,12 +9,30 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PlusIcon, MinusIcon, Shield, AlertTriangle, CheckCircle, User, Users, Zap } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { MultiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
+import { MultiSigWalletService } from '@/services/wallet/multiSig';
 import { userAddressService } from '@/services/wallet/multiSig/UserAddressService';
 import { multiSigABIService } from '@/services/wallet/multiSig/MultiSigABIService';
 import { supabase } from '@/infrastructure/database/client';
 import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
 import { FeePriority } from '@/services/blockchain/FeeEstimator';
+import { getChainInfo, getChainName, isEIP1559Supported as checkEIP1559Support } from '@/infrastructure/web3/utils/chainIds';
+import { ethers } from 'ethers';
+
+/**
+ * Helper function to format Supabase errors for console logging
+ */
+const formatSupabaseError = (error: any, context: string): string => {
+  if (!error) return 'Unknown error';
+  
+  const parts = [context];
+  
+  if (error.message) parts.push(error.message);
+  if (error.details) parts.push(`Details: ${error.details}`);
+  if (error.hint) parts.push(`Hint: ${error.hint}`);
+  if (error.code) parts.push(`Code: ${error.code}`);
+  
+  return parts.join(' | ');
+};
 
 interface SystemUser {
   userId: string;
@@ -35,6 +53,14 @@ interface ProjectWalletOption {
   balance?: string;
 }
 
+interface BlockchainOption {
+  walletType: string;
+  chainId: string;
+  chainName: string;
+  networkType: 'mainnet' | 'testnet';
+  count: number;
+}
+
 interface MultiSigWalletFormProps {
   projectId?: string; // OPTIONAL - service provider selects which project wallet funds deployment
   onSuccess?: (address: string, txHash: string) => void;
@@ -46,12 +72,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const [name, setName] = useState('');
   const [threshold, setThreshold] = useState(2);
   const [blockchain, setBlockchain] = useState('');
-  const [availableBlockchains, setAvailableBlockchains] = useState<Array<{
-    walletType: string;
-    chainId: string;
-    net: string;
-    count: number;
-  }>>([]);
+  const [availableBlockchains, setAvailableBlockchains] = useState<BlockchainOption[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [deploymentResult, setDeploymentResult] = useState<{
@@ -72,73 +93,121 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const [selectedProjectWallet, setSelectedProjectWallet] = useState<string>(''); // wallet ID
   const [projectName, setProjectName] = useState<string>('');
 
-  // Gas estimation state
+  // Gas estimation state - EXACT match with TransferTab.tsx
   const [estimatedGasData, setEstimatedGasData] = useState<EIP1559FeeData | null>(null);
-  const [showGasConfig, setShowGasConfig] = useState<boolean>(false);
+  const [showGasConfig, setShowGasConfig] = useState<boolean>(true); // Show expanded by default
   const MULTISIG_GAS_LIMIT = 1500000; // Multi-sig deployments need ~1.5M gas (based on actual transaction)
+  
+  // EIP-1559 detection
+  const [isEIP1559Network, setIsEIP1559Network] = useState<boolean>(false);
 
-  const multiSigService = MultiSigTransactionService.getInstance();
+  // Validate projectId to prevent unnecessary queries
+  const isValidProjectId = useMemo(() => {
+    return projectId && projectId.trim() !== '' && projectId !== 'undefined';
+  }, [projectId]);
 
   // Load available blockchains for this project
   useEffect(() => {
     const loadAvailableBlockchains = async () => {
-      if (!projectId || projectId.trim() === '') {
+      // GUARD: Don't query if projectId is invalid
+      if (!isValidProjectId) {
+        console.log('[MultiSigWalletForm] Skipping blockchain load - invalid projectId:', projectId);
+        setAvailableBlockchains([]);
         return;
       }
 
       try {
-        // Query distinct wallet types from project_wallets
+        console.log('[MultiSigWalletForm] Loading blockchains for project:', projectId);
+        
+        // Query distinct wallet types from project_wallets - FIXED: Removed non-existent 'net' column
         const { data: wallets, error: walletsError } = await supabase
           .from('project_wallets')
-          .select('wallet_type, chain_id, net')
+          .select('wallet_type, chain_id')
           .eq('project_id', projectId);
 
-        if (walletsError) throw walletsError;
+        if (walletsError) {
+          console.error(formatSupabaseError(
+            walletsError,
+            '[MultiSigWalletForm] Failed to load blockchains'
+          ));
+          return;
+        }
 
         if (!wallets || wallets.length === 0) {
+          console.log('[MultiSigWalletForm] No project wallets found for project:', projectId);
           setAvailableBlockchains([]);
           return;
         }
 
-        // Group by net + wallet_type (to distinguish mainnet from testnets)
-        const blockchainMap = new Map<string, { chainId: string; net: string; count: number }>();
+        // Group by chain_id to get unique blockchains
+        const blockchainMap = new Map<string, { walletType: string; chainId: string; count: number }>();
         
         wallets.forEach(w => {
-          // Use net as the key (e.g., "mainnet", "holesky", "testnet")
-          const key = w.net || w.wallet_type;
+          if (!w.chain_id) return; // Skip wallets without chain_id
+          
+          const key = `${w.wallet_type}-${w.chain_id}`;
           const existing = blockchainMap.get(key);
+          
           if (existing) {
             existing.count++;
           } else {
             blockchainMap.set(key, {
-              chainId: w.chain_id || '',
-              net: w.net || '',
+              walletType: w.wallet_type || 'unknown',
+              chainId: w.chain_id,
               count: 1
             });
           }
         });
 
-        // Convert to array (use net as walletType for display)
-        const blockchains = Array.from(blockchainMap.entries()).map(([walletType, info]) => ({
-          walletType,
-          chainId: info.chainId,
-          net: info.net,
-          count: info.count
-        }));
+        // Convert to array with proper chain info
+        const blockchains: BlockchainOption[] = Array.from(blockchainMap.values()).map(info => {
+          const chainId = parseInt(info.chainId, 10);
+          const chainInfo = getChainInfo(chainId);
+          const chainName = chainInfo?.name || getChainName(chainId) || info.walletType;
+          const networkType = chainInfo?.type || 'testnet';
+          
+          return {
+            walletType: info.walletType,
+            chainId: info.chainId,
+            chainName,
+            networkType,
+            count: info.count
+          };
+        });
 
+        console.log('[MultiSigWalletForm] Found blockchains:', blockchains);
         setAvailableBlockchains(blockchains);
 
         // Auto-select first blockchain
         if (blockchains.length > 0 && !blockchain) {
-          setBlockchain(blockchains[0].walletType);
+          const firstChain = blockchains[0];
+          setBlockchain(`${firstChain.walletType}-${firstChain.chainId}`);
+          
+          // Set EIP-1559 detection
+          const chainId = parseInt(firstChain.chainId, 10);
+          setIsEIP1559Network(checkEIP1559Support(chainId));
         }
       } catch (err) {
-        console.error('Failed to load available blockchains:', err);
+        console.error('[MultiSigWalletForm] Exception loading blockchains:', err);
       }
     };
 
     loadAvailableBlockchains();
-  }, [projectId]); // Only reload when projectId changes
+  }, [projectId, isValidProjectId]); // Only reload when projectId changes
+
+  // Update EIP-1559 detection when blockchain changes
+  useEffect(() => {
+    if (blockchain) {
+      const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+      if (selected) {
+        const chainId = parseInt(selected.chainId, 10);
+        const isEIP1559 = checkEIP1559Support(chainId);
+        setIsEIP1559Network(isEIP1559);
+        
+        console.log(`🔗 Network ${selected.chainName} (${selected.chainId}): EIP-1559 ${isEIP1559 ? 'SUPPORTED' : 'NOT SUPPORTED'}`);
+      }
+    }
+  }, [blockchain, availableBlockchains]);
 
   // Load ALL system users with their addresses (service provider level)
   // AND load project wallets for funding selection
@@ -149,11 +218,14 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         setError(null);
 
         // Validate projectId before making database queries
-        if (!projectId || projectId.trim() === '') {
+        if (!isValidProjectId) {
+          console.log('[MultiSigWalletForm] Skipping user load - invalid projectId:', projectId);
           setError('Please select a project to fund the multi-sig wallet deployment');
           setIsLoading(false);
           return;
         }
+
+        console.log('[MultiSigWalletForm] Loading users and wallets for project:', projectId, 'blockchain:', blockchain);
 
         // Load project details and organization
         const { data: project, error: projectError } = await supabase
@@ -162,7 +234,14 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           .eq('id', projectId)
           .single();
         
-        if (projectError) throw projectError;
+        if (projectError) {
+          console.error(formatSupabaseError(
+            projectError,
+            '[MultiSigWalletForm] Failed to load project'
+          ));
+          throw projectError;
+        }
+        
         if (!project) {
           setError('Project not found');
           return;
@@ -171,25 +250,46 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         setProjectName(project.name);
         const organizationId = project.organization_id;
 
-        console.log(`Loading users for organization: ${organizationId}`);
+        console.log(`[MultiSigWalletForm] Loading users for organization: ${organizationId}`);
 
-        // Load project wallets for the selected blockchain (using net for filtering)
+        // Parse blockchain selection to get wallet_type and chain_id
+        const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+        if (!selected) {
+          setError('Please select a blockchain');
+          return;
+        }
+
+        // Convert chain_id to blockchain name for user_addresses query
+        const chainId = parseInt(selected.chainId, 10);
+        const blockchainName = getChainName(chainId);
+        
+        if (!blockchainName) {
+          setError(`Chain ID ${selected.chainId} not recognized. Please select a different blockchain.`);
+          return;
+        }
+
+        console.log(`[MultiSigWalletForm] Using blockchain name: ${blockchainName} for chain ID: ${chainId}`);
+
+        // Load project wallets for the selected blockchain - FIXED: Using chain_id instead of net
         const { data: wallets, error: walletsError } = await supabase
           .from('project_wallets')
-          .select('id, wallet_address, chain_id, wallet_type, net')
+          .select('id, wallet_address, chain_id, wallet_type')
           .eq('project_id', projectId)
-          .eq('net', blockchain); // Filter by net (e.g., "mainnet", "holesky")
+          .eq('chain_id', selected.chainId); // Filter by chain_id
         
         if (walletsError) {
-          console.error('Failed to load project wallets:', walletsError);
+          console.error(formatSupabaseError(
+            walletsError,
+            '[MultiSigWalletForm] Failed to load project wallets'
+          ));
           throw walletsError;
         }
 
-        console.log(`Loaded ${wallets?.length || 0} project wallets for ${blockchain}:`, wallets);
+        console.log(`[MultiSigWalletForm] Loaded ${wallets?.length || 0} project wallets for ${selected.chainName}`);
 
         if (!wallets || wallets.length === 0) {
           setError(
-            `No ${blockchain} wallets found for this project. Please create a ${blockchain} wallet first.`
+            `No ${selected.chainName} wallets found for this project. Please create a ${selected.chainName} wallet first.`
           );
           return;
         }
@@ -203,14 +303,14 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           chainId: w.chain_id
         }));
 
-        console.log('Mapped wallet options:', walletOptions);
+        console.log('[MultiSigWalletForm] Mapped wallet options:', walletOptions.length);
 
         setProjectWallets(walletOptions);
         
         // Auto-select first wallet
         if (walletOptions.length > 0) {
           setSelectedProjectWallet(walletOptions[0].id);
-          console.log('Auto-selected wallet:', walletOptions[0].id);
+          console.log('[MultiSigWalletForm] Auto-selected wallet:', walletOptions[0].id);
         }
 
         // Get users who have rights to THIS organization
@@ -224,14 +324,20 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           `)
           .eq('organization_id', organizationId); // Filter by project's organization
 
-        if (rolesError) throw rolesError;
+        if (rolesError) {
+          console.error(formatSupabaseError(
+            rolesError,
+            '[MultiSigWalletForm] Failed to load user roles'
+          ));
+          throw rolesError;
+        }
 
         if (!userRoles || userRoles.length === 0) {
           setError('No users found for this organization');
           return;
         }
 
-        console.log(`Found ${userRoles.length} users for organization ${organizationId}`);
+        console.log(`[MultiSigWalletForm] Found ${userRoles.length} user roles for organization ${organizationId}`);
 
         // Get unique users (a user may have multiple roles in same organization)
         // If user has multiple roles, use the first one found
@@ -251,12 +357,13 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         const userIds = Array.from(uniqueUsers.keys());
 
         // Get user addresses for the selected blockchain from user_addresses table
+        // Use blockchainName instead of selected.walletType for proper matching
         const usersWithAddresses = await userAddressService.getUsersWithAddresses(
           userIds,
-          blockchain
+          blockchainName
         );
 
-        console.log(`Found ${usersWithAddresses.filter(ua => ua.address).length} users with ${blockchain} addresses`);
+        console.log(`[MultiSigWalletForm] Found ${usersWithAddresses.filter(ua => ua.address).length} users with ${blockchainName} addresses`);
 
         // Map to SystemUser format
         const users: SystemUser[] = Array.from(uniqueUsers.values()).map((user) => {
@@ -280,15 +387,24 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           setThreshold(Math.min(2, usersWithAddr.length));
         }
       } catch (err: any) {
-        console.error('Failed to load data:', err);
+        console.error('[MultiSigWalletForm] Exception in loadSystemUsers:', {
+          message: err?.message || 'Unknown error',
+          code: err?.code,
+          details: err?.details,
+          projectId,
+          blockchain
+        });
         setError(err.message || 'Failed to load data');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadSystemUsers();
-  }, [blockchain, projectId]); // Reload when blockchain or projectId changes
+    // Only load if we have a valid blockchain selection
+    if (blockchain && blockchain.trim() !== '') {
+      loadSystemUsers();
+    }
+  }, [blockchain, projectId, isValidProjectId, availableBlockchains]); // Reload when blockchain or projectId changes
 
   // Handle user selection toggle
   const toggleUserSelection = useCallback((userId: string) => {
@@ -329,24 +445,39 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
 
   /**
    * Handle gas estimation from GasEstimatorEIP1559 component
+   * EXACT match with TransferTab.tsx pattern
    */
   const handleGasEstimate = useCallback((feeData: EIP1559FeeData) => {
     setEstimatedGasData(feeData);
+    console.log('📊 Gas estimate received:', {
+      maxFeePerGas: feeData.maxFeePerGas ? `${ethers.formatUnits(feeData.maxFeePerGas, 'gwei')} Gwei` : undefined,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? `${ethers.formatUnits(feeData.maxPriorityFeePerGas, 'gwei')} Gwei` : undefined,
+      baseFeePerGas: feeData.baseFeePerGas ? `${ethers.formatUnits(feeData.baseFeePerGas, 'gwei')} Gwei` : undefined,
+      gasPrice: feeData.gasPrice ? `${ethers.formatUnits(feeData.gasPrice, 'gwei')} Gwei` : undefined,
+      priority: feeData.priority,
+      networkCongestion: feeData.networkCongestion
+    });
   }, []);
 
   /**
-   * Calculate estimated deployment cost in ETH
+   * Calculate estimated deployment cost in ETH/native currency
    */
   const calculateEstimatedCost = useCallback(() => {
     if (!estimatedGasData) return '~0.003 ETH'; // Realistic fallback based on actual transaction
     
     const gasLimit = MULTISIG_GAS_LIMIT;
-    const maxFeeWei = estimatedGasData.maxFeePerGas || estimatedGasData.gasPrice || '0';
-    const costWei = BigInt(gasLimit) * BigInt(maxFeeWei);
+    
+    // Use maxFeePerGas for EIP-1559 networks, gasPrice for legacy
+    const feePerGas = estimatedGasData.maxFeePerGas || estimatedGasData.gasPrice || '0';
+    const costWei = BigInt(gasLimit) * BigInt(feePerGas);
     const costEth = Number(costWei) / 1e18;
     
-    return `~${costEth.toFixed(4)} ETH`;
-  }, [estimatedGasData, MULTISIG_GAS_LIMIT]);
+    // Get the selected blockchain to determine currency symbol
+    const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+    const currencySymbol = selected?.walletType.toUpperCase() || 'ETH';
+    
+    return `~${costEth.toFixed(6)} ${currencySymbol}`;
+  }, [estimatedGasData, MULTISIG_GAS_LIMIT, blockchain, availableBlockchains]);
 
   const validateForm = useCallback(() => {
     // Validate name
@@ -381,8 +512,9 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
       // Check if selected users have addresses
       const usersWithoutAddr = selectedUsers.filter(u => !u.hasAddress);
       if (usersWithoutAddr.length > 0) {
+        const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
         setError(
-          `Some selected users don't have ${blockchain} addresses: ${usersWithoutAddr.map(u => u.email).join(', ')}`
+          `Some selected users don't have ${selected?.chainName || 'blockchain'} addresses: ${usersWithoutAddr.map(u => u.email).join(', ')}`
         );
         return false;
       }
@@ -416,7 +548,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
     }
 
     return true;
-  }, [name, selectedProjectWallet, ownerMode, systemUsers, selectedUserIds, manualOwners, threshold, blockchain]);
+  }, [name, selectedProjectWallet, ownerMode, systemUsers, selectedUserIds, manualOwners, threshold, blockchain, availableBlockchains]);
 
   const handleDeploy = async () => {
     try {
@@ -450,16 +582,32 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         // Manual mode doesn't have user IDs, so ownerUsers stays undefined
       }
 
+      // Get the selected blockchain for deployment
+      const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+      if (!selected) {
+        throw new Error('Selected blockchain not found');
+      }
+
+      // Convert chain_id to blockchain name for deployment
+      const chainId = parseInt(selected.chainId, 10);
+      const blockchainName = getChainName(chainId);
+      
+      if (!blockchainName) {
+        throw new Error(`Chain ID ${selected.chainId} not recognized. Please select a different blockchain.`);
+      }
+
+      console.log(`[MultiSigWalletForm] Deploying to blockchain: ${blockchainName} (chain ID: ${chainId})`);
+
       // Deploy multi-sig wallet with owner user information
-      const result = await multiSigService.deployMultiSigWallet(
+      const result = await MultiSigWalletService.deployMultiSigWallet({
         name,
-        validOwners,
+        owners: validOwners,
         threshold,
-        blockchain,
+        blockchain: blockchainName, // Use proper blockchain name (e.g., "hoodi", "sepolia")
         projectId, // For tracking association
-        selectedProjectWallet, // Pass the specific wallet ID user selected
+        fundingWalletId: selectedProjectWallet, // Pass the specific wallet ID user selected
         ownerUsers // Pass user info for multi_sig_wallet_owners table
-      );
+      });
 
       setDeploymentResult(result);
 
@@ -469,7 +617,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
         await multiSigABIService.populateWalletAndContractMasterABI(
           result.id,
           result.address,
-          blockchain
+          blockchainName // Use blockchain name for ABI population too
         );
         console.log('✅ ABI populated successfully');
       } catch (abiError: any) {
@@ -488,7 +636,12 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
       }
 
     } catch (err: any) {
-      console.error('Deployment error:', err);
+      console.error('[MultiSigWalletForm] Deployment error:', {
+        message: err?.message || 'Unknown error',
+        stack: err?.stack,
+        projectId,
+        blockchain
+      });
       setError(err.message || 'Failed to deploy multi-sig wallet');
       toast({
         title: 'Error',
@@ -503,7 +656,12 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
   const handleReset = () => {
     setName('');
     setThreshold(2);
-    setBlockchain(availableBlockchains.length > 0 ? availableBlockchains[0].walletType : '');
+    if (availableBlockchains.length > 0) {
+      const firstChain = availableBlockchains[0];
+      setBlockchain(`${firstChain.walletType}-${firstChain.chainId}`);
+    } else {
+      setBlockchain('');
+    }
     setDeploymentResult(null);
     setError(null);
     setSelectedUserIds([]);
@@ -520,7 +678,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             Multi-Sig Wallet Deployed
           </CardTitle>
           <CardDescription>
-            Your multi-signature wallet has been successfully deployed on {blockchain}
+            Your multi-signature wallet has been successfully deployed
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -639,7 +797,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           </p>
         </div>
 
-        {/* Blockchain - NOW DYNAMICALLY GENERATED FROM PROJECT WALLETS */}
+        {/* Blockchain - NOW PROPERLY USES chain_id */}
         <div className="space-y-2">
           <Label htmlFor="blockchain">Blockchain *</Label>
           <Select
@@ -656,14 +814,16 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             </SelectTrigger>
             <SelectContent>
               {availableBlockchains.map(bc => {
-                // Display network name with proper capitalization
-                const networkName = bc.net.charAt(0).toUpperCase() + bc.net.slice(1);
+                const key = `${bc.walletType}-${bc.chainId}`;
                 return (
-                  <SelectItem key={bc.walletType} value={bc.walletType}>
+                  <SelectItem key={key} value={key}>
                     <div className="flex items-center gap-2">
-                      <span>{networkName}</span>
+                      <span>{bc.chainName}</span>
+                      <Badge variant={bc.networkType === 'mainnet' ? 'default' : 'secondary'} className="text-xs">
+                        {bc.networkType}
+                      </Badge>
                       <Badge variant="outline" className="text-xs">
-                        Chain ID: {bc.chainId} • {bc.count} wallet{bc.count !== 1 ? 's' : ''}
+                        {bc.count} wallet{bc.count !== 1 ? 's' : ''}
                       </Badge>
                     </div>
                   </SelectItem>
@@ -743,7 +903,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             <div className="flex items-center justify-between">
               <Label>Select Owners ({selectedUserIds.length}) *</Label>
               <Badge variant="outline">
-                {systemUsers.filter(u => u.hasAddress).length} users with {blockchain} address
+                {systemUsers.filter(u => u.hasAddress).length} users with addresses
               </Badge>
             </div>
             <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
@@ -774,7 +934,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
                       </span>
                     ) : (
                       <span className="text-xs text-destructive">
-                        No {blockchain} address
+                        No blockchain address
                       </span>
                     )}
                   </div>
@@ -891,7 +1051,7 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
             </Alert>
           )}
 
-        {/* Gas Configuration */}
+        {/* Gas Configuration - EXACT match with TransferTab.tsx pattern */}
         {blockchain && (
           <Card>
             <CardHeader className="pb-3">
@@ -909,19 +1069,37 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
                 </Button>
               </div>
               <CardDescription className="text-xs">
-                Real-time gas estimation for {blockchain} network
+                {(() => {
+                  const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+                  return selected ? `Real-time gas estimation for ${selected.chainName} network` : 'Real-time gas estimation';
+                })()}
               </CardDescription>
             </CardHeader>
-            {showGasConfig && (
-              <CardContent>
-                <GasEstimatorEIP1559
-                  blockchain={blockchain}
-                  onSelectFeeData={handleGasEstimate}
-                  defaultPriority={FeePriority.MEDIUM}
-                  showAdvanced={false}
-                />
-              </CardContent>
-            )}
+            {showGasConfig && (() => {
+              const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+              if (!selected) return null;
+              
+              // Get the proper blockchain name from chainId
+              const chainId = parseInt(selected.chainId, 10);
+              const blockchainName = getChainName(chainId);
+              
+              // Only render if we have a valid blockchain name
+              if (!blockchainName) {
+                console.warn('[MultiSigWalletForm] No blockchain name found for chainId:', chainId);
+                return null;
+              }
+              
+              return (
+                <CardContent>
+                  <GasEstimatorEIP1559
+                    blockchain={blockchainName}
+                    onSelectFeeData={handleGasEstimate}
+                    defaultPriority={FeePriority.MEDIUM}
+                    showAdvanced={false}
+                  />
+                </CardContent>
+              );
+            })()}
           </Card>
         )}
 
@@ -931,7 +1109,12 @@ export function MultiSigWalletForm({ projectId, onSuccess, onCancel }: MultiSigW
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Network:</span>
-              <Badge variant="outline">{blockchain}</Badge>
+              <Badge variant="outline">
+                {(() => {
+                  const selected = availableBlockchains.find(bc => `${bc.walletType}-${bc.chainId}` === blockchain);
+                  return selected?.chainName || 'Not selected';
+                })()}
+              </Badge>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Owners:</span>

@@ -12,8 +12,8 @@
  * - multi_sig_on_chain_transactions
  * - multi_sig_on_chain_confirmations
  * 
- * And syncs status back to Layer 1 (UI) tables:
- * - transaction_proposals
+ * And syncs status back to Layer 2 (Business Logic) tables:
+ * - multi_sig_proposals
  */
 
 import { supabase } from '@/infrastructure/database/client';
@@ -401,22 +401,7 @@ export class MultiSigEventListener {
           })
           .eq('id', proposal.id);
 
-        // Find and update Layer 1 UI proposal
-        const { data: uiProposal } = await supabase
-          .from('transaction_proposals')
-          .select('id')
-          .eq('multi_sig_proposal_id', proposal.id)
-          .single();
-
-        if (uiProposal) {
-          await supabase
-            .from('transaction_proposals')
-            .update({
-              status: 'executed',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', uiProposal.id);
-        }
+        // Status is tracked in multi_sig_proposals (transaction_proposals table removed)
       }
 
       // Increment events processed counter

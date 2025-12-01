@@ -1,9 +1,11 @@
 /**
  * Multi-Sig Approval Service
  * Simplified approval workflow for multi-sig transfers
- * Uses transaction_proposals table for user-friendly interface
+ * Uses multi_sig_proposals table with UI-friendly fields
+ * Consolidated architecture - no separate UI/business logic tables
  * 
  * ENHANCED: Now tracks signer names and addresses for proper contract verification
+ * Uses three-layer architecture for blockchain integration
  */
 
 import { supabase } from '@/infrastructure/database/client';
@@ -73,6 +75,7 @@ export interface CreateProposalParams {
   amount: string;
   tokenAddress?: string;
   tokenSymbol?: string;
+  data?: string;
 }
 
 export interface ApprovalResult {
@@ -108,6 +111,7 @@ export class MultiSigApprovalService {
 
   /**
    * Create a new transfer proposal for multi-sig approval
+   * Stores directly in multi_sig_proposals (single source of truth)
    */
   async createTransferProposal(
     params: CreateProposalParams
@@ -151,9 +155,9 @@ export class MultiSigApprovalService {
       // Convert amount to wei for EVM chains
       const valueInWei = ethers.parseEther(params.amount).toString();
 
-      // Create proposal in database
+      // Create proposal in multi_sig_proposals (single source of truth)
       const { data, error } = await supabase
-        .from('transaction_proposals')
+        .from('multi_sig_proposals')
         .insert({
           wallet_id: params.walletId,
           title: params.title,
@@ -161,10 +165,22 @@ export class MultiSigApprovalService {
           to_address: params.toAddress,
           value: valueInWei,
           token_address: params.tokenAddress,
-          token_symbol: params.tokenSymbol || 'ETH',
           blockchain: wallet.blockchain,
+          chain_type: wallet.blockchain,
           status: 'pending',
-          created_by: user.id
+          signatures_collected: 0,
+          signatures_required: wallet.threshold,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          created_by: user.id,
+          project_id: wallet.project_id,
+          raw_transaction: {
+            to: params.toAddress,
+            value: valueInWei,
+            data: params.data || '0x',
+            tokenAddress: params.tokenAddress,
+            tokenSymbol: params.tokenSymbol || 'ETH'
+          },
+          transaction_hash: ''
         })
         .select()
         .single();
@@ -184,22 +200,17 @@ export class MultiSigApprovalService {
 
   /**
    * Get all proposals for a wallet with signature details
+   * CONSOLIDATED: Queries multi_sig_proposals directly (no joins needed)
    */
   async getProposalsForWallet(
     walletId: string,
     includeExecuted: boolean = false
   ): Promise<ProposalWithSignatures[]> {
     try {
-      // Build query - Join with multi_sig_proposals for on-chain data (Phase 4)
+      // Build query - Direct access to multi_sig_proposals
       let query = supabase
-        .from('transaction_proposals')
-        .select(`
-          *,
-          multi_sig_proposal:multi_sig_proposals!transaction_proposals_multi_sig_proposal_id_fkey (
-            on_chain_tx_id,
-            execution_hash
-          )
-        `)
+        .from('multi_sig_proposals')
+        .select('*')
         .eq('wallet_id', walletId)
         .order('created_at', { ascending: false });
 
@@ -222,17 +233,15 @@ export class MultiSigApprovalService {
           const signaturesCollected = signatures.length;
           const canExecute = signaturesCollected >= threshold;
 
-          // Phase 4: Get on-chain data if available
-          const onChainData = proposal.multi_sig_proposal as any;
+          // Get on-chain confirmation count if transaction exists
           let onChainConfirmations = 0;
           
-          // If we have on-chain transaction, get confirmation count
-          if (onChainData?.on_chain_tx_id !== null && onChainData?.on_chain_tx_id !== undefined) {
+          if (proposal.on_chain_tx_id !== null && proposal.on_chain_tx_id !== undefined) {
             try {
               const { data: onChainTx } = await supabase
                 .from('multi_sig_on_chain_transactions')
                 .select('num_confirmations')
-                .eq('on_chain_tx_id', onChainData.on_chain_tx_id)
+                .eq('on_chain_tx_id', proposal.on_chain_tx_id)
                 .single();
               
               if (onChainTx) {
@@ -250,9 +259,9 @@ export class MultiSigApprovalService {
             signaturesRequired: threshold,
             canExecute,
             remainingSignatures: Math.max(0, threshold - signaturesCollected),
-            // Phase 4: Add on-chain fields
-            onChainTxId: onChainData?.on_chain_tx_id ?? null,
-            executionHash: onChainData?.execution_hash ?? null,
+            // On-chain fields - direct access
+            onChainTxId: proposal.on_chain_tx_id ?? null,
+            executionHash: proposal.execution_hash ?? null,
             onChainConfirmations
           };
         })
@@ -277,18 +286,14 @@ export class MultiSigApprovalService {
 
   /**
    * Get a single proposal with full details
+   * CONSOLIDATED: Queries multi_sig_proposals directly (no joins needed)
    */
   async getProposalDetails(proposalId: string): Promise<ProposalWithSignatures> {
     try {
+      // Query multi_sig_proposals directly
       const { data, error } = await supabase
-        .from('transaction_proposals')
-        .select(`
-          *,
-          multi_sig_proposal:multi_sig_proposals!transaction_proposals_multi_sig_proposal_id_fkey (
-            on_chain_tx_id,
-            execution_hash
-          )
-        `)
+        .from('multi_sig_proposals')
+        .select('*')
         .eq('id', proposalId)
         .single();
 
@@ -303,17 +308,15 @@ export class MultiSigApprovalService {
       const signaturesCollected = signatures.length;
       const canExecute = signaturesCollected >= wallet.threshold;
 
-      // Phase 4: Get on-chain data if available
-      const onChainData = data.multi_sig_proposal as any;
+      // Get on-chain confirmation count if transaction exists
       let onChainConfirmations = 0;
       
-      // If we have on-chain transaction, get confirmation count
-      if (onChainData?.on_chain_tx_id !== null && onChainData?.on_chain_tx_id !== undefined) {
+      if (data.on_chain_tx_id !== null && data.on_chain_tx_id !== undefined) {
         try {
           const { data: onChainTx } = await supabase
             .from('multi_sig_on_chain_transactions')
             .select('num_confirmations')
-            .eq('on_chain_tx_id', onChainData.on_chain_tx_id)
+            .eq('on_chain_tx_id', data.on_chain_tx_id)
             .single();
           
           if (onChainTx) {
@@ -331,9 +334,9 @@ export class MultiSigApprovalService {
         signaturesRequired: wallet.threshold,
         canExecute,
         remainingSignatures: Math.max(0, wallet.threshold - signaturesCollected),
-        // Phase 4: Add on-chain fields
-        onChainTxId: onChainData?.on_chain_tx_id ?? null,
-        executionHash: onChainData?.execution_hash ?? null,
+        // On-chain fields - direct access
+        onChainTxId: data.on_chain_tx_id ?? null,
+        executionHash: data.execution_hash ?? null,
         onChainConfirmations
       };
     } catch (error: any) {
@@ -341,7 +344,6 @@ export class MultiSigApprovalService {
       throw new Error(`Failed to get proposal: ${error.message}`);
     }
   }
-
   // ============================================================================
   // APPROVAL & SIGNING
   // ============================================================================
@@ -349,6 +351,7 @@ export class MultiSigApprovalService {
   /**
    * Approve a proposal by signing it
    * ENHANCED: Now supports both off-chain signatures AND on-chain confirmations
+   * CONSOLIDATED: Uses proposal_signatures table directly
    * 
    * WORKFLOW:
    * 1. Always collect off-chain signature for audit trail
@@ -454,16 +457,15 @@ export class MultiSigApprovalService {
           );
         }
 
-        // Store off-chain signature for audit trail
+        // Store off-chain signature for audit trail (CONSOLIDATED: use proposal_signatures)
         const { data, error } = await supabase
-          .from('transaction_signatures')
+          .from('proposal_signatures')
           .insert({
             proposal_id: proposalId,
-            signer: user.id,
-            signer_name: userData.name,
             signer_address: signerEthereumAddress,
             signature,
-            transaction_hash: transactionHash
+            signature_type: 'ecdsa',
+            is_valid: true
           })
           .select()
           .single();
@@ -471,14 +473,21 @@ export class MultiSigApprovalService {
         if (error) throw error;
         signatureData = data;
 
-        // Update proposal signatures count
+        // Update proposal signatures count in multi_sig_proposals
         const newSignatureCount = proposal.signaturesCollected + 1;
+        const updateData: any = { 
+          signatures_collected: newSignatureCount 
+        };
+        
+        // Update status if threshold met
         if (newSignatureCount >= proposal.signaturesRequired) {
-          await supabase
-            .from('transaction_proposals')
-            .update({ status: 'approved' })
-            .eq('id', proposalId);
+          updateData.status = 'approved';
         }
+        
+        await supabase
+          .from('multi_sig_proposals')
+          .update(updateData)
+          .eq('id', proposalId);
 
         console.log('[MultiSig Approval] Off-chain signature collected');
       }
@@ -487,43 +496,34 @@ export class MultiSigApprovalService {
       if (proposal.onChainTxId !== null) {
         console.log('[MultiSig Approval] Proposal on-chain, submitting confirmation...');
         
-        // Check if already confirmed on-chain
-        const { data: techProposal } = await supabase
-          .from('transaction_proposals')
-          .select('multi_sig_proposal_id')
-          .eq('id', proposalId)
-          .single();
+        // Check on-chain status
+        const onChainStatus = await multiSigOnChainConfirmation.getOnChainStatus(
+          proposalId,
+          signerEthereumAddress
+        );
 
-        if (techProposal?.multi_sig_proposal_id) {
-          // Check on-chain status
-          const onChainStatus = await multiSigOnChainConfirmation.getOnChainStatus(
-            techProposal.multi_sig_proposal_id,
-            signerEthereumAddress
-          );
-
-          if (onChainStatus?.hasUserConfirmed) {
-            console.log('[MultiSig Approval] User already confirmed on-chain');
-            return {
-              success: true,
-              signature: this.formatSignature(signatureData)
-            };
-          }
-
-          // Submit on-chain confirmation
-          const onChainResult = await multiSigOnChainConfirmation.confirmTransactionOnChain(
-            techProposal.multi_sig_proposal_id,
-            registeredUserAddressId
-          );
-
-          if (!onChainResult.success) {
-            throw new Error(`On-chain confirmation failed: ${onChainResult.error}`);
-          }
-
-          console.log('[MultiSig Approval] On-chain confirmation successful:', {
-            txHash: onChainResult.transactionHash,
-            blockNumber: onChainResult.blockNumber
-          });
+        if (onChainStatus?.hasUserConfirmed) {
+          console.log('[MultiSig Approval] User already confirmed on-chain');
+          return {
+            success: true,
+            signature: this.formatSignature(signatureData)
+          };
         }
+
+        // Submit on-chain confirmation
+        const onChainResult = await multiSigOnChainConfirmation.confirmTransactionOnChain(
+          proposalId,
+          registeredUserAddressId
+        );
+
+        if (!onChainResult.success) {
+          throw new Error(`On-chain confirmation failed: ${onChainResult.error}`);
+        }
+
+        console.log('[MultiSig Approval] On-chain confirmation successful:', {
+          txHash: onChainResult.transactionHash,
+          blockNumber: onChainResult.blockNumber
+        });
       }
 
       return {
@@ -571,22 +571,20 @@ export class MultiSigApprovalService {
         throw new Error('Proposal has been rejected');
       }
 
-      // LAYER 1 → LAYER 2: Prepare for blockchain
-      console.log('[MultiSig] Preparing proposal for blockchain...');
-      const prepareResult = await multiSigBlockchainIntegration.prepareForBlockchain(proposalId);
-      
-      if (!prepareResult.success || !prepareResult.multiSigProposal) {
-        throw new Error(`Failed to prepare proposal: ${prepareResult.error}`);
-      }
-      
-      const multiSigProposal = prepareResult.multiSigProposal;
-      console.log('[MultiSig] Proposal prepared, technical proposal ID:', multiSigProposal.id);
+      // LAYER 1 → LAYER 2: Prepare for blockchain (already in multi_sig_proposals)
+      console.log('[MultiSig] Proposal ready for blockchain submission');
 
       // LAYER 2 → LAYER 3: Submit to contract with proper signer
-      if (!multiSigProposal.submittedOnChain) {
+      const { data: proposalData } = await supabase
+        .from('multi_sig_proposals')
+        .select('submitted_on_chain, executed_at, execution_hash, on_chain_tx_hash')
+        .eq('id', proposalId)
+        .single();
+
+      if (!proposalData?.submitted_on_chain) {
         console.log('[MultiSig] Submitting to smart contract...');
         const submitResult = await multiSigContractSubmitter.submitProposalToContract(
-          multiSigProposal.id,
+          proposalId,
           executorAddressId // Pass the executor's wallet ID for gas payment
         );
         
@@ -607,17 +605,17 @@ export class MultiSigApprovalService {
       }
 
       // Already submitted - check on-chain status
-      if (multiSigProposal.executedAt) {
+      if (proposalData.executed_at) {
         return {
           success: true,
-          transactionHash: multiSigProposal.executionHash || multiSigProposal.onChainTxHash || undefined
+          transactionHash: proposalData.execution_hash || proposalData.on_chain_tx_hash || undefined
         };
       }
 
       // Proposal submitted but waiting for confirmations
       return {
         success: true,
-        transactionHash: multiSigProposal.onChainTxHash || undefined
+        transactionHash: proposalData.on_chain_tx_hash || undefined
       };
     } catch (error: any) {
       console.error('Failed to execute proposal:', error);
@@ -627,7 +625,6 @@ export class MultiSigApprovalService {
       };
     }
   }
-
   // ============================================================================
   // PROPOSAL MANAGEMENT (DELETE/REJECT)
   // ============================================================================
@@ -635,6 +632,7 @@ export class MultiSigApprovalService {
   /**
    * Delete a proposal (only if not yet submitted to blockchain)
    * IMPORTANT: Can only delete proposals that haven't been submitted on-chain
+   * CONSOLIDATED: Uses multi_sig_proposals table directly
    */
   async deleteProposal(proposalId: string): Promise<{
     success: boolean;
@@ -668,31 +666,15 @@ export class MultiSigApprovalService {
         throw new Error('Cannot delete executed proposal');
       }
 
-      // Delete signatures first (cascade)
+      // Delete signatures first (cascade) - CONSOLIDATED: use proposal_signatures
       await supabase
-        .from('transaction_signatures')
+        .from('proposal_signatures')
         .delete()
         .eq('proposal_id', proposalId);
 
-      // Delete technical proposal if exists
-      if (proposal.onChainTxId === null) {
-        const { data: techProposal } = await supabase
-          .from('transaction_proposals')
-          .select('multi_sig_proposal_id')
-          .eq('id', proposalId)
-          .single();
-
-        if (techProposal?.multi_sig_proposal_id) {
-          await supabase
-            .from('multi_sig_proposals')
-            .delete()
-            .eq('id', techProposal.multi_sig_proposal_id);
-        }
-      }
-
-      // Delete proposal
+      // Delete proposal - CONSOLIDATED: use multi_sig_proposals
       const { error } = await supabase
-        .from('transaction_proposals')
+        .from('multi_sig_proposals')
         .delete()
         .eq('id', proposalId);
 
@@ -711,6 +693,7 @@ export class MultiSigApprovalService {
   /**
    * Reject a proposal (mark as rejected, keep for audit trail)
    * This is the proper way to "delete" proposals that have been submitted on-chain
+   * CONSOLIDATED: Uses multi_sig_proposals table directly
    */
   async rejectProposal(proposalId: string, reason?: string): Promise<{
     success: boolean;
@@ -741,9 +724,9 @@ export class MultiSigApprovalService {
         throw new Error('Proposal already rejected');
       }
 
-      // Update proposal status to rejected
+      // Update proposal status to rejected - CONSOLIDATED: use multi_sig_proposals
       const { error } = await supabase
-        .from('transaction_proposals')
+        .from('multi_sig_proposals')
         .update({
           status: 'rejected',
           description: proposal.description 
@@ -754,23 +737,6 @@ export class MultiSigApprovalService {
         .eq('id', proposalId);
 
       if (error) throw error;
-
-      // If technical proposal exists, update its status too
-      const { data: techProposal } = await supabase
-        .from('transaction_proposals')
-        .select('multi_sig_proposal_id')
-        .eq('id', proposalId)
-        .single();
-
-      if (techProposal?.multi_sig_proposal_id) {
-        await supabase
-          .from('multi_sig_proposals')
-          .update({
-            status: 'rejected',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', techProposal.multi_sig_proposal_id);
-      }
 
       return { success: true };
     } catch (error: any) {
@@ -931,15 +897,16 @@ export class MultiSigApprovalService {
   /**
    * Get all signatures for a proposal with signer details
    * ENHANCED: Returns signatures with names and addresses
+   * CONSOLIDATED: Uses proposal_signatures table directly
    */
   private async getProposalSignatures(
     proposalId: string
   ): Promise<ProposalApproval[]> {
     const { data, error } = await supabase
-      .from('transaction_signatures')
+      .from('proposal_signatures')
       .select('*')
       .eq('proposal_id', proposalId)
-      .order('created_at', { ascending: true });
+      .order('signed_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching signatures:', error);
@@ -1022,6 +989,7 @@ export class MultiSigApprovalService {
   /**
    * Format proposal data with wallet names
    * ENHANCED: Resolves wallet names for source and destination
+   * CONSOLIDATED: Works directly with multi_sig_proposals data
    */
   private async formatProposal(data: any): Promise<TransferProposal> {
     // Get source wallet name
@@ -1040,7 +1008,7 @@ export class MultiSigApprovalService {
       toWalletName,
       value: data.value,
       tokenAddress: data.token_address,
-      tokenSymbol: data.token_symbol,
+      tokenSymbol: data.raw_transaction?.tokenSymbol,
       blockchain: data.blockchain,
       status: data.status,
       nonce: data.nonce,
@@ -1053,17 +1021,18 @@ export class MultiSigApprovalService {
   /**
    * Format signature data with all details
    * ENHANCED: Includes signer name and Ethereum address
+   * CONSOLIDATED: Works with proposal_signatures data
    */
   private formatSignature(data: any): ProposalApproval {
     return {
       id: data.id,
       proposalId: data.proposal_id,
-      signer: data.signer,
-      signerName: data.signer_name || 'Unknown User',
+      signer: data.signer_address, // Use address as signer ID for consistency
+      signerName: data.signer_address || 'Unknown Signer',
       signerAddress: data.signer_address || 'Unknown Address',
       signature: data.signature,
-      transactionHash: data.transaction_hash,
-      createdAt: new Date(data.created_at)
+      transactionHash: data.on_chain_confirmation_tx,
+      createdAt: new Date(data.signed_at || data.created_at)
     };
   }
 }

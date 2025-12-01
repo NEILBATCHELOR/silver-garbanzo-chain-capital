@@ -7366,8 +7366,8 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 
@@ -11621,7 +11621,7 @@ COMMENT ON VIEW public.database_audit_coverage IS 'Shows audit coverage across a
 
 CREATE TABLE public.deployment_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
+    user_id uuid,
     network text NOT NULL,
     action text NOT NULL,
     command text NOT NULL,
@@ -11632,7 +11632,7 @@ CREATE TABLE public.deployment_audit_logs (
     error text,
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT deployment_audit_logs_action_check CHECK ((action = ANY (ARRAY['deployment'::text, 'verification'::text, 'command_execution'::text])))
+    CONSTRAINT deployment_audit_logs_action_check CHECK ((action = ANY (ARRAY['deployment'::text, 'verification'::text, 'command_execution'::text, 'deploy_and_verify'::text])))
 );
 
 
@@ -11647,7 +11647,7 @@ COMMENT ON TABLE public.deployment_audit_logs IS 'Audit log for all deployment a
 -- Name: COLUMN deployment_audit_logs.user_id; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.deployment_audit_logs.user_id IS 'User who initiated the deployment';
+COMMENT ON COLUMN public.deployment_audit_logs.user_id IS 'User who initiated the deployment. NULL for system-initiated operations.';
 
 
 --
@@ -16164,8 +16164,7 @@ CREATE TABLE public.multi_sig_proposals (
 -- Name: TABLE multi_sig_proposals; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.multi_sig_proposals IS 'LAYER 2 (BUSINESS LOGIC): Technical blockchain preparation with raw transaction data.
-Links to multi_sig_on_chain_transactions (Layer 3) via on_chain_tx_id after submission.';
+COMMENT ON TABLE public.multi_sig_proposals IS 'Layer 2: Business Logic - Technical blockchain preparation for multi-sig transactions. Contains transaction hashes, raw transaction data, and signature tracking.';
 
 
 --
@@ -18864,6 +18863,13 @@ CREATE TABLE public.proposal_signatures (
     confirmed_on_chain boolean DEFAULT false,
     CONSTRAINT proposal_signatures_signature_type_check CHECK ((signature_type = ANY (ARRAY['ecdsa'::text, 'schnorr'::text, 'eddsa'::text, 'other'::text])))
 );
+
+
+--
+-- Name: TABLE proposal_signatures; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.proposal_signatures IS 'Layer 1 (UI) - Tracks user signatures on transaction proposals. References transaction_proposals for user-friendly tracking.';
 
 
 --
@@ -25852,46 +25858,6 @@ CREATE TABLE public.transaction_notifications (
 
 
 --
--- Name: transaction_proposals; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.transaction_proposals (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
-    wallet_id uuid,
-    title text NOT NULL,
-    description text,
-    to_address text NOT NULL,
-    value text NOT NULL,
-    data text DEFAULT '0x'::text,
-    nonce integer,
-    status text DEFAULT 'pending'::text NOT NULL,
-    blockchain text NOT NULL,
-    token_address text,
-    token_symbol text,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    multi_sig_proposal_id uuid
-);
-
-
---
--- Name: TABLE transaction_proposals; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.transaction_proposals IS 'LAYER 1 (UI/UX): User-friendly proposal interface with human-readable fields.
-Links to multi_sig_proposals (Layer 2) via multi_sig_proposal_id when ready for blockchain.';
-
-
---
--- Name: COLUMN transaction_proposals.multi_sig_proposal_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.transaction_proposals.multi_sig_proposal_id IS 'Link to Layer 2 (Business Logic): multi_sig_proposals table. 
-This connects the user-friendly UI proposal to the technical blockchain-ready proposal.';
-
-
---
 -- Name: transaction_signatures; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -32405,14 +32371,6 @@ ALTER TABLE ONLY public.transaction_notifications
 
 
 --
--- Name: transaction_proposals transaction_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_proposals
-    ADD CONSTRAINT transaction_proposals_pkey PRIMARY KEY (id);
-
-
---
 -- Name: transaction_signatures transaction_signatures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -38042,6 +38000,34 @@ CREATE INDEX idx_multi_sig_proposals_chain_type ON public.multi_sig_proposals US
 
 
 --
+-- Name: idx_multi_sig_proposals_created_by; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_created_by ON public.multi_sig_proposals USING btree (created_by);
+
+
+--
+-- Name: idx_multi_sig_proposals_on_chain_tx_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_on_chain_tx_id ON public.multi_sig_proposals USING btree (on_chain_tx_id);
+
+
+--
+-- Name: idx_multi_sig_proposals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_status ON public.multi_sig_proposals USING btree (status);
+
+
+--
+-- Name: idx_multi_sig_proposals_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_wallet_id ON public.multi_sig_proposals USING btree (wallet_id);
+
+
+--
 -- Name: idx_multi_sig_wallets_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41990,13 +41976,6 @@ CREATE INDEX idx_transaction_notifications_wallet ON public.transaction_notifica
 
 
 --
--- Name: idx_transaction_proposals_multi_sig_proposal; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_transaction_proposals_multi_sig_proposal ON public.transaction_proposals USING btree (multi_sig_proposal_id);
-
-
---
 -- Name: idx_transaction_signatures_signer_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -43863,6 +43842,13 @@ CREATE TRIGGER update_investors_timestamp BEFORE UPDATE ON public.investors FOR 
 --
 
 CREATE TRIGGER update_ml_baseline_statistics_updated_at BEFORE UPDATE ON public.ml_baseline_statistics FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: multi_sig_proposals update_multi_sig_proposals_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_multi_sig_proposals_updated_at BEFORE UPDATE ON public.multi_sig_proposals FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -46645,14 +46631,6 @@ ALTER TABLE ONLY public.property_valuations
 
 
 --
--- Name: proposal_signatures proposal_signatures_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.proposal_signatures
-    ADD CONSTRAINT proposal_signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE CASCADE;
-
-
---
 -- Name: psp_api_keys psp_api_keys_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -47317,14 +47295,6 @@ ALTER TABLE ONLY public.signature_migrations
 
 
 --
--- Name: signatures signatures_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.signatures
-    ADD CONSTRAINT signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.transaction_proposals(id) ON DELETE CASCADE;
-
-
---
 -- Name: signer_keys signer_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -47930,38 +47900,6 @@ ALTER TABLE ONLY public.tokens
 
 ALTER TABLE ONLY public.tokens
     ADD CONSTRAINT tokens_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
-
-
---
--- Name: transaction_proposals transaction_proposals_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_proposals
-    ADD CONSTRAINT transaction_proposals_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
-
-
---
--- Name: transaction_proposals transaction_proposals_multi_sig_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_proposals
-    ADD CONSTRAINT transaction_proposals_multi_sig_proposal_id_fkey FOREIGN KEY (multi_sig_proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE SET NULL;
-
-
---
--- Name: transaction_proposals transaction_proposals_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_proposals
-    ADD CONSTRAINT transaction_proposals_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
-
-
---
--- Name: transaction_signatures transaction_signatures_proposal_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transaction_signatures
-    ADD CONSTRAINT transaction_signatures_proposal_fkey FOREIGN KEY (proposal_id) REFERENCES public.transaction_proposals(id) ON DELETE CASCADE;
 
 
 --
@@ -55449,16 +55387,6 @@ GRANT ALL ON TABLE public.transaction_notifications TO anon;
 GRANT ALL ON TABLE public.transaction_notifications TO authenticated;
 GRANT ALL ON TABLE public.transaction_notifications TO service_role;
 GRANT ALL ON TABLE public.transaction_notifications TO prisma;
-
-
---
--- Name: TABLE transaction_proposals; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.transaction_proposals TO anon;
-GRANT ALL ON TABLE public.transaction_proposals TO authenticated;
-GRANT ALL ON TABLE public.transaction_proposals TO service_role;
-GRANT ALL ON TABLE public.transaction_proposals TO prisma;
 
 
 --

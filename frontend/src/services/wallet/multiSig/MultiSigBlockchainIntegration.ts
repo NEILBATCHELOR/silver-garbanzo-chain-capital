@@ -1,23 +1,21 @@
 /**
  * Multi-Sig Blockchain Integration Service
  * 
- * ARCHITECTURE: Three-Layer Integration
- * =====================================
+ * ARCHITECTURE: Two-Layer Integration
+ * ====================================
  * 
- * LAYER 1 (UI):        transaction_proposals → transaction_signatures
- * LAYER 2 (Logic):     multi_sig_proposals
- * LAYER 3 (Blockchain): multi_sig_on_chain_transactions → multi_sig_on_chain_confirmations
+ * LAYER 1 (Business Logic): multi_sig_proposals (with UI + technical fields)
+ * LAYER 2 (Blockchain):      multi_sig_on_chain_transactions → multi_sig_on_chain_confirmations
  * 
  * PURPOSE:
- * - Bridge UI layer → Business Logic layer → Blockchain layer
- * - Convert user-friendly proposals to blockchain-ready technical proposals
- * - Submit to smart contracts and track on-chain state
- * - Sync on-chain execution status back to UI
+ * - Prepare proposals with blockchain-ready transaction data
+ * - Submit proposals to smart contracts and track on-chain state
+ * - Sync on-chain execution status back to proposals
  * 
  * WORKFLOW:
- * 1. prepareForBlockchain() - UI proposal → Technical proposal with raw tx
- * 2. submitToContract() - Submit technical proposal to multi-sig contract
- * 3. Event listeners - Track on-chain events and sync back to UI
+ * 1. prepareForBlockchain() - Validate and add blockchain-ready data to proposal
+ * 2. submitToContract() - Submit proposal to multi-sig contract
+ * 3. Event listeners - Track on-chain events and sync back to proposals
  */
 
 import { supabase } from '@/infrastructure/database/client';
@@ -99,20 +97,20 @@ export class MultiSigBlockchainIntegration {
   }
 
   // ============================================================================
-  // LAYER 1 → LAYER 2: PREPARE FOR BLOCKCHAIN
+  // LAYER 1: PREPARE FOR BLOCKCHAIN
   // ============================================================================
 
   /**
-   * Convert UI proposal to blockchain-ready technical proposal
+   * Prepare proposal with blockchain-ready transaction data
    * 
-   * @param uiProposalId - ID from transaction_proposals (Layer 1)
-   * @returns Technical proposal ready for blockchain submission (Layer 2)
+   * @param proposalId - ID from multi_sig_proposals
+   * @returns Proposal with validated blockchain data
    */
-  async prepareForBlockchain(uiProposalId: string): Promise<PrepareResult> {
+  async prepareForBlockchain(proposalId: string): Promise<PrepareResult> {
     try {
-      // 1. Get UI proposal from Layer 1
-      const { data: uiProposal, error: proposalError } = await supabase
-        .from('transaction_proposals')
+      // 1. Get proposal from database
+      const { data: proposal, error: proposalError } = await supabase
+        .from('multi_sig_proposals')
         .select(`
           *,
           multi_sig_wallets!inner(
@@ -123,31 +121,23 @@ export class MultiSigBlockchainIntegration {
             project_id
           )
         `)
-        .eq('id', uiProposalId)
+        .eq('id', proposalId)
         .single();
 
-      if (proposalError || !uiProposal) {
+      if (proposalError || !proposal) {
         throw new Error(`Failed to fetch proposal: ${proposalError?.message}`);
       }
 
       // 2. Check if already prepared
-      if (uiProposal.multi_sig_proposal_id) {
-        const { data: existing } = await supabase
-          .from('multi_sig_proposals')
-          .select('*')
-          .eq('id', uiProposal.multi_sig_proposal_id)
-          .single();
-
-        if (existing) {
-          return {
-            success: true,
-            multiSigProposal: this.formatMultiSigProposal(existing)
-          };
-        }
+      if (proposal.raw_transaction && proposal.transaction_hash) {
+        return {
+          success: true,
+          multiSigProposal: this.formatMultiSigProposal(proposal)
+        };
       }
 
       // 3. Validate blockchain and get chain configuration
-      const blockchain = uiProposal.multi_sig_wallets.blockchain;
+      const blockchain = proposal.multi_sig_wallets.blockchain;
       
       // Phase B: Blockchain Validation
       const validatedChain = validateBlockchain(blockchain);
@@ -184,11 +174,11 @@ export class MultiSigBlockchainIntegration {
 
       // Build raw transaction with correct fee structure
       const rawTx: any = {
-        to: uiProposal.to_address,
-        value: uiProposal.value,
-        data: uiProposal.data || '0x',
+        to: proposal.to_address,
+        value: proposal.value,
+        data: proposal.data || '0x',
         chainId: chainId,
-        nonce: uiProposal.nonce
+        nonce: proposal.raw_transaction?.nonce
       };
 
       // Add fee fields based on EIP-1559 support
@@ -206,36 +196,26 @@ export class MultiSigBlockchainIntegration {
       // 4. Create transaction hash for signing
       const transactionHash = this.hashTransaction(rawTx);
 
-      // 5. Create technical proposal in Layer 2
-      const { data: multiSigProposal, error: insertError } = await supabase
+      // 5. Update proposal with blockchain-ready data
+      const { data: updatedProposal, error: updateError } = await supabase
         .from('multi_sig_proposals')
-        .insert({
-          wallet_id: uiProposal.wallet_id,
+        .update({
           transaction_hash: transactionHash,
           raw_transaction: rawTx,
-          chain_type: uiProposal.blockchain,
-          signatures_required: uiProposal.multi_sig_wallets.threshold,
           status: 'prepared',
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-          project_id: uiProposal.multi_sig_wallets.project_id,
-          created_by: uiProposal.created_by
+          updated_at: new Date().toISOString()
         })
+        .eq('id', proposalId)
         .select()
         .single();
 
-      if (insertError || !multiSigProposal) {
-        throw new Error(`Failed to create technical proposal: ${insertError?.message}`);
+      if (updateError || !updatedProposal) {
+        throw new Error(`Failed to update proposal: ${updateError?.message}`);
       }
-
-      // 6. Link back to UI proposal (Layer 1 ← Layer 2)
-      await supabase
-        .from('transaction_proposals')
-        .update({ multi_sig_proposal_id: multiSigProposal.id })
-        .eq('id', uiProposalId);
 
       return {
         success: true,
-        multiSigProposal: this.formatMultiSigProposal(multiSigProposal)
+        multiSigProposal: this.formatMultiSigProposal(updatedProposal)
       };
     } catch (error: any) {
       console.error('Failed to prepare proposal for blockchain:', error);
@@ -247,18 +227,18 @@ export class MultiSigBlockchainIntegration {
   }
 
   // ============================================================================
-  // LAYER 2 → LAYER 3: SUBMIT TO CONTRACT
+  // LAYER 1 → LAYER 2: SUBMIT TO CONTRACT
   // ============================================================================
 
   /**
    * Submit prepared proposal to multi-sig smart contract
    * 
-   * @param multiSigProposalId - ID from multi_sig_proposals (Layer 2)
+   * @param proposalId - ID from multi_sig_proposals
    * @returns On-chain transaction index and hash
    */
-  async submitToContract(multiSigProposalId: string): Promise<SubmitResult> {
+  async submitToContract(proposalId: string): Promise<SubmitResult> {
     try {
-      // 1. Get technical proposal from Layer 2
+      // 1. Get proposal
       const { data: proposal, error: fetchError } = await supabase
         .from('multi_sig_proposals')
         .select(`
@@ -270,7 +250,7 @@ export class MultiSigBlockchainIntegration {
             abi
           )
         `)
-        .eq('id', multiSigProposalId)
+        .eq('id', proposalId)
         .single();
 
       if (fetchError || !proposal) {
@@ -340,7 +320,7 @@ export class MultiSigBlockchainIntegration {
       const parsedEvent = contract.interface.parseLog(submitEvent);
       const txIndex = Number(parsedEvent?.args?.txIndex);
 
-      // 7. Update Layer 2 proposal with on-chain details
+      // 7. Update proposal with on-chain details
       await supabase
         .from('multi_sig_proposals')
         .update({
@@ -350,9 +330,9 @@ export class MultiSigBlockchainIntegration {
           status: 'submitted',
           updated_at: new Date().toISOString()
         })
-        .eq('id', multiSigProposalId);
+        .eq('id', proposalId);
 
-      // 8. Create Layer 3 on-chain tracking record
+      // 8. Create on-chain tracking record
       await supabase
         .from('multi_sig_on_chain_transactions')
         .insert({
@@ -384,7 +364,7 @@ export class MultiSigBlockchainIntegration {
   }
 
   // ============================================================================
-  // LAYER 3: ON-CHAIN STATE QUERIES
+  // LAYER 2: ON-CHAIN STATE QUERIES
   // ============================================================================
 
   /**

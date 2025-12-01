@@ -122,10 +122,9 @@ export type {
 // Multi-signature services
 export * from './multiSig';
 
-// Multi-sig wallet management (avoiding duplicate MultiSigWallet export)
+// Multi-sig wallet management (service-specific types not in domain layer)
 export { 
   MultiSigWalletService,
-  type MultiSigWallet,
   type MultiSigWalletWithOwners,
   type MultiSigWalletOwner,
   type MultiSigTransaction,
@@ -267,8 +266,15 @@ export type {
   InjectiveTransferParams
 } from './injective';
 
-// New wallet management services
-export * from './InternalWalletService';
+// New wallet management services (note: ProjectWallet type conflicts resolved via domain types)
+export {
+  InternalWalletService
+} from './InternalWalletService';
+export type {
+  ProjectWallet as InternalProjectWallet,
+  UserWallet as InternalUserWallet,
+  MultiSigWallet as InternalMultiSigWallet
+} from './InternalWalletService';
 
 // Unified Wallet Context (combines WalletContext + EnhancedWalletContext)
 export {

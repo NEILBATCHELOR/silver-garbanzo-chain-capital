@@ -221,16 +221,23 @@ const DynamicSidebar = React.memo(() => {
         }
       });
       
-      // Additional warning if no sidebar items
-      if (!isSidebarLoading && (!sidebarConfig?.sections || sidebarConfig.sections.length === 0)) {
-        console.warn('[⚠️  Sidebar] No navigation items available!', {
+      // Additional debug info if no sidebar items (only in development)
+      if (import.meta.env.DEV && !isSidebarLoading && 
+          (!sidebarConfig?.sections || sidebarConfig.sections.length === 0)) {
+        console.log('[ℹ️  Sidebar Debug] No navigation items available', {
+          userContext: {
+            userId: userContext.userId,
+            profileType: userContext.profileType,
+            roles: userContext.roles.map(r => r.name),
+            highestPriority: userContext.highestRolePriority
+          },
           possibleReasons: [
             'User has no roles assigned',
             'Sidebar config not found in database',
             'All items filtered out by permissions',
             'URL parameters preventing item display'
           ],
-          solution: 'Check user roles in database or add fallback navigation'
+          solution: 'Check user roles in database or use fallback navigation'
         });
       }
     };
@@ -306,6 +313,21 @@ const DynamicSidebar = React.memo(() => {
             name: userData.name,
             email: userData.email
           });
+          
+          // GUARD: Check if user has any roles assigned
+          const { data: userRoles, error: rolesError } = await supabase
+            .from('user_organization_roles')
+            .select('role_id')
+            .eq('user_id', session.user.id)
+            .limit(1);
+
+          if (!rolesError && userRoles && userRoles.length === 0) {
+            console.warn('[ðŸš¨ Sidebar] User has NO roles assigned!', {
+              userId: session.user.id,
+              email: session.user.email,
+              action: 'Contact administrator to assign appropriate role'
+            });
+          }
         }
       } catch (error) {
         console.error('[❌ Sidebar] Error in fetchUserInfo:', error);

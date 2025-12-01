@@ -15,6 +15,7 @@
 
 import { 
   CHAIN_IDS,
+  CHAIN_ID_TO_NAME,
   getChainId as getChainIdFromName,
   isTestnet,
   isEIP1559Supported as checkChainEIP1559Support,
@@ -43,7 +44,7 @@ export interface FeeData {
   estimatedTimeSeconds: number;
   networkCongestion: NetworkCongestion;
   priority: FeePriority;
-  source?: 'etherscan' | 'premium-rpc' | 'public-rpc' | 'static-fallback';
+  source?: 'etherscan' | 'premium-rpc' | 'public-rpc' | 'static-fallback' | 'mainnet-estimate';
 }
 
 export interface GasEstimate {
@@ -53,6 +54,110 @@ export interface GasEstimate {
   maxPriorityFeePerGas?: string;
   totalCost: string;
   totalCostUSD?: string;
+}
+
+/**
+ * Mapping of testnet chain IDs to their corresponding mainnet chain IDs
+ * Used to provide realistic gas estimates for testnets based on mainnet data
+ */
+const TESTNET_TO_MAINNET_MAPPING: Record<number, number> = {
+  // Ethereum testnets -> Ethereum mainnet
+  11155111: 1, // Sepolia -> Ethereum
+  17000: 1,    // Holesky -> Ethereum
+  560048: 1,   // Hoodi -> Ethereum
+  
+  // Arbitrum testnets -> Arbitrum One
+  421614: 42161, // Arbitrum Sepolia -> Arbitrum One
+  
+  // Base testnets -> Base mainnet
+  84532: 8453, // Base Sepolia -> Base
+  
+  // Optimism testnets -> OP Mainnet
+  11155420: 10, // OP Sepolia -> OP Mainnet
+  
+  // Blast testnets -> Blast mainnet
+  168587773: 81457, // Blast Sepolia -> Blast
+  
+  // Scroll testnets -> Scroll mainnet
+  534351: 534352, // Scroll Sepolia -> Scroll
+  
+  // zkSync testnets -> zkSync Era mainnet
+  300: 324, // zkSync Era Sepolia -> zkSync Era
+  
+  // Polygon zkEVM testnets -> Polygon zkEVM mainnet
+  2442: 1101, // Polygon zkEVM Cardona -> Polygon zkEVM
+  
+  // Linea testnets -> Linea mainnet
+  59141: 59144, // Linea Sepolia -> Linea
+  
+  // Mantle testnets -> Mantle mainnet
+  5003: 5000, // Mantle Sepolia -> Mantle
+  
+  // Taiko testnets -> Taiko mainnet
+  167009: 167000, // Taiko Hekla -> Taiko
+  
+  // Sonic testnets -> Sonic mainnet
+  14601: 146, // Sonic Testnet -> Sonic
+  
+  // Unichain testnets -> Unichain mainnet
+  1301: 130, // Unichain Sepolia -> Unichain
+  
+  // Abstract testnets -> Abstract mainnet
+  11124: 2741, // Abstract Sepolia -> Abstract
+  
+  // Fraxtal testnets -> Fraxtal mainnet
+  2522: 252, // Fraxtal Testnet -> Fraxtal
+  
+  // Swellchain testnets -> Swellchain mainnet
+  1924: 1923, // Swellchain Testnet -> Swellchain
+  
+  // Polygon testnets -> Polygon mainnet
+  80002: 137, // Polygon Amoy -> Polygon
+  
+  // BNB testnets -> BNB mainnet
+  97: 56,   // BNB Testnet -> BNB
+  5611: 204, // opBNB Testnet -> opBNB
+  
+  // Avalanche testnets -> Avalanche mainnet
+  43113: 43114, // Avalanche Fuji -> Avalanche C-Chain
+  
+  // Celo testnets -> Celo mainnet
+  44787: 42220, // Celo Alfajores -> Celo
+  
+  // Moonbeam testnets -> Moonbeam mainnet
+  1287: 1284, // Moonbase Alpha -> Moonbeam
+  
+  // Berachain testnets -> Berachain mainnet
+  80069: 80094, // Berachain Bepolia -> Berachain
+  
+  // Sei testnets -> Sei mainnet
+  1328: 1329, // Sei Testnet -> Sei
+  
+  // Injective testnets -> Injective mainnet
+  1439: 1776, // Injective Testnet -> Injective
+  
+  // World testnets -> World mainnet
+  4801: 480, // World Sepolia -> World
+  
+  // Sophon testnets -> Sophon mainnet
+  531050104: 50104, // Sophon Sepolia -> Sophon
+  
+  // BitTorrent testnets -> BitTorrent mainnet
+  1029: 199, // BitTorrent Testnet -> BitTorrent Chain
+  
+  // XDC testnets -> XDC mainnet
+  51: 50, // XDC Apothem -> XDC
+  
+  // ApeChain testnets -> ApeChain mainnet
+  33111: 33139, // ApeChain Curtis -> ApeChain
+};
+
+/**
+ * Get the mainnet equivalent for a testnet chain ID
+ * Returns the original chain ID if it's already a mainnet or has no mapping
+ */
+function getMainnetEquivalent(chainId: number): number {
+  return TESTNET_TO_MAINNET_MAPPING[chainId] || chainId;
 }
 
 /**
@@ -244,6 +349,8 @@ export class RealTimeFeeEstimator {
    * Get optimal fee data from Etherscan V2 API
    * Automatically falls back to RPC then static defaults
    * 
+   * For testnets, uses mainnet gas estimates for more realistic costs
+   * 
    * Per Etherscan V2 docs, API supports 60+ chains including testnets
    * See: https://docs.etherscan.io/supported-chains
    * 
@@ -259,57 +366,62 @@ export class RealTimeFeeEstimator {
     }
 
     const chainId = this.getChainId(blockchain);
-    console.log(`[RealTimeFeeEstimator] Fetching fee data for ${blockchain} (chain ${chainId}), priority: ${priority}`);
+    const isTestnetChain = isTestnet(chainId);
+    
+    // For testnets, use mainnet equivalent gas prices for realistic estimates
+    const effectiveChainId = isTestnetChain ? getMainnetEquivalent(chainId) : chainId;
+    const effectiveBlockchain = isTestnetChain ? (CHAIN_ID_TO_NAME[effectiveChainId] || blockchain) : blockchain;
+    
+    if (isTestnetChain && effectiveChainId !== chainId) {
+      console.log(`[RealTimeFeeEstimator] 🔄 Testnet detected (${blockchain}), using mainnet ${effectiveBlockchain} gas estimates for realistic costs`);
+    }
+    
+    console.log(`[RealTimeFeeEstimator] Fetching fee data for ${blockchain} (chain ${chainId}${isTestnetChain ? ` -> mainnet ${effectiveChainId}` : ''}), priority: ${priority}`);
 
     // Check if this chain supports gastracker module (mainnet only)
-    const hasGastracker = this.supportsGastracker(chainId);
+    const hasGastracker = this.supportsGastracker(effectiveChainId);
     
     // Check if premium RPC is available
     const hasPremiumRpc = this.hasPremiumRpcProvider(blockchain);
     
-    // NO FALLBACKS - Require premium RPC for testnets
-    if (!hasGastracker && !hasPremiumRpc) {
-      const isTestnetChain = isTestnet(chainId);
+    // For testnets using mainnet estimates, we don't need premium RPC
+    if (!hasGastracker && !hasPremiumRpc && !isTestnetChain) {
       throw new Error(
-        `${isTestnetChain ? 'Testnet' : 'Chain'} ${blockchain} requires premium RPC provider (Alchemy/QuickNode) for gas estimation. ` +
-        `${isTestnetChain ? 'Etherscan gastracker is not supported on testnets. ' : ''}` +
+        `Chain ${blockchain} requires premium RPC provider (Alchemy/QuickNode) for gas estimation. ` +
         `Configure VITE_${blockchain.toUpperCase()}_RPC_URL with premium provider in .env`
       );
     }
-    
-    if (!hasGastracker && hasPremiumRpc) {
-      console.log(`[RealTimeFeeEstimator] 🔗 Testnet detected (${blockchain}) with premium RPC (Alchemy/Infura) - fetching real gas prices`);
-    }
 
-    // Try Etherscan API first (only for mainnet chains with gastracker support)
+    // Try Etherscan API first (for mainnet chains with gastracker support)
     if (hasGastracker) {
       try {
         console.log(`[RealTimeFeeEstimator] Trying Etherscan API...`);
-        const explorerData = await this.fetchFromEtherscanV2(blockchain);
+        const explorerData = await this.fetchFromEtherscanV2(effectiveBlockchain);
         if (explorerData) {
-          const feeData = this.calculateFeeData(explorerData, priority, chainId);
-          feeData.source = 'etherscan';
+          const feeData = this.calculateFeeData(explorerData, priority, effectiveChainId);
+          feeData.source = isTestnetChain ? 'mainnet-estimate' as any : 'etherscan';
           this.cache.set(cacheKey, { data: feeData, timestamp: Date.now() });
-          console.log(`[RealTimeFeeEstimator] ✅ SUCCESS via Etherscan - Gas price: ${feeData.gasPrice} Wei [Source: etherscan]`);
+          console.log(`[RealTimeFeeEstimator] ✅ SUCCESS via Etherscan - Gas price: ${feeData.gasPrice} Wei [Source: ${feeData.source}]`);
           return feeData;
         }
       } catch (error) {
-        console.warn(`[RealTimeFeeEstimator] ⚠️ Etherscan API failed for ${blockchain}, falling back to RPC:`, error);
+        console.warn(`[RealTimeFeeEstimator] ⚠️ Etherscan API failed for ${effectiveBlockchain}, falling back to RPC:`, error);
       }
     }
 
     // Fallback to RPC (for mainnets without Etherscan, or testnets with premium RPC)
+    // For testnets without premium RPC, this will use the mainnet RPC
     try {
       console.log(`[RealTimeFeeEstimator] Trying RPC fallback...`);
-      const rpcData = await this.fetchFromRPC(blockchain);
-      const feeData = this.calculateFeeData(rpcData, priority, chainId);
+      const rpcData = await this.fetchFromRPC(effectiveBlockchain);
+      const feeData = this.calculateFeeData(rpcData, priority, effectiveChainId);
       // Determine if this is premium or public RPC
-      feeData.source = hasPremiumRpc ? 'premium-rpc' : 'public-rpc';
+      feeData.source = isTestnetChain ? 'mainnet-estimate' as any : (hasPremiumRpc ? 'premium-rpc' : 'public-rpc');
       this.cache.set(cacheKey, { data: feeData, timestamp: Date.now() });
       console.log(`[RealTimeFeeEstimator] ✅ SUCCESS via RPC - Gas price: ${feeData.gasPrice} Wei [Source: ${feeData.source}]`);
       return feeData;
     } catch (error) {
-      console.error(`[RealTimeFeeEstimator] ❌ RPC fallback also failed for ${blockchain}:`, error);
+      console.error(`[RealTimeFeeEstimator] ❌ RPC fallback also failed for ${effectiveBlockchain}:`, error);
     }
 
     // NO STATIC FALLBACK - Throw error instead

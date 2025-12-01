@@ -2,12 +2,44 @@
  * Multi-Signature Wallet Services
  * Export all multi-sig related services and types
  * Integrates with: validator, rpc, abi, adapter infrastructure
+ * 
+ * ARCHITECTURE:
+ * - MultiSigWalletService: Wallet creation, deployment, queries
+ * - MultiSigProposalService: Proposal creation, signing, execution
+ * - MultiSigHelpers: Shared utilities for project wallets, signers, RPC
  */
 
+// ============================================================================
+// PRIMARY SERVICES (NEW ARCHITECTURE)
+// ============================================================================
+
+export {
+  MultiSigWalletService
+} from './MultiSigWalletService';
+
+export {
+  MultiSigProposalService,
+  multiSigProposalService
+} from './MultiSigProposalService';
+
+// Shared helpers for wallet and proposal services
+export * from './MultiSigHelpers';
+
+// ============================================================================
+// LEGACY SERVICE (DEPRECATED - Use MultiSigWalletService + MultiSigProposalService)
+// ============================================================================
+
+// @deprecated - Split into MultiSigWalletService and MultiSigProposalService
+// Kept for backward compatibility during migration
+// TODO: Remove after all components migrated to new services
 export { 
   MultiSigTransactionService,
   multiSigTransactionService
-} from './MultiSigTransactionService';
+} from './MultiSigTransactionService.DEPRECATED';
+
+// ============================================================================
+// SUPPORTING SERVICES
+// ============================================================================
 
 export {
   MultiSigApprovalService,
@@ -53,26 +85,34 @@ export {
   COMMON_ROLES
 } from './RoleManagementService';
 
-// Supported blockchains for MultiSig wallet creation
-// Re-export EVM chains from BlockchainValidator for consistency
+// ============================================================================
+// BLOCKCHAIN SUPPORT
+// ============================================================================
+
 import { BLOCKCHAIN_CATEGORIES } from '@/infrastructure/web3/utils/BlockchainValidator';
 
 export const SUPPORTED_MULTISIG_BLOCKCHAINS = BLOCKCHAIN_CATEGORIES.evm;
-
-// Type for MultiSig-supported chains (EVM chains only)
 export type SupportedMultiSigChain = typeof SUPPORTED_MULTISIG_BLOCKCHAINS[number];
 
-// Re-export types
+// ============================================================================
+// TYPE EXPORTS
+// ============================================================================
+
+// Primary types from domain layer
 export type {
+  MultiSigWallet,
+  ProjectWallet,
+  WalletDeploymentResult,
   MultiSigProposal,
   ProposalSignature,
-  MultiSigWallet,
   SignatureRequirement,
   SignedMultiSigTransaction,
   MultiSigBroadcastResult,
-  WalletDeploymentResult
-} from './MultiSigTransactionService';
+  MultiSigDeploymentOptions,
+  MultiSigSignerOptions
+} from '@/types/domain/wallet';
 
+// Supporting service types
 export type {
   TransferProposal,
   ProposalApproval,

@@ -29,7 +29,7 @@ import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { TxRaw, TxBody, AuthInfo, SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
 import { ChainType } from '../AddressUtils';
-import type { ProposalSignature, MultiSigWallet } from './MultiSigTransactionService';
+import type { ProposalSignature, MultiSigWallet } from '@/types/domain/wallet/multiSig';
 
 // ============================================================================
 // INTERFACES

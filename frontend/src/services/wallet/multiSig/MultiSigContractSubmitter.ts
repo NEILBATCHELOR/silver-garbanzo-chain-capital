@@ -234,22 +234,7 @@ export class MultiSigContractSubmitter {
           project_id: proposal.project_id
         });
 
-      // 15. Update UI proposal status
-      const { data: uiProposal } = await supabase
-        .from('transaction_proposals')
-        .select('id')
-        .eq('multi_sig_proposal_id', proposalId)
-        .single();
-
-      if (uiProposal) {
-        await supabase
-          .from('transaction_proposals')
-          .update({
-            status: 'submitted_to_contract', // New status to indicate on-chain submission
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', uiProposal.id);
-      }
+      // Status is tracked in multi_sig_proposals (transaction_proposals table removed)
 
       return {
         success: true,

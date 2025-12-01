@@ -143,9 +143,9 @@ export const MultiSigWalletsList: React.FC<MultiSigWalletsListProps> = ({
                 <Users className="h-3 w-3 mr-1" />
                 {wallet.owner_count} Owners
               </Badge>
-              {wallet.contract_type && (
+              {(wallet as any).contract_type || wallet.contractType && (
                 <Badge variant="outline" className="text-xs">
-                  {wallet.contract_type}
+                  {(wallet as any).contract_type || wallet.contractType}
                 </Badge>
               )}
             </div>

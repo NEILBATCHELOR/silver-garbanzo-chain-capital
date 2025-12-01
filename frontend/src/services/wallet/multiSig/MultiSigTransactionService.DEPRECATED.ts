@@ -1,4 +1,29 @@
 /**
+ * ⚠️ DEPRECATED - DO NOT USE IN NEW CODE ⚠️
+ * 
+ * This service has been split into focused services for better maintainability:
+ * - MultiSigWalletService: Wallet creation, deployment, queries
+ * - MultiSigProposalService: Proposal creation, signing, execution
+ * 
+ * Migration Guide:
+ * 1. For wallet deployment:
+ *    OLD: multiSigTransactionService.deployMultiSigWallet(...)
+ *    NEW: MultiSigWalletService.deployMultiSigWallet(...)
+ * 
+ * 2. For proposal signing:
+ *    OLD: multiSigTransactionService.signProposal(...)
+ *    NEW: multiSigProposalService.signProposal(...)
+ * 
+ * 3. For proposal creation:
+ *    OLD: multiSigTransactionService.createProposal(...)
+ *    NEW: multiSigProposalService.createProposal(...)
+ * 
+ * @deprecated Use MultiSigWalletService and MultiSigProposalService instead
+ * @see MultiSigWalletService for wallet operations
+ * @see MultiSigProposalService for proposal operations
+ */
+
+/**
  * Multi-Signature Transaction Service - ENHANCED
  * Core service for managing multi-sig transaction workflows
  * Supports threshold signatures across EVM and non-EVM chains
@@ -363,11 +388,40 @@ export class MultiSigTransactionService {
         throw new Error(`Address ${signerAddress} is not an authorized signer`);
       }
 
+      // If no private key provided, look up the key vault reference for this address
+      let signingKey = privateKeyOrKeyId;
+      if (!signingKey) {
+        const { data: userAddress, error: addressError } = await supabase
+          .from('user_addresses')
+          .select('key_vault_reference, encrypted_private_key, signing_method')
+          .eq('address', signerAddress)
+          .single();
+
+        if (addressError) {
+          throw new Error(`Failed to find signing method for address ${signerAddress}: ${addressError.message}`);
+        }
+
+        if (!userAddress) {
+          throw new Error(`No signing configuration found for address ${signerAddress}`);
+        }
+
+        // Determine which key source to use
+        if (userAddress.key_vault_reference) {
+          // Use key vault reference
+          signingKey = `vault:${userAddress.key_vault_reference}`;
+        } else if (userAddress.encrypted_private_key) {
+          // Use encrypted private key (will need password prompt)
+          signingKey = `encrypted:${userAddress.encrypted_private_key}`;
+        } else {
+          throw new Error(`No private key or key vault reference found for address ${signerAddress}`);
+        }
+      }
+
       // Sign the transaction hash
       const signature = await this.localSigner.signTransaction(
         proposal.transactionHash,
         signerAddress,
-        privateKeyOrKeyId,
+        signingKey,
         proposal.chainType
       );
 
@@ -424,7 +478,7 @@ export class MultiSigTransactionService {
         wallet
       );
 
-      // Update proposal status
+      // Update proposal status (transaction_proposals table removed)
       await supabase
         .from('multi_sig_proposals')
         .update({ status: 'signed' })
@@ -488,12 +542,13 @@ export class MultiSigTransactionService {
       }
 
       if (result.success) {
-        // Update proposal with execution details
+        // Update proposal with execution details in both layers
+        // Update proposal with execution details (transaction_proposals table removed)
         await supabase
           .from('multi_sig_proposals')
           .update({
             status: 'executed',
-            executed_at: new Date(),
+            executed_at: new Date().toISOString(),
             execution_hash: result.transactionHash
           })
           .eq('id', signedTx.proposalId);
@@ -932,7 +987,7 @@ export class MultiSigTransactionService {
       const parsedEvent = multiSig.interface.parseLog(submitEvent);
       const onChainTxId = Number(parsedEvent?.args?.txIndex);
       
-      // Update proposal in database
+      // Update multi_sig_proposals directly with on-chain details
       await supabase
         .from('multi_sig_proposals')
         .update({
@@ -1014,9 +1069,11 @@ export class MultiSigTransactionService {
 
   /**
    * Get all proposals for a wallet
+   * UPDATED: Query directly from multi_sig_proposals (transaction_proposals table removed)
    */
   async getProposalsForWallet(walletId: string): Promise<MultiSigProposal[]> {
     try {
+      // Query multi_sig_proposals directly
       const { data, error } = await supabase
         .from('multi_sig_proposals')
         .select('*')
@@ -1025,7 +1082,24 @@ export class MultiSigTransactionService {
 
       if (error) throw error;
 
-      return data?.map(d => this.formatProposal(d)) || [];
+      return data?.map(proposal => ({
+        id: proposal.id,
+        walletId: proposal.wallet_id,
+        transactionHash: proposal.transaction_hash,
+        rawTransaction: proposal.raw_transaction,
+        chainType: proposal.chain_type as ChainType,
+        status: proposal.status,
+        signaturesCollected: proposal.signatures_collected || 0,
+        signaturesRequired: proposal.signatures_required,
+        expiresAt: new Date(proposal.expires_at),
+        executedAt: proposal.executed_at ? new Date(proposal.executed_at) : undefined,
+        executionHash: proposal.execution_hash || undefined,
+        createdBy: proposal.created_by,
+        createdAt: new Date(proposal.created_at),
+        onChainTxId: proposal.on_chain_tx_id || undefined,
+        onChainTxHash: proposal.on_chain_tx_hash || undefined,
+        submittedOnChain: proposal.submitted_on_chain || false
+      })) || [];
     } catch (error: any) {
       console.error('Failed to get proposals:', error);
       throw new Error(`Failed to get proposals: ${error.message}`);
@@ -1303,17 +1377,50 @@ export class MultiSigTransactionService {
   }
 
   async getProposal(proposalId: string): Promise<MultiSigProposal> {
-    const { data, error } = await supabase
-      .from('multi_sig_proposals')
-      .select('*')
-      .eq('id', proposalId)
-      .single();
+    try {
+      // Query multi_sig_proposals directly (single source of truth)
+      const { data: proposal, error } = await supabase
+        .from('multi_sig_proposals')
+        .select('*')
+        .eq('id', proposalId)
+        .single();
 
-    if (error || !data) {
-      throw new Error(`Failed to get proposal: ${error?.message}`);
+      if (error) {
+        console.error('Supabase error fetching proposal:', error);
+        throw error;
+      }
+      
+      if (!proposal) {
+        throw new Error('Proposal not found');
+      }
+
+      // Format data from multi_sig_proposals
+      return {
+        id: proposal.id,
+        walletId: proposal.wallet_id,
+        transactionHash: proposal.transaction_hash || '',
+        rawTransaction: proposal.raw_transaction || { 
+          to: proposal.to_address, 
+          value: proposal.value, 
+          data: proposal.data || '0x' 
+        },
+        chainType: (proposal.chain_type || proposal.blockchain) as ChainType,
+        status: proposal.status || 'pending',
+        signaturesCollected: proposal.signatures_collected || 0,
+        signaturesRequired: proposal.signatures_required || 2,
+        expiresAt: proposal.expires_at ? new Date(proposal.expires_at) : new Date(Date.now() + 24 * 60 * 60 * 1000),
+        executedAt: proposal.executed_at ? new Date(proposal.executed_at) : undefined,
+        executionHash: proposal.execution_hash,
+        createdBy: proposal.created_by,
+        createdAt: new Date(proposal.created_at),
+        onChainTxId: proposal.on_chain_tx_id,
+        onChainTxHash: proposal.on_chain_tx_hash,
+        submittedOnChain: proposal.submitted_on_chain || false
+      };
+    } catch (error: any) {
+      console.error('Failed to get proposal:', error);
+      throw new Error(`Failed to get proposal: ${error.message || error.code || 'Unknown error'}`);
     }
-
-    return this.formatProposal(data);
   }
 
   async getProposalSignatures(proposalId: string): Promise<ProposalSignature[]> {
@@ -1345,12 +1452,18 @@ export class MultiSigTransactionService {
   }
 
   private async updateProposalSignatureCount(proposalId: string): Promise<void> {
+    // Update signature count directly in multi_sig_proposals
     const signatures = await this.getProposalSignatures(proposalId);
     
-    await supabase
+    const { error: updateError } = await supabase
       .from('multi_sig_proposals')
       .update({ signatures_collected: signatures.length })
       .eq('id', proposalId);
+    
+    if (updateError) {
+      console.error('Failed to update multi_sig_proposals signature count:', updateError);
+      throw updateError;
+    }
   }
 
   private calculateTransactionHash(transaction: any, chainType: ChainType): string {

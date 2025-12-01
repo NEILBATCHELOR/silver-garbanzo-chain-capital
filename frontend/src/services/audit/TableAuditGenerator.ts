@@ -107,8 +107,8 @@ export class TableAuditGenerator {
     'alerts', 'health_checks', 'monitoring_metrics', 'system_processes', 'signatures',
     'deployment_rate_limits', 'user_mfa_settings', 'mfa_policies', 'notifications',
     
-    // Transaction/Approval tables
-    'transactions', 'transaction_events', 'transaction_signatures', 'transaction_proposals',
+    // Transaction/Approval tables (transaction_proposals removed - using multi_sig_proposals)
+    'transactions', 'transaction_events', 'transaction_signatures',
     'transaction_notifications', 'approval_requests', 'investor_approvals', 'bulk_operations',
     
     // Workflow tables

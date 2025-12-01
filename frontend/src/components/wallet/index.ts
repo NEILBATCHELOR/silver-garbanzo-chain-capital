@@ -7,4 +7,4 @@ export { MultiSigManager } from '@/components/wallet/multisig/MultiSigManager';
 
 // Re-export types
 export type { RoleAssignment } from '@/services/wallet/multiSig/RoleManagementService';
-export type { MultiSigProposal } from '@/services/wallet/multiSig/MultiSigTransactionService';
+export type { MultiSigProposal } from '@/types/domain/wallet/multiSig';

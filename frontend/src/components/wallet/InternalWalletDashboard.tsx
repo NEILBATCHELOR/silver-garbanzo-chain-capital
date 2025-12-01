@@ -112,7 +112,15 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
   // NEW: Load project wallets using InternalWalletService
   const loadProjectWallets = async () => {
-    if (!projectId) return;
+    // GUARD: Silently skip if no project selected
+    if (!projectId || projectId.trim() === '') {
+      setInternalWallets(prev => ({
+        ...prev,
+        projectWallets: [],
+        multiSigWallets: []
+      }));
+      return;
+    }
 
     try {
       setLoadingInternalWallets(true);
@@ -129,12 +137,18 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
       
       setWalletBalancesLoaded(true);
     } catch (error) {
-      console.error('Failed to load project wallets:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Failed to load wallets',
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      // Only show toast for unexpected errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Don't show toast for "no project" errors
+      if (!errorMessage.toLowerCase().includes('project') || projectId) {
+        console.error('[InternalWalletDashboard] Failed to load wallets:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load wallets',
+          description: errorMessage,
+        });
+      }
     } finally {
       setLoadingInternalWallets(false);
     }

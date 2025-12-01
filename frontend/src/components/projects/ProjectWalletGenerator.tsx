@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { ProjectWalletResult, enhancedProjectWalletService } from '@/services/project/project-wallet-service';
-import { multiSigTransactionService } from '@/services/wallet/multiSig/MultiSigTransactionService';
+import { MultiSigWalletService } from '@/services/wallet/multiSig';
 import { 
   getAllChains, 
   getChainConfig, 
@@ -200,13 +200,13 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     setGeneratedMultiSigAddress(null);
 
     try {
-      const result = await multiSigTransactionService.deployMultiSigWallet(
-        multiSigName,
-        validOwners,
-        multiSigThreshold,
-        selectedNetwork,
+      const result = await MultiSigWalletService.deployMultiSigWallet({
+        name: multiSigName,
+        owners: validOwners,
+        threshold: multiSigThreshold,
+        blockchain: selectedNetwork,
         projectId
-      );
+      });
 
       setGeneratedMultiSigAddress(result.address);
       

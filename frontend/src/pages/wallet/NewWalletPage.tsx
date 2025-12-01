@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/infrastructure/database/client";
-import { MultiSigTransactionService } from "@/services/wallet/multiSig/MultiSigTransactionService";
+import { MultiSigWalletService } from "@/services/wallet/multiSig";
 import { BlockchainFactory } from "@/infrastructure/web3/BlockchainFactory";
 import type { SupportedChain } from "@/infrastructure/web3/adapters/IBlockchainAdapter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -280,15 +280,14 @@ const NewWalletPage: React.FC = () => {
       // If simulation was successful, proceed with actual deployment
       setDeploymentStatus({ processing: true, message: "Deploying MultiSig wallet..." });
 
-      // Deploy the wallet using the real MultiSigTransactionService
-      const multiSigService = MultiSigTransactionService.getInstance();
-      const deployment = await multiSigService.deployMultiSigWallet(
-        newWalletForm.getValues().name,
-        multiSigAddresses,
-        multiSigThreshold,
-        newWalletForm.getValues().network,
-        selectedProjectId // REQUIRED: Project wallet to fund deployment
-      );
+      // Deploy the wallet using MultiSigWalletService
+      const deployment = await MultiSigWalletService.deployMultiSigWallet({
+        name: newWalletForm.getValues().name,
+        owners: multiSigAddresses,
+        threshold: multiSigThreshold,
+        blockchain: newWalletForm.getValues().network,
+        projectId: selectedProjectId // REQUIRED: Project wallet to fund deployment
+      });
       
       toast({
         title: "MultiSig Wallet Created",

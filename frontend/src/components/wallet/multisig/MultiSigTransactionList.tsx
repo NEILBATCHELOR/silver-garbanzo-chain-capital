@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { 
-  MultiSigTransactionService, 
+  multiSigProposalService,
   type MultiSigProposal 
-} from '@/services/wallet/multiSig/MultiSigTransactionService';
+} from '@/services/wallet/multiSig';
 import { useAuth } from '@/hooks/auth/useAuth';
 import { supabase } from '@/infrastructure/database/client';
 
@@ -42,12 +42,10 @@ export function MultiSigTransactionList({
   const [signingTxId, setSigningTxId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const multiSigService = MultiSigTransactionService.getInstance();
-
   const loadProposals = useCallback(async () => {
     try {
       setError(null);
-      const data = await multiSigService.getProposalsForWallet(walletId);
+      const data = await multiSigProposalService.getProposalsForWallet(walletId);
       
       // Sort by created date (newest first)
       const sorted = data.sort((a, b) => 
@@ -61,7 +59,7 @@ export function MultiSigTransactionList({
     } finally {
       setIsLoading(false);
     }
-  }, [walletId, multiSigService]);
+  }, [walletId]);
 
   useEffect(() => {
     loadProposals();
@@ -91,30 +89,90 @@ export function MultiSigTransactionList({
     try {
       setSigningTxId(proposalId);
       
-      // Get the wallet to find user's address in the owners list
-      const { data: walletData } = await supabase
-        .from('multi_sig_wallets')
-        .select('owners')
-        .eq('id', walletId)
+      // Get the user's active address from user_addresses table
+      const { data: userAddressData, error: addressError } = await supabase
+        .from('user_addresses')
+        .select('address')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
         .single();
       
-      if (!walletData || !walletData.owners || walletData.owners.length === 0) {
-        throw new Error('Could not determine signer address');
+      if (addressError || !userAddressData?.address) {
+        throw new Error('Could not determine signer address. Please ensure you have an active wallet address.');
       }
       
-      // Use the first owner as the signer (you may want to implement better logic here)
-      const userAddress = walletData.owners[0];
+      const userAddress = userAddressData.address;
       
-      // Confirm on-chain
-      await multiSigService.confirmOnChain(proposalId, userAddress);
+      // Verify user is an owner of this wallet
+      const { data: ownerData, error: ownerError } = await supabase
+        .from('multi_sig_wallet_owners')
+        .select('id')
+        .eq('wallet_id', walletId)
+        .eq('user_id', user.id)
+        .single();
       
-      // Reload proposals
+      if (ownerError || !ownerData) {
+        throw new Error('You are not an owner of this wallet');
+      }
+      
+      // Get current proposal state
+      const proposal = await multiSigProposalService.getProposal(proposalId);
+      if (!proposal) {
+        throw new Error('Proposal not found');
+      }
+      
+      // Check if proposal is already on-chain
+      if (proposal.submittedOnChain && proposal.onChainTxId !== undefined) {
+        // Proposal is on-chain, confirm it
+        toast({
+          title: 'Confirming on-chain',
+          description: 'Submitting confirmation to smart contract...',
+        });
+        
+        await multiSigProposalService.confirmOnChain(proposalId, userAddress);
+        
+        toast({
+          title: 'Success',
+          description: 'Transaction confirmed on-chain successfully',
+        });
+      } else {
+        // Proposal not on-chain yet, add off-chain signature first
+        toast({
+          title: 'Signing proposal',
+          description: 'Adding your signature...',
+        });
+        
+        await multiSigProposalService.signProposal(proposalId, userAddress);
+        
+        // Reload to get updated signature count
+        const updatedProposal = await multiSigProposalService.getProposal(proposalId);
+        
+        // Check if threshold is met after adding signature
+        if (updatedProposal && 
+            updatedProposal.signaturesCollected >= updatedProposal.signaturesRequired) {
+          
+          toast({
+            title: 'Threshold met',
+            description: 'Submitting transaction to smart contract...',
+          });
+          
+          // Submit to contract
+          const { onChainTxId, transactionHash } = await multiSigProposalService.submitToContract(proposalId);
+          
+          toast({
+            title: 'Success',
+            description: `Transaction submitted on-chain with ID #${onChainTxId}`,
+          });
+        } else {
+          toast({
+            title: 'Success',
+            description: `Signature added (${updatedProposal?.signaturesCollected}/${updatedProposal?.signaturesRequired})`,
+          });
+        }
+      }
+      
+      // Reload proposals to show updated state
       await loadProposals();
-      
-      toast({
-        title: 'Success',
-        description: 'Transaction signed successfully',
-      });
       
     } catch (err: any) {
       console.error('Failed to sign:', err);

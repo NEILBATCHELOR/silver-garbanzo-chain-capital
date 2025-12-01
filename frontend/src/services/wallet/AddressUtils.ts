@@ -71,6 +71,7 @@ const CHAIN_CONFIGS: ChainAddressConfig[] = [
   { chainId: CHAIN_IDS.ethereum, chainName: 'Ethereum', chainType: ChainType.ETHEREUM, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   { chainId: CHAIN_IDS.sepolia, chainName: 'Sepolia', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   { chainId: CHAIN_IDS.holesky, chainName: 'Holesky', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
+  { chainId: CHAIN_IDS.hoodi, chainName: 'Hoodi', chainType: ChainType.ETHEREUM, networkType: 'testnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
   
   // Polygon Mainnet & Testnet  
   { chainId: CHAIN_IDS.polygon, chainName: 'Polygon', chainType: ChainType.POLYGON, networkType: 'mainnet', addressFormat: 'evm', addressLength: 42, prefix: '0x', checksum: true },
@@ -592,6 +593,103 @@ export class AddressUtilsService {
     const bech32Pattern = /^[a-z0-9]+1[a-z0-9]{38,}$/;
     return bech32Pattern.test(address.toLowerCase());
   }
+}
+
+/**
+ * Map blockchain name to ChainType for address validation
+ * Handles all EVM chains and their testnets
+ */
+export function blockchainToChainType(blockchain: string): ChainType {
+  const chain = blockchain.toLowerCase();
+  
+  // Ethereum and its testnets
+  if (chain === 'ethereum' || chain === 'sepolia' || chain === 'holesky' || chain === 'hoodi') {
+    return ChainType.ETHEREUM;
+  }
+  
+  // Polygon and its testnets
+  if (chain === 'polygon' || chain === 'polygonamoy' || chain.includes('amoy')) {
+    return ChainType.POLYGON;
+  }
+  
+  // Optimism and its testnets
+  if (chain === 'optimism' || chain === 'optimismsepolia' || chain.includes('opsepolia')) {
+    return ChainType.OPTIMISM;
+  }
+  
+  // Arbitrum and its testnets
+  if (chain === 'arbitrum' || chain === 'arbitrumone' || chain === 'arbitrumsepolia') {
+    return ChainType.ARBITRUM;
+  }
+  
+  // Base and its testnets
+  if (chain === 'base' || chain === 'basesepolia') {
+    return ChainType.BASE;
+  }
+  
+  // BSC and its testnets
+  if (chain === 'bsc' || chain === 'bnb' || chain === 'bnbtestnet' || chain.includes('binance')) {
+    return ChainType.BSC;
+  }
+  
+  // zkSync and its testnets
+  if (chain === 'zksync' || chain === 'zksyncsepolia' || chain.includes('zksync')) {
+    return ChainType.ZKSYNC;
+  }
+  
+  // Avalanche and its testnets
+  if (chain === 'avalanche' || chain === 'avalanchefuji' || chain.includes('avax')) {
+    return ChainType.AVALANCHE;
+  }
+  
+  // Non-EVM chains
+  if (chain === 'bitcoin' || chain.includes('btc')) {
+    return ChainType.BITCOIN;
+  }
+  
+  if (chain === 'solana' || chain.includes('sol')) {
+    return ChainType.SOLANA;
+  }
+  
+  if (chain === 'aptos' || chain.includes('apt')) {
+    return ChainType.APTOS;
+  }
+  
+  if (chain === 'sui') {
+    return ChainType.SUI;
+  }
+  
+  if (chain === 'near') {
+    return ChainType.NEAR;
+  }
+  
+  if (chain === 'injective' || chain.includes('inj')) {
+    return ChainType.INJECTIVE;
+  }
+  
+  if (chain === 'ripple' || chain === 'xrp') {
+    return ChainType.RIPPLE;
+  }
+  
+  // Cosmos ecosystem
+  if (chain === 'cosmos' || chain === 'cosmoshub') {
+    return ChainType.COSMOS;
+  }
+  
+  if (chain === 'osmosis') {
+    return ChainType.OSMOSIS;
+  }
+  
+  if (chain === 'juno') {
+    return ChainType.JUNO;
+  }
+  
+  if (chain === 'secret' || chain === 'secretnetwork') {
+    return ChainType.SECRET;
+  }
+  
+  // Default to Ethereum for unknown EVM chains
+  return ChainType.ETHEREUM;
 }
 
 // Export singleton instance

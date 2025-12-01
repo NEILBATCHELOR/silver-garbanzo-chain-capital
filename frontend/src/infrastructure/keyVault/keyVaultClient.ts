@@ -32,12 +32,12 @@ class KeyVaultClient implements IKeyVaultClient {
     this.credentials = null;
   }
 
-  async getKey(vaultId: string): Promise<KeyResult> {
+  async getKey(vaultIdOrKeyId: string): Promise<KeyResult> {
     // Note: Credentials check removed as Supabase handles auth automatically
     
     try {
-      // Retrieve the encrypted key using the UUID vault ID
-      const encryptedKey = await this.getEncryptedKey(vaultId);
+      // Retrieve the encrypted key using the UUID vault ID or custom key_id
+      const encryptedKey = await this.getEncryptedKey(vaultIdOrKeyId);
       if (!encryptedKey) {
         throw new Error('Key not found');
       }
@@ -54,7 +54,7 @@ class KeyVaultClient implements IKeyVaultClient {
         address: wallet.address
       };
     } catch (error) {
-      console.error(`Error retrieving key ${vaultId}:`, error);
+      console.error(`Error retrieving key ${vaultIdOrKeyId}:`, error);
       throw new Error(`Failed to retrieve key: ${error}`);
     }
   }
@@ -118,11 +118,11 @@ class KeyVaultClient implements IKeyVaultClient {
   /**
    * Sign data using a key in the vault
    * 
-   * @param vaultId The UUID of the key vault entry
+   * @param vaultIdOrKeyId The UUID or custom key_id of the key vault entry
    * @param data The data to sign
    * @returns The signature
    */
-  async signData(vaultId: string, data: string): Promise<string> {
+  async signData(vaultIdOrKeyId: string, data: string): Promise<string> {
     try {
       // In production, the HSM would handle the signing
       // For development, we need to:
@@ -131,8 +131,8 @@ class KeyVaultClient implements IKeyVaultClient {
       // 3. Sign the data
       // 4. Log the usage
       
-      // Retrieve the encrypted key using the UUID vault ID
-      const encryptedKey = await this.getEncryptedKey(vaultId);
+      // Retrieve the encrypted key using the UUID vault ID or custom key_id
+      const encryptedKey = await this.getEncryptedKey(vaultIdOrKeyId);
       if (!encryptedKey) {
         throw new Error('Key not found');
       }
@@ -155,15 +155,18 @@ class KeyVaultClient implements IKeyVaultClient {
   /**
    * Delete a key from the vault
    * 
-   * @param vaultId The UUID of the key vault entry to delete
+   * @param vaultIdOrKeyId The UUID or custom key_id of the key vault entry to delete
    */
-  async deleteKey(vaultId: string): Promise<{ success: boolean }> {
+  async deleteKey(vaultIdOrKeyId: string): Promise<{ success: boolean }> {
     try {
-      // Delete from key_vault_keys table by UUID 'id'
+      // Check if input is a UUID or a custom key_id
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vaultIdOrKeyId);
+      
+      // Delete from key_vault_keys table by appropriate column
       const { error } = await supabase
         .from('key_vault_keys')
         .delete()
-        .eq('id', vaultId); // Match on UUID 'id' column, not 'key_id'
+        .eq(isUuid ? 'id' : 'key_id', vaultIdOrKeyId);
         
       if (error) throw error;
       
@@ -295,12 +298,15 @@ class KeyVaultClient implements IKeyVaultClient {
     return data.id;
   }
   
-  private async getEncryptedKey(vaultId: string): Promise<string> {
-    // Retrieve from key_vault_keys table by UUID 'id' column
+  private async getEncryptedKey(vaultIdOrKeyId: string): Promise<string> {
+    // Check if input is a UUID or a custom key_id
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vaultIdOrKeyId);
+    
+    // Query by appropriate column
     const { data, error } = await supabase
       .from('key_vault_keys')
       .select('encrypted_key')
-      .eq('id', vaultId) // Match on UUID 'id' column, not 'key_id'
+      .eq(isUuid ? 'id' : 'key_id', vaultIdOrKeyId)
       .single();
       
     if (error) throw error;

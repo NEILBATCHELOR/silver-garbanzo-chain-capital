@@ -6634,7 +6634,7 @@ export type Database = {
           network: string
           output: string | null
           success: boolean
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action: string
@@ -6648,7 +6648,7 @@ export type Database = {
           network: string
           output?: string | null
           success: boolean
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action?: string
@@ -6662,7 +6662,7 @@ export type Database = {
           network?: string
           output?: string | null
           success?: boolean
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -19792,15 +19792,7 @@ export type Database = {
           signer_address?: string
           validation_error?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "proposal_signatures_proposal_id_fkey"
-            columns: ["proposal_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_proposals"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       provider: {
         Row: {
@@ -24980,15 +24972,7 @@ export type Database = {
           signature?: string
           signer?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "signatures_proposal_id_fkey"
-            columns: ["proposal_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_proposals"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       signer_keys: {
         Row: {
@@ -34282,85 +34266,6 @@ export type Database = {
         }
         Relationships: []
       }
-      transaction_proposals: {
-        Row: {
-          blockchain: string
-          created_at: string | null
-          created_by: string | null
-          data: string | null
-          description: string | null
-          id: string
-          multi_sig_proposal_id: string | null
-          nonce: number | null
-          status: string
-          title: string
-          to_address: string
-          token_address: string | null
-          token_symbol: string | null
-          updated_at: string | null
-          value: string
-          wallet_id: string | null
-        }
-        Insert: {
-          blockchain: string
-          created_at?: string | null
-          created_by?: string | null
-          data?: string | null
-          description?: string | null
-          id?: string
-          multi_sig_proposal_id?: string | null
-          nonce?: number | null
-          status?: string
-          title: string
-          to_address: string
-          token_address?: string | null
-          token_symbol?: string | null
-          updated_at?: string | null
-          value: string
-          wallet_id?: string | null
-        }
-        Update: {
-          blockchain?: string
-          created_at?: string | null
-          created_by?: string | null
-          data?: string | null
-          description?: string | null
-          id?: string
-          multi_sig_proposal_id?: string | null
-          nonce?: number | null
-          status?: string
-          title?: string
-          to_address?: string
-          token_address?: string | null
-          token_symbol?: string | null
-          updated_at?: string | null
-          value?: string
-          wallet_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transaction_proposals_multi_sig_proposal_id_fkey"
-            columns: ["multi_sig_proposal_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_proposals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transaction_proposals_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_wallet_roles"
-            referencedColumns: ["wallet_id"]
-          },
-          {
-            foreignKeyName: "transaction_proposals_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_wallets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       transaction_signatures: {
         Row: {
           created_at: string
@@ -34395,15 +34300,7 @@ export type Database = {
           transaction_hash?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "transaction_signatures_proposal_fkey"
-            columns: ["proposal_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_proposals"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       transaction_validations: {
         Row: {

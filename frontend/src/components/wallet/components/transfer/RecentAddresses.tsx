@@ -19,7 +19,7 @@ export const RecentAddresses: React.FC<RecentAddressesProps> = ({
   currentWalletId 
 }) => {
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, loading: authLoading } = useUser();
   const [recentAddresses, setRecentAddresses] = useState<RecentAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -32,8 +32,16 @@ export const RecentAddresses: React.FC<RecentAddressesProps> = ({
     try {
       setLoading(true);
 
+      // GUARD: Don't load if auth is still in progress
+      if (authLoading) {
+        return;
+      }
+
+      // GUARD: Only warn if auth completed but no user (unexpected state)
       if (!user?.id) {
-        console.warn('No user ID available for loading recent addresses');
+        if (!authLoading) {
+          console.warn('[RecentAddresses] User authenticated but no ID available');
+        }
         setRecentAddresses([]);
         return;
       }
