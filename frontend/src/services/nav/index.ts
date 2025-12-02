@@ -4,3 +4,8 @@
  */
 
 export * from './NavService'
+export { etfService, ETFService } from './etfService'
+// Re-export ETF types for convenience
+export type {
+  ETFApiError
+} from './etfService'

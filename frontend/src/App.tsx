@@ -197,6 +197,19 @@ import {
   MMFTokenLinksPage,
 } from '@/pages/nav/mmf';
 
+// ETF Pages
+import {
+  ETFListPage,
+  ETFDetailPage,
+  ETFCalculatorPage,
+  ETFAddPage,
+  ETFAnalyticsPage,
+  ETFNAVTrackerPage,
+  ETFUploadPage,
+  ETFHistoryPage,
+  ETFTokenLinksPage,
+} from '@/pages/nav/etf';
+
 // Redirect component for token routes
 const TokenRedirect = () => {
   const { projectId } = useParams();
@@ -777,6 +790,28 @@ function App() {
                         <Route path="projects/:projectId/nav/mmf/history" element={<MMFHistoryPage />} />
                         <Route path="projects/:projectId/nav/mmf/:fundId" element={<MMFDetailPage />} />
                         <Route path="projects/:projectId/nav/mmf/:fundId/calculate" element={<MMFCalculatorPage />} />
+
+                        {/* ETF Routes */}
+                        <Route path="nav/etf" element={<ETFListPage />} />
+                        <Route path="nav/etf/create" element={<ETFAddPage />} />
+                        <Route path="nav/etf/upload" element={<ETFUploadPage />} />
+                        <Route path="nav/etf/analytics" element={<ETFAnalyticsPage />} />
+                        <Route path="nav/etf/nav-tracker" element={<ETFNAVTrackerPage />} />
+                        <Route path="nav/etf/token-links" element={<ETFTokenLinksPage />} />
+                        <Route path="nav/etf/history" element={<ETFHistoryPage />} />
+                        <Route path="nav/etf/:fundId" element={<ETFDetailPage />} />
+                        <Route path="nav/etf/:fundId/calculate" element={<ETFCalculatorPage />} />
+
+                        {/* Project-specific ETF Routes */}
+                        <Route path="projects/:projectId/nav/etf" element={<ETFListPage />} />
+                        <Route path="projects/:projectId/nav/etf/create" element={<ETFAddPage />} />
+                        <Route path="projects/:projectId/nav/etf/upload" element={<ETFUploadPage />} />
+                        <Route path="projects/:projectId/nav/etf/analytics" element={<ETFAnalyticsPage />} />
+                        <Route path="projects/:projectId/nav/etf/nav-tracker" element={<ETFNAVTrackerPage />} />
+                        <Route path="projects/:projectId/nav/etf/token-links" element={<ETFTokenLinksPage />} />
+                        <Route path="projects/:projectId/nav/etf/history" element={<ETFHistoryPage />} />
+                        <Route path="projects/:projectId/nav/etf/:fundId" element={<ETFDetailPage />} />
+                        <Route path="projects/:projectId/nav/etf/:fundId/calculate" element={<ETFCalculatorPage />} />
 
                         {/* Factoring Routes */}
                         <Route path="factoring/" element={<FactoringManager />} />

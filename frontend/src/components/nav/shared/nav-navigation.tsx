@@ -9,6 +9,7 @@ import {
   Landmark,
   FileSpreadsheet,
   Droplets,
+  BarChart3,
 } from 'lucide-react';
 
 interface NavNavigationProps {
@@ -51,6 +52,12 @@ const NavNavigation: React.FC<NavNavigationProps> = ({ projectId }) => {
       label: 'Money Market Funds',
       href: projectId ? `/projects/${projectId}/nav/mmf` : '/nav/mmf',
       active: isActive('/nav/mmf'),
+    },
+    {
+      icon: <BarChart3 className="h-4 w-4" />,
+      label: 'ETFs',
+      href: projectId ? `/projects/${projectId}/nav/etf` : '/nav/etf',
+      active: isActive('/nav/etf'),
     },
   ];
 

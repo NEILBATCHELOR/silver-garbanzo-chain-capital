@@ -15,6 +15,9 @@ export * from './calculator-inputs'
 // Export MMF types
 export * from './mmf'
 
+// Export ETF types
+export * from './etf'
+
 // Re-export service types for compatibility
 export type { NavCalculationRequest, NavCalculationResult } from '@/services/nav'
 
