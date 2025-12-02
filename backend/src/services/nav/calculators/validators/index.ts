@@ -6,6 +6,7 @@
 
 export * from './BondsValidator'
 export * from './EnhancedBondsValidator'
+export * from './ETFValidator'
 
 // Export types
 export type {
@@ -13,3 +14,6 @@ export type {
   DetailedValidationWarning,
   DetailedValidationResult
 } from './EnhancedBondsValidator'
+
+// Note: ETFValidator uses same types as EnhancedBondsValidator
+// No need to re-export, just import from either validator

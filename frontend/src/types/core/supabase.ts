@@ -10724,6 +10724,1037 @@ export type Database = {
         }
         Relationships: []
       }
+      etf_creation_redemption: {
+        Row: {
+          ap_id: string | null
+          ap_name: string | null
+          basket_composition: Json | null
+          blockchain_transaction_hash: string | null
+          cash_component: number | null
+          created_at: string | null
+          creation_units: number
+          custody_transfer_verified: boolean | null
+          fund_product_id: string
+          id: string
+          impact_on_nav_bps: number | null
+          nav_per_share: number | null
+          settlement_date: string | null
+          settlement_method: string | null
+          shares_per_unit: number | null
+          total_shares: number
+          transaction_date: string
+          transaction_type: string
+          transaction_value: number | null
+        }
+        Insert: {
+          ap_id?: string | null
+          ap_name?: string | null
+          basket_composition?: Json | null
+          blockchain_transaction_hash?: string | null
+          cash_component?: number | null
+          created_at?: string | null
+          creation_units: number
+          custody_transfer_verified?: boolean | null
+          fund_product_id: string
+          id?: string
+          impact_on_nav_bps?: number | null
+          nav_per_share?: number | null
+          settlement_date?: string | null
+          settlement_method?: string | null
+          shares_per_unit?: number | null
+          total_shares: number
+          transaction_date: string
+          transaction_type: string
+          transaction_value?: number | null
+        }
+        Update: {
+          ap_id?: string | null
+          ap_name?: string | null
+          basket_composition?: Json | null
+          blockchain_transaction_hash?: string | null
+          cash_component?: number | null
+          created_at?: string | null
+          creation_units?: number
+          custody_transfer_verified?: boolean | null
+          fund_product_id?: string
+          id?: string
+          impact_on_nav_bps?: number | null
+          nav_per_share?: number | null
+          settlement_date?: string | null
+          settlement_method?: string | null
+          shares_per_unit?: number | null
+          total_shares?: number
+          transaction_date?: string
+          transaction_type?: string
+          transaction_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_creation_redemption_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_creation_redemption_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_creation_redemption_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_creation_redemption_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_creation_redemption_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_creation_redemption_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_holdings: {
+        Row: {
+          accrued_income: number | null
+          accrued_income_type: string | null
+          acquisition_date: string | null
+          as_of_date: string
+          asset_class: string | null
+          blockchain: string | null
+          coingecko_id: string | null
+          coinmarketcap_id: string | null
+          contract_address: string | null
+          cost_basis: number | null
+          country: string | null
+          created_at: string | null
+          currency: string
+          cusip: string | null
+          custodian_name: string | null
+          custody_address: string | null
+          custody_verification_method: string | null
+          figi: string | null
+          fund_product_id: string
+          fx_rate: number | null
+          id: string
+          industry: string | null
+          is_staked: boolean | null
+          isin: string | null
+          last_custody_verification: string | null
+          market_cap_category: string | null
+          market_value: number
+          market_value_base_currency: number | null
+          notes: string | null
+          price_per_unit: number
+          price_source: string | null
+          price_timestamp: string | null
+          quantity: number
+          sector: string | null
+          security_name: string
+          security_ticker: string | null
+          security_type: string
+          sedol: string | null
+          staking_apr: number | null
+          staking_provider: string | null
+          staking_rewards_accrued: number | null
+          status: string | null
+          token_standard: string | null
+          unrealized_gain_loss: number | null
+          updated_at: string | null
+          weight_percentage: number
+        }
+        Insert: {
+          accrued_income?: number | null
+          accrued_income_type?: string | null
+          acquisition_date?: string | null
+          as_of_date: string
+          asset_class?: string | null
+          blockchain?: string | null
+          coingecko_id?: string | null
+          coinmarketcap_id?: string | null
+          contract_address?: string | null
+          cost_basis?: number | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string
+          cusip?: string | null
+          custodian_name?: string | null
+          custody_address?: string | null
+          custody_verification_method?: string | null
+          figi?: string | null
+          fund_product_id: string
+          fx_rate?: number | null
+          id?: string
+          industry?: string | null
+          is_staked?: boolean | null
+          isin?: string | null
+          last_custody_verification?: string | null
+          market_cap_category?: string | null
+          market_value: number
+          market_value_base_currency?: number | null
+          notes?: string | null
+          price_per_unit: number
+          price_source?: string | null
+          price_timestamp?: string | null
+          quantity: number
+          sector?: string | null
+          security_name: string
+          security_ticker?: string | null
+          security_type: string
+          sedol?: string | null
+          staking_apr?: number | null
+          staking_provider?: string | null
+          staking_rewards_accrued?: number | null
+          status?: string | null
+          token_standard?: string | null
+          unrealized_gain_loss?: number | null
+          updated_at?: string | null
+          weight_percentage: number
+        }
+        Update: {
+          accrued_income?: number | null
+          accrued_income_type?: string | null
+          acquisition_date?: string | null
+          as_of_date?: string
+          asset_class?: string | null
+          blockchain?: string | null
+          coingecko_id?: string | null
+          coinmarketcap_id?: string | null
+          contract_address?: string | null
+          cost_basis?: number | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string
+          cusip?: string | null
+          custodian_name?: string | null
+          custody_address?: string | null
+          custody_verification_method?: string | null
+          figi?: string | null
+          fund_product_id?: string
+          fx_rate?: number | null
+          id?: string
+          industry?: string | null
+          is_staked?: boolean | null
+          isin?: string | null
+          last_custody_verification?: string | null
+          market_cap_category?: string | null
+          market_value?: number
+          market_value_base_currency?: number | null
+          notes?: string | null
+          price_per_unit?: number
+          price_source?: string | null
+          price_timestamp?: string | null
+          quantity?: number
+          sector?: string | null
+          security_name?: string
+          security_ticker?: string | null
+          security_type?: string
+          sedol?: string | null
+          staking_apr?: number | null
+          staking_provider?: string | null
+          staking_rewards_accrued?: number | null
+          status?: string | null
+          token_standard?: string | null
+          unrealized_gain_loss?: number | null
+          updated_at?: string | null
+          weight_percentage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_metadata: {
+        Row: {
+          administrative_fee_pct: number | null
+          capital_gains_frequency: string | null
+          concentration_rules: Json | null
+          created_at: string | null
+          custody_type: string | null
+          dividend_frequency: string | null
+          fund_family: string | null
+          fund_manager: string | null
+          fund_product_id: string
+          id: string
+          investment_objective: string | null
+          is_crypto_etf: boolean | null
+          k1_issued: boolean | null
+          last_distribution_date: string | null
+          management_fee_pct: number | null
+          next_distribution_date: string | null
+          options_available: boolean | null
+          other_fees: Json | null
+          primary_benchmark: string | null
+          primary_exchange: string | null
+          prospectus_date: string | null
+          rebalancing_frequency: string | null
+          risk_profile: string | null
+          screening_criteria: Json | null
+          sec_file_number: string | null
+          secondary_benchmark: string | null
+          secondary_exchanges: string[] | null
+          short_sale_restrictions: string | null
+          staking_enabled: boolean | null
+          staking_yield_pct: number | null
+          strategy_description: string | null
+          supported_blockchains: string[] | null
+          tax_treatment: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          administrative_fee_pct?: number | null
+          capital_gains_frequency?: string | null
+          concentration_rules?: Json | null
+          created_at?: string | null
+          custody_type?: string | null
+          dividend_frequency?: string | null
+          fund_family?: string | null
+          fund_manager?: string | null
+          fund_product_id: string
+          id?: string
+          investment_objective?: string | null
+          is_crypto_etf?: boolean | null
+          k1_issued?: boolean | null
+          last_distribution_date?: string | null
+          management_fee_pct?: number | null
+          next_distribution_date?: string | null
+          options_available?: boolean | null
+          other_fees?: Json | null
+          primary_benchmark?: string | null
+          primary_exchange?: string | null
+          prospectus_date?: string | null
+          rebalancing_frequency?: string | null
+          risk_profile?: string | null
+          screening_criteria?: Json | null
+          sec_file_number?: string | null
+          secondary_benchmark?: string | null
+          secondary_exchanges?: string[] | null
+          short_sale_restrictions?: string | null
+          staking_enabled?: boolean | null
+          staking_yield_pct?: number | null
+          strategy_description?: string | null
+          supported_blockchains?: string[] | null
+          tax_treatment?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          administrative_fee_pct?: number | null
+          capital_gains_frequency?: string | null
+          concentration_rules?: Json | null
+          created_at?: string | null
+          custody_type?: string | null
+          dividend_frequency?: string | null
+          fund_family?: string | null
+          fund_manager?: string | null
+          fund_product_id?: string
+          id?: string
+          investment_objective?: string | null
+          is_crypto_etf?: boolean | null
+          k1_issued?: boolean | null
+          last_distribution_date?: string | null
+          management_fee_pct?: number | null
+          next_distribution_date?: string | null
+          options_available?: boolean | null
+          other_fees?: Json | null
+          primary_benchmark?: string | null
+          primary_exchange?: string | null
+          prospectus_date?: string | null
+          rebalancing_frequency?: string | null
+          risk_profile?: string | null
+          screening_criteria?: Json | null
+          sec_file_number?: string | null
+          secondary_benchmark?: string | null
+          secondary_exchanges?: string[] | null
+          short_sale_restrictions?: string | null
+          staking_enabled?: boolean | null
+          staking_yield_pct?: number | null
+          strategy_description?: string | null
+          supported_blockchains?: string[] | null
+          tax_treatment?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_metadata_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: true
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_metadata_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: true
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_metadata_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: true
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_metadata_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: true
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_metadata_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: true
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_metadata_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: true
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_nav_history: {
+        Row: {
+          accrued_expenses: number | null
+          accrued_income: number | null
+          ask_price: number | null
+          benchmark_return_pct: number | null
+          bid_ask_spread_bps: number | null
+          bid_price: number | null
+          calculation_method: string | null
+          cash_position: number | null
+          closing_price: number | null
+          config_overrides_used: Json | null
+          created_at: string | null
+          crypto_value: number | null
+          currency: string
+          daily_return_pct: number | null
+          data_quality: string | null
+          data_sources: Json | null
+          derivatives_value: number | null
+          dividend_per_share: number | null
+          dividend_yield_pct: number | null
+          excess_return_pct: number | null
+          fund_product_id: string
+          high_price: number | null
+          id: string
+          low_price: number | null
+          market_price: number | null
+          nav_per_share: number
+          nav_return_pct: number | null
+          on_chain_verification_hash: string | null
+          opening_price: number | null
+          premium_discount_amount: number | null
+          premium_discount_pct: number | null
+          premium_discount_status: string | null
+          price_return_pct: number | null
+          securities_value: number | null
+          shares_outstanding: number
+          staking_rewards_earned: number | null
+          staking_yield_annualized: number | null
+          total_assets: number
+          total_liabilities: number
+          total_net_assets: number
+          tracking_difference_bps: number | null
+          trade_count: number | null
+          valuation_date: string
+          volume: number | null
+        }
+        Insert: {
+          accrued_expenses?: number | null
+          accrued_income?: number | null
+          ask_price?: number | null
+          benchmark_return_pct?: number | null
+          bid_ask_spread_bps?: number | null
+          bid_price?: number | null
+          calculation_method?: string | null
+          cash_position?: number | null
+          closing_price?: number | null
+          config_overrides_used?: Json | null
+          created_at?: string | null
+          crypto_value?: number | null
+          currency?: string
+          daily_return_pct?: number | null
+          data_quality?: string | null
+          data_sources?: Json | null
+          derivatives_value?: number | null
+          dividend_per_share?: number | null
+          dividend_yield_pct?: number | null
+          excess_return_pct?: number | null
+          fund_product_id: string
+          high_price?: number | null
+          id?: string
+          low_price?: number | null
+          market_price?: number | null
+          nav_per_share: number
+          nav_return_pct?: number | null
+          on_chain_verification_hash?: string | null
+          opening_price?: number | null
+          premium_discount_amount?: number | null
+          premium_discount_pct?: number | null
+          premium_discount_status?: string | null
+          price_return_pct?: number | null
+          securities_value?: number | null
+          shares_outstanding: number
+          staking_rewards_earned?: number | null
+          staking_yield_annualized?: number | null
+          total_assets: number
+          total_liabilities: number
+          total_net_assets: number
+          tracking_difference_bps?: number | null
+          trade_count?: number | null
+          valuation_date: string
+          volume?: number | null
+        }
+        Update: {
+          accrued_expenses?: number | null
+          accrued_income?: number | null
+          ask_price?: number | null
+          benchmark_return_pct?: number | null
+          bid_ask_spread_bps?: number | null
+          bid_price?: number | null
+          calculation_method?: string | null
+          cash_position?: number | null
+          closing_price?: number | null
+          config_overrides_used?: Json | null
+          created_at?: string | null
+          crypto_value?: number | null
+          currency?: string
+          daily_return_pct?: number | null
+          data_quality?: string | null
+          data_sources?: Json | null
+          derivatives_value?: number | null
+          dividend_per_share?: number | null
+          dividend_yield_pct?: number | null
+          excess_return_pct?: number | null
+          fund_product_id?: string
+          high_price?: number | null
+          id?: string
+          low_price?: number | null
+          market_price?: number | null
+          nav_per_share?: number
+          nav_return_pct?: number | null
+          on_chain_verification_hash?: string | null
+          opening_price?: number | null
+          premium_discount_amount?: number | null
+          premium_discount_pct?: number | null
+          premium_discount_status?: string | null
+          price_return_pct?: number | null
+          securities_value?: number | null
+          shares_outstanding?: number
+          staking_rewards_earned?: number | null
+          staking_yield_annualized?: number | null
+          total_assets?: number
+          total_liabilities?: number
+          total_net_assets?: number
+          tracking_difference_bps?: number | null
+          trade_count?: number | null
+          valuation_date?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_rebalancing_history: {
+        Row: {
+          buy_value: number | null
+          changes_detail: Json | null
+          created_at: string | null
+          fund_product_id: string
+          id: string
+          market_impact_bps: number | null
+          rebalance_date: string
+          rebalance_type: string | null
+          securities_added: number | null
+          securities_adjusted: number | null
+          securities_removed: number | null
+          sell_value: number | null
+          tracking_error_after: number | null
+          tracking_error_before: number | null
+          transaction_costs: number | null
+          trigger_reason: string | null
+          turnover_percentage: number | null
+        }
+        Insert: {
+          buy_value?: number | null
+          changes_detail?: Json | null
+          created_at?: string | null
+          fund_product_id: string
+          id?: string
+          market_impact_bps?: number | null
+          rebalance_date: string
+          rebalance_type?: string | null
+          securities_added?: number | null
+          securities_adjusted?: number | null
+          securities_removed?: number | null
+          sell_value?: number | null
+          tracking_error_after?: number | null
+          tracking_error_before?: number | null
+          transaction_costs?: number | null
+          trigger_reason?: string | null
+          turnover_percentage?: number | null
+        }
+        Update: {
+          buy_value?: number | null
+          changes_detail?: Json | null
+          created_at?: string | null
+          fund_product_id?: string
+          id?: string
+          market_impact_bps?: number | null
+          rebalance_date?: string
+          rebalance_type?: string | null
+          securities_added?: number | null
+          securities_adjusted?: number | null
+          securities_removed?: number | null
+          sell_value?: number | null
+          tracking_error_after?: number | null
+          tracking_error_before?: number | null
+          transaction_costs?: number | null
+          trigger_reason?: string | null
+          turnover_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_rebalancing_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_rebalancing_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_rebalancing_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_rebalancing_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_rebalancing_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_rebalancing_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_token_links: {
+        Row: {
+          created_at: string | null
+          fund_product_id: string
+          id: string
+          is_active: boolean | null
+          last_oracle_update: string | null
+          last_rebase_date: string | null
+          link_type: string | null
+          maps_to_share_class: string | null
+          next_rebase_date: string | null
+          oracle_address: string | null
+          oracle_update_frequency: string | null
+          rebase_frequency: string | null
+          rebase_threshold_pct: number | null
+          supports_rebase: boolean | null
+          token_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fund_product_id: string
+          id?: string
+          is_active?: boolean | null
+          last_oracle_update?: string | null
+          last_rebase_date?: string | null
+          link_type?: string | null
+          maps_to_share_class?: string | null
+          next_rebase_date?: string | null
+          oracle_address?: string | null
+          oracle_update_frequency?: string | null
+          rebase_frequency?: string | null
+          rebase_threshold_pct?: number | null
+          supports_rebase?: boolean | null
+          token_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fund_product_id?: string
+          id?: string
+          is_active?: boolean | null
+          last_oracle_update?: string | null
+          last_rebase_date?: string | null
+          link_type?: string | null
+          maps_to_share_class?: string | null
+          next_rebase_date?: string | null
+          oracle_address?: string | null
+          oracle_update_frequency?: string | null
+          rebase_frequency?: string | null
+          rebase_threshold_pct?: number | null
+          supports_rebase?: boolean | null
+          token_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_token_links_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1400_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc4626_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "etf_token_links_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_tracking_error_history: {
+        Row: {
+          alpha: number | null
+          benchmark_return: number
+          benchmark_volatility: number | null
+          beta: number | null
+          cash_drag_bps: number | null
+          correlation: number | null
+          created_at: string | null
+          etf_return: number
+          etf_volatility: number | null
+          excess_return: number | null
+          fee_drag_bps: number | null
+          fund_product_id: string
+          id: string
+          information_ratio: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          r_squared: number | null
+          rebalancing_cost_bps: number | null
+          sampling_error_bps: number | null
+          sharpe_ratio: number | null
+          tracking_difference: number
+          tracking_error: number
+        }
+        Insert: {
+          alpha?: number | null
+          benchmark_return: number
+          benchmark_volatility?: number | null
+          beta?: number | null
+          cash_drag_bps?: number | null
+          correlation?: number | null
+          created_at?: string | null
+          etf_return: number
+          etf_volatility?: number | null
+          excess_return?: number | null
+          fee_drag_bps?: number | null
+          fund_product_id: string
+          id?: string
+          information_ratio?: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          r_squared?: number | null
+          rebalancing_cost_bps?: number | null
+          sampling_error_bps?: number | null
+          sharpe_ratio?: number | null
+          tracking_difference: number
+          tracking_error: number
+        }
+        Update: {
+          alpha?: number | null
+          benchmark_return?: number
+          benchmark_volatility?: number | null
+          beta?: number | null
+          cash_drag_bps?: number | null
+          correlation?: number | null
+          created_at?: string | null
+          etf_return?: number
+          etf_volatility?: number | null
+          excess_return?: number | null
+          fee_drag_bps?: number | null
+          fund_product_id?: string
+          id?: string
+          information_ratio?: number | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          r_squared?: number | null
+          rebalancing_cost_bps?: number | null
+          sampling_error_bps?: number | null
+          sharpe_ratio?: number | null
+          tracking_difference?: number
+          tracking_error?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etf_tracking_error_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_tracking_error_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "etf_tracking_error_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etf_tracking_error_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "etf_tracking_error_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "etf_tracking_error_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_rate_history: {
         Row: {
           confidence: number | null
@@ -11176,13 +12207,18 @@ export type Database = {
         Row: {
           asset_allocation: Json | null
           assets_under_management: number | null
+          average_daily_volume: number | null
           benchmark_index: string | null
+          bid_ask_spread_bps: number | null
           closure_liquidation_date: string | null
           concentration_limits: Json | null
           created_at: string | null
           creation_redemption_history: Json | null
+          creation_unit_size: number | null
           currency: string | null
+          cusip: string | null
           distribution_frequency: string | null
+          exchange: string | null
           expense_ratio: number | null
           flow_data: Json | null
           fund_name: string | null
@@ -11195,27 +12231,44 @@ export type Database = {
           inception_date: string | null
           initial_shares: number | null
           investment_stage: string | null
+          isin: string | null
+          last_rebalance_date: string | null
+          market_price: number | null
           net_asset_value: number | null
+          next_rebalance_date: string | null
+          parent_fund_id: string | null
           performance_history: Json | null
+          premium_discount_pct: number | null
           project_id: string
+          registration_status: string | null
+          replication_method: string | null
           sector_focus: string[] | null
+          sedol: string | null
+          share_class_name: string | null
           shares_outstanding: number | null
           status: string | null
+          structure_type: string | null
           subscription_id_tracker: Json | null
           target_raise: number | null
+          total_expense_ratio: number | null
           tracking_error: number | null
           updated_at: string | null
         }
         Insert: {
           asset_allocation?: Json | null
           assets_under_management?: number | null
+          average_daily_volume?: number | null
           benchmark_index?: string | null
+          bid_ask_spread_bps?: number | null
           closure_liquidation_date?: string | null
           concentration_limits?: Json | null
           created_at?: string | null
           creation_redemption_history?: Json | null
+          creation_unit_size?: number | null
           currency?: string | null
+          cusip?: string | null
           distribution_frequency?: string | null
+          exchange?: string | null
           expense_ratio?: number | null
           flow_data?: Json | null
           fund_name?: string | null
@@ -11228,27 +12281,44 @@ export type Database = {
           inception_date?: string | null
           initial_shares?: number | null
           investment_stage?: string | null
+          isin?: string | null
+          last_rebalance_date?: string | null
+          market_price?: number | null
           net_asset_value?: number | null
+          next_rebalance_date?: string | null
+          parent_fund_id?: string | null
           performance_history?: Json | null
+          premium_discount_pct?: number | null
           project_id: string
+          registration_status?: string | null
+          replication_method?: string | null
           sector_focus?: string[] | null
+          sedol?: string | null
+          share_class_name?: string | null
           shares_outstanding?: number | null
           status?: string | null
+          structure_type?: string | null
           subscription_id_tracker?: Json | null
           target_raise?: number | null
+          total_expense_ratio?: number | null
           tracking_error?: number | null
           updated_at?: string | null
         }
         Update: {
           asset_allocation?: Json | null
           assets_under_management?: number | null
+          average_daily_volume?: number | null
           benchmark_index?: string | null
+          bid_ask_spread_bps?: number | null
           closure_liquidation_date?: string | null
           concentration_limits?: Json | null
           created_at?: string | null
           creation_redemption_history?: Json | null
+          creation_unit_size?: number | null
           currency?: string | null
+          cusip?: string | null
           distribution_frequency?: string | null
+          exchange?: string | null
           expense_ratio?: number | null
           flow_data?: Json | null
           fund_name?: string | null
@@ -11261,14 +12331,26 @@ export type Database = {
           inception_date?: string | null
           initial_shares?: number | null
           investment_stage?: string | null
+          isin?: string | null
+          last_rebalance_date?: string | null
+          market_price?: number | null
           net_asset_value?: number | null
+          next_rebalance_date?: string | null
+          parent_fund_id?: string | null
           performance_history?: Json | null
+          premium_discount_pct?: number | null
           project_id?: string
+          registration_status?: string | null
+          replication_method?: string | null
           sector_focus?: string[] | null
+          sedol?: string | null
+          share_class_name?: string | null
           shares_outstanding?: number | null
           status?: string | null
+          structure_type?: string | null
           subscription_id_tracker?: Json | null
           target_raise?: number | null
+          total_expense_ratio?: number | null
           tracking_error?: number | null
           updated_at?: string | null
         }
@@ -11278,6 +12360,48 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
             referencedColumns: ["id"]
           },
         ]
@@ -14081,6 +15205,41 @@ export type Database = {
             foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
             columns: ["fund_product_id"]
             isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "mmf_allocation_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
             referencedRelation: "fund_products"
             referencedColumns: ["id"]
           },
@@ -14251,6 +15410,41 @@ export type Database = {
             foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
             columns: ["fund_product_id"]
             isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "mmf_fees_gates_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
             referencedRelation: "fund_products"
             referencedColumns: ["id"]
           },
@@ -14394,6 +15588,41 @@ export type Database = {
             foreignKeyName: "mmf_holdings_fund_product_id_fkey"
             columns: ["fund_product_id"]
             isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "mmf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "mmf_holdings_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
             referencedRelation: "fund_products"
             referencedColumns: ["id"]
           },
@@ -14473,6 +15702,41 @@ export type Database = {
           total_value?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
           {
             foreignKeyName: "mmf_liquidity_buckets_fund_product_id_fkey"
             columns: ["fund_product_id"]
@@ -14596,6 +15860,41 @@ export type Database = {
             foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
             columns: ["fund_product_id"]
             isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "mmf_nav_history_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
             referencedRelation: "fund_products"
             referencedColumns: ["id"]
           },
@@ -14708,6 +16007,41 @@ export type Database = {
           yield?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "mmf_transactions_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "mmf_transactions_fund_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
           {
             foreignKeyName: "mmf_transactions_fund_product_id_fkey"
             columns: ["fund_product_id"]
@@ -15552,50 +16886,6 @@ export type Database = {
           },
         ]
       }
-      multi_sig_confirmations: {
-        Row: {
-          confirmed: boolean | null
-          created_at: string | null
-          id: string
-          owner: string
-          project_id: string | null
-          signature: string
-          signer: string | null
-          timestamp: string | null
-          transaction_id: string | null
-        }
-        Insert: {
-          confirmed?: boolean | null
-          created_at?: string | null
-          id?: string
-          owner: string
-          project_id?: string | null
-          signature: string
-          signer?: string | null
-          timestamp?: string | null
-          transaction_id?: string | null
-        }
-        Update: {
-          confirmed?: boolean | null
-          created_at?: string | null
-          id?: string
-          owner?: string
-          project_id?: string | null
-          signature?: string
-          signer?: string | null
-          timestamp?: string | null
-          transaction_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "multi_sig_confirmations_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_transactions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       multi_sig_on_chain_confirmations: {
         Row: {
           confirmation_tx_hash: string
@@ -15711,9 +17001,12 @@ export type Database = {
       }
       multi_sig_proposals: {
         Row: {
+          blockchain: string | null
           chain_type: string
           created_at: string | null
           created_by: string | null
+          data: string | null
+          description: string | null
           executed_at: string | null
           execution_hash: string | null
           expires_at: string
@@ -15727,14 +17020,21 @@ export type Database = {
           status: string | null
           submitted_by: string | null
           submitted_on_chain: boolean | null
+          title: string | null
+          to_address: string | null
+          token_address: string | null
           transaction_hash: string
           updated_at: string | null
+          value: string | null
           wallet_id: string | null
         }
         Insert: {
+          blockchain?: string | null
           chain_type: string
           created_at?: string | null
           created_by?: string | null
+          data?: string | null
+          description?: string | null
           executed_at?: string | null
           execution_hash?: string | null
           expires_at: string
@@ -15748,14 +17048,21 @@ export type Database = {
           status?: string | null
           submitted_by?: string | null
           submitted_on_chain?: boolean | null
+          title?: string | null
+          to_address?: string | null
+          token_address?: string | null
           transaction_hash: string
           updated_at?: string | null
+          value?: string | null
           wallet_id?: string | null
         }
         Update: {
+          blockchain?: string | null
           chain_type?: string
           created_at?: string | null
           created_by?: string | null
+          data?: string | null
+          description?: string | null
           executed_at?: string | null
           execution_hash?: string | null
           expires_at?: string
@@ -15769,8 +17076,12 @@ export type Database = {
           status?: string | null
           submitted_by?: string | null
           submitted_on_chain?: boolean | null
+          title?: string | null
+          to_address?: string | null
+          token_address?: string | null
           transaction_hash?: string
           updated_at?: string | null
+          value?: string | null
           wallet_id?: string | null
         }
         Relationships: [
@@ -15783,87 +17094,6 @@ export type Database = {
           },
           {
             foreignKeyName: "multi_sig_proposals_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_wallets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      multi_sig_transactions: {
-        Row: {
-          blockchain: string
-          blockchain_specific_data: Json | null
-          confirmations: number
-          created_at: string | null
-          data: string
-          description: string | null
-          destination_wallet_address: string
-          executed: boolean
-          hash: string
-          id: string
-          nonce: number
-          project_id: string | null
-          required: number | null
-          to: string | null
-          token_address: string | null
-          token_symbol: string | null
-          updated_at: string | null
-          value: string
-          wallet_id: string | null
-        }
-        Insert: {
-          blockchain: string
-          blockchain_specific_data?: Json | null
-          confirmations?: number
-          created_at?: string | null
-          data?: string
-          description?: string | null
-          destination_wallet_address: string
-          executed?: boolean
-          hash: string
-          id?: string
-          nonce: number
-          project_id?: string | null
-          required?: number | null
-          to?: string | null
-          token_address?: string | null
-          token_symbol?: string | null
-          updated_at?: string | null
-          value: string
-          wallet_id?: string | null
-        }
-        Update: {
-          blockchain?: string
-          blockchain_specific_data?: Json | null
-          confirmations?: number
-          created_at?: string | null
-          data?: string
-          description?: string | null
-          destination_wallet_address?: string
-          executed?: boolean
-          hash?: string
-          id?: string
-          nonce?: number
-          project_id?: string | null
-          required?: number | null
-          to?: string | null
-          token_address?: string | null
-          token_symbol?: string | null
-          updated_at?: string | null
-          value?: string
-          wallet_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "multi_sig_transactions_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "multi_sig_wallet_roles"
-            referencedColumns: ["wallet_id"]
-          },
-          {
-            foreignKeyName: "multi_sig_transactions_wallet_id_fkey"
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "multi_sig_wallets"
@@ -26429,6 +27659,41 @@ export type Database = {
             foreignKeyName: "subscriptions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "fund_products"
             referencedColumns: ["id"]
           },
@@ -34300,7 +35565,15 @@ export type Database = {
           transaction_hash?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transaction_signatures_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "multi_sig_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transaction_validations: {
         Row: {
@@ -36471,12 +37744,158 @@ export type Database = {
           },
         ]
       }
+      crypto_etf_holdings_summary: {
+        Row: {
+          as_of_date: string | null
+          avg_staking_apr: number | null
+          blockchain: string | null
+          fund_name: string | null
+          fund_product_id: string | null
+          fund_ticker: string | null
+          num_holdings: number | null
+          num_staked_holdings: number | null
+          percentage_of_aum: number | null
+          total_staking_rewards: number | null
+          total_value: number | null
+        }
+        Relationships: []
+      }
       database_audit_coverage: {
         Row: {
           has_recent_audit: boolean | null
           last_audit_event: string | null
           recent_event_count: number | null
           table_name: unknown
+        }
+        Relationships: []
+      }
+      etf_premium_discount_latest: {
+        Row: {
+          bid_ask_spread_bps: number | null
+          closing_price: number | null
+          fund_name: string | null
+          fund_product_id: string | null
+          fund_ticker: string | null
+          fund_type: string | null
+          nav_per_share: number | null
+          premium_discount_amount: number | null
+          premium_discount_category: string | null
+          premium_discount_pct: number | null
+          premium_discount_status: string | null
+          valuation_date: string | null
+          volume: number | null
+        }
+        Relationships: []
+      }
+      etf_products_with_latest_nav: {
+        Row: {
+          assets_under_management: number | null
+          benchmark_index: string | null
+          currency: string | null
+          daily_return_pct: number | null
+          exchange: string | null
+          expense_ratio: number | null
+          fund_name: string | null
+          fund_ticker: string | null
+          fund_type: string | null
+          id: string | null
+          inception_date: string | null
+          investment_objective: string | null
+          is_crypto_etf: boolean | null
+          isin: string | null
+          latest_closing_price: number | null
+          latest_nav_date: string | null
+          latest_nav_per_share: number | null
+          latest_premium_discount: number | null
+          market_price: number | null
+          net_asset_value: number | null
+          parent_fund_id: string | null
+          parent_name: string | null
+          parent_ticker: string | null
+          premium_discount_pct: number | null
+          project_id: string | null
+          registration_status: string | null
+          replication_method: string | null
+          share_class_name: string | null
+          shares_outstanding: number | null
+          staking_enabled: boolean | null
+          staking_rewards_earned: number | null
+          status: string | null
+          structure_type: string | null
+          supported_blockchains: string[] | null
+          total_expense_ratio: number | null
+          tracking_difference_bps: number | null
+          tracking_error: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_fund_products_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
+          },
+          {
+            foreignKeyName: "fund_products_parent_fund_id_fkey"
+            columns: ["parent_fund_id"]
+            isOneToOne: false
+            referencedRelation: "fund_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etf_share_classes_comparison: {
+        Row: {
+          assets_under_management: number | null
+          expense_ratio: number | null
+          inception_date: string | null
+          latest_nav: number | null
+          latest_nav_date: string | null
+          net_asset_value: number | null
+          parent_fund_id: string | null
+          parent_name: string | null
+          parent_ticker: string | null
+          share_class_id: string | null
+          share_class_name: string | null
+          share_class_ticker: string | null
+          shares_outstanding: number | null
+          status: string | null
+          total_expense_ratio: number | null
         }
         Relationships: []
       }
@@ -36515,6 +37934,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "investors"
             referencedColumns: ["investor_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "crypto_etf_holdings_summary"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_premium_discount_latest"
+            referencedColumns: ["fund_product_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_products_with_latest_nav"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["parent_fund_id"]
+          },
+          {
+            foreignKeyName: "subscriptions_product_id_fkey"
+            columns: ["fund_product_id"]
+            isOneToOne: false
+            referencedRelation: "etf_share_classes_comparison"
+            referencedColumns: ["share_class_id"]
           },
           {
             foreignKeyName: "subscriptions_product_id_fkey"
@@ -37767,6 +39221,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_existing_signature: {
+        Args: { p_proposal_id: string; p_signer_address: string }
+        Returns: {
+          id: string
+          is_valid: boolean
+          proposal_id: string
+          signature: string
+          signature_type: string
+          signed_at: string
+          signer_address: string
+        }[]
+      }
       check_expired_proposals: { Args: never; Returns: undefined }
       check_permission: {
         Args: { p_action: string; p_resource: string; p_role_name: string }
@@ -37985,6 +39451,76 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: number
       }
+      get_proposal_by_id: {
+        Args: { proposal_id_param: string }
+        Returns: {
+          blockchain: string
+          chain_type: string
+          created_at: string
+          created_by: string
+          data: string
+          executed_at: string
+          execution_hash: string
+          expires_at: string
+          id: string
+          on_chain_tx_hash: string
+          on_chain_tx_id: number
+          raw_transaction: Json
+          signatures_collected: number
+          signatures_required: number
+          status: string
+          submitted_on_chain: boolean
+          to_address: string
+          transaction_hash: string
+          value: string
+          wallet_id: string
+        }[]
+      }
+      get_proposal_signatures: {
+        Args: { p_proposal_id: string }
+        Returns: {
+          confirmed_on_chain: boolean
+          id: string
+          is_valid: boolean
+          on_chain_confirmation_tx: string
+          proposal_id: string
+          signature: string
+          signature_type: string
+          signed_at: string
+          signer_address: string
+        }[]
+      }
+      get_proposals_for_wallet: {
+        Args: { p_wallet_id: string }
+        Returns: {
+          blockchain: string
+          chain_type: string
+          created_at: string
+          created_by: string
+          data: string
+          description: string
+          executed_at: string
+          execution_hash: string
+          expires_at: string
+          id: string
+          on_chain_tx_hash: string
+          on_chain_tx_id: number
+          project_id: string
+          raw_transaction: Json
+          signatures_collected: number
+          signatures_required: number
+          status: string
+          submitted_by: string
+          submitted_on_chain: boolean
+          title: string
+          to_address: string
+          token_address: string
+          transaction_hash: string
+          updated_at: string
+          value: string
+          wallet_id: string
+        }[]
+      }
       get_recent_activities: {
         Args: { days_back?: number }
         Returns: {
@@ -38132,6 +39668,10 @@ export type Database = {
         Returns: string[]
       }
       get_wallet_signers: { Args: { p_wallet_id: string }; Returns: string[] }
+      increment_on_chain_confirmations: {
+        Args: { p_transaction_id: string }
+        Returns: undefined
+      }
       increment_shares_outstanding: {
         Args: { p_fund_id: string; p_project_id?: string; p_shares: number }
         Returns: undefined
@@ -38149,6 +39689,26 @@ export type Database = {
       insert_policy_approver: {
         Args: { p_created_by: string; p_policy_id: string; p_user_id: string }
         Returns: undefined
+      }
+      insert_proposal_signature: {
+        Args: {
+          p_is_valid?: boolean
+          p_proposal_id: string
+          p_signature: string
+          p_signature_type: string
+          p_signer_address: string
+        }
+        Returns: {
+          confirmed_on_chain: boolean
+          id: string
+          is_valid: boolean
+          on_chain_confirmation_tx: string
+          proposal_id: string
+          signature: string
+          signature_type: string
+          signed_at: string
+          signer_address: string
+        }[]
       }
       is_address_whitelisted: {
         Args: { p_address: string; p_token_id: string }
@@ -38296,6 +39856,38 @@ export type Database = {
         Args: { p_projections: Json }
         Returns: Json
       }
+      update_proposal_execution: {
+        Args: {
+          p_executed_at: string
+          p_execution_hash: string
+          p_proposal_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      update_proposal_on_chain_submission: {
+        Args: {
+          p_on_chain_tx_hash: string
+          p_on_chain_tx_id: number
+          p_proposal_id: string
+          p_status?: string
+          p_submitted_on_chain?: boolean
+        }
+        Returns: undefined
+      }
+      update_proposal_signature_count: {
+        Args: { proposal_id_param: string; signature_count: number }
+        Returns: undefined
+      }
+      update_proposal_status: {
+        Args: {
+          p_executed_at?: string
+          p_execution_hash?: string
+          p_proposal_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
       update_redemption_window_statistics: {
         Args: { window_uuid: string }
         Returns: undefined
@@ -38375,6 +39967,14 @@ export type Database = {
       validate_whitelist_config_permissive: {
         Args: { config: Json }
         Returns: boolean
+      }
+      verify_multi_sig_proposals_access: {
+        Args: never
+        Returns: {
+          has_permissions: boolean
+          row_count: number
+          table_exists: boolean
+        }[]
       }
     }
     Enums: {

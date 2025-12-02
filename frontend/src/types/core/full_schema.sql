@@ -1671,6 +1671,28 @@ COMMENT ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network c
 
 
 --
+-- Name: check_existing_signature(uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_existing_signature(p_proposal_id uuid, p_signer_address text) RETURNS TABLE(id uuid, proposal_id uuid, signer_address text, signature text, signature_type text, signed_at timestamp with time zone, is_valid boolean)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    id,
+    proposal_id,
+    signer_address,
+    signature,
+    signature_type,
+    signed_at,
+    is_valid
+  FROM public.proposal_signatures
+  WHERE proposal_signatures.proposal_id = p_proposal_id
+    AND proposal_signatures.signer_address = p_signer_address
+  LIMIT 1;
+$$;
+
+
+--
 -- Name: check_expired_proposals(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3837,6 +3859,103 @@ $_$;
 
 
 --
+-- Name: get_proposal_by_id(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_proposal_by_id(proposal_id_param uuid) RETURNS TABLE(id uuid, wallet_id uuid, transaction_hash text, raw_transaction jsonb, chain_type text, status text, signatures_collected integer, signatures_required integer, expires_at timestamp with time zone, executed_at timestamp with time zone, execution_hash text, created_by uuid, created_at timestamp with time zone, on_chain_tx_id integer, on_chain_tx_hash text, submitted_on_chain boolean, to_address text, value text, data text, blockchain text)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    id,
+    wallet_id,
+    transaction_hash,
+    raw_transaction,
+    chain_type,
+    status,
+    signatures_collected,
+    signatures_required,
+    expires_at,
+    executed_at,
+    execution_hash,
+    created_by,
+    created_at,
+    on_chain_tx_id,
+    on_chain_tx_hash,
+    submitted_on_chain,
+    to_address,
+    value,
+    data,
+    blockchain
+  FROM public.multi_sig_proposals
+  WHERE multi_sig_proposals.id = proposal_id_param
+  LIMIT 1;
+$$;
+
+
+--
+-- Name: get_proposal_signatures(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_proposal_signatures(p_proposal_id uuid) RETURNS TABLE(id uuid, proposal_id uuid, signer_address text, signature text, signature_type text, signed_at timestamp with time zone, is_valid boolean, on_chain_confirmation_tx text, confirmed_on_chain boolean)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    id,
+    proposal_id,
+    signer_address,
+    signature,
+    signature_type,
+    signed_at,
+    is_valid,
+    on_chain_confirmation_tx,
+    confirmed_on_chain
+  FROM public.proposal_signatures
+  WHERE proposal_signatures.proposal_id = p_proposal_id
+    AND proposal_signatures.is_valid = true;
+$$;
+
+
+--
+-- Name: get_proposals_for_wallet(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_proposals_for_wallet(p_wallet_id uuid) RETURNS TABLE(id uuid, wallet_id uuid, transaction_hash text, raw_transaction jsonb, chain_type text, status text, signatures_collected integer, signatures_required integer, expires_at timestamp with time zone, executed_at timestamp with time zone, execution_hash text, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone, on_chain_tx_id integer, on_chain_tx_hash text, submitted_on_chain boolean, project_id uuid, submitted_by text, title text, description text, to_address text, value text, token_address text, data text, blockchain text)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    id,
+    wallet_id,
+    transaction_hash,
+    raw_transaction,
+    chain_type,
+    status,
+    signatures_collected,
+    signatures_required,
+    expires_at,
+    executed_at,
+    execution_hash,
+    created_by,
+    created_at,
+    updated_at,
+    on_chain_tx_id,
+    on_chain_tx_hash,
+    submitted_on_chain,
+    project_id,
+    submitted_by,
+    title,
+    description,
+    to_address,
+    value,
+    token_address,
+    data,
+    blockchain
+  FROM public.multi_sig_proposals
+  WHERE multi_sig_proposals.wallet_id = p_wallet_id
+  ORDER BY created_at DESC;
+$$;
+
+
+--
 -- Name: get_recent_activities(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4514,6 +4633,21 @@ $$;
 
 
 --
+-- Name: increment_on_chain_confirmations(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.increment_on_chain_confirmations(p_transaction_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE multi_sig_on_chain_transactions
+  SET num_confirmations = num_confirmations + 1
+  WHERE id = p_transaction_id;
+END;
+$$;
+
+
+--
 -- Name: increment_shares_outstanding(uuid, numeric, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4600,6 +4734,42 @@ BEGIN
   VALUES (p_policy_id, p_user_id::UUID, p_created_by::UUID, 'pending')
   ON CONFLICT (policy_rule_id, user_id) 
   DO UPDATE SET status = 'pending', timestamp = now();
+END;
+$$;
+
+
+--
+-- Name: insert_proposal_signature(uuid, text, text, text, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.insert_proposal_signature(p_proposal_id uuid, p_signer_address text, p_signature text, p_signature_type text, p_is_valid boolean DEFAULT true) RETURNS TABLE(id uuid, proposal_id uuid, signer_address text, signature text, signature_type text, signed_at timestamp with time zone, is_valid boolean, on_chain_confirmation_tx text, confirmed_on_chain boolean)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+  INSERT INTO public.proposal_signatures (
+    proposal_id,
+    signer_address,
+    signature,
+    signature_type,
+    is_valid
+  ) VALUES (
+    p_proposal_id,
+    p_signer_address,
+    p_signature,
+    p_signature_type,
+    p_is_valid
+  )
+  RETURNING 
+    proposal_signatures.id,
+    proposal_signatures.proposal_id,
+    proposal_signatures.signer_address,
+    proposal_signatures.signature,
+    proposal_signatures.signature_type,
+    proposal_signatures.signed_at,
+    proposal_signatures.is_valid,
+    proposal_signatures.on_chain_confirmation_tx,
+    proposal_signatures.confirmed_on_chain;
 END;
 $$;
 
@@ -6294,37 +6464,6 @@ $$;
 
 
 --
--- Name: sync_multisig_owners(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.sync_multisig_owners() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  UPDATE multi_sig_wallets
-  SET owners = (
-    SELECT ARRAY_AGG(ra.address)
-    FROM multi_sig_wallet_owners mwo
-    JOIN role_addresses ra ON ra.role_id = mwo.role_id
-    WHERE mwo.wallet_id = NEW.wallet_id
-      AND ra.blockchain = multi_sig_wallets.blockchain
-  ),
-  updated_at = NOW()
-  WHERE id = NEW.wallet_id;
-  
-  RETURN NEW;
-END;
-$$;
-
-
---
--- Name: FUNCTION sync_multisig_owners(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.sync_multisig_owners() IS 'Maintains backward compatibility by syncing owners array from role addresses';
-
-
---
 -- Name: sync_redemption_product_type(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6890,30 +7029,112 @@ $$;
 
 
 --
+-- Name: update_proposal_execution(uuid, text, timestamp with time zone, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_proposal_execution(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE multi_sig_proposals
+  SET 
+    status = p_status,
+    executed_at = p_executed_at,
+    execution_hash = p_execution_hash,
+    updated_at = NOW()
+  WHERE id = p_proposal_id;
+END;
+$$;
+
+
+--
+-- Name: update_proposal_on_chain_submission(uuid, integer, text, boolean, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_proposal_on_chain_submission(p_proposal_id uuid, p_on_chain_tx_id integer, p_on_chain_tx_hash text, p_submitted_on_chain boolean DEFAULT true, p_status text DEFAULT 'submitted'::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE public.multi_sig_proposals
+  SET 
+    on_chain_tx_id = p_on_chain_tx_id,
+    on_chain_tx_hash = p_on_chain_tx_hash,
+    submitted_on_chain = p_submitted_on_chain,
+    status = p_status,
+    updated_at = NOW()
+  WHERE id = p_proposal_id;
+END;
+$$;
+
+
+--
 -- Name: update_proposal_signature_count(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.update_proposal_signature_count() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
+    SET search_path TO 'public'
     AS $$
-begin
-  update multi_sig_proposals
-  set signatures_collected = (
-    select count(*)
-    from proposal_signatures
-    where proposal_id = coalesce(NEW.proposal_id, OLD.proposal_id)
-      and is_valid = true
-  ),
-  updated_at = now()
-  where id = coalesce(NEW.proposal_id, OLD.proposal_id);
+DECLARE
+  v_proposal_id uuid;
+  v_signature_count integer;
+BEGIN
+  -- Get the proposal_id from NEW or OLD
+  v_proposal_id := COALESCE(NEW.proposal_id, OLD.proposal_id);
+  
+  -- Count valid signatures (this read should work as SECURITY DEFINER runs as postgres)
+  SELECT COUNT(*) INTO v_signature_count
+  FROM public.proposal_signatures
+  WHERE proposal_id = v_proposal_id
+    AND is_valid = true;
+  
+  -- Update the proposal - bypassing RLS by using a direct UPDATE in SECURITY DEFINER context
+  -- The key is that this runs as the function owner (postgres) who has full access
+  UPDATE public.multi_sig_proposals
+  SET 
+    signatures_collected = v_signature_count,
+    updated_at = NOW()
+  WHERE id = v_proposal_id;
+  
+  -- Return appropriate record
+  IF (TG_OP = 'DELETE') THEN
+    RETURN OLD;
+  ELSE
+    RETURN NEW;
+  END IF;
+END;
+$$;
 
-  if (tg_op = 'DELETE') then
-    return OLD;
-  else
-    return NEW;
-  end if;
-end;
+
+--
+-- Name: update_proposal_signature_count(uuid, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_proposal_signature_count(proposal_id_param uuid, signature_count integer) RETURNS void
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  UPDATE public.multi_sig_proposals
+  SET signatures_collected = signature_count
+  WHERE id = proposal_id_param;
+$$;
+
+
+--
+-- Name: update_proposal_status(uuid, text, timestamp with time zone, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_proposal_status(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_execution_hash text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE public.multi_sig_proposals
+  SET 
+    status = p_status,
+    executed_at = COALESCE(p_executed_at, executed_at),
+    execution_hash = COALESCE(p_execution_hash, execution_hash),
+    updated_at = NOW()
+  WHERE id = p_proposal_id;
+END;
 $$;
 
 
@@ -8056,6 +8277,23 @@ $$;
 --
 
 COMMENT ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) IS 'Permissive validation for whitelist configuration JSON structure across all ERC standards - allows empty objects and flexible structure';
+
+
+--
+-- Name: verify_multi_sig_proposals_access(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.verify_multi_sig_proposals_access() RETURNS TABLE(table_exists boolean, row_count bigint, has_permissions boolean)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    EXISTS(SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'multi_sig_proposals') as table_exists,
+    (SELECT COUNT(*) FROM public.multi_sig_proposals) as row_count,
+    has_table_privilege('authenticated', 'public.multi_sig_proposals', 'SELECT') as has_permissions;
+END;
+$$;
 
 
 SET default_tablespace = '';
@@ -11541,6 +11779,32 @@ COMMENT ON TABLE public.critical_alerts IS 'Tracks critical alerts requiring esc
 
 
 --
+-- Name: crypto_etf_holdings_summary; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.crypto_etf_holdings_summary AS
+SELECT
+    NULL::uuid AS fund_product_id,
+    NULL::character varying(20) AS fund_ticker,
+    NULL::text AS fund_name,
+    NULL::character varying(50) AS blockchain,
+    NULL::bigint AS num_holdings,
+    NULL::numeric AS total_value,
+    NULL::numeric AS percentage_of_aum,
+    NULL::bigint AS num_staked_holdings,
+    NULL::numeric AS total_staking_rewards,
+    NULL::numeric AS avg_staking_apr,
+    NULL::date AS as_of_date;
+
+
+--
+-- Name: VIEW crypto_etf_holdings_summary; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.crypto_etf_holdings_summary IS 'Summary of crypto holdings by blockchain for crypto ETFs';
+
+
+--
 -- Name: dashboard_updates; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13510,6 +13774,735 @@ CREATE TABLE public.escalation_schedule (
 
 
 --
+-- Name: etf_creation_redemption; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_creation_redemption (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    transaction_date date NOT NULL,
+    transaction_type character varying(20) NOT NULL,
+    ap_name character varying(255),
+    ap_id character varying(100),
+    creation_units integer NOT NULL,
+    shares_per_unit integer,
+    total_shares numeric(20,2) NOT NULL,
+    nav_per_share numeric(20,6),
+    transaction_value numeric(20,2),
+    settlement_date date,
+    settlement_method character varying(50),
+    basket_composition jsonb,
+    cash_component numeric(20,2),
+    blockchain_transaction_hash character varying(255),
+    custody_transfer_verified boolean DEFAULT false,
+    impact_on_nav_bps numeric(10,2),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_creation_redemption; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_creation_redemption IS 'Authorized participant creation and redemption activity';
+
+
+--
+-- Name: etf_holdings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_holdings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    security_ticker character varying(20),
+    security_name character varying(255) NOT NULL,
+    security_type character varying(50) NOT NULL,
+    isin character varying(12),
+    cusip character varying(9),
+    sedol character varying(7),
+    figi character varying(12),
+    blockchain character varying(50),
+    contract_address character varying(255),
+    token_standard character varying(50),
+    coingecko_id character varying(100),
+    coinmarketcap_id character varying(100),
+    quantity numeric(30,10) NOT NULL,
+    market_value numeric(20,2) NOT NULL,
+    weight_percentage numeric(10,4) NOT NULL,
+    price_per_unit numeric(30,10) NOT NULL,
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    fx_rate numeric(20,10),
+    market_value_base_currency numeric(20,2),
+    price_source character varying(100),
+    price_timestamp timestamp with time zone,
+    sector character varying(100),
+    industry character varying(100),
+    country character varying(100),
+    asset_class character varying(50),
+    market_cap_category character varying(50),
+    custodian_name character varying(255),
+    custody_address text,
+    custody_verification_method character varying(50),
+    last_custody_verification timestamp with time zone,
+    is_staked boolean DEFAULT false,
+    staking_provider character varying(255),
+    staking_apr numeric(10,4),
+    staking_rewards_accrued numeric(30,10),
+    as_of_date date NOT NULL,
+    acquisition_date date,
+    status character varying(20) DEFAULT 'active'::character varying,
+    accrued_income numeric(20,2),
+    accrued_income_type character varying(50),
+    cost_basis numeric(20,2),
+    unrealized_gain_loss numeric(20,2),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_holdings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_holdings IS 'Individual securities held by ETFs, with comprehensive crypto support';
+
+
+--
+-- Name: COLUMN etf_holdings.blockchain; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_holdings.blockchain IS 'Blockchain network for crypto assets (bitcoin, ethereum, solana, etc.)';
+
+
+--
+-- Name: COLUMN etf_holdings.contract_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_holdings.contract_address IS 'Smart contract address for tokens (ERC-20, SPL, etc.)';
+
+
+--
+-- Name: COLUMN etf_holdings.quantity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_holdings.quantity IS 'Holding quantity with high precision for crypto (up to 10 decimals)';
+
+
+--
+-- Name: COLUMN etf_holdings.custody_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_holdings.custody_address IS 'Blockchain address where crypto assets are custodied';
+
+
+--
+-- Name: COLUMN etf_holdings.is_staked; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_holdings.is_staked IS 'Whether crypto holding is staked for yield (PoS chains)';
+
+
+--
+-- Name: etf_metadata; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_metadata (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    investment_objective text,
+    strategy_description text,
+    risk_profile text,
+    sec_file_number character varying(50),
+    prospectus_date date,
+    fund_family character varying(255),
+    fund_manager character varying(255),
+    primary_exchange character varying(50),
+    secondary_exchanges text[],
+    options_available boolean DEFAULT false,
+    short_sale_restrictions text,
+    tax_treatment character varying(50),
+    k1_issued boolean DEFAULT false,
+    dividend_frequency character varying(50),
+    capital_gains_frequency character varying(50),
+    last_distribution_date date,
+    next_distribution_date date,
+    is_crypto_etf boolean DEFAULT false,
+    supported_blockchains text[],
+    custody_type character varying(50),
+    staking_enabled boolean DEFAULT false,
+    staking_yield_pct numeric(10,4),
+    rebalancing_frequency character varying(50),
+    screening_criteria jsonb,
+    concentration_rules jsonb,
+    primary_benchmark character varying(255),
+    secondary_benchmark character varying(255),
+    management_fee_pct numeric(10,4),
+    administrative_fee_pct numeric(10,4),
+    other_fees jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_metadata; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_metadata IS 'Extended ETF-specific metadata not in fund_products table';
+
+
+--
+-- Name: COLUMN etf_metadata.is_crypto_etf; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_metadata.is_crypto_etf IS 'True for ETFs holding cryptocurrency as primary assets';
+
+
+--
+-- Name: COLUMN etf_metadata.custody_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_metadata.custody_type IS 'How crypto assets are custodied (cold storage, institutional, etc.)';
+
+
+--
+-- Name: COLUMN etf_metadata.staking_enabled; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_metadata.staking_enabled IS 'Whether the ETF stakes proof-of-stake crypto holdings';
+
+
+--
+-- Name: etf_nav_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_nav_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    valuation_date date NOT NULL,
+    nav_per_share numeric(20,6) NOT NULL,
+    total_net_assets numeric(20,2) NOT NULL,
+    shares_outstanding numeric(20,2) NOT NULL,
+    opening_price numeric(20,6),
+    closing_price numeric(20,6),
+    high_price numeric(20,6),
+    low_price numeric(20,6),
+    market_price numeric(20,6),
+    premium_discount_amount numeric(20,6),
+    premium_discount_pct numeric(10,4),
+    premium_discount_status character varying(20),
+    volume bigint,
+    trade_count integer,
+    bid_price numeric(20,6),
+    ask_price numeric(20,6),
+    bid_ask_spread_bps numeric(10,2),
+    daily_return_pct numeric(10,4),
+    nav_return_pct numeric(10,4),
+    price_return_pct numeric(10,4),
+    benchmark_return_pct numeric(10,4),
+    excess_return_pct numeric(10,4),
+    tracking_difference_bps numeric(10,2),
+    total_assets numeric(20,2) NOT NULL,
+    total_liabilities numeric(20,2) NOT NULL,
+    cash_position numeric(20,2),
+    securities_value numeric(20,2),
+    derivatives_value numeric(20,2),
+    crypto_value numeric(20,2),
+    accrued_income numeric(20,2),
+    accrued_expenses numeric(20,2),
+    staking_rewards_earned numeric(20,2),
+    staking_yield_annualized numeric(10,4),
+    on_chain_verification_hash character varying(255),
+    dividend_per_share numeric(20,6),
+    dividend_yield_pct numeric(10,4),
+    currency character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    calculation_method character varying(50),
+    data_quality character varying(20),
+    data_sources jsonb,
+    config_overrides_used jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_nav_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_nav_history IS 'Daily NAV and trading history for ETFs';
+
+
+--
+-- Name: COLUMN etf_nav_history.premium_discount_pct; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_nav_history.premium_discount_pct IS 'Percentage difference between market price and NAV';
+
+
+--
+-- Name: COLUMN etf_nav_history.tracking_difference_bps; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_nav_history.tracking_difference_bps IS 'Performance deviation from benchmark in basis points';
+
+
+--
+-- Name: COLUMN etf_nav_history.crypto_value; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_nav_history.crypto_value IS 'Total market value of cryptocurrency holdings';
+
+
+--
+-- Name: COLUMN etf_nav_history.staking_rewards_earned; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_nav_history.staking_rewards_earned IS 'Staking income earned on the valuation date';
+
+
+--
+-- Name: COLUMN etf_nav_history.on_chain_verification_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_nav_history.on_chain_verification_hash IS 'Blockchain proof-of-reserves verification hash';
+
+
+--
+-- Name: fund_products; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.fund_products (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    fund_ticker character varying(20),
+    fund_name text,
+    fund_type character varying(50),
+    net_asset_value numeric,
+    assets_under_management numeric,
+    expense_ratio numeric,
+    benchmark_index text,
+    holdings jsonb,
+    distribution_frequency character varying(50),
+    tracking_error numeric,
+    currency character varying(10),
+    inception_date timestamp with time zone,
+    closure_liquidation_date timestamp with time zone,
+    status character varying(50),
+    creation_redemption_history jsonb,
+    performance_history jsonb,
+    flow_data jsonb,
+    fund_vintage_year integer,
+    investment_stage character varying(100),
+    sector_focus text[],
+    geographic_focus text[],
+    target_raise numeric,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    asset_allocation jsonb,
+    concentration_limits jsonb,
+    shares_outstanding numeric,
+    initial_shares numeric,
+    subscription_id_tracker jsonb,
+    parent_fund_id uuid,
+    share_class_name character varying(50),
+    replication_method character varying(50),
+    structure_type character varying(50),
+    creation_unit_size integer,
+    average_daily_volume bigint,
+    bid_ask_spread_bps numeric(10,2),
+    market_price numeric(20,6),
+    premium_discount_pct numeric(10,4),
+    isin character varying(12),
+    sedol character varying(7),
+    cusip character varying(9),
+    exchange character varying(50),
+    total_expense_ratio numeric(10,4),
+    last_rebalance_date date,
+    next_rebalance_date date,
+    registration_status character varying(50),
+    CONSTRAINT chk_fund_expense_ratio CHECK (((expense_ratio IS NULL) OR ((expense_ratio >= (0)::numeric) AND (expense_ratio <= 0.50)))),
+    CONSTRAINT chk_fund_nav_positive CHECK (((net_asset_value IS NULL) OR (net_asset_value > (0)::numeric))),
+    CONSTRAINT chk_fund_status_valid CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'liquidated'::character varying, 'suspended'::character varying, 'Open'::character varying])::text[]))),
+    CONSTRAINT chk_share_class_has_parent CHECK ((((share_class_name IS NULL) AND (parent_fund_id IS NULL)) OR ((share_class_name IS NOT NULL) AND (parent_fund_id IS NOT NULL))))
+);
+
+
+--
+-- Name: TABLE fund_products; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.fund_products IS 'Stores fund product details. Multiple funds can belong to one project (1:N relationship).';
+
+
+--
+-- Name: COLUMN fund_products.parent_fund_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fund_products.parent_fund_id IS 'For ETF share classes, references the parent ETF. NULL for parent/standalone funds.';
+
+
+--
+-- Name: COLUMN fund_products.share_class_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fund_products.share_class_name IS 'Share class identifier (e.g., "Class A", "Class I", "Institutional"). NULL for parent funds.';
+
+
+--
+-- Name: COLUMN fund_products.replication_method; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fund_products.replication_method IS 'ETF replication: physical, synthetic, optimized, swap_based';
+
+
+--
+-- Name: COLUMN fund_products.registration_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fund_products.registration_status IS 'ETF lifecycle: draft, pending_sec, active, suspended, liquidating';
+
+
+--
+-- Name: etf_premium_discount_latest; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.etf_premium_discount_latest AS
+ SELECT fp.id AS fund_product_id,
+    fp.fund_ticker,
+    fp.fund_name,
+    fp.fund_type,
+    nav.valuation_date,
+    nav.nav_per_share,
+    nav.closing_price,
+    nav.premium_discount_amount,
+    nav.premium_discount_pct,
+    nav.premium_discount_status,
+    nav.bid_ask_spread_bps,
+    nav.volume,
+        CASE
+            WHEN (nav.premium_discount_pct > 1.0) THEN 'significant_premium'::text
+            WHEN (nav.premium_discount_pct > 0.25) THEN 'moderate_premium'::text
+            WHEN (nav.premium_discount_pct < '-1.0'::numeric) THEN 'significant_discount'::text
+            WHEN (nav.premium_discount_pct < '-0.25'::numeric) THEN 'moderate_discount'::text
+            ELSE 'fair_value'::text
+        END AS premium_discount_category
+   FROM (public.fund_products fp
+     JOIN LATERAL ( SELECT etf_nav_history.id,
+            etf_nav_history.fund_product_id,
+            etf_nav_history.valuation_date,
+            etf_nav_history.nav_per_share,
+            etf_nav_history.total_net_assets,
+            etf_nav_history.shares_outstanding,
+            etf_nav_history.opening_price,
+            etf_nav_history.closing_price,
+            etf_nav_history.high_price,
+            etf_nav_history.low_price,
+            etf_nav_history.market_price,
+            etf_nav_history.premium_discount_amount,
+            etf_nav_history.premium_discount_pct,
+            etf_nav_history.premium_discount_status,
+            etf_nav_history.volume,
+            etf_nav_history.trade_count,
+            etf_nav_history.bid_price,
+            etf_nav_history.ask_price,
+            etf_nav_history.bid_ask_spread_bps,
+            etf_nav_history.daily_return_pct,
+            etf_nav_history.nav_return_pct,
+            etf_nav_history.price_return_pct,
+            etf_nav_history.benchmark_return_pct,
+            etf_nav_history.excess_return_pct,
+            etf_nav_history.tracking_difference_bps,
+            etf_nav_history.total_assets,
+            etf_nav_history.total_liabilities,
+            etf_nav_history.cash_position,
+            etf_nav_history.securities_value,
+            etf_nav_history.derivatives_value,
+            etf_nav_history.crypto_value,
+            etf_nav_history.accrued_income,
+            etf_nav_history.accrued_expenses,
+            etf_nav_history.staking_rewards_earned,
+            etf_nav_history.staking_yield_annualized,
+            etf_nav_history.on_chain_verification_hash,
+            etf_nav_history.dividend_per_share,
+            etf_nav_history.dividend_yield_pct,
+            etf_nav_history.currency,
+            etf_nav_history.calculation_method,
+            etf_nav_history.data_quality,
+            etf_nav_history.data_sources,
+            etf_nav_history.config_overrides_used,
+            etf_nav_history.created_at
+           FROM public.etf_nav_history
+          WHERE (etf_nav_history.fund_product_id = fp.id)
+          ORDER BY etf_nav_history.valuation_date DESC
+         LIMIT 1) nav ON (true))
+  WHERE (((fp.fund_type)::text ~~ 'etf_%'::text) AND (nav.market_price IS NOT NULL));
+
+
+--
+-- Name: VIEW etf_premium_discount_latest; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.etf_premium_discount_latest IS 'Current premium/discount status for all ETFs';
+
+
+--
+-- Name: etf_products_with_latest_nav; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.etf_products_with_latest_nav AS
+ SELECT fp.id,
+    fp.project_id,
+    fp.fund_ticker,
+    fp.fund_name,
+    fp.fund_type,
+    fp.parent_fund_id,
+    fp.share_class_name,
+    fp.net_asset_value,
+    fp.assets_under_management,
+    fp.shares_outstanding,
+    fp.expense_ratio,
+    fp.total_expense_ratio,
+    fp.benchmark_index,
+    fp.tracking_error,
+    fp.market_price,
+    fp.premium_discount_pct,
+    fp.currency,
+    fp.inception_date,
+    fp.status,
+    fp.registration_status,
+    fp.replication_method,
+    fp.structure_type,
+    fp.exchange,
+    fp.isin,
+    em.is_crypto_etf,
+    em.supported_blockchains,
+    em.staking_enabled,
+    em.investment_objective,
+    nav.valuation_date AS latest_nav_date,
+    nav.nav_per_share AS latest_nav_per_share,
+    nav.closing_price AS latest_closing_price,
+    nav.premium_discount_pct AS latest_premium_discount,
+    nav.daily_return_pct,
+    nav.tracking_difference_bps,
+    nav.staking_rewards_earned,
+    parent.fund_ticker AS parent_ticker,
+    parent.fund_name AS parent_name
+   FROM (((public.fund_products fp
+     LEFT JOIN public.etf_metadata em ON ((fp.id = em.fund_product_id)))
+     LEFT JOIN LATERAL ( SELECT etf_nav_history.id,
+            etf_nav_history.fund_product_id,
+            etf_nav_history.valuation_date,
+            etf_nav_history.nav_per_share,
+            etf_nav_history.total_net_assets,
+            etf_nav_history.shares_outstanding,
+            etf_nav_history.opening_price,
+            etf_nav_history.closing_price,
+            etf_nav_history.high_price,
+            etf_nav_history.low_price,
+            etf_nav_history.market_price,
+            etf_nav_history.premium_discount_amount,
+            etf_nav_history.premium_discount_pct,
+            etf_nav_history.premium_discount_status,
+            etf_nav_history.volume,
+            etf_nav_history.trade_count,
+            etf_nav_history.bid_price,
+            etf_nav_history.ask_price,
+            etf_nav_history.bid_ask_spread_bps,
+            etf_nav_history.daily_return_pct,
+            etf_nav_history.nav_return_pct,
+            etf_nav_history.price_return_pct,
+            etf_nav_history.benchmark_return_pct,
+            etf_nav_history.excess_return_pct,
+            etf_nav_history.tracking_difference_bps,
+            etf_nav_history.total_assets,
+            etf_nav_history.total_liabilities,
+            etf_nav_history.cash_position,
+            etf_nav_history.securities_value,
+            etf_nav_history.derivatives_value,
+            etf_nav_history.crypto_value,
+            etf_nav_history.accrued_income,
+            etf_nav_history.accrued_expenses,
+            etf_nav_history.staking_rewards_earned,
+            etf_nav_history.staking_yield_annualized,
+            etf_nav_history.on_chain_verification_hash,
+            etf_nav_history.dividend_per_share,
+            etf_nav_history.dividend_yield_pct,
+            etf_nav_history.currency,
+            etf_nav_history.calculation_method,
+            etf_nav_history.data_quality,
+            etf_nav_history.data_sources,
+            etf_nav_history.config_overrides_used,
+            etf_nav_history.created_at
+           FROM public.etf_nav_history
+          WHERE (etf_nav_history.fund_product_id = fp.id)
+          ORDER BY etf_nav_history.valuation_date DESC
+         LIMIT 1) nav ON (true))
+     LEFT JOIN public.fund_products parent ON ((fp.parent_fund_id = parent.id)))
+  WHERE ((fp.fund_type)::text ~~ 'etf_%'::text);
+
+
+--
+-- Name: VIEW etf_products_with_latest_nav; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.etf_products_with_latest_nav IS 'ETF products with most recent NAV and market data';
+
+
+--
+-- Name: etf_rebalancing_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_rebalancing_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    rebalance_date date NOT NULL,
+    rebalance_type character varying(50),
+    trigger_reason text,
+    securities_added integer,
+    securities_removed integer,
+    securities_adjusted integer,
+    turnover_percentage numeric(10,4),
+    buy_value numeric(20,2),
+    sell_value numeric(20,2),
+    transaction_costs numeric(20,2),
+    market_impact_bps numeric(10,2),
+    tracking_error_before numeric(10,4),
+    tracking_error_after numeric(10,4),
+    changes_detail jsonb,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_rebalancing_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_rebalancing_history IS 'Historical record of ETF portfolio rebalancing events';
+
+
+--
+-- Name: etf_share_classes_comparison; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.etf_share_classes_comparison AS
+ SELECT parent.id AS parent_fund_id,
+    parent.fund_ticker AS parent_ticker,
+    parent.fund_name AS parent_name,
+    fp.id AS share_class_id,
+    fp.share_class_name,
+    fp.fund_ticker AS share_class_ticker,
+    fp.expense_ratio,
+    fp.total_expense_ratio,
+    fp.net_asset_value,
+    fp.shares_outstanding,
+    fp.assets_under_management,
+    nav.nav_per_share AS latest_nav,
+    nav.valuation_date AS latest_nav_date,
+    fp.inception_date,
+    fp.status
+   FROM ((public.fund_products parent
+     JOIN public.fund_products fp ON ((parent.id = fp.parent_fund_id)))
+     LEFT JOIN LATERAL ( SELECT etf_nav_history.nav_per_share,
+            etf_nav_history.valuation_date
+           FROM public.etf_nav_history
+          WHERE (etf_nav_history.fund_product_id = fp.id)
+          ORDER BY etf_nav_history.valuation_date DESC
+         LIMIT 1) nav ON (true))
+  WHERE (((parent.fund_type)::text ~~ 'etf_%'::text) AND (fp.share_class_name IS NOT NULL))
+  ORDER BY parent.fund_ticker, fp.share_class_name;
+
+
+--
+-- Name: VIEW etf_share_classes_comparison; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.etf_share_classes_comparison IS 'Compare share classes of the same parent ETF';
+
+
+--
+-- Name: etf_token_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_token_links (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    token_id uuid NOT NULL,
+    link_type character varying(50) DEFAULT 'primary'::character varying,
+    is_active boolean DEFAULT true,
+    supports_rebase boolean DEFAULT false,
+    rebase_frequency character varying(20),
+    last_rebase_date date,
+    next_rebase_date date,
+    rebase_threshold_pct numeric(10,4),
+    oracle_address character varying(255),
+    oracle_update_frequency character varying(20),
+    last_oracle_update timestamp with time zone,
+    maps_to_share_class character varying(50),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_token_links; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_token_links IS 'Links ETF products to their tokenized representations';
+
+
+--
+-- Name: COLUMN etf_token_links.supports_rebase; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_token_links.supports_rebase IS 'Whether token supply adjusts automatically with NAV changes';
+
+
+--
+-- Name: COLUMN etf_token_links.oracle_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.etf_token_links.oracle_address IS 'On-chain oracle providing NAV price feed';
+
+
+--
+-- Name: etf_tracking_error_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.etf_tracking_error_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fund_product_id uuid NOT NULL,
+    period_start date NOT NULL,
+    period_end date NOT NULL,
+    period_type character varying(20) NOT NULL,
+    tracking_error numeric(10,4) NOT NULL,
+    tracking_difference numeric(10,4) NOT NULL,
+    etf_return numeric(10,4) NOT NULL,
+    benchmark_return numeric(10,4) NOT NULL,
+    excess_return numeric(10,4),
+    correlation numeric(10,4),
+    r_squared numeric(10,4),
+    beta numeric(10,4),
+    alpha numeric(10,4),
+    information_ratio numeric(10,4),
+    sharpe_ratio numeric(10,4),
+    etf_volatility numeric(10,4),
+    benchmark_volatility numeric(10,4),
+    fee_drag_bps numeric(10,2),
+    rebalancing_cost_bps numeric(10,2),
+    cash_drag_bps numeric(10,2),
+    sampling_error_bps numeric(10,2),
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE etf_tracking_error_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.etf_tracking_error_history IS 'Performance tracking vs benchmark over various time periods';
+
+
+--
 -- Name: exchange_rate_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -13783,55 +14776,6 @@ CREATE TABLE public.fund_nav_data (
 --
 
 COMMENT ON TABLE public.fund_nav_data IS 'Historical Net Asset Value data for tokenized funds with validation workflow';
-
-
---
--- Name: fund_products; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.fund_products (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    project_id uuid NOT NULL,
-    fund_ticker character varying(20),
-    fund_name text,
-    fund_type character varying(50),
-    net_asset_value numeric,
-    assets_under_management numeric,
-    expense_ratio numeric,
-    benchmark_index text,
-    holdings jsonb,
-    distribution_frequency character varying(50),
-    tracking_error numeric,
-    currency character varying(10),
-    inception_date timestamp with time zone,
-    closure_liquidation_date timestamp with time zone,
-    status character varying(50),
-    creation_redemption_history jsonb,
-    performance_history jsonb,
-    flow_data jsonb,
-    fund_vintage_year integer,
-    investment_stage character varying(100),
-    sector_focus text[],
-    geographic_focus text[],
-    target_raise numeric,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    asset_allocation jsonb,
-    concentration_limits jsonb,
-    shares_outstanding numeric,
-    initial_shares numeric,
-    subscription_id_tracker jsonb,
-    CONSTRAINT chk_fund_expense_ratio CHECK (((expense_ratio IS NULL) OR ((expense_ratio >= (0)::numeric) AND (expense_ratio <= 0.50)))),
-    CONSTRAINT chk_fund_nav_positive CHECK (((net_asset_value IS NULL) OR (net_asset_value > (0)::numeric))),
-    CONSTRAINT chk_fund_status_valid CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'liquidated'::character varying, 'suspended'::character varying, 'Open'::character varying])::text[])))
-);
-
-
---
--- Name: TABLE fund_products; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.fund_products IS 'Stores fund product details. Multiple funds can belong to one project (1:N relationship).';
 
 
 --
@@ -16052,31 +16996,6 @@ CREATE TABLE public.multi_sig_configurations (
 
 
 --
--- Name: multi_sig_confirmations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.multi_sig_confirmations (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
-    transaction_id uuid,
-    owner text NOT NULL,
-    signature text NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    confirmed boolean,
-    signer text,
-    "timestamp" timestamp with time zone,
-    project_id uuid
-);
-
-
---
--- Name: TABLE multi_sig_confirmations; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.multi_sig_confirmations IS 'DEPRECATED: Use transaction_signatures for off-chain approval tracking instead.
-This table may be removed after data migration.';
-
-
---
 -- Name: multi_sig_on_chain_confirmations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -16155,6 +17074,13 @@ CREATE TABLE public.multi_sig_proposals (
     submitted_on_chain boolean DEFAULT false,
     project_id uuid,
     submitted_by text,
+    title text,
+    description text,
+    to_address text,
+    value text,
+    token_address text,
+    data text,
+    blockchain text,
     CONSTRAINT multi_sig_proposals_signatures_required_check CHECK ((signatures_required > 0)),
     CONSTRAINT multi_sig_proposals_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'signed'::text, 'executed'::text, 'expired'::text, 'rejected'::text])))
 );
@@ -16164,7 +17090,7 @@ CREATE TABLE public.multi_sig_proposals (
 -- Name: TABLE multi_sig_proposals; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.multi_sig_proposals IS 'Layer 2: Business Logic - Technical blockchain preparation for multi-sig transactions. Contains transaction hashes, raw transaction data, and signature tracking.';
+COMMENT ON TABLE public.multi_sig_proposals IS 'Single table for multi-sig proposals combining UI fields (title, description) with technical blockchain fields. Eliminates duplication with deleted transaction_proposals table.';
 
 
 --
@@ -16172,41 +17098,6 @@ COMMENT ON TABLE public.multi_sig_proposals IS 'Layer 2: Business Logic - Techni
 --
 
 COMMENT ON COLUMN public.multi_sig_proposals.submitted_by IS 'Ethereum address that submitted the proposal to the blockchain';
-
-
---
--- Name: multi_sig_transactions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.multi_sig_transactions (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
-    wallet_id uuid,
-    destination_wallet_address text NOT NULL,
-    value text NOT NULL,
-    data text DEFAULT '0x'::text NOT NULL,
-    nonce integer NOT NULL,
-    hash text NOT NULL,
-    executed boolean DEFAULT false NOT NULL,
-    confirmations integer DEFAULT 0 NOT NULL,
-    blockchain text NOT NULL,
-    token_address text,
-    token_symbol text,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    blockchain_specific_data jsonb,
-    description text,
-    required integer,
-    "to" text,
-    project_id uuid
-);
-
-
---
--- Name: TABLE multi_sig_transactions; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.multi_sig_transactions IS 'DEPRECATED: Redundant with multi_sig_proposals. Plan to merge data and remove this table.
-Use multi_sig_proposals for all technical transaction preparation.';
 
 
 --
@@ -16228,7 +17119,7 @@ CREATE TABLE public.multi_sig_wallet_owners (
 -- Name: TABLE multi_sig_wallet_owners; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.multi_sig_wallet_owners IS 'Junction table linking roles to multi-sig wallets for role-based ownership';
+COMMENT ON TABLE public.multi_sig_wallet_owners IS 'Junction table for multi-sig wallet owners. Replaces the old denormalized owners array column. Each row represents one owner/role assignment for a wallet.';
 
 
 --
@@ -29098,6 +29989,102 @@ ALTER TABLE ONLY public.escalation_schedule
 
 
 --
+-- Name: etf_creation_redemption etf_creation_redemption_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_creation_redemption
+    ADD CONSTRAINT etf_creation_redemption_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_holdings etf_holdings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_holdings
+    ADD CONSTRAINT etf_holdings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_holdings etf_holdings_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_holdings
+    ADD CONSTRAINT etf_holdings_unique UNIQUE (fund_product_id, security_ticker, as_of_date);
+
+
+--
+-- Name: etf_metadata etf_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_metadata
+    ADD CONSTRAINT etf_metadata_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_metadata etf_metadata_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_metadata
+    ADD CONSTRAINT etf_metadata_unique UNIQUE (fund_product_id);
+
+
+--
+-- Name: etf_nav_history etf_nav_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_nav_history
+    ADD CONSTRAINT etf_nav_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_nav_history etf_nav_history_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_nav_history
+    ADD CONSTRAINT etf_nav_history_unique UNIQUE (fund_product_id, valuation_date);
+
+
+--
+-- Name: etf_rebalancing_history etf_rebalancing_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_rebalancing_history
+    ADD CONSTRAINT etf_rebalancing_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_token_links etf_token_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_token_links
+    ADD CONSTRAINT etf_token_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_token_links etf_token_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_token_links
+    ADD CONSTRAINT etf_token_unique UNIQUE (fund_product_id, token_id);
+
+
+--
+-- Name: etf_tracking_error_history etf_tracking_error_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_tracking_error_history
+    ADD CONSTRAINT etf_tracking_error_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etf_tracking_error_history etf_tracking_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_tracking_error_history
+    ADD CONSTRAINT etf_tracking_unique UNIQUE (fund_product_id, period_start, period_end, period_type);
+
+
+--
 -- Name: exchange_rate_history exchange_rate_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -29881,14 +30868,6 @@ ALTER TABLE ONLY public.multi_sig_configurations
 
 
 --
--- Name: multi_sig_confirmations multi_sig_confirmations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.multi_sig_confirmations
-    ADD CONSTRAINT multi_sig_confirmations_pkey PRIMARY KEY (id);
-
-
---
 -- Name: multi_sig_on_chain_confirmations multi_sig_on_chain_confirmati_on_chain_transaction_id_signe_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -29926,14 +30905,6 @@ ALTER TABLE ONLY public.multi_sig_on_chain_transactions
 
 ALTER TABLE ONLY public.multi_sig_proposals
     ADD CONSTRAINT multi_sig_proposals_pkey PRIMARY KEY (id);
-
-
---
--- Name: multi_sig_transactions multi_sig_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.multi_sig_transactions
-    ADD CONSTRAINT multi_sig_transactions_pkey PRIMARY KEY (id);
 
 
 --
@@ -36390,6 +37361,153 @@ CREATE INDEX idx_escalation_schedule_status ON public.escalation_schedule USING 
 
 
 --
+-- Name: idx_etf_creation_redemption_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_creation_redemption_date ON public.etf_creation_redemption USING btree (transaction_date);
+
+
+--
+-- Name: idx_etf_creation_redemption_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_creation_redemption_fund ON public.etf_creation_redemption USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_creation_redemption_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_creation_redemption_type ON public.etf_creation_redemption USING btree (transaction_type);
+
+
+--
+-- Name: idx_etf_holdings_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_holdings_blockchain ON public.etf_holdings USING btree (blockchain) WHERE (blockchain IS NOT NULL);
+
+
+--
+-- Name: idx_etf_holdings_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_holdings_date ON public.etf_holdings USING btree (as_of_date);
+
+
+--
+-- Name: idx_etf_holdings_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_holdings_fund ON public.etf_holdings USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_holdings_staked; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_holdings_staked ON public.etf_holdings USING btree (is_staked) WHERE (is_staked = true);
+
+
+--
+-- Name: idx_etf_holdings_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_holdings_ticker ON public.etf_holdings USING btree (security_ticker);
+
+
+--
+-- Name: idx_etf_holdings_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_holdings_type ON public.etf_holdings USING btree (security_type);
+
+
+--
+-- Name: idx_etf_metadata_crypto; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_metadata_crypto ON public.etf_metadata USING btree (is_crypto_etf) WHERE (is_crypto_etf = true);
+
+
+--
+-- Name: idx_etf_metadata_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_metadata_fund ON public.etf_metadata USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_nav_history_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_nav_history_date ON public.etf_nav_history USING btree (valuation_date);
+
+
+--
+-- Name: idx_etf_nav_history_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_nav_history_fund ON public.etf_nav_history USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_nav_history_fund_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_nav_history_fund_date ON public.etf_nav_history USING btree (fund_product_id, valuation_date DESC);
+
+
+--
+-- Name: idx_etf_rebalancing_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_rebalancing_date ON public.etf_rebalancing_history USING btree (rebalance_date);
+
+
+--
+-- Name: idx_etf_rebalancing_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_rebalancing_fund ON public.etf_rebalancing_history USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_token_links_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_token_links_active ON public.etf_token_links USING btree (is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_etf_token_links_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_token_links_fund ON public.etf_token_links USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_token_links_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_token_links_token ON public.etf_token_links USING btree (token_id);
+
+
+--
+-- Name: idx_etf_tracking_fund; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_tracking_fund ON public.etf_tracking_error_history USING btree (fund_product_id);
+
+
+--
+-- Name: idx_etf_tracking_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_etf_tracking_period ON public.etf_tracking_error_history USING btree (period_start, period_end);
+
+
+--
 -- Name: idx_exchange_rate_token_currency; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36572,6 +37690,13 @@ CREATE INDEX idx_fund_products_fund_ticker ON public.fund_products USING btree (
 
 
 --
+-- Name: idx_fund_products_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fund_products_parent ON public.fund_products USING btree (parent_fund_id);
+
+
+--
 -- Name: idx_fund_products_project_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36583,6 +37708,27 @@ CREATE INDEX idx_fund_products_project_id ON public.fund_products USING btree (p
 --
 
 CREATE UNIQUE INDEX idx_fund_products_project_id_unique ON public.fund_products USING btree (project_id);
+
+
+--
+-- Name: idx_fund_products_registration; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fund_products_registration ON public.fund_products USING btree (registration_status);
+
+
+--
+-- Name: idx_fund_products_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fund_products_ticker ON public.fund_products USING btree (fund_ticker);
+
+
+--
+-- Name: idx_fund_products_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fund_products_type ON public.fund_products USING btree (fund_type);
 
 
 --
@@ -37993,6 +39139,13 @@ CREATE INDEX idx_moonpay_webhook_events_type ON public.moonpay_webhook_events US
 
 
 --
+-- Name: idx_multi_sig_proposals_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_blockchain ON public.multi_sig_proposals USING btree (blockchain);
+
+
+--
 -- Name: idx_multi_sig_proposals_chain_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38000,10 +39153,24 @@ CREATE INDEX idx_multi_sig_proposals_chain_type ON public.multi_sig_proposals US
 
 
 --
+-- Name: idx_multi_sig_proposals_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_created_at ON public.multi_sig_proposals USING btree (created_at);
+
+
+--
 -- Name: idx_multi_sig_proposals_created_by; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_multi_sig_proposals_created_by ON public.multi_sig_proposals USING btree (created_by);
+
+
+--
+-- Name: idx_multi_sig_proposals_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_id ON public.multi_sig_proposals USING btree (id);
 
 
 --
@@ -38018,6 +39185,20 @@ CREATE INDEX idx_multi_sig_proposals_on_chain_tx_id ON public.multi_sig_proposal
 --
 
 CREATE INDEX idx_multi_sig_proposals_status ON public.multi_sig_proposals USING btree (status);
+
+
+--
+-- Name: idx_multi_sig_proposals_to_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_to_address ON public.multi_sig_proposals USING btree (to_address);
+
+
+--
+-- Name: idx_multi_sig_proposals_token_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multi_sig_proposals_token_address ON public.multi_sig_proposals USING btree (token_address);
 
 
 --
@@ -41976,6 +43157,13 @@ CREATE INDEX idx_transaction_notifications_wallet ON public.transaction_notifica
 
 
 --
+-- Name: idx_transaction_signatures_proposal_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transaction_signatures_proposal_id ON public.transaction_signatures USING btree (proposal_id);
+
+
+--
 -- Name: idx_transaction_signatures_signer_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42571,13 +43759,6 @@ CREATE INDEX idx_whitelist_entries_organization_id ON public.whitelist_entries U
 
 
 --
--- Name: multi_sig_transactions_blockchain_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX multi_sig_transactions_blockchain_idx ON public.multi_sig_transactions USING btree (blockchain);
-
-
---
 -- Name: multi_sig_wallets_blockchain_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42610,6 +43791,30 @@ CREATE UNIQUE INDEX redemption_rules_standard_unique ON public.redemption_rules 
 --
 
 CREATE UNIQUE INDEX users_auth_id_idx ON public.users USING btree (auth_id);
+
+
+--
+-- Name: crypto_etf_holdings_summary _RETURN; Type: RULE; Schema: public; Owner: -
+--
+
+CREATE OR REPLACE VIEW public.crypto_etf_holdings_summary AS
+ SELECT fp.id AS fund_product_id,
+    fp.fund_ticker,
+    fp.fund_name,
+    h.blockchain,
+    count(DISTINCT h.id) AS num_holdings,
+    sum(h.market_value) AS total_value,
+    ((sum(h.market_value) / NULLIF(fp.assets_under_management, (0)::numeric)) * (100)::numeric) AS percentage_of_aum,
+    count(*) FILTER (WHERE h.is_staked) AS num_staked_holdings,
+    sum(h.staking_rewards_accrued) AS total_staking_rewards,
+    avg(h.staking_apr) FILTER (WHERE h.is_staked) AS avg_staking_apr,
+    h.as_of_date
+   FROM ((public.fund_products fp
+     JOIN public.etf_metadata em ON ((fp.id = em.fund_product_id)))
+     JOIN public.etf_holdings h ON ((fp.id = h.fund_product_id)))
+  WHERE ((em.is_crypto_etf = true) AND ((h.security_type)::text = 'crypto'::text) AND ((h.status)::text = 'active'::text))
+  GROUP BY fp.id, fp.fund_ticker, fp.fund_name, h.blockchain, h.as_of_date
+  ORDER BY fp.fund_ticker, h.blockchain;
 
 
 --
@@ -43205,13 +44410,6 @@ CREATE TRIGGER set_updated_at_timestamp BEFORE UPDATE ON public.security_events 
 --
 
 CREATE TRIGGER settlement_operations_updated_at BEFORE UPDATE ON public.settlement_operations FOR EACH ROW EXECUTE FUNCTION public.update_settlement_operations_updated_at();
-
-
---
--- Name: multi_sig_wallet_owners sync_owners_on_role_add; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER sync_owners_on_role_add AFTER INSERT OR DELETE ON public.multi_sig_wallet_owners FOR EACH ROW EXECUTE FUNCTION public.sync_multisig_owners();
 
 
 --
@@ -45312,6 +46510,70 @@ ALTER TABLE ONLY public.environmental_certifications
 
 
 --
+-- Name: etf_creation_redemption etf_creation_redemption_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_creation_redemption
+    ADD CONSTRAINT etf_creation_redemption_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_holdings etf_holdings_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_holdings
+    ADD CONSTRAINT etf_holdings_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_metadata etf_metadata_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_metadata
+    ADD CONSTRAINT etf_metadata_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_nav_history etf_nav_history_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_nav_history
+    ADD CONSTRAINT etf_nav_history_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_rebalancing_history etf_rebalancing_history_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_rebalancing_history
+    ADD CONSTRAINT etf_rebalancing_history_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_token_links etf_token_links_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_token_links
+    ADD CONSTRAINT etf_token_links_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_token_links etf_token_links_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_token_links
+    ADD CONSTRAINT etf_token_links_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etf_tracking_error_history etf_tracking_error_history_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.etf_tracking_error_history
+    ADD CONSTRAINT etf_tracking_error_history_fund_product_id_fkey FOREIGN KEY (fund_product_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: exchange_rate_history exchange_rate_history_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -45717,6 +46979,14 @@ ALTER TABLE ONLY public.fund_nav_data
 
 ALTER TABLE ONLY public.fund_nav_data
     ADD CONSTRAINT fund_nav_data_validated_by_fkey FOREIGN KEY (validated_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: fund_products fund_products_parent_fund_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.fund_products
+    ADD CONSTRAINT fund_products_parent_fund_id_fkey FOREIGN KEY (parent_fund_id) REFERENCES public.fund_products(id) ON DELETE CASCADE;
 
 
 --
@@ -46136,14 +47406,6 @@ ALTER TABLE ONLY public.multi_sig_configurations
 
 
 --
--- Name: multi_sig_confirmations multi_sig_confirmations_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.multi_sig_confirmations
-    ADD CONSTRAINT multi_sig_confirmations_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.multi_sig_transactions(id) ON DELETE CASCADE;
-
-
---
 -- Name: multi_sig_on_chain_confirmations multi_sig_on_chain_confirmations_on_chain_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -46173,14 +47435,6 @@ ALTER TABLE ONLY public.multi_sig_proposals
 
 ALTER TABLE ONLY public.multi_sig_proposals
     ADD CONSTRAINT multi_sig_proposals_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
-
-
---
--- Name: multi_sig_transactions multi_sig_transactions_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.multi_sig_transactions
-    ADD CONSTRAINT multi_sig_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.multi_sig_wallets(id) ON DELETE CASCADE;
 
 
 --
@@ -47903,6 +49157,21 @@ ALTER TABLE ONLY public.tokens
 
 
 --
+-- Name: transaction_signatures transaction_signatures_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transaction_signatures
+    ADD CONSTRAINT transaction_signatures_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.multi_sig_proposals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: CONSTRAINT transaction_signatures_proposal_id_fkey ON transaction_signatures; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON CONSTRAINT transaction_signatures_proposal_id_fkey ON public.transaction_signatures IS 'Links transaction_signatures to multi_sig_proposals (transaction_proposals table removed in favor of single-layer architecture)';
+
+
+--
 -- Name: transaction_signatures transaction_signatures_signer_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -48183,6 +49452,64 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: multi_sig_proposals Allow authenticated users to create proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Allow authenticated users to create proposals" ON public.multi_sig_proposals FOR INSERT TO authenticated WITH CHECK ((created_by = auth.uid()));
+
+
+--
+-- Name: multi_sig_proposals Allow authenticated users to read proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Allow authenticated users to read proposals" ON public.multi_sig_proposals FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: proposal_signatures Allow authenticated users to read signatures; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Allow authenticated users to read signatures" ON public.proposal_signatures FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: proposal_signatures Allow authenticated users to sign proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Allow authenticated users to sign proposals" ON public.proposal_signatures FOR INSERT TO authenticated WITH CHECK (true);
+
+
+--
+-- Name: multi_sig_proposals Allow authenticated users to update proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Allow authenticated users to update proposals" ON public.multi_sig_proposals FOR UPDATE TO authenticated USING (((created_by = auth.uid()) OR (EXISTS ( SELECT 1
+   FROM public.multi_sig_wallet_owners mwo
+  WHERE ((mwo.wallet_id = multi_sig_proposals.wallet_id) AND (mwo.user_id = auth.uid()))))));
+
+
+--
+-- Name: multi_sig_proposals Wallet owners can delete non-executed proposals; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Wallet owners can delete non-executed proposals" ON public.multi_sig_proposals FOR DELETE USING (((EXISTS ( SELECT 1
+   FROM public.multi_sig_wallet_owners
+  WHERE ((multi_sig_wallet_owners.wallet_id = multi_sig_proposals.wallet_id) AND (multi_sig_wallet_owners.user_id = auth.uid())))) AND (executed_at IS NULL) AND (status <> 'executed'::text)));
+
+
+--
+-- Name: multi_sig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: proposal_signatures; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
 --
 
@@ -48457,6 +49784,16 @@ GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network
 GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) TO authenticated;
 GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) TO service_role;
 GRANT ALL ON FUNCTION public.check_duplicate_wallet(p_project_id uuid, p_network character varying, p_credential_type character varying) TO prisma;
+
+
+--
+-- Name: FUNCTION check_existing_signature(p_proposal_id uuid, p_signer_address text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.check_existing_signature(p_proposal_id uuid, p_signer_address text) TO anon;
+GRANT ALL ON FUNCTION public.check_existing_signature(p_proposal_id uuid, p_signer_address text) TO authenticated;
+GRANT ALL ON FUNCTION public.check_existing_signature(p_proposal_id uuid, p_signer_address text) TO service_role;
+GRANT ALL ON FUNCTION public.check_existing_signature(p_proposal_id uuid, p_signer_address text) TO prisma;
 
 
 --
@@ -49000,6 +50337,36 @@ GRANT ALL ON FUNCTION public.get_project_target_raise(p_project_id uuid) TO pris
 
 
 --
+-- Name: FUNCTION get_proposal_by_id(proposal_id_param uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_proposal_by_id(proposal_id_param uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_proposal_by_id(proposal_id_param uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_proposal_by_id(proposal_id_param uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_proposal_by_id(proposal_id_param uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_proposal_signatures(p_proposal_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_proposal_signatures(p_proposal_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_proposal_signatures(p_proposal_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_proposal_signatures(p_proposal_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_proposal_signatures(p_proposal_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_proposals_for_wallet(p_wallet_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_proposals_for_wallet(p_wallet_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_proposals_for_wallet(p_wallet_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_proposals_for_wallet(p_wallet_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_proposals_for_wallet(p_wallet_id uuid) TO prisma;
+
+
+--
 -- Name: FUNCTION get_recent_activities(days_back integer); Type: ACL; Schema: public; Owner: -
 --
 
@@ -49230,6 +50597,16 @@ GRANT ALL ON FUNCTION public.handle_user_deletion() TO prisma;
 
 
 --
+-- Name: FUNCTION increment_on_chain_confirmations(p_transaction_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.increment_on_chain_confirmations(p_transaction_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.increment_on_chain_confirmations(p_transaction_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.increment_on_chain_confirmations(p_transaction_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.increment_on_chain_confirmations(p_transaction_id uuid) TO prisma;
+
+
+--
 -- Name: FUNCTION increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
@@ -49257,6 +50634,16 @@ GRANT ALL ON FUNCTION public.insert_policy_approver(p_policy_id uuid, p_user_id 
 GRANT ALL ON FUNCTION public.insert_policy_approver(p_policy_id uuid, p_user_id text, p_created_by text) TO authenticated;
 GRANT ALL ON FUNCTION public.insert_policy_approver(p_policy_id uuid, p_user_id text, p_created_by text) TO service_role;
 GRANT ALL ON FUNCTION public.insert_policy_approver(p_policy_id uuid, p_user_id text, p_created_by text) TO prisma;
+
+
+--
+-- Name: FUNCTION insert_proposal_signature(p_proposal_id uuid, p_signer_address text, p_signature text, p_signature_type text, p_is_valid boolean); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.insert_proposal_signature(p_proposal_id uuid, p_signer_address text, p_signature text, p_signature_type text, p_is_valid boolean) TO anon;
+GRANT ALL ON FUNCTION public.insert_proposal_signature(p_proposal_id uuid, p_signer_address text, p_signature text, p_signature_type text, p_is_valid boolean) TO authenticated;
+GRANT ALL ON FUNCTION public.insert_proposal_signature(p_proposal_id uuid, p_signer_address text, p_signature text, p_signature_type text, p_is_valid boolean) TO service_role;
+GRANT ALL ON FUNCTION public.insert_proposal_signature(p_proposal_id uuid, p_signer_address text, p_signature text, p_signature_type text, p_is_valid boolean) TO prisma;
 
 
 --
@@ -49630,16 +51017,6 @@ GRANT ALL ON FUNCTION public.sync_investor_group_memberships() TO prisma;
 
 
 --
--- Name: FUNCTION sync_multisig_owners(); Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON FUNCTION public.sync_multisig_owners() TO anon;
-GRANT ALL ON FUNCTION public.sync_multisig_owners() TO authenticated;
-GRANT ALL ON FUNCTION public.sync_multisig_owners() TO service_role;
-GRANT ALL ON FUNCTION public.sync_multisig_owners() TO prisma;
-
-
---
 -- Name: FUNCTION sync_redemption_product_type(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -49880,6 +51257,26 @@ GRANT ALL ON FUNCTION public.update_project_organization_assignments_timestamp()
 
 
 --
+-- Name: FUNCTION update_proposal_execution(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_proposal_execution(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO anon;
+GRANT ALL ON FUNCTION public.update_proposal_execution(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO authenticated;
+GRANT ALL ON FUNCTION public.update_proposal_execution(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO service_role;
+GRANT ALL ON FUNCTION public.update_proposal_execution(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO prisma;
+
+
+--
+-- Name: FUNCTION update_proposal_on_chain_submission(p_proposal_id uuid, p_on_chain_tx_id integer, p_on_chain_tx_hash text, p_submitted_on_chain boolean, p_status text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_proposal_on_chain_submission(p_proposal_id uuid, p_on_chain_tx_id integer, p_on_chain_tx_hash text, p_submitted_on_chain boolean, p_status text) TO anon;
+GRANT ALL ON FUNCTION public.update_proposal_on_chain_submission(p_proposal_id uuid, p_on_chain_tx_id integer, p_on_chain_tx_hash text, p_submitted_on_chain boolean, p_status text) TO authenticated;
+GRANT ALL ON FUNCTION public.update_proposal_on_chain_submission(p_proposal_id uuid, p_on_chain_tx_id integer, p_on_chain_tx_hash text, p_submitted_on_chain boolean, p_status text) TO service_role;
+GRANT ALL ON FUNCTION public.update_proposal_on_chain_submission(p_proposal_id uuid, p_on_chain_tx_id integer, p_on_chain_tx_hash text, p_submitted_on_chain boolean, p_status text) TO prisma;
+
+
+--
 -- Name: FUNCTION update_proposal_signature_count(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -49887,6 +51284,26 @@ GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO anon;
 GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO authenticated;
 GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO service_role;
 GRANT ALL ON FUNCTION public.update_proposal_signature_count() TO prisma;
+
+
+--
+-- Name: FUNCTION update_proposal_signature_count(proposal_id_param uuid, signature_count integer); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_proposal_signature_count(proposal_id_param uuid, signature_count integer) TO anon;
+GRANT ALL ON FUNCTION public.update_proposal_signature_count(proposal_id_param uuid, signature_count integer) TO authenticated;
+GRANT ALL ON FUNCTION public.update_proposal_signature_count(proposal_id_param uuid, signature_count integer) TO service_role;
+GRANT ALL ON FUNCTION public.update_proposal_signature_count(proposal_id_param uuid, signature_count integer) TO prisma;
+
+
+--
+-- Name: FUNCTION update_proposal_status(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_proposal_status(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO anon;
+GRANT ALL ON FUNCTION public.update_proposal_status(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO authenticated;
+GRANT ALL ON FUNCTION public.update_proposal_status(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO service_role;
+GRANT ALL ON FUNCTION public.update_proposal_status(p_proposal_id uuid, p_status text, p_executed_at timestamp with time zone, p_execution_hash text) TO prisma;
 
 
 --
@@ -50367,6 +51784,16 @@ GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) 
 GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) TO authenticated;
 GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) TO service_role;
 GRANT ALL ON FUNCTION public.validate_whitelist_config_permissive(config jsonb) TO prisma;
+
+
+--
+-- Name: FUNCTION verify_multi_sig_proposals_access(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.verify_multi_sig_proposals_access() TO anon;
+GRANT ALL ON FUNCTION public.verify_multi_sig_proposals_access() TO authenticated;
+GRANT ALL ON FUNCTION public.verify_multi_sig_proposals_access() TO service_role;
+GRANT ALL ON FUNCTION public.verify_multi_sig_proposals_access() TO prisma;
 
 
 --
@@ -51530,6 +52957,16 @@ GRANT ALL ON TABLE public.critical_alerts TO prisma;
 
 
 --
+-- Name: TABLE crypto_etf_holdings_summary; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO anon;
+GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO authenticated;
+GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO service_role;
+GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO prisma;
+
+
+--
 -- Name: TABLE dashboard_updates; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52190,6 +53627,116 @@ GRANT ALL ON TABLE public.escalation_schedule TO prisma;
 
 
 --
+-- Name: TABLE etf_creation_redemption; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_creation_redemption TO anon;
+GRANT ALL ON TABLE public.etf_creation_redemption TO authenticated;
+GRANT ALL ON TABLE public.etf_creation_redemption TO service_role;
+GRANT ALL ON TABLE public.etf_creation_redemption TO prisma;
+
+
+--
+-- Name: TABLE etf_holdings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_holdings TO anon;
+GRANT ALL ON TABLE public.etf_holdings TO authenticated;
+GRANT ALL ON TABLE public.etf_holdings TO service_role;
+GRANT ALL ON TABLE public.etf_holdings TO prisma;
+
+
+--
+-- Name: TABLE etf_metadata; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_metadata TO anon;
+GRANT ALL ON TABLE public.etf_metadata TO authenticated;
+GRANT ALL ON TABLE public.etf_metadata TO service_role;
+GRANT ALL ON TABLE public.etf_metadata TO prisma;
+
+
+--
+-- Name: TABLE etf_nav_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_nav_history TO anon;
+GRANT ALL ON TABLE public.etf_nav_history TO authenticated;
+GRANT ALL ON TABLE public.etf_nav_history TO service_role;
+GRANT ALL ON TABLE public.etf_nav_history TO prisma;
+
+
+--
+-- Name: TABLE fund_products; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.fund_products TO anon;
+GRANT ALL ON TABLE public.fund_products TO authenticated;
+GRANT ALL ON TABLE public.fund_products TO service_role;
+GRANT ALL ON TABLE public.fund_products TO prisma;
+
+
+--
+-- Name: TABLE etf_premium_discount_latest; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_premium_discount_latest TO anon;
+GRANT ALL ON TABLE public.etf_premium_discount_latest TO authenticated;
+GRANT ALL ON TABLE public.etf_premium_discount_latest TO service_role;
+GRANT ALL ON TABLE public.etf_premium_discount_latest TO prisma;
+
+
+--
+-- Name: TABLE etf_products_with_latest_nav; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_products_with_latest_nav TO anon;
+GRANT ALL ON TABLE public.etf_products_with_latest_nav TO authenticated;
+GRANT ALL ON TABLE public.etf_products_with_latest_nav TO service_role;
+GRANT ALL ON TABLE public.etf_products_with_latest_nav TO prisma;
+
+
+--
+-- Name: TABLE etf_rebalancing_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_rebalancing_history TO anon;
+GRANT ALL ON TABLE public.etf_rebalancing_history TO authenticated;
+GRANT ALL ON TABLE public.etf_rebalancing_history TO service_role;
+GRANT ALL ON TABLE public.etf_rebalancing_history TO prisma;
+
+
+--
+-- Name: TABLE etf_share_classes_comparison; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_share_classes_comparison TO anon;
+GRANT ALL ON TABLE public.etf_share_classes_comparison TO authenticated;
+GRANT ALL ON TABLE public.etf_share_classes_comparison TO service_role;
+GRANT ALL ON TABLE public.etf_share_classes_comparison TO prisma;
+
+
+--
+-- Name: TABLE etf_token_links; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_token_links TO anon;
+GRANT ALL ON TABLE public.etf_token_links TO authenticated;
+GRANT ALL ON TABLE public.etf_token_links TO service_role;
+GRANT ALL ON TABLE public.etf_token_links TO prisma;
+
+
+--
+-- Name: TABLE etf_tracking_error_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.etf_tracking_error_history TO anon;
+GRANT ALL ON TABLE public.etf_tracking_error_history TO authenticated;
+GRANT ALL ON TABLE public.etf_tracking_error_history TO service_role;
+GRANT ALL ON TABLE public.etf_tracking_error_history TO prisma;
+
+
+--
 -- Name: TABLE exchange_rate_history; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52257,16 +53804,6 @@ GRANT ALL ON TABLE public.fund_nav_data TO anon;
 GRANT ALL ON TABLE public.fund_nav_data TO authenticated;
 GRANT ALL ON TABLE public.fund_nav_data TO service_role;
 GRANT ALL ON TABLE public.fund_nav_data TO prisma;
-
-
---
--- Name: TABLE fund_products; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.fund_products TO anon;
-GRANT ALL ON TABLE public.fund_products TO authenticated;
-GRANT ALL ON TABLE public.fund_products TO service_role;
-GRANT ALL ON TABLE public.fund_products TO prisma;
 
 
 --
@@ -52900,16 +54437,6 @@ GRANT ALL ON TABLE public.multi_sig_configurations TO prisma;
 
 
 --
--- Name: TABLE multi_sig_confirmations; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.multi_sig_confirmations TO anon;
-GRANT ALL ON TABLE public.multi_sig_confirmations TO authenticated;
-GRANT ALL ON TABLE public.multi_sig_confirmations TO service_role;
-GRANT ALL ON TABLE public.multi_sig_confirmations TO prisma;
-
-
---
 -- Name: TABLE multi_sig_on_chain_confirmations; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52937,16 +54464,6 @@ GRANT ALL ON TABLE public.multi_sig_proposals TO anon;
 GRANT ALL ON TABLE public.multi_sig_proposals TO authenticated;
 GRANT ALL ON TABLE public.multi_sig_proposals TO service_role;
 GRANT ALL ON TABLE public.multi_sig_proposals TO prisma;
-
-
---
--- Name: TABLE multi_sig_transactions; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.multi_sig_transactions TO anon;
-GRANT ALL ON TABLE public.multi_sig_transactions TO authenticated;
-GRANT ALL ON TABLE public.multi_sig_transactions TO service_role;
-GRANT ALL ON TABLE public.multi_sig_transactions TO prisma;
 
 
 --

@@ -64,6 +64,14 @@ export interface NAVResult {
   weeklyLiquidPercentage?: number  // Weekly liquid assets %
   complianceStatus?: any           // SEC Rule 2a-7 compliance
   allocationBreakdown?: AllocationBreakdown[] // Asset class allocation breakdown
+  // ETF-specific: Premium/discount and tracking metrics
+  marketPrice?: Decimal            // Trading price on exchange
+  premiumDiscountPct?: Decimal     // Market price vs NAV deviation
+  trackingError?: number           // Std dev of return differences from benchmark
+  trackingDifference?: number      // Average return difference from benchmark
+  cryptoValue?: Decimal            // Total crypto holdings value (for crypto ETFs)
+  stakingRewards?: Decimal         // Accumulated staking rewards
+  stakingYield?: number            // Average staking yield percentage
 }
 
 export interface NAVBreakdown {

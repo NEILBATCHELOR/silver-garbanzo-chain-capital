@@ -30,7 +30,8 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
-import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes } from './src/routes/nav/index'
+import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes, etfDataInputRoutes, etfCalculationRoutes } from './src/routes/nav/index'
+import { etfTokenLinksRoutes } from './src/routes/etf-token-links.routes'
 
 // PSP (Payment Service Provider) Routes (10 services)
 import authPspRoutes from './src/routes/psp/auth.routes'
@@ -853,13 +854,16 @@ Comprehensive platform supporting:
     await app.register(baseWalletRoutes, { prefix: '/api' })  // Base Network wallet service
     await app.register(calendarRoutes, { prefix: apiPrefix })
 
-    // NAV routes (includes bond and MMF data input and calculations)
+    // NAV routes (includes bond, MMF, and ETF data input and calculations)
     await app.register(bondDataInputRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(bondCalculationRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(mmfDataInputRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(mmfCalculationRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(mmfEnhancementRoutes, { prefix: `${apiPrefix}/nav` })
     await app.register(mmfSubscriptionRoutes, { prefix: `${apiPrefix}/nav` })
+    await app.register(etfDataInputRoutes, { prefix: `${apiPrefix}/nav` })
+    await app.register(etfCalculationRoutes, { prefix: `${apiPrefix}/nav` })
+    await app.register(etfTokenLinksRoutes, { prefix: apiPrefix })
 
     // System routes
     await app.register(auditRoutes, { prefix: apiPrefix })

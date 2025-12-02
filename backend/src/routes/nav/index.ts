@@ -10,6 +10,8 @@ export { mmfDataInputRoutes } from './mmfDataInput'
 export { mmfCalculationRoutes } from './mmfCalculation'
 export { mmfEnhancementRoutes } from './mmfEnhancements'
 export { mmfSubscriptionRoutes } from './mmfSubscriptions'
+export { etfDataInputRoutes } from './etfDataInput'
+export { etfCalculationRoutes } from './etfCalculation'
 
 // TODO: Export additional asset type routes as implemented
 // export { equityDataInputRoutes } from './equityDataInput'
