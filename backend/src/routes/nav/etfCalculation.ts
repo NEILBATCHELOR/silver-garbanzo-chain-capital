@@ -81,8 +81,13 @@ export async function etfCalculationRoutes(fastify: FastifyInstance) {
         productId: etfId
       })
       
-      // Create calculator registry
-      const registry = createCalculatorRegistry(fastify.supabase)
+      // Create calculator registry with market data config for ETF
+      const marketDataConfig = {
+        supabaseClient: fastify.supabase,
+        supabaseUrl: process.env.SUPABASE_URL || '',
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+      }
+      const registry = createCalculatorRegistry(fastify.supabase, marketDataConfig)
       
       // Calculate NAV
       const result = await registry.calculate('etf', {

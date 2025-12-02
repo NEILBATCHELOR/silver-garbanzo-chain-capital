@@ -13,6 +13,7 @@ import { createBondsCalculator } from './traditional/BondsCalculator'
 import { createMMFCalculator } from './traditional/MMFCalculator'
 import { createETFCalculator } from './traditional/ETFCalculator'
 import { CalculatorInput, CalculatorResult } from './types'
+import { MarketDataConfig } from '../market-data'
 
 export type AssetType = 
   | 'bonds'
@@ -31,7 +32,10 @@ export type AssetType =
 export class CalculatorRegistry {
   private calculators = new Map<AssetType, BaseCalculator<any, any, any>>()
   
-  constructor(private dbClient: SupabaseClient) {
+  constructor(
+    private dbClient: SupabaseClient,
+    private marketDataConfig?: MarketDataConfig
+  ) {
     this.registerCalculators()
   }
   
@@ -45,8 +49,12 @@ export class CalculatorRegistry {
     // Register MMF calculator
     this.calculators.set('mmf', createMMFCalculator(this.dbClient))
     
-    // Register ETF calculator
-    this.calculators.set('etf', createETFCalculator(this.dbClient))
+    // Register ETF calculator (requires market data config)
+    if (this.marketDataConfig) {
+      this.calculators.set('etf', createETFCalculator(this.dbClient, this.marketDataConfig))
+    } else {
+      console.warn('⚠️ ETF calculator not registered: marketDataConfig not provided')
+    }
     
     // TODO: Register additional calculators as they are implemented
     // this.calculators.set('equity', createEquityCalculator(this.dbClient))
@@ -107,6 +115,9 @@ export class CalculatorRegistry {
 /**
  * Create and export singleton factory
  */
-export function createCalculatorRegistry(dbClient: SupabaseClient): CalculatorRegistry {
-  return new CalculatorRegistry(dbClient)
+export function createCalculatorRegistry(
+  dbClient: SupabaseClient,
+  marketDataConfig?: MarketDataConfig
+): CalculatorRegistry {
+  return new CalculatorRegistry(dbClient, marketDataConfig)
 }

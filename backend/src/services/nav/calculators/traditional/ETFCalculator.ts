@@ -20,7 +20,8 @@ import { BaseCalculator } from '../BaseCalculator'
 import { 
   ETFDataFetcher, 
   ETFProduct, 
-  ETFSupportingData 
+  ETFSupportingData,
+  ETFHolding
 } from '../../data-fetchers/traditional/ETFDataFetcher'
 import { enhancedETFModels } from '../../models/traditional/EnhancedETFModels'
 import { etfValidator } from '../validators/ETFValidator'
@@ -30,6 +31,7 @@ import {
   ValidationResult,
   NAVBreakdown
 } from '../types'
+import { MarketDataService, createMarketDataService } from '../../market-data'
 
 /**
  * ETF Calculator
@@ -41,7 +43,13 @@ export class ETFCalculator extends BaseCalculator<ETFProduct, ETFSupportingData,
   private currentProduct?: ETFProduct
   private currentSupporting?: ETFSupportingData
   
-  constructor(dbClient: SupabaseClient) {
+  // Market data service for real-time pricing
+  private readonly marketDataService: MarketDataService
+  
+  constructor(
+    dbClient: SupabaseClient,
+    marketDataConfig: Parameters<typeof createMarketDataService>[0]
+  ) {
     super(
       dbClient,
       'etf',
@@ -49,6 +57,9 @@ export class ETFCalculator extends BaseCalculator<ETFProduct, ETFSupportingData,
       enhancedETFModels,
       etfValidator
     )
+    
+    // Initialize market data service (required for ETF pricing)
+    this.marketDataService = createMarketDataService(marketDataConfig)
   }
   
   /**
@@ -93,6 +104,77 @@ export class ETFCalculator extends BaseCalculator<ETFProduct, ETFSupportingData,
   }
   
   /**
+   * Enrich holdings with real-time market prices
+   * Fetches current prices for all securities using MarketDataService
+   */
+  private async enrichHoldingsWithMarketPrices(
+    holdings: ETFHolding[],
+    asOfDate: Date
+  ): Promise<ETFHolding[]> {
+    
+    if (!holdings || holdings.length === 0) {
+      return holdings
+    }
+    
+    console.log(`🔄 Enriching ${holdings.length} holdings with real-time prices...`)
+    
+    try {
+      // Build batch price requests
+      const priceRequests = holdings.map(holding => ({
+        securityType: holding.security_type as 'equity' | 'crypto' | 'bond',
+        identifier: holding.security_ticker || holding.security_name || holding.blockchain || '',
+        date: asOfDate,
+        currency: holding.currency || 'USD'
+      }))
+      
+      // Fetch prices in batch
+      const priceResult = await this.marketDataService.getBatchPrices({
+        securities: priceRequests
+      })
+      
+      console.log(`✅ Retrieved prices for ${priceResult.summary.successful}/${priceResult.summary.total} securities`)
+      
+      if (priceResult.failures.length > 0) {
+        console.warn(`⚠️ Failed to fetch prices for ${priceResult.failures.length} securities:`)
+        priceResult.failures.forEach(f => {
+          console.warn(`  - ${f.identifier}: ${f.error}`)
+        })
+      }
+      
+      // Update holdings with fetched prices
+      const enrichedHoldings = holdings.map(holding => {
+        const identifier = holding.security_ticker || holding.security_name || holding.blockchain || ''
+        const priceData = priceResult.prices.get(identifier)
+        
+        if (priceData) {
+          // Update price and market value
+          const newQuantity = holding.quantity
+          const newPrice = priceData.price
+          const newMarketValue = newQuantity * newPrice
+          
+          return {
+            ...holding,
+            price_per_unit: newPrice,
+            market_value: newMarketValue,
+            price_source: priceData.source,
+            price_timestamp: priceData.timestamp
+          }
+        }
+        
+        // Keep original values if price not available
+        return holding
+      })
+      
+      return enrichedHoldings
+      
+    } catch (error) {
+      console.error('❌ Error enriching holdings with market prices:', error)
+      // Return original holdings if enrichment fails
+      return holdings
+    }
+  }
+  
+  /**
    * Perform ETF NAV calculation
    * Calculates NAV via mark-to-market of holdings
    */
@@ -116,13 +198,28 @@ export class ETFCalculator extends BaseCalculator<ETFProduct, ETFSupportingData,
     console.log('NAV History Count:', supporting.navHistory?.length || 0)
     
     try {
-      // Call enhanced model to calculate ETF valuation
+      // Step 1: Enrich holdings with real-time market prices
+      // This fetches current prices for all securities before NAV calculation
+      const enrichedHoldings = await this.enrichHoldingsWithMarketPrices(
+        supporting.holdings,
+        input.asOfDate
+      )
+      
+      // Update supporting data with enriched holdings
+      const enrichedSupporting = {
+        ...supporting,
+        holdings: enrichedHoldings
+      }
+      
+      console.log('✅ Holdings enriched with real-time prices')
+      
+      // Step 2: Call enhanced model to calculate ETF valuation
       console.log('Calling model.calculateETFValuation...')
       console.log('Config Overrides:', JSON.stringify(input.configOverrides || {}, null, 2))
       
       const valuationResult = await this.model.calculateETFValuation(
         product,
-        supporting,
+        enrichedSupporting,
         input.asOfDate,
         input.configOverrides
       )
@@ -418,6 +515,9 @@ export class ETFCalculator extends BaseCalculator<ETFProduct, ETFSupportingData,
 }
 
 // Export singleton factory function
-export function createETFCalculator(dbClient: SupabaseClient): ETFCalculator {
-  return new ETFCalculator(dbClient)
+export function createETFCalculator(
+  dbClient: SupabaseClient,
+  marketDataConfig: Parameters<typeof createMarketDataService>[0]
+): ETFCalculator {
+  return new ETFCalculator(dbClient, marketDataConfig)
 }
