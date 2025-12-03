@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Save, X, AlertCircle, Settings, Database } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { EditFormProps, TokenEditFormState, TabConfig } from './types';
+import { supabase } from '@/infrastructure/database/supabaseClient';
 
 interface BaseTokenEditFormProps extends EditFormProps {
   tokenStandard: string;
@@ -44,28 +45,110 @@ const BaseTokenEditForm: React.FC<BaseTokenEditFormProps> = ({
     setState(prev => ({ ...prev, isLoading: true }));
     
     try {
-      // Load main token data
-      const response = await fetch(`/api/tokens/${tokenId}`);
-      const tokenData = await response.json();
+      // Load token data directly from Supabase with all related tables
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .select(`
+          *,
+          projects (id, name, description, status),
+          token_erc20_properties (*),
+          token_erc721_properties (*),
+          token_erc1155_properties (*),
+          token_erc1400_properties (*),
+          token_erc3525_properties (*),
+          token_erc4626_properties (*)
+        `)
+        .eq('id', tokenId)
+        .single();
+
+      if (tokenError) {
+        console.error('Error loading token data:', tokenError);
+        toast({
+          title: "Error",
+          description: "Failed to load token data",
+          variant: "destructive",
+        });
+        setState(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
+
+      if (!tokenData) {
+        toast({
+          title: "Error",
+          description: "Token not found",
+          variant: "destructive",
+        });
+        setState(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
+
+      // Extract properties based on standard
+      let propertiesData = {};
+      const standard = tokenData.standard.toLowerCase().replace(/[_-]/g, '');
       
-      // Load properties data based on standard
-      const propertiesResponse = await fetch(`/api/tokens/${tokenId}/properties/${tokenStandard.toLowerCase()}`);
-      const propertiesData = await propertiesResponse.json();
-      
+      // Map to the correct properties table based on standard
+      switch (standard) {
+        case 'erc20':
+          propertiesData = tokenData.token_erc20_properties?.[0] || {};
+          break;
+        case 'erc721':
+          propertiesData = tokenData.token_erc721_properties?.[0] || {};
+          break;
+        case 'erc1155':
+          propertiesData = tokenData.token_erc1155_properties?.[0] || {};
+          break;
+        case 'erc1400':
+          propertiesData = tokenData.token_erc1400_properties?.[0] || {};
+          break;
+        case 'erc3525':
+          propertiesData = tokenData.token_erc3525_properties?.[0] || {};
+          break;
+        case 'erc4626':
+          propertiesData = tokenData.token_erc4626_properties?.[0] || {};
+          break;
+        default:
+          console.warn(`Unknown token standard: ${tokenData.standard}`);
+      }
+
       // Load related table data
       const relatedData: Record<string, any[]> = {};
       for (const tab of tabs.filter(t => t.isRelational)) {
-        const relatedResponse = await fetch(`/api/tokens/${tokenId}/${tab.table}`);
-        relatedData[tab.table] = await relatedResponse.json();
+        const { data: related, error: relatedError } = await supabase
+          .from(tab.table)
+          .select('*')
+          .eq('token_id', tokenId);
+        
+        if (relatedError) {
+          console.error(`Error loading ${tab.table}:`, relatedError);
+        } else {
+          relatedData[tab.table] = related || [];
+        }
       }
+      
+      // Clean up token data by removing properties arrays
+      const cleanTokenData = { ...tokenData };
+      delete cleanTokenData.token_erc20_properties;
+      delete cleanTokenData.token_erc721_properties;
+      delete cleanTokenData.token_erc1155_properties;
+      delete cleanTokenData.token_erc1400_properties;
+      delete cleanTokenData.token_erc3525_properties;
+      delete cleanTokenData.token_erc4626_properties;
       
       setState(prev => ({
         ...prev,
-        tokenData,
+        tokenData: cleanTokenData,
         propertiesData,
         relatedData,
         isLoading: false
       }));
+      
+      if (enableDebug) {
+        console.log('[BaseTokenEditForm] Token data loaded:', {
+          tokenData: cleanTokenData,
+          propertiesData,
+          relatedData
+        });
+      }
       
     } catch (error) {
       console.error('Error loading token data:', error);

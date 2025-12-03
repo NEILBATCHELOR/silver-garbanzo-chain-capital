@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Settings, Puzzle } from 'lucide-react';
 
-import { TokenERC3525PropertiesData, ConfigMode } from '../../types';
+import { TokenERC3525PropertiesData, ConfigMode, TokensTableData } from '../../types';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 // Master Contract Configs
@@ -41,6 +41,7 @@ import type {
 
 interface ERC3525PropertiesTabProps {
   data: TokenERC3525PropertiesData | TokenERC3525PropertiesData[];
+  tokenData?: TokensTableData | TokensTableData[]; // ✅ FIX: Add tokenData prop for name, symbol access
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
@@ -54,6 +55,7 @@ interface ERC3525PropertiesTabProps {
 
 export const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
   data,
+  tokenData, // ✅ FIX: Receive tokenData
   validationErrors,
   isModified,
   configMode,
@@ -65,6 +67,8 @@ export const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
   environment = 'testnet'
 }) => {
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
+  // ✅ FIX: Extract token data with proper typing
+  const tokenTableData: TokensTableData = (Array.isArray(tokenData) ? tokenData[0] : tokenData) ?? {} as TokensTableData;
   const [activeTab, setActiveTab] = useState<'master' | 'extensions'>('master');
 
   const handleFieldChange = (field: string, value: any) => {
@@ -80,58 +84,98 @@ export const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
   };
 
   // Master Contract Configuration State
+  // ✅ FIX: Use tokenTableData for name and symbol which exist in tokens table
   const [masterConfig, setMasterConfig] = useState<ERC3525MasterConfig>({
-    name: propertiesData.name || '',
-    symbol: propertiesData.symbol || '',
+    name: tokenTableData.name || '',
+    symbol: tokenTableData.symbol || '',
     decimals: propertiesData.decimals || 18,
     owner: propertiesData.initial_owner || ''
   });
 
+  // ✅ FIX: Update masterConfig when data loads asynchronously
+  React.useEffect(() => {
+    setMasterConfig({
+      name: tokenTableData.name || '',
+      symbol: tokenTableData.symbol || '',
+      decimals: propertiesData.decimals || 18,
+      owner: propertiesData.initial_owner || ''
+    });
+  }, [tokenTableData.name, tokenTableData.symbol, propertiesData.decimals, propertiesData.initial_owner]);
+
   // Extension Module Configuration States
-  const [complianceConfig, setComplianceConfig] = useState<ComplianceModuleConfig>({
+  // ✅ FIX: Create wrapper functions that persist to database
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
     enabled: !!propertiesData.compliance_module_address,
     kycRequired: false,
     whitelistRequired: false
   });
+  const setComplianceConfig = (config: ComplianceModuleConfig) => {
+    setComplianceConfigState(config);
+    handleFieldChange('compliance_config', config);
+  };
 
-  const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
     enabled: !!propertiesData.vesting_module_address,
     schedules: []
   });
+  const setVestingConfig = (config: VestingModuleConfig) => {
+    setVestingConfigState(config);
+    handleFieldChange('vesting_config', config);
+  };
 
-  const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
     enabled: !!propertiesData.document_module_address,
     documents: []
   });
+  const setDocumentConfig = (config: DocumentModuleConfig) => {
+    setDocumentConfigState(config);
+    handleFieldChange('document_config', config);
+  };
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
     rules: [],
     validators: []
   });
+  const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
+    setPolicyEngineConfigState(config);
+    // Note: policy_engine doesn't have a separate config field in ERC3525
+  };
 
-  const [slotApprovableConfig, setSlotApprovableConfig] = useState<SlotApprovableModuleConfig>({
+  const [slotApprovableConfig, setSlotApprovableConfigState] = useState<SlotApprovableModuleConfig>({
     enabled: !!propertiesData.slot_approvable_module_address
   });
+  const setSlotApprovableConfig = (config: SlotApprovableModuleConfig) => {
+    setSlotApprovableConfigState(config);
+    handleFieldChange('slot_approvable_config', config);
+  };
 
-  const [slotManagerConfig, setSlotManagerConfig] = useState<SlotManagerModuleConfig>({
+  const [slotManagerConfig, setSlotManagerConfigState] = useState<SlotManagerModuleConfig>({
     enabled: !!propertiesData.slot_manager_module_address,
     slots: []
   });
+  const setSlotManagerConfig = (config: SlotManagerModuleConfig) => {
+    setSlotManagerConfigState(config);
+    handleFieldChange('slot_manager_config', config);
+  };
 
-  const [valueExchangeConfig, setValueExchangeConfig] = useState<ValueExchangeModuleConfig>({
+  const [valueExchangeConfig, setValueExchangeConfigState] = useState<ValueExchangeModuleConfig>({
     enabled: !!propertiesData.value_exchange_module_address,
     exchangeFeeBps: 0
   });
+  const setValueExchangeConfig = (config: ValueExchangeModuleConfig) => {
+    setValueExchangeConfigState(config);
+    handleFieldChange('value_exchange_config', config);
+  };
 
   // Handler for master config changes
+  // ✅ FIX: Do NOT try to update name/symbol here - they belong to tokens table
   const handleMasterConfigChange = (newConfig: ERC3525MasterConfig) => {
     setMasterConfig(newConfig);
-    // Update underlying data fields
-    handleFieldChange('name', newConfig.name);
-    handleFieldChange('symbol', newConfig.symbol);
+    // Only update fields that belong to token_erc3525_properties table
     handleFieldChange('decimals', newConfig.decimals);
     handleFieldChange('initial_owner', newConfig.owner);
+    // NOTE: name and symbol are read-only here and must be edited in Basic Info tab
   };
 
   // Count enabled modules

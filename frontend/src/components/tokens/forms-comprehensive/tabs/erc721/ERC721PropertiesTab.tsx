@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Settings, Puzzle } from 'lucide-react';
 
-import { TokenERC721PropertiesData, ConfigMode } from '../../types';
+import { TokenERC721PropertiesData, ConfigMode, TokensTableData } from '../../types';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 // Master Contract Configs
@@ -50,6 +50,7 @@ import type {
 
 interface ERC721PropertiesTabProps {
   data: TokenERC721PropertiesData | TokenERC721PropertiesData[];
+  tokenData?: TokensTableData | TokensTableData[]; // ✅ FIX: Add tokenData prop for name, symbol access
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
@@ -63,6 +64,7 @@ interface ERC721PropertiesTabProps {
 
 export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
   data,
+  tokenData, // ✅ FIX: Receive tokenData
   validationErrors,
   isModified,
   configMode,
@@ -74,6 +76,8 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
   environment = 'testnet'
 }) => {
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
+  // ✅ FIX: Extract token data with proper typing
+  const tokenTableData: TokensTableData = (Array.isArray(tokenData) ? tokenData[0] : tokenData) ?? {} as TokensTableData;
   const [activeTab, setActiveTab] = useState<'master' | 'extensions'>('master');
 
   const handleFieldChange = (field: string, value: any) => {
@@ -89,9 +93,10 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
   };
 
   // Master Contract Configuration State
+  // ✅ FIX: Use tokenTableData for name and symbol which exist in tokens table
   const [masterConfig, setMasterConfig] = useState<ERC721MasterConfig>({
-    name: propertiesData.name || '',
-    symbol: propertiesData.symbol || '',
+    name: tokenTableData.name || '',
+    symbol: tokenTableData.symbol || '',
     baseTokenURI: propertiesData.base_uri || '',
     maxSupply: propertiesData.max_supply || '0',
     owner: propertiesData.initial_owner || '',
@@ -99,68 +104,131 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
     burningEnabled: propertiesData.burning_enabled || true
   });
 
+  // ✅ FIX: Update masterConfig when data loads asynchronously
+  React.useEffect(() => {
+    setMasterConfig({
+      name: tokenTableData.name || '',
+      symbol: tokenTableData.symbol || '',
+      baseTokenURI: propertiesData.base_uri || '',
+      maxSupply: propertiesData.max_supply || '0',
+      owner: propertiesData.initial_owner || '',
+      mintingEnabled: propertiesData.minting_enabled || true,
+      burningEnabled: propertiesData.burning_enabled || true
+    });
+  }, [
+    tokenTableData.name, 
+    tokenTableData.symbol, 
+    propertiesData.base_uri, 
+    propertiesData.max_supply, 
+    propertiesData.initial_owner,
+    propertiesData.minting_enabled,
+    propertiesData.burning_enabled
+  ]);
+
   // Extension Module Configuration States
-  const [complianceConfig, setComplianceConfig] = useState<ComplianceModuleConfig>({
+  // ✅ FIX: Create wrapper functions that persist to database
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
     enabled: !!propertiesData.compliance_module_address,
     kycRequired: false,
     whitelistRequired: false
   });
+  const setComplianceConfig = (config: ComplianceModuleConfig) => {
+    setComplianceConfigState(config);
+    handleFieldChange('compliance_config', config);
+  };
 
-  const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
     enabled: !!propertiesData.vesting_module_address,
     schedules: []
   });
+  const setVestingConfig = (config: VestingModuleConfig) => {
+    setVestingConfigState(config);
+    handleFieldChange('vesting_config', config);
+  };
 
-  const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
     enabled: !!propertiesData.document_module_address,
     documents: []
   });
+  const setDocumentConfig = (config: DocumentModuleConfig) => {
+    setDocumentConfigState(config);
+    handleFieldChange('document_config', config);
+  };
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
     rules: [],
     validators: []
   });
+  const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
+    setPolicyEngineConfigState(config);
+    // Note: policy_engine doesn't have a separate config field in ERC721, address is stored separately
+  };
 
-  const [royaltyConfig, setRoyaltyConfig] = useState<RoyaltyModuleConfig>({
+  const [royaltyConfig, setRoyaltyConfigState] = useState<RoyaltyModuleConfig>({
     enabled: !!propertiesData.royalty_module_address,
     defaultRoyaltyBps: 0,
     royaltyRecipient: ''
   });
+  const setRoyaltyConfig = (config: RoyaltyModuleConfig) => {
+    setRoyaltyConfigState(config);
+    // Note: royalty doesn't have a separate config field, uses royalty_percentage and royalty_receiver
+  };
 
-  const [rentalConfig, setRentalConfig] = useState<RentalModuleConfig>({
+  const [rentalConfig, setRentalConfigState] = useState<RentalModuleConfig>({
     enabled: !!propertiesData.rental_module_address,
     maxRentalDuration: 0
   });
+  const setRentalConfig = (config: RentalModuleConfig) => {
+    setRentalConfigState(config);
+    handleFieldChange('rental_config', config);
+  };
 
-  const [soulboundConfig, setSoulboundConfig] = useState<SoulboundModuleConfig>({
+  const [soulboundConfig, setSoulboundConfigState] = useState<SoulboundModuleConfig>({
     enabled: !!propertiesData.soulbound_module_address
   });
+  const setSoulboundConfig = (config: SoulboundModuleConfig) => {
+    setSoulboundConfigState(config);
+    handleFieldChange('soulbound_config', config);
+  };
 
-  const [fractionalizationConfig, setFractionalizationConfig] = useState<FractionalizationModuleConfig>({
+  const [fractionalizationConfig, setFractionalizationConfigState] = useState<FractionalizationModuleConfig>({
     enabled: !!propertiesData.fraction_module_address,
     minFractions: 100
   });
+  const setFractionalizationConfig = (config: FractionalizationModuleConfig) => {
+    setFractionalizationConfigState(config);
+    handleFieldChange('fractionalization_config', config);
+  };
 
-  const [consecutiveConfig, setConsecutiveConfig] = useState<ConsecutiveModuleConfig>({
+  const [consecutiveConfig, setConsecutiveConfigState] = useState<ConsecutiveModuleConfig>({
     enabled: !!propertiesData.consecutive_module_address
   });
+  const setConsecutiveConfig = (config: ConsecutiveModuleConfig) => {
+    setConsecutiveConfigState(config);
+    handleFieldChange('consecutive_config', config);
+  };
 
-  const [metadataEventsConfig, setMetadataEventsConfig] = useState<MetadataEventsModuleConfig>({
+  const [metadataEventsConfig, setMetadataEventsConfigState] = useState<MetadataEventsModuleConfig>({
     enabled: !!propertiesData.metadata_events_module_address
   });
+  const setMetadataEventsConfig = (config: MetadataEventsModuleConfig) => {
+    setMetadataEventsConfigState(config);
+    handleFieldChange('metadata_events_config', config);
+  };
 
   // Handler for master config changes
+  // ✅ FIX: Do NOT try to update name/symbol here - they belong to tokens table, not properties table
+  // Name and symbol should only be edited in Basic Info tab
   const handleMasterConfigChange = (newConfig: ERC721MasterConfig) => {
     setMasterConfig(newConfig);
-    // Update underlying data fields
-    handleFieldChange('name', newConfig.name);
-    handleFieldChange('symbol', newConfig.symbol);
+    // Only update fields that belong to token_erc721_properties table
     handleFieldChange('base_uri', newConfig.baseTokenURI);
     handleFieldChange('max_supply', newConfig.maxSupply);
     handleFieldChange('initial_owner', newConfig.owner);
     handleFieldChange('minting_enabled', newConfig.mintingEnabled);
     handleFieldChange('burning_enabled', newConfig.burningEnabled);
+    // NOTE: name and symbol are read-only here and must be edited in Basic Info tab
   };
 
   // Count enabled modules

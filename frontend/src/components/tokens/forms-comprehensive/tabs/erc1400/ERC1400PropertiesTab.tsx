@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Settings, Puzzle } from 'lucide-react';
 
-import { TokenERC1400PropertiesData, ConfigMode } from '../../types';
+import { TokenERC1400PropertiesData, ConfigMode, TokensTableData } from '../../types';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 // Master Contract Configs
@@ -41,6 +41,7 @@ import type {
 
 interface ERC1400PropertiesTabProps {
   data: TokenERC1400PropertiesData | TokenERC1400PropertiesData[];
+  tokenData?: TokensTableData | TokensTableData[]; // ✅ FIX: Add tokenData prop for name, symbol access
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
@@ -54,6 +55,7 @@ interface ERC1400PropertiesTabProps {
 
 export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   data,
+  tokenData, // ✅ FIX: Receive tokenData
   validationErrors,
   isModified,
   configMode,
@@ -65,6 +67,8 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   environment = 'testnet'
 }) => {
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
+  // ✅ FIX: Extract token data with proper typing
+  const tokenTableData: TokensTableData = (Array.isArray(tokenData) ? tokenData[0] : tokenData) ?? {} as TokensTableData;
   const [activeTab, setActiveTab] = useState<'master' | 'extensions'>('master');
 
   const handleFieldChange = (field: string, value: any) => {
@@ -80,64 +84,113 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
   };
 
   // Master Contract Configuration State
+  // ✅ FIX: Use tokenTableData for name and symbol which exist in tokens table
   const [masterConfig, setMasterConfig] = useState<ERC1400MasterConfig>({
-    name: propertiesData.name || '',
-    symbol: propertiesData.symbol || '',
+    name: tokenTableData.name || '',
+    symbol: tokenTableData.symbol || '',
     decimals: propertiesData.decimals || 18,
     defaultPartitions: propertiesData.default_partitions || [],
     owner: propertiesData.initial_owner || '',
     isControllable: propertiesData.is_controllable || false
   });
 
+  // ✅ FIX: Update masterConfig when data loads asynchronously
+  React.useEffect(() => {
+    setMasterConfig({
+      name: tokenTableData.name || '',
+      symbol: tokenTableData.symbol || '',
+      decimals: propertiesData.decimals || 18,
+      defaultPartitions: propertiesData.default_partitions || [],
+      owner: propertiesData.initial_owner || '',
+      isControllable: propertiesData.is_controllable || false
+    });
+  }, [
+    tokenTableData.name, 
+    tokenTableData.symbol, 
+    propertiesData.decimals, 
+    propertiesData.default_partitions, 
+    propertiesData.initial_owner,
+    propertiesData.is_controllable
+  ]);
+
   // Extension Module Configuration States
-  const [complianceConfig, setComplianceConfig] = useState<ComplianceModuleConfig>({
+  // ✅ FIX: Create wrapper functions that persist to database
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
     enabled: !!propertiesData.compliance_module_address,
     kycRequired: false,
     whitelistRequired: false
   });
+  const setComplianceConfig = (config: ComplianceModuleConfig) => {
+    setComplianceConfigState(config);
+    handleFieldChange('compliance_config', config);
+  };
 
-  const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
     enabled: !!propertiesData.vesting_module_address,
     schedules: []
   });
+  const setVestingConfig = (config: VestingModuleConfig) => {
+    setVestingConfigState(config);
+    handleFieldChange('vesting_config', config);
+  };
 
-  const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
     enabled: !!propertiesData.document_module_address,
     documents: []
   });
+  const setDocumentConfig = (config: DocumentModuleConfig) => {
+    setDocumentConfigState(config);
+    handleFieldChange('document_config', config);
+  };
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
     rules: [],
     validators: []
   });
+  const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
+    setPolicyEngineConfigState(config);
+    // Note: policy_engine doesn't have a separate config field in ERC1400
+  };
 
-  const [transferRestrictionsConfig, setTransferRestrictionsConfig] = useState<TransferRestrictionsModuleConfig>({
+  const [transferRestrictionsConfig, setTransferRestrictionsConfigState] = useState<TransferRestrictionsModuleConfig>({
     enabled: !!propertiesData.transfer_restrictions_module_address,
     restrictions: [],
     defaultPolicy: 'block'
   });
+  const setTransferRestrictionsConfig = (config: TransferRestrictionsModuleConfig) => {
+    setTransferRestrictionsConfigState(config);
+    handleFieldChange('transfer_restrictions_config', config);
+  };
 
-  const [controllerConfig, setControllerConfig] = useState<ControllerModuleConfig>({
+  const [controllerConfig, setControllerConfigState] = useState<ControllerModuleConfig>({
     enabled: !!propertiesData.controller_module_address,
     controllers: []
   });
+  const setControllerConfig = (config: ControllerModuleConfig) => {
+    setControllerConfigState(config);
+    handleFieldChange('controller_config', config);
+  };
 
-  const [erc1400DocumentConfig, setErc1400DocumentConfig] = useState<ERC1400DocumentModuleConfig>({
+  const [erc1400DocumentConfig, setErc1400DocumentConfigState] = useState<ERC1400DocumentModuleConfig>({
     enabled: !!propertiesData.erc1400_document_module_address,
     documents: []
   });
+  const setErc1400DocumentConfig = (config: ERC1400DocumentModuleConfig) => {
+    setErc1400DocumentConfigState(config);
+    handleFieldChange('erc1400_document_config', config);
+  };
 
   // Handler for master config changes
+  // ✅ FIX: Do NOT try to update name/symbol here - they belong to tokens table
   const handleMasterConfigChange = (newConfig: ERC1400MasterConfig) => {
     setMasterConfig(newConfig);
-    // Update underlying data fields
-    handleFieldChange('name', newConfig.name);
-    handleFieldChange('symbol', newConfig.symbol);
+    // Only update fields that belong to token_erc1400_properties table
     handleFieldChange('decimals', newConfig.decimals);
     handleFieldChange('default_partitions', newConfig.defaultPartitions);
     handleFieldChange('initial_owner', newConfig.owner);
     handleFieldChange('is_controllable', newConfig.isControllable);
+    // NOTE: name and symbol are read-only here and must be edited in Basic Info tab
   };
 
   // Count enabled modules

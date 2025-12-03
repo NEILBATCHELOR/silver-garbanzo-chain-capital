@@ -529,6 +529,7 @@ export const ComprehensiveTokenEditForm: React.FC<ComprehensiveTokenEditFormProp
                     tokenId={tokenId}
                     projectId={projectId} // ✅ FIX: Pass projectId to all tab components
                     data={tabState?.data}
+                    tokenData={formState.tabs['tokens']?.data} // ✅ FIX: Pass token table data for name, symbol, description
                     validationErrors={tabState?.validationErrors || {}}
                     isModified={tabState?.isModified || false}
                     configMode={configMode}

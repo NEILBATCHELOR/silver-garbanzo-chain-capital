@@ -56,8 +56,11 @@ import type {
   TemporaryApprovalModuleConfig
 } from '../../contracts/types';
 
+import { TokensTableData } from '../../types';
+
 interface ERC20PropertiesTabProps {
   data: TokenERC20PropertiesData | TokenERC20PropertiesData[];
+  tokenData?: TokensTableData | TokensTableData[]; // ✅ FIX: Add tokenData prop for name, symbol access
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
@@ -71,6 +74,7 @@ interface ERC20PropertiesTabProps {
 
 export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   data,
+  tokenData, // ✅ FIX: Receive tokenData
   validationErrors,
   isModified,
   configMode,
@@ -82,6 +86,8 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   environment = 'testnet'
 }) => {
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
+  // ✅ FIX: Extract token data with proper typing
+  const tokenTableData: TokensTableData = (Array.isArray(tokenData) ? tokenData[0] : tokenData) ?? {} as TokensTableData;
   const [activeTab, setActiveTab] = useState<'master' | 'extensions'>('master');
 
   const handleFieldChange = (field: string, value: any) => {
@@ -97,81 +103,225 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
   };
 
   // Master Contract Configuration State
+  // ✅ FIX: Use tokenTableData for name and symbol which exist in tokens table
   const [masterConfig, setMasterConfig] = useState<ERC20MasterConfig>({
-    name: propertiesData.name || '',
-    symbol: propertiesData.symbol || '',
+    name: tokenTableData.name || '',
+    symbol: tokenTableData.symbol || '',
     maxSupply: propertiesData.cap || '0',
     initialSupply: propertiesData.initial_supply || '0',
     owner: propertiesData.initial_owner || ''
   });
 
+  // ✅ FIX: Update masterConfig when data loads asynchronously
+  React.useEffect(() => {
+    setMasterConfig({
+      name: tokenTableData.name || '',
+      symbol: tokenTableData.symbol || '',
+      maxSupply: propertiesData.cap || '0',
+      initialSupply: propertiesData.initial_supply || '0',
+      owner: propertiesData.initial_owner || ''
+    });
+  }, [tokenTableData.name, tokenTableData.symbol, propertiesData.cap, propertiesData.initial_supply, propertiesData.initial_owner]);
+
   // Extension Module Configuration States
-  const [complianceConfig, setComplianceConfig] = useState<ComplianceModuleConfig>({
+  // ✅ FIX: Create wrapper functions that persist to database
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
     enabled: !!propertiesData.compliance_module_address,
     kycRequired: false,
     whitelistRequired: false
   });
+  const setComplianceConfig = (config: ComplianceModuleConfig) => {
+    setComplianceConfigState(config);
+    handleFieldChange('compliance_config', config);
+  };
 
-  const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
     enabled: !!propertiesData.vesting_module_address,
     schedules: []
   });
+  const setVestingConfig = (config: VestingModuleConfig) => {
+    setVestingConfigState(config);
+    handleFieldChange('vesting_config', config);
+  };
 
-  const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
     enabled: !!propertiesData.document_module_address,
     documents: []
   });
+  const setDocumentConfig = (config: DocumentModuleConfig) => {
+    setDocumentConfigState(config);
+    handleFieldChange('document_config', config);
+  };
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
     rules: [],
     validators: []
   });
+  const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
+    setPolicyEngineConfigState(config);
+    handleFieldChange('policy_engine_config', config);
+  };
 
-  const [feeConfig, setFeeConfig] = useState<FeeModuleConfig>({
+  const [feeConfig, setFeeConfigState] = useState<FeeModuleConfig>({
     enabled: !!propertiesData.fees_module_address,
     transferFeeBps: 0,
     feeRecipient: ''
   });
+  const setFeeConfig = (config: FeeModuleConfig) => {
+    setFeeConfigState(config);
+    handleFieldChange('fees_config', config);
+  };
 
-  const [flashMintConfig, setFlashMintConfig] = useState<FlashMintModuleConfig>({
+  const [flashMintConfig, setFlashMintConfigState] = useState<FlashMintModuleConfig>({
     enabled: !!propertiesData.flash_mint_module_address
   });
+  const setFlashMintConfig = (config: FlashMintModuleConfig) => {
+    setFlashMintConfigState(config);
+    handleFieldChange('flash_mint_config', config);
+  };
 
-  const [permitConfig, setPermitConfig] = useState<PermitModuleConfig>({
+  const [permitConfig, setPermitConfigState] = useState<PermitModuleConfig>({
     enabled: !!propertiesData.permit_module_address
   });
+  const setPermitConfig = (config: PermitModuleConfig) => {
+    setPermitConfigState(config);
+    handleFieldChange('permit_config', config);
+  };
 
-  const [snapshotConfig, setSnapshotConfig] = useState<SnapshotModuleConfig>({
+  const [snapshotConfig, setSnapshotConfigState] = useState<SnapshotModuleConfig>({
     enabled: !!propertiesData.snapshot_module_address
   });
+  const setSnapshotConfig = (config: SnapshotModuleConfig) => {
+    setSnapshotConfigState(config);
+    handleFieldChange('snapshot_config', config);
+  };
 
-  const [timelockConfig, setTimelockConfig] = useState<TimelockModuleConfig>({
+  const [timelockConfig, setTimelockConfigState] = useState<TimelockModuleConfig>({
     enabled: !!propertiesData.timelock_module_address
   });
+  const setTimelockConfig = (config: TimelockModuleConfig) => {
+    setTimelockConfigState(config);
+    handleFieldChange('timelock_config', config);
+  };
 
-  const [votesConfig, setVotesConfig] = useState<VotesModuleConfig>({
+  const [votesConfig, setVotesConfigState] = useState<VotesModuleConfig>({
     enabled: !!propertiesData.votes_module_address
   });
+  const setVotesConfig = (config: VotesModuleConfig) => {
+    setVotesConfigState(config);
+    handleFieldChange('votes_config', config);
+  };
 
-  const [payableTokenConfig, setPayableTokenConfig] = useState<PayableTokenModuleConfig>({
+  const [payableTokenConfig, setPayableTokenConfigState] = useState<PayableTokenModuleConfig>({
     enabled: !!propertiesData.payable_token_module_address
   });
+  const setPayableTokenConfig = (config: PayableTokenModuleConfig) => {
+    setPayableTokenConfigState(config);
+    handleFieldChange('payable_token_config', config);
+  };
 
-  const [temporaryApprovalConfig, setTemporaryApprovalConfig] = useState<TemporaryApprovalModuleConfig>({
+  const [temporaryApprovalConfig, setTemporaryApprovalConfigState] = useState<TemporaryApprovalModuleConfig>({
     enabled: !!propertiesData.temporary_approval_module_address,
     defaultDuration: 3600
   });
+  const setTemporaryApprovalConfig = (config: TemporaryApprovalModuleConfig) => {
+    setTemporaryApprovalConfigState(config);
+    handleFieldChange('temporary_approval_config', config);
+  };
+
+  // ✅ FIX: Update module configs when data loads asynchronously using state setters
+  React.useEffect(() => {
+    setComplianceConfigState({
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    });
+  }, [propertiesData.compliance_module_address]);
+
+  React.useEffect(() => {
+    setVestingConfigState({
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    });
+  }, [propertiesData.vesting_module_address]);
+
+  React.useEffect(() => {
+    setDocumentConfigState({
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    });
+  }, [propertiesData.document_module_address]);
+
+  React.useEffect(() => {
+    setPolicyEngineConfigState({
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    });
+  }, [propertiesData.policy_engine_address]);
+
+  React.useEffect(() => {
+    setFeeConfigState({
+      enabled: !!propertiesData.fees_module_address,
+      transferFeeBps: 0,
+      feeRecipient: ''
+    });
+  }, [propertiesData.fees_module_address]);
+
+  React.useEffect(() => {
+    setFlashMintConfigState({
+      enabled: !!propertiesData.flash_mint_module_address
+    });
+  }, [propertiesData.flash_mint_module_address]);
+
+  React.useEffect(() => {
+    setPermitConfigState({
+      enabled: !!propertiesData.permit_module_address
+    });
+  }, [propertiesData.permit_module_address]);
+
+  React.useEffect(() => {
+    setSnapshotConfigState({
+      enabled: !!propertiesData.snapshot_module_address
+    });
+  }, [propertiesData.snapshot_module_address]);
+
+  React.useEffect(() => {
+    setTimelockConfigState({
+      enabled: !!propertiesData.timelock_module_address
+    });
+  }, [propertiesData.timelock_module_address]);
+
+  React.useEffect(() => {
+    setVotesConfigState({
+      enabled: !!propertiesData.votes_module_address
+    });
+  }, [propertiesData.votes_module_address]);
+
+  React.useEffect(() => {
+    setPayableTokenConfigState({
+      enabled: !!propertiesData.payable_token_module_address
+    });
+  }, [propertiesData.payable_token_module_address]);
+
+  React.useEffect(() => {
+    setTemporaryApprovalConfigState({
+      enabled: !!propertiesData.temporary_approval_module_address,
+      defaultDuration: 3600
+    });
+  }, [propertiesData.temporary_approval_module_address]);
 
   // Handler for master config changes
+  // ✅ FIX: Do NOT try to update name/symbol here - they belong to tokens table, not properties table
+  // Name and symbol should only be edited in Basic Info tab
   const handleMasterConfigChange = (newConfig: ERC20MasterConfig) => {
     setMasterConfig(newConfig);
-    // Update underlying data fields
-    handleFieldChange('name', newConfig.name);
-    handleFieldChange('symbol', newConfig.symbol);
+    // Only update fields that belong to token_erc20_properties table
     handleFieldChange('cap', newConfig.maxSupply);
     handleFieldChange('initial_supply', newConfig.initialSupply);
     handleFieldChange('initial_owner', newConfig.owner);
+    // NOTE: name and symbol are read-only here and must be edited in Basic Info tab
   };
 
   // Count enabled modules

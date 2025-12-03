@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Settings, Puzzle } from 'lucide-react';
 
-import { TokenERC4626PropertiesData, ConfigMode } from '../../types';
+import { TokenERC4626PropertiesData, ConfigMode, TokensTableData } from '../../types';
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 // Master Contract Configs
@@ -49,6 +49,7 @@ import type {
 
 interface ERC4626PropertiesTabProps {
   data: TokenERC4626PropertiesData | TokenERC4626PropertiesData[];
+  tokenData?: TokensTableData | TokensTableData[]; // ✅ FIX: Add tokenData prop for name, symbol access
   validationErrors: Record<string, string[]>;
   isModified: boolean;
   configMode: ConfigMode;
@@ -62,6 +63,7 @@ interface ERC4626PropertiesTabProps {
 
 export const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   data,
+  tokenData, // ✅ FIX: Receive tokenData
   validationErrors,
   isModified,
   configMode,
@@ -73,6 +75,8 @@ export const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   environment = 'testnet'
 }) => {
   const propertiesData = Array.isArray(data) ? (data[0] || {}) : data;
+  // ✅ FIX: Extract token data with proper typing
+  const tokenTableData: TokensTableData = (Array.isArray(tokenData) ? tokenData[0] : tokenData) ?? {} as TokensTableData;
   const [activeTab, setActiveTab] = useState<'master' | 'extensions'>('master');
 
   const handleFieldChange = (field: string, value: any) => {
@@ -88,83 +92,148 @@ export const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
   };
 
   // Master Contract Configuration State
+  // ✅ FIX: Use tokenTableData for name and symbol which exist in tokens table
   const [masterConfig, setMasterConfig] = useState<ERC4626MasterConfig>({
     asset: propertiesData.asset || '',
-    name: propertiesData.name || '',
-    symbol: propertiesData.symbol || '',
+    name: tokenTableData.name || '',
+    symbol: tokenTableData.symbol || '',
     depositCap: propertiesData.deposit_cap || '0',
     minimumDeposit: propertiesData.minimum_deposit || '0',
     owner: propertiesData.initial_owner || ''
   });
 
+  // ✅ FIX: Update masterConfig when data loads asynchronously
+  React.useEffect(() => {
+    setMasterConfig({
+      asset: propertiesData.asset || '',
+      name: tokenTableData.name || '',
+      symbol: tokenTableData.symbol || '',
+      depositCap: propertiesData.deposit_cap || '0',
+      minimumDeposit: propertiesData.minimum_deposit || '0',
+      owner: propertiesData.initial_owner || ''
+    });
+  }, [
+    propertiesData.asset, 
+    tokenTableData.name, 
+    tokenTableData.symbol, 
+    propertiesData.deposit_cap, 
+    propertiesData.minimum_deposit, 
+    propertiesData.initial_owner
+  ]);
+
   // Extension Module Configuration States
-  const [complianceConfig, setComplianceConfig] = useState<ComplianceModuleConfig>({
+  // ✅ FIX: Create wrapper functions that persist to database
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
     enabled: !!propertiesData.compliance_module_address,
     kycRequired: false,
     whitelistRequired: false
   });
+  const setComplianceConfig = (config: ComplianceModuleConfig) => {
+    setComplianceConfigState(config);
+    handleFieldChange('compliance_config', config);
+  };
 
-  const [vestingConfig, setVestingConfig] = useState<VestingModuleConfig>({
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
     enabled: !!propertiesData.vesting_module_address,
     schedules: []
   });
+  const setVestingConfig = (config: VestingModuleConfig) => {
+    setVestingConfigState(config);
+    handleFieldChange('vesting_config', config);
+  };
 
-  const [documentConfig, setDocumentConfig] = useState<DocumentModuleConfig>({
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
     enabled: !!propertiesData.document_module_address,
     documents: []
   });
+  const setDocumentConfig = (config: DocumentModuleConfig) => {
+    setDocumentConfigState(config);
+    handleFieldChange('document_config', config);
+  };
 
-  const [policyEngineConfig, setPolicyEngineConfig] = useState<PolicyEngineModuleConfig>({
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
     enabled: !!propertiesData.policy_engine_address,
     rules: [],
     validators: []
   });
+  const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
+    setPolicyEngineConfigState(config);
+    // Note: policy_engine doesn't have a separate config field in ERC4626
+  };
 
-  const [feeStrategyConfig, setFeeStrategyConfig] = useState<FeeStrategyModuleConfig>({
+  const [feeStrategyConfig, setFeeStrategyConfigState] = useState<FeeStrategyModuleConfig>({
     enabled: !!propertiesData.fee_strategy_module_address,
     managementFeeBps: 0,
     performanceFeeBps: 0,
     feeRecipient: ''
   });
+  const setFeeStrategyConfig = (config: FeeStrategyModuleConfig) => {
+    setFeeStrategyConfigState(config);
+    handleFieldChange('fee_strategy_config', config);
+  };
 
-  const [withdrawalQueueConfig, setWithdrawalQueueConfig] = useState<WithdrawalQueueModuleConfig>({
+  const [withdrawalQueueConfig, setWithdrawalQueueConfigState] = useState<WithdrawalQueueModuleConfig>({
     enabled: !!propertiesData.withdrawal_queue_module_address,
     maxQueueSize: 0
   });
+  const setWithdrawalQueueConfig = (config: WithdrawalQueueModuleConfig) => {
+    setWithdrawalQueueConfigState(config);
+    handleFieldChange('withdrawal_queue_config', config);
+  };
 
-  const [yieldStrategyConfig, setYieldStrategyConfig] = useState<YieldStrategyModuleConfig>({
+  const [yieldStrategyConfig, setYieldStrategyConfigState] = useState<YieldStrategyModuleConfig>({
     enabled: !!propertiesData.yield_strategy_module_address,
     targetYieldBps: 0
   });
+  const setYieldStrategyConfig = (config: YieldStrategyModuleConfig) => {
+    setYieldStrategyConfigState(config);
+    handleFieldChange('yield_strategy_config', config);
+  };
 
-  const [asyncVaultConfig, setAsyncVaultConfig] = useState<AsyncVaultModuleConfig>({
+  const [asyncVaultConfig, setAsyncVaultConfigState] = useState<AsyncVaultModuleConfig>({
     enabled: !!propertiesData.async_vault_module_address,
     settlementDelay: 86400
   });
+  const setAsyncVaultConfig = (config: AsyncVaultModuleConfig) => {
+    setAsyncVaultConfigState(config);
+    handleFieldChange('async_vault_config', config);
+  };
 
-  const [nativeVaultConfig, setNativeVaultConfig] = useState<NativeVaultModuleConfig>({
+  const [nativeVaultConfig, setNativeVaultConfigState] = useState<NativeVaultModuleConfig>({
     enabled: !!propertiesData.native_vault_module_address
   });
+  const setNativeVaultConfig = (config: NativeVaultModuleConfig) => {
+    setNativeVaultConfigState(config);
+    handleFieldChange('native_vault_config', config);
+  };
 
-  const [routerConfig, setRouterConfig] = useState<RouterModuleConfig>({
+  const [routerConfig, setRouterConfigState] = useState<RouterModuleConfig>({
     enabled: !!propertiesData.router_module_address
   });
+  const setRouterConfig = (config: RouterModuleConfig) => {
+    setRouterConfigState(config);
+    handleFieldChange('router_config', config);
+  };
 
-  const [multiAssetVaultConfig, setMultiAssetVaultConfig] = useState<MultiAssetVaultModuleConfig>({
+  const [multiAssetVaultConfig, setMultiAssetVaultConfigState] = useState<MultiAssetVaultModuleConfig>({
     enabled: !!propertiesData.multi_asset_vault_module_address,
     maxAssets: 0
   });
+  const setMultiAssetVaultConfig = (config: MultiAssetVaultModuleConfig) => {
+    setMultiAssetVaultConfigState(config);
+    handleFieldChange('multi_asset_vault_config', config);
+  };
 
   // Handler for master config changes
+  // ✅ FIX: Do NOT try to update name/symbol here - they belong to tokens table
   const handleMasterConfigChange = (newConfig: ERC4626MasterConfig) => {
     setMasterConfig(newConfig);
-    // Update underlying data fields
+    // Only update fields that belong to token_erc4626_properties table
     handleFieldChange('asset', newConfig.asset);
-    handleFieldChange('name', newConfig.name);
-    handleFieldChange('symbol', newConfig.symbol);
     handleFieldChange('deposit_cap', newConfig.depositCap);
     handleFieldChange('minimum_deposit', newConfig.minimumDeposit);
     handleFieldChange('initial_owner', newConfig.owner);
+    // NOTE: name and symbol are read-only here and must be edited in Basic Info tab
   };
 
   // Count enabled modules

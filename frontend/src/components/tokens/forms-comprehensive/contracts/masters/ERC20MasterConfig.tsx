@@ -34,33 +34,33 @@ export function ERC20MasterConfigPanel({
       </Alert>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Token Name */}
+        {/* Token Name - Read Only (edit in Basic Info tab) */}
         <div className="space-y-2">
           <Label className="text-xs">Token Name</Label>
           <Input
             value={config.name}
             onChange={(e) => handleChange('name', e.target.value)}
             placeholder="My Token"
-            disabled={disabled}
+            disabled={true} // ✅ FIX: Read-only - name must be edited in Basic Info tab
           />
           {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           <p className="text-xs text-muted-foreground">
-            Full name of your token
+            View only - Edit in Basic Info tab
           </p>
         </div>
 
-        {/* Token Symbol */}
+        {/* Token Symbol - Read Only (edit in Basic Info tab) */}
         <div className="space-y-2">
           <Label className="text-xs">Token Symbol</Label>
           <Input
             value={config.symbol}
             onChange={(e) => handleChange('symbol', e.target.value.toUpperCase())}
             placeholder="MTK"
-            disabled={disabled}
+            disabled={true} // ✅ FIX: Read-only - symbol must be edited in Basic Info tab
           />
           {errors.symbol && <p className="text-xs text-destructive">{errors.symbol}</p>}
           <p className="text-xs text-muted-foreground">
-            Ticker symbol (2-5 characters)
+            View only - Edit in Basic Info tab
           </p>
         </div>
 
