@@ -106,74 +106,98 @@ export const ERC1155PropertiesTab: React.FC<ERC1155PropertiesTabProps> = ({
 
   // Extension Module Configuration States
   // ✅ FIX: Create wrapper functions that persist to database
-  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
-    enabled: !!propertiesData.compliance_module_address,
-    kycRequired: false,
-    whitelistRequired: false
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>(() => {
+    const saved = propertiesData.compliance_config as any;
+    return saved || {
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    };
   });
   const setComplianceConfig = (config: ComplianceModuleConfig) => {
     setComplianceConfigState(config);
     handleFieldChange('compliance_config', config);
   };
 
-  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address,
-    schedules: []
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>(() => {
+    const saved = propertiesData.vesting_config as any;
+    return saved || {
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    };
   });
   const setVestingConfig = (config: VestingModuleConfig) => {
     setVestingConfigState(config);
     handleFieldChange('vesting_config', config);
   };
 
-  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address,
-    documents: []
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>(() => {
+    const saved = propertiesData.document_config as any;
+    return saved || {
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    };
   });
   const setDocumentConfig = (config: DocumentModuleConfig) => {
     setDocumentConfigState(config);
     handleFieldChange('document_config', config);
   };
 
-  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
-    enabled: !!propertiesData.policy_engine_address,
-    rules: [],
-    validators: []
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>(() => {
+    const saved = propertiesData.policy_engine_config as any;
+    return saved || {
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    };
   });
   const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
     setPolicyEngineConfigState(config);
     // Note: policy_engine doesn't have a separate config field in ERC1155
   };
 
-  const [royaltyConfig, setRoyaltyConfigState] = useState<RoyaltyModuleConfig>({
-    enabled: !!propertiesData.royalty_module_address,
-    defaultRoyaltyBps: 0,
-    royaltyRecipient: ''
+  const [royaltyConfig, setRoyaltyConfigState] = useState<RoyaltyModuleConfig>(() => {
+    const saved = propertiesData.royalty_config as any;
+    return saved || {
+      enabled: !!propertiesData.royalty_module_address,
+      defaultRoyaltyBps: 0,
+      royaltyRecipient: ''
+    };
   });
   const setRoyaltyConfig = (config: RoyaltyModuleConfig) => {
     setRoyaltyConfigState(config);
     // Note: royalty doesn't have a separate config field
   };
 
-  const [supplyCapConfig, setSupplyCapConfigState] = useState<SupplyCapModuleConfig>({
-    enabled: !!propertiesData.supply_cap_module_address,
-    defaultCap: 0
+  const [supplyCapConfig, setSupplyCapConfigState] = useState<SupplyCapModuleConfig>(() => {
+    const saved = propertiesData.supply_cap_config as any;
+    return saved || {
+      enabled: !!propertiesData.supply_cap_module_address,
+      defaultCap: 0
+    };
   });
   const setSupplyCapConfig = (config: SupplyCapModuleConfig) => {
     setSupplyCapConfigState(config);
     handleFieldChange('supply_cap_config', config);
   };
 
-  const [uriManagementConfig, setUriManagementConfigState] = useState<UriManagementModuleConfig>({
-    enabled: !!propertiesData.uri_management_module_address,
-    baseURI: ''
+  const [uriManagementConfig, setUriManagementConfigState] = useState<UriManagementModuleConfig>(() => {
+    const saved = propertiesData.uri_management_config as any;
+    return saved || {
+      enabled: !!propertiesData.uri_management_module_address,
+      baseURI: ''
+    };
   });
   const setUriManagementConfig = (config: UriManagementModuleConfig) => {
     setUriManagementConfigState(config);
     handleFieldChange('uri_management_config', config);
   };
 
-  const [granularApprovalConfig, setGranularApprovalConfigState] = useState<GranularApprovalModuleConfig>({
-    enabled: !!propertiesData.granular_approval_module_address
+  const [granularApprovalConfig, setGranularApprovalConfigState] = useState<GranularApprovalModuleConfig>(() => {
+    const saved = propertiesData.granular_approval_config as any;
+    return saved || {
+      enabled: !!propertiesData.granular_approval_module_address
+    };
   });
   const setGranularApprovalConfig = (config: GranularApprovalModuleConfig) => {
     setGranularApprovalConfigState(config);

@@ -104,64 +104,85 @@ export const ERC3525PropertiesTab: React.FC<ERC3525PropertiesTabProps> = ({
 
   // Extension Module Configuration States
   // ✅ FIX: Create wrapper functions that persist to database
-  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
-    enabled: !!propertiesData.compliance_module_address,
-    kycRequired: false,
-    whitelistRequired: false
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>(() => {
+    const saved = propertiesData.compliance_config as any;
+    return saved || {
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    };
   });
   const setComplianceConfig = (config: ComplianceModuleConfig) => {
     setComplianceConfigState(config);
     handleFieldChange('compliance_config', config);
   };
 
-  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address,
-    schedules: []
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>(() => {
+    const saved = propertiesData.vesting_config as any;
+    return saved || {
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    };
   });
   const setVestingConfig = (config: VestingModuleConfig) => {
     setVestingConfigState(config);
     handleFieldChange('vesting_config', config);
   };
 
-  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address,
-    documents: []
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>(() => {
+    const saved = propertiesData.document_config as any;
+    return saved || {
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    };
   });
   const setDocumentConfig = (config: DocumentModuleConfig) => {
     setDocumentConfigState(config);
     handleFieldChange('document_config', config);
   };
 
-  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
-    enabled: !!propertiesData.policy_engine_address,
-    rules: [],
-    validators: []
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>(() => {
+    const saved = propertiesData.policy_engine_config as any;
+    return saved || {
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    };
   });
   const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
     setPolicyEngineConfigState(config);
     // Note: policy_engine doesn't have a separate config field in ERC3525
   };
 
-  const [slotApprovableConfig, setSlotApprovableConfigState] = useState<SlotApprovableModuleConfig>({
-    enabled: !!propertiesData.slot_approvable_module_address
+  const [slotApprovableConfig, setSlotApprovableConfigState] = useState<SlotApprovableModuleConfig>(() => {
+    const saved = propertiesData.slot_approvable_config as any;
+    return saved || {
+      enabled: !!propertiesData.slot_approvable_module_address
+    };
   });
   const setSlotApprovableConfig = (config: SlotApprovableModuleConfig) => {
     setSlotApprovableConfigState(config);
     handleFieldChange('slot_approvable_config', config);
   };
 
-  const [slotManagerConfig, setSlotManagerConfigState] = useState<SlotManagerModuleConfig>({
-    enabled: !!propertiesData.slot_manager_module_address,
-    slots: []
+  const [slotManagerConfig, setSlotManagerConfigState] = useState<SlotManagerModuleConfig>(() => {
+    const saved = propertiesData.slot_manager_config as any;
+    return saved || {
+      enabled: !!propertiesData.slot_manager_module_address,
+      slots: []
+    };
   });
   const setSlotManagerConfig = (config: SlotManagerModuleConfig) => {
     setSlotManagerConfigState(config);
     handleFieldChange('slot_manager_config', config);
   };
 
-  const [valueExchangeConfig, setValueExchangeConfigState] = useState<ValueExchangeModuleConfig>({
-    enabled: !!propertiesData.value_exchange_module_address,
-    exchangeFeeBps: 0
+  const [valueExchangeConfig, setValueExchangeConfigState] = useState<ValueExchangeModuleConfig>(() => {
+    const saved = propertiesData.value_exchange_config as any;
+    return saved || {
+      enabled: !!propertiesData.value_exchange_module_address,
+      exchangeFeeBps: 0
+    };
   });
   const setValueExchangeConfig = (config: ValueExchangeModuleConfig) => {
     setValueExchangeConfigState(config);

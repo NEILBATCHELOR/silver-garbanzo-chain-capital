@@ -125,192 +125,231 @@ export const ERC20PropertiesTab: React.FC<ERC20PropertiesTabProps> = ({
 
   // Extension Module Configuration States
   // ✅ FIX: Create wrapper functions that persist to database
-  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
-    enabled: !!propertiesData.compliance_module_address,
-    kycRequired: false,
-    whitelistRequired: false
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>(() => {
+    const saved = propertiesData.compliance_config as any;
+    return saved || {
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    };
   });
   const setComplianceConfig = (config: ComplianceModuleConfig) => {
     setComplianceConfigState(config);
     handleFieldChange('compliance_config', config);
   };
 
-  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address,
-    schedules: []
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>(() => {
+    const saved = propertiesData.vesting_config as any;
+    return saved || {
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    };
   });
   const setVestingConfig = (config: VestingModuleConfig) => {
     setVestingConfigState(config);
     handleFieldChange('vesting_config', config);
   };
 
-  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address,
-    documents: []
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>(() => {
+    const saved = propertiesData.document_config as any;
+    return saved || {
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    };
   });
   const setDocumentConfig = (config: DocumentModuleConfig) => {
     setDocumentConfigState(config);
     handleFieldChange('document_config', config);
   };
 
-  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
-    enabled: !!propertiesData.policy_engine_address,
-    rules: [],
-    validators: []
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>(() => {
+    const saved = propertiesData.policy_engine_config as any;
+    return saved || {
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    };
   });
   const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
     setPolicyEngineConfigState(config);
     handleFieldChange('policy_engine_config', config);
   };
 
-  const [feeConfig, setFeeConfigState] = useState<FeeModuleConfig>({
-    enabled: !!propertiesData.fees_module_address,
-    transferFeeBps: 0,
-    feeRecipient: ''
+  const [feeConfig, setFeeConfigState] = useState<FeeModuleConfig>(() => {
+    const saved = propertiesData.fees_config as any;
+    return saved || {
+      enabled: !!propertiesData.fees_module_address,
+      transferFeeBps: 0,
+      feeRecipient: ''
+    };
   });
   const setFeeConfig = (config: FeeModuleConfig) => {
     setFeeConfigState(config);
     handleFieldChange('fees_config', config);
   };
 
-  const [flashMintConfig, setFlashMintConfigState] = useState<FlashMintModuleConfig>({
-    enabled: !!propertiesData.flash_mint_module_address
+  const [flashMintConfig, setFlashMintConfigState] = useState<FlashMintModuleConfig>(() => {
+    const saved = propertiesData.flash_mint_config as any;
+    return saved || {
+      enabled: !!propertiesData.flash_mint_module_address
+    };
   });
   const setFlashMintConfig = (config: FlashMintModuleConfig) => {
     setFlashMintConfigState(config);
     handleFieldChange('flash_mint_config', config);
   };
 
-  const [permitConfig, setPermitConfigState] = useState<PermitModuleConfig>({
-    enabled: !!propertiesData.permit_module_address
+  const [permitConfig, setPermitConfigState] = useState<PermitModuleConfig>(() => {
+    const saved = propertiesData.permit_config as any;
+    return saved || {
+      enabled: !!propertiesData.permit_module_address
+    };
   });
   const setPermitConfig = (config: PermitModuleConfig) => {
     setPermitConfigState(config);
     handleFieldChange('permit_config', config);
   };
 
-  const [snapshotConfig, setSnapshotConfigState] = useState<SnapshotModuleConfig>({
-    enabled: !!propertiesData.snapshot_module_address
+  const [snapshotConfig, setSnapshotConfigState] = useState<SnapshotModuleConfig>(() => {
+    const saved = propertiesData.snapshot_config as any;
+    return saved || {
+      enabled: !!propertiesData.snapshot_module_address
+    };
   });
   const setSnapshotConfig = (config: SnapshotModuleConfig) => {
     setSnapshotConfigState(config);
     handleFieldChange('snapshot_config', config);
   };
 
-  const [timelockConfig, setTimelockConfigState] = useState<TimelockModuleConfig>({
-    enabled: !!propertiesData.timelock_module_address
+  const [timelockConfig, setTimelockConfigState] = useState<TimelockModuleConfig>(() => {
+    const saved = propertiesData.timelock_config as any;
+    return saved || {
+      enabled: !!propertiesData.timelock_module_address
+    };
   });
   const setTimelockConfig = (config: TimelockModuleConfig) => {
     setTimelockConfigState(config);
     handleFieldChange('timelock_config', config);
   };
 
-  const [votesConfig, setVotesConfigState] = useState<VotesModuleConfig>({
-    enabled: !!propertiesData.votes_module_address
+  const [votesConfig, setVotesConfigState] = useState<VotesModuleConfig>(() => {
+    const saved = propertiesData.votes_config as any;
+    return saved || {
+      enabled: !!propertiesData.votes_module_address
+    };
   });
   const setVotesConfig = (config: VotesModuleConfig) => {
     setVotesConfigState(config);
     handleFieldChange('votes_config', config);
   };
 
-  const [payableTokenConfig, setPayableTokenConfigState] = useState<PayableTokenModuleConfig>({
-    enabled: !!propertiesData.payable_token_module_address
+  const [payableTokenConfig, setPayableTokenConfigState] = useState<PayableTokenModuleConfig>(() => {
+    const saved = propertiesData.payable_token_config as any;
+    return saved || {
+      enabled: !!propertiesData.payable_token_module_address
+    };
   });
   const setPayableTokenConfig = (config: PayableTokenModuleConfig) => {
     setPayableTokenConfigState(config);
     handleFieldChange('payable_token_config', config);
   };
 
-  const [temporaryApprovalConfig, setTemporaryApprovalConfigState] = useState<TemporaryApprovalModuleConfig>({
-    enabled: !!propertiesData.temporary_approval_module_address,
-    defaultDuration: 3600
+  const [temporaryApprovalConfig, setTemporaryApprovalConfigState] = useState<TemporaryApprovalModuleConfig>(() => {
+    const saved = propertiesData.temporary_approval_config as any;
+    return saved || {
+      enabled: !!propertiesData.temporary_approval_module_address,
+      defaultDuration: 3600
+    };
   });
   const setTemporaryApprovalConfig = (config: TemporaryApprovalModuleConfig) => {
     setTemporaryApprovalConfigState(config);
     handleFieldChange('temporary_approval_config', config);
   };
 
-  // ✅ FIX: Update module configs when data loads asynchronously using state setters
+  // ✅ FIX: Update module configs when data loads asynchronously from JSONB fields
   React.useEffect(() => {
-    setComplianceConfigState({
-      enabled: !!propertiesData.compliance_module_address,
-      kycRequired: false,
-      whitelistRequired: false
-    });
-  }, [propertiesData.compliance_module_address]);
+    const saved = propertiesData.compliance_config as any;
+    if (saved) {
+      setComplianceConfigState(saved);
+    }
+  }, [propertiesData.compliance_config]);
 
   React.useEffect(() => {
-    setVestingConfigState({
-      enabled: !!propertiesData.vesting_module_address,
-      schedules: []
-    });
-  }, [propertiesData.vesting_module_address]);
+    const saved = propertiesData.vesting_config as any;
+    if (saved) {
+      setVestingConfigState(saved);
+    }
+  }, [propertiesData.vesting_config]);
 
   React.useEffect(() => {
-    setDocumentConfigState({
-      enabled: !!propertiesData.document_module_address,
-      documents: []
-    });
-  }, [propertiesData.document_module_address]);
+    const saved = propertiesData.document_config as any;
+    if (saved) {
+      setDocumentConfigState(saved);
+    }
+  }, [propertiesData.document_config]);
 
   React.useEffect(() => {
-    setPolicyEngineConfigState({
-      enabled: !!propertiesData.policy_engine_address,
-      rules: [],
-      validators: []
-    });
-  }, [propertiesData.policy_engine_address]);
+    const saved = propertiesData.policy_engine_config as any;
+    if (saved) {
+      setPolicyEngineConfigState(saved);
+    }
+  }, [propertiesData.policy_engine_config]);
 
   React.useEffect(() => {
-    setFeeConfigState({
-      enabled: !!propertiesData.fees_module_address,
-      transferFeeBps: 0,
-      feeRecipient: ''
-    });
-  }, [propertiesData.fees_module_address]);
+    const saved = propertiesData.fees_config as any;
+    if (saved) {
+      setFeeConfigState(saved);
+    }
+  }, [propertiesData.fees_config]);
 
   React.useEffect(() => {
-    setFlashMintConfigState({
-      enabled: !!propertiesData.flash_mint_module_address
-    });
-  }, [propertiesData.flash_mint_module_address]);
+    const saved = propertiesData.flash_mint_config as any;
+    if (saved) {
+      setFlashMintConfigState(saved);
+    }
+  }, [propertiesData.flash_mint_config]);
 
   React.useEffect(() => {
-    setPermitConfigState({
-      enabled: !!propertiesData.permit_module_address
-    });
-  }, [propertiesData.permit_module_address]);
+    const saved = propertiesData.permit_config as any;
+    if (saved) {
+      setPermitConfigState(saved);
+    }
+  }, [propertiesData.permit_config]);
 
   React.useEffect(() => {
-    setSnapshotConfigState({
-      enabled: !!propertiesData.snapshot_module_address
-    });
-  }, [propertiesData.snapshot_module_address]);
+    const saved = propertiesData.snapshot_config as any;
+    if (saved) {
+      setSnapshotConfigState(saved);
+    }
+  }, [propertiesData.snapshot_config]);
 
   React.useEffect(() => {
-    setTimelockConfigState({
-      enabled: !!propertiesData.timelock_module_address
-    });
-  }, [propertiesData.timelock_module_address]);
+    const saved = propertiesData.timelock_config as any;
+    if (saved) {
+      setTimelockConfigState(saved);
+    }
+  }, [propertiesData.timelock_config]);
 
   React.useEffect(() => {
-    setVotesConfigState({
-      enabled: !!propertiesData.votes_module_address
-    });
-  }, [propertiesData.votes_module_address]);
+    const saved = propertiesData.votes_config as any;
+    if (saved) {
+      setVotesConfigState(saved);
+    }
+  }, [propertiesData.votes_config]);
 
   React.useEffect(() => {
-    setPayableTokenConfigState({
-      enabled: !!propertiesData.payable_token_module_address
-    });
-  }, [propertiesData.payable_token_module_address]);
+    const saved = propertiesData.payable_token_config as any;
+    if (saved) {
+      setPayableTokenConfigState(saved);
+    }
+  }, [propertiesData.payable_token_config]);
 
   React.useEffect(() => {
-    setTemporaryApprovalConfigState({
-      enabled: !!propertiesData.temporary_approval_module_address,
-      defaultDuration: 3600
-    });
-  }, [propertiesData.temporary_approval_module_address]);
+    const saved = propertiesData.temporary_approval_config as any;
+    if (saved) {
+      setTemporaryApprovalConfigState(saved);
+    }
+  }, [propertiesData.temporary_approval_config]);
 
   // Handler for master config changes
   // ✅ FIX: Do NOT try to update name/symbol here - they belong to tokens table, not properties table

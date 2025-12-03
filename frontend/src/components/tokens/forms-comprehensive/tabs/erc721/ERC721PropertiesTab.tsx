@@ -127,90 +127,120 @@ export const ERC721PropertiesTab: React.FC<ERC721PropertiesTabProps> = ({
 
   // Extension Module Configuration States
   // ✅ FIX: Create wrapper functions that persist to database
-  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
-    enabled: !!propertiesData.compliance_module_address,
-    kycRequired: false,
-    whitelistRequired: false
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>(() => {
+    const saved = propertiesData.compliance_config as any;
+    return saved || {
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    };
   });
   const setComplianceConfig = (config: ComplianceModuleConfig) => {
     setComplianceConfigState(config);
     handleFieldChange('compliance_config', config);
   };
 
-  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address,
-    schedules: []
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>(() => {
+    const saved = propertiesData.vesting_config as any;
+    return saved || {
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    };
   });
   const setVestingConfig = (config: VestingModuleConfig) => {
     setVestingConfigState(config);
     handleFieldChange('vesting_config', config);
   };
 
-  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address,
-    documents: []
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>(() => {
+    const saved = propertiesData.document_config as any;
+    return saved || {
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    };
   });
   const setDocumentConfig = (config: DocumentModuleConfig) => {
     setDocumentConfigState(config);
     handleFieldChange('document_config', config);
   };
 
-  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
-    enabled: !!propertiesData.policy_engine_address,
-    rules: [],
-    validators: []
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>(() => {
+    const saved = propertiesData.policy_engine_config as any;
+    return saved || {
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    };
   });
   const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
     setPolicyEngineConfigState(config);
     // Note: policy_engine doesn't have a separate config field in ERC721, address is stored separately
   };
 
-  const [royaltyConfig, setRoyaltyConfigState] = useState<RoyaltyModuleConfig>({
-    enabled: !!propertiesData.royalty_module_address,
-    defaultRoyaltyBps: 0,
-    royaltyRecipient: ''
+  const [royaltyConfig, setRoyaltyConfigState] = useState<RoyaltyModuleConfig>(() => {
+    const saved = propertiesData.royalty_config as any;
+    return saved || {
+      enabled: !!propertiesData.royalty_module_address,
+      defaultRoyaltyBps: 0,
+      royaltyRecipient: ''
+    };
   });
   const setRoyaltyConfig = (config: RoyaltyModuleConfig) => {
     setRoyaltyConfigState(config);
     // Note: royalty doesn't have a separate config field, uses royalty_percentage and royalty_receiver
   };
 
-  const [rentalConfig, setRentalConfigState] = useState<RentalModuleConfig>({
-    enabled: !!propertiesData.rental_module_address,
-    maxRentalDuration: 0
+  const [rentalConfig, setRentalConfigState] = useState<RentalModuleConfig>(() => {
+    const saved = propertiesData.rental_config as any;
+    return saved || {
+      enabled: !!propertiesData.rental_module_address,
+      maxRentalDuration: 0
+    };
   });
   const setRentalConfig = (config: RentalModuleConfig) => {
     setRentalConfigState(config);
     handleFieldChange('rental_config', config);
   };
 
-  const [soulboundConfig, setSoulboundConfigState] = useState<SoulboundModuleConfig>({
-    enabled: !!propertiesData.soulbound_module_address
+  const [soulboundConfig, setSoulboundConfigState] = useState<SoulboundModuleConfig>(() => {
+    const saved = propertiesData.soulbound_config as any;
+    return saved || {
+      enabled: !!propertiesData.soulbound_module_address
+    };
   });
   const setSoulboundConfig = (config: SoulboundModuleConfig) => {
     setSoulboundConfigState(config);
     handleFieldChange('soulbound_config', config);
   };
 
-  const [fractionalizationConfig, setFractionalizationConfigState] = useState<FractionalizationModuleConfig>({
-    enabled: !!propertiesData.fraction_module_address,
-    minFractions: 100
+  const [fractionalizationConfig, setFractionalizationConfigState] = useState<FractionalizationModuleConfig>(() => {
+    const saved = propertiesData.fractionalization_config as any;
+    return saved || {
+      enabled: !!propertiesData.fraction_module_address,
+      minFractions: 100
+    };
   });
   const setFractionalizationConfig = (config: FractionalizationModuleConfig) => {
     setFractionalizationConfigState(config);
     handleFieldChange('fractionalization_config', config);
   };
 
-  const [consecutiveConfig, setConsecutiveConfigState] = useState<ConsecutiveModuleConfig>({
-    enabled: !!propertiesData.consecutive_module_address
+  const [consecutiveConfig, setConsecutiveConfigState] = useState<ConsecutiveModuleConfig>(() => {
+    const saved = propertiesData.consecutive_config as any;
+    return saved || {
+      enabled: !!propertiesData.consecutive_module_address
+    };
   });
   const setConsecutiveConfig = (config: ConsecutiveModuleConfig) => {
     setConsecutiveConfigState(config);
     handleFieldChange('consecutive_config', config);
   };
 
-  const [metadataEventsConfig, setMetadataEventsConfigState] = useState<MetadataEventsModuleConfig>({
-    enabled: !!propertiesData.metadata_events_module_address
+  const [metadataEventsConfig, setMetadataEventsConfigState] = useState<MetadataEventsModuleConfig>(() => {
+    const saved = propertiesData.metadata_events_config as any;
+    return saved || {
+      enabled: !!propertiesData.metadata_events_module_address
+    };
   });
   const setMetadataEventsConfig = (config: MetadataEventsModuleConfig) => {
     setMetadataEventsConfigState(config);

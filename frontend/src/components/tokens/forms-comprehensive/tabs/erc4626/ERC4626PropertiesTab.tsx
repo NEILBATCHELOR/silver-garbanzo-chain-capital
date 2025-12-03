@@ -123,101 +123,134 @@ export const ERC4626PropertiesTab: React.FC<ERC4626PropertiesTabProps> = ({
 
   // Extension Module Configuration States
   // ✅ FIX: Create wrapper functions that persist to database
-  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
-    enabled: !!propertiesData.compliance_module_address,
-    kycRequired: false,
-    whitelistRequired: false
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>(() => {
+    const saved = propertiesData.compliance_config as any;
+    return saved || {
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    };
   });
   const setComplianceConfig = (config: ComplianceModuleConfig) => {
     setComplianceConfigState(config);
     handleFieldChange('compliance_config', config);
   };
 
-  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address,
-    schedules: []
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>(() => {
+    const saved = propertiesData.vesting_config as any;
+    return saved || {
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    };
   });
   const setVestingConfig = (config: VestingModuleConfig) => {
     setVestingConfigState(config);
     handleFieldChange('vesting_config', config);
   };
 
-  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address,
-    documents: []
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>(() => {
+    const saved = propertiesData.document_config as any;
+    return saved || {
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    };
   });
   const setDocumentConfig = (config: DocumentModuleConfig) => {
     setDocumentConfigState(config);
     handleFieldChange('document_config', config);
   };
 
-  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
-    enabled: !!propertiesData.policy_engine_address,
-    rules: [],
-    validators: []
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>(() => {
+    const saved = propertiesData.policy_engine_config as any;
+    return saved || {
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    };
   });
   const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
     setPolicyEngineConfigState(config);
     // Note: policy_engine doesn't have a separate config field in ERC4626
   };
 
-  const [feeStrategyConfig, setFeeStrategyConfigState] = useState<FeeStrategyModuleConfig>({
-    enabled: !!propertiesData.fee_strategy_module_address,
-    managementFeeBps: 0,
-    performanceFeeBps: 0,
-    feeRecipient: ''
+  const [feeStrategyConfig, setFeeStrategyConfigState] = useState<FeeStrategyModuleConfig>(() => {
+    const saved = propertiesData.fee_strategy_config as any;
+    return saved || {
+      enabled: !!propertiesData.fee_strategy_module_address,
+      managementFeeBps: 0,
+      performanceFeeBps: 0,
+      feeRecipient: ''
+    };
   });
   const setFeeStrategyConfig = (config: FeeStrategyModuleConfig) => {
     setFeeStrategyConfigState(config);
     handleFieldChange('fee_strategy_config', config);
   };
 
-  const [withdrawalQueueConfig, setWithdrawalQueueConfigState] = useState<WithdrawalQueueModuleConfig>({
-    enabled: !!propertiesData.withdrawal_queue_module_address,
-    maxQueueSize: 0
+  const [withdrawalQueueConfig, setWithdrawalQueueConfigState] = useState<WithdrawalQueueModuleConfig>(() => {
+    const saved = propertiesData.withdrawal_queue_config as any;
+    return saved || {
+      enabled: !!propertiesData.withdrawal_queue_module_address,
+      maxQueueSize: 0
+    };
   });
   const setWithdrawalQueueConfig = (config: WithdrawalQueueModuleConfig) => {
     setWithdrawalQueueConfigState(config);
     handleFieldChange('withdrawal_queue_config', config);
   };
 
-  const [yieldStrategyConfig, setYieldStrategyConfigState] = useState<YieldStrategyModuleConfig>({
-    enabled: !!propertiesData.yield_strategy_module_address,
-    targetYieldBps: 0
+  const [yieldStrategyConfig, setYieldStrategyConfigState] = useState<YieldStrategyModuleConfig>(() => {
+    const saved = propertiesData.yield_strategy_config as any;
+    return saved || {
+      enabled: !!propertiesData.yield_strategy_module_address,
+      targetYieldBps: 0
+    };
   });
   const setYieldStrategyConfig = (config: YieldStrategyModuleConfig) => {
     setYieldStrategyConfigState(config);
     handleFieldChange('yield_strategy_config', config);
   };
 
-  const [asyncVaultConfig, setAsyncVaultConfigState] = useState<AsyncVaultModuleConfig>({
-    enabled: !!propertiesData.async_vault_module_address,
-    settlementDelay: 86400
+  const [asyncVaultConfig, setAsyncVaultConfigState] = useState<AsyncVaultModuleConfig>(() => {
+    const saved = propertiesData.async_vault_config as any;
+    return saved || {
+      enabled: !!propertiesData.async_vault_module_address,
+      settlementDelay: 86400
+    };
   });
   const setAsyncVaultConfig = (config: AsyncVaultModuleConfig) => {
     setAsyncVaultConfigState(config);
     handleFieldChange('async_vault_config', config);
   };
 
-  const [nativeVaultConfig, setNativeVaultConfigState] = useState<NativeVaultModuleConfig>({
-    enabled: !!propertiesData.native_vault_module_address
+  const [nativeVaultConfig, setNativeVaultConfigState] = useState<NativeVaultModuleConfig>(() => {
+    const saved = propertiesData.native_vault_config as any;
+    return saved || {
+      enabled: !!propertiesData.native_vault_module_address
+    };
   });
   const setNativeVaultConfig = (config: NativeVaultModuleConfig) => {
     setNativeVaultConfigState(config);
     handleFieldChange('native_vault_config', config);
   };
 
-  const [routerConfig, setRouterConfigState] = useState<RouterModuleConfig>({
-    enabled: !!propertiesData.router_module_address
+  const [routerConfig, setRouterConfigState] = useState<RouterModuleConfig>(() => {
+    const saved = propertiesData.router_config as any;
+    return saved || {
+      enabled: !!propertiesData.router_module_address
+    };
   });
   const setRouterConfig = (config: RouterModuleConfig) => {
     setRouterConfigState(config);
     handleFieldChange('router_config', config);
   };
 
-  const [multiAssetVaultConfig, setMultiAssetVaultConfigState] = useState<MultiAssetVaultModuleConfig>({
-    enabled: !!propertiesData.multi_asset_vault_module_address,
-    maxAssets: 0
+  const [multiAssetVaultConfig, setMultiAssetVaultConfigState] = useState<MultiAssetVaultModuleConfig>(() => {
+    const saved = propertiesData.multi_asset_vault_config as any;
+    return saved || {
+      enabled: !!propertiesData.multi_asset_vault_module_address,
+      maxAssets: 0
+    };
   });
   const setMultiAssetVaultConfig = (config: MultiAssetVaultModuleConfig) => {
     setMultiAssetVaultConfigState(config);

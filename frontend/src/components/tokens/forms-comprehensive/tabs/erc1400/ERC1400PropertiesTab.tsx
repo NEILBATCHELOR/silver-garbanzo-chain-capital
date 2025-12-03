@@ -115,66 +115,87 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
 
   // Extension Module Configuration States
   // ✅ FIX: Create wrapper functions that persist to database
-  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>({
-    enabled: !!propertiesData.compliance_module_address,
-    kycRequired: false,
-    whitelistRequired: false
+  const [complianceConfig, setComplianceConfigState] = useState<ComplianceModuleConfig>(() => {
+    const saved = propertiesData.compliance_config as any;
+    return saved || {
+      enabled: !!propertiesData.compliance_module_address,
+      kycRequired: false,
+      whitelistRequired: false
+    };
   });
   const setComplianceConfig = (config: ComplianceModuleConfig) => {
     setComplianceConfigState(config);
     handleFieldChange('compliance_config', config);
   };
 
-  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>({
-    enabled: !!propertiesData.vesting_module_address,
-    schedules: []
+  const [vestingConfig, setVestingConfigState] = useState<VestingModuleConfig>(() => {
+    const saved = propertiesData.vesting_config as any;
+    return saved || {
+      enabled: !!propertiesData.vesting_module_address,
+      schedules: []
+    };
   });
   const setVestingConfig = (config: VestingModuleConfig) => {
     setVestingConfigState(config);
     handleFieldChange('vesting_config', config);
   };
 
-  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>({
-    enabled: !!propertiesData.document_module_address,
-    documents: []
+  const [documentConfig, setDocumentConfigState] = useState<DocumentModuleConfig>(() => {
+    const saved = propertiesData.document_config as any;
+    return saved || {
+      enabled: !!propertiesData.document_module_address,
+      documents: []
+    };
   });
   const setDocumentConfig = (config: DocumentModuleConfig) => {
     setDocumentConfigState(config);
     handleFieldChange('document_config', config);
   };
 
-  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>({
-    enabled: !!propertiesData.policy_engine_address,
-    rules: [],
-    validators: []
+  const [policyEngineConfig, setPolicyEngineConfigState] = useState<PolicyEngineModuleConfig>(() => {
+    const saved = propertiesData.policy_engine_config as any;
+    return saved || {
+      enabled: !!propertiesData.policy_engine_address,
+      rules: [],
+      validators: []
+    };
   });
   const setPolicyEngineConfig = (config: PolicyEngineModuleConfig) => {
     setPolicyEngineConfigState(config);
     // Note: policy_engine doesn't have a separate config field in ERC1400
   };
 
-  const [transferRestrictionsConfig, setTransferRestrictionsConfigState] = useState<TransferRestrictionsModuleConfig>({
-    enabled: !!propertiesData.transfer_restrictions_module_address,
-    restrictions: [],
-    defaultPolicy: 'block'
+  const [transferRestrictionsConfig, setTransferRestrictionsConfigState] = useState<TransferRestrictionsModuleConfig>(() => {
+    const saved = propertiesData.transfer_restrictions_config as any;
+    return saved || {
+      enabled: !!propertiesData.transfer_restrictions_module_address,
+      restrictions: [],
+      defaultPolicy: 'block'
+    };
   });
   const setTransferRestrictionsConfig = (config: TransferRestrictionsModuleConfig) => {
     setTransferRestrictionsConfigState(config);
     handleFieldChange('transfer_restrictions_config', config);
   };
 
-  const [controllerConfig, setControllerConfigState] = useState<ControllerModuleConfig>({
-    enabled: !!propertiesData.controller_module_address,
-    controllers: []
+  const [controllerConfig, setControllerConfigState] = useState<ControllerModuleConfig>(() => {
+    const saved = propertiesData.controller_config as any;
+    return saved || {
+      enabled: !!propertiesData.controller_module_address,
+      controllers: []
+    };
   });
   const setControllerConfig = (config: ControllerModuleConfig) => {
     setControllerConfigState(config);
     handleFieldChange('controller_config', config);
   };
 
-  const [erc1400DocumentConfig, setErc1400DocumentConfigState] = useState<ERC1400DocumentModuleConfig>({
-    enabled: !!propertiesData.erc1400_document_module_address,
-    documents: []
+  const [erc1400DocumentConfig, setErc1400DocumentConfigState] = useState<ERC1400DocumentModuleConfig>(() => {
+    const saved = propertiesData.erc1400_document_config as any;
+    return saved || {
+      enabled: !!propertiesData.erc1400_document_module_address,
+      documents: []
+    };
   });
   const setErc1400DocumentConfig = (config: ERC1400DocumentModuleConfig) => {
     setErc1400DocumentConfigState(config);
