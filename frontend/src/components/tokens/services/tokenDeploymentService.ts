@@ -15,9 +15,10 @@ import { NetworkEnvironment } from '@/infrastructure/web3/ProviderManager';
 import { DeploymentStatus, DeploymentResult } from '@/types/deployment/TokenDeploymentTypes';
 
 // Rate limit configuration
+// Note: Set higher limits for development, adjust for production
 const RATE_LIMIT = {
-  MAX_DEPLOYMENTS_PER_HOUR: 5,
-  MAX_DEPLOYMENTS_PER_DAY: 20
+  MAX_DEPLOYMENTS_PER_HOUR: 20,  // Increased from 5 for development
+  MAX_DEPLOYMENTS_PER_DAY: 50    // Increased from 20 for development
 };
 
 // Deployment strategy configuration
@@ -49,13 +50,17 @@ export const enhancedTokenDeploymentService = {
    * @param userId ID of the user deploying the token
    * @param projectId ID of the project
    * @param useFoundry Whether to use Foundry contracts (optional, defaults to auto-detect)
+   * @param walletAddress Optional wallet address to use for deployment (overrides project wallet lookup)
+   * @param gasConfig Optional gas configuration for the deployment
    * @returns Promise with deployment result
    */
   async deployToken(
     tokenId: string,
     userId: string,
     projectId: string,
-    useFoundry?: boolean
+    useFoundry?: boolean,
+    walletAddress?: string,
+    gasConfig?: any
   ): Promise<DeploymentResult> {
     try {
       // Check rate limits before proceeding
@@ -144,7 +149,15 @@ export const enhancedTokenDeploymentService = {
       
       if (shouldUseFoundry) {
         // Use Foundry deployment
-        result = await this.deployWithFoundry(token, tokenStandard, blockchain, deploymentEnv, userId);
+        result = await this.deployWithFoundry(
+          token, 
+          tokenStandard, 
+          blockchain, 
+          deploymentEnv, 
+          userId,
+          walletAddress,  // Pass wallet address
+          gasConfig       // Pass gas config
+        );
       } else {
         // Use legacy deployment
         result = await this.deployWithLegacy(projectId, tokenId, blockchain, environment, userId);
@@ -185,10 +198,21 @@ export const enhancedTokenDeploymentService = {
           timestamp: new Date().toISOString()
         }
       });
+
+      // ✅ FIX: Complete the rate limit record
+      await this.completeDeploymentAttempt(
+        userId, 
+        projectId, 
+        tokenId, 
+        result.status === DeploymentStatus.SUCCESS ? 'success' : 'failed'
+      );
       
       return result;
     } catch (error) {
       console.error('Error in enhanced token deployment service:', error);
+      
+      // ✅ FIX: Mark rate limit record as failed on exception
+      await this.completeDeploymentAttempt(userId, projectId, tokenId, 'failed');
       
       return {
         status: DeploymentStatus.FAILED,
@@ -199,13 +223,17 @@ export const enhancedTokenDeploymentService = {
 
   /**
    * Deploy token using Foundry contracts
+   * @param walletAddress Optional wallet address (if not provided, fetches from project_wallets)
+   * @param gasConfig Optional gas configuration
    */
   async deployWithFoundry(
     token: any,
     tokenStandard: TokenStandard,
     blockchain: string,
     environment: 'mainnet' | 'testnet',
-    userId: string
+    userId: string,
+    walletAddress?: string,
+    gasConfig?: any
   ): Promise<DeploymentResult> {
     try {
       // Ensure we have a projectId
@@ -213,26 +241,38 @@ export const enhancedTokenDeploymentService = {
         throw new Error('Token must be associated with a project for Foundry deployment');
       }
       
-      // Get the project wallet address to use as initialOwner
-      const { data: walletData, error: walletError } = await supabase
-        .from('project_wallets')
-        .select('wallet_address')
-        .eq('project_id', token.project_id)
-        .eq('wallet_type', blockchain)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      let deploymentWalletAddress: string;
       
-      if (walletError) {
-        throw new Error(`Failed to fetch project wallet: ${walletError.message}`);
-      }
-      
-      if (!walletData || !walletData.wallet_address) {
-        throw new Error(`No wallet address found for project ${token.project_id} on ${blockchain}`);
+      // Use provided wallet address or fetch from project_wallets
+      if (walletAddress) {
+        console.log(`✅ FIX #6: Using provided wallet address: ${walletAddress}`);
+        deploymentWalletAddress = walletAddress;
+      } else {
+        console.log(`Fetching wallet address from project_wallets for project: ${token.project_id}`);
+        // Get the project wallet address to use as initialOwner
+        const { data: walletData, error: walletError } = await supabase
+          .from('project_wallets')
+          .select('wallet_address')
+          .eq('project_id', token.project_id)
+          .eq('wallet_type', blockchain)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (walletError) {
+          throw new Error(`Failed to fetch project wallet: ${walletError.message}`);
+        }
+        
+        if (!walletData || !walletData.wallet_address) {
+          throw new Error(`No wallet address found for project ${token.project_id} on ${blockchain}`);
+        }
+        
+        deploymentWalletAddress = walletData.wallet_address;
+        console.log(`✅ Found wallet address from database: ${deploymentWalletAddress}`);
       }
       
       // Map legacy token configuration to Foundry configuration using wallet address
-      const foundryConfig = mapTokenToFoundryConfig(token, tokenStandard, walletData.wallet_address);
+      const foundryConfig = mapTokenToFoundryConfig(token, tokenStandard, deploymentWalletAddress);
       const foundryType = tokenStandardToFoundryType(tokenStandard);
       
       // Validate Foundry configuration
@@ -248,14 +288,16 @@ export const enhancedTokenDeploymentService = {
         tokenType: foundryType as any,
         config: foundryConfig,
         blockchain,
-        environment
+        environment,
+        gasConfig  // ✅ FIX #5: Pass gas config to deployment params
       };
       
-      // Deploy using Foundry service with project ID to fetch wallet
+      // Deploy using Foundry service with wallet address
       return await foundryDeploymentService.deployToken(
         deploymentParams, 
         userId,
-        token.project_id  // Pass projectId to get wallet from project_wallets
+        token.project_id,  // Pass projectId
+        deploymentWalletAddress  // ✅ FIX #6: Pass wallet address directly
       );
     } catch (error) {
       console.error('Foundry deployment failed:', error);
@@ -477,6 +519,40 @@ export const enhancedTokenDeploymentService = {
       });
     } catch (error) {
       console.error('Error recording deployment attempt:', error);
+    }
+  },
+
+  /**
+   * Complete a deployment rate limit record
+   * @param userId User ID
+   * @param projectId Project ID
+   * @param tokenId Token ID
+   * @param status Final status ('success' or 'failed')
+   */
+  async completeDeploymentAttempt(
+    userId: string, 
+    projectId: string, 
+    tokenId: string, 
+    status: 'success' | 'failed'
+  ): Promise<void> {
+    try {
+      // Update the most recent 'started' record for this deployment
+      await supabase
+        .from('deployment_rate_limits')
+        .update({
+          status,
+          completed_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('project_id', projectId)
+        .eq('token_id', tokenId)
+        .eq('status', 'started')
+        .order('started_at', { ascending: false })
+        .limit(1);
+      
+      console.log(`✅ Rate limit record completed: ${status}`);
+    } catch (error) {
+      console.error('Error completing deployment rate limit record:', error);
     }
   },
   

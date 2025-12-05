@@ -288,29 +288,47 @@ const TokenDeployPageEnhanced: React.FC = () => {
       try {
         setLoadingFactory(true);
         
-        // Check for factory contract
-        const { data: factoryData, error: factoryError } = await supabase
+        // Check for factory registry first (preferred)
+        const { data: registryData, error: registryError } = await supabase
           .from('contract_masters')
           .select('contract_address, is_active')
           .eq('network', selectedChain)
           .eq('environment', 'testnet')
-          .like('contract_type', '%factory%')
+          .eq('contract_type', 'factory_registry')
           .eq('is_active', true)
           .maybeSingle();
         
-        if (factoryError) {
-          console.error('Error checking factory:', factoryError);
+        // If no registry, check for any factory contracts
+        const { data: factoriesData, error: factoriesError } = await supabase
+          .from('contract_masters')
+          .select('contract_address, contract_type, is_active')
+          .eq('network', selectedChain)
+          .eq('environment', 'testnet')
+          .like('contract_type', '%factory%')
+          .eq('is_active', true);
+        
+        if (registryError) {
+          console.error('Error checking factory registry:', registryError);
         }
         
-        if (factoryData) {
-          setFactoryAddress(factoryData.contract_address);
+        if (factoriesError) {
+          console.error('Error checking factories:', factoriesError);
+        }
+        
+        // Prefer registry, fallback to any factory
+        if (registryData) {
+          setFactoryAddress(registryData.contract_address);
+          setFactoryConfigured(true);
+        } else if (factoriesData && factoriesData.length > 0) {
+          // Multiple factories exist, use the first one as representative
+          setFactoryAddress(factoriesData[0].contract_address);
           setFactoryConfigured(true);
         } else {
           setFactoryAddress('');
           setFactoryConfigured(false);
         }
         
-        // Get active templates
+        // Get active templates for the selected blockchain
         const { data: templatesData, error: templatesError } = await supabase
           .from('contract_masters')
           .select('*')
@@ -491,6 +509,12 @@ const TokenDeployPageEnhanced: React.FC = () => {
     }));
   };
   
+  // 🆕 Handle blockchain change from deployment form
+  const handleBlockchainChange = (blockchain: string) => {
+    console.log('Blockchain changed to:', blockchain);
+    setSelectedChain(blockchain);
+  };
+  
   return (
     <TokenPageLayout>
       {/* Loading state */}
@@ -517,16 +541,18 @@ const TokenDeployPageEnhanced: React.FC = () => {
             </div>
           </div>
           
-          {/* 🆕 Factory Configuration Status Alert */}
+          {/* 🆕 Factory Configuration Status Alert - Only show if not loading and not configured */}
           {!loadingFactory && !factoryConfigured && (
             <Alert variant="default" className="mb-4 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertTitle className="text-amber-800 dark:text-amber-300">Factory Not Configured</AlertTitle>
+              <AlertTitle className="text-amber-800 dark:text-amber-300">
+                Factory Infrastructure Not Detected on <Badge variant="outline" className="ml-1 font-mono">{selectedChain}</Badge>
+              </AlertTitle>
               <AlertDescription className="text-amber-700 dark:text-amber-400">
                 <div className="space-y-2">
                   <p>
-                    No factory contract found for <strong>{selectedChain}</strong> network.
-                    Template-based deployment requires a configured factory.
+                    No factory contracts or templates found for the <strong>{selectedChain}</strong> network.
+                    Template-based deployment is highly recommended for gas efficiency.
                   </p>
                   <div className="flex gap-2">
                     <Button 
@@ -545,6 +571,22 @@ const TokenDeployPageEnhanced: React.FC = () => {
                     </Button>
                   </div>
                 </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* ✅ Success Alert - Factory is configured */}
+          {!loadingFactory && factoryConfigured && activeTemplates.length > 0 && (
+            <Alert className="mb-4 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle className="text-green-800 dark:text-green-300">
+                Factory Infrastructure Ready on <Badge variant="outline" className="ml-1 font-mono bg-white dark:bg-gray-800">{selectedChain}</Badge>
+              </AlertTitle>
+              <AlertDescription className="text-green-700 dark:text-green-400">
+                <p>
+                  Found <strong>{activeTemplates.length} templates</strong> on the <strong>{selectedChain}</strong> network.
+                  Gas-efficient template-based deployment is available.
+                </p>
               </AlertDescription>
             </Alert>
           )}
@@ -592,6 +634,15 @@ const TokenDeployPageEnhanced: React.FC = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="col-span-2 space-y-6">
+                  {/* 🆕 Role Assignment Form - Moved above Gas Configuration */}
+                  <RoleAssignmentForm
+                    projectId={projectId || ''}
+                    contractAddress={token?.address} // Pass deployed contract address for authorization
+                    roleAddresses={roleAddresses}
+                    onRoleChange={handleRoleChange}
+                    availableRoles={['minter', 'pauser', 'burner', 'upgrader']}
+                  />
+                  
                   <Card>
                     <CardHeader>
                       <CardTitle>Deployment Configuration</CardTitle>
@@ -624,17 +675,12 @@ const TokenDeployPageEnhanced: React.FC = () => {
                         factoryAddress={factoryAddress}
                         factoryConfigured={factoryConfigured}
                         roleAddresses={roleAddresses}
+                        // 🆕 Pass blockchain state and handler
+                        initialBlockchain={selectedChain}
+                        onBlockchainChange={handleBlockchainChange}
                       />
                     </CardContent>
                   </Card>
-                  
-                  {/* 🆕 Role Assignment Form */}
-                  <RoleAssignmentForm
-                    projectId={projectId || ''}
-                    roleAddresses={roleAddresses}
-                    onRoleChange={handleRoleChange}
-                    availableRoles={['minter', 'pauser', 'burner', 'upgrader']}
-                  />
                 </div>
                 
                 <div className="col-span-1 space-y-6">
@@ -646,7 +692,7 @@ const TokenDeployPageEnhanced: React.FC = () => {
                         Deployment Infrastructure
                       </CardTitle>
                       <CardDescription>
-                        Factory contract for template-based deployment
+                        Factory-based template cloning for gas-efficient deployment
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -659,35 +705,51 @@ const TokenDeployPageEnhanced: React.FC = () => {
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
                               <span className="text-muted-foreground">Status:</span>
-                              <Badge variant="success" className="flex items-center gap-1">
+                              <Badge className="flex items-center gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                                 <CheckCircle2 className="h-3 w-3" />
-                                Configured
+                                Ready
                               </Badge>
                             </div>
                             
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Factory:</span>
+                              <span className="text-muted-foreground">Network:</span>
+                              <span className="font-medium">{selectedChain}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Factory Registry:</span>
                               <code className="text-xs">{formatAddress(factoryAddress)}</code>
                             </div>
                             
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Network:</span>
-                              <span>{selectedChain}</span>
+                              <span className="text-muted-foreground">Master Templates:</span>
+                              <span className="font-medium">{activeTemplates.filter(t => t.contract_type.includes('master')).length}</span>
                             </div>
                             
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Templates:</span>
-                              <span>{activeTemplates.length}</span>
+                              <span className="text-muted-foreground">Module Templates:</span>
+                              <span className="font-medium">{activeTemplates.filter(t => t.contract_type.includes('module')).length}</span>
                             </div>
                           </div>
                           
                           <Separator />
                           
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             <h4 className="text-xs font-medium">Deployment Method</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Template cloning via factory (gas-efficient)
-                            </p>
+                            <ul className="text-xs text-muted-foreground space-y-1">
+                              <li className="flex items-start gap-1">
+                                <Check className="h-3 w-3 mt-0.5 text-green-500" />
+                                <span>Template cloning (gas-efficient)</span>
+                              </li>
+                              <li className="flex items-start gap-1">
+                                <Check className="h-3 w-3 mt-0.5 text-green-500" />
+                                <span>Pre-audited contracts</span>
+                              </li>
+                              <li className="flex items-start gap-1">
+                                <Check className="h-3 w-3 mt-0.5 text-green-500" />
+                                <span>Modular architecture</span>
+                              </li>
+                            </ul>
                           </div>
                           
                           <Button
@@ -697,14 +759,14 @@ const TokenDeployPageEnhanced: React.FC = () => {
                             onClick={() => window.open(getExplorerUrl(selectedChain, factoryAddress), '_blank')}
                           >
                             <ExternalLink className="h-3 w-3 mr-2" />
-                            View on Explorer
+                            View Registry on Explorer
                           </Button>
                         </>
                       ) : (
                         <Alert>
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription className="text-xs">
-                            Factory not configured. Deployment will use direct deployment (higher gas cost).
+                            Factory infrastructure not detected. Direct deployment will be used (higher gas cost).
                           </AlertDescription>
                         </Alert>
                       )}

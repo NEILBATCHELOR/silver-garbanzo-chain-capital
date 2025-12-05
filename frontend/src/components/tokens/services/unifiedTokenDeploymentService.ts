@@ -37,12 +37,14 @@ export interface GasConfig {
 /**
  * Unified deployment options
  * ✅ FIX #5: Added gasConfig property
+ * ✅ FIX #6: Added walletAddress property for using pre-selected wallets
  */
 export interface UnifiedDeploymentOptions {
   useOptimization?: boolean; // Default: true for complex contracts
   forceStrategy?: 'direct' | 'chunked' | 'batched' | 'auto'; // Default: auto
   enableAnalytics?: boolean; // Default: true
   gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration from form
+  walletAddress?: string; // ✅ FIX #6: Pre-selected wallet address (bypasses database query)
 }
 
 /**
@@ -867,7 +869,8 @@ export class UnifiedTokenDeploymentService {
       useOptimization = true,
       forceStrategy = 'auto',
       enableAnalytics = true,
-      gasConfig // ✅ FIX #5: Extract gas configuration from options
+      gasConfig, // ✅ FIX #5: Extract gas configuration from options
+      walletAddress: providedWalletAddress // ✅ FIX #6: Extract wallet address from options
     } = options;
 
     try {
@@ -911,15 +914,24 @@ export class UnifiedTokenDeploymentService {
         }
       }
 
-      // ✅ FIX #4: Retrieve wallet address for use in specialist checks and deployment
+      // ✅ FIX #6: Use provided wallet address or retrieve from database
       let walletAddress: string;
-      try {
-        walletAddress = await this.getProjectWallet(projectId, blockchain);
-      } catch (error) {
-        return {
-          status: DeploymentStatus.FAILED,
-          error: error instanceof Error ? error.message : 'Failed to retrieve project wallet'
-        };
+      
+      if (providedWalletAddress) {
+        // Use the wallet address provided in options (from form selection)
+        walletAddress = providedWalletAddress;
+        console.log(`✅ FIX #6: Using provided wallet address: ${walletAddress}`);
+      } else {
+        // Fallback to querying database for project wallet
+        try {
+          walletAddress = await this.getProjectWallet(projectId, blockchain);
+          console.log(`✅ FIX #6: Retrieved wallet address from database: ${walletAddress}`);
+        } catch (error) {
+          return {
+            status: DeploymentStatus.FAILED,
+            error: error instanceof Error ? error.message : 'Failed to retrieve project wallet'
+          };
+        }
       }
 
       // Step 2: Apply rate limiting and security validation
@@ -1177,7 +1189,15 @@ export class UnifiedTokenDeploymentService {
           );
         } else {
           // Use standard enhanced deployment
-          const standardResult = await enhancedTokenDeploymentService.deployToken(tokenId, userId, projectId);
+          // ✅ FIX #7: Pass walletAddress and gasConfig to deployToken
+          const standardResult = await enhancedTokenDeploymentService.deployToken(
+            tokenId, 
+            userId, 
+            projectId,
+            true, // useFoundry
+            walletAddress,
+            gasConfig
+          );
           result = {
             ...standardResult,
             optimizationUsed: false,
@@ -1201,7 +1221,15 @@ export class UnifiedTokenDeploymentService {
         );
       } else {
         // Use standard deployment without optimization
-        const standardResult = await enhancedTokenDeploymentService.deployToken(tokenId, userId, projectId);
+        // ✅ FIX #7: Pass walletAddress and gasConfig to deployToken
+        const standardResult = await enhancedTokenDeploymentService.deployToken(
+          tokenId, 
+          userId, 
+          projectId,
+          true, // useFoundry
+          walletAddress,
+          gasConfig
+        );
         result = {
           ...standardResult,
           optimizationUsed: false,

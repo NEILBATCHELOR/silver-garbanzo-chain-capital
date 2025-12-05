@@ -314,11 +314,11 @@ export const tokenProjectWalletIntegrationService = {
   
   /**
    * Find existing wallet for project and network
-   * ✅ FIX #7: Search by chain_id first, fallback to wallet_type
+   * ✅ FIX #10: Properly decrypt private key from key_vault_keys table
    * @param projectId Project ID
    * @param network Network name
    * @param chainId Optional chain ID for more precise filtering
-   * @returns Existing wallet or null
+   * @returns Existing wallet or null with DECRYPTED private key
    */
   async findExistingWallet(
     projectId: string, 
@@ -331,11 +331,13 @@ export const tokenProjectWalletIntegrationService = {
     privateKey?: string;
   } | null> {
     try {
+      const { WalletEncryptionClient } = await import('../security/walletEncryptionService');
+      
       // ✅ FIX #7: Priority 1 - Search by chain_id (most reliable)
       if (chainId !== undefined && chainId !== null) {
         const { data: chainData, error: chainError } = await supabase
           .from('project_wallets')
-          .select('id, wallet_address, public_key, private_key, chain_id')
+          .select('id, wallet_address, public_key, private_key_vault_id, private_key, chain_id')
           .eq('project_id', projectId)
           .eq('chain_id', chainId.toString())
           .order('created_at', { ascending: false })
@@ -346,11 +348,58 @@ export const tokenProjectWalletIntegrationService = {
           console.error('[TokenWalletIntegration] Error finding wallet by chain_id:', chainError);
         } else if (chainData) {
           console.log(`✅ FIX #7: Found existing wallet by chain_id ${chainId}: ${chainData.wallet_address}`);
+          
+          // ✅ FIX #10: Decrypt private key from key_vault_keys
+          let decryptedPrivateKey: string | undefined = undefined;
+          
+          if (chainData.private_key_vault_id) {
+            try {
+              // Query key_vault_keys to get encrypted private key
+              const { data: vaultData, error: vaultError } = await supabase
+                .from('key_vault_keys')
+                .select('encrypted_key')
+                .eq('id', chainData.private_key_vault_id)
+                .single();
+              
+              if (vaultError) {
+                console.error('[TokenWalletIntegration] Error fetching encrypted key from vault:', vaultError);
+              } else if (vaultData?.encrypted_key) {
+                // Decrypt the private key using backend API
+                console.log('[TokenWalletIntegration] Decrypting private key from vault...');
+                decryptedPrivateKey = await WalletEncryptionClient.decrypt(vaultData.encrypted_key);
+                console.log('[TokenWalletIntegration] ✅ Private key decrypted successfully');
+              }
+            } catch (decryptError) {
+              console.error('[TokenWalletIntegration] Failed to decrypt private key:', decryptError);
+              // Fall back to legacy private_key column if decryption fails
+              if (chainData.private_key) {
+                console.warn('[TokenWalletIntegration] Falling back to legacy private_key column');
+                decryptedPrivateKey = chainData.private_key;
+              }
+            }
+          } else if (chainData.private_key) {
+            // Legacy: try to use private_key column directly (might be encrypted or plain)
+            console.warn('[TokenWalletIntegration] No vault ID, using legacy private_key column');
+            
+            // Check if it's encrypted JSON format
+            if (WalletEncryptionClient.isEncrypted(chainData.private_key)) {
+              try {
+                decryptedPrivateKey = await WalletEncryptionClient.decrypt(chainData.private_key);
+                console.log('[TokenWalletIntegration] ✅ Legacy private key decrypted');
+              } catch (err) {
+                console.error('[TokenWalletIntegration] Failed to decrypt legacy private key:', err);
+              }
+            } else {
+              // Assume it's plain text (very old legacy)
+              decryptedPrivateKey = chainData.private_key;
+            }
+          }
+          
           return {
             walletId: chainData.id,
             walletAddress: chainData.wallet_address,
             publicKey: chainData.public_key,
-            privateKey: chainData.private_key || undefined
+            privateKey: decryptedPrivateKey
           };
         }
       }
@@ -358,7 +407,7 @@ export const tokenProjectWalletIntegrationService = {
       // ✅ FIX #7: Priority 2 - Fallback to wallet_type (for legacy wallets)
       const { data, error } = await supabase
         .from('project_wallets')
-        .select('id, wallet_address, public_key, private_key, wallet_type')
+        .select('id, wallet_address, public_key, private_key_vault_id, private_key, wallet_type')
         .eq('project_id', projectId)
         .eq('wallet_type', network)
         .order('created_at', { ascending: false })
@@ -376,11 +425,58 @@ export const tokenProjectWalletIntegrationService = {
       }
       
       console.log(`✅ FIX #7: Found existing wallet by wallet_type ${network}: ${data.wallet_address}`);
+      
+      // ✅ FIX #10: Decrypt private key from key_vault_keys
+      let decryptedPrivateKey: string | undefined = undefined;
+      
+      if (data.private_key_vault_id) {
+        try {
+          // Query key_vault_keys to get encrypted private key
+          const { data: vaultData, error: vaultError } = await supabase
+            .from('key_vault_keys')
+            .select('encrypted_key')
+            .eq('id', data.private_key_vault_id)
+            .single();
+          
+          if (vaultError) {
+            console.error('[TokenWalletIntegration] Error fetching encrypted key from vault:', vaultError);
+          } else if (vaultData?.encrypted_key) {
+            // Decrypt the private key using backend API
+            console.log('[TokenWalletIntegration] Decrypting private key from vault...');
+            decryptedPrivateKey = await WalletEncryptionClient.decrypt(vaultData.encrypted_key);
+            console.log('[TokenWalletIntegration] ✅ Private key decrypted successfully');
+          }
+        } catch (decryptError) {
+          console.error('[TokenWalletIntegration] Failed to decrypt private key:', decryptError);
+          // Fall back to legacy private_key column if decryption fails
+          if (data.private_key) {
+            console.warn('[TokenWalletIntegration] Falling back to legacy private_key column');
+            decryptedPrivateKey = data.private_key;
+          }
+        }
+      } else if (data.private_key) {
+        // Legacy: try to use private_key column directly (might be encrypted or plain)
+        console.warn('[TokenWalletIntegration] No vault ID, using legacy private_key column');
+        
+        // Check if it's encrypted JSON format
+        if (WalletEncryptionClient.isEncrypted(data.private_key)) {
+          try {
+            decryptedPrivateKey = await WalletEncryptionClient.decrypt(data.private_key);
+            console.log('[TokenWalletIntegration] ✅ Legacy private key decrypted');
+          } catch (err) {
+            console.error('[TokenWalletIntegration] Failed to decrypt legacy private key:', err);
+          }
+        } else {
+          // Assume it's plain text (very old legacy)
+          decryptedPrivateKey = data.private_key;
+        }
+      }
+      
       return {
         walletId: data.id,
         walletAddress: data.wallet_address,
         publicKey: data.public_key,
-        privateKey: data.private_key || undefined
+        privateKey: decryptedPrivateKey
       };
     } catch (error) {
       console.error('[TokenWalletIntegration] Error in findExistingWallet:', error);

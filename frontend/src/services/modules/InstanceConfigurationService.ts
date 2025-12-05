@@ -104,23 +104,26 @@ export class InstanceConfigurationService {
       console.log('🏭 Deploying NEW module instances for token:', tokenAddress);
       console.log('📦 Selected modules:', moduleSelection);
 
-      // Get factory address from database
+      // Determine token standard first (needed for factory lookup)
+      const tokenStandard = this.getTokenStandard(params.tokenType);
+
+      // Get extension factory address from database (standard-specific or universal)
       const factoryAddress = await this.getFactoryAddress(
         params.blockchain,
-        params.environment
+        params.environment,
+        tokenStandard  // ✅ FIX: Pass token standard for correct factory lookup
       );
 
       if (!factoryAddress) {
-        console.warn('⚠️ No factory found, cannot deploy module instances');
+        console.warn('⚠️ No extension factory found, cannot deploy module instances');
         result.failed.push({
           moduleType: 'all',
-          error: 'Factory contract not found in database'
+          error: 'Extension factory contract not found in database'
         });
         return result;
       }
 
-      // Determine token standard
-      const tokenStandard = this.getTokenStandard(params.tokenType);
+      console.log(`✅ Using extension factory at: ${factoryAddress}`);
 
       // Deploy module instances using InstanceDeploymentService
       const deployedModules = await InstanceDeploymentService.deployAndAttachModules(
@@ -475,24 +478,56 @@ export class InstanceConfigurationService {
   }
 
   /**
-   * Get factory address from database
+   * Get extension factory address from database based on token standard
+   * 
+   * ✅ FIX: Query for extension factories, not 'token_factory'
+   * - ERC20 → erc20_extension_factory
+   * - ERC721 → erc721_extension_factory
+   * - ERC1155 → erc1155_extension_factory
+   * - etc.
+   * - Fallback to universal_extension_factory if standard-specific not found
    */
   private static async getFactoryAddress(
     network: string,
-    environment: string
+    environment: string,
+    tokenStandard?: string
   ): Promise<string | null> {
+    // Try standard-specific extension factory first
+    if (tokenStandard) {
+      const standardFactoryType = `${tokenStandard.toLowerCase()}_extension_factory`;
+      
+      const { data: standardData, error: standardError } = await supabase
+        .from('contract_masters')
+        .select('contract_address')
+        .eq('contract_type', standardFactoryType)
+        .eq('network', network)
+        .eq('environment', environment)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!standardError && standardData?.contract_address) {
+        console.log(`✅ Found ${standardFactoryType} at:`, standardData.contract_address);
+        return standardData.contract_address;
+      }
+    }
+
+    // Fallback to universal extension factory
     const { data, error } = await supabase
       .from('contract_masters')
       .select('contract_address')
-      .eq('contract_type', 'token_factory')
+      .eq('contract_type', 'universal_extension_factory')
       .eq('network', network)
       .eq('environment', environment)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error('Failed to fetch factory address:', error);
+      console.error('Failed to fetch extension factory address:', error);
       return null;
+    }
+
+    if (data?.contract_address) {
+      console.log(`✅ Using universal_extension_factory at:`, data.contract_address);
     }
 
     return data?.contract_address || null;

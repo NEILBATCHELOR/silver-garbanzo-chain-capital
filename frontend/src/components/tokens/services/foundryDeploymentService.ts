@@ -203,18 +203,36 @@ export class FoundryDeploymentService {
   /**
    * Get private key from project_wallets table
    * IMPORTANT: Decrypts encrypted private keys before use
+   * @param projectId Project ID
+   * @param blockchain Blockchain type
+   * @param userId User ID for auditing
+   * @param walletAddress Optional specific wallet address to look up
    */
   private async getProjectWalletPrivateKey(
     projectId: string,
     blockchain: string,
-    userId?: string
+    userId?: string,
+    walletAddress?: string
   ): Promise<string> {
     try {
-      const { data, error } = await supabase
+      // FIX #7: When wallet address is provided, don't filter by wallet_type
+      // EVM addresses work across all EVM chains (ethereum, polygon, base, hoodi, etc.)
+      let query = supabase
         .from('project_wallets')
-        .select('id, private_key, private_key_vault_id, wallet_address')
-        .eq('project_id', projectId)
-        .eq('wallet_type', blockchain)
+        .select('id, private_key, private_key_vault_id, wallet_address, wallet_type')
+        .eq('project_id', projectId);
+      
+      if (walletAddress) {
+        // Lookup by address only - don't filter by wallet_type
+        console.log(`✅ FIX #7: Looking up wallet by address only: ${walletAddress}`);
+        query = query.eq('wallet_address', walletAddress);
+      } else {
+        // No specific address - filter by wallet_type
+        console.log(`✅ FIX #7: Looking up wallet by blockchain: ${blockchain}`);
+        query = query.eq('wallet_type', blockchain);
+      }
+      
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -224,8 +242,13 @@ export class FoundryDeploymentService {
       }
       
       if (!data) {
-        throw new Error(`No wallet found for project ${projectId} on ${blockchain}`);
+        const msg = walletAddress
+          ? `No wallet found with address ${walletAddress} for project ${projectId}`
+          : `No wallet found for project ${projectId} on ${blockchain}`;
+        throw new Error(msg);
       }
+      
+      console.log(`✅ FIX #7: Found wallet - Address: ${data.wallet_address}, Type: ${data.wallet_type}`);
       
       let privateKey: string;
       
@@ -684,25 +707,36 @@ export class FoundryDeploymentService {
    * Deploy a token using Foundry contracts
    * 
    * Flow:
-   * 1. Get private key from project_wallets
+   * 1. Get private key from project_wallets (using wallet address if provided)
    * 2. Create wallet and provider
    * 3. Estimate gas and check balance
    * 4. Deploy contract (via factory or directly)
    * 5. Initialize with DYNAMIC user parameters
    * 6. Save to database (token_deployments, token_deployment_history, contract_masters)
+   * 
+   * @param params Deployment parameters
+   * @param userId User ID for auditing
+   * @param projectId Project ID to fetch wallet credentials
+   * @param walletAddress Optional specific wallet address to use (overrides project wallet lookup)
    */
   async deployToken(
     params: FoundryDeploymentParams,
     userId: string,
-    projectId: string
+    projectId: string,
+    walletAddress?: string
   ): Promise<DeploymentResult> {
     let deployedAddress: string | undefined;
     let masterAddress: string | null = null;
     let factoryAddress: string | null = null;
     
     try {
-      // Get private key (with decryption)
-      const privateKey = await this.getProjectWalletPrivateKey(projectId, params.blockchain, userId);
+      // Get private key (with decryption) - pass wallet address if provided
+      const privateKey = await this.getProjectWalletPrivateKey(
+        projectId, 
+        params.blockchain, 
+        userId,
+        walletAddress  // ✅ FIX #6: Pass wallet address to look up specific wallet
+      );
       
       if (!privateKey) {
         throw new Error(`No private key found for project wallet`);
@@ -1035,54 +1069,48 @@ export class FoundryDeploymentService {
     const normalizedType = this.normalizeTokenType(params.tokenType);
 
     // Get artifact based on normalized token type
+    // ✅ CRITICAL FIX: UUPS contracts have empty constructors - initialization happens via initialize()
     switch (normalizedType) {
       case 'ERC20':
       case 'EnhancedERC20':
         artifact = ERC20MasterArtifact;
-        constructorArgs = [this.encodeERC20Config(params.config as FoundryERC20Config)];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       case 'ERC721':
       case 'EnhancedERC721':
         artifact = ERC721MasterArtifact;
-        constructorArgs = [this.encodeERC721Config(params.config as FoundryERC721Config)];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       case 'ERC1155':
       case 'EnhancedERC1155':
         artifact = ERC1155MasterArtifact;
-        constructorArgs = [this.encodeERC1155Config(params.config as FoundryERC1155Config)];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       case 'ERC3525':
       case 'EnhancedERC3525':
         artifact = ERC3525MasterArtifact;
-        const erc3525Config = this.encodeERC3525Config(params.config as FoundryERC3525Config);
-        constructorArgs = [
-          erc3525Config.tokenConfig,
-          erc3525Config.initialSlots,
-          erc3525Config.allocations,
-          erc3525Config.royaltyFraction,
-          erc3525Config.royaltyRecipient
-        ];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       case 'ERC4626':
       case 'EnhancedERC4626':
         artifact = ERC4626MasterArtifact;
-        constructorArgs = [this.encodeERC4626Config(params.config as FoundryERC4626Config)];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       case 'ERC1400':
       case 'BaseERC1400':
       case 'EnhancedERC1400':
         artifact = ERC1400MasterArtifact;
-        constructorArgs = [this.encodeERC1400Config(params.config as any)];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       case 'ERC20Rebasing':
         artifact = ERC20RebasingMasterArtifact;
-        constructorArgs = [this.encodeERC20RebasingConfig(params.config as any)];
+        constructorArgs = []; // Empty - UUPS pattern uses initialize() after deployment
         break;
         
       default:

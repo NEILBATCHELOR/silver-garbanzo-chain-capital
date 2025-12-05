@@ -118,9 +118,24 @@ export const DeploymentDashboard: React.FC<DeploymentDashboardProps> = ({
       console.log('[DeploymentDashboard] Loaded', walletList.length, 'wallets for chain ID:', chainId);
       setWallets(walletList);
       
-      // Auto-select first wallet if none selected
-      if (walletList.length > 0 && !selectedWallet) {
-        onWalletSelected(walletList[0]);
+      // ✅ FIX: Smart wallet selection - preserve user's choice if valid
+      if (walletList.length > 0) {
+        if (selectedWallet) {
+          // Check if currently selected wallet is still valid in new list
+          const stillValid = walletList.some(w => w.id === selectedWallet.id);
+          if (!stillValid) {
+            // Selected wallet is no longer in list, select first wallet
+            console.log('[DeploymentDashboard] ⚠️ Selected wallet no longer valid, selecting first wallet');
+            onWalletSelected(walletList[0]);
+          } else {
+            console.log('[DeploymentDashboard] ✅ Keeping currently selected wallet:', selectedWallet.wallet_address);
+            // Keep the current selection (no need to call onWalletSelected)
+          }
+        } else {
+          // No wallet selected, auto-select first one
+          console.log('[DeploymentDashboard] 🔄 No wallet selected, auto-selecting first wallet:', walletList[0].wallet_address);
+          onWalletSelected(walletList[0]);
+        }
       }
     } catch (err) {
       setError((err as Error).message);

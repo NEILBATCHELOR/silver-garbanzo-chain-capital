@@ -53,6 +53,7 @@ import { useToast } from '@/components/ui/use-toast';
 import GasEstimatorEIP1559, { EIP1559FeeData } from '@/components/tokens/components/transactions/GasEstimatorEIP1559';
 import { FeePriority } from '@/services/blockchain/FeeEstimator';
 import { supabase } from '@/infrastructure/database/client'; // ✅ ADD: Import Supabase client
+import { RoleAssignmentForm } from '@/components/tokens/forms-comprehensive/RoleAssignmentForm';
 import { DeploymentDashboard } from './DeploymentDashboard';
 import type { ProjectWallet } from '../services/deploymentEnhancementService';
 
@@ -99,8 +100,10 @@ interface TokenDeploymentFormProjectWalletIntegratedProps {
   // ✅ Module and role props
   moduleAddresses?: Record<string, string>;
   roleAddresses?: Record<string, string>;
+  // ✅ Blockchain state synchronization
+  initialBlockchain?: string;
+  onBlockchainChange?: (blockchain: string) => void;
 }
-
 const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormProjectWalletIntegratedProps> = ({
   tokenId, // ✅ ADD: Extract tokenId prop
   tokenConfig,
@@ -121,12 +124,15 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   useFactoryDeployment = false,
   // ✅ ADD: Module and role props
   moduleAddresses,
-  roleAddresses
+  roleAddresses,
+  // ✅ ADD: Blockchain state synchronization
+  initialBlockchain = 'polygon',
+  onBlockchainChange
 }) => {
   const { toast } = useToast();
   
-  // Form state
-  const [blockchain, setBlockchain] = useState<string>('polygon');
+  // Form state - Initialize blockchain from parent or default to 'polygon'
+  const [blockchain, setBlockchain] = useState<string>(initialBlockchain || 'polygon');
   const [environment, setEnvironment] = useState<NetworkEnvironment>(NetworkEnvironment.TESTNET);
   const [isDeploying, setIsDeploying] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,17 +231,59 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
     }
   }, [blockchain, environment]);
   
-  // Auto-load wallet when blockchain changes and in auto mode
+  // ✅ FIX: Auto-load wallet ONLY if no wallet selected from DeploymentDashboard
   useEffect(() => {
-    if (walletIntegrationMode === 'auto') {
+    console.log('🔄 [AUTO-LOAD CHECK] walletIntegrationMode:', walletIntegrationMode);
+    console.log('🔄 [AUTO-LOAD CHECK] selectedWallet:', selectedWallet);
+    
+    if (walletIntegrationMode === 'auto' && !selectedWallet) {
+      console.log('⚡ [AUTO-LOAD] Loading wallet for network (no selectedWallet)');
       loadWalletForNetwork();
+    } else if (selectedWallet) {
+      console.log('✅ [AUTO-LOAD] Skipping auto-load, using selectedWallet from DeploymentDashboard');
     }
-  }, [blockchain, walletIntegrationMode]);
+  }, [blockchain, walletIntegrationMode, selectedWallet]);
+  
+  // ✅ FIX: Sync selectedWallet from DeploymentDashboard with walletAddress state
+  // This takes priority over auto-load
+  useEffect(() => {
+    console.log('🔄 [WALLET SYNC] Selected wallet changed:', selectedWallet);
+    console.log('🔄 [WALLET SYNC] Current walletAddress state:', walletAddress);
+    console.log('🔄 [WALLET SYNC] walletIntegrationMode:', walletIntegrationMode);
+    
+    if (selectedWallet && selectedWallet.wallet_address) {
+      console.log('✅ [WALLET SYNC] Setting wallet address from DeploymentDashboard:', selectedWallet.wallet_address);
+      console.log('🔄 [WALLET SYNC] Previous wallet address:', walletAddress);
+      
+      // Force update the wallet address
+      setWalletAddress(selectedWallet.wallet_address);
+      
+      console.log('✅ [WALLET SYNC] Wallet address updated to:', selectedWallet.wallet_address);
+      
+      // Note: Private keys are not exposed through ProjectWallet interface
+      // They are securely stored and accessed through encryption services
+      
+      // Clear any previous errors
+      setError(null);
+      setValidationErrors({});
+    } else if (selectedWallet === undefined && walletIntegrationMode === 'auto') {
+      // If wallet was cleared and we're in auto mode, reload
+      console.log('⚠️ [WALLET SYNC] Wallet was cleared, reloading...');
+      loadWalletForNetwork();
+    } else {
+      console.log('⚠️ [WALLET SYNC] No valid wallet to sync. selectedWallet:', selectedWallet);
+    }
+  }, [selectedWallet]);
   
   /**
    * Load wallet for selected network
+   * ⚠️ WARNING: This should NOT be called if selectedWallet exists from DeploymentDashboard
    */
   const loadWalletForNetwork = async () => {
+    console.log('⚡ [LOAD-WALLET] loadWalletForNetwork called');
+    console.log('⚡ [LOAD-WALLET] Current selectedWallet:', selectedWallet);
+    console.log('⚡ [LOAD-WALLET] Current walletAddress:', walletAddress);
+    
     setIsLoadingWallet(true);
     setError(null);
     
@@ -250,9 +298,11 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         includeMnemonic: true
       });
       
+      console.log('⚡ [LOAD-WALLET] Service returned:', result.walletAddress);
       setWalletResult(result);
       
       if (result.success) {
+        console.log('⚡ [LOAD-WALLET] Setting walletAddress to:', result.walletAddress);
         setWalletAddress(result.walletAddress);
         setWalletPrivateKey(result.privateKey || '');
         
@@ -441,6 +491,11 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       setWalletAddress('');
       setWalletPrivateKey('');
     }
+    
+    // ✅ Notify parent component of blockchain change
+    if (onBlockchainChange) {
+      onBlockchainChange(value);
+    }
   };
   
   const handleEnvironmentChange = (value: string) => {
@@ -448,71 +503,157 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
     setValidationErrors({});
   };
   
-  // ✅ FIX #2: Wallet existence validation
-  const validateWalletExists = async (): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('project_wallets')
-        .select('wallet_address, wallet_type')
-        .eq('project_id', projectId)
-        .eq('wallet_type', blockchain)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error checking wallet existence:', error);
-        setError(`Failed to verify wallet: ${error.message}`);
-        return false;
-      }
-
-      if (!data) {
-        setError(`No wallet found for ${blockchain} network. Please create a wallet for this blockchain first.`);
-        return false;
-      }
-
-      console.log(`✅ FIX #2: Verified wallet exists for ${blockchain}: ${data.wallet_address}`);
-      return true;
-    } catch (err) {
-      console.error('Error in validateWalletExists:', err);
-      setError('Failed to validate wallet existence.');
-      return false;
-    }
-  };
+  // ✅ REMOVED: validateWalletExists function - wallet is already validated when selected
   
   const validateInputs = (): boolean => {
     const errors: Record<string, string> = {};
     
-    if (!walletAddress) {
-      errors.walletAddress = 'Wallet address is required';
-    } else if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    // ✅ FIX: Check selectedWallet first, then fall back to walletAddress state
+    const currentWalletAddress = selectedWallet?.wallet_address || walletAddress;
+    
+    console.log('🔍 Validating inputs...');
+    console.log('- Selected Wallet:', selectedWallet?.wallet_address);
+    console.log('- Wallet Address State:', walletAddress);
+    console.log('- Current Wallet Address (for validation):', currentWalletAddress);
+    console.log('- Blockchain:', blockchain);
+    console.log('- Current User:', currentUserId);
+    console.log('- Wallet Integration Mode:', walletIntegrationMode);
+    console.log('- Auth Loading:', authLoading);
+    console.log('- Is Loading Wallet:', isLoadingWallet);
+    
+    // Check wallet address
+    if (!currentWalletAddress) {
+      errors.walletAddress = 'Wallet address is required. Please load or enter a wallet address.';
+      console.error('❌ Wallet address is empty');
+    } else if (!/^0x[a-fA-F0-9]{40}$/.test(currentWalletAddress)) {
       errors.walletAddress = 'Invalid Ethereum address format';
+      console.error('❌ Wallet address format is invalid:', currentWalletAddress);
+    } else {
+      console.log('✅ Wallet address is valid:', currentWalletAddress);
+    }
+    
+    // Check blockchain selection
+    if (!blockchain) {
+      errors.blockchain = 'Please select a blockchain network';
+      console.error('❌ Blockchain not selected');
+    } else {
+      console.log('✅ Blockchain selected:', blockchain);
+    }
+    
+    // Check user authentication
+    if (!currentUserId) {
+      errors.auth = 'User authentication required. Please refresh the page and log in.';
+      console.error('❌ No current user ID');
+    } else {
+      console.log('✅ User authenticated:', currentUserId);
+    }
+    
+    // Check if wallet is still loading
+    if (isLoadingWallet) {
+      errors.walletLoading = 'Wallet is still loading. Please wait...';
+      console.error('❌ Wallet is still loading');
+    }
+    
+    // Check if auth is still loading
+    if (authLoading) {
+      errors.authLoading = 'Authentication is still loading. Please wait...';
+      console.error('❌ Auth is still loading');
     }
     
     setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    const isValid = Object.keys(errors).length === 0;
+    
+    if (isValid) {
+      console.log('✅ All validations passed');
+    } else {
+      console.error('❌ Validation failed with errors:', errors);
+    }
+    
+    return isValid;
   };
   
   const handleDeploymentConfirmation = () => {
+    console.log('🚀 Deploy button clicked - validating inputs...');
+    console.log('📊 [STATE CHECK] selectedWallet:', selectedWallet);
+    console.log('📊 [STATE CHECK] walletAddress state:', walletAddress);
+    console.log('Blockchain:', blockchain);
+    console.log('Current User ID:', currentUserId);
+    console.log('Auth Loading:', authLoading);
+    
     if (validateInputs()) {
+      console.log('✅ Validation passed - showing confirmation dialog');
       setShowConfirmation(true);
+    } else {
+      console.error('❌ Validation failed');
+      console.log('Validation Errors:', validationErrors);
+      
+      // Show visible error message
+      const errorMessages = Object.values(validationErrors).filter(Boolean);
+      if (errorMessages.length > 0) {
+        setError(`Validation failed: ${errorMessages.join(', ')}`);
+      } else {
+        setError('Please complete all required fields before deploying.');
+      }
+      
+      toast({
+        title: "Validation Failed",
+        description: errorMessages.length > 0 
+          ? errorMessages.join(', ') 
+          : 'Please complete all required fields.',
+        variant: "destructive",
+      });
     }
   };
   
   const handleDeploy = async () => {
+    console.log('🚀 handleDeploy called!');
+    console.log('Current state:', {
+      tokenId,
+      blockchain,
+      environment,
+      walletAddress,
+      currentUserId,
+      useOptimization,
+      factoryConfigured,
+      factoryAddress,
+      useFactoryDeployment
+    });
+    
+    // Validate inputs
     if (!validateInputs()) {
+      console.error('❌ Validation failed in handleDeploy');
+      setShowConfirmation(false); // Close dialog so user can see errors
       return;
     }
+    console.log('✅ Inputs validated');
     
-    // ✅ ADD: Validate user authentication
+    // Validate user authentication
     if (!currentUserId) {
+      console.error('❌ No current user ID');
       setError('User authentication required. Please log in and try again.');
+      setShowConfirmation(false);
+      toast({
+        title: "Authentication Required",
+        description: "Please log in and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    console.log('✅ User authenticated:', currentUserId);
+    
+    // ✅ FIX: Determine the correct wallet address to use
+    // Priority: selectedWallet (from UI) > walletAddress state (from auto-load)
+    const deploymentWalletAddress = selectedWallet?.wallet_address || walletAddress;
+    
+    if (!deploymentWalletAddress) {
+      console.error('❌ No wallet address available for deployment');
+      setError('No wallet selected. Please select a wallet and try again.');
+      setShowConfirmation(false);
       return;
     }
     
-    // ✅ FIX #2: Validate wallet exists for selected blockchain
-    const walletExists = await validateWalletExists();
-    if (!walletExists) {
-      return;
-    }
+    console.log('✅ Using deployment wallet address:', deploymentWalletAddress);
+    console.log('📊 Source: selectedWallet =', selectedWallet?.wallet_address, ', walletAddress state =', walletAddress);
     
     setShowConfirmation(false);
     
@@ -520,9 +661,16 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       setIsDeploying(true);
       setError(null);
       
-      console.log(`Deploying token to ${blockchain} (${environment}) with optimization: ${useOptimization}`);
-      console.log(`Using wallet: ${walletAddress}`);
-      console.log(`Token ID: ${tokenId}, User ID: ${currentUserId}`); // ✅ ADD: Debug log
+      // Show deployment started toast
+      toast({
+        title: "🚀 Deployment Started",
+        description: `Deploying ${tokenConfig.name} to ${blockchain}...`,
+        variant: "default",
+      });
+      
+      console.log(`🚀 Starting deployment to ${blockchain} (${environment}) with optimization: ${useOptimization}`);
+      console.log(`📍 Using wallet: ${deploymentWalletAddress}`);
+      console.log(`🎯 Token ID: ${tokenId}, User ID: ${currentUserId}`);
       
       // ✅ FIX #3: Update token record with form values BEFORE deployment
       // ✅ FIX #4: Include deployed_by to ensure user tracking
@@ -592,6 +740,8 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         
         // ✅ Use unified deployment service with optimization
         // ✅ FIX #5: Pass gas configuration from form
+        // ✅ FIX #6: Pass selected wallet address to bypass database query
+        // ✅ FIX #7: Use deploymentWalletAddress to ensure correct wallet is used
         const result = await unifiedTokenDeploymentService.deployToken(
           tokenId,
           currentUserId,
@@ -600,6 +750,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
             useOptimization: true,
             forceStrategy: deploymentStrategy,
             enableAnalytics: true,
+            walletAddress: deploymentWalletAddress, // ✅ FIX #7: Use deploymentWalletAddress instead of walletAddress state
             gasConfig: {
               gasPrice: gasPrice,
               gasLimit: gasLimit,
@@ -610,6 +761,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         );
         
         console.log(`✅ FIX #5: Passed gas configuration - Price: ${gasPrice} Gwei, Limit: ${gasLimit}, MaxFee: ${maxFeePerGas || 'auto'}, PriorityFee: ${maxPriorityFeePerGas || 'auto'}`);
+        console.log(`✅ FIX #7: Passed deployment wallet address - ${deploymentWalletAddress}`);
         
         if (result.status === 'SUCCESS') {
           console.log(`Optimized deployment successful:`, result);
@@ -641,7 +793,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       
     } catch (err) {
       const errorMessage = (err as Error).message;
-      console.error(`Error deploying token:`, err);
+      console.error(`❌ Error deploying token:`, err);
       console.error(`Blockchain: ${blockchain}, Environment: ${environment}`);
       
       // Enhanced error message for insufficient funds
@@ -656,8 +808,20 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
 
 Need help? Visit our documentation or contact support.`;
         setError(helpfulMessage);
+        
+        toast({
+          title: "❌ Insufficient Funds",
+          description: `Your wallet needs more ${blockchain === 'ethereum' ? 'ETH' : blockchain.toUpperCase()} for deployment.`,
+          variant: "destructive",
+        });
       } else {
         setError(errorMessage);
+        
+        toast({
+          title: "❌ Deployment Failed",
+          description: errorMessage.substring(0, 100) + (errorMessage.length > 100 ? '...' : ''),
+          variant: "destructive",
+        });
       }
     } finally {
       setIsDeploying(false);
@@ -672,6 +836,21 @@ Need help? Visit our documentation or contact support.`;
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Validation Errors Display */}
+        {Object.keys(validationErrors).length > 0 && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Validation Failed</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc list-inside space-y-1">
+                {Object.entries(validationErrors).map(([key, message]) => (
+                  <li key={key}>{message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
           </Alert>
         )}
         
@@ -762,8 +941,8 @@ Need help? Visit our documentation or contact support.`;
         </Card>
         
         {/* Deployment Dashboard - Wallet Selection, Balance, Gas Estimation, Faucets */}
+        {/* ✅ FIX: Remove key prop to prevent unnecessary remounting and wallet selection reset */}
         <DeploymentDashboard
-          key={`${blockchain}-${environment}`}
           projectId={projectId}
           blockchain={blockchain}
           environment={environment}
@@ -771,202 +950,6 @@ Need help? Visit our documentation or contact support.`;
           onWalletSelected={setSelectedWallet}
           selectedWallet={selectedWallet}
         />
-        
-        {/* Wallet Integration Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
-              Deployment Wallet
-            </CardTitle>
-            <CardDescription>
-              Configure the wallet that will deploy and own the token contract
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Wallet Integration Mode Selector */}
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-              <div>
-                <Label className="text-base">Automatic Wallet Management</Label>
-                <p className="text-sm text-muted-foreground">
-                  Automatically create and manage project wallets for deployment
-                </p>
-              </div>
-              <Switch
-                checked={walletIntegrationMode === 'auto'}
-                onCheckedChange={(checked) => {
-                  setWalletIntegrationMode(checked ? 'auto' : 'manual');
-                  if (checked) {
-                    loadWalletForNetwork();
-                  } else {
-                    setWalletAddress('');
-                    setWalletPrivateKey('');
-                    setWalletResult(null);
-                  }
-                }}
-                disabled={isDeploying}
-              />
-            </div>
-            
-            {walletIntegrationMode === 'auto' ? (
-              // Automatic Wallet Management
-              <div className="space-y-4">
-                {isLoadingWallet ? (
-                  <div className="flex items-center justify-center p-6 bg-muted/20 rounded-lg">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span>Loading wallet for {blockchain}...</span>
-                  </div>
-                ) : walletResult && walletResult.success ? (
-                  // Wallet successfully loaded
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium">
-                          {walletResult.isNewWallet ? 'New wallet created' : 'Existing wallet found'}
-                        </span>
-                        <Badge variant={walletResult.isNewWallet ? "default" : "secondary"}>
-                          {walletResult.network}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={loadWalletForNetwork}
-                          disabled={isLoadingWallet || isDeploying}
-                        >
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          Refresh
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={generateNewWallet}
-                          disabled={isLoadingWallet || isDeploying}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          New
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Wallet Address Display */}
-                    <div className="space-y-2">
-                      <Label>Wallet Address</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={walletAddress}
-                          readOnly
-                          className="font-mono text-sm"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyToClipboard(walletAddress, 'address')}
-                        >
-                          {copiedAddress ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Private Key Display (Optional) */}
-                    {walletPrivateKey && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Private Key (Secure)</Label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowPrivateKey(!showPrivateKey)}
-                          >
-                            {showPrivateKey ? (
-                              <EyeOff className="h-3 w-3" />
-                            ) : (
-                              <Eye className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type={showPrivateKey ? "text" : "password"}
-                            value={walletPrivateKey}
-                            readOnly
-                            className="font-mono text-sm"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyToClipboard(walletPrivateKey, 'privateKey')}
-                          >
-                            {copiedPrivateKey ? (
-                              <Check className="h-3 w-3" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Keep this private key secure. It controls access to your wallet.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // No wallet or error
-                  <div className="flex items-center justify-center p-6 bg-muted/20 rounded-lg">
-                    <div className="text-center">
-                      <AlertCircle className="h-6 w-6 text-amber-600 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        {walletResult?.error || 'Failed to load wallet'}
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={loadWalletForNetwork}
-                        className="mt-2"
-                        disabled={isLoadingWallet || isDeploying}
-                      >
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                        Retry
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Manual Wallet Entry
-              <div className="space-y-2">
-                <Label htmlFor="walletAddress" className={cn(validationErrors.walletAddress && "text-destructive")}>
-                  Deployment Wallet Address
-                </Label>
-                <Input
-                  id="walletAddress"
-                  placeholder="0x..."
-                  value={walletAddress}
-                  onChange={(e) => {
-                    setWalletAddress(e.target.value);
-                    if (validationErrors.walletAddress) {
-                      setValidationErrors({...validationErrors, walletAddress: ''});
-                    }
-                  }}
-                  disabled={isDeploying}
-                  className={cn(validationErrors.walletAddress && "border-destructive")}
-                />
-                {validationErrors.walletAddress && (
-                  <p className="text-xs text-destructive">{validationErrors.walletAddress}</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Address that will own the deployed contract
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
         
         {/* Gas Configuration Section */}
         <Card>
@@ -1205,9 +1188,42 @@ Need help? Visit our documentation or contact support.`;
           </AlertDescription>
         </Alert>
         
-        {/* Deploy Button */}
+        {/* Deploy Button - with debug info */}
+        {/* Show why button is disabled if it is */}
+        {(isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId) && (
+          <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertTitle className="text-blue-800 dark:text-blue-300">Deploy Button Status</AlertTitle>
+            <AlertDescription className="text-blue-700 dark:text-blue-400">
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                {authLoading && <li>⏳ Authenticating user...</li>}
+                {!currentUserId && !authLoading && <li>❌ No authenticated user (please refresh and log in)</li>}
+                {isDeploying && <li>⏳ Deployment in progress...</li>}
+                {!blockchain && <li>❌ No blockchain selected</li>}
+                {!walletAddress && <li>❌ No wallet address loaded (check DeploymentDashboard above)</li>}
+                {isLoadingWallet && <li>⏳ Loading wallet...</li>}
+                {blockchain && walletAddress && currentUserId && !isDeploying && !isLoadingWallet && !authLoading && (
+                  <li>✅ All conditions met - button should be enabled</li>
+                )}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Button 
-          onClick={handleDeploymentConfirmation} 
+          onClick={() => {
+            console.log('🚀 Deploy button clicked!');
+            console.log('Button state:', {
+              isDeploying,
+              blockchain,
+              walletAddress,
+              isLoadingWallet,
+              authLoading,
+              currentUserId,
+              disabled: isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId
+            });
+            handleDeploymentConfirmation();
+          }} 
           disabled={isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId} // ✅ FIX #1: Disable during auth loading
           className="w-full"
           size="lg"
@@ -1296,8 +1312,23 @@ Need help? Visit our documentation or contact support.`;
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirmation(false)}>Cancel</Button>
-            <Button onClick={handleDeploy}>
-              {useOptimization ? 'Optimize & Deploy' : 'Deploy'}
+            <Button 
+              onClick={() => {
+                console.log('🔥 Optimize & Deploy button clicked in confirmation dialog!');
+                handleDeploy();
+              }}
+              disabled={isDeploying}
+            >
+              {isDeploying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deploying...
+                </>
+              ) : (
+                <>
+                  {useOptimization ? 'Optimize & Deploy' : 'Deploy'}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
