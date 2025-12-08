@@ -362,7 +362,7 @@ export class MultiSigWalletService extends BaseService {
       }
 
       // Check for pending transactions
-      const pendingTransactions = await this.prisma.multi_sig_transactions.count({
+      const pendingTransactions = await this.prisma.multi_sig_on_chain_transactions.count({
         where: {
           wallet_id: id,
           executed: false
@@ -376,28 +376,28 @@ export class MultiSigWalletService extends BaseService {
       // Delete wallet and related data
       await this.prisma.$transaction(async (tx) => {
         // Delete confirmations first
-        const transactionIds = await tx.multi_sig_transactions.findMany({
+        const transactionIds = await tx.multi_sig_on_chain_transactions.findMany({
           where: { wallet_id: id },
           select: { id: true }
         })
 
         if (transactionIds.length > 0) {
-          await tx.multi_sig_confirmations.deleteMany({
+          await tx.multi_sig_on_chain_confirmations.deleteMany({
             where: {
-              transaction_id: {
-                in: transactionIds.map(t => t.id)
+              on_chain_transaction_id: {
+                in: transactionIds.map((t: any) => t.id)
               }
             }
           })
         }
 
         // Delete transactions
-        await tx.multi_sig_transactions.deleteMany({
+        await tx.multi_sig_on_chain_transactions.deleteMany({
           where: { wallet_id: id }
         })
 
         // Delete transaction proposals and signatures
-        const proposalIds = await tx.transaction_proposals.findMany({
+        const proposalIds = await tx.multi_sig_proposals.findMany({
           where: { wallet_id: id },
           select: { id: true }
         })
@@ -406,13 +406,13 @@ export class MultiSigWalletService extends BaseService {
           await tx.transaction_signatures.deleteMany({
             where: {
               proposal_id: {
-                in: proposalIds.map(p => p.id)
+                in: proposalIds.map((p: any) => p.id)
               }
             }
           })
         }
 
-        await tx.transaction_proposals.deleteMany({
+        await tx.multi_sig_proposals.deleteMany({
           where: { wallet_id: id }
         })
 
@@ -740,23 +740,23 @@ export class MultiSigWalletService extends BaseService {
         pendingProposals,
         totalSignatures
       ] = await Promise.all([
-        this.prisma.multi_sig_transactions.count({
+        this.prisma.multi_sig_on_chain_transactions.count({
           where: { wallet_id: walletId }
         }),
-        this.prisma.multi_sig_transactions.count({
+        this.prisma.multi_sig_on_chain_transactions.count({
           where: { wallet_id: walletId, executed: true }
         }),
-        this.prisma.transaction_proposals.count({
+        this.prisma.multi_sig_proposals.count({
           where: { wallet_id: walletId, status: 'pending' }
         }),
-        // Get signatures count from multi_sig_confirmations
-        this.prisma.multi_sig_confirmations.count({
+        // Get signatures count from multi_sig_on_chain_confirmations
+        this.prisma.multi_sig_on_chain_confirmations.count({
           where: {
-            transaction_id: {
-              in: (await this.prisma.multi_sig_transactions.findMany({
+            on_chain_transaction_id: {
+              in: (await this.prisma.multi_sig_on_chain_transactions.findMany({
                 where: { wallet_id: walletId },
                 select: { id: true }
-              })).map(t => t.id)
+              })).map((t: any) => t.id)
             }
           }
         })

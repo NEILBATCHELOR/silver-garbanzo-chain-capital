@@ -54,6 +54,7 @@ export function MultiSigTransactionList({
   const [isLoading, setIsLoading] = useState(true);
   const [signingTxId, setSigningTxId] = useState<string | null>(null);
   const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
+  const [confirmingOnChainTxId, setConfirmingOnChainTxId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -229,6 +230,72 @@ export function MultiSigTransactionList({
       setSigningTxId(null);
     }
   };
+
+  const handleConfirmOnChain = async (proposalId: string) => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to confirm transactions',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      setConfirmingOnChainTxId(proposalId);
+      
+      // Get the user's active address
+      const { data: userAddressData, error: addressError } = await supabase
+        .from('user_addresses')
+        .select('address')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+      
+      if (addressError || !userAddressData?.address) {
+        throw new Error('Could not determine signer address. Please ensure you have an active wallet address.');
+      }
+      
+      const userAddress = userAddressData.address;
+      
+      toast({
+        title: 'Confirming on-chain',
+        description: 'Submitting confirmation to smart contract...',
+      });
+      
+      const confirmResult = await multiSigProposalService.confirmOnChain(
+        proposalId,
+        userAddress
+      );
+      
+      if (confirmResult === 'already-confirmed') {
+        toast({
+          title: 'Already Confirmed',
+          description: 'You have already confirmed this transaction on-chain',
+        });
+      } else {
+        toast({
+          title: 'Success!',
+          description: 'Transaction confirmed on-chain successfully. If threshold is met, it will execute automatically.',
+          duration: 5000,
+        });
+      }
+      
+      // Reload proposals to show updated state
+      await loadProposals();
+      
+    } catch (err: any) {
+      console.error('Failed to confirm on-chain:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to confirm transaction on-chain',
+        variant: 'destructive'
+      });
+    } finally {
+      setConfirmingOnChainTxId(null);
+    }
+  };
+  
   const handleDelete = async (proposalId: string) => {
     if (!user) {
       toast({
@@ -534,6 +601,22 @@ export function MultiSigTransactionList({
       ? proposal.signers.some(s => s.address.toLowerCase() === userAddress)
       : false;
     
+    // Check if current user has confirmed on-chain
+    const hasUserConfirmedOnChain = userAddress
+      ? proposal.signers.some(s => 
+          s.address.toLowerCase() === userAddress && s.onChainConfirmed
+        )
+      : false;
+    
+    // Check if proposal needs on-chain confirmation
+    const needsOnChainConfirmation = 
+      proposal.submittedOnChain && 
+      proposal.onChainTxId !== undefined &&
+      hasUserSigned && 
+      !hasUserConfirmedOnChain &&
+      category === 'pending' &&
+      !isExpired;
+    
     const canSign = category === 'pending' && !hasUserSigned;
     
     return (
@@ -815,10 +898,43 @@ export function MultiSigTransactionList({
           </div>
 
           {/* Action Buttons */}
-          {hasUserSigned && !isExpired && (category === 'pending') ? (
+          {needsOnChainConfirmation ? (
+            <div className="space-y-2">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Confirmation Required</AlertTitle>
+                <AlertDescription>
+                  You have signed this proposal. Now confirm it on-chain to complete your approval.
+                </AlertDescription>
+              </Alert>
+              <Button
+                onClick={() => handleConfirmOnChain(proposal.id)}
+                disabled={confirmingOnChainTxId === proposal.id}
+                className="w-full"
+                variant="default"
+              >
+                {confirmingOnChainTxId === proposal.id ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Confirming On-Chain...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Confirm On-Chain
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : hasUserSigned && !isExpired && (category === 'pending') ? (
             <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
               <CheckCircle2 className="h-4 w-4" />
-              <span>You have signed this proposal</span>
+              <span>
+                {hasUserConfirmedOnChain 
+                  ? 'You have signed and confirmed on-chain'
+                  : 'You have signed this proposal'
+                }
+              </span>
             </div>
           ) : canSign && !isExpired ? (
             <div className="flex gap-2">

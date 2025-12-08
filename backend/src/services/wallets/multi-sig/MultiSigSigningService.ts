@@ -82,7 +82,7 @@ export class MultiSigSigningService extends BaseService {
       }
 
       // Get proposal
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id: request.proposal_id },
         include: {
           transaction_signatures: true
@@ -155,7 +155,7 @@ export class MultiSigSigningService extends BaseService {
       const signatureCount = proposal.transaction_signatures.length + 1
       if (signatureCount >= wallet.threshold) {
         // Update proposal status to approved
-        await this.prisma.transaction_proposals.update({
+        await this.prisma.multi_sig_proposals.update({
           where: { id: proposal.id },
           data: {
             status: 'approved',
@@ -211,7 +211,7 @@ export class MultiSigSigningService extends BaseService {
       }
 
       // Get proposal
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id: request.proposal_id },
         include: {
           transaction_signatures: true
@@ -275,7 +275,7 @@ export class MultiSigSigningService extends BaseService {
       const signatureCount = proposal.transaction_signatures.length + 1
       if (signatureCount >= wallet.threshold) {
         // Update proposal status to approved
-        await this.prisma.transaction_proposals.update({
+        await this.prisma.multi_sig_proposals.update({
           where: { id: proposal.id },
           data: {
             status: 'approved',
@@ -319,7 +319,7 @@ export class MultiSigSigningService extends BaseService {
   async removeSignature(proposalId: string, signerAddress: string): Promise<ServiceResult<boolean>> {
     try {
       // Get proposal
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id: proposalId },
         include: {
           transaction_signatures: true
@@ -357,7 +357,7 @@ export class MultiSigSigningService extends BaseService {
 
       if (wallet && remainingSignatures < wallet.threshold && proposal.status === 'approved') {
         // Update proposal status back to pending
-        await this.prisma.transaction_proposals.update({
+        await this.prisma.multi_sig_proposals.update({
           where: { id: proposalId },
           data: {
             status: 'pending',
@@ -414,7 +414,7 @@ export class MultiSigSigningService extends BaseService {
    */
   async verifyAllSignatures(proposalId: string): Promise<ServiceResult<{ valid: number; invalid: number; details: any[] }>> {
     try {
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id: proposalId },
         include: {
           transaction_signatures: true
@@ -499,7 +499,7 @@ export class MultiSigSigningService extends BaseService {
       const ownerAddresses = getOwnerAddresses(wallet)
 
       // Get all proposals for this wallet
-      const proposals = await this.prisma.transaction_proposals.findMany({
+      const proposals = await this.prisma.multi_sig_proposals.findMany({
         where: { wallet_id: walletId },
         include: {
           transaction_signatures: true
@@ -508,9 +508,9 @@ export class MultiSigSigningService extends BaseService {
 
       // Calculate statistics
       const totalProposals = proposals.length
-      const executedProposals = proposals.filter(p => p.status === 'executed').length
-      const pendingProposals = proposals.filter(p => p.status === 'pending').length
-      const approvedProposals = proposals.filter(p => p.status === 'approved').length
+      const executedProposals = proposals.filter((p: any) => p.status === 'executed').length
+      const pendingProposals = proposals.filter((p: any) => p.status === 'pending').length
+      const approvedProposals = proposals.filter((p: any) => p.status === 'approved').length
 
       // Signer activity
       const signerActivity: Record<string, any> = {}
@@ -613,9 +613,9 @@ export class MultiSigSigningService extends BaseService {
 
           const message = {
             to: proposal.to_address,
-            value: ethers.parseEther(proposal.value),
+            value: ethers.parseEther(proposal.value || '0'),
             data: proposal.data || '0x',
-            nonce: proposal.nonce || 0
+            nonce: proposal.on_chain_tx_id || 0
           }
 
           return ethers.TypedDataEncoder.hash(domain, types, message)
@@ -625,8 +625,8 @@ export class MultiSigSigningService extends BaseService {
           // Bitcoin transaction hash for signing
           const txData = {
             inputs: [{ address: wallet.address }],
-            outputs: [{ address: proposal.to_address, value: parseFloat(proposal.value) }],
-            nonce: proposal.nonce
+            outputs: [{ address: proposal.to_address, value: parseFloat(proposal.value || '0') }],
+            nonce: proposal.on_chain_tx_id || 0
           }
           
           return crypto.createHash('sha256')
@@ -641,7 +641,7 @@ export class MultiSigSigningService extends BaseService {
             to: proposal.to_address,
             value: proposal.value,
             data: proposal.data,
-            nonce: proposal.nonce
+            nonce: proposal.on_chain_tx_id || 0
           }
           
           return crypto.createHash('sha256')
@@ -657,7 +657,7 @@ export class MultiSigSigningService extends BaseService {
             actions: [{
               Transfer: { deposit: proposal.value }
             }],
-            nonce: proposal.nonce
+            nonce: proposal.on_chain_tx_id || 0
           }
           
           return crypto.createHash('sha256')
@@ -673,7 +673,7 @@ export class MultiSigSigningService extends BaseService {
               to: proposal.to_address,
               value: proposal.value,
               data: proposal.data,
-              nonce: proposal.nonce,
+              nonce: proposal.on_chain_tx_id || 0,
               blockchain
             }))
             .digest('hex')
@@ -867,14 +867,14 @@ export class MultiSigSigningService extends BaseService {
     try {
       // Get general statistics across all multi-sig wallets
       const totalWallets = await this.prisma.multi_sig_wallets.count()
-      const totalProposals = await this.prisma.transaction_proposals.count()
+      const totalProposals = await this.prisma.multi_sig_proposals.count()
       const totalSignatures = await this.prisma.transaction_signatures.count()
       
-      const pendingProposals = await this.prisma.transaction_proposals.count({
+      const pendingProposals = await this.prisma.multi_sig_proposals.count({
         where: { status: 'pending' }
       })
       
-      const approvedProposals = await this.prisma.transaction_proposals.count({
+      const approvedProposals = await this.prisma.multi_sig_proposals.count({
         where: { status: 'approved' }
       })
       

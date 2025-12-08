@@ -44,6 +44,7 @@ export interface TransactionProposal {
   to_address: string
   value: string
   data?: string
+  on_chain_tx_id?: number | null
   nonce?: number
   status: ProposalStatus
   blockchain: BlockchainNetwork
@@ -108,22 +109,21 @@ export interface SignProposalRequest {
 export interface MultiSigTransaction {
   id: string
   wallet_id: string
-  destination_wallet_address: string
+  on_chain_tx_id: number
+  to_address: string
   value: string
-  data: string
-  nonce: number
-  hash: string
+  data?: string
   executed: boolean
-  confirmations: number
-  required: number
-  blockchain: BlockchainNetwork
-  token_address?: string
-  token_symbol?: string
-  to?: string
-  description?: string
+  num_confirmations?: number
+  created_at_timestamp: bigint
+  expires_at_timestamp?: bigint | null
+  submission_tx_hash: string
+  execution_tx_hash?: string | null
+  submitted_by: string
+  executed_by?: string | null
   created_at: Date
-  updated_at: Date
-  blockchain_specific_data?: any
+  executed_at?: Date | null
+  project_id?: string | null
 }
 
 export interface MultiSigConfirmation {

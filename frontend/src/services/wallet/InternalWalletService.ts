@@ -44,7 +44,6 @@ export interface UserWallet {
   signingMethod: string;
   isActive: boolean;
   balance?: WalletBalance; // Full balance object with network info
-  contractRoles?: string[];
   createdAt: Date;
   updatedAt: Date;
   // Private storage references
@@ -234,7 +233,6 @@ export class InternalWalletService {
           address,
           signing_method,
           is_active,
-          contract_roles,
           encrypted_private_key,
           key_vault_reference,
           created_at,
@@ -260,7 +258,6 @@ export class InternalWalletService {
         address: wallet.address,
         signingMethod: wallet.signing_method,
         isActive: wallet.is_active,
-        contractRoles: wallet.contract_roles || [],
         createdAt: new Date(wallet.created_at),
         updatedAt: new Date(wallet.updated_at),
         hasDirectKey: !!wallet.encrypted_private_key,
@@ -287,7 +284,6 @@ export class InternalWalletService {
           address,
           signing_method,
           is_active,
-          contract_roles,
           encrypted_private_key,
           key_vault_reference,
           created_at,
@@ -367,7 +363,6 @@ export class InternalWalletService {
           address: wallet.address,
           signingMethod: wallet.signing_method,
           isActive: wallet.is_active,
-          contractRoles: wallet.contract_roles || [],
           createdAt: new Date(wallet.created_at),
           updatedAt: new Date(wallet.updated_at),
           hasDirectKey: !!wallet.encrypted_private_key,

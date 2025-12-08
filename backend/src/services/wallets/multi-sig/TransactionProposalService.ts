@@ -102,11 +102,11 @@ export class TransactionProposalService extends BaseService {
         return this.error('Blockchain mismatch between wallet and proposal')
       }
 
-      // Get nonce for the proposal (if needed)
-      const nonce = await this.getNextNonce(wallet.address, request.blockchain)
+      // Get nonce for tracking (stored separately if needed)
+      const onChainTxId = await this.getNextNonce(wallet.address, request.blockchain)
 
       // Create proposal
-      const proposal = await this.prisma.transaction_proposals.create({
+      const proposal = await this.prisma.multi_sig_proposals.create({
         data: {
           wallet_id: request.wallet_id,
           title: request.title,
@@ -114,12 +114,17 @@ export class TransactionProposalService extends BaseService {
           to_address: request.to_address,
           value: request.value,
           data: request.data || '0x',
-          nonce,
           blockchain: request.blockchain,
           token_address: request.token_address,
-          token_symbol: request.token_symbol,
           created_by: request.created_by,
           status: 'pending',
+          signatures_required: wallet.threshold,
+          signatures_collected: 0,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          transaction_hash: '', // Will be set when submitted
+          raw_transaction: {}, // Will be populated when building tx
+          chain_type: request.blockchain,
+          on_chain_tx_id: onChainTxId,
           created_at: new Date(),
           updated_at: new Date()
         }
@@ -146,7 +151,7 @@ export class TransactionProposalService extends BaseService {
         walletId: proposal.wallet_id,
         blockchain: proposal.blockchain,
         value: proposal.value,
-        nonce: proposal.nonce
+        onChainTxId: proposal.on_chain_tx_id
       })
 
       return this.success(await this.formatProposal(proposal))
@@ -161,7 +166,7 @@ export class TransactionProposalService extends BaseService {
    */
   async getProposal(id: string): Promise<ServiceResult<TransactionProposal>> {
     try {
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id },
         include: {
           transaction_signatures: true
@@ -185,7 +190,7 @@ export class TransactionProposalService extends BaseService {
   async updateProposal(request: UpdateProposalRequest): Promise<ServiceResult<TransactionProposal>> {
     try {
       // Get existing proposal
-      const existing = await this.prisma.transaction_proposals.findUnique({
+      const existing = await this.prisma.multi_sig_proposals.findUnique({
         where: { id: request.id }
       })
 
@@ -207,7 +212,7 @@ export class TransactionProposalService extends BaseService {
       if (request.description !== undefined) updateData.description = request.description
       if (request.status) updateData.status = request.status
 
-      const proposal = await this.prisma.transaction_proposals.update({
+      const proposal = await this.prisma.multi_sig_proposals.update({
         where: { id: request.id },
         data: updateData,
         include: {
@@ -247,7 +252,7 @@ export class TransactionProposalService extends BaseService {
    */
   async cancelProposal(id: string, reason?: string): Promise<ServiceResult<TransactionProposal>> {
     try {
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id }
       })
 
@@ -265,7 +270,7 @@ export class TransactionProposalService extends BaseService {
       }
 
       // Cancel proposal
-      const cancelledProposal = await this.prisma.transaction_proposals.update({
+      const cancelledProposal = await this.prisma.multi_sig_proposals.update({
         where: { id },
         data: {
           status: 'cancelled',
@@ -322,10 +327,10 @@ export class TransactionProposalService extends BaseService {
       if (created_by) where.created_by = created_by
 
       // Get total count
-      const total = await this.prisma.transaction_proposals.count({ where })
+      const total = await this.prisma.multi_sig_proposals.count({ where })
 
       // Get proposals
-      const proposals = await this.prisma.transaction_proposals.findMany({
+      const proposals = await this.prisma.multi_sig_proposals.findMany({
         where,
         include: {
           transaction_signatures: true
@@ -336,7 +341,7 @@ export class TransactionProposalService extends BaseService {
       })
 
       const formattedProposals = await Promise.all(
-        proposals.map(p => this.formatProposal(p))
+        proposals.map((p: any) => this.formatProposal(p))
       )
 
       return this.success({
@@ -381,10 +386,10 @@ export class TransactionProposalService extends BaseService {
       if (status) where.status = status
 
       // Get total count
-      const total = await this.prisma.transaction_proposals.count({ where })
+      const total = await this.prisma.multi_sig_proposals.count({ where })
 
       // Get proposals
-      const proposals = await this.prisma.transaction_proposals.findMany({
+      const proposals = await this.prisma.multi_sig_proposals.findMany({
         where,
         include: {
           transaction_signatures: true
@@ -395,7 +400,7 @@ export class TransactionProposalService extends BaseService {
       })
 
       const formattedProposals = await Promise.all(
-        proposals.map(p => this.formatProposal(p))
+        proposals.map((p: any) => this.formatProposal(p))
       )
 
       return this.success({
@@ -419,7 +424,7 @@ export class TransactionProposalService extends BaseService {
   async executeProposal(id: string): Promise<ServiceResult<TransactionProposal>> {
     try {
       // Get proposal with signatures
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id },
         include: {
           transaction_signatures: true
@@ -459,7 +464,7 @@ export class TransactionProposalService extends BaseService {
 
       if (!executionResult.success) {
         // Update proposal status to failed
-        await this.prisma.transaction_proposals.update({
+        await this.prisma.multi_sig_proposals.update({
           where: { id },
           data: {
             status: 'rejected',
@@ -471,7 +476,7 @@ export class TransactionProposalService extends BaseService {
       }
 
       // Update proposal status to executed
-      const executedProposal = await this.prisma.transaction_proposals.update({
+      const executedProposal = await this.prisma.multi_sig_proposals.update({
         where: { id },
         data: {
           status: 'executed',
@@ -483,24 +488,23 @@ export class TransactionProposalService extends BaseService {
       })
 
       // Create multi-sig transaction record
-      await this.prisma.multi_sig_transactions.create({
+      await this.prisma.multi_sig_on_chain_transactions.create({
         data: {
           wallet_id: proposal.wallet_id,
-          destination_wallet_address: proposal.to_address,
-          value: proposal.value,
+          on_chain_tx_id: proposal.on_chain_tx_id || Math.floor(Date.now() / 1000),
+          to_address: proposal.to_address || '',
+          value: proposal.value || '0',
           data: proposal.data || '0x',
-          nonce: proposal.nonce || 0,
-          hash: executionResult.data?.hash || '',
           executed: true,
-          confirmations: signatureCount,
-          required: wallet.threshold,
-          blockchain: proposal.blockchain,
-          token_address: proposal.token_address,
-          token_symbol: proposal.token_symbol,
-          to: proposal.to_address,
-          description: proposal.description,
+          num_confirmations: signatureCount,
+          created_at_timestamp: BigInt(Math.floor(Date.now() / 1000)),
+          submission_tx_hash: executionResult.data?.hash || '',
+          execution_tx_hash: executionResult.data?.hash,
+          submitted_by: proposal.created_by || '',
+          executed_by: proposal.created_by || '',
           created_at: new Date(),
-          updated_at: new Date()
+          executed_at: new Date(),
+          project_id: wallet.project_id
         }
       })
 
@@ -536,7 +540,7 @@ export class TransactionProposalService extends BaseService {
    */
   async getProposalStatus(id: string): Promise<ServiceResult<any>> {
     try {
-      const proposal = await this.prisma.transaction_proposals.findUnique({
+      const proposal = await this.prisma.multi_sig_proposals.findUnique({
         where: { id },
         include: {
           transaction_signatures: true
@@ -638,17 +642,17 @@ export class TransactionProposalService extends BaseService {
       }
 
       // Fallback: get from database
-      const lastProposal = await this.prisma.transaction_proposals.findFirst({
+      const lastProposal = await this.prisma.multi_sig_proposals.findFirst({
         where: {
           blockchain,
           wallet_id: (await this.prisma.multi_sig_wallets.findFirst({
             where: { address: walletAddress }
           }))?.id
         },
-        orderBy: { nonce: 'desc' }
+        orderBy: { created_at: 'desc' }
       })
 
-      return (lastProposal?.nonce || 0) + 1
+      return (lastProposal?.on_chain_tx_id || 0) + 1
     } catch (error) {
       this.logError('Get next nonce error:', error)
       return Math.floor(Date.now() / 1000) // Timestamp fallback
@@ -686,11 +690,11 @@ export class TransactionProposalService extends BaseService {
           
           const tx = {
             to: proposal.to_address,
-            value: ethers.parseEther(proposal.value),
+            value: ethers.parseEther(proposal.value || '0'),
             data: proposal.data || '0x',
             gasLimit: 21000n,
             gasPrice: await provider.getFeeData().then((f: any) => f.gasPrice),
-            nonce: proposal.nonce
+            nonce: proposal.on_chain_tx_id || 0
           }
 
           // In production, this would be submitted to the multi-sig contract
@@ -703,7 +707,7 @@ export class TransactionProposalService extends BaseService {
 
           return this.success({
             hash: txHash,
-            nonce: proposal.nonce,
+            nonce: proposal.on_chain_tx_id || 0,
             status: 'submitted',
             blockchain: proposal.blockchain
           })
@@ -722,13 +726,13 @@ export class TransactionProposalService extends BaseService {
               from: wallet.address,
               to: proposal.to_address,
               value: proposal.value,
-              nonce: proposal.nonce
+              nonce: proposal.on_chain_tx_id || 0
             }))
             .digest('hex')
 
           return this.success({
             hash: txHash,
-            nonce: proposal.nonce,
+            nonce: proposal.on_chain_tx_id || 0,
             status: 'submitted',
             blockchain: proposal.blockchain
           })
@@ -774,13 +778,13 @@ export class TransactionProposalService extends BaseService {
               to: proposal.to_address,
               value: proposal.value,
               data: proposal.data,
-              nonce: proposal.nonce
+              nonce: proposal.on_chain_tx_id || 0
             }))
             .digest('hex')
 
           return this.success({
             hash: txHash,
-            nonce: proposal.nonce,
+            nonce: proposal.on_chain_tx_id || 0,
             status: 'submitted',
             blockchain: proposal.blockchain
           })
@@ -957,7 +961,6 @@ export class TransactionProposalService extends BaseService {
       to_address: proposal.to_address,
       value: proposal.value,
       data: proposal.data,
-      nonce: proposal.nonce,
       status: proposal.status,
       blockchain: proposal.blockchain as BlockchainNetwork,
       token_address: proposal.token_address,
@@ -965,6 +968,7 @@ export class TransactionProposalService extends BaseService {
       created_by: proposal.created_by,
       created_at: proposal.created_at,
       updated_at: proposal.updated_at,
+      on_chain_tx_id: proposal.on_chain_tx_id,
       signatures: signatures.map((sig: any) => ({
         id: sig.id,
         proposal_id: sig.proposal_id,

@@ -345,7 +345,9 @@ class MultiSigWalletServiceClass {
         return [];
       }
 
-      // Query 1: Wallets created by the user
+      console.log('🔍 Fetching multi-sig wallets for user:', userId);
+
+      // Query 1: Wallets created by the user (including those with no owners)
       const { data: createdWallets, error: createdError } = await supabase
         .from('multi_sig_wallets')
         .select(`
@@ -355,9 +357,15 @@ class MultiSigWalletServiceClass {
         .eq('created_by', userId)
         .order('created_at', { ascending: false });
 
-      if (createdError) throw createdError;
+      if (createdError) {
+        console.error('❌ Error fetching created wallets:', createdError);
+        throw createdError;
+      }
 
-      // Query 2: Wallets where user is an owner
+      console.log(`✅ Found ${createdWallets?.length || 0} wallets created by user`);
+      createdWallets?.forEach(w => console.log(`  - ${w.name}: ${(w.owners || []).length} owners`));
+
+      // Query 2: Wallets where user is an owner (but not creator)
       const { data: ownedWallets, error: ownedError } = await supabase
         .from('multi_sig_wallets')
         .select(`
@@ -365,9 +373,15 @@ class MultiSigWalletServiceClass {
           owners:multi_sig_wallet_owners!inner(*)
         `)
         .eq('owners.user_id', userId)
+        .neq('created_by', userId)
         .order('created_at', { ascending: false });
 
-      if (ownedError) throw ownedError;
+      if (ownedError) {
+        console.error('❌ Error fetching owned wallets:', ownedError);
+        throw ownedError;
+      }
+
+      console.log(`✅ Found ${ownedWallets?.length || 0} wallets where user is owner (not creator)`);
 
       // Combine and deduplicate by wallet ID
       const walletMap = new Map<string, MultiSigWalletWithOwners>();
@@ -387,12 +401,17 @@ class MultiSigWalletServiceClass {
       processWallets(createdWallets || []);
       processWallets(ownedWallets || []);
 
-      return Array.from(walletMap.values())
+      const finalWallets = Array.from(walletMap.values())
         .sort((a, b) => {
           const aDate = new Date((a as any).created_at || a.createdAt).getTime();
           const bDate = new Date((b as any).created_at || b.createdAt).getTime();
           return bDate - aDate;
         });
+
+      console.log(`🎯 Total unique wallets returned: ${finalWallets.length}`);
+      finalWallets.forEach(w => console.log(`  - ${w.name}: ${w.owner_count} owners`));
+
+      return finalWallets;
     } catch (error) {
       console.error('Error fetching multi-sig wallets:', error);
       throw error;

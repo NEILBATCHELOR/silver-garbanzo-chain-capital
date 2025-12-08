@@ -186,6 +186,26 @@ export class MultiSigProposalService {
         if (error) throw error;
         
         await this.updateProposalSignatureCount(proposalId);
+        
+        // Re-fetch proposal to get latest submission status (prevents race condition)
+        const freshProposal = await this.getProposal(proposalId);
+        
+        // NEW: Auto-confirm on-chain if proposal was already submitted
+        if (freshProposal && freshProposal.submittedOnChain && freshProposal.onChainTxId !== null && freshProposal.onChainTxId !== undefined) {
+          try {
+            console.log(`🔄 Auto-confirming on-chain for ${signerAddress}...`);
+            const confirmResult = await this.confirmOnChain(proposalId, signerAddress);
+            if (confirmResult === 'already-confirmed') {
+              console.log(`ℹ️  ${signerAddress} already confirmed on-chain`);
+            } else {
+              console.log(`✅ Auto-confirmed on-chain for ${signerAddress}: ${confirmResult}`);
+            }
+          } catch (error: any) {
+            console.warn(`⚠️  Failed to auto-confirm on-chain (non-fatal):`, error.message);
+            // Don't fail the signing if on-chain confirmation fails
+          }
+        }
+        
         return this.formatSignature(fallbackData);
       }
 
@@ -194,6 +214,26 @@ export class MultiSigProposalService {
       }
 
       await this.updateProposalSignatureCount(proposalId);
+      
+      // Re-fetch proposal to get latest submission status (prevents race condition)
+      const freshProposal = await this.getProposal(proposalId);
+      
+      // NEW: Auto-confirm on-chain if proposal was already submitted
+      if (freshProposal && freshProposal.submittedOnChain && freshProposal.onChainTxId !== null && freshProposal.onChainTxId !== undefined) {
+        try {
+          console.log(`🔄 Auto-confirming on-chain for ${signerAddress}...`);
+          const confirmResult = await this.confirmOnChain(proposalId, signerAddress);
+          if (confirmResult === 'already-confirmed') {
+            console.log(`ℹ️  ${signerAddress} already confirmed on-chain`);
+          } else {
+            console.log(`✅ Auto-confirmed on-chain for ${signerAddress}: ${confirmResult}`);
+          }
+        } catch (error: any) {
+          console.warn(`⚠️  Failed to auto-confirm on-chain (non-fatal):`, error.message);
+          // Don't fail the signing if on-chain confirmation fails
+        }
+      }
+      
       return this.formatSignature(data[0]);
 
     } catch (error: any) {
