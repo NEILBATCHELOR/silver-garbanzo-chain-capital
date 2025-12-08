@@ -47,6 +47,9 @@ import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
 // import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
 
+// Trade Finance Routes (3 services)
+import { haircutRoutes, positionsRoutes, oraclesRoutes } from './src/routes/trade-finance'
+
 // Admin & Deployment Routes
 import { deploymentRoutes } from './src/routes/deploymentRoutes'
 
@@ -901,6 +904,11 @@ Comprehensive platform supporting:
       await fastify.register(virtualAccountsPspRoutes)  // Handles /api/psp/virtual-accounts/*
       await fastify.register(webhooksPspRoutes)  // Handles /api/psp/webhooks/*
     })
+
+    // Trade Finance routes - Commodity lending and risk management
+    await app.register(haircutRoutes)  // Handles /api/trade-finance/haircut/*
+    await app.register(positionsRoutes)  // Handles /api/trade-finance/positions/*
+    await app.register(oraclesRoutes)  // Handles /api/trade-finance/oracles/*
 
   } catch (error) {
     logger.error({ error }, 'Route registration failed')

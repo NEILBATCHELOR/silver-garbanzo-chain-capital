@@ -109,9 +109,13 @@ library LiquidationLogic {
     ) external {
         LiquidationCallLocalVars memory vars;
 
-        // Update both reserve states
-        debtReserve.updateState();
-        collateralReserve.updateState();
+        // Create caches for both reserves
+        DataTypes.CommodityCache memory debtCache = ReserveLogic.cache(debtReserve);
+        DataTypes.CommodityCache memory collateralCache = ReserveLogic.cache(collateralReserve);
+
+        // Update both reserve states with caches
+        ReserveLogic.updateState(debtReserve, debtCache);
+        ReserveLogic.updateState(collateralReserve, collateralCache);
 
         // Get user debt
         vars.userVariableDebt = IERC20(debtReserve.variableDebtTokenAddress).balanceOf(params.user);
@@ -210,9 +214,10 @@ library LiquidationLogic {
         }
 
         // Update debt reserve interest rates
-        debtReserve.updateInterestRates(
+        ReserveLogic.updateInterestRates(
+            debtReserve,
+            debtCache,
             params.debtAsset,
-            debtReserve.cTokenAddress,
             params.debtToCover,  // Liquidity added back
             0
         );
@@ -277,9 +282,10 @@ library LiquidationLogic {
 
         // Update collateral reserve interest rates
         if (!params.receiveAToken) {
-            collateralReserve.updateInterestRates(
+            ReserveLogic.updateInterestRates(
+                collateralReserve,
+                collateralCache,
                 params.collateralAsset,
-                collateralReserve.cTokenAddress,
                 0,
                 vars.actualCollateralToLiquidate
             );

@@ -73,6 +73,7 @@ library ValidationLogic {
     mapping(address => DataTypes.CommodityReserveData) storage commoditiesData,
     DataTypes.UserConfigurationMap storage userConfig,
     mapping(uint256 => address) storage commodities,
+    mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
     uint256 commoditiesCount,
     address oracle,
     uint8 userEModeCategory
@@ -96,6 +97,7 @@ library ValidationLogic {
           commoditiesData,
           userConfig,
           commodities,
+          eModeCategories,
           commoditiesCount,
           oracle,
           userEModeCategory

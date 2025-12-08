@@ -239,6 +239,7 @@ model sessions {
   oauth_client_id        String?          @db.Uuid
   refresh_token_hmac_key String?
   refresh_token_counter  BigInt?
+  scopes                 String?
   mfa_amr_claims         mfa_amr_claims[]
   refresh_tokens         refresh_tokens[]
   oauth_clients          oauth_clients?   @relation(fields: [oauth_client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -399,7 +400,6 @@ model auth_users {
   signer_keys                                                                    signer_keys[]
   token_modules                                                                  token_modules[]
   tokens                                                                         tokens[]
-  transaction_proposals                                                          transaction_proposals[]
   transaction_signatures                                                         transaction_signatures[]
   user_addresses                                                                 user_addresses[]
   user_contract_roles                                                            user_contract_roles?
@@ -2630,48 +2630,6 @@ model moonpay_webhook_events {
   @@schema("public")
 }
 
-model multi_sig_confirmations {
-  id                     String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  transaction_id         String?                 @db.Uuid
-  owner                  String
-  signature              String
-  created_at             DateTime?               @default(now()) @db.Timestamptz(6)
-  confirmed              Boolean?
-  signer                 String?
-  timestamp              DateTime?               @db.Timestamptz(6)
-  project_id             String?                 @db.Uuid
-  multi_sig_transactions multi_sig_transactions? @relation(fields: [transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model multi_sig_transactions {
-  id                         String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  wallet_id                  String?                   @db.Uuid
-  destination_wallet_address String
-  value                      String
-  data                       String                    @default("0x")
-  nonce                      Int
-  hash                       String
-  executed                   Boolean                   @default(false)
-  confirmations              Int                       @default(0)
-  blockchain                 String
-  token_address              String?
-  token_symbol               String?
-  created_at                 DateTime?                 @default(now()) @db.Timestamptz(6)
-  updated_at                 DateTime?                 @default(now()) @db.Timestamptz(6)
-  blockchain_specific_data   Json?
-  description                String?
-  required                   Int?
-  to                         String?
-  project_id                 String?                   @db.Uuid
-  multi_sig_confirmations    multi_sig_confirmations[]
-  multi_sig_wallets          multi_sig_wallets?        @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([blockchain])
-  @@schema("public")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model multi_sig_wallets {
   id                              String                            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
@@ -2701,12 +2659,10 @@ model multi_sig_wallets {
   multi_sig_configurations        multi_sig_configurations?
   multi_sig_on_chain_transactions multi_sig_on_chain_transactions[]
   multi_sig_proposals             multi_sig_proposals[]
-  multi_sig_transactions          multi_sig_transactions[]
   multi_sig_wallet_owners         multi_sig_wallet_owners[]
   users                           auth_users?                       @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   project_wallets                 project_wallets?                  @relation(fields: [funded_by_wallet_id], references: [id], onUpdate: NoAction)
   projects                        projects?                         @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  transaction_proposals           transaction_proposals[]
   wallet_details                  wallet_details[]
 
   @@index([blockchain])
@@ -3020,6 +2976,10 @@ model projects {
   climate_pool_recs                           climate_pool_recs[]
   collectibles_products                       collectibles_products?
   commodities_products                        commodities_products?
+  commodity_pool_config                       commodity_pool_config[]
+  commodity_positions                         commodity_positions[]
+  commodity_prices                            commodity_prices[]
+  commodity_risk_metrics                      commodity_risk_metrics[]
   compliance_checks                           compliance_checks[]
   digital_tokenised_funds                     digital_tokenised_funds?
   digital_tokenized_fund_products             digital_tokenized_fund_products?
@@ -3648,12 +3608,11 @@ model settlement_metrics {
 }
 
 model signatures {
-  id                    String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  proposal_id           String?                @db.Uuid
-  signer                String
-  signature             String
-  created_at            DateTime?              @default(now()) @db.Timestamptz(6)
-  transaction_proposals transaction_proposals? @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  proposal_id String?   @db.Uuid
+  signer      String
+  signature   String
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("public")
 }
@@ -5387,6 +5346,7 @@ model tokens {
   product_type                                                                String?                             @db.VarChar(50)
   approval_workflows                                                          approval_workflows[]
   deployment_rate_limits                                                      deployment_rate_limits[]
+  etf_token_links                                                             etf_token_links[]
   exchange_rate_history                                                       exchange_rate_history[]
   token_allocations                                                           token_allocations[]
   token_climate_properties                                                    token_climate_properties?
@@ -5481,48 +5441,22 @@ model transaction_notifications {
   @@schema("public")
 }
 
-model transaction_proposals {
-  id                     String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  wallet_id              String?                  @db.Uuid
-  title                  String
-  description            String?
-  to_address             String
-  value                  String
-  data                   String?                  @default("0x")
-  nonce                  Int?
-  status                 String                   @default("pending")
-  blockchain             String
-  token_address          String?
-  token_symbol           String?
-  created_by             String?                  @db.Uuid
-  created_at             DateTime?                @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
-  multi_sig_proposal_id  String?                  @db.Uuid
-  signatures             signatures[]
-  users                  auth_users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  multi_sig_proposals    multi_sig_proposals?     @relation(fields: [multi_sig_proposal_id], references: [id], onUpdate: NoAction)
-  multi_sig_wallets      multi_sig_wallets?       @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  transaction_signatures transaction_signatures[]
-
-  @@index([multi_sig_proposal_id], map: "idx_transaction_proposals_multi_sig_proposal")
-  @@schema("public")
-}
-
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model transaction_signatures {
-  id                    String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  proposal_id           String                @db.Uuid
+  id                    String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  proposal_id           String              @db.Uuid
   transaction_hash      String?
-  signer                String                @db.Uuid
+  signer                String              @db.Uuid
   signature             String
-  created_at            DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?             @default(now()) @db.Timestamptz(6)
+  created_at            DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?           @default(now()) @db.Timestamptz(6)
   signer_address        String?
   signer_name           String?
-  transaction_proposals transaction_proposals @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transaction_signatures_proposal_fkey")
-  users                 auth_users            @relation(fields: [signer], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transaction_proposals multi_sig_proposals @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "transaction_signatures_proposal_fkey")
+  users                 auth_users          @relation(fields: [signer], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([signer_address], map: "idx_transaction_signatures_signer_address")
+  @@index([proposal_id], map: "idx_transaction_signatures_proposal_id")
   @@schema("public")
 }
 
@@ -8966,38 +8900,64 @@ model external_api_cache {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model fund_products {
-  id                          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id                  String                   @unique(map: "idx_fund_products_project_id_unique") @db.Uuid
-  fund_ticker                 String?                  @db.VarChar(20)
+  id                          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                  String                       @unique(map: "idx_fund_products_project_id_unique") @db.Uuid
+  fund_ticker                 String?                      @db.VarChar(20)
   fund_name                   String?
-  fund_type                   String?                  @db.VarChar(50)
-  net_asset_value             Decimal?                 @db.Decimal
-  assets_under_management     Decimal?                 @db.Decimal
-  expense_ratio               Decimal?                 @db.Decimal
+  fund_type                   String?                      @db.VarChar(50)
+  net_asset_value             Decimal?                     @db.Decimal
+  assets_under_management     Decimal?                     @db.Decimal
+  expense_ratio               Decimal?                     @db.Decimal
   benchmark_index             String?
   holdings                    Json?
-  distribution_frequency      String?                  @db.VarChar(50)
-  tracking_error              Decimal?                 @db.Decimal
-  currency                    String?                  @db.VarChar(10)
-  inception_date              DateTime?                @db.Timestamptz(6)
-  closure_liquidation_date    DateTime?                @db.Timestamptz(6)
-  status                      String?                  @db.VarChar(50)
+  distribution_frequency      String?                      @db.VarChar(50)
+  tracking_error              Decimal?                     @db.Decimal
+  currency                    String?                      @db.VarChar(10)
+  inception_date              DateTime?                    @db.Timestamptz(6)
+  closure_liquidation_date    DateTime?                    @db.Timestamptz(6)
+  status                      String?                      @db.VarChar(50)
   creation_redemption_history Json?
   performance_history         Json?
   flow_data                   Json?
   fund_vintage_year           Int?
-  investment_stage            String?                  @db.VarChar(100)
+  investment_stage            String?                      @db.VarChar(100)
   sector_focus                String[]
   geographic_focus            String[]
-  target_raise                Decimal?                 @db.Decimal
-  created_at                  DateTime?                @default(now()) @db.Timestamptz(6)
-  updated_at                  DateTime?                @default(now()) @db.Timestamptz(6)
+  target_raise                Decimal?                     @db.Decimal
+  created_at                  DateTime?                    @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                    @default(now()) @db.Timestamptz(6)
   asset_allocation            Json?
   concentration_limits        Json?
-  shares_outstanding          Decimal?                 @db.Decimal
-  initial_shares              Decimal?                 @db.Decimal
+  shares_outstanding          Decimal?                     @db.Decimal
+  initial_shares              Decimal?                     @db.Decimal
   subscription_id_tracker     Json?
-  projects                    projects                 @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_fund_products_project")
+  parent_fund_id              String?                      @db.Uuid
+  share_class_name            String?                      @db.VarChar(50)
+  replication_method          String?                      @db.VarChar(50)
+  structure_type              String?                      @db.VarChar(50)
+  creation_unit_size          Int?
+  average_daily_volume        BigInt?
+  bid_ask_spread_bps          Decimal?                     @db.Decimal(10, 2)
+  market_price                Decimal?                     @db.Decimal(20, 6)
+  premium_discount_pct        Decimal?                     @db.Decimal(10, 4)
+  isin                        String?                      @db.VarChar(12)
+  sedol                       String?                      @db.VarChar(7)
+  cusip                       String?                      @db.VarChar(9)
+  exchange                    String?                      @db.VarChar(50)
+  total_expense_ratio         Decimal?                     @db.Decimal(10, 4)
+  last_rebalance_date         DateTime?                    @db.Date
+  next_rebalance_date         DateTime?                    @db.Date
+  registration_status         String?                      @db.VarChar(50)
+  etf_creation_redemption     etf_creation_redemption[]
+  etf_holdings                etf_holdings[]
+  etf_metadata                etf_metadata?
+  etf_nav_history             etf_nav_history[]
+  etf_rebalancing_history     etf_rebalancing_history[]
+  etf_token_links             etf_token_links[]
+  etf_tracking_error_history  etf_tracking_error_history[]
+  projects                    projects                     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_fund_products_project")
+  fund_products               fund_products?               @relation("fund_productsTofund_products", fields: [parent_fund_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_fund_products         fund_products[]              @relation("fund_productsTofund_products")
   mmf_allocation_history      mmf_allocation_history[]
   mmf_fees_gates              mmf_fees_gates[]
   mmf_holdings                mmf_holdings[]
@@ -9008,6 +8968,10 @@ model fund_products {
 
   @@index([fund_ticker], map: "idx_fund_products_fund_ticker")
   @@index([project_id], map: "idx_fund_products_project_id")
+  @@index([parent_fund_id], map: "idx_fund_products_parent")
+  @@index([registration_status], map: "idx_fund_products_registration")
+  @@index([fund_ticker], map: "idx_fund_products_ticker")
+  @@index([fund_type], map: "idx_fund_products_type")
   @@schema("public")
 }
 
@@ -9940,30 +9904,36 @@ model multi_sig_configurations {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model multi_sig_proposals {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  wallet_id             String?                 @db.Uuid
-  transaction_hash      String
-  raw_transaction       Json
-  chain_type            String
-  status                String?                 @default("pending")
-  signatures_collected  Int?                    @default(0)
-  signatures_required   Int
-  expires_at            DateTime                @db.Timestamptz(6)
-  executed_at           DateTime?               @db.Timestamptz(6)
-  execution_hash        String?
-  created_by            String?                 @db.Uuid
-  created_at            DateTime?               @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?               @default(now()) @db.Timestamptz(6)
-  on_chain_tx_id        Int?
-  on_chain_tx_hash      String?
-  submitted_on_chain    Boolean?                @default(false)
-  project_id            String?                 @db.Uuid
-  submitted_by          String?
-  multi_sig_audit_log   multi_sig_audit_log[]
-  users                 auth_users?             @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  multi_sig_wallets     multi_sig_wallets?      @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  proposal_signatures   proposal_signatures[]
-  transaction_proposals transaction_proposals[]
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wallet_id              String?                  @db.Uuid
+  transaction_hash       String
+  raw_transaction        Json
+  chain_type             String
+  status                 String?                  @default("pending")
+  signatures_collected   Int?                     @default(0)
+  signatures_required    Int
+  expires_at             DateTime                 @db.Timestamptz(6)
+  executed_at            DateTime?                @db.Timestamptz(6)
+  execution_hash         String?
+  created_by             String?                  @db.Uuid
+  created_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  on_chain_tx_id         Int?
+  on_chain_tx_hash       String?
+  submitted_on_chain     Boolean?                 @default(false)
+  project_id             String?                  @db.Uuid
+  submitted_by           String?
+  title                  String?
+  description            String?
+  to_address             String?
+  value                  String?
+  token_address          String?
+  data                   String?
+  blockchain             String?
+  multi_sig_audit_log    multi_sig_audit_log[]
+  users                  auth_users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  multi_sig_wallets      multi_sig_wallets?       @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transaction_signatures transaction_signatures[]
 
   @@index([chain_type], map: "idx_multi_sig_proposals_chain_type")
   @@index([created_by], map: "idx_proposals_created_by")
@@ -9971,6 +9941,15 @@ model multi_sig_proposals {
   @@index([status], map: "idx_proposals_status")
   @@index([wallet_id], map: "idx_proposals_wallet_id")
   @@index([on_chain_tx_id], map: "idx_proposals_on_chain_tx")
+  @@index([blockchain], map: "idx_multi_sig_proposals_blockchain")
+  @@index([created_at], map: "idx_multi_sig_proposals_created_at")
+  @@index([created_by], map: "idx_multi_sig_proposals_created_by")
+  @@index([id], map: "idx_multi_sig_proposals_id")
+  @@index([on_chain_tx_id], map: "idx_multi_sig_proposals_on_chain_tx_id")
+  @@index([status], map: "idx_multi_sig_proposals_status")
+  @@index([to_address], map: "idx_multi_sig_proposals_to_address")
+  @@index([token_address], map: "idx_multi_sig_proposals_token_address")
+  @@index([wallet_id], map: "idx_multi_sig_proposals_wallet_id")
   @@schema("public")
 }
 
@@ -11257,17 +11236,16 @@ model property_valuations {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model proposal_signatures {
-  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  proposal_id              String?              @db.Uuid
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposal_id              String?   @db.Uuid
   signer_address           String
   signature                String
   signature_type           String
-  signed_at                DateTime?            @default(now()) @db.Timestamptz(6)
-  is_valid                 Boolean?             @default(true)
+  signed_at                DateTime? @default(now()) @db.Timestamptz(6)
+  is_valid                 Boolean?  @default(true)
   validation_error         String?
   on_chain_confirmation_tx String?
-  confirmed_on_chain       Boolean?             @default(false)
-  multi_sig_proposals      multi_sig_proposals? @relation(fields: [proposal_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  confirmed_on_chain       Boolean?  @default(false)
 
   @@unique([proposal_id, signer_address])
   @@index([proposal_id], map: "idx_signatures_proposal_id")
@@ -13081,6 +13059,7 @@ model oauth_authorizations {
   created_at            DateTime                   @default(now()) @db.Timestamptz(6)
   expires_at            DateTime                   @default(dbgenerated("(now() + '00:03:00'::interval)")) @db.Timestamptz(6)
   approved_at           DateTime?                  @db.Timestamptz(6)
+  nonce                 String?
   oauth_clients         oauth_clients              @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users                 auth_users?                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -13704,8 +13683,6 @@ model user_addresses {
   is_active               Boolean?                  @default(true)
   created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
   updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
-  role_contracts_id       String?                   @db.Uuid
-  contract_roles          Json?                     @default("[]")
   multi_sig_wallet_owners multi_sig_wallet_owners[]
   users                   auth_users?               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -13714,7 +13691,6 @@ model user_addresses {
   @@unique([user_id, blockchain])
   @@index([is_active], map: "idx_user_addresses_active")
   @@index([blockchain], map: "idx_user_addresses_blockchain")
-  @@index([contract_roles], map: "idx_user_addresses_contract_roles", type: Gin)
   @@index([user_id], map: "idx_user_addresses_user_id")
   @@schema("public")
 }
@@ -13899,8 +13875,8 @@ model contract_masters_backup_20251121 {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model deployment_audit_logs {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id     String     @db.Uuid
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String?     @db.Uuid
   network     String
   action      String
   command     String
@@ -13909,9 +13885,9 @@ model deployment_audit_logs {
   duration_ms Int
   output      String?
   error       String?
-  metadata    Json?      @default("{}")
-  created_at  DateTime   @default(now()) @db.Timestamptz(6)
-  users       auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  metadata    Json?       @default("{}")
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  users       auth_users? @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([action], map: "idx_deployment_audit_logs_action")
   @@index([created_at(sort: Desc)], map: "idx_deployment_audit_logs_created_at")
@@ -14162,6 +14138,479 @@ model valuation_price_history {
 
   @@unique([token_id, period_start])
   @@index([token_id, period_start(sort: Desc)], map: "idx_valuation_token_period")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model benchmark_index_mappings {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  benchmark_name String    @unique @db.VarChar(100)
+  ticker_symbol  String    @db.VarChar(20)
+  provider       String?   @default("yahoo_finance") @db.VarChar(50)
+  asset_class    String?   @db.VarChar(50)
+  is_active      Boolean?  @default(true)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model commodity_collateral {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  position_id         String              @db.Uuid
+  commodity_type      String
+  token_address       String
+  token_id            String?
+  amount              Decimal             @db.Decimal(20, 6)
+  value_usd           Decimal             @db.Decimal(20, 6)
+  haircut_bps         Int
+  quality             String?
+  certificate_date    DateTime?           @db.Timestamptz(6)
+  document_hash       String?
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  commodity_positions commodity_positions @relation(fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([commodity_type], map: "idx_collateral_commodity")
+  @@index([position_id], map: "idx_collateral_position")
+  @@index([token_address], map: "idx_collateral_token")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model commodity_debt {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  position_id         String              @db.Uuid
+  asset_address       String
+  amount              Decimal             @db.Decimal(20, 6)
+  value_usd           Decimal             @db.Decimal(20, 6)
+  interest_rate_bps   Int
+  accrued_interest    Decimal             @default(0) @db.Decimal(20, 6)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  last_updated        DateTime            @default(now()) @db.Timestamptz(6)
+  commodity_positions commodity_positions @relation(fields: [position_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_address], map: "idx_debt_asset")
+  @@index([position_id], map: "idx_debt_position")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model commodity_pool_config {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String   @db.Uuid
+  commodity_type            String
+  base_haircut_bps          Int      @default(500)
+  ltv_bps                   Int      @default(8000)
+  liquidation_threshold_bps Int      @default(8500)
+  liquidation_bonus_bps     Int      @default(500)
+  supply_cap_usd            Decimal  @default(1000000) @db.Decimal(20, 6)
+  borrow_cap_usd            Decimal  @default(800000) @db.Decimal(20, 6)
+  is_isolated               Boolean  @default(false)
+  debt_ceiling_usd          Decimal? @db.Decimal(20, 6)
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime @default(now()) @db.Timestamptz(6)
+  projects                  projects @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, commodity_type], map: "unique_pool_config_per_commodity")
+  @@index([commodity_type], map: "idx_pool_config_commodity")
+  @@index([project_id], map: "idx_pool_config_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model commodity_positions {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id           String                 @db.Uuid
+  wallet_address       String
+  status               String                 @default("active")
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  commodity_collateral commodity_collateral[]
+  commodity_debt       commodity_debt[]
+  projects             projects               @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, wallet_address], map: "unique_position_per_wallet")
+  @@index([project_id], map: "idx_positions_project")
+  @@index([status], map: "idx_positions_status")
+  @@index([wallet_address], map: "idx_positions_wallet")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model commodity_prices {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id       String   @db.Uuid
+  commodity_type   String
+  price_usd        Decimal  @db.Decimal(20, 6)
+  volume           Decimal? @db.Decimal(20, 6)
+  confidence_score Int      @default(100)
+  oracle_source    String
+  timestamp        DateTime @default(now()) @db.Timestamptz(6)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  projects         projects @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([commodity_type], map: "idx_commodity_prices_commodity")
+  @@index([project_id], map: "idx_commodity_prices_project")
+  @@index([timestamp(sort: Desc)], map: "idx_commodity_prices_timestamp")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model commodity_risk_metrics {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id           String   @db.Uuid
+  commodity_type       String
+  volatility_bps       Int
+  max_drawdown_bps     Int
+  value_at_risk_95_bps Int
+  value_at_risk_99_bps Int
+  sharpe_ratio         Int
+  liquidity_score      Int
+  data_points          Int
+  calculated_at        DateTime @default(now()) @db.Timestamptz(6)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  projects             projects @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, commodity_type, calculated_at], map: "unique_commodity_risk_per_project")
+  @@index([calculated_at(sort: Desc)], map: "idx_commodity_risk_calculated")
+  @@index([commodity_type], map: "idx_commodity_risk_commodity")
+  @@index([project_id], map: "idx_commodity_risk_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model crypto_symbol_mappings {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  symbol       String    @db.VarChar(20)
+  coingecko_id String    @db.VarChar(50)
+  name         String?   @db.VarChar(100)
+  is_active    Boolean?  @default(true)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([symbol, coingecko_id], map: "crypto_symbol_mappings_unique")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_creation_redemption {
+  id                          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id             String        @db.Uuid
+  transaction_date            DateTime      @db.Date
+  transaction_type            String        @db.VarChar(20)
+  ap_name                     String?       @db.VarChar(255)
+  ap_id                       String?       @db.VarChar(100)
+  creation_units              Int
+  shares_per_unit             Int?
+  total_shares                Decimal       @db.Decimal(20, 2)
+  nav_per_share               Decimal?      @db.Decimal(20, 6)
+  transaction_value           Decimal?      @db.Decimal(20, 2)
+  settlement_date             DateTime?     @db.Date
+  settlement_method           String?       @db.VarChar(50)
+  basket_composition          Json?
+  cash_component              Decimal?      @db.Decimal(20, 2)
+  blockchain_transaction_hash String?       @db.VarChar(255)
+  custody_transfer_verified   Boolean?      @default(false)
+  impact_on_nav_bps           Decimal?      @db.Decimal(10, 2)
+  created_at                  DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products               fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([transaction_date], map: "idx_etf_creation_redemption_date")
+  @@index([fund_product_id], map: "idx_etf_creation_redemption_fund")
+  @@index([transaction_type], map: "idx_etf_creation_redemption_type")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_holdings {
+  id                          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id             String        @db.Uuid
+  security_ticker             String?       @db.VarChar(20)
+  security_name               String        @db.VarChar(255)
+  security_type               String        @db.VarChar(50)
+  isin                        String?       @db.VarChar(12)
+  cusip                       String?       @db.VarChar(9)
+  sedol                       String?       @db.VarChar(7)
+  figi                        String?       @db.VarChar(12)
+  blockchain                  String?       @db.VarChar(50)
+  contract_address            String?       @db.VarChar(255)
+  token_standard              String?       @db.VarChar(50)
+  coingecko_id                String?       @db.VarChar(100)
+  coinmarketcap_id            String?       @db.VarChar(100)
+  quantity                    Decimal       @db.Decimal(30, 10)
+  market_value                Decimal       @db.Decimal(20, 2)
+  weight_percentage           Decimal       @db.Decimal(10, 4)
+  price_per_unit              Decimal       @db.Decimal(30, 10)
+  currency                    String        @default("USD") @db.VarChar(3)
+  fx_rate                     Decimal?      @db.Decimal(20, 10)
+  market_value_base_currency  Decimal?      @db.Decimal(20, 2)
+  price_source                String?       @db.VarChar(100)
+  price_timestamp             DateTime?     @db.Timestamptz(6)
+  sector                      String?       @db.VarChar(100)
+  industry                    String?       @db.VarChar(100)
+  country                     String?       @db.VarChar(100)
+  asset_class                 String?       @db.VarChar(50)
+  market_cap_category         String?       @db.VarChar(50)
+  custodian_name              String?       @db.VarChar(255)
+  custody_address             String?
+  custody_verification_method String?       @db.VarChar(50)
+  last_custody_verification   DateTime?     @db.Timestamptz(6)
+  is_staked                   Boolean?      @default(false)
+  staking_provider            String?       @db.VarChar(255)
+  staking_apr                 Decimal?      @db.Decimal(10, 4)
+  staking_rewards_accrued     Decimal?      @db.Decimal(30, 10)
+  as_of_date                  DateTime      @db.Date
+  acquisition_date            DateTime?     @db.Date
+  status                      String?       @default("active") @db.VarChar(20)
+  accrued_income              Decimal?      @db.Decimal(20, 2)
+  accrued_income_type         String?       @db.VarChar(50)
+  cost_basis                  Decimal?      @db.Decimal(20, 2)
+  unrealized_gain_loss        Decimal?      @db.Decimal(20, 2)
+  notes                       String?
+  created_at                  DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products               fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([fund_product_id, security_ticker, as_of_date], map: "etf_holdings_unique")
+  @@index([as_of_date], map: "idx_etf_holdings_date")
+  @@index([fund_product_id], map: "idx_etf_holdings_fund")
+  @@index([security_ticker], map: "idx_etf_holdings_ticker")
+  @@index([security_type], map: "idx_etf_holdings_type")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_metadata {
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id         String        @unique(map: "etf_metadata_unique") @db.Uuid
+  investment_objective    String?
+  strategy_description    String?
+  risk_profile            String?
+  sec_file_number         String?       @db.VarChar(50)
+  prospectus_date         DateTime?     @db.Date
+  fund_family             String?       @db.VarChar(255)
+  fund_manager            String?       @db.VarChar(255)
+  primary_exchange        String?       @db.VarChar(50)
+  secondary_exchanges     String[]
+  options_available       Boolean?      @default(false)
+  short_sale_restrictions String?
+  tax_treatment           String?       @db.VarChar(50)
+  k1_issued               Boolean?      @default(false)
+  dividend_frequency      String?       @db.VarChar(50)
+  capital_gains_frequency String?       @db.VarChar(50)
+  last_distribution_date  DateTime?     @db.Date
+  next_distribution_date  DateTime?     @db.Date
+  is_crypto_etf           Boolean?      @default(false)
+  supported_blockchains   String[]
+  custody_type            String?       @db.VarChar(50)
+  staking_enabled         Boolean?      @default(false)
+  staking_yield_pct       Decimal?      @db.Decimal(10, 4)
+  rebalancing_frequency   String?       @db.VarChar(50)
+  screening_criteria      Json?
+  concentration_rules     Json?
+  primary_benchmark       String?       @db.VarChar(255)
+  secondary_benchmark     String?       @db.VarChar(255)
+  management_fee_pct      Decimal?      @db.Decimal(10, 4)
+  administrative_fee_pct  Decimal?      @db.Decimal(10, 4)
+  other_fees              Json?
+  created_at              DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products           fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([fund_product_id], map: "idx_etf_metadata_fund")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_nav_history {
+  id                         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id            String        @db.Uuid
+  valuation_date             DateTime      @db.Date
+  nav_per_share              Decimal       @db.Decimal(20, 6)
+  total_net_assets           Decimal       @db.Decimal(20, 2)
+  shares_outstanding         Decimal       @db.Decimal(20, 2)
+  opening_price              Decimal?      @db.Decimal(20, 6)
+  closing_price              Decimal?      @db.Decimal(20, 6)
+  high_price                 Decimal?      @db.Decimal(20, 6)
+  low_price                  Decimal?      @db.Decimal(20, 6)
+  market_price               Decimal?      @db.Decimal(20, 6)
+  premium_discount_amount    Decimal?      @db.Decimal(20, 6)
+  premium_discount_pct       Decimal?      @db.Decimal(10, 4)
+  premium_discount_status    String?       @db.VarChar(20)
+  volume                     BigInt?
+  trade_count                Int?
+  bid_price                  Decimal?      @db.Decimal(20, 6)
+  ask_price                  Decimal?      @db.Decimal(20, 6)
+  bid_ask_spread_bps         Decimal?      @db.Decimal(10, 2)
+  daily_return_pct           Decimal?      @db.Decimal(10, 4)
+  nav_return_pct             Decimal?      @db.Decimal(10, 4)
+  price_return_pct           Decimal?      @db.Decimal(10, 4)
+  benchmark_return_pct       Decimal?      @db.Decimal(10, 4)
+  excess_return_pct          Decimal?      @db.Decimal(10, 4)
+  tracking_difference_bps    Decimal?      @db.Decimal(10, 2)
+  total_assets               Decimal       @db.Decimal(20, 2)
+  total_liabilities          Decimal       @db.Decimal(20, 2)
+  cash_position              Decimal?      @db.Decimal(20, 2)
+  securities_value           Decimal?      @db.Decimal(20, 2)
+  derivatives_value          Decimal?      @db.Decimal(20, 2)
+  crypto_value               Decimal?      @db.Decimal(20, 2)
+  accrued_income             Decimal?      @db.Decimal(20, 2)
+  accrued_expenses           Decimal?      @db.Decimal(20, 2)
+  staking_rewards_earned     Decimal?      @db.Decimal(20, 2)
+  staking_yield_annualized   Decimal?      @db.Decimal(10, 4)
+  on_chain_verification_hash String?       @db.VarChar(255)
+  dividend_per_share         Decimal?      @db.Decimal(20, 6)
+  dividend_yield_pct         Decimal?      @db.Decimal(10, 4)
+  currency                   String        @default("USD") @db.VarChar(3)
+  calculation_method         String?       @db.VarChar(50)
+  data_quality               String?       @db.VarChar(20)
+  data_sources               Json?
+  config_overrides_used      Json?
+  created_at                 DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products              fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([fund_product_id, valuation_date], map: "etf_nav_history_unique")
+  @@index([valuation_date], map: "idx_etf_nav_history_date")
+  @@index([fund_product_id], map: "idx_etf_nav_history_fund")
+  @@index([fund_product_id, valuation_date(sort: Desc)], map: "idx_etf_nav_history_fund_date")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_rebalancing_history {
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id       String        @db.Uuid
+  rebalance_date        DateTime      @db.Date
+  rebalance_type        String?       @db.VarChar(50)
+  trigger_reason        String?
+  securities_added      Int?
+  securities_removed    Int?
+  securities_adjusted   Int?
+  turnover_percentage   Decimal?      @db.Decimal(10, 4)
+  buy_value             Decimal?      @db.Decimal(20, 2)
+  sell_value            Decimal?      @db.Decimal(20, 2)
+  transaction_costs     Decimal?      @db.Decimal(20, 2)
+  market_impact_bps     Decimal?      @db.Decimal(10, 2)
+  tracking_error_before Decimal?      @db.Decimal(10, 4)
+  tracking_error_after  Decimal?      @db.Decimal(10, 4)
+  changes_detail        Json?
+  created_at            DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products         fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([rebalance_date], map: "idx_etf_rebalancing_date")
+  @@index([fund_product_id], map: "idx_etf_rebalancing_fund")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_token_links {
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id         String        @db.Uuid
+  token_id                String        @db.Uuid
+  link_type               String?       @default("primary") @db.VarChar(50)
+  is_active               Boolean?      @default(true)
+  supports_rebase         Boolean?      @default(false)
+  rebase_frequency        String?       @db.VarChar(20)
+  last_rebase_date        DateTime?     @db.Date
+  next_rebase_date        DateTime?     @db.Date
+  rebase_threshold_pct    Decimal?      @db.Decimal(10, 4)
+  oracle_address          String?       @db.VarChar(255)
+  oracle_update_frequency String?       @db.VarChar(20)
+  last_oracle_update      DateTime?     @db.Timestamptz(6)
+  maps_to_share_class     String?       @db.VarChar(50)
+  created_at              DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products           fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tokens                  tokens        @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([fund_product_id, token_id], map: "etf_token_unique")
+  @@index([fund_product_id], map: "idx_etf_token_links_fund")
+  @@index([token_id], map: "idx_etf_token_links_token")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model etf_tracking_error_history {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fund_product_id      String        @db.Uuid
+  period_start         DateTime      @db.Date
+  period_end           DateTime      @db.Date
+  period_type          String        @db.VarChar(20)
+  tracking_error       Decimal       @db.Decimal(10, 4)
+  tracking_difference  Decimal       @db.Decimal(10, 4)
+  etf_return           Decimal       @db.Decimal(10, 4)
+  benchmark_return     Decimal       @db.Decimal(10, 4)
+  excess_return        Decimal?      @db.Decimal(10, 4)
+  correlation          Decimal?      @db.Decimal(10, 4)
+  r_squared            Decimal?      @db.Decimal(10, 4)
+  beta                 Decimal?      @db.Decimal(10, 4)
+  alpha                Decimal?      @db.Decimal(10, 4)
+  information_ratio    Decimal?      @db.Decimal(10, 4)
+  sharpe_ratio         Decimal?      @db.Decimal(10, 4)
+  etf_volatility       Decimal?      @db.Decimal(10, 4)
+  benchmark_volatility Decimal?      @db.Decimal(10, 4)
+  fee_drag_bps         Decimal?      @db.Decimal(10, 2)
+  rebalancing_cost_bps Decimal?      @db.Decimal(10, 2)
+  cash_drag_bps        Decimal?      @db.Decimal(10, 2)
+  sampling_error_bps   Decimal?      @db.Decimal(10, 2)
+  created_at           DateTime?     @default(now()) @db.Timestamptz(6)
+  fund_products        fund_products @relation(fields: [fund_product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([fund_product_id, period_start, period_end, period_type], map: "etf_tracking_unique")
+  @@index([fund_product_id], map: "idx_etf_tracking_fund")
+  @@index([period_start, period_end], map: "idx_etf_tracking_period")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model market_data_providers {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_name         String    @unique @db.VarChar(50)
+  base_url              String
+  requires_api_key      Boolean?  @default(false)
+  rate_limit_per_minute Int?
+  timeout_ms            Int?      @default(15000)
+  is_active             Boolean?  @default(true)
+  priority              Int?      @default(100)
+  use_edge_function     Boolean?  @default(false)
+  edge_function_name    String?   @db.VarChar(100)
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([is_active, priority], map: "idx_market_data_providers_active")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model nav_calculation_default_configs {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  etf_type   String    @unique @db.VarChar(50)
+  config     Json
+  is_active  Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model staking_apr_config {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockchain        String    @unique @db.VarChar(50)
+  current_apr       Decimal   @db.Decimal(10, 4)
+  min_apr           Decimal?  @default(0) @db.Decimal(10, 4)
+  max_apr           Decimal?  @default(100) @db.Decimal(10, 4)
+  commission        Decimal?  @default(0) @db.Decimal(10, 4)
+  source            String?   @db.VarChar(100)
+  last_updated      DateTime? @default(now()) @db.Timestamptz(6)
+  is_validated      Boolean?  @default(false)
+  validator_address String?
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([blockchain], map: "idx_staking_apr_config_blockchain")
   @@schema("public")
 }
 
@@ -15186,6 +15635,106 @@ view mmf_investor_holdings_by_project {
   transaction_count     BigInt?
   first_investment_date DateTime? @db.Timestamptz(6)
   last_transaction_date DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view crypto_etf_holdings_summary {
+  fund_product_id       String?   @db.Uuid
+  fund_ticker           String?   @db.VarChar(20)
+  fund_name             String?
+  blockchain            String?   @db.VarChar(50)
+  num_holdings          BigInt?
+  total_value           Decimal?  @db.Decimal
+  percentage_of_aum     Decimal?  @db.Decimal
+  num_staked_holdings   BigInt?
+  total_staking_rewards Decimal?  @db.Decimal
+  avg_staking_apr       Decimal?  @db.Decimal
+  as_of_date            DateTime? @db.Date
+
+  @@schema("public")
+}
+
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view etf_premium_discount_latest {
+  fund_product_id           String?   @db.Uuid
+  fund_ticker               String?   @db.VarChar(20)
+  fund_name                 String?
+  fund_type                 String?   @db.VarChar(50)
+  valuation_date            DateTime? @db.Date
+  nav_per_share             Decimal?  @db.Decimal(20, 6)
+  closing_price             Decimal?  @db.Decimal(20, 6)
+  premium_discount_amount   Decimal?  @db.Decimal(20, 6)
+  premium_discount_pct      Decimal?  @db.Decimal(10, 4)
+  premium_discount_status   String?   @db.VarChar(20)
+  bid_ask_spread_bps        Decimal?  @db.Decimal(10, 2)
+  volume                    BigInt?
+  premium_discount_category String?
+
+  @@schema("public")
+}
+
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view etf_products_with_latest_nav {
+  id                      String?   @db.Uuid
+  project_id              String?   @db.Uuid
+  fund_ticker             String?   @db.VarChar(20)
+  fund_name               String?
+  fund_type               String?   @db.VarChar(50)
+  parent_fund_id          String?   @db.Uuid
+  share_class_name        String?   @db.VarChar(50)
+  net_asset_value         Decimal?  @db.Decimal
+  assets_under_management Decimal?  @db.Decimal
+  shares_outstanding      Decimal?  @db.Decimal
+  expense_ratio           Decimal?  @db.Decimal
+  total_expense_ratio     Decimal?  @db.Decimal(10, 4)
+  benchmark_index         String?
+  tracking_error          Decimal?  @db.Decimal
+  market_price            Decimal?  @db.Decimal(20, 6)
+  premium_discount_pct    Decimal?  @db.Decimal(10, 4)
+  currency                String?   @db.VarChar(10)
+  inception_date          DateTime? @db.Timestamptz(6)
+  status                  String?   @db.VarChar(50)
+  registration_status     String?   @db.VarChar(50)
+  replication_method      String?   @db.VarChar(50)
+  structure_type          String?   @db.VarChar(50)
+  exchange                String?   @db.VarChar(50)
+  isin                    String?   @db.VarChar(12)
+  is_crypto_etf           Boolean?
+  supported_blockchains   String[]
+  staking_enabled         Boolean?
+  investment_objective    String?
+  latest_nav_date         DateTime? @db.Date
+  latest_nav_per_share    Decimal?  @db.Decimal(20, 6)
+  latest_closing_price    Decimal?  @db.Decimal(20, 6)
+  latest_premium_discount Decimal?  @db.Decimal(10, 4)
+  daily_return_pct        Decimal?  @db.Decimal(10, 4)
+  tracking_difference_bps Decimal?  @db.Decimal(10, 2)
+  staking_rewards_earned  Decimal?  @db.Decimal(20, 2)
+  parent_ticker           String?   @db.VarChar(20)
+  parent_name             String?
+
+  @@schema("public")
+}
+
+/// This view or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+view etf_share_classes_comparison {
+  parent_fund_id          String?   @db.Uuid
+  parent_ticker           String?   @db.VarChar(20)
+  parent_name             String?
+  share_class_id          String?   @db.Uuid
+  share_class_name        String?   @db.VarChar(50)
+  share_class_ticker      String?   @db.VarChar(20)
+  expense_ratio           Decimal?  @db.Decimal
+  total_expense_ratio     Decimal?  @db.Decimal(10, 4)
+  net_asset_value         Decimal?  @db.Decimal
+  shares_outstanding      Decimal?  @db.Decimal
+  assets_under_management Decimal?  @db.Decimal
+  latest_nav              Decimal?  @db.Decimal(20, 6)
+  latest_nav_date         DateTime? @db.Date
+  inception_date          DateTime? @db.Timestamptz(6)
+  status                  String?   @db.VarChar(50)
 
   @@schema("public")
 }

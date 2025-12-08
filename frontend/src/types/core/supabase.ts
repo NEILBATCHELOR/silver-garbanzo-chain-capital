@@ -1819,6 +1819,39 @@ export type Database = {
           },
         ]
       }
+      benchmark_index_mappings: {
+        Row: {
+          asset_class: string | null
+          benchmark_name: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          provider: string | null
+          ticker_symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          asset_class?: string | null
+          benchmark_name: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider?: string | null
+          ticker_symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          asset_class?: string | null
+          benchmark_name?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider?: string | null
+          ticker_symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       blacklisted_addresses: {
         Row: {
           added_at: string | null
@@ -5479,6 +5512,106 @@ export type Database = {
           },
         ]
       }
+      commodity_collateral: {
+        Row: {
+          amount: number
+          certificate_date: string | null
+          commodity_type: string
+          created_at: string
+          document_hash: string | null
+          haircut_bps: number
+          id: string
+          position_id: string
+          quality: string | null
+          token_address: string
+          token_id: string | null
+          updated_at: string
+          value_usd: number
+        }
+        Insert: {
+          amount: number
+          certificate_date?: string | null
+          commodity_type: string
+          created_at?: string
+          document_hash?: string | null
+          haircut_bps: number
+          id?: string
+          position_id: string
+          quality?: string | null
+          token_address: string
+          token_id?: string | null
+          updated_at?: string
+          value_usd: number
+        }
+        Update: {
+          amount?: number
+          certificate_date?: string | null
+          commodity_type?: string
+          created_at?: string
+          document_hash?: string | null
+          haircut_bps?: number
+          id?: string
+          position_id?: string
+          quality?: string | null
+          token_address?: string
+          token_id?: string | null
+          updated_at?: string
+          value_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_collateral_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "commodity_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commodity_debt: {
+        Row: {
+          accrued_interest: number
+          amount: number
+          asset_address: string
+          created_at: string
+          id: string
+          interest_rate_bps: number
+          last_updated: string
+          position_id: string
+          value_usd: number
+        }
+        Insert: {
+          accrued_interest?: number
+          amount: number
+          asset_address: string
+          created_at?: string
+          id?: string
+          interest_rate_bps: number
+          last_updated?: string
+          position_id: string
+          value_usd: number
+        }
+        Update: {
+          accrued_interest?: number
+          amount?: number
+          asset_address?: string
+          created_at?: string
+          id?: string
+          interest_rate_bps?: number
+          last_updated?: string
+          position_id?: string
+          value_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_debt_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "commodity_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commodity_handling_costs: {
         Row: {
           commodity_type: string
@@ -5674,6 +5807,141 @@ export type Database = {
         }
         Relationships: []
       }
+      commodity_pool_config: {
+        Row: {
+          base_haircut_bps: number
+          borrow_cap_usd: number
+          commodity_type: string
+          created_at: string
+          debt_ceiling_usd: number | null
+          id: string
+          is_isolated: boolean
+          liquidation_bonus_bps: number
+          liquidation_threshold_bps: number
+          ltv_bps: number
+          project_id: string
+          supply_cap_usd: number
+          updated_at: string
+        }
+        Insert: {
+          base_haircut_bps?: number
+          borrow_cap_usd?: number
+          commodity_type: string
+          created_at?: string
+          debt_ceiling_usd?: number | null
+          id?: string
+          is_isolated?: boolean
+          liquidation_bonus_bps?: number
+          liquidation_threshold_bps?: number
+          ltv_bps?: number
+          project_id: string
+          supply_cap_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          base_haircut_bps?: number
+          borrow_cap_usd?: number
+          commodity_type?: string
+          created_at?: string
+          debt_ceiling_usd?: number | null
+          id?: string
+          is_isolated?: boolean
+          liquidation_bonus_bps?: number
+          liquidation_threshold_bps?: number
+          ltv_bps?: number
+          project_id?: string
+          supply_cap_usd?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_pool_config_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commodity_positions: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          status: string
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          status?: string
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          status?: string
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_positions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commodity_prices: {
+        Row: {
+          commodity_type: string
+          confidence_score: number
+          created_at: string
+          id: string
+          oracle_source: string
+          price_usd: number
+          project_id: string
+          timestamp: string
+          volume: number | null
+        }
+        Insert: {
+          commodity_type: string
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          oracle_source: string
+          price_usd: number
+          project_id: string
+          timestamp?: string
+          volume?: number | null
+        }
+        Update: {
+          commodity_type?: string
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          oracle_source?: string
+          price_usd?: number
+          project_id?: string
+          timestamp?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_prices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commodity_quality_multipliers: {
         Row: {
           applicable_standards: string[] | null
@@ -5724,6 +5992,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      commodity_risk_metrics: {
+        Row: {
+          calculated_at: string
+          commodity_type: string
+          created_at: string
+          data_points: number
+          id: string
+          liquidity_score: number
+          max_drawdown_bps: number
+          project_id: string
+          sharpe_ratio: number
+          value_at_risk_95_bps: number
+          value_at_risk_99_bps: number
+          volatility_bps: number
+        }
+        Insert: {
+          calculated_at?: string
+          commodity_type: string
+          created_at?: string
+          data_points: number
+          id?: string
+          liquidity_score: number
+          max_drawdown_bps: number
+          project_id: string
+          sharpe_ratio: number
+          value_at_risk_95_bps: number
+          value_at_risk_99_bps: number
+          volatility_bps: number
+        }
+        Update: {
+          calculated_at?: string
+          commodity_type?: string
+          created_at?: string
+          data_points?: number
+          id?: string
+          liquidity_score?: number
+          max_drawdown_bps?: number
+          project_id?: string
+          sharpe_ratio?: number
+          value_at_risk_95_bps?: number
+          value_at_risk_99_bps?: number
+          volatility_bps?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_risk_metrics_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       commodity_storage_rates: {
         Row: {
@@ -6553,6 +6874,36 @@ export type Database = {
           severity?: string | null
           timestamp?: string
           type?: string
+        }
+        Relationships: []
+      }
+      crypto_symbol_mappings: {
+        Row: {
+          coingecko_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string | null
+          symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          coingecko_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string | null
+          symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          coingecko_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string | null
+          symbol?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -14905,6 +15256,51 @@ export type Database = {
           },
         ]
       }
+      market_data_providers: {
+        Row: {
+          base_url: string
+          created_at: string | null
+          edge_function_name: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          provider_name: string
+          rate_limit_per_minute: number | null
+          requires_api_key: boolean | null
+          timeout_ms: number | null
+          updated_at: string | null
+          use_edge_function: boolean | null
+        }
+        Insert: {
+          base_url: string
+          created_at?: string | null
+          edge_function_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          provider_name: string
+          rate_limit_per_minute?: number | null
+          requires_api_key?: boolean | null
+          timeout_ms?: number | null
+          updated_at?: string | null
+          use_edge_function?: boolean | null
+        }
+        Update: {
+          base_url?: string
+          created_at?: string | null
+          edge_function_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          provider_name?: string
+          rate_limit_per_minute?: number | null
+          requires_api_key?: boolean | null
+          timeout_ms?: number | null
+          updated_at?: string | null
+          use_edge_function?: boolean | null
+        }
+        Relationships: []
+      }
       market_data_snapshots: {
         Row: {
           api_call_count: number | null
@@ -17335,6 +17731,33 @@ export type Database = {
           mark_to_market_multiplier?: number
           source?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      nav_calculation_default_configs: {
+        Row: {
+          config: Json
+          created_at: string | null
+          etf_type: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          etf_type: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          etf_type?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -27203,6 +27626,51 @@ export type Database = {
           },
         ]
       }
+      staking_apr_config: {
+        Row: {
+          blockchain: string
+          commission: number | null
+          created_at: string | null
+          current_apr: number
+          id: string
+          is_validated: boolean | null
+          last_updated: string | null
+          max_apr: number | null
+          min_apr: number | null
+          source: string | null
+          updated_at: string | null
+          validator_address: string | null
+        }
+        Insert: {
+          blockchain: string
+          commission?: number | null
+          created_at?: string | null
+          current_apr: number
+          id?: string
+          is_validated?: boolean | null
+          last_updated?: string | null
+          max_apr?: number | null
+          min_apr?: number | null
+          source?: string | null
+          updated_at?: string | null
+          validator_address?: string | null
+        }
+        Update: {
+          blockchain?: string
+          commission?: number | null
+          created_at?: string | null
+          current_apr?: number
+          id?: string
+          is_validated?: boolean | null
+          last_updated?: string | null
+          max_apr?: number | null
+          min_apr?: number | null
+          source?: string | null
+          updated_at?: string | null
+          validator_address?: string | null
+        }
+        Relationships: []
+      }
       stock_dividends: {
         Row: {
           created_at: string | null
@@ -35826,13 +36294,11 @@ export type Database = {
         Row: {
           address: string | null
           blockchain: string | null
-          contract_roles: Json | null
           created_at: string | null
           encrypted_private_key: string | null
           id: string
           is_active: boolean | null
           key_vault_reference: string | null
-          role_contracts_id: string | null
           signing_method: string | null
           updated_at: string | null
           user_id: string | null
@@ -35840,13 +36306,11 @@ export type Database = {
         Insert: {
           address?: string | null
           blockchain?: string | null
-          contract_roles?: Json | null
           created_at?: string | null
           encrypted_private_key?: string | null
           id?: string
           is_active?: boolean | null
           key_vault_reference?: string | null
-          role_contracts_id?: string | null
           signing_method?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -35854,13 +36318,11 @@ export type Database = {
         Update: {
           address?: string | null
           blockchain?: string | null
-          contract_roles?: Json | null
           created_at?: string | null
           encrypted_private_key?: string | null
           id?: string
           is_active?: boolean | null
           key_vault_reference?: string | null
-          role_contracts_id?: string | null
           signing_method?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -39573,6 +40035,7 @@ export type Database = {
           target_raise_amount: number
         }[]
       }
+      get_supabase_function_url: { Args: never; Returns: string }
       get_table_row_counts: {
         Args: never
         Returns: {
@@ -39633,6 +40096,12 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+        }[]
+      }
+      get_user_project_ids: {
+        Args: { user_auth_id: string }
+        Returns: {
+          project_id: string
         }[]
       }
       get_users_by_role_for_approval: {

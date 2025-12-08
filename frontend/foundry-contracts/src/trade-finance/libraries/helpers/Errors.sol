@@ -514,6 +514,9 @@ library Errors {
   string public constant RESERVE_ALREADY_ADDED = '219'; 
   // 'Reserve has already been added to the pool'
   
+  string public constant RESERVE_ALREADY_INITIALIZED = '219A';
+  // 'Reserve has already been initialized'
+  
   string public constant ZERO_TOTAL_SUPPLY = '220'; 
   // 'Total supply is zero'
   

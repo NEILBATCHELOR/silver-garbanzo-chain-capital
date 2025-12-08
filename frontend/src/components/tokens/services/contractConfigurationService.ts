@@ -33,7 +33,8 @@ export type Blockchain =
   | 'optimism' 
   | 'base' 
   | 'avalanche' 
-  | 'bsc';
+  | 'bsc'
+  | 'hoodi';
 
 /**
  * Normalize blockchain names to database format
@@ -71,7 +72,7 @@ function normalizeBlockchainName(blockchain: string): Blockchain {
   }
   
   // Return as-is if it's already a valid base chain
-  const validChains: Blockchain[] = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche', 'bsc'];
+  const validChains: Blockchain[] = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'avalanche', 'bsc', 'hoodi'];
   if (validChains.includes(normalized as Blockchain)) {
     return normalized as Blockchain;
   }
@@ -86,6 +87,13 @@ function normalizeBlockchainName(blockchain: string): Blockchain {
  */
 export type ContractType =
   | 'factory'
+  | 'beacon_proxy_factory'
+  | 'erc20_factory'
+  | 'erc721_factory'
+  | 'erc1155_factory'
+  | 'erc1400_factory'
+  | 'erc3525_factory'
+  | 'erc4626_factory'
   | 'erc20_master'
   | 'erc721_master'
   | 'erc1155_master'

@@ -134,6 +134,17 @@ library UserConfiguration {
   }
 
   /**
+   * @notice Checks if the configuration is empty (no positions)
+   * @param self The configuration object
+   * @return True if the user has no positions (no collateral and no borrows), false otherwise
+   */
+  function isEmpty(
+    DataTypes.UserConfigurationMap memory self
+  ) internal pure returns (bool) {
+    return self.data == 0;
+  }
+
+  /**
    * @notice Checks if a user is borrowing one commodity and using another as collateral
    * @param self The configuration object
    * @return True if the user is borrowing one commodity and using another as collateral, false otherwise

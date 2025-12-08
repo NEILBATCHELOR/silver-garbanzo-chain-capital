@@ -77,8 +77,11 @@ library SupplyLogic {
         DataTypes.CommodityReserveData storage reserve,
         ExecuteSupplyParams memory params
     ) external returns (uint256) {
-        // Update reserve state
-        reserve.updateState();
+        // Cache reserve data first
+        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
+        
+        // Update reserve state with cache
+        ReserveLogic.updateState(reserve, reserveCache);
 
         // Validate supply
         ValidationLogic.validateSupply(
@@ -87,9 +90,10 @@ library SupplyLogic {
         );
 
         // Update interest rates
-        reserve.updateInterestRates(
+        ReserveLogic.updateInterestRates(
+            reserve,
+            reserveCache,
             params.commodityToken,
-            reserve.cTokenAddress,
             params.amount,
             0
         );
@@ -143,8 +147,9 @@ library SupplyLogic {
         DataTypes.CommodityReserveData storage reserve,
         ExecuteWithdrawParams memory params
     ) external returns (uint256) {
-        // Update reserve state
-        reserve.updateState();
+        // Create cache and update reserve state
+        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
+        ReserveLogic.updateState(reserve, reserveCache);
 
         // Get user's cToken balance
         uint256 userBalance = ICommodityToken(reserve.cTokenAddress).scaledBalanceOf(params.user);
@@ -163,9 +168,10 @@ library SupplyLogic {
         );
 
         // Update interest rates
-        reserve.updateInterestRates(
+        ReserveLogic.updateInterestRates(
+            reserve,
+            reserveCache,
             params.commodityToken,
-            reserve.cTokenAddress,
             0,
             amountToWithdraw
         );
@@ -217,8 +223,9 @@ library SupplyLogic {
         uint256 fromBalanceBefore,
         uint256 toBalanceBefore
     ) external {
-        // Update reserve state
-        reserve.updateState();
+        // Create cache and update reserve state
+        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
+        ReserveLogic.updateState(reserve, reserveCache);
 
         // Validate that transfers are allowed (commodity not paused)
         ValidationLogic.validateTransfer(reserve);

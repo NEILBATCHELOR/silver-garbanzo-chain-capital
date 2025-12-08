@@ -23,17 +23,6 @@ library EModeLogic {
      */
     event UserEModeSet(address indexed user, uint8 categoryId);
 
-    /**
-     * @dev E-Mode category configuration structure
-     */
-    struct EModeCategory {
-        uint16 ltv;                    // Loan-to-value (e.g., 9000 = 90%)
-        uint16 liquidationThreshold;   // Liquidation threshold (e.g., 9300 = 93%)
-        uint16 liquidationBonus;       // Liquidation bonus (e.g., 500 = 5%)
-        address priceSource;           // Optional custom price oracle
-        string label;                  // Category label (e.g., "Stablecoins")
-    }
-
     // Maximum E-Mode categories (255 categories)
     uint8 public constant MAX_EMODE_CATEGORIES = 255;
     
@@ -44,17 +33,23 @@ library EModeLogic {
      * @notice Sets user's E-Mode category
      * @dev User can only enter E-Mode if all borrowed assets belong to that category
      * @param reservesData Mapping of all reserves
-     * @param reservesList List of reserve addresses
+     * @param reservesList Mapping of reserve IDs to addresses
      * @param eModeCategories Mapping of E-Mode categories
+     * @param usersEModeCategory Mapping of users to categories
      * @param userConfig The user configuration bitmap
      * @param categoryId The E-Mode category to enter (0 = exit E-Mode)
+     * @param reservesCount Total number of reserves
+     * @param oracle Price oracle address
      */
     function executeSetUserEMode(
         mapping(address => DataTypes.CommodityReserveData) storage reservesData,
-        address[] storage reservesList,
-        mapping(uint8 => EModeCategory) storage eModeCategories,
+        mapping(uint256 => address) storage reservesList,
+        mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
+        mapping(address => uint8) storage usersEModeCategory,
         DataTypes.UserConfigurationMap storage userConfig,
-        uint8 categoryId
+        uint8 categoryId,
+        uint256 reservesCount,
+        address oracle
     ) external {
         // Validate category exists and is not category 0 unless exiting E-Mode
         if (categoryId != EMODE_CATEGORY_NONE) {
@@ -69,8 +64,6 @@ library EModeLogic {
         
         // If entering E-Mode, validate all borrowed assets are in that category
         if (categoryId != EMODE_CATEGORY_NONE && borrowedAssets != 0) {
-            uint256 reservesCount = reservesList.length;
-            
             for (uint256 i = 0; i < reservesCount; ) {
                 if (userConfig.isBorrowing(i)) {
                     DataTypes.CommodityReserveData storage reserve = reservesData[reservesList[i]];
@@ -84,10 +77,10 @@ library EModeLogic {
                 unchecked { ++i; }
             }
         }
-
+        
         // Update user's E-Mode category
-        userConfig.setEModeCategory(categoryId);
-
+        usersEModeCategory[msg.sender] = categoryId;
+        
         emit UserEModeSet(msg.sender, categoryId);
     }
 
@@ -108,7 +101,7 @@ library EModeLogic {
         DataTypes.CommodityConfigurationMap memory reserveCache,
         uint8 eModeUserCategory,
         uint8 eModeAssetCategory,
-        mapping(uint8 => EModeCategory) storage eModeCategories
+        mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories
     ) internal view returns (
         uint256 ltv,
         uint256 liquidationThreshold,
@@ -120,7 +113,7 @@ library EModeLogic {
         if (eModeUserCategory != EMODE_CATEGORY_NONE && 
             eModeUserCategory == eModeAssetCategory) {
             
-            EModeCategory storage category = eModeCategories[eModeUserCategory];
+            DataTypes.EModeCategory storage category = eModeCategories[eModeUserCategory];
             
             // Use E-Mode values
             ltv = category.ltv;
@@ -155,7 +148,7 @@ library EModeLogic {
      * @param label The category label
      */
     function configureEModeCategory(
-        mapping(uint8 => EModeCategory) storage eModeCategories,
+        mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
         uint8 categoryId,
         uint16 ltv,
         uint16 liquidationThreshold,
@@ -173,7 +166,7 @@ library EModeLogic {
             Errors.INVALID_EMODE_CATEGORY_PARAMS
         );
 
-        EModeCategory storage category = eModeCategories[categoryId];
+        DataTypes.EModeCategory storage category = eModeCategories[categoryId];
         category.ltv = ltv;
         category.liquidationThreshold = liquidationThreshold;
         category.liquidationBonus = liquidationBonus;
@@ -188,9 +181,9 @@ library EModeLogic {
      * @return The E-Mode category configuration
      */
     function getEModeCategory(
-        mapping(uint8 => EModeCategory) storage eModeCategories,
+        mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
         uint8 categoryId
-    ) external view returns (EModeCategory memory) {
+    ) external view returns (DataTypes.EModeCategory memory) {
         return eModeCategories[categoryId];
     }
 

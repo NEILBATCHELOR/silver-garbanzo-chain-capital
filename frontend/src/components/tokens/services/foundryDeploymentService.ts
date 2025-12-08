@@ -322,22 +322,65 @@ export class FoundryDeploymentService {
 
   /**
    * Get factory address dynamically from database
+   * 
+   * Hoodi uses standard-specific factories (erc20_factory, erc721_factory, etc.)
+   * Other chains may use a generic 'factory'
    */
   private async getFactoryAddress(
     blockchain: string,
-    environment: 'mainnet' | 'testnet'
+    environment: 'mainnet' | 'testnet',
+    tokenType?: string
   ): Promise<string> {
     try {
+      // If token type provided, try standard-specific factory first
+      if (tokenType) {
+        const normalizedType = this.normalizeTokenType(tokenType);
+        const factoryTypeMap: Record<string, string> = {
+          'ERC20': 'erc20_factory',
+          'ERC721': 'erc721_factory',
+          'ERC1155': 'erc1155_factory',
+          'ERC3525': 'erc3525_factory',
+          'ERC4626': 'erc4626_factory',
+          'ERC1400': 'erc1400_factory',
+          'ERC20Rebasing': 'erc20_factory',
+          'EnhancedERC20': 'erc20_factory',
+          'EnhancedERC721': 'erc721_factory',
+          'EnhancedERC1155': 'erc1155_factory',
+          'EnhancedERC3525': 'erc3525_factory',
+          'EnhancedERC4626': 'erc4626_factory',
+          'BaseERC1400': 'erc1400_factory',
+          'EnhancedERC1400': 'erc1400_factory',
+        };
+        
+        const specificFactoryType = factoryTypeMap[normalizedType];
+        if (specificFactoryType) {
+          try {
+            const address = await contractConfigurationService.getMasterAddress(
+              blockchain as any,
+              environment,
+              specificFactoryType as any
+            );
+            console.log(`✅ Found standard-specific factory (${specificFactoryType}) for ${blockchain}-${environment}: ${address}`);
+            return address;
+          } catch (specificError) {
+            console.log(`⚠️ Standard-specific factory (${specificFactoryType}) not found, trying generic factory...`);
+            // Fall through to try generic factory
+          }
+        }
+      }
+      
+      // Try generic factory
       const address = await contractConfigurationService.getFactoryAddress(
         blockchain as any,
         environment
       );
-      console.log(`Factory address for ${blockchain}-${environment}: ${address}`);
+      console.log(`✅ Found generic factory for ${blockchain}-${environment}: ${address}`);
       return address;
     } catch (error) {
       if (error instanceof ContractConfigurationError) {
+        const tokenTypeMsg = tokenType ? ` for ${tokenType}` : '';
         throw new Error(
-          `Factory not deployed for ${blockchain}-${environment}. ` +
+          `Factory not deployed${tokenTypeMsg} for ${blockchain}-${environment}. ` +
           `Please deploy contracts first using Foundry deployment scripts. ` +
           `See /frontend/foundry-contracts/script/DeployTokenFactory.s.sol`
         );
@@ -761,7 +804,11 @@ export class FoundryDeploymentService {
 
       // Get factory and master addresses from database
       try {
-        factoryAddress = await this.getFactoryAddress(params.blockchain, params.environment);
+        factoryAddress = await this.getFactoryAddress(
+          params.blockchain, 
+          params.environment,
+          params.tokenType  // ✅ Pass token type to find standard-specific factory
+        );
         masterAddress = await this.getMasterAddress(
           params.blockchain, 
           params.environment, 
@@ -910,6 +957,7 @@ export class FoundryDeploymentService {
 
   /**
    * Deploy token via factory contract
+   * ✅ FIX #9: Updated to match actual Hoodi factory method signatures
    */
   private async deployViaFactory(
     wallet: ethers.Wallet,
@@ -930,22 +978,22 @@ export class FoundryDeploymentService {
     let tx: ethers.ContractTransactionResponse;
     let deployedAddress: string;
 
-    // Map token type to factory method and encode config
+    // ✅ FIX #9: Correct method names (without "Token" suffix) to match actual Hoodi factory
     const tokenTypeMap: Record<string, string> = {
-      'ERC20': 'deployERC20Token',
-      'ERC721': 'deployERC721Token',
-      'ERC1155': 'deployERC1155Token',
-      'ERC3525': 'deployERC3525Token',
-      'ERC4626': 'deployERC4626Token',
-      'ERC1400': 'deployERC1400Token',
-      'ERC20Rebasing': 'deployERC20RebasingToken',
-      'EnhancedERC20': 'deployERC20Token',
-      'EnhancedERC721': 'deployERC721Token',
-      'EnhancedERC1155': 'deployERC1155Token',
-      'EnhancedERC3525': 'deployERC3525Token',
-      'EnhancedERC4626': 'deployERC4626Token',
-      'BaseERC1400': 'deployERC1400Token',
-      'EnhancedERC1400': 'deployERC1400Token',
+      'ERC20': 'deployERC20',
+      'ERC721': 'deployERC721',
+      'ERC1155': 'deployERC1155',
+      'ERC3525': 'deployERC3525',
+      'ERC4626': 'deployERC4626',
+      'ERC1400': 'deployERC1400',
+      'ERC20Rebasing': 'deployERC20Rebasing',
+      'EnhancedERC20': 'deployERC20',
+      'EnhancedERC721': 'deployERC721',
+      'EnhancedERC1155': 'deployERC1155',
+      'EnhancedERC3525': 'deployERC3525',
+      'EnhancedERC4626': 'deployERC4626',
+      'BaseERC1400': 'deployERC1400',
+      'EnhancedERC1400': 'deployERC1400',
     };
 
     const methodName = tokenTypeMap[normalizedType];
@@ -953,18 +1001,22 @@ export class FoundryDeploymentService {
       throw new Error(`Unsupported token type: ${params.tokenType}`);
     }
 
-    // Encode config based on token type
-    const encodedConfig = this.encodeConfig(params);
+    // ✅ FIX #9: Build individual parameters for factory methods (not encoded config)
+    const methodParams = this.buildFactoryMethodParams(params, normalizedType);
     
     // ✅ FIX #5: Build gas options from params.gasConfig
     const gasOptions = this.buildGasOptions(params.gasConfig);
     
-    // Call factory method with gas configuration
+    console.log(`🚀 Calling factory method: ${methodName}`);
+    console.log(`📋 Method parameters:`, methodParams);
+    console.log(`⛽ Gas options:`, gasOptions);
+    
+    // ✅ FIX #9: Call factory method with individual parameters + gas options
     if (Object.keys(gasOptions).length > 0) {
-      console.log('✅ FIX #5: Deploying via factory with gas configuration:', gasOptions);
-      tx = await factory[methodName](encodedConfig, gasOptions);
+      console.log('✅ Deploying via factory with gas configuration');
+      tx = await factory[methodName](...methodParams, gasOptions);
     } else {
-      tx = await factory[methodName](encodedConfig);
+      tx = await factory[methodName](...methodParams);
     }
 
     const receipt = await tx.wait();
@@ -972,47 +1024,57 @@ export class FoundryDeploymentService {
       throw new Error('Transaction failed');
     }
 
-    // Find deployment event
+    // ✅ FIX #9: Find deployment event - event names vary by token type
+    // ERC20: ERC20Deployed, ERC721: ERC721Deployed, etc.
+    const eventNameMap: Record<string, string> = {
+      'ERC20': 'ERC20Deployed',
+      'ERC721': 'ERC721Deployed',
+      'ERC1155': 'ERC1155Deployed',
+      'ERC3525': 'ERC3525Deployed',
+      'ERC4626': 'ERC4626Deployed',
+      'ERC1400': 'ERC1400Deployed',
+      'ERC20Rebasing': 'ERC20Deployed',
+      'EnhancedERC20': 'ERC20Deployed',
+      'EnhancedERC721': 'ERC721Deployed',
+      'EnhancedERC1155': 'ERC1155Deployed',
+      'EnhancedERC3525': 'ERC3525Deployed',
+      'EnhancedERC4626': 'ERC4626Deployed',
+      'BaseERC1400': 'ERC1400Deployed',
+      'EnhancedERC1400': 'ERC1400Deployed',
+    };
+
+    const expectedEventName = eventNameMap[normalizedType] || 'Deployed';
+    console.log(`🔍 Looking for deployment event: ${expectedEventName}`);
+
     const deploymentEvent = receipt.logs.find(log => {
       try {
         const decoded = factory.interface.parseLog(log);
-        return decoded?.name.includes('TokenDeployed');
+        return decoded?.name === expectedEventName;
       } catch {
         return false;
       }
     });
 
     if (!deploymentEvent) {
-      throw new Error('Could not find deployment event');
+      console.error('❌ Deployment event not found in transaction logs');
+      console.error('Available events:', receipt.logs.map(log => {
+        try {
+          const decoded = factory.interface.parseLog(log);
+          return decoded?.name;
+        } catch {
+          return 'unknown';
+        }
+      }));
+      throw new Error(`Could not find ${expectedEventName} event in transaction`);
     }
 
     const parsedEvent = factory.interface.parseLog(deploymentEvent);
-    deployedAddress = parsedEvent?.args[0];
+    deployedAddress = parsedEvent?.args.token || parsedEvent?.args[0];
+    console.log(`✅ Token deployed via factory at: ${deployedAddress}`);
 
-    // ✅ CRITICAL FIX: Initialize UUPS contract after factory deployment
-    console.log('🔧 Step 2: Initializing UUPS contract deployed via factory...');
-    try {
-      await this.initializeUUPSContract(
-        deployedAddress,
-        wallet,
-        params
-      );
-    } catch (initError) {
-      console.error('❌ UUPS initialization failed:', initError);
-      // Log but don't fail deployment - contract is deployed, just not initialized
-      await logActivity({
-        action: 'uups_initialization_failed',
-        entity_type: 'token',
-        entity_id: deployedAddress,
-        details: {
-          error: initError instanceof Error ? initError.message : 'Unknown error',
-          contractAddress: deployedAddress,
-          tokenType: params.tokenType,
-          deploymentMethod: 'factory'
-        },
-        status: 'warning'
-      });
-    }
+    // ✅ FIX #9: NO initialization needed after factory deployment
+    // Hoodi factories already initialize the contract internally
+    console.log('✅ Factory already initialized the contract - no separate initialization needed');
 
     return this.createDeployedContractInfo(
       deployedAddress,
@@ -1052,6 +1114,114 @@ export class FoundryDeploymentService {
         return ERC20FactoryArtifact;
       default:
         throw new Error(`No factory artifact available for token type: ${tokenType}`);
+    }
+  }
+
+  /**
+   * ✅ FIX #9: Build individual method parameters for factory deployment
+   * Hoodi factories expect individual parameters, not encoded config objects
+   * 
+   * Example for ERC20:
+   *   deployERC20(name, symbol, maxSupply, initialSupply, owner)
+   */
+  private buildFactoryMethodParams(params: FoundryDeploymentParams, normalizedType: string): any[] {
+    switch (normalizedType) {
+      case 'ERC20':
+      case 'EnhancedERC20': {
+        const config = params.config as FoundryERC20Config;
+        const owner = config.initialOwner;
+        const maxSupply = config.maxSupply || '0'; // 0 = unlimited
+        const initialSupply = config.initialSupply || '0';
+        
+        return [
+          config.name,
+          config.symbol,
+          maxSupply,
+          initialSupply,
+          owner
+        ];
+      }
+      
+      case 'ERC721':
+      case 'EnhancedERC721': {
+        const config = params.config as FoundryERC721Config;
+        const owner = config.initialOwner;
+        
+        return [
+          config.name,
+          config.symbol,
+          config.baseURI || '',
+          config.maxSupply || 0, // 0 = unlimited
+          owner
+        ];
+      }
+      
+      case 'ERC1155':
+      case 'EnhancedERC1155': {
+        const config = params.config as FoundryERC1155Config;
+        const owner = config.initialOwner;
+        
+        return [
+          config.baseURI || '',
+          owner
+        ];
+      }
+      
+      case 'ERC3525':
+      case 'EnhancedERC3525': {
+        const config = params.config as FoundryERC3525Config;
+        const owner = config.initialOwner;
+        
+        return [
+          config.name,
+          config.symbol,
+          config.valueDecimals || 18,
+          owner
+        ];
+      }
+      
+      case 'ERC4626':
+      case 'EnhancedERC4626': {
+        const config = params.config as FoundryERC4626Config;
+        const owner = config.initialOwner;
+        
+        return [
+          config.asset, // underlying asset address
+          config.name,
+          config.symbol,
+          owner
+        ];
+      }
+      
+      case 'ERC1400':
+      case 'BaseERC1400':
+      case 'EnhancedERC1400': {
+        const config = params.config as any; // ERC1400 config
+        const owner = config.initialOwner;
+        
+        return [
+          config.name,
+          config.symbol,
+          config.partitions || [], // Array of partition names
+          owner
+        ];
+      }
+      
+      case 'ERC20Rebasing': {
+        const config = params.config as FoundryERC20Config;
+        const owner = config.initialOwner;
+        const initialSupply = config.initialSupply || '0';
+        
+        return [
+          config.name,
+          config.symbol,
+          initialSupply,
+          owner
+        ];
+      }
+      
+      default:
+        throw new Error(`Cannot build factory params for unsupported token type: ${normalizedType}`);
     }
   }
 

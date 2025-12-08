@@ -4102,6 +4102,24 @@ $$;
 
 
 --
+-- Name: get_supabase_function_url(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_supabase_function_url() RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  -- This will be set via environment variable
+  -- Return the base URL for Supabase functions
+  RETURN current_setting('app.supabase_url', true) || '/functions/v1';
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$;
+
+
+--
 -- Name: get_table_row_counts(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4298,6 +4316,32 @@ BEGIN
   WHERE p.id = user_auth_id;
 END;
 $$;
+
+
+--
+-- Name: get_user_project_ids(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_user_project_ids(user_auth_id uuid) RETURNS TABLE(project_id uuid)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT p.id
+  FROM projects p
+  INNER JOIN organizations o ON p.organization_id = o.id
+  INNER JOIN user_organization_roles uor ON uor.organization_id = o.id
+  INNER JOIN users u ON u.id = uor.user_id
+  WHERE u.auth_id = user_auth_id;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_user_project_ids(user_auth_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_user_project_ids(user_auth_id uuid) IS 'Helper function to get project IDs accessible by a user through their organization roles';
 
 
 --
@@ -9376,6 +9420,29 @@ COMMENT ON COLUMN public.batch_operations.success IS 'Whether this individual op
 
 
 --
+-- Name: benchmark_index_mappings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.benchmark_index_mappings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    benchmark_name character varying(100) NOT NULL,
+    ticker_symbol character varying(20) NOT NULL,
+    provider character varying(50) DEFAULT 'yahoo_finance'::character varying,
+    asset_class character varying(50),
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE benchmark_index_mappings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.benchmark_index_mappings IS 'Benchmark index to ticker symbol mappings';
+
+
+--
 -- Name: blacklisted_addresses; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11236,6 +11303,58 @@ CREATE TABLE public.commodities_products (
 
 
 --
+-- Name: commodity_collateral; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_collateral (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    position_id uuid NOT NULL,
+    commodity_type text NOT NULL,
+    token_address text NOT NULL,
+    token_id text,
+    amount numeric(20,6) NOT NULL,
+    value_usd numeric(20,6) NOT NULL,
+    haircut_bps integer NOT NULL,
+    quality text,
+    certificate_date timestamp with time zone,
+    document_hash text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE commodity_collateral; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.commodity_collateral IS 'Tokenized commodity collateral details for each position';
+
+
+--
+-- Name: commodity_debt; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_debt (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    position_id uuid NOT NULL,
+    asset_address text NOT NULL,
+    amount numeric(20,6) NOT NULL,
+    value_usd numeric(20,6) NOT NULL,
+    interest_rate_bps integer NOT NULL,
+    accrued_interest numeric(20,6) DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_updated timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE commodity_debt; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.commodity_debt IS 'Debt obligations and accrued interest for each position';
+
+
+--
 -- Name: commodity_handling_costs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11324,6 +11443,79 @@ CREATE TABLE public.commodity_market_data (
 
 
 --
+-- Name: commodity_pool_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_pool_config (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    commodity_type text NOT NULL,
+    base_haircut_bps integer DEFAULT 500 NOT NULL,
+    ltv_bps integer DEFAULT 8000 NOT NULL,
+    liquidation_threshold_bps integer DEFAULT 8500 NOT NULL,
+    liquidation_bonus_bps integer DEFAULT 500 NOT NULL,
+    supply_cap_usd numeric(20,6) DEFAULT 1000000 NOT NULL,
+    borrow_cap_usd numeric(20,6) DEFAULT 800000 NOT NULL,
+    is_isolated boolean DEFAULT false NOT NULL,
+    debt_ceiling_usd numeric(20,6),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE commodity_pool_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.commodity_pool_config IS 'Risk parameters and configuration for each commodity type';
+
+
+--
+-- Name: commodity_positions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_positions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    wallet_address text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE commodity_positions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.commodity_positions IS 'Active lending positions with collateral and debt tracking';
+
+
+--
+-- Name: commodity_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_prices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    commodity_type text NOT NULL,
+    price_usd numeric(20,6) NOT NULL,
+    volume numeric(20,6),
+    confidence_score integer DEFAULT 100 NOT NULL,
+    oracle_source text NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE commodity_prices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.commodity_prices IS 'Historical and real-time commodity prices from oracle feeds';
+
+
+--
 -- Name: commodity_quality_multipliers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11344,6 +11536,33 @@ CREATE TABLE public.commodity_quality_multipliers (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT commodity_quality_multipliers_multiplier_check CHECK ((multiplier > (0)::numeric))
 );
+
+
+--
+-- Name: commodity_risk_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.commodity_risk_metrics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    commodity_type text NOT NULL,
+    volatility_bps integer NOT NULL,
+    max_drawdown_bps integer NOT NULL,
+    value_at_risk_95_bps integer NOT NULL,
+    value_at_risk_99_bps integer NOT NULL,
+    sharpe_ratio integer NOT NULL,
+    liquidity_score integer NOT NULL,
+    data_points integer NOT NULL,
+    calculated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE commodity_risk_metrics; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.commodity_risk_metrics IS 'Statistical risk analysis results for commodity haircut calculations';
 
 
 --
@@ -11802,6 +12021,28 @@ SELECT
 --
 
 COMMENT ON VIEW public.crypto_etf_holdings_summary IS 'Summary of crypto holdings by blockchain for crypto ETFs';
+
+
+--
+-- Name: crypto_symbol_mappings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crypto_symbol_mappings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    symbol character varying(20) NOT NULL,
+    coingecko_id character varying(50) NOT NULL,
+    name character varying(100),
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE crypto_symbol_mappings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.crypto_symbol_mappings IS 'Crypto symbol to CoinGecko ID mappings (NO HARDCODED VALUES)';
 
 
 --
@@ -16041,6 +16282,33 @@ COMMENT ON TABLE public.lease_agreements IS 'Tenant lease agreements and rental 
 
 
 --
+-- Name: market_data_providers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.market_data_providers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider_name character varying(50) NOT NULL,
+    base_url text NOT NULL,
+    requires_api_key boolean DEFAULT false,
+    rate_limit_per_minute integer,
+    timeout_ms integer DEFAULT 15000,
+    is_active boolean DEFAULT true,
+    priority integer DEFAULT 100,
+    use_edge_function boolean DEFAULT false,
+    edge_function_name character varying(100),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE market_data_providers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.market_data_providers IS 'Market data provider configuration with edge function integration';
+
+
+--
 -- Name: market_data_snapshots; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -17333,6 +17601,27 @@ COMMENT ON TABLE public.nav_asset_type_adjustments IS 'Mark-to-market adjustment
 --
 
 COMMENT ON COLUMN public.nav_asset_type_adjustments.mark_to_market_multiplier IS 'Multiplier for mark-to-market valuation (typically 0.8-1.0)';
+
+
+--
+-- Name: nav_calculation_default_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_calculation_default_configs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    etf_type character varying(50) NOT NULL,
+    config jsonb NOT NULL,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE nav_calculation_default_configs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.nav_calculation_default_configs IS 'Default NAV calculation configs by ETF type';
 
 
 --
@@ -22995,6 +23284,33 @@ CREATE TABLE public.stage_requirements (
 
 
 --
+-- Name: staking_apr_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.staking_apr_config (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    blockchain character varying(50) NOT NULL,
+    current_apr numeric(10,4) NOT NULL,
+    min_apr numeric(10,4) DEFAULT 0,
+    max_apr numeric(10,4) DEFAULT 100,
+    commission numeric(10,4) DEFAULT 0,
+    source character varying(100),
+    last_updated timestamp with time zone DEFAULT now(),
+    is_validated boolean DEFAULT false,
+    validator_address text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE staking_apr_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.staking_apr_config IS 'Staking APR configuration by blockchain (MUST BE UPDATED FROM REAL DATA)';
+
+
+--
 -- Name: stock_dividends; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -26986,8 +27302,6 @@ CREATE TABLE public.user_addresses (
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    role_contracts_id uuid,
-    contract_roles jsonb DEFAULT '[]'::jsonb,
     CONSTRAINT user_addresses_signing_method_check CHECK ((signing_method = ANY (ARRAY['private_key'::text, 'hardware_wallet'::text, 'mpc'::text])))
 );
 
@@ -26996,7 +27310,7 @@ CREATE TABLE public.user_addresses (
 -- Name: TABLE user_addresses; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.user_addresses IS 'Blockchain addresses for users to be multi-sig wallet owners';
+COMMENT ON TABLE public.user_addresses IS 'Execution Layer: Stores blockchain addresses for users. Each user typically has one address per chain (mainnet + testnet). These addresses are used for on-chain execution across all contract roles defined in user_contract_roles.';
 
 
 --
@@ -27018,13 +27332,6 @@ COMMENT ON COLUMN public.user_addresses.key_vault_reference IS 'Reference to enc
 --
 
 COMMENT ON COLUMN public.user_addresses.is_active IS 'Whether this address is active (soft delete flag)';
-
-
---
--- Name: COLUMN user_addresses.contract_roles; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.user_addresses.contract_roles IS 'Array of contract role names (JSONB) assigned to this specific address';
 
 
 --
@@ -27053,6 +27360,13 @@ CREATE TABLE public.user_contract_roles (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+
+--
+-- Name: TABLE user_contract_roles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.user_contract_roles IS 'Authorization Layer: Defines what contract roles a user is permitted to manage/assign. The contract_roles jsonb column contains a mapping of contract addresses to arrays of role names.';
 
 
 --
@@ -28202,6 +28516,22 @@ ALTER TABLE ONLY public.batch_operations
 
 
 --
+-- Name: benchmark_index_mappings benchmark_index_mappings_benchmark_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.benchmark_index_mappings
+    ADD CONSTRAINT benchmark_index_mappings_benchmark_name_key UNIQUE (benchmark_name);
+
+
+--
+-- Name: benchmark_index_mappings benchmark_index_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.benchmark_index_mappings
+    ADD CONSTRAINT benchmark_index_mappings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: blacklisted_addresses blacklisted_addresses_address_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -28744,6 +29074,22 @@ COMMENT ON CONSTRAINT commodities_products_project_id_key ON public.commodities_
 
 
 --
+-- Name: commodity_collateral commodity_collateral_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_collateral
+    ADD CONSTRAINT commodity_collateral_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_debt commodity_debt_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_debt
+    ADD CONSTRAINT commodity_debt_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: commodity_handling_costs commodity_handling_costs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -28776,11 +29122,43 @@ ALTER TABLE ONLY public.commodity_market_data
 
 
 --
+-- Name: commodity_pool_config commodity_pool_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_pool_config
+    ADD CONSTRAINT commodity_pool_config_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_positions commodity_positions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_positions
+    ADD CONSTRAINT commodity_positions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_prices commodity_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_prices
+    ADD CONSTRAINT commodity_prices_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: commodity_quality_multipliers commodity_quality_multipliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.commodity_quality_multipliers
     ADD CONSTRAINT commodity_quality_multipliers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: commodity_risk_metrics commodity_risk_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_risk_metrics
+    ADD CONSTRAINT commodity_risk_metrics_pkey PRIMARY KEY (id);
 
 
 --
@@ -28965,6 +29343,22 @@ ALTER TABLE ONLY public.credential_usage_logs
 
 ALTER TABLE ONLY public.critical_alerts
     ADD CONSTRAINT critical_alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crypto_symbol_mappings crypto_symbol_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crypto_symbol_mappings
+    ADD CONSTRAINT crypto_symbol_mappings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crypto_symbol_mappings crypto_symbol_mappings_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crypto_symbol_mappings
+    ADD CONSTRAINT crypto_symbol_mappings_unique UNIQUE (symbol, coingecko_id);
 
 
 --
@@ -30540,6 +30934,22 @@ ALTER TABLE ONLY public.lease_agreements
 
 
 --
+-- Name: market_data_providers market_data_providers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_data_providers
+    ADD CONSTRAINT market_data_providers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: market_data_providers market_data_providers_provider_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_data_providers
+    ADD CONSTRAINT market_data_providers_provider_name_key UNIQUE (provider_name);
+
+
+--
 -- Name: market_data_snapshots market_data_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -30953,6 +31363,22 @@ ALTER TABLE ONLY public.nav_asset_type_adjustments
 
 ALTER TABLE ONLY public.nav_asset_type_adjustments
     ADD CONSTRAINT nav_asset_type_adjustments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_calculation_default_configs nav_calculation_default_configs_etf_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculation_default_configs
+    ADD CONSTRAINT nav_calculation_default_configs_etf_type_key UNIQUE (etf_type);
+
+
+--
+-- Name: nav_calculation_default_configs nav_calculation_default_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_calculation_default_configs
+    ADD CONSTRAINT nav_calculation_default_configs_pkey PRIMARY KEY (id);
 
 
 --
@@ -32703,6 +33129,22 @@ ALTER TABLE ONLY public.stage_requirements
 
 
 --
+-- Name: staking_apr_config staking_apr_config_blockchain_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.staking_apr_config
+    ADD CONSTRAINT staking_apr_config_blockchain_key UNIQUE (blockchain);
+
+
+--
+-- Name: staking_apr_config staking_apr_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.staking_apr_config
+    ADD CONSTRAINT staking_apr_config_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: stock_dividends stock_dividends_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -33398,6 +33840,14 @@ ALTER TABLE ONLY public.asset_nav_data
 
 
 --
+-- Name: commodity_risk_metrics unique_commodity_risk_per_project; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_risk_metrics
+    ADD CONSTRAINT unique_commodity_risk_per_project UNIQUE (project_id, commodity_type, calculated_at);
+
+
+--
 -- Name: approval_config_approvers unique_config_role_approver; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -33443,6 +33893,22 @@ ALTER TABLE ONLY public.fund_nav_data
 
 ALTER TABLE ONLY public.sidebar_items
     ADD CONSTRAINT unique_item_per_section UNIQUE (item_id, section_id);
+
+
+--
+-- Name: commodity_pool_config unique_pool_config_per_commodity; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_pool_config
+    ADD CONSTRAINT unique_pool_config_per_commodity UNIQUE (project_id, commodity_type);
+
+
+--
+-- Name: commodity_positions unique_position_per_wallet; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_positions
+    ADD CONSTRAINT unique_position_per_wallet UNIQUE (project_id, wallet_address);
 
 
 --
@@ -34568,6 +35034,13 @@ CREATE INDEX idx_batch_operations_user_op ON public.batch_operations USING btree
 
 
 --
+-- Name: idx_benchmark_index_mappings_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_benchmark_index_mappings_name ON public.benchmark_index_mappings USING btree (benchmark_name) WHERE (is_active = true);
+
+
+--
 -- Name: idx_blacklisted_addresses_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35247,6 +35720,27 @@ CREATE INDEX idx_climate_user_data_sources_user_id ON public.climate_user_data_s
 
 
 --
+-- Name: idx_collateral_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collateral_commodity ON public.commodity_collateral USING btree (commodity_type);
+
+
+--
+-- Name: idx_collateral_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collateral_position ON public.commodity_collateral USING btree (position_id);
+
+
+--
+-- Name: idx_collateral_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collateral_token ON public.commodity_collateral USING btree (token_address);
+
+
+--
 -- Name: idx_collectibles_appraisals_appraiser; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35492,6 +35986,27 @@ CREATE INDEX idx_commodity_market_data_instrument ON public.commodity_market_dat
 
 
 --
+-- Name: idx_commodity_prices_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_prices_commodity ON public.commodity_prices USING btree (commodity_type);
+
+
+--
+-- Name: idx_commodity_prices_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_prices_project ON public.commodity_prices USING btree (project_id);
+
+
+--
+-- Name: idx_commodity_prices_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_prices_timestamp ON public.commodity_prices USING btree ("timestamp" DESC);
+
+
+--
 -- Name: idx_commodity_quality_commodity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35510,6 +36025,27 @@ CREATE UNIQUE INDEX idx_commodity_quality_commodity_grade ON public.commodity_qu
 --
 
 CREATE INDEX idx_commodity_quality_grade ON public.commodity_quality_multipliers USING btree (grade);
+
+
+--
+-- Name: idx_commodity_risk_calculated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_risk_calculated ON public.commodity_risk_metrics USING btree (calculated_at DESC);
+
+
+--
+-- Name: idx_commodity_risk_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_risk_commodity ON public.commodity_risk_metrics USING btree (commodity_type);
+
+
+--
+-- Name: idx_commodity_risk_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_commodity_risk_project ON public.commodity_risk_metrics USING btree (project_id);
 
 
 --
@@ -35695,10 +36231,31 @@ CREATE INDEX idx_critical_alerts_escalated ON public.critical_alerts USING btree
 
 
 --
+-- Name: idx_crypto_symbol_mappings_symbol; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_crypto_symbol_mappings_symbol ON public.crypto_symbol_mappings USING btree (symbol) WHERE (is_active = true);
+
+
+--
 -- Name: idx_data_source_mappings_source; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_data_source_mappings_source ON public.data_source_mappings USING btree (source_id);
+
+
+--
+-- Name: idx_debt_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_debt_asset ON public.commodity_debt USING btree (asset_address);
+
+
+--
+-- Name: idx_debt_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_debt_position ON public.commodity_debt USING btree (position_id);
 
 
 --
@@ -38502,6 +39059,13 @@ CREATE INDEX idx_lifecycle_events_product_id ON public.product_lifecycle_events 
 
 
 --
+-- Name: idx_market_data_providers_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_market_data_providers_active ON public.market_data_providers USING btree (is_active, priority);
+
+
+--
 -- Name: idx_market_data_snapshots_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -40186,6 +40750,41 @@ CREATE INDEX idx_policy_templates_type ON public.policy_templates USING btree (t
 --
 
 CREATE INDEX idx_policy_violations_unresolved ON public.policy_violations USING btree (resolved) WHERE (resolved = false);
+
+
+--
+-- Name: idx_pool_config_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pool_config_commodity ON public.commodity_pool_config USING btree (commodity_type);
+
+
+--
+-- Name: idx_pool_config_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pool_config_project ON public.commodity_pool_config USING btree (project_id);
+
+
+--
+-- Name: idx_positions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_positions_project ON public.commodity_positions USING btree (project_id);
+
+
+--
+-- Name: idx_positions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_positions_status ON public.commodity_positions USING btree (status);
+
+
+--
+-- Name: idx_positions_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_positions_wallet ON public.commodity_positions USING btree (wallet_address);
 
 
 --
@@ -42534,6 +43133,13 @@ CREATE UNIQUE INDEX idx_stablecoin_products_project_id_unique ON public.stableco
 
 
 --
+-- Name: idx_staking_apr_config_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_staking_apr_config_blockchain ON public.staking_apr_config USING btree (blockchain);
+
+
+--
 -- Name: idx_stock_dividends_equity_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -43252,13 +43858,6 @@ CREATE INDEX idx_user_addresses_active ON public.user_addresses USING btree (is_
 --
 
 CREATE INDEX idx_user_addresses_blockchain ON public.user_addresses USING btree (blockchain);
-
-
---
--- Name: idx_user_addresses_contract_roles; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_user_addresses_contract_roles ON public.user_addresses USING gin (contract_roles);
 
 
 --
@@ -46019,6 +46618,54 @@ ALTER TABLE ONLY public.collectibles_market_comparables
 
 ALTER TABLE ONLY public.collectibles_provenance
     ADD CONSTRAINT collectibles_provenance_collectibles_product_id_fkey FOREIGN KEY (collectibles_product_id) REFERENCES public.collectibles_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: commodity_collateral commodity_collateral_position_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_collateral
+    ADD CONSTRAINT commodity_collateral_position_id_fkey FOREIGN KEY (position_id) REFERENCES public.commodity_positions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: commodity_debt commodity_debt_position_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_debt
+    ADD CONSTRAINT commodity_debt_position_id_fkey FOREIGN KEY (position_id) REFERENCES public.commodity_positions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: commodity_pool_config commodity_pool_config_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_pool_config
+    ADD CONSTRAINT commodity_pool_config_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: commodity_positions commodity_positions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_positions
+    ADD CONSTRAINT commodity_positions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: commodity_prices commodity_prices_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_prices
+    ADD CONSTRAINT commodity_prices_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: commodity_risk_metrics commodity_risk_metrics_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.commodity_risk_metrics
+    ADD CONSTRAINT commodity_risk_metrics_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -50417,6 +51064,16 @@ GRANT ALL ON FUNCTION public.get_redemption_rules_near_capacity(p_threshold_perc
 
 
 --
+-- Name: FUNCTION get_supabase_function_url(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_supabase_function_url() TO anon;
+GRANT ALL ON FUNCTION public.get_supabase_function_url() TO authenticated;
+GRANT ALL ON FUNCTION public.get_supabase_function_url() TO service_role;
+GRANT ALL ON FUNCTION public.get_supabase_function_url() TO prisma;
+
+
+--
 -- Name: FUNCTION get_table_row_counts(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -50484,6 +51141,16 @@ GRANT ALL ON FUNCTION public.get_user_profile(user_auth_id uuid) TO anon;
 GRANT ALL ON FUNCTION public.get_user_profile(user_auth_id uuid) TO authenticated;
 GRANT ALL ON FUNCTION public.get_user_profile(user_auth_id uuid) TO service_role;
 GRANT ALL ON FUNCTION public.get_user_profile(user_auth_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION get_user_project_ids(user_auth_id uuid); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_user_project_ids(user_auth_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.get_user_project_ids(user_auth_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.get_user_project_ids(user_auth_id uuid) TO service_role;
+GRANT ALL ON FUNCTION public.get_user_project_ids(user_auth_id uuid) TO prisma;
 
 
 --
@@ -52127,6 +52794,16 @@ GRANT ALL ON TABLE public.batch_operations TO prisma;
 
 
 --
+-- Name: TABLE benchmark_index_mappings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.benchmark_index_mappings TO anon;
+GRANT ALL ON TABLE public.benchmark_index_mappings TO authenticated;
+GRANT ALL ON TABLE public.benchmark_index_mappings TO service_role;
+GRANT ALL ON TABLE public.benchmark_index_mappings TO prisma;
+
+
+--
 -- Name: TABLE blacklisted_addresses; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52747,6 +53424,26 @@ GRANT ALL ON TABLE public.commodities_products TO prisma;
 
 
 --
+-- Name: TABLE commodity_collateral; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_collateral TO anon;
+GRANT ALL ON TABLE public.commodity_collateral TO authenticated;
+GRANT ALL ON TABLE public.commodity_collateral TO service_role;
+GRANT ALL ON TABLE public.commodity_collateral TO prisma;
+
+
+--
+-- Name: TABLE commodity_debt; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_debt TO anon;
+GRANT ALL ON TABLE public.commodity_debt TO authenticated;
+GRANT ALL ON TABLE public.commodity_debt TO service_role;
+GRANT ALL ON TABLE public.commodity_debt TO prisma;
+
+
+--
 -- Name: TABLE commodity_handling_costs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52787,6 +53484,36 @@ GRANT ALL ON TABLE public.commodity_market_data TO prisma;
 
 
 --
+-- Name: TABLE commodity_pool_config; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_pool_config TO anon;
+GRANT ALL ON TABLE public.commodity_pool_config TO authenticated;
+GRANT ALL ON TABLE public.commodity_pool_config TO service_role;
+GRANT ALL ON TABLE public.commodity_pool_config TO prisma;
+
+
+--
+-- Name: TABLE commodity_positions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_positions TO anon;
+GRANT ALL ON TABLE public.commodity_positions TO authenticated;
+GRANT ALL ON TABLE public.commodity_positions TO service_role;
+GRANT ALL ON TABLE public.commodity_positions TO prisma;
+
+
+--
+-- Name: TABLE commodity_prices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_prices TO anon;
+GRANT ALL ON TABLE public.commodity_prices TO authenticated;
+GRANT ALL ON TABLE public.commodity_prices TO service_role;
+GRANT ALL ON TABLE public.commodity_prices TO prisma;
+
+
+--
 -- Name: TABLE commodity_quality_multipliers; Type: ACL; Schema: public; Owner: -
 --
 
@@ -52794,6 +53521,16 @@ GRANT ALL ON TABLE public.commodity_quality_multipliers TO anon;
 GRANT ALL ON TABLE public.commodity_quality_multipliers TO authenticated;
 GRANT ALL ON TABLE public.commodity_quality_multipliers TO service_role;
 GRANT ALL ON TABLE public.commodity_quality_multipliers TO prisma;
+
+
+--
+-- Name: TABLE commodity_risk_metrics; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.commodity_risk_metrics TO anon;
+GRANT ALL ON TABLE public.commodity_risk_metrics TO authenticated;
+GRANT ALL ON TABLE public.commodity_risk_metrics TO service_role;
+GRANT ALL ON TABLE public.commodity_risk_metrics TO prisma;
 
 
 --
@@ -52964,6 +53701,16 @@ GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO anon;
 GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO authenticated;
 GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO service_role;
 GRANT ALL ON TABLE public.crypto_etf_holdings_summary TO prisma;
+
+
+--
+-- Name: TABLE crypto_symbol_mappings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.crypto_symbol_mappings TO anon;
+GRANT ALL ON TABLE public.crypto_symbol_mappings TO authenticated;
+GRANT ALL ON TABLE public.crypto_symbol_mappings TO service_role;
+GRANT ALL ON TABLE public.crypto_symbol_mappings TO prisma;
 
 
 --
@@ -54157,6 +54904,16 @@ GRANT ALL ON TABLE public.lease_agreements TO prisma;
 
 
 --
+-- Name: TABLE market_data_providers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.market_data_providers TO anon;
+GRANT ALL ON TABLE public.market_data_providers TO authenticated;
+GRANT ALL ON TABLE public.market_data_providers TO service_role;
+GRANT ALL ON TABLE public.market_data_providers TO prisma;
+
+
+--
 -- Name: TABLE market_data_snapshots; Type: ACL; Schema: public; Owner: -
 --
 
@@ -54524,6 +55281,16 @@ GRANT ALL ON TABLE public.nav_asset_type_adjustments TO anon;
 GRANT ALL ON TABLE public.nav_asset_type_adjustments TO authenticated;
 GRANT ALL ON TABLE public.nav_asset_type_adjustments TO service_role;
 GRANT ALL ON TABLE public.nav_asset_type_adjustments TO prisma;
+
+
+--
+-- Name: TABLE nav_calculation_default_configs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.nav_calculation_default_configs TO anon;
+GRANT ALL ON TABLE public.nav_calculation_default_configs TO authenticated;
+GRANT ALL ON TABLE public.nav_calculation_default_configs TO service_role;
+GRANT ALL ON TABLE public.nav_calculation_default_configs TO prisma;
 
 
 --
@@ -56184,6 +56951,16 @@ GRANT ALL ON TABLE public.stage_requirements TO anon;
 GRANT ALL ON TABLE public.stage_requirements TO authenticated;
 GRANT ALL ON TABLE public.stage_requirements TO service_role;
 GRANT ALL ON TABLE public.stage_requirements TO prisma;
+
+
+--
+-- Name: TABLE staking_apr_config; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.staking_apr_config TO anon;
+GRANT ALL ON TABLE public.staking_apr_config TO authenticated;
+GRANT ALL ON TABLE public.staking_apr_config TO service_role;
+GRANT ALL ON TABLE public.staking_apr_config TO prisma;
 
 
 --

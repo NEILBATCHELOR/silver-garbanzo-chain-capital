@@ -103,11 +103,11 @@ library BorrowLogic {
         DataTypes.UserConfigurationMap storage userConfig,
         ExecuteBorrowParams memory params
     ) external {
-        // Update reserve state
-        reserve.updateState();
-
-        // Cache reserve data for validation
-        DataTypes.CommodityCache memory reserveCache = _cacheReserveData(reserve);
+        // Cache reserve data first
+        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
+        
+        // Update reserve state with cache
+        ReserveLogic.updateState(reserve, reserveCache);
 
         // Validate borrow using ValidateBorrowParams struct
         ValidationLogic.validateBorrow(
@@ -146,13 +146,14 @@ library BorrowLogic {
                 .balanceOf(params.onBehalfOf) == 0;
         }
 
-        // TODO: Update interest rates when ReserveLogic is complete
-        // ReserveLogic.updateInterestRates(
-        //     reserve,
-        //     params.asset,
-        //     0,  // No liquidity added
-        //     params.releaseUnderlying ? params.amount : 0  // Liquidity taken
-        // );
+        // Update interest rates
+        ReserveLogic.updateInterestRates(
+            reserve,
+            reserveCache,
+            params.asset,
+            0,  // No liquidity added
+            params.releaseUnderlying ? params.amount : 0  // Liquidity taken
+        );
 
         // Mint debt tokens to borrower
         if (params.interestRateMode == DataTypes.InterestRateMode.STABLE) {
@@ -207,8 +208,11 @@ library BorrowLogic {
         DataTypes.UserConfigurationMap storage userConfig,
         ExecuteRepayParams memory params
     ) external returns (uint256) {
-        // Update reserve state
-        reserve.updateState();
+        // Cache reserve data first
+        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
+        
+        // Update reserve state with cache
+        ReserveLogic.updateState(reserve, reserveCache);
 
         // Get debt amount
         uint256 stableDebt = IERC20(reserve.stableDebtTokenAddress).balanceOf(params.onBehalfOf);
@@ -237,13 +241,14 @@ library BorrowLogic {
             variableDebt
         );
 
-        // TODO: Update interest rates when ReserveLogic is complete
-        // ReserveLogic.updateInterestRates(
-        //     reserve,
-        //     params.asset,
-        //     paybackAmount,  // Liquidity added back
-        //     0
-        // );
+        // Update interest rates
+        ReserveLogic.updateInterestRates(
+            reserve,
+            reserveCache,
+            params.asset,
+            paybackAmount,  // Liquidity added back
+            0
+        );
 
         // Handle payment
         if (!params.useATokens) {
@@ -307,8 +312,11 @@ library BorrowLogic {
         address asset,
         DataTypes.InterestRateMode interestRateMode
     ) external {
-        // Update reserve state
-        reserve.updateState();
+        // Cache reserve data first
+        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
+        
+        // Update reserve state with cache
+        ReserveLogic.updateState(reserve, reserveCache);
 
         uint256 stableDebt = IERC20(reserve.stableDebtTokenAddress).balanceOf(msg.sender);
         uint256 variableDebt = IERC20(reserve.variableDebtTokenAddress).balanceOf(msg.sender);
@@ -351,8 +359,14 @@ library BorrowLogic {
             );
         }
 
-        // TODO: Update interest rates when ReserveLogic is complete
-        // ReserveLogic.updateInterestRates(asset, 0, 0);
+        // Update interest rates
+        ReserveLogic.updateInterestRates(
+            reserve,
+            reserveCache,
+            asset,
+            0,
+            0
+        );
     }
 
     /**
