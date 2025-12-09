@@ -169,7 +169,7 @@ export class PriceUpdateScheduler {
           stats.failureCount++
         }
         
-        this.fastify.log.error(`Job ${jobName} failed:`, error)
+        this.fastify.log.error({ err: error, jobName }, 'Job failed:')
       }
     }
     
@@ -221,7 +221,7 @@ export class PriceUpdateScheduler {
             stats.failureCount++
           }
           
-          this.fastify.log.error(`Job ${jobName} failed:`, error)
+          this.fastify.log.error({ err: error, jobName }, `Job ${jobName} failed`)
         }
       }
     }
@@ -283,7 +283,7 @@ export class PriceUpdateScheduler {
         }
       } catch (error) {
         failCount++
-        this.fastify.log.warn(`Failed to update CME price for ${productCode}:`, error)
+        this.fastify.log.warn({ err: error, productCode }, `Failed to update CME price for ${productCode}`)
       }
     }
     
@@ -308,7 +308,7 @@ export class PriceUpdateScheduler {
         `LME prices updated: ${result.success} success, ${result.failed} failed`
       )
     } catch (error) {
-      this.fastify.log.error('Failed to update LME prices:', error)
+      this.fastify.log.error({ err: error }, 'Failed to update LME prices')
       throw error
     }
   }
@@ -329,7 +329,7 @@ export class PriceUpdateScheduler {
         `ICE prices updated: ${result.success} success, ${result.failed} failed`
       )
     } catch (error) {
-      this.fastify.log.error('Failed to update ICE prices:', error)
+      this.fastify.log.error({ err: error }, 'Failed to update ICE prices')
       throw error
     }
   }
@@ -349,7 +349,7 @@ export class PriceUpdateScheduler {
         `FRED prices updated: ${result.success.length} success, ${result.failed.length} failed`
       )
     } catch (error) {
-      this.fastify.log.error('Failed to update FRED prices:', error)
+      this.fastify.log.error({ err: error }, 'Failed to update FRED prices')
       throw error
     }
   }
@@ -390,7 +390,7 @@ export class PriceUpdateScheduler {
             )
           } else {
             failCount++
-            this.fastify.log.warn(`Failed to store ${metal} price:`, error)
+            this.fastify.log.warn({ err: error, metal }, `Failed to store ${metal} price`)
           }
         } else {
           failCount++
@@ -398,7 +398,7 @@ export class PriceUpdateScheduler {
         }
       } catch (error) {
         failCount++
-        this.fastify.log.warn(`Failed to update precious metal ${metal}:`, error)
+        this.fastify.log.warn({ err: error, metal }, `Failed to update precious metal ${metal}`)
       }
     }
     
@@ -418,7 +418,7 @@ export class PriceUpdateScheduler {
       .order('timestamp', { ascending: false })
     
     if (error) {
-      this.fastify.log.error('Failed to check oracle health:', error)
+      this.fastify.log.error({ err: error }, 'Failed to check oracle health')
       return
     }
     

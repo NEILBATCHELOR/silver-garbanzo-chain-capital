@@ -38,7 +38,7 @@ export interface PriceSourceConfig {
   enabled: boolean
   priority: number
   rateLimitPerHour: number
-  staleness ThresholdMinutes: number
+  stalenessThresholdMinutes: number
 }
 
 export class PriceOrchestrator {
@@ -124,7 +124,7 @@ export class PriceOrchestrator {
         this.fastify.log.info('CME Price Service initialized')
       }
     } catch (error) {
-      this.fastify.log.warn('CME Price Service not available:', error)
+      this.fastify.log.warn({ err: error }, 'CME Price Service not available:')
     }
     
     try {
@@ -133,7 +133,7 @@ export class PriceOrchestrator {
         this.fastify.log.info('LME Price Service initialized')
       }
     } catch (error) {
-      this.fastify.log.warn('LME Price Service not available:', error)
+      this.fastify.log.warn({ err: error }, 'LME Price Service not available:')
     }
     
     try {
@@ -142,7 +142,7 @@ export class PriceOrchestrator {
         this.fastify.log.info('ICE Price Service initialized')
       }
     } catch (error) {
-      this.fastify.log.warn('ICE Price Service not available:', error)
+      this.fastify.log.warn({ err: error }, 'ICE Price Service not available:')
     }
     
     // Always initialize Precious Metals Service (free tier available via metals.live)
@@ -150,7 +150,7 @@ export class PriceOrchestrator {
       this.preciousMetalsService = createPreciousMetalsPriceService(this.fastify)
       this.fastify.log.info('Precious Metals Price Service initialized (metals.live free tier)')
     } catch (error) {
-      this.fastify.log.warn('Precious Metals Price Service not available:', error)
+      this.fastify.log.warn({ err: error }, 'Precious Metals Price Service not available:')
     }
   }
   
@@ -181,7 +181,7 @@ export class PriceOrchestrator {
           }
         }
       } catch (error) {
-        this.fastify.log.error(`Failed to fetch from ${source}:`, error)
+        this.fastify.log.error({ err: error, source }, 'Failed to fetch from source:')
         // Continue to next source
       }
     }
@@ -208,7 +208,7 @@ export class PriceOrchestrator {
           }
         }
       } catch (error) {
-        this.fastify.log.warn(`Source ${source} failed, continuing:`, error)
+        this.fastify.log.warn({ err: error, source }, 'Source failed, continuing:')
       }
     }
     
@@ -217,8 +217,12 @@ export class PriceOrchestrator {
     }
     
     // If only one price, return it
-    if (prices.length === 1) {
-      return { ...prices[0], isAggregated: false }
+    if (prices.length === 1 && prices[0]) {
+      return { 
+        ...prices[0], 
+        isAggregated: false,
+        commodity: prices[0].commodity || commodity
+      }
     }
     
     // Calculate weighted average based on confidence scores
@@ -233,11 +237,16 @@ export class PriceOrchestrator {
     
     const aggregatedPrice = weightedSum / totalWeight
     const avgConfidence = prices.reduce((sum, p) => sum + p.confidence, 0) / prices.length
+    const firstPrice = prices[0]
+    
+    if (!firstPrice) {
+      return null
+    }
     
     return {
       commodity,
       price_usd: aggregatedPrice,
-      source: prices[0].source, // Primary source
+      source: firstPrice.source, // Primary source
       confidence: Math.min(avgConfidence * 1.1, 100), // Boost confidence for multi-source
       timestamp: new Date(),
       isAggregated: true,
@@ -438,7 +447,7 @@ export class PriceOrchestrator {
         fallbackUsed: false
       }
     } catch (error) {
-      this.fastify.log.warn(`Precious metals service failed for ${commodity}:`, error)
+      this.fastify.log.warn({ err: error, commodity }, 'Precious metals service failed:')
       return null
     }
   }
@@ -451,10 +460,10 @@ export class PriceOrchestrator {
     if (!priceData) return null
     
     return {
-      commodity: priceData.commodity,
-      price_usd: priceData.price,
+      commodity: priceData.commodity_type,
+      price_usd: priceData.price_usd,
       source: 'fred',
-      confidence: priceData.confidence,
+      confidence: priceData.confidence_score,
       timestamp: priceData.timestamp,
       isAggregated: false,
       fallbackUsed: false

@@ -114,12 +114,12 @@ export class CMEPriceService {
           const message: CMEWebSocketMessage = JSON.parse(data.toString())
           await this.handlePriceUpdate(message)
         } catch (error) {
-          this.fastify.log.error('Error processing CME message:', error)
+          this.fastify.log.error({ err: error }, 'Error processing CME message:')
         }
       })
       
-      this.ws.on('error', (error) => {
-        this.fastify.log.error('CME WebSocket error:', error)
+      this.ws.on('error', (error: Error) => {
+        this.fastify.log.error({ err: error }, 'CME WebSocket error:')
       })
       
       this.ws.on('close', () => {
@@ -142,7 +142,7 @@ export class CMEPriceService {
       })
       
     } catch (error) {
-      this.fastify.log.error('Failed to connect to CME WebSocket:', error)
+      this.fastify.log.error({ err: error }, 'Failed to connect to CME WebSocket:')
       throw error
     }
   }
@@ -201,7 +201,7 @@ export class CMEPriceService {
       }))
       
     } catch (error) {
-      this.fastify.log.error(`Failed to fetch historical prices for ${symbol}:`, error)
+      this.fastify.log.error({ err: error, symbol }, 'Failed to fetch historical prices:')
       throw error
     }
   }
@@ -238,7 +238,7 @@ export class CMEPriceService {
       }
       
     } catch (error) {
-      this.fastify.log.error(`Failed to get current price for ${productCode}:`, error)
+      this.fastify.log.error({ err: error, productCode }, 'Failed to get current price:')
       return null
     }
   }
@@ -267,7 +267,7 @@ export class CMEPriceService {
       )
       
     } catch (error) {
-      this.fastify.log.error('Failed to handle price update:', error)
+      this.fastify.log.error({ err: error }, 'Failed to handle price update:')
     }
   }
   
@@ -371,7 +371,7 @@ export class CMEPriceService {
       'U': '09', 'V': '10', 'X': '11', 'Z': '12'
     }
     
-    const month = monthMapping[monthCode] || '01'
+    const month = (monthCode && monthMapping[monthCode]) || '01'
     const fullYear = `20${year}` // Assuming 20xx
     
     return `${fullYear}-${month}`

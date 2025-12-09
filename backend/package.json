@@ -87,6 +87,7 @@
     "tiny-secp256k1": "^2.2.4",
     "tweetnacl": "^1.0.3",
     "uuid": "^9.0.1",
+    "ws": "^8.18.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

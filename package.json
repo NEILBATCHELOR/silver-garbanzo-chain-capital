@@ -55,6 +55,7 @@
     "contracts:deploy-remaining": "cd frontend/foundry-contracts && ~/.foundry/bin/forge script script/DeployHoodiRemaining.s.sol --rpc-url https://ethereum-hoodi-rpc.publicnode.com/ --chain-id 560048 --broadcast --verify -vvv"
   },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
     "tsx": "^4.20.6"

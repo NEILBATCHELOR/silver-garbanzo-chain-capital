@@ -20,7 +20,7 @@ import { FastifyInstance } from 'fastify'
  * ```
  */
 
-interface MetalPrice {
+export interface MetalPrice {
   provider: string
   metal: string
   price_usd: number

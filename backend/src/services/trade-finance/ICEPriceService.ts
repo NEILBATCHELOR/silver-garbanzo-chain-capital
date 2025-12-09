@@ -85,7 +85,7 @@ export class ICEPriceService {
           prices.push(price)
         }
       } catch (error) {
-        this.fastify.log.error(`Failed to fetch ICE price for ${symbol}:`, error)
+        this.fastify.log.error({ err: error, symbol }, 'Failed to fetch ICE price:')
       }
     }
     
@@ -102,7 +102,7 @@ export class ICEPriceService {
       const symbol = this.ICE_SYMBOLS[commodity]
       return await this.fetchSymbolPrice(symbol)
     } catch (error) {
-      this.fastify.log.error(`Failed to fetch ICE price for ${commodity}:`, error)
+      this.fastify.log.error({ err: error, commodity }, 'Failed to fetch ICE price:')
       return null
     }
   }
@@ -134,6 +134,10 @@ export class ICEPriceService {
       }
       
       const result = data.results[0]
+      if (!result) {
+        this.fastify.log.warn(`Invalid result for symbol ${symbol}`)
+        return null
+      }
       
       return {
         commodity: this._mapSymbolToCommodity(symbol),
@@ -148,7 +152,7 @@ export class ICEPriceService {
       }
       
     } catch (error) {
-      this.fastify.log.error(`Error fetching symbol ${symbol}:`, error)
+      this.fastify.log.error({ err: error, symbol }, 'Error fetching symbol:')
       return null
     }
   }
@@ -189,7 +193,7 @@ export class ICEPriceService {
       }))
       
     } catch (error) {
-      this.fastify.log.error('Error fetching batch prices:', error)
+      this.fastify.log.error({ err: error }, 'Error fetching batch prices:')
       return []
     }
   }
@@ -224,7 +228,7 @@ export class ICEPriceService {
           })
         
         if (error) {
-          this.fastify.log.error(`Failed to store ICE price for ${price.commodity}:`, error)
+          this.fastify.log.error({ err: error, commodity: price.commodity }, 'Failed to store ICE price:')
           failed++
         } else {
           this.fastify.log.info(
@@ -233,7 +237,7 @@ export class ICEPriceService {
           success++
         }
       } catch (error) {
-        this.fastify.log.error(`Error storing ICE price for ${price.commodity}:`, error)
+        this.fastify.log.error({ err: error, commodity: price.commodity }, 'Error storing ICE price:')
         failed++
       }
     }
@@ -275,7 +279,7 @@ export class ICEPriceService {
       }
       
     } catch (error) {
-      this.fastify.log.error(`Failed to get cached ICE price for ${commodity}:`, error)
+      this.fastify.log.error({ err: error, commodity }, 'Failed to get cached ICE price:')
       return null
     }
   }
@@ -316,7 +320,7 @@ export class ICEPriceService {
       'U': '09', 'V': '10', 'X': '11', 'Z': '12'
     }
     
-    const month = monthMapping[monthCode] || '01'
+    const month = (monthCode && monthMapping[monthCode]) || '01'
     const fullYear = `20${yearCode}` // Assuming 20xx
     
     return `${fullYear}-${month}`

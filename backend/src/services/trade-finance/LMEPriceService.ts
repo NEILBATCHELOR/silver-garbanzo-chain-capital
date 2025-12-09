@@ -98,7 +98,7 @@ export class LMEPriceService {
       return this._transformLMEData(data)
       
     } catch (error) {
-      this.fastify.log.error('Failed to fetch LME prices:', error)
+      this.fastify.log.error({ err: error }, 'Failed to fetch LME prices:')
       throw error
     }
   }
@@ -135,7 +135,7 @@ export class LMEPriceService {
       )
       
     } catch (error) {
-      this.fastify.log.error(`Failed to fetch LME price for ${metal}:`, error)
+      this.fastify.log.error({ err: error, metal }, 'Failed to fetch LME price:')
       return null
     }
   }
@@ -187,8 +187,8 @@ export class LMEPriceService {
       
     } catch (error) {
       this.fastify.log.error(
-        `Failed to fetch historical LME prices for ${metal}:`,
-        error
+        { err: error, metal },
+        'Failed to fetch historical LME prices:'
       )
       throw error
     }
@@ -223,7 +223,7 @@ export class LMEPriceService {
           })
         
         if (error) {
-          this.fastify.log.error(`Failed to store LME price for ${price.metal}:`, error)
+          this.fastify.log.error({ err: error, metal: price.metal }, 'Failed to store LME price:')
           failed++
         } else {
           this.fastify.log.info(
@@ -232,7 +232,7 @@ export class LMEPriceService {
           success++
         }
       } catch (error) {
-        this.fastify.log.error(`Error storing LME price for ${price.metal}:`, error)
+        this.fastify.log.error({ err: error, metal: price.metal }, 'Error storing LME price:')
         failed++
       }
     }
@@ -271,7 +271,7 @@ export class LMEPriceService {
       }
       
     } catch (error) {
-      this.fastify.log.error(`Failed to get cached LME price for ${metal}:`, error)
+      this.fastify.log.error({ err: error, metal }, 'Failed to get cached LME price:')
       return null
     }
   }
