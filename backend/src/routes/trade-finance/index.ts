@@ -6,3 +6,4 @@
 export { haircutRoutes } from './haircut'
 export { positionsRoutes } from './positions'
 export { oraclesRoutes } from './oracles'
+export { priceManagementRoutes } from './prices'

@@ -3,7 +3,7 @@ pragma solidity ^0.8.10;
 
 /**
  * @title Errors library
- * @author Chain Capital (Adapted from Aave V3)
+ * @author Chain Capital (Adapted from Chain Capital V3)
  * @notice Defines the error messages emitted by the Commodity Trade Finance protocol
  * @dev Error codes use string constants for gas efficiency in reverts
  * @dev Categories: Admin (1-10), Pool (11-30), Commodity (31-50), 
@@ -188,8 +188,17 @@ library Errors {
   string public constant RESERVE_DEBT_NOT_ZERO = '69'; 
   // 'The total debt of the reserve needs to be 0'
   
+  string public constant RESERVE_NOT_IN_DEFICIT = '69A';
+  // 'Reserve is not in deficit state'
+  
+  string public constant USER_CANNOT_HAVE_DEBT = '69B';
+  // 'User must not have any active debt to perform this operation'
+  
   string public constant FLASHLOAN_DISABLED = '70'; 
   // 'FlashLoaning for this asset is disabled'
+  
+  string public constant SUPPLY_TO_ATOKEN = '70A';
+  // 'Cannot supply directly to the cToken address'
 
   // ==============================================
   // LIQUIDATION ERRORS (71-90)
@@ -224,6 +233,9 @@ library Errors {
   
   string public constant LIQUIDATOR_NOT_WHITELISTED = '80'; 
   // 'Liquidator is not whitelisted for this commodity type'
+  
+  string public constant MUST_NOT_LEAVE_DUST = '81'; 
+  // 'Liquidation must not leave dust amounts in user positions'
 
   // ==============================================
   // ORACLE & PRICE ERRORS (91-100)
@@ -307,6 +319,9 @@ library Errors {
 
   string public constant EMODE_CATEGORY_DOES_NOT_EXIST = '112'; 
   // 'E-Mode category does not exist'
+  
+  string public constant NOT_BORROWABLE_IN_EMODE = '113A'; 
+  // 'Asset is not borrowable in the user E-Mode category'
   
   string public constant UNAUTHORIZED_LTV_PARAMETER = '113'; 
   // 'LTV parameter is outside acceptable range'

@@ -3,21 +3,23 @@ pragma solidity ^0.8.20;
 
 /**
  * @title DataTypes library
- * @author Chain Capital
+ * @author Chain Capital (adapted from Chain Capital V3)
  * @notice Defines core data structures for Commodity Trade Finance platform
- * @dev For commodity-backed lending
+ * @dev Follows Chain Capital V3 Horizon patterns for proven stack-safe architecture
  */
 library DataTypes {
+  
+  // ============ COMMODITY-SPECIFIC TYPES ============
   
   /**
    * @dev Commodity type enumeration
    */
   enum CommodityType {
-    PRECIOUS_METAL,     // Gold, Silver, Platinum
-    BASE_METAL,         // Steel, Aluminum, Copper
-    ENERGY,             // Oil, Gas, Coal
-    AGRICULTURAL,       // Wheat, Soybeans, Cotton
-    CARBON_CREDIT       // VCS, Gold Standard
+    PRECIOUS_METAL,
+    BASE_METAL,
+    ENERGY,
+    AGRICULTURAL,
+    CARBON_CREDIT
   }
   
   /**
@@ -30,98 +32,93 @@ library DataTypes {
   }
   
   /**
+   * @dev Commodity metadata for tokenization
+   */
+  struct CommodityMetadata {
+    CommodityType commodityType;
+    string assetName;
+    uint256 quantity;
+    string unit;
+    string quality;
+    string location;
+    uint256 certificateDate;
+    bytes32 documentHash;
+  }
+  
+  // ============ RESERVE DATA STRUCTURES (Chain Capital-based) ============
+  
+  /**
    * @dev Main commodity reserve data structure
-   * Stores all data for a commodity type (e.g., Gold, Wheat, Carbon Credits)
+   * Based on Chain Capital's ReserveData with commodity-specific additions
    */
   struct CommodityReserveData {
-    // Bit-packed configuration
+    // Core reserve data (from Chain Capital)
     CommodityConfigurationMap configuration;
     
-    // Interest rate indices (expressed in ray)
-    uint128 liquidityIndex;           // Supply interest accumulator
-    uint128 currentLiquidityRate;     // Current supply APY
-    uint128 variableBorrowIndex;      // Borrow interest accumulator
-    uint128 currentVariableBorrowRate; // Current variable borrow APY
-    uint128 currentStableBorrowRate;   // Current stable borrow APY (if enabled)
+    uint128 liquidityIndex;
+    uint128 currentLiquidityRate;
+    uint128 variableBorrowIndex;
+    uint128 currentVariableBorrowRate;
+    uint128 currentStableBorrowRate;
     
-    // Timestamps and identifiers
-    uint40 lastUpdateTimestamp;        // Last interest rate update
-    uint16 id;                         // Position in active commodities list
+    uint40 lastUpdateTimestamp;
+    uint16 id;
     
-    // Token addresses
-    address cTokenAddress;             // Commodity receipt token (like aToken)
-    address stableDebtTokenAddress;    // Stable debt token
-    address variableDebtTokenAddress;  // Variable debt token
-    address interestRateStrategyAddress; // Interest rate model
+    address cTokenAddress;
+    address stableDebtTokenAddress;
+    address variableDebtTokenAddress;
+    address interestRateStrategyAddress;
     
-    // Treasury and bridge accounting
-    uint128 accruedToTreasury;        // Protocol fees accumulated
-    uint128 unbacked;                  // Unbacked cTokens (cross-chain)
-    uint128 isolationModeTotalDebt;    // Total debt in isolation mode
+    uint128 accruedToTreasury;
+    uint128 unbacked;
+    uint128 isolationModeTotalDebt;
     
-    // Commodity-specific fields
-    CommodityType commodityType;       // Category (precious metal, agricultural, etc.)
-    address custodianAddress;          // Physical storage custodian
-    address haircutEngineAddress;      // Risk calculation engine
+    // Aave V4 Horizon additions for advanced risk management
+    uint128 deficit;                    // Deficit tracking for bad debt coverage
+    uint128 virtualUnderlyingBalance;   // Virtual accounting balance
+    
+    // Commodity-specific additions
+    CommodityType commodityType;
+    address custodianAddress;
+    address haircutEngineAddress;
+    bytes32 documentHash;
+    uint256 certificateDate;
   }
   
   /**
    * @dev Commodity configuration bit-packed map
-   * ReserveConfiguration for gas efficiency
+   * Based on Chain Capital's ReserveConfigurationMap
    */
   struct CommodityConfigurationMap {
-    // bit 0-15: LTV (Loan-to-Value)
-    // bit 16-31: Liquidation threshold
-    // bit 32-47: Liquidation bonus
-    // bit 48-55: Decimals
-    // bit 56: commodity is active
-    // bit 57: commodity is frozen
-    // bit 58: borrowing is enabled
-    // bit 59: stable rate borrowing enabled
-    // bit 60: commodity is paused
-    // bit 61: borrowing in isolation mode is enabled
-    // bit 62: siloed borrowing enabled
-    // bit 63: flash lending enabled
-    // bit 64-79: reserve factor
-    // bit 80-115: borrow cap in whole tokens
-    // bit 116-151: supply cap in whole tokens
-    // bit 152-167: liquidation protocol fee
-    // bit 168-175: eMode category
-    // bit 176-211: unbacked mint cap
-    // bit 212-251: debt ceiling for isolation mode
-    // bit 252-255: unused
     uint256 data;
   }
   
   /**
    * @dev User configuration bit-packed map
-   * Tracks which commodities a user has supplied/borrowed
+   * Based on Chain Capital's UserConfigurationMap
    */
   struct UserConfigurationMap {
-    // Bitmap: pairs of bits per commodity
-    // First bit = used as collateral
-    // Second bit = borrowed
     uint256 data;
   }
   
   /**
-   * @dev E-Mode (Efficiency Mode) category
-   * Allows higher LTV for correlated commodities
-   * Example: Gold/Silver/Platinum can be in "Precious Metals" eMode
+   * @dev E-Mode category (from Chain Capital)
    */
   struct EModeCategory {
-    uint16 ltv;                    // Custom LTV for this category
-    uint16 liquidationThreshold;   // Custom liquidation threshold
-    uint16 liquidationBonus;       // Custom liquidation bonus
-    address priceSource;           // Optional custom oracle
-    string label;                  // Human-readable name
+    uint16 ltv;
+    uint16 liquidationThreshold;
+    uint16 liquidationBonus;
+    address priceSource;
+    string label;
+    uint128 collateralBitmap;
+    uint128 borrowableBitmap;
   }
   
   /**
-   * @dev Commodity reserve cache
-   * Used to avoid repeated storage reads during transactions
+   * @dev Reserve cache (from Chain Capital V3)
+   * Caches frequently accessed reserve data to minimize storage reads
    */
-  struct CommodityCache {
+  struct ReserveCache {
     uint256 currScaledVariableDebt;
     uint256 nextScaledVariableDebt;
     uint256 currPrincipalStableDebt;
@@ -144,21 +141,23 @@ library DataTypes {
     uint40 stableDebtLastUpdateTimestamp;
   }
   
+  // ============ EXECUTION PARAMETER STRUCTS (Chain Capital-based) ============
+  
   /**
-   * @dev Parameters for executing supply operation
+   * @dev Supply execution parameters (from Chain Capital)
    */
   struct ExecuteSupplyParams {
-    address commodity;          // Commodity address
-    uint256 amount;             // Amount to supply
-    address onBehalfOf;         // Recipient of cTokens
-    uint16 referralCode;        // Referral code for tracking
+    address asset;
+    uint256 amount;
+    address onBehalfOf;
+    uint16 referralCode;
   }
   
   /**
-   * @dev Parameters for executing borrow operation
+   * @dev Borrow execution parameters (from Chain Capital)
    */
   struct ExecuteBorrowParams {
-    address commodity;
+    address asset;
     address user;
     address onBehalfOf;
     uint256 amount;
@@ -166,73 +165,86 @@ library DataTypes {
     uint16 referralCode;
     bool releaseUnderlying;
     uint256 maxStableRateBorrowSizePercent;
-    uint256 commoditiesCount;
+    uint256 reservesCount;
     address oracle;
     uint8 userEModeCategory;
     address priceOracleSentinel;
   }
   
   /**
-   * @dev Parameters for executing repay operation
+   * @dev Repay execution parameters (from Chain Capital)
    */
   struct ExecuteRepayParams {
-    address commodity;
+    address asset;
     uint256 amount;
     InterestRateMode interestRateMode;
     address onBehalfOf;
-    bool useCTokens;            // Renamed from useATokens
+    bool useATokens;
   }
   
   /**
-   * @dev Parameters for executing withdraw operation
+   * @dev Withdraw execution parameters (from Chain Capital)
    */
   struct ExecuteWithdrawParams {
-    address commodity;
+    address asset;
     uint256 amount;
     address to;
-    uint256 commoditiesCount;
+    uint256 reservesCount;
     address oracle;
     uint8 userEModeCategory;
   }
   
   /**
-   * @dev Parameters for executing liquidation
+   * @dev Liquidation execution parameters (from Chain Capital)
    */
   struct ExecuteLiquidationCallParams {
-    uint256 commoditiesCount;
+    uint256 reservesCount;
     uint256 debtToCover;
-    address collateralCommodity;
-    address debtCommodity;
+    address collateralAsset;
+    address debtAsset;
     address user;
-    bool receiveCToken;         // Renamed from receiveAToken
+    bool receiveAToken;
     address priceOracle;
     uint8 userEModeCategory;
     address priceOracleSentinel;
   }
   
   /**
-   * @dev Parameters for user account data calculation
+   * @dev Finalize transfer execution parameters
    */
-  struct CalculateUserAccountDataParams {
-    UserConfigurationMap userConfig;
-    uint256 commoditiesCount;
-    address user;
+  struct FinalizeTransferParams {
+    address asset;
+    address from;
+    address to;
+    uint256 amount;
+    uint256 balanceFromBefore;
+    uint256 balanceToBefore;
+    uint256 reservesCount;
     address oracle;
-    uint8 userEModeCategory;
+    uint8 fromEModeCategory;
   }
   
   /**
-   * @dev Parameters for borrow validation
+   * @dev Eliminate deficit execution parameters
+   */
+  struct ExecuteEliminateDeficitParams {
+    address asset;
+    uint256 amount;
+  }
+  
+  // ============ VALIDATION PARAMETER STRUCTS (Chain Capital-based) ============
+  
+  /**
+   * @dev Borrow validation parameters (from Chain Capital)
    */
   struct ValidateBorrowParams {
-    CommodityCache commodityCache;
+    ReserveCache reserveCache;
     UserConfigurationMap userConfig;
-    address commodity;
+    address asset;
     address userAddress;
     uint256 amount;
     InterestRateMode interestRateMode;
-    uint256 maxStableLoanPercent;
-    uint256 commoditiesCount;
+    uint256 reservesCount;
     address oracle;
     uint8 userEModeCategory;
     address priceOracleSentinel;
@@ -242,40 +254,71 @@ library DataTypes {
   }
   
   /**
-   * @dev Parameters for liquidation validation
+   * @dev Liquidation validation parameters (from Chain Capital)
    */
   struct ValidateLiquidationCallParams {
-    CommodityCache debtCommodityCache;
+    ReserveCache debtReserveCache;
     uint256 totalDebt;
     uint256 healthFactor;
     address priceOracleSentinel;
   }
   
   /**
-   * @dev Parameters for interest rate calculation
+   * @dev User account data calculation parameters (from Chain Capital)
+   */
+  struct CalculateUserAccountDataParams {
+    UserConfigurationMap userConfig;
+    uint256 reservesCount;
+    address user;
+    address oracle;
+    uint8 userEModeCategory;
+  }
+  
+  /**
+   * @dev Interest rate calculation parameters (from Chain Capital)
    */
   struct CalculateInterestRatesParams {
     uint256 unbacked;
     uint256 liquidityAdded;
     uint256 liquidityTaken;
-    uint256 totalStableDebt;
-    uint256 totalVariableDebt;
-    uint256 averageStableBorrowRate;
+    uint256 totalDebt;
     uint256 reserveFactor;
-    address commodity;
-    address cToken;
+    address reserve;
+    address aToken;
+    bool usingVirtualBalance;
+    uint256 virtualUnderlyingBalance;
+  }
+  
+  // ============ COMMODITY-SPECIFIC VALIDATION ============
+  
+  /**
+   * @dev Commodity document validation parameters
+   */
+  struct ValidateCommodityParams {
+    CommodityType commodityType;
+    bytes32 documentHash;
+    uint256 certificateDate;
+    string quality;
+    uint256 quantity;
   }
   
   /**
-   * @dev Parameters for initializing a new commodity reserve
+   * @dev Haircut calculation parameters
    */
-  struct InitCommodityParams {
-    address commodity;
-    address cTokenAddress;
-    address stableDebtAddress;
-    address variableDebtAddress;
-    address interestRateStrategyAddress;
-    uint16 commoditiesCount;
-    uint16 maxNumberCommodities;
+  struct CalculateHaircutParams {
+    CommodityType commodityType;
+    uint256 oracleValue;
+    string quality;
+    uint256 certificateDate;
+    uint256 quantity;
+  }
+
+  /**
+   * @dev Parameters for executing user eMode category updates
+   */
+  struct ExecuteSetUserEModeParams {
+    uint256 reservesCount;
+    address oracle;
+    uint8 categoryId;
   }
 }

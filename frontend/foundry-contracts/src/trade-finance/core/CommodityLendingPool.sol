@@ -7,8 +7,6 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {SupplyLogic} from "../libraries/logic/SupplyLogic.sol";
 import {BorrowLogic} from "../libraries/logic/BorrowLogic.sol";
 import {LiquidationLogic} from "../libraries/logic/LiquidationLogic.sol";
-import {EModeLogic} from "../libraries/logic/EModeLogic.sol";
-import {IsolationModeLogic} from "../libraries/logic/IsolationModeLogic.sol";
 import {ReserveLogic} from "../libraries/logic/ReserveLogic.sol";
 import {ReserveConfiguration} from "../libraries/configuration/ReserveConfiguration.sol";
 import {UserConfiguration} from "../libraries/configuration/UserConfiguration.sol";
@@ -18,7 +16,6 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @title CommodityLendingPool
  * @author Chain Capital
  * @notice Main entry point for commodity trade finance lending protocol
- * @dev Implements Aave V3 architecture patterns for commodity-backed lending
  */
 contract CommodityLendingPool is Initializable {
     using ReserveLogic for DataTypes.CommodityReserveData;
@@ -29,40 +26,18 @@ contract CommodityLendingPool is Initializable {
     // STATE VARIABLES
     // ============================================
 
-    /// @notice Mapping of commodity addresses to reserve data
     mapping(address => DataTypes.CommodityReserveData) internal _reserves;
-
-    /// @notice Mapping of reserve IDs to commodity addresses
     mapping(uint256 => address) internal _reservesList;
-
-    /// @notice Total number of reserves
     uint256 internal _reservesCount;
-
-    /// @notice Mapping of user addresses to their configuration
     mapping(address => DataTypes.UserConfigurationMap) internal _usersConfig;
-
-    /// @notice Mapping of E-Mode category IDs to their configuration
     mapping(uint8 => DataTypes.EModeCategory) internal _eModeCategories;
-
-    /// @notice Mapping of user addresses to their E-Mode category
     mapping(address => uint8) internal _usersEModeCategory;
-
-    /// @notice Address of the price oracle
+    
     address internal _priceOracle;
-
-    /// @notice Address of the price oracle sentinel (for L2 sequencer checks)
     address internal _priceOracleSentinel;
-
-    /// @notice Whether the pool is paused
     bool internal _paused;
-
-    /// @notice Maximum stable rate borrow size as percentage of total borrow
-    uint256 internal _maxStableRateBorrowSizePercent;
-
-    /// @notice Protocol administrator
+    
     address public admin;
-
-    /// @notice Emergency administrator (can pause)
     address public emergencyAdmin;
 
     // ============================================
@@ -85,24 +60,24 @@ contract CommodityLendingPool is Initializable {
     );
 
     event Borrow(
-        address indexed commodity,
+        address indexed asset,
         address user,
         address indexed onBehalfOf,
         uint256 amount,
-        DataTypes.InterestRateMode interestRateMode,
+        uint8 interestRateMode,
         uint256 borrowRate,
         uint16 indexed referralCode
     );
 
     event Repay(
-        address indexed commodity,
+        address indexed asset,
         address indexed user,
         address indexed repayer,
         uint256 amount,
         bool useATokens
     );
 
-    event LiquidationCall(
+    event Liquidation(
         address indexed collateralAsset,
         address indexed debtAsset,
         address indexed user,
@@ -110,19 +85,6 @@ contract CommodityLendingPool is Initializable {
         uint256 liquidatedCollateralAmount,
         address liquidator,
         bool receiveAToken
-    );
-
-    event ReserveInitialized(
-        address indexed commodity,
-        address indexed cToken,
-        address stableDebtToken,
-        address variableDebtToken,
-        address interestRateStrategy
-    );
-
-    event UserEModeSet(
-        address indexed user,
-        uint8 categoryId
     );
 
     event Paused();
@@ -143,36 +105,20 @@ contract CommodityLendingPool is Initializable {
     }
 
     modifier onlyEmergencyAdmin() {
-        require(
-            msg.sender == emergencyAdmin || msg.sender == admin,
-            Errors.CALLER_NOT_EMERGENCY_ADMIN
-        );
+        require(msg.sender == emergencyAdmin, Errors.CALLER_NOT_EMERGENCY_ADMIN);
         _;
     }
 
     // ============================================
-    // CONSTRUCTOR & INITIALIZATION
+    // INITIALIZATION
     // ============================================
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @notice Initialize the pool
-     * @param priceOracle Address of the price oracle
-     * @param priceOracleSentinel Address of the oracle sentinel
-     */
     function initialize(
         address priceOracle,
         address priceOracleSentinel
     ) external initializer {
-        require(priceOracle != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-        
         _priceOracle = priceOracle;
         _priceOracleSentinel = priceOracleSentinel;
-        _maxStableRateBorrowSizePercent = 25_00; // 25%
         admin = msg.sender;
         emergencyAdmin = msg.sender;
     }
@@ -183,10 +129,6 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Supply commodity tokens as collateral
-     * @param commodity The address of the commodity token
-     * @param amount The amount to supply
-     * @param onBehalfOf The address receiving the cTokens
-     * @param referralCode Referral code for rewards
      */
     function supply(
         address commodity,
@@ -195,12 +137,13 @@ contract CommodityLendingPool is Initializable {
         uint16 referralCode
     ) external whenNotPaused {
         SupplyLogic.executeSupply(
-            _reserves[commodity],
-            SupplyLogic.ExecuteSupplyParams({
-                commodityToken: commodity,
-                user: msg.sender,
-                onBehalfOf: onBehalfOf,
+            _reserves,
+            _reservesList,
+            _usersConfig[onBehalfOf],
+            DataTypes.ExecuteSupplyParams({
+                asset: commodity,
                 amount: amount,
+                onBehalfOf: onBehalfOf,
                 referralCode: referralCode
             })
         );
@@ -210,10 +153,6 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Withdraw supplied commodity tokens
-     * @param commodity The address of the commodity token
-     * @param amount The amount to withdraw (use type(uint256).max for all)
-     * @param to The address receiving the tokens
-     * @return The actual amount withdrawn
      */
     function withdraw(
         address commodity,
@@ -221,12 +160,17 @@ contract CommodityLendingPool is Initializable {
         address to
     ) external whenNotPaused returns (uint256) {
         uint256 amountWithdrawn = SupplyLogic.executeWithdraw(
-            _reserves[commodity],
-            SupplyLogic.ExecuteWithdrawParams({
-                commodityToken: commodity,
-                user: msg.sender,
+            _reserves,
+            _reservesList,
+            _eModeCategories,
+            _usersConfig[msg.sender],
+            DataTypes.ExecuteWithdrawParams({
+                asset: commodity,
+                amount: amount,
                 to: to,
-                amount: amount
+                reservesCount: _reservesCount,
+                oracle: _priceOracle,
+                userEModeCategory: _usersEModeCategory[msg.sender]
             })
         );
 
@@ -241,11 +185,6 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Borrow assets against commodity collateral
-     * @param asset The address of the asset to borrow
-     * @param amount The amount to borrow
-     * @param interestRateMode The interest rate mode (stable/variable)
-     * @param referralCode Referral code for rewards
-     * @param onBehalfOf The address receiving the borrowed funds
      */
     function borrow(
         address asset,
@@ -255,12 +194,11 @@ contract CommodityLendingPool is Initializable {
         address onBehalfOf
     ) external whenNotPaused {
         BorrowLogic.executeBorrow(
-            _reserves[asset],
             _reserves,
             _reservesList,
             _eModeCategories,
             _usersConfig[onBehalfOf],
-            BorrowLogic.ExecuteBorrowParams({
+            DataTypes.ExecuteBorrowParams({
                 asset: asset,
                 user: msg.sender,
                 onBehalfOf: onBehalfOf,
@@ -268,7 +206,7 @@ contract CommodityLendingPool is Initializable {
                 interestRateMode: DataTypes.InterestRateMode(interestRateMode),
                 referralCode: referralCode,
                 releaseUnderlying: true,
-                maxStableRateBorrowSizePercent: _maxStableRateBorrowSizePercent,
+                maxStableRateBorrowSizePercent: 0,
                 reservesCount: _reservesCount,
                 oracle: _priceOracle,
                 userEModeCategory: _usersEModeCategory[onBehalfOf],
@@ -281,7 +219,7 @@ contract CommodityLendingPool is Initializable {
             msg.sender,
             onBehalfOf,
             amount,
-            DataTypes.InterestRateMode(interestRateMode),
+            uint8(interestRateMode),
             _reserves[asset].currentVariableBorrowRate,
             referralCode
         );
@@ -289,11 +227,6 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Repay borrowed assets
-     * @param asset The address of the borrowed asset
-     * @param amount The amount to repay (use type(uint256).max for all)
-     * @param interestRateMode The interest rate mode
-     * @param onBehalfOf The address whose debt is being repaid
-     * @return The actual amount repaid
      */
     function repay(
         address asset,
@@ -301,10 +234,11 @@ contract CommodityLendingPool is Initializable {
         uint256 interestRateMode,
         address onBehalfOf
     ) external whenNotPaused returns (uint256) {
-        uint256 amountRepaid = BorrowLogic.executeRepay(
-            _reserves[asset],
+        uint256 paybackAmount = BorrowLogic.executeRepay(
+            _reserves,
+            _reservesList,
             _usersConfig[onBehalfOf],
-            BorrowLogic.ExecuteRepayParams({
+            DataTypes.ExecuteRepayParams({
                 asset: asset,
                 amount: amount,
                 interestRateMode: DataTypes.InterestRateMode(interestRateMode),
@@ -313,9 +247,47 @@ contract CommodityLendingPool is Initializable {
             })
         );
 
-        emit Repay(asset, onBehalfOf, msg.sender, amountRepaid, false);
-        
-        return amountRepaid;
+        emit Repay(
+            asset,
+            onBehalfOf,
+            msg.sender,
+            paybackAmount,
+            false
+        );
+
+        return paybackAmount;
+    }
+
+    /**
+     * @notice Repay with aTokens instead of underlying
+     */
+    function repayWithATokens(
+        address asset,
+        uint256 amount,
+        uint256 interestRateMode
+    ) external whenNotPaused returns (uint256) {
+        uint256 paybackAmount = BorrowLogic.executeRepay(
+            _reserves,
+            _reservesList,
+            _usersConfig[msg.sender],
+            DataTypes.ExecuteRepayParams({
+                asset: asset,
+                amount: amount,
+                interestRateMode: DataTypes.InterestRateMode(interestRateMode),
+                onBehalfOf: msg.sender,
+                useATokens: true
+            })
+        );
+
+        emit Repay(
+            asset,
+            msg.sender,
+            msg.sender,
+            paybackAmount,
+            true
+        );
+
+        return paybackAmount;
     }
 
     // ============================================
@@ -324,11 +296,6 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Liquidate an undercollateralized position
-     * @param collateralAsset The address of the collateral commodity
-     * @param debtAsset The address of the debt asset
-     * @param user The address of the borrower
-     * @param debtToCover The amount of debt to cover
-     * @param receiveAToken Whether to receive aTokens or underlying
      */
     function liquidationCall(
         address collateralAsset,
@@ -338,13 +305,11 @@ contract CommodityLendingPool is Initializable {
         bool receiveAToken
     ) external whenNotPaused {
         LiquidationLogic.executeLiquidationCall(
-            _reserves[collateralAsset],
-            _reserves[debtAsset],
             _reserves,
             _reservesList,
+            _usersConfig,
             _eModeCategories,
-            _usersConfig[user],
-            LiquidationLogic.LiquidationCallParams({
+            DataTypes.ExecuteLiquidationCallParams({
                 reservesCount: _reservesCount,
                 debtToCover: debtToCover,
                 collateralAsset: collateralAsset,
@@ -356,38 +321,49 @@ contract CommodityLendingPool is Initializable {
                 priceOracleSentinel: _priceOracleSentinel
             })
         );
-    }
 
-    // ============================================
-    // E-MODE FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice Set user's E-Mode category
-     * @param categoryId The E-Mode category ID (0 to disable)
-     */
-    function setUserEMode(uint8 categoryId) external {
-        EModeLogic.executeSetUserEMode(
-            _reserves,
-            _reservesList,
-            _eModeCategories,
-            _usersEModeCategory,
-            _usersConfig[msg.sender],
-            categoryId,
-            _reservesCount,
-            _priceOracle
+        emit Liquidation(
+            collateralAsset,
+            debtAsset,
+            user,
+            debtToCover,
+            0, // Will be calculated in logic library
+            msg.sender,
+            receiveAToken
         );
+    }
 
-        emit UserEModeSet(msg.sender, categoryId);
+    // ============================================
+    // VIEW FUNCTIONS
+    // ============================================
+
+    /**
+     * @notice Get reserve data
+     */
+    function getReserveData(address asset) external view returns (
+        DataTypes.CommodityReserveData memory
+    ) {
+        return _reserves[asset];
     }
 
     /**
-     * @notice Get user's E-Mode category
-     * @param user The user address
-     * @return The E-Mode category ID
+     * @notice Get user configuration
      */
-    function getUserEMode(address user) external view returns (uint8) {
-        return _usersEModeCategory[user];
+    function getUserConfiguration(address user) external view returns (
+        DataTypes.UserConfigurationMap memory
+    ) {
+        return _usersConfig[user];
+    }
+
+    /**
+     * @notice Get reserves list
+     */
+    function getReservesList() external view returns (address[] memory) {
+        address[] memory reservesList = new address[](_reservesCount);
+        for (uint256 i = 0; i < _reservesCount; i++) {
+            reservesList[i] = _reservesList[i];
+        }
+        return reservesList;
     }
 
     // ============================================
@@ -395,87 +371,7 @@ contract CommodityLendingPool is Initializable {
     // ============================================
 
     /**
-     * @notice Initialize a new commodity reserve
-     * @param commodity The commodity address
-     * @param cToken The cToken (receipt token) address
-     * @param stableDebtToken The stable debt token address
-     * @param variableDebtToken The variable debt token address
-     * @param interestRateStrategy The interest rate strategy address
-     */
-    function initReserve(
-        address commodity,
-        address cToken,
-        address stableDebtToken,
-        address variableDebtToken,
-        address interestRateStrategy
-    ) external onlyAdmin {
-        require(
-            _reserves[commodity].cTokenAddress == address(0),
-            Errors.RESERVE_ALREADY_INITIALIZED
-        );
-
-        _reserves[commodity].init(
-            cToken,
-            stableDebtToken,
-            variableDebtToken,
-            interestRateStrategy
-        );
-
-        _reserves[commodity].id = uint16(_reservesCount);
-        _reservesList[_reservesCount] = commodity;
-        _reservesCount++;
-
-        emit ReserveInitialized(
-            commodity,
-            cToken,
-            stableDebtToken,
-            variableDebtToken,
-            interestRateStrategy
-        );
-    }
-
-    /**
-     * @notice Configure E-Mode category
-     * @param categoryId The category ID
-     * @param ltv The loan-to-value ratio
-     * @param liquidationThreshold The liquidation threshold
-     * @param liquidationBonus The liquidation bonus
-     * @param priceSource Optional price source for category
-     * @param label Category label
-     */
-    function configureEModeCategory(
-        uint8 categoryId,
-        uint16 ltv,
-        uint16 liquidationThreshold,
-        uint16 liquidationBonus,
-        address priceSource,
-        string memory label
-    ) external onlyAdmin {
-        require(categoryId != 0, "Category 0 is reserved");
-        
-        _eModeCategories[categoryId] = DataTypes.EModeCategory({
-            ltv: ltv,
-            liquidationThreshold: liquidationThreshold,
-            liquidationBonus: liquidationBonus,
-            priceSource: priceSource,
-            label: label
-        });
-    }
-
-    /**
-     * @notice Set reserve configuration
-     * @param commodity The commodity address
-     * @param configuration The configuration bitmap
-     */
-    function setConfiguration(
-        address commodity,
-        DataTypes.CommodityConfigurationMap memory configuration
-    ) external onlyAdmin {
-        _reserves[commodity].configuration = configuration;
-    }
-
-    /**
-     * @notice Pause the pool (emergency only)
+     * @notice Pause the pool
      */
     function pause() external onlyEmergencyAdmin {
         _paused = true;
@@ -485,124 +381,123 @@ contract CommodityLendingPool is Initializable {
     /**
      * @notice Unpause the pool
      */
-    function unpause() external onlyAdmin {
+    function unpause() external onlyEmergencyAdmin {
         _paused = false;
         emit Unpaused();
     }
 
     /**
-     * @notice Update admin address
-     * @param newAdmin The new admin address
+     * @notice Set price oracle
      */
-    function setAdmin(address newAdmin) external onlyAdmin {
-        require(newAdmin != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-        admin = newAdmin;
+    function setPriceOracle(address oracle) external onlyAdmin {
+        _priceOracle = oracle;
     }
 
     /**
-     * @notice Update emergency admin address
-     * @param newEmergencyAdmin The new emergency admin address
+     * @notice Configure E-Mode category
      */
-    function setEmergencyAdmin(address newEmergencyAdmin) external onlyAdmin {
-        require(newEmergencyAdmin != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-        emergencyAdmin = newEmergencyAdmin;
-    }
-
-    // ============================================
-    // VIEW FUNCTIONS
-    // ============================================
-
-    /**
-     * @notice Get reserve data
-     * @param commodity The commodity address
-     * @return The reserve data
-     */
-    function getReserveData(
-        address commodity
-    ) external view returns (DataTypes.CommodityReserveData memory) {
-        return _reserves[commodity];
-    }
-
-    /**
-     * @notice Get user configuration
-     * @param user The user address
-     * @return The user configuration
-     */
-    function getUserConfiguration(
-        address user
-    ) external view returns (DataTypes.UserConfigurationMap memory) {
-        return _usersConfig[user];
+    function configureEModeCategory(
+        uint8 categoryId,
+        uint16 ltv,
+        uint16 liquidationThreshold,
+        uint16 liquidationBonus,
+        address priceSource,
+        string memory label,
+        uint128 collateralBitmap,
+        uint128 borrowableBitmap
+    ) external onlyAdmin {
+        _eModeCategories[categoryId] = DataTypes.EModeCategory({
+            ltv: ltv,
+            liquidationThreshold: liquidationThreshold,
+            liquidationBonus: liquidationBonus,
+            priceSource: priceSource,
+            label: label,
+            collateralBitmap: collateralBitmap,
+            borrowableBitmap: borrowableBitmap
+        });
     }
 
     /**
-     * @notice Get reserve normalized income
-     * @param commodity The commodity address
-     * @return The normalized income
+     * @notice Set user E-Mode category
      */
-    function getReserveNormalizedIncome(
-        address commodity
-    ) external view returns (uint256) {
-        return _reserves[commodity].getNormalizedIncome();
+    function setUserEMode(uint8 categoryId) external {
+        _usersEModeCategory[msg.sender] = categoryId;
     }
 
     /**
-     * @notice Get reserve normalized variable debt
-     * @param commodity The commodity address
-     * @return The normalized variable debt
+     * @notice Get user E-Mode category
      */
-    function getReserveNormalizedVariableDebt(
-        address commodity
-    ) external view returns (uint256) {
-        return _reserves[commodity].getNormalizedDebt();
+    function getUserEMode(address user) external view returns (uint8) {
+        return _usersEModeCategory[user];
     }
 
     /**
-     * @notice Get the list of all reserves
-     * @return The array of reserve addresses
+     * @notice Initialize a new reserve
      */
-    function getReservesList() external view returns (address[] memory) {
-        address[] memory reserves = new address[](_reservesCount);
-        for (uint256 i = 0; i < _reservesCount; i++) {
-            reserves[i] = _reservesList[i];
-        }
-        return reserves;
+    function initReserve(
+        address asset,
+        address cTokenAddress,
+        address stableDebtAddress,
+        address variableDebtAddress,
+        address interestRateStrategyAddress
+    ) external onlyAdmin {
+        require(_reserves[asset].cTokenAddress == address(0), "Reserve already initialized");
+        
+        _reserves[asset].init(
+            cTokenAddress,
+            variableDebtAddress,
+            interestRateStrategyAddress
+        );
+        
+        _addReserveToList(asset);
     }
 
     /**
-     * @notice Check if pool is paused
-     * @return True if paused
+     * @notice Set reserve configuration
      */
-    function paused() external view returns (bool) {
-        return _paused;
+    function setConfiguration(
+        address asset,
+        DataTypes.CommodityConfigurationMap memory configuration
+    ) external onlyAdmin {
+        require(_reserves[asset].cTokenAddress != address(0), "Reserve not initialized");
+        _reserves[asset].configuration = configuration;
     }
 
     /**
-     * @notice Get price oracle address
-     * @return The oracle address
+     * @notice Get reserve configuration
      */
-    function getPriceOracle() external view returns (address) {
-        return _priceOracle;
-    }
-
-    /**
-     * @notice Get E-Mode category configuration
-     * @param categoryId The category ID
-     * @return The E-Mode category data
-     */
-    function getEModeCategoryData(
-        uint8 categoryId
-    ) external view returns (DataTypes.EModeCategory memory) {
-        return _eModeCategories[categoryId];
-    }
-
-    /**
-     * @notice Get configuration of a reserve
-     * @param asset The address of the underlying asset
-     * @return The configuration map
-     */
-    function getConfiguration(
-        address asset
-    ) external view returns (DataTypes.CommodityConfigurationMap memory) {
+    function getConfiguration(address asset) external view returns (
+        DataTypes.CommodityConfigurationMap memory
+    ) {
         return _reserves[asset].configuration;
+    }
+
+    /**
+     * @notice Get normalized income for a reserve
+     */
+    function getReserveNormalizedIncome(address asset) external view returns (uint256) {
+        return _reserves[asset].getNormalizedIncome();
+    }
+
+    /**
+     * @notice Get normalized variable debt for a reserve
+     */
+    function getReserveNormalizedVariableDebt(address asset) external view returns (uint256) {
+        return _reserves[asset].getNormalizedDebt();
+    }
+
+    /**
+     * @notice Add reserve to list
+     */
+    function _addReserveToList(address asset) internal {
+        uint256 reservesCount = _reservesCount;
+
+        bool reserveAlreadyAdded = _reserves[asset].id != 0 || _reservesList[0] == asset;
+
+        if (!reserveAlreadyAdded) {
+            _reserves[asset].id = uint16(reservesCount);
+            _reservesList[reservesCount] = asset;
+            _reservesCount = reservesCount + 1;
+        }
     }
 }

@@ -10,7 +10,7 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @author Chain Capital
  * @notice Protects against unfair liquidations during L2 sequencer downtime
  * @dev Implements grace period after sequencer recovery before liquidations resume
- * Based on Aave V3 PriceOracleSentinel
+ * Based on Chain Capital V3 PriceOracleSentinel
  */
 contract PriceOracleSentinel is Ownable {
     

@@ -458,7 +458,9 @@ contract CommodityLendingPoolTest is Test {
             9800,   // liquidationThreshold (98%)
             200,    // liquidationBonus (2%)
             address(0), // priceSource
-            "Stablecoins" // label
+            "Stablecoins", // label
+            type(uint128).max, // collateralBitmap (all assets allowed)
+            type(uint128).max  // borrowableBitmap (all assets allowed)
         );
 
         vm.stopPrank();

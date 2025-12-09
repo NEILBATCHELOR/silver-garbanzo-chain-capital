@@ -122,6 +122,97 @@ Deno.serve(async (req) => {
         });
         break;
 
+      // ==================== PRECIOUS METALS APIs ====================
+      
+      case 'metals_live':
+        // api.metals.live - NO API KEY REQUIRED (< 30K/month)
+        // FREE: 30,000 requests/month
+        apiUrl = `https://api.metals.live/v1/${endpoint}`;
+        
+        // Add API key if provided (for > 30K/month)
+        if (params?.api_key) {
+          const metalsLiveParams = new URLSearchParams(params);
+          apiUrl += `?${metalsLiveParams.toString()}`;
+        }
+        
+        response = await fetch(apiUrl, {
+          headers: {
+            'User-Agent': 'ChainCapital/1.0'
+          }
+        });
+        break;
+
+      case 'metals_dev':
+        // Metals.Dev - API KEY REQUIRED
+        // FREE: 100 requests/month, PAID: $1.49-$14.99/month
+        const metalsDevApiKey = params?.api_key;
+        if (!metalsDevApiKey) {
+          throw new Error('Metals.Dev API key required');
+        }
+        
+        apiUrl = `https://api.metals.dev/v1/${endpoint}`;
+        
+        // Build query parameters
+        const metalsDevParams = new URLSearchParams({
+          ...params,
+          api_key: metalsDevApiKey
+        });
+        
+        response = await fetch(`${apiUrl}?${metalsDevParams.toString()}`, {
+          headers: {
+            'User-Agent': 'ChainCapital/1.0'
+          }
+        });
+        break;
+
+      case 'metals_api':
+        // Metals-API.com - API KEY REQUIRED (PAID ONLY)
+        // PAID: $9.99-$299/month
+        const metalsApiKey = params?.access_key;
+        if (!metalsApiKey) {
+          throw new Error('Metals-API.com access key required');
+        }
+        
+        apiUrl = `https://metals-api.com/api/${endpoint}`;
+        
+        // Build query parameters
+        const metalsApiParams = new URLSearchParams({
+          ...params,
+          access_key: metalsApiKey
+        });
+        
+        response = await fetch(`${apiUrl}?${metalsApiParams.toString()}`, {
+          headers: {
+            'User-Agent': 'ChainCapital/1.0'
+          }
+        });
+        break;
+
+      case 'metalpriceapi':
+        // MetalpriceAPI - API KEY REQUIRED
+        // FREE: 100 requests/month, PAID: $3.99-$99/month
+        const metalpriceApiKey = params?.api_key;
+        if (!metalpriceApiKey) {
+          throw new Error('MetalpriceAPI key required');
+        }
+        
+        apiUrl = `https://api.metalpriceapi.com/v1/${endpoint}`;
+        
+        // Build query parameters
+        const metalpriceParams = new URLSearchParams({
+          ...params,
+          api_key: metalpriceApiKey
+        });
+        
+        response = await fetch(`${apiUrl}?${metalpriceParams.toString()}`, {
+          headers: {
+            'User-Agent': 'ChainCapital/1.0'
+          }
+        });
+        break;
+
+      // ==============================================================
+
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }

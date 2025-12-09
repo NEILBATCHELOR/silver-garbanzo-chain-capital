@@ -30,6 +30,8 @@ interface ICommodityOracle {
         address commodityToken
     ) external view returns (uint256 price, uint256 confidence, uint256 timestamp);
 
+    function getAssetPrice(address asset) external view returns (uint256);
+
     function isPriceFeedActive(address commodityToken) external view returns (bool);
     function getCommodityType(address commodityToken) external view returns (CommodityType);
 }

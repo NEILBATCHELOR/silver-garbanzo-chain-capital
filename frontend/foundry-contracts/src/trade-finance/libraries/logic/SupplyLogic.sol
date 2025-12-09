@@ -1,249 +1,301 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.10;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ICommodityToken} from "../../interfaces/ICommodityToken.sol";
-import {DataTypes} from "../types/DataTypes.sol";
+import {IAToken} from "../../interfaces/IAToken.sol";
 import {Errors} from "../helpers/Errors.sol";
+import {UserConfiguration} from "../configuration/UserConfiguration.sol";
+import {DataTypes} from "../types/DataTypes.sol";
 import {WadRayMath} from "../math/WadRayMath.sol";
-import {ReserveLogic} from "./ReserveLogic.sol";
+import {PercentageMath} from "../math/PercentageMath.sol";
 import {ValidationLogic} from "./ValidationLogic.sol";
+import {ReserveLogic} from "./ReserveLogic.sol";
+import {ReserveConfiguration} from "../configuration/ReserveConfiguration.sol";
 
 /**
  * @title SupplyLogic library
  * @author Chain Capital
- * @notice Implements supply/withdraw logic for commodities
- * @dev Handles commodity deposits and withdrawals with cToken minting/burning
+ * @notice Implements the base logic for supply/withdraw
  */
 library SupplyLogic {
-    using WadRayMath for uint256;
-    using SafeERC20 for IERC20;
-    using ReserveLogic for DataTypes.CommodityReserveData;
+  using ReserveLogic for DataTypes.ReserveCache;
+  using ReserveLogic for DataTypes.CommodityReserveData;
+  using SafeERC20 for IERC20;
+  using UserConfiguration for DataTypes.UserConfigurationMap;
+  using ReserveConfiguration for DataTypes.CommodityConfigurationMap;
+  using WadRayMath for uint256;
+  using PercentageMath for uint256;
 
-    /**
-     * @dev Emitted on supply
-     * @param commodityToken The address of the commodity token
-     * @param user The address initiating the supply
-     * @param onBehalfOf The beneficiary of the supply
-     * @param amount The amount supplied
-     * @param referralCode The referral code used
-     */
-    event CommoditySupplied(
-        address indexed commodityToken,
-        address user,
-        address indexed onBehalfOf,
-        uint256 amount,
-        uint16 indexed referralCode
+  // See `IPool` for descriptions
+  event ReserveUsedAsCollateralEnabled(address indexed reserve, address indexed user);
+  event ReserveUsedAsCollateralDisabled(address indexed reserve, address indexed user);
+  event Withdraw(address indexed reserve, address indexed user, address indexed to, uint256 amount);
+  event Supply(
+    address indexed reserve,
+    address user,
+    address indexed onBehalfOf,
+    uint256 amount,
+    uint16 indexed referralCode
+  );
+
+  /**
+   * @notice Implements the supply feature. Through `supply()`, users supply assets to the Chain Capital protocol.
+   * @dev Emits the `Supply()` event.
+   * @dev In the first supply action, `ReserveUsedAsCollateralEnabled()` is emitted, if the asset can be enabled as
+   * collateral.
+   * @param reservesData The state of all the reserves
+   * @param reservesList The addresses of all the active reserves
+   * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
+   * @param params The additional parameters needed to execute the supply function
+   */
+  function executeSupply(
+    mapping(address => DataTypes.CommodityReserveData) storage reservesData,
+    mapping(uint256 => address) storage reservesList,
+    DataTypes.UserConfigurationMap storage userConfig,
+    DataTypes.ExecuteSupplyParams memory params
+  ) external {
+    DataTypes.CommodityReserveData storage reserve = reservesData[params.asset];
+    DataTypes.ReserveCache memory reserveCache = reserve.cache();
+
+    reserve.updateState(reserveCache);
+
+    ValidationLogic.validateSupply(reserveCache, reserve, params.amount, params.onBehalfOf);
+
+    reserve.updateInterestRatesAndVirtualBalance(reserveCache, params.asset, params.amount, 0);
+
+    IERC20(params.asset).safeTransferFrom(msg.sender, reserveCache.cTokenAddress, params.amount);
+
+    bool isFirstSupply = IAToken(reserveCache.cTokenAddress).mint(
+      msg.sender,
+      params.onBehalfOf,
+      params.amount,
+      reserveCache.nextLiquidityIndex
     );
 
-    /**
-     * @dev Emitted on withdraw
-     * @param commodityToken The address of the commodity token
-     * @param user The address initiating the withdrawal
-     * @param to The address receiving the underlying
-     * @param amount The amount withdrawn
-     */
-    event CommodityWithdrawn(
-        address indexed commodityToken,
-        address indexed user,
-        address indexed to,
-        uint256 amount
+    if (isFirstSupply) {
+      if (
+        ValidationLogic.validateAutomaticUseAsCollateral(
+          reservesData,
+          reservesList,
+          userConfig,
+          reserveCache.commodityConfiguration,
+          reserveCache.cTokenAddress
+        )
+      ) {
+        userConfig.setUsingAsCollateral(reserve.id, true);
+        emit ReserveUsedAsCollateralEnabled(params.asset, params.onBehalfOf);
+      }
+    }
+
+    emit Supply(params.asset, msg.sender, params.onBehalfOf, params.amount, params.referralCode);
+  }
+
+  /**
+   * @notice Implements the withdraw feature. Through `withdraw()`, users redeem their aTokens for the underlying asset
+   * previously supplied in the Chain Capital protocol.
+   * @dev Emits the `Withdraw()` event.
+   * @dev If the user withdraws everything, `ReserveUsedAsCollateralDisabled()` is emitted.
+   * @param reservesData The state of all the reserves
+   * @param reservesList The addresses of all the active reserves
+   * @param eModeCategories The configuration of all the efficiency mode categories
+   * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
+   * @param params The additional parameters needed to execute the withdraw function
+   * @return The actual amount withdrawn
+   */
+  function executeWithdraw(
+    mapping(address => DataTypes.CommodityReserveData) storage reservesData,
+    mapping(uint256 => address) storage reservesList,
+    mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
+    DataTypes.UserConfigurationMap storage userConfig,
+    DataTypes.ExecuteWithdrawParams memory params
+  ) external returns (uint256) {
+    DataTypes.CommodityReserveData storage reserve = reservesData[params.asset];
+    DataTypes.ReserveCache memory reserveCache = reserve.cache();
+
+    require(params.to != reserveCache.cTokenAddress, Errors.SUPPLY_TO_ATOKEN);
+
+    reserve.updateState(reserveCache);
+
+    uint256 userBalance = IAToken(reserveCache.cTokenAddress).scaledBalanceOf(msg.sender).rayMul(
+      reserveCache.nextLiquidityIndex
     );
 
-    struct ExecuteSupplyParams {
-        address commodityToken;
-        address user;
-        address onBehalfOf;
-        uint256 amount;
-        uint16 referralCode;
+    uint256 amountToWithdraw = params.amount;
+
+    if (params.amount == type(uint256).max) {
+      amountToWithdraw = userBalance;
     }
 
-    struct ExecuteWithdrawParams {
-        address commodityToken;
-        address user;
-        address to;
-        uint256 amount;
+    ValidationLogic.validateWithdraw(reserveCache, amountToWithdraw, userBalance);
+
+    reserve.updateInterestRatesAndVirtualBalance(reserveCache, params.asset, 0, amountToWithdraw);
+
+    bool isCollateral = userConfig.isUsingAsCollateral(reserve.id);
+
+    if (isCollateral && amountToWithdraw == userBalance) {
+      userConfig.setUsingAsCollateral(reserve.id, false);
+      emit ReserveUsedAsCollateralDisabled(params.asset, msg.sender);
     }
 
-    /**
-     * @notice Executes commodity supply to the pool
-     * @dev Transfers commodity token from user, mints cTokens, updates reserves
-     * @param reserve The commodity reserve data
-     * @param params The supply execution parameters
-     * @return The scaled amount supplied (normalized by liquidity index)
-     */
-    function executeSupply(
-        DataTypes.CommodityReserveData storage reserve,
-        ExecuteSupplyParams memory params
-    ) external returns (uint256) {
-        // Cache reserve data first
-        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
-        
-        // Update reserve state with cache
-        ReserveLogic.updateState(reserve, reserveCache);
+    IAToken(reserveCache.cTokenAddress).burn(
+      msg.sender,
+      params.to,
+      amountToWithdraw,
+      reserveCache.nextLiquidityIndex
+    );
 
-        // Validate supply
-        ValidationLogic.validateSupply(
+    if (isCollateral && userConfig.isBorrowingAny()) {
+      ValidationLogic.validateHFAndLtv(
+        reservesData,
+        reservesList,
+        eModeCategories,
+        userConfig,
+        params.asset,
+        msg.sender,
+        params.reservesCount,
+        params.oracle,
+        params.userEModeCategory
+      );
+    }
+
+    emit Withdraw(params.asset, msg.sender, params.to, amountToWithdraw);
+
+    return amountToWithdraw;
+  }
+
+  /**
+   * @notice Validates a transfer of aTokens. The sender is subjected to health factor validation to avoid
+   * collateralization constraints violation.
+   * @dev Emits the `ReserveUsedAsCollateralEnabled()` event for the `to` account, if the asset is being activated as
+   * collateral.
+   * @dev In case the `from` user transfers everything, `ReserveUsedAsCollateralDisabled()` is emitted for `from`.
+   * @param reservesData The state of all the reserves
+   * @param reservesList The addresses of all the active reserves
+   * @param eModeCategories The configuration of all the efficiency mode categories
+   * @param usersConfig The users configuration mapping that track the supplied/borrowed assets
+   * @param params The additional parameters needed to execute the finalizeTransfer function
+   */
+  function executeFinalizeTransfer(
+    mapping(address => DataTypes.CommodityReserveData) storage reservesData,
+    mapping(uint256 => address) storage reservesList,
+    mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
+    mapping(address => DataTypes.UserConfigurationMap) storage usersConfig,
+    DataTypes.FinalizeTransferParams memory params
+  ) external {
+    DataTypes.CommodityReserveData storage reserve = reservesData[params.asset];
+
+    ValidationLogic.validateTransfer(reserve);
+
+    uint256 reserveId = reserve.id;
+    uint256 scaledAmount = params.amount.rayDiv(reserve.getNormalizedIncome());
+
+    if (params.from != params.to && scaledAmount != 0) {
+      DataTypes.UserConfigurationMap storage fromConfig = usersConfig[params.from];
+
+      if (fromConfig.isUsingAsCollateral(reserveId)) {
+        if (fromConfig.isBorrowingAny()) {
+          ValidationLogic.validateHFAndLtv(
+            reservesData,
+            reservesList,
+            eModeCategories,
+            usersConfig[params.from],
+            params.asset,
+            params.from,
+            params.reservesCount,
+            params.oracle,
+            params.fromEModeCategory
+          );
+        }
+        if (params.balanceFromBefore == params.amount) {
+          fromConfig.setUsingAsCollateral(reserveId, false);
+          emit ReserveUsedAsCollateralDisabled(params.asset, params.from);
+        }
+      }
+
+      if (params.balanceToBefore == 0) {
+        DataTypes.UserConfigurationMap storage toConfig = usersConfig[params.to];
+        if (
+          ValidationLogic.validateAutomaticUseAsCollateral(
+            reservesData,
+            reservesList,
+            toConfig,
             reserve.configuration,
-            params.amount
-        );
-
-        // Update interest rates
-        ReserveLogic.updateInterestRates(
-            reserve,
-            reserveCache,
-            params.commodityToken,
-            params.amount,
-            0
-        );
-
-        // Transfer commodity token from user to pool
-        IERC20(params.commodityToken).safeTransferFrom(
-            params.user,
-            address(this),
-            params.amount
-        );
-
-        // Calculate scaled amount (normalized by liquidity index)
-        bool isFirstSupply = reserve.cTokenAddress == address(0) ||
-                            ICommodityToken(reserve.cTokenAddress).totalSupply() == 0;
-
-        uint256 amountScaled = params.amount;
-        
-        if (!isFirstSupply) {
-            amountScaled = params.amount.rayDiv(reserve.liquidityIndex);
+            reserve.cTokenAddress
+          )
+        ) {
+          toConfig.setUsingAsCollateral(reserveId, true);
+          emit ReserveUsedAsCollateralEnabled(params.asset, params.to);
         }
-
-        // Mint cTokens (receipt tokens) to beneficiary
-        require(reserve.cTokenAddress != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-        
-        ICommodityToken(reserve.cTokenAddress).mint(
-            params.user,
-            params.onBehalfOf,
-            amountScaled,
-            reserve.liquidityIndex
-        );
-
-        emit CommoditySupplied(
-            params.commodityToken,
-            params.user,
-            params.onBehalfOf,
-            params.amount,
-            params.referralCode
-        );
-
-        return amountScaled;
+      }
     }
+  }
 
-    /**
-     * @notice Executes commodity withdrawal from the pool
-     * @dev Burns cTokens, transfers commodity token to user, updates reserves
-     * @param reserve The commodity reserve data
-     * @param params The withdraw execution parameters
-     * @return The actual amount withdrawn
-     */
-    function executeWithdraw(
-        DataTypes.CommodityReserveData storage reserve,
-        ExecuteWithdrawParams memory params
-    ) external returns (uint256) {
-        // Create cache and update reserve state
-        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
-        ReserveLogic.updateState(reserve, reserveCache);
+  /**
+   * @notice Executes the 'set as collateral' feature. A user can choose to activate or deactivate an asset as
+   * collateral at any point in time. Deactivating an asset as collateral is subjected to the usual health factor
+   * checks to ensure collateralization.
+   * @dev Emits the `ReserveUsedAsCollateralEnabled()` event if the asset can be activated as collateral.
+   * @dev In case the asset is being deactivated as collateral, `ReserveUsedAsCollateralDisabled()` is emitted.
+   * @param reservesData The state of all the reserves
+   * @param reservesList The addresses of all the active reserves
+   * @param eModeCategories The configuration of all the efficiency mode categories
+   * @param userConfig The users configuration mapping that track the supplied/borrowed assets
+   * @param asset The address of the asset being configured as collateral
+   * @param useAsCollateral True if the user wants to set the asset as collateral, false otherwise
+   * @param reservesCount The number of initialized reserves
+   * @param priceOracle The address of the price oracle
+   * @param userEModeCategory The eMode category chosen by the user
+   */
+  function executeUseReserveAsCollateral(
+    mapping(address => DataTypes.CommodityReserveData) storage reservesData,
+    mapping(uint256 => address) storage reservesList,
+    mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
+    DataTypes.UserConfigurationMap storage userConfig,
+    address asset,
+    bool useAsCollateral,
+    uint256 reservesCount,
+    address priceOracle,
+    uint8 userEModeCategory
+  ) external {
+    DataTypes.CommodityReserveData storage reserve = reservesData[asset];
+    DataTypes.ReserveCache memory reserveCache = reserve.cache();
 
-        // Get user's cToken balance
-        uint256 userBalance = ICommodityToken(reserve.cTokenAddress).scaledBalanceOf(params.user);
-        
-        // If amount is type(uint256).max, withdraw all
-        uint256 amountToWithdraw = params.amount;
-        if (params.amount == type(uint256).max) {
-            amountToWithdraw = userBalance.rayMul(reserve.liquidityIndex);
-        }
+    uint256 userBalance = IERC20(reserveCache.cTokenAddress).balanceOf(msg.sender);
 
-        // Validate withdrawal
-        ValidationLogic.validateWithdraw(
-            reserve,
-            amountToWithdraw,
-            userBalance
-        );
+    ValidationLogic.validateSetUseReserveAsCollateral(reserveCache, userBalance);
 
-        // Update interest rates
-        ReserveLogic.updateInterestRates(
-            reserve,
-            reserveCache,
-            params.commodityToken,
-            0,
-            amountToWithdraw
-        );
+    if (useAsCollateral == userConfig.isUsingAsCollateral(reserve.id)) return;
 
-        // Calculate scaled amount to burn
-        uint256 amountScaledToBurn = amountToWithdraw.rayDiv(reserve.liquidityIndex);
-        
-        // Ensure we don't burn more than user has
-        if (amountScaledToBurn == userBalance) {
-            amountToWithdraw = ICommodityToken(reserve.cTokenAddress).balanceOf(params.user);
-        }
+    if (useAsCollateral) {
+      require(
+        ValidationLogic.validateAutomaticUseAsCollateral(
+          reservesData,
+          reservesList,
+          userConfig,
+          reserveCache.commodityConfiguration,
+          reserveCache.cTokenAddress
+        ),
+        Errors.ISOLATED_COLLATERAL_VIOLATION
+      );
 
-        // Burn cTokens from user
-        ICommodityToken(reserve.cTokenAddress).burn(
-            params.user,
-            params.to,
-            amountToWithdraw,
-            reserve.liquidityIndex
-        );
+      userConfig.setUsingAsCollateral(reserve.id, true);
+      emit ReserveUsedAsCollateralEnabled(asset, msg.sender);
+    } else {
+      userConfig.setUsingAsCollateral(reserve.id, false);
+      ValidationLogic.validateHFAndLtv(
+        reservesData,
+        reservesList,
+        eModeCategories,
+        userConfig,
+        asset,
+        msg.sender,
+        reservesCount,
+        priceOracle,
+        userEModeCategory
+      );
 
-        // Transfer commodity token to recipient
-        IERC20(params.commodityToken).safeTransfer(params.to, amountToWithdraw);
-
-        emit CommodityWithdrawn(
-            params.commodityToken,
-            params.user,
-            params.to,
-            amountToWithdraw
-        );
-
-        return amountToWithdraw;
+      emit ReserveUsedAsCollateralDisabled(asset, msg.sender);
     }
-
-    /**
-     * @notice Finalizes transfer of cTokens between users
-     * @dev Called after cToken transfer to update user configurations
-     * @param reserve The commodity reserve data
-     * @param from The source address
-     * @param to The destination address
-     * @param amount The amount transferred (scaled)
-     * @param fromBalanceBefore The balance before transfer
-     * @param toBalanceBefore The balance before transfer
-     */
-    function executeFinalizeTransfer(
-        DataTypes.CommodityReserveData storage reserve,
-        address from,
-        address to,
-        uint256 amount,
-        uint256 fromBalanceBefore,
-        uint256 toBalanceBefore
-    ) external {
-        // Create cache and update reserve state
-        DataTypes.CommodityCache memory reserveCache = ReserveLogic.cache(reserve);
-        ReserveLogic.updateState(reserve, reserveCache);
-
-        // Validate that transfers are allowed (commodity not paused)
-        ValidationLogic.validateTransfer(reserve);
-
-        // Update user configurations based on new balances
-        uint256 fromBalanceAfter = fromBalanceBefore - amount;
-        uint256 toBalanceAfter = toBalanceBefore + amount;
-
-        // If sender's balance is now 0, they may need to update their collateral flags
-        if (fromBalanceAfter == 0) {
-            // This will be handled by the pool contract calling user configuration updates
-            // No direct action needed here
-        }
-
-        // If receiver's balance was 0, they may need to enable this as collateral
-        if (toBalanceBefore == 0 && toBalanceAfter > 0) {
-            // This will be handled by the pool contract
-            // No direct action needed here
-        }
-    }
+  }
 }

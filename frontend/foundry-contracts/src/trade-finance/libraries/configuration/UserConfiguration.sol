@@ -285,6 +285,20 @@ library UserConfiguration {
   }
 
   /**
+   * @notice Gets the commodity index used as isolated collateral
+   * @param self The configuration object
+   * @param reservesCount The total number of reserves (unused but kept for compatibility)
+   * @return The commodity index of the isolated collateral, or type(uint256).max if not in isolation mode
+   */
+  function getIsolationModeCollateral(
+    DataTypes.UserConfigurationMap memory self,
+    uint256 reservesCount
+  ) internal pure returns (uint256) {
+    (bool isolated, uint256 commodityIndex) = isIsolated(self);
+    return isolated ? commodityIndex : type(uint256).max;
+  }
+
+  /**
    * @notice Gets the isolation mode collateral address
    * @param self The configuration object
    * @param commodities The list of all commodity addresses

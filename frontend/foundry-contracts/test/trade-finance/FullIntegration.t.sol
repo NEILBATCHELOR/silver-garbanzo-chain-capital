@@ -509,7 +509,9 @@ contract FullIntegrationTest is Test {
             9200,                       // liquidationThreshold (92%)
             300,                        // liquidationBonus (3%)
             address(0),                 // priceSource
-            "Agricultural Efficiency"   // label
+            "Agricultural Efficiency",  // label
+            type(uint128).max,          // collateralBitmap (all assets allowed)
+            type(uint128).max           // borrowableBitmap (all assets allowed)
         );
 
         // Farmer enters E-Mode

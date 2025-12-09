@@ -28,9 +28,13 @@ import {DataTypes} from '../types/DataTypes.sol';
  *  bit 168-175: eMode category (8 bits, 0-255)
  *  bit 176-211: Unbacked mint cap in whole tokens (36 bits)
  *  bit 212-251: Debt ceiling for isolation mode (40 bits, up to ~$1T with 2 decimals)
- *  bit 252-255: Unused (4 bits)
+ *  bit 252:    Virtual accounting active
+ *  bit 253-255: Unused (3 bits)
  */
 library ReserveConfiguration {
+  // Maximum number of reserves (matches uint128 bitmap size in E-Mode)
+  uint256 internal constant MAX_RESERVES_COUNT = 128;
+  
   // Bit position constants
   uint256 internal constant LTV_MASK =                       0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000;
   uint256 internal constant LIQUIDATION_THRESHOLD_MASK =     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF;
@@ -51,6 +55,7 @@ library ReserveConfiguration {
   uint256 internal constant EMODE_CATEGORY_MASK =            0xFFFFFFFFFFFFFFFFFF00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
   uint256 internal constant UNBACKED_MINT_CAP_MASK =         0xFFFFFFFFF000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
   uint256 internal constant DEBT_CEILING_MASK =              0xF0000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+  uint256 internal constant VIRTUAL_ACC_ACTIVE_MASK =        0xEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
   /// @dev For the LTV, the start bit is 0 (up to 15), hence no bitshifting is needed
   uint256 internal constant LIQUIDATION_THRESHOLD_START_BIT_POSITION = 16;
@@ -71,6 +76,7 @@ library ReserveConfiguration {
   uint256 internal constant EMODE_CATEGORY_START_BIT_POSITION = 168;
   uint256 internal constant UNBACKED_MINT_CAP_START_BIT_POSITION = 176;
   uint256 internal constant DEBT_CEILING_START_BIT_POSITION = 212;
+  uint256 internal constant VIRTUAL_ACC_ACTIVE_START_BIT_POSITION = 252;
 
   uint256 internal constant MAX_VALID_LTV = 65535;
   uint256 internal constant MAX_VALID_LIQUIDATION_THRESHOLD = 65535;
@@ -83,6 +89,9 @@ library ReserveConfiguration {
   uint256 internal constant MAX_VALID_EMODE_CATEGORY = 255;
   uint256 internal constant MAX_VALID_UNBACKED_MINT_CAP = 68719476735;
   uint256 internal constant MAX_VALID_DEBT_CEILING = 1099511627775; // 2^40 - 1
+  
+  // Debt ceiling uses 2 decimal places (stored in USD with 2 decimals)
+  uint256 internal constant DEBT_CEILING_DECIMALS = 2;
 
   /**
    * @notice Sets the Loan-to-Value (LTV) of the commodity
@@ -593,6 +602,54 @@ library ReserveConfiguration {
     return (
       (dataLocal & ~SUPPLY_CAP_MASK) >> SUPPLY_CAP_START_BIT_POSITION,
       (dataLocal & ~BORROW_CAP_MASK) >> BORROW_CAP_START_BIT_POSITION
+    );
+  }
+
+  /**
+   * @notice Sets the virtual accounting active flag for the commodity
+   * @param self The commodity configuration
+   * @param active True if virtual accounting is active, false otherwise
+   */
+  function setIsVirtualAccActive(
+    DataTypes.CommodityConfigurationMap memory self,
+    bool active
+  ) internal pure {
+    self.data =
+      (self.data & VIRTUAL_ACC_ACTIVE_MASK) |
+      (uint256(active ? 1 : 0) << VIRTUAL_ACC_ACTIVE_START_BIT_POSITION);
+  }
+
+  /**
+   * @notice Gets the virtual accounting active flag for the commodity
+   * @param self The commodity configuration
+   * @return The virtual accounting active flag
+   */
+  function getIsVirtualAccActive(
+    DataTypes.CommodityConfigurationMap memory self
+  ) internal pure returns (bool) {
+    return (self.data & ~VIRTUAL_ACC_ACTIVE_MASK) != 0;
+  }
+
+  /**
+   * @notice Gets the main commodity parameters in a single call
+   * @param self The commodity configuration
+   * @return ltv, liquidationThreshold, liquidationBonus, decimals, reserveFactor
+   */
+  function getParams(
+    DataTypes.CommodityConfigurationMap memory self
+  )
+    internal
+    pure
+    returns (uint256, uint256, uint256, uint256, uint256)
+  {
+    uint256 dataLocal = self.data;
+
+    return (
+      dataLocal & ~LTV_MASK,
+      (dataLocal & ~LIQUIDATION_THRESHOLD_MASK) >> LIQUIDATION_THRESHOLD_START_BIT_POSITION,
+      (dataLocal & ~LIQUIDATION_BONUS_MASK) >> LIQUIDATION_BONUS_START_BIT_POSITION,
+      (dataLocal & ~DECIMALS_MASK) >> RESERVE_DECIMALS_START_BIT_POSITION,
+      (dataLocal & ~RESERVE_FACTOR_MASK) >> RESERVE_FACTOR_START_BIT_POSITION
     );
   }
 }

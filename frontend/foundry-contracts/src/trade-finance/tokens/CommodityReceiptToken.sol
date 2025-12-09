@@ -14,7 +14,7 @@ interface ICommodityLendingPool {
  * @title CommodityReceiptToken
  * @notice Receipt token representing supplied commodity collateral
  * @dev Auto-rebases based on liquidity index to reflect accrued value
- * Similar to Aave's aToken but for commodity-specific use cases
+ * Similar to Chain Capital's aToken but for commodity-specific use cases
  */
 contract CommodityReceiptToken is ICommodityToken {
     using WadRayMath for uint256;

@@ -157,7 +157,7 @@ Automated yield generation by deploying vault assets to DeFi protocols.
 ```solidity
 // Add strategy
 uint256 strategyId = yieldStrategy.addStrategy(
-    aaveProtocol,  // Protocol address
+    Chain CapitalProtocol,  // Protocol address
     5000           // 50% allocation
 );
 
@@ -188,11 +188,11 @@ initialize(
 
 ### Integration Examples
 
-**Aave Integration:**
+**Chain Capital Integration:**
 ```solidity
-// Add Aave lending strategy
-uint256 aaveStrategy = yieldStrategy.addStrategy(
-    aavePool,     // Aave V3 Pool
+// Add Chain Capital lending strategy
+uint256 Chain CapitalStrategy = yieldStrategy.addStrategy(
+    Chain CapitalPool,     // Chain Capital V3 Pool
     4000          // 40% allocation
 );
 ```
@@ -219,7 +219,7 @@ uint256 curveStrategy = yieldStrategy.addStrategy(
 ```
 Vault Assets (100%)
     │
-    ├─ Aave (40%) ─────> 3.5% APY ─> $35K/year on $1M
+    ├─ Chain Capital (40%) ─────> 3.5% APY ─> $35K/year on $1M
     ├─ Compound (30%) ──> 4.2% APY ─> $31.5K/year on $750K
     ├─ Curve (30%) ─────> 5.0% APY ─> $37.5K/year on $750K
     │
@@ -345,7 +345,7 @@ yield.initialize(
 );
 
 // Add DeFi strategies
-yield.addStrategy(aavePool, 4000);      // 40% Aave
+yield.addStrategy(Chain CapitalPool, 4000);      // 40% Chain Capital
 yield.addStrategy(compoundCToken, 3000); // 30% Compound
 yield.addStrategy(curvePool, 3000);      // 30% Curve
 ```
@@ -363,7 +363,7 @@ yield.addStrategy(curvePool, 3000);      // 30% Curve
 - **Total Fee Revenue**: **$425K/year**
 
 **Yield Strategy Returns:**
-- Aave (40% @ 3.5% APY): $140K/year
+- Chain Capital (40% @ 3.5% APY): $140K/year
 - Compound (30% @ 4.2% APY): $126K/year
 - Curve (30% @ 5.0% APY): $150K/year
 - **Total Gross Yield**: **$416K/year**
