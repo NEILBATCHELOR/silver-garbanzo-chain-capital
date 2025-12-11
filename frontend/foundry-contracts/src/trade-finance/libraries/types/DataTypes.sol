@@ -321,4 +321,61 @@ library DataTypes {
     address oracle;
     uint8 categoryId;
   }
+
+  // ============ FLASH LOAN PARAMETER STRUCTS ============
+  
+  /**
+   * @dev Flash loan execution parameters
+   */
+  struct FlashloanParams {
+    address receiverAddress;
+    address[] assets;
+    uint256[] amounts;
+    uint256[] interestRateModes;
+    address onBehalfOf;
+    bytes params;
+    uint16 referralCode;
+    uint256 flashLoanPremiumToProtocol;
+    uint256 flashLoanPremiumTotal;
+    uint256 reservesCount;
+    address addressesProvider;
+    address pool;
+    uint8 userEModeCategory;
+    bool isAuthorizedFlashBorrower;
+  }
+
+  /**
+   * @dev Simple flash loan execution parameters (single asset)
+   */
+  struct FlashloanSimpleParams {
+    address receiverAddress;
+    address asset;
+    uint256 amount;
+    bytes params;
+    uint16 referralCode;
+    uint256 flashLoanPremiumToProtocol;
+    uint256 flashLoanPremiumTotal;
+  }
+
+  /**
+   * @dev Flash loan repayment parameters
+   */
+  struct FlashLoanRepaymentParams {
+    uint256 amount;
+    uint256 totalPremium;
+    uint256 flashLoanPremiumToProtocol;
+    address asset;
+    address receiverAddress;
+    uint16 referralCode;
+  }
+
+  // ============ POSITION MANAGER STRUCTS ============
+  
+  /**
+   * @dev Position manager authorization data
+   */
+  struct PositionManagerData {
+    bool isAuthorized;
+    uint256 authorizationTimestamp;
+  }
 }

@@ -486,4 +486,52 @@ library ValidationLogic {
       Errors.INVALID_INTEREST_RATE_MODE_SELECTED
     );
   }
+
+  // ============================================
+  // FLASH LOAN VALIDATION
+  // ============================================
+
+  /**
+   * @notice Validates a flash loan action (multi-asset)
+   * @param reservesData The state of all the reserves
+   * @param assets The assets being flash loaned
+   * @param amounts The amounts being flash loaned
+   */
+  function validateFlashloan(
+    mapping(address => DataTypes.CommodityReserveData) storage reservesData,
+    address[] memory assets,
+    uint256[] memory amounts
+  ) internal view {
+    require(assets.length == amounts.length, Errors.INCONSISTENT_FLASHLOAN_PARAMS);
+    
+    for (uint256 i = 0; i < assets.length; i++) {
+      validateFlashloanSimple(reservesData[assets[i]], amounts[i]);
+    }
+  }
+
+  /**
+   * @notice Validates a simple flash loan action (single asset)
+   * @param reserve The reserve being flash loaned
+   * @param amount The amount being flash loaned
+   */
+  function validateFlashloanSimple(
+    DataTypes.CommodityReserveData storage reserve,
+    uint256 amount
+  ) internal view {
+    require(amount != 0, Errors.INVALID_AMOUNT);
+    
+    (bool isActive, bool isFrozen, , , bool isPaused) = reserve.configuration.getFlags();
+    require(isActive, Errors.COMMODITY_NOT_ACTIVE);
+    require(!isPaused, Errors.COMMODITY_PAUSED);
+    require(!isFrozen, Errors.COMMODITY_FROZEN);
+    
+    require(
+      reserve.configuration.getFlashLoanEnabled(),
+      Errors.FLASHLOAN_DISABLED
+    );
+    
+    // Check available liquidity
+    uint256 availableLiquidity = IERC20(reserve.cTokenAddress).balanceOf(reserve.cTokenAddress);
+    require(amount <= availableLiquidity, Errors.NOT_ENOUGH_AVAILABLE_USER_BALANCE);
+  }
 }

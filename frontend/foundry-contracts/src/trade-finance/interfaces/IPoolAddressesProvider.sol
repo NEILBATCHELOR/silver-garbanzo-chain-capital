@@ -31,6 +31,12 @@ interface IPoolAddressesProvider {
     function getPriceOracle() external view returns (address);
 
     /**
+     * @notice Returns the price oracle sentinel address
+     * @return The price oracle sentinel address
+     */
+    function getPriceOracleSentinel() external view returns (address);
+
+    /**
      * @notice Returns the ACL manager address
      * @return The ACL manager address
      */
@@ -71,6 +77,12 @@ interface IPoolAddressesProvider {
      * @param newPriceOracle The new price oracle address
      */
     function setPriceOracle(address newPriceOracle) external;
+
+    /**
+     * @notice Updates the price oracle sentinel address
+     * @param newPriceOracleSentinel The new price oracle sentinel address
+     */
+    function setPriceOracleSentinel(address newPriceOracleSentinel) external;
 
     /**
      * @notice Updates the ACL manager address

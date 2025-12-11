@@ -5,18 +5,17 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IVariableDebtToken} from "../../interfaces/IVariableDebtToken.sol";
-import {IAToken} from "../../interfaces/IAToken.sol";
 import {UserConfiguration} from "../configuration/UserConfiguration.sol";
 import {ReserveConfiguration} from "../configuration/ReserveConfiguration.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 import {ValidationLogic} from "./ValidationLogic.sol";
 import {ReserveLogic} from "./ReserveLogic.sol";
 import {IsolationModeLogic} from "./IsolationModeLogic.sol";
+import {ICommodityToken} from "../../tokens/CommodityReceiptToken.sol";
 
 /**
  * @title BorrowLogic library
- * @author Chain Capital
- * @notice Implements the base logic for all the actions related to borrowing
+ * @notice Implements the base logic for all borrowing actions in commodity trade finance
  */
 library BorrowLogic {
   using ReserveLogic for DataTypes.ReserveCache;
@@ -26,7 +25,6 @@ library BorrowLogic {
   using ReserveConfiguration for DataTypes.CommodityConfigurationMap;
   using SafeCast for uint256;
 
-  // See `IPool` for descriptions
   event Borrow(
     address indexed reserve,
     address user,
@@ -36,6 +34,7 @@ library BorrowLogic {
     uint256 borrowRate,
     uint16 indexed referralCode
   );
+  
   event Repay(
     address indexed reserve,
     address indexed user,
@@ -43,19 +42,17 @@ library BorrowLogic {
     uint256 amount,
     bool useATokens
   );
+  
   event IsolationModeTotalDebtUpdated(address indexed asset, uint256 totalDebt);
   event ReserveUsedAsCollateralDisabled(address indexed reserve, address indexed user);
 
   /**
-   * @notice Implements the borrow feature. Borrowing allows users that provided collateral to draw liquidity from the
-   * Chain Capital protocol proportionally to their collateralization power. For isolated positions, it also increases the
-   * isolated debt.
-   * @dev  Emits the `Borrow()` event
+   * @notice Implements the borrow feature for commodity-backed loans
    * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
    * @param eModeCategories The configuration of all the efficiency mode categories
-   * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
-   * @param params The additional parameters needed to execute the borrow function
+   * @param userConfig The user configuration mapping
+   * @param params The borrow parameters
    */
   function executeBorrow(
     mapping(address => DataTypes.CommodityReserveData) storage reservesData,
@@ -96,10 +93,26 @@ library BorrowLogic {
       })
     );
 
-    bool isFirstBorrowing = false;
+    // WEEK 2 ENHANCEMENT: Credit Delegation - Check borrow allowance if borrowing on behalf of another user
+    if (params.user != params.onBehalfOf) {
+      IVariableDebtToken debtToken = IVariableDebtToken(reserveCache.variableDebtTokenAddress);
+      uint256 currentAllowance = debtToken.borrowAllowance(params.onBehalfOf, params.user);
+      
+      require(
+        currentAllowance >= params.amount,
+        "Insufficient credit delegation allowance"
+      );
+      
+      // Decrease the allowance after successful borrow (done in mint function)
+      // The debt token handles the allowance decrease internally
+    }
 
+    bool isFirstBorrowing;
+
+    // GAS OPTIMIZATION: Cache variable debt token address to avoid multiple storage reads
+    address variableDebtTokenAddress = reserveCache.variableDebtTokenAddress;
     (isFirstBorrowing, reserveCache.nextScaledVariableDebt) = IVariableDebtToken(
-      reserveCache.variableDebtTokenAddress
+      variableDebtTokenAddress
     ).mint(params.user, params.onBehalfOf, params.amount, reserveCache.nextVariableBorrowIndex);
 
     if (isFirstBorrowing) {
@@ -107,15 +120,18 @@ library BorrowLogic {
     }
 
     if (isolationModeActive) {
-      uint256 nextIsolationModeTotalDebt = reservesData[isolationModeCollateralAddress]
-        .isolationModeTotalDebt += (params.amount /
-        10 **
-          (reserveCache.commodityConfiguration.getDecimals() -
-            ReserveConfiguration.DEBT_CEILING_DECIMALS)).toUint128();
-      emit IsolationModeTotalDebtUpdated(
-        isolationModeCollateralAddress,
-        nextIsolationModeTotalDebt
-      );
+      // GAS OPTIMIZATION: Use unchecked for safe arithmetic
+      unchecked {
+        uint256 nextIsolationModeTotalDebt = reservesData[isolationModeCollateralAddress]
+          .isolationModeTotalDebt += (params.amount /
+          10 **
+            (reserveCache.commodityConfiguration.getDecimals() -
+              ReserveConfiguration.DEBT_CEILING_DECIMALS)).toUint128();
+        emit IsolationModeTotalDebtUpdated(
+          isolationModeCollateralAddress,
+          nextIsolationModeTotalDebt
+        );
+      }
     }
 
     reserve.updateInterestRatesAndVirtualBalance(
@@ -126,7 +142,7 @@ library BorrowLogic {
     );
 
     if (params.releaseUnderlying) {
-      IAToken(reserveCache.cTokenAddress).transferUnderlyingTo(params.user, params.amount);
+      ICommodityToken(reserveCache.cTokenAddress).transferUnderlyingTo(params.user, params.amount);
     }
 
     emit Borrow(
@@ -141,14 +157,11 @@ library BorrowLogic {
   }
 
   /**
-   * @notice Implements the repay feature. Repaying transfers the underlying back to the aToken and clears the
-   * equivalent amount of debt for the user by burning the corresponding debt token. For isolated positions, it also
-   * reduces the isolated debt.
-   * @dev  Emits the `Repay()` event
+   * @notice Implements the repay feature for commodity-backed loans
    * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
-   * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
-   * @param params The additional parameters needed to execute the repay function
+   * @param userConfig The user configuration mapping
+   * @param params The repay parameters
    * @return The actual amount being repaid
    */
   function executeRepay(
@@ -175,9 +188,9 @@ library BorrowLogic {
 
     uint256 paybackAmount = variableDebt;
 
-    // Allows a user to repay with cTokens without leaving dust from interest.
+    // Allows repayment with commodity tokens without leaving dust from interest
     if (params.useATokens && params.amount == type(uint256).max) {
-      params.amount = IAToken(reserveCache.cTokenAddress).balanceOf(msg.sender);
+      params.amount = ICommodityToken(reserveCache.cTokenAddress).balanceOf(msg.sender);
     }
 
     if (params.amount < paybackAmount) {
@@ -206,22 +219,23 @@ library BorrowLogic {
       paybackAmount
     );
 
-    // in case of cToken repayment the msg.sender must always repay on behalf of itself
+    // Handle commodity token repayment
     if (params.useATokens) {
-      IAToken(reserveCache.cTokenAddress).burn(
+      ICommodityToken(reserveCache.cTokenAddress).burn(
         msg.sender,
         reserveCache.cTokenAddress,
         paybackAmount,
         reserveCache.nextLiquidityIndex
       );
+      
       bool isCollateral = userConfig.isUsingAsCollateral(reserve.id);
-      if (isCollateral && IAToken(reserveCache.cTokenAddress).scaledBalanceOf(msg.sender) == 0) {
+      if (isCollateral && ICommodityToken(reserveCache.cTokenAddress).scaledBalanceOf(msg.sender) == 0) {
         userConfig.setUsingAsCollateral(reserve.id, false);
         emit ReserveUsedAsCollateralDisabled(params.asset, msg.sender);
       }
     } else {
       IERC20(params.asset).safeTransferFrom(msg.sender, reserveCache.cTokenAddress, paybackAmount);
-      IAToken(reserveCache.cTokenAddress).handleRepayment(
+      ICommodityToken(reserveCache.cTokenAddress).handleRepayment(
         msg.sender,
         params.onBehalfOf,
         paybackAmount

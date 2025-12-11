@@ -64,9 +64,11 @@ library SupplyLogic {
 
     reserve.updateInterestRatesAndVirtualBalance(reserveCache, params.asset, params.amount, 0);
 
-    IERC20(params.asset).safeTransferFrom(msg.sender, reserveCache.cTokenAddress, params.amount);
+    // GAS OPTIMIZATION: Cache cTokenAddress to avoid multiple storage reads
+    address cTokenAddress = reserveCache.cTokenAddress;
+    IERC20(params.asset).safeTransferFrom(msg.sender, cTokenAddress, params.amount);
 
-    bool isFirstSupply = IAToken(reserveCache.cTokenAddress).mint(
+    bool isFirstSupply = IAToken(cTokenAddress).mint(
       msg.sender,
       params.onBehalfOf,
       params.amount,
@@ -80,7 +82,7 @@ library SupplyLogic {
           reservesList,
           userConfig,
           reserveCache.commodityConfiguration,
-          reserveCache.cTokenAddress
+          cTokenAddress
         )
       ) {
         userConfig.setUsingAsCollateral(reserve.id, true);

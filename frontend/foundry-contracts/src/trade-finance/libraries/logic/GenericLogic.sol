@@ -15,7 +15,7 @@ import {EModeLogic} from "./EModeLogic.sol";
 
 /**
  * @title GenericLogic library
- * @author Chain Capital
+ * @author Chain Capital (Adapted from Aave V3)
  * @notice Implements protocol-level logic to calculate and validate the state of a user
  */
 library GenericLogic {
@@ -137,20 +137,14 @@ library GenericLogic {
       }
 
       if (params.userConfig.isBorrowing(vars.i)) {
-        if (currentReserve.configuration.getIsVirtualAccActive()) {
-          vars.totalDebtInBaseCurrency += _getUserDebtInBaseCurrency(
-            params.user,
-            currentReserve,
-            vars.assetPrice,
-            vars.assetUnit
-          );
-        } else {
-          // custom case for GHO, which applies the GHO discount on balanceOf
-          vars.totalDebtInBaseCurrency +=
-            (IERC20(currentReserve.variableDebtTokenAddress).balanceOf(params.user) *
-              vars.assetPrice) /
-            vars.assetUnit;
-        }
+        // Note: For commodity finance, we always use virtual accounting
+        // Remove GHO-specific logic from Aave
+        vars.totalDebtInBaseCurrency += _getUserDebtInBaseCurrency(
+          params.user,
+          currentReserve,
+          vars.assetPrice,
+          vars.assetUnit
+        );
       }
 
       unchecked {
@@ -172,6 +166,7 @@ library GenericLogic {
       : (vars.totalCollateralInBaseCurrency.percentMul(vars.avgLiquidationThreshold)).wadDiv(
         vars.totalDebtInBaseCurrency
       );
+      
     return (
       vars.totalCollateralInBaseCurrency,
       vars.totalDebtInBaseCurrency,

@@ -115,4 +115,18 @@ interface ICommodityToken is IERC20 {
      * @param amount The amount to transfer
      */
     function transferUnderlyingTo(address target, uint256 amount) external;
+
+    /**
+     * @notice Handles the underlying received by the cToken after repayment transfer
+     * @dev Default implementation is empty. Can be extended for custom logic like
+     * staking the underlying to earn additional yield
+     * @param user The user executing the repayment
+     * @param onBehalfOf The address whose debt is being reduced
+     * @param amount The amount being repaid
+     */
+    function handleRepayment(
+        address user,
+        address onBehalfOf,
+        uint256 amount
+    ) external;
 }

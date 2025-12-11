@@ -3,21 +3,29 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {SupplyLogic} from "../libraries/logic/SupplyLogic.sol";
 import {BorrowLogic} from "../libraries/logic/BorrowLogic.sol";
 import {LiquidationLogic} from "../libraries/logic/LiquidationLogic.sol";
+import {FlashLoanLogic} from "../libraries/logic/FlashLoanLogic.sol";
 import {ReserveLogic} from "../libraries/logic/ReserveLogic.sol";
 import {ReserveConfiguration} from "../libraries/configuration/ReserveConfiguration.sol";
 import {UserConfiguration} from "../libraries/configuration/UserConfiguration.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
+import {IERC20WithPermit} from "../interfaces/IERC20WithPermit.sol";
 
 /**
  * @title CommodityLendingPool
  * @author Chain Capital
  * @notice Main entry point for commodity trade finance lending protocol
+ * @dev WEEK 2 ENHANCEMENT: Added Multicall support for batch operations
+ * Users can now execute multiple operations in a single transaction:
+ * - Supply collateral + Set E-Mode + Borrow
+ * - Supply multiple assets in one tx
+ * - Approve delegation + Supply + Set position manager
  */
-contract CommodityLendingPool is Initializable {
+contract CommodityLendingPool is Initializable, Multicall {
     using ReserveLogic for DataTypes.CommodityReserveData;
     using ReserveConfiguration for DataTypes.CommodityConfigurationMap;
     using UserConfiguration for DataTypes.UserConfigurationMap;
@@ -39,6 +47,16 @@ contract CommodityLendingPool is Initializable {
     
     address public admin;
     address public emergencyAdmin;
+
+    // Flash loan configuration
+    uint128 internal _flashLoanPremiumTotal;      // Total premium (e.g., 9 bps = 0.09%)
+    uint128 internal _flashLoanPremiumToProtocol; // Protocol share (e.g., 30% of premium)
+    mapping(address => bool) internal _flashBorrowers; // Authorized borrowers
+    address internal _addressesProvider; // For oracle access
+
+    // Position Manager - CRITICAL FEATURE FROM AAVE V3 HORIZON
+    // Enables institutional use cases: trading firms managing positions, automated bots, etc.
+    mapping(address user => mapping(address manager => bool)) internal _positionManagers;
 
     // ============================================
     // EVENTS
@@ -90,6 +108,13 @@ contract CommodityLendingPool is Initializable {
     event Paused();
     event Unpaused();
 
+    // Position Manager Events
+    event PositionManagerSet(
+        address indexed user,
+        address indexed manager,
+        bool approved
+    );
+
     // ============================================
     // MODIFIERS
     // ============================================
@@ -109,18 +134,73 @@ contract CommodityLendingPool is Initializable {
         _;
     }
 
+    /**
+     * @dev Modifier to check if caller is authorized position manager for the user
+     * @param onBehalfOf The user whose position is being managed
+     */
+    modifier onlyPositionManager(address onBehalfOf) {
+        require(
+            msg.sender == onBehalfOf || _positionManagers[onBehalfOf][msg.sender],
+            Errors.CALLER_NOT_POSITION_MANAGER
+        );
+        _;
+    }
+
     // ============================================
     // INITIALIZATION
     // ============================================
 
     function initialize(
+        address addressesProvider,
         address priceOracle,
         address priceOracleSentinel
     ) external initializer {
+        _addressesProvider = addressesProvider;
         _priceOracle = priceOracle;
         _priceOracleSentinel = priceOracleSentinel;
         admin = msg.sender;
         emergencyAdmin = msg.sender;
+        
+        // Default flash loan premiums: 0.09% total, 30% to protocol
+        _flashLoanPremiumTotal = 9; // 9 basis points = 0.09%
+        _flashLoanPremiumToProtocol = 3000; // 30% of premium goes to protocol
+    }
+
+    // ============================================
+    // POSITION MANAGER FUNCTIONS
+    // ============================================
+
+    /**
+     * @notice Approve or revoke a position manager for msg.sender
+     * @dev Enables institutional use cases like trading firms managing multiple accounts
+     * @param manager The address to approve/revoke as position manager
+     * @param approved True to approve, false to revoke
+     * 
+     * Use Cases:
+     * - Trading firms managing positions for multiple entities
+     * - Automated trading bots with delegated authority
+     * - Professional risk managers handling commodity portfolios
+     * - Fund managers with discretionary trading authority
+     */
+    function setPositionManager(
+        address manager,
+        bool approved
+    ) external {
+        _positionManagers[msg.sender][manager] = approved;
+        emit PositionManagerSet(msg.sender, manager, approved);
+    }
+
+    /**
+     * @notice Check if an address is an approved position manager for a user
+     * @param user The user whose position managers to check
+     * @param manager The address to check
+     * @return True if manager is approved, false otherwise
+     */
+    function getPositionManager(
+        address user,
+        address manager
+    ) external view returns (bool) {
+        return _positionManagers[user][manager];
     }
 
     // ============================================
@@ -129,13 +209,63 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Supply commodity tokens as collateral
+     * @dev Can be called by position manager if authorized
      */
     function supply(
         address commodity,
         uint256 amount,
         address onBehalfOf,
         uint16 referralCode
-    ) external whenNotPaused {
+    ) external whenNotPaused onlyPositionManager(onBehalfOf) {
+        SupplyLogic.executeSupply(
+            _reserves,
+            _reservesList,
+            _usersConfig[onBehalfOf],
+            DataTypes.ExecuteSupplyParams({
+                asset: commodity,
+                amount: amount,
+                onBehalfOf: onBehalfOf,
+                referralCode: referralCode
+            })
+        );
+
+        emit Supply(commodity, msg.sender, onBehalfOf, amount, referralCode);
+    }
+
+    /**
+     * @notice Supply commodity tokens using permit (EIP-2612) for gasless approval
+     * @dev Combines permit + supply in one transaction, saving gas and improving UX
+     * @param commodity The address of the commodity token
+     * @param amount The amount to supply
+     * @param onBehalfOf The address receiving the cTokens
+     * @param referralCode Code for referral program (0 if none)
+     * @param deadline The deadline for the permit signature
+     * @param v The recovery byte of the signature
+     * @param r Half of the ECDSA signature pair
+     * @param s Half of the ECDSA signature pair
+     */
+    function supplyWithPermit(
+        address commodity,
+        uint256 amount,
+        address onBehalfOf,
+        uint16 referralCode,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external whenNotPaused onlyPositionManager(onBehalfOf) {
+        // Execute permit to approve the pool
+        IERC20WithPermit(commodity).permit(
+            msg.sender,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
+        );
+
+        // Execute supply
         SupplyLogic.executeSupply(
             _reserves,
             _reservesList,
@@ -153,12 +283,18 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Withdraw supplied commodity tokens
+     * @dev Can be called by position manager if authorized
      */
     function withdraw(
         address commodity,
         uint256 amount,
         address to
     ) external whenNotPaused returns (uint256) {
+        require(
+            msg.sender == to || _positionManagers[to][msg.sender],
+            Errors.CALLER_NOT_POSITION_MANAGER
+        );
+
         uint256 amountWithdrawn = SupplyLogic.executeWithdraw(
             _reserves,
             _reservesList,
@@ -185,6 +321,7 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Borrow assets against commodity collateral
+     * @dev Can be called by position manager if authorized
      */
     function borrow(
         address asset,
@@ -192,7 +329,7 @@ contract CommodityLendingPool is Initializable {
         uint256 interestRateMode,
         uint16 referralCode,
         address onBehalfOf
-    ) external whenNotPaused {
+    ) external whenNotPaused onlyPositionManager(onBehalfOf) {
         BorrowLogic.executeBorrow(
             _reserves,
             _reservesList,
@@ -227,13 +364,73 @@ contract CommodityLendingPool is Initializable {
 
     /**
      * @notice Repay borrowed assets
+     * @dev Can be called by position manager if authorized
      */
     function repay(
         address asset,
         uint256 amount,
         uint256 interestRateMode,
         address onBehalfOf
-    ) external whenNotPaused returns (uint256) {
+    ) external whenNotPaused onlyPositionManager(onBehalfOf) returns (uint256) {
+        uint256 paybackAmount = BorrowLogic.executeRepay(
+            _reserves,
+            _reservesList,
+            _usersConfig[onBehalfOf],
+            DataTypes.ExecuteRepayParams({
+                asset: asset,
+                amount: amount,
+                interestRateMode: DataTypes.InterestRateMode(interestRateMode),
+                onBehalfOf: onBehalfOf,
+                useATokens: false
+            })
+        );
+
+        emit Repay(
+            asset,
+            onBehalfOf,
+            msg.sender,
+            paybackAmount,
+            false
+        );
+
+        return paybackAmount;
+    }
+
+    /**
+     * @notice Repay borrowed assets using permit (EIP-2612) for gasless approval
+     * @dev Combines permit + repay in one transaction, saving gas and improving UX
+     * @param asset The address of the borrowed asset
+     * @param amount The amount to repay
+     * @param interestRateMode The interest rate mode (1 = stable, 2 = variable)
+     * @param onBehalfOf The address whose debt is being repaid
+     * @param deadline The deadline for the permit signature
+     * @param v The recovery byte of the signature
+     * @param r Half of the ECDSA signature pair
+     * @param s Half of the ECDSA signature pair
+     * @return The actual amount repaid
+     */
+    function repayWithPermit(
+        address asset,
+        uint256 amount,
+        uint256 interestRateMode,
+        address onBehalfOf,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external whenNotPaused onlyPositionManager(onBehalfOf) returns (uint256) {
+        // Execute permit to approve the pool
+        IERC20WithPermit(asset).permit(
+            msg.sender,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
+        );
+
+        // Execute repay
         uint256 paybackAmount = BorrowLogic.executeRepay(
             _reserves,
             _reservesList,
@@ -499,5 +696,173 @@ contract CommodityLendingPool is Initializable {
             _reservesList[reservesCount] = asset;
             _reservesCount = reservesCount + 1;
         }
+    }
+
+    // ============================================
+    // FLASH LOAN FUNCTIONS
+    // ============================================
+
+    /**
+     * @notice Allows smartcontracts to access the liquidity of the pool within one transaction
+     * @param receiverAddress The address of the contract receiving the funds
+     * @param assets The addresses of the assets being flash-borrowed
+     * @param amounts The amounts of the assets being flash-borrowed
+     * @param interestRateModes Types of debt: 0 for flash loan (repay), 1/2 for open debt position
+     * @param onBehalfOf The address that will receive the debt in case of using modes 1 or 2
+     * @param params Variadic packed params to pass to the receiver
+     * @param referralCode Referral code for integrations
+     */
+    function flashLoan(
+        address receiverAddress,
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        uint256[] calldata interestRateModes,
+        address onBehalfOf,
+        bytes calldata params,
+        uint16 referralCode
+    ) external whenNotPaused {
+        _executeFlashLoan(
+            receiverAddress,
+            assets,
+            amounts,
+            interestRateModes,
+            onBehalfOf,
+            params,
+            referralCode
+        );
+    }
+
+    /**
+     * @dev Internal function to execute flash loan - separate stack frame avoids stack too deep
+     */
+    function _executeFlashLoan(
+        address receiverAddress,
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        uint256[] calldata interestRateModes,
+        address onBehalfOf,
+        bytes calldata params,
+        uint16 referralCode
+    ) internal {
+        // Build struct step-by-step to avoid stack too deep with calldata arrays
+        DataTypes.FlashloanParams memory flashParams;
+        
+        // Assign parameters
+        flashParams.receiverAddress = receiverAddress;
+        flashParams.assets = assets;
+        flashParams.amounts = amounts;
+        flashParams.interestRateModes = interestRateModes;
+        flashParams.onBehalfOf = onBehalfOf;
+        flashParams.params = params;
+        flashParams.referralCode = referralCode;
+        
+        // Assign storage values
+        flashParams.flashLoanPremiumToProtocol = _flashLoanPremiumToProtocol;
+        flashParams.flashLoanPremiumTotal = _flashLoanPremiumTotal;
+        flashParams.reservesCount = _reservesCount;
+        flashParams.addressesProvider = _addressesProvider;
+        flashParams.pool = address(this);
+        flashParams.userEModeCategory = _usersEModeCategory[onBehalfOf];
+        flashParams.isAuthorizedFlashBorrower = _flashBorrowers[msg.sender];
+        
+        FlashLoanLogic.executeFlashLoan(
+            _reserves,
+            _reservesList,
+            _eModeCategories,
+            _usersConfig[onBehalfOf],
+            flashParams
+        );
+    }
+
+    /**
+     * @dev Internal helper to build FlashloanParams struct - REMOVED (caused stack too deep)
+     * Build inline instead like flashLoanSimple
+     */
+
+    /**
+     * @notice Allows smartcontracts to access the liquidity of ONE reserve within one transaction
+     * @param receiverAddress The address of the contract receiving the funds
+     * @param asset The address of the asset being flash-borrowed
+     * @param amount The amount of the asset being flash-borrowed
+     * @param params Variadic packed params to pass to the receiver
+     * @param referralCode Referral code for integrations
+     */
+    function flashLoanSimple(
+        address receiverAddress,
+        address asset,
+        uint256 amount,
+        bytes calldata params,
+        uint16 referralCode
+    ) external whenNotPaused {
+        FlashLoanLogic.executeFlashLoanSimple(
+            _reserves[asset],
+            DataTypes.FlashloanSimpleParams({
+                receiverAddress: receiverAddress,
+                asset: asset,
+                amount: amount,
+                params: params,
+                referralCode: referralCode,
+                flashLoanPremiumToProtocol: _flashLoanPremiumToProtocol,
+                flashLoanPremiumTotal: _flashLoanPremiumTotal
+            })
+        );
+    }
+
+    // ============================================
+    // FLASH LOAN ADMIN FUNCTIONS
+    // ============================================
+
+    /**
+     * @notice Set flash loan premiums
+     * @param flashLoanPremiumTotal Total premium in bps (e.g., 9 = 0.09%)
+     * @param flashLoanPremiumToProtocol Protocol share in bps (e.g., 3000 = 30% of total premium)
+     */
+    function setFlashLoanPremiums(
+        uint128 flashLoanPremiumTotal,
+        uint128 flashLoanPremiumToProtocol
+    ) external onlyAdmin {
+        require(flashLoanPremiumToProtocol <= 10000, "Protocol premium > 100%");
+        _flashLoanPremiumTotal = flashLoanPremiumTotal;
+        _flashLoanPremiumToProtocol = flashLoanPremiumToProtocol;
+    }
+
+    /**
+     * @notice Authorize/deauthorize a flash borrower (fee waiver)
+     * @param borrower The address to authorize/deauthorize
+     * @param authorized True to authorize, false to revoke
+     */
+    function setFlashBorrowerAuthorization(
+        address borrower,
+        bool authorized
+    ) external onlyAdmin {
+        _flashBorrowers[borrower] = authorized;
+    }
+
+    /**
+     * @notice Get flash loan premium total
+     */
+    function getFlashLoanPremiumTotal() external view returns (uint128) {
+        return _flashLoanPremiumTotal;
+    }
+
+    /**
+     * @notice Get flash loan premium to protocol
+     */
+    function getFlashLoanPremiumToProtocol() external view returns (uint128) {
+        return _flashLoanPremiumToProtocol;
+    }
+
+    /**
+     * @notice Check if address is authorized flash borrower
+     */
+    function isFlashBorrower(address borrower) external view returns (bool) {
+        return _flashBorrowers[borrower];
+    }
+
+    /**
+     * @notice Get reserves count
+     */
+    function getReservesCount() external view returns (uint256) {
+        return _reservesCount;
     }
 }

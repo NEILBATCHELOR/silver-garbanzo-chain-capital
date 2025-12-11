@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {ICommodityToken} from "../interfaces/ICommodityToken.sol";
+import {EIP712Base} from "../libraries/helpers/EIP712Base.sol";
 
 interface ICommodityLendingPool {
     function getReserveNormalizedIncome(address asset) external view returns (uint256);
@@ -14,11 +15,18 @@ interface ICommodityLendingPool {
  * @title CommodityReceiptToken
  * @notice Receipt token representing supplied commodity collateral
  * @dev Auto-rebases based on liquidity index to reflect accrued value
+ * Supports EIP-2612 permit for gasless approvals
  * Similar to Chain Capital's aToken but for commodity-specific use cases
  */
-contract CommodityReceiptToken is ICommodityToken {
+contract CommodityReceiptToken is ICommodityToken, EIP712Base {
     using WadRayMath for uint256;
     using SafeERC20 for IERC20;
+
+    // ============ Constants ============
+
+    /// @notice EIP-2612 permit typehash
+    bytes32 public constant PERMIT_TYPEHASH =
+        keccak256('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)');
 
     // ============ State Variables ============
 
@@ -52,6 +60,8 @@ contract CommodityReceiptToken is ICommodityToken {
     error InvalidBurnAmount();
     error TransferExceedsBalance();
     error ApprovalFailed();
+    error PermitExpired();
+    error InvalidPermitSignature();
 
     // ============ Modifiers ============
 
@@ -74,11 +84,14 @@ contract CommodityReceiptToken is ICommodityToken {
         address underlyingCommodity,
         string memory tokenName,
         string memory tokenSymbol
-    ) {
+    ) EIP712Base() {
         POOL = pool;
         UNDERLYING_COMMODITY = underlyingCommodity;
         _name = tokenName;
         _symbol = tokenSymbol;
+        
+        // Initialize EIP-712 domain separator
+        _domainSeparator = _calculateDomainSeparator();
     }
 
     // ============ ERC20 Standard Functions ============
@@ -164,6 +177,66 @@ contract CommodityReceiptToken is ICommodityToken {
 
         _transfer(from, to, amount);
         return true;
+    }
+
+    // ============ EIP-2612 Permit Functions ============
+
+    /**
+     * @notice Allows a user to permit another address to spend their tokens via signature (EIP-2612)
+     * @dev Enables gasless approvals - users can sign off-chain and have relayer submit
+     * @param owner The owner of the funds
+     * @param spender The spender authorized to use the funds
+     * @param value The amount of tokens to approve
+     * @param deadline The deadline timestamp for the permit
+     * @param v The recovery byte of the signature
+     * @param r Half of the ECDSA signature pair
+     * @param s Half of the ECDSA signature pair
+     */
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        if (block.timestamp > deadline) revert PermitExpired();
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                PERMIT_TYPEHASH,
+                owner,
+                spender,
+                value,
+                _nonces[owner]++,
+                deadline
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                '\x19\x01',
+                DOMAIN_SEPARATOR(),
+                structHash
+            )
+        );
+
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        
+        if (recoveredAddress == address(0) || recoveredAddress != owner) {
+            revert InvalidPermitSignature();
+        }
+
+        _approve(owner, spender, value);
+    }
+
+    /**
+     * @dev Override required by EIP712Base
+     * @return The name of the token for EIP-712 domain
+     */
+    function _EIP712BaseId() internal view override returns (string memory) {
+        return _name;
     }
 
     // ============ Scaled Balance Functions ============
@@ -267,6 +340,26 @@ contract CommodityReceiptToken is ICommodityToken {
     }
 
     /**
+     * @notice Handles the underlying received by the cToken after repayment transfer
+     * @dev Default implementation is empty. Can be extended for custom logic like
+     * staking the underlying to earn additional yield
+     * @param user The user executing the repayment
+     * @param onBehalfOf The address whose debt is being reduced
+     * @param amount The amount being repaid
+     */
+    function handleRepayment(
+        address user,
+        address onBehalfOf,
+        uint256 amount
+    ) external onlyPool {
+        // Default implementation is empty
+        // Future versions could implement:
+        // - Staking underlying for additional yield
+        // - Updating reward contracts
+        // - Custom accounting logic
+    }
+
+    /**
      * @notice Returns the underlying commodity token address
      * @return The commodity token address
      */
@@ -283,6 +376,10 @@ contract CommodityReceiptToken is ICommodityToken {
      * @param amount The amount to mint (in underlying units)
      * @param index The current liquidity index
      * @return bool True if previous balance was zero
+     * 
+     * V3.5 ROUNDING: Uses rayDiv (rounds half-up, effectively down for most cases)
+     * Reasoning: When minting (depositing), we round down to ensure protocol never
+     * gives out more cTokens than appropriate. This prevents over-accounting of deposits.
      */
     function _mintScaled(
         address caller,
@@ -290,6 +387,8 @@ contract CommodityReceiptToken is ICommodityToken {
         uint256 amount,
         uint256 index
     ) internal returns (bool) {
+        // V3.5: Round DOWN when minting - protocol gives slightly fewer scaled tokens
+        // This ensures protocol never over-accounts user deposits
         uint256 amountScaled = amount.rayDiv(index);
         if (amountScaled == 0) revert InvalidMintAmount();
 
@@ -313,6 +412,10 @@ contract CommodityReceiptToken is ICommodityToken {
      * @param receiverOfUnderlying The receiver of underlying
      * @param amount The amount to burn (in underlying units)
      * @param index The current liquidity index
+     * 
+     * V3.5 ROUNDING: Uses rayDivCeil to round UP
+     * Reasoning: When burning (withdrawing), we round up to ensure users never
+     * withdraw more than they should. This protects the protocol from over-withdrawals.
      */
     function _burnScaled(
         address from,
@@ -320,7 +423,9 @@ contract CommodityReceiptToken is ICommodityToken {
         uint256 amount,
         uint256 index
     ) internal {
-        uint256 amountScaled = amount.rayDiv(index);
+        // V3.5: Round UP when burning - users pay slightly more scaled tokens
+        // This ensures protocol never gives out more underlying than it should
+        uint256 amountScaled = amount.rayDivCeil(index);
         if (amountScaled == 0) revert InvalidBurnAmount();
 
         uint256 scaledBalance = _scaledBalances[from];

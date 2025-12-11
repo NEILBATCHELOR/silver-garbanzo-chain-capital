@@ -133,4 +133,83 @@ library WadRayMath {
       }
     }
   }
+
+  /**
+   * @notice Divides two ray numbers, rounding down (floor)
+   * @dev Used for operations where protocol should never over-account
+   * Example: Minting cTokens (user deposits) - round down so protocol never gives too many tokens
+   * Formula: (a * RAY) / b
+   * @param a Ray number (numerator)
+   * @param b Ray number (denominator)
+   * @return c The result of a / b, in ray, rounded down
+   */
+  function rayDivFloor(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    assembly {
+      // Overflow check: Ensure a * RAY does not exceed uint256 max
+      if or(iszero(b), iszero(iszero(gt(a, div(not(0), RAY))))) {
+        revert(0, 0)
+      }
+      c := div(mul(a, RAY), b)
+    }
+  }
+
+  /**
+   * @notice Divides two ray numbers, rounding up (ceiling)
+   * @dev Used for operations where protocol should never under-account
+   * Example: Burning cTokens (user withdraws) - round up so user never withdraws too much
+   * Example: Minting dTokens (borrowing) - round up so protocol never under-accounts debt
+   * Formula: (a * RAY + b - 1) / b
+   * @param a Ray number (numerator)
+   * @param b Ray number (denominator)  
+   * @return c The result of a / b, in ray, rounded up
+   */
+  function rayDivCeil(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    assembly {
+      // Overflow check: Ensure a * RAY does not exceed uint256 max
+      if or(iszero(b), iszero(iszero(gt(a, div(not(0), RAY))))) {
+        revert(0, 0)
+      }
+      let scaled := mul(a, RAY)
+      // Round up: add 1 if there's a remainder
+      c := add(div(scaled, b), iszero(iszero(mod(scaled, b))))
+    }
+  }
+
+  /**
+   * @notice Multiplies two ray numbers, rounding down (floor)
+   * @dev Used for operations where protocol should never over-account
+   * Formula: (a * b) / RAY
+   * @param a Ray number
+   * @param b Ray number
+   * @return c The result of a * b, in ray, rounded down
+   */
+  function rayMulFloor(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    assembly {
+      // Overflow check: Ensure a * b does not exceed uint256 max
+      if iszero(or(iszero(b), iszero(gt(a, div(not(0), b))))) {
+        revert(0, 0)
+      }
+      c := div(mul(a, b), RAY)
+    }
+  }
+
+  /**
+   * @notice Multiplies two ray numbers, rounding up (ceiling)
+   * @dev Used for operations where protocol should never under-account
+   * Formula: (a * b + RAY - 1) / RAY
+   * @param a Ray number
+   * @param b Ray number
+   * @return c The result of a * b, in ray, rounded up
+   */
+  function rayMulCeil(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    assembly {
+      // Overflow check: Ensure a * b does not exceed uint256 max
+      if iszero(or(iszero(b), iszero(gt(a, div(not(0), b))))) {
+        revert(0, 0)
+      }
+      let product := mul(a, b)
+      // Round up: add 1 if there's a remainder
+      c := add(div(product, RAY), iszero(iszero(mod(product, RAY))))
+    }
+  }
 }

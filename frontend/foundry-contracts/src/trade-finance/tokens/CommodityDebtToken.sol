@@ -156,6 +156,10 @@ contract CommodityDebtToken is IERC20 {
      * @param amount The amount being minted
      * @param index The variable debt index of the reserve
      * @return True if the previous balance was 0
+     * 
+     * V3.5 ROUNDING: Uses rayDivCeil to round UP
+     * Reasoning: When minting debt (borrowing), we round up to ensure protocol
+     * never under-accounts the debt owed. This protects lenders from under-accounting.
      */
     function mint(
         address user,
@@ -168,7 +172,10 @@ contract CommodityDebtToken is IERC20 {
         }
 
         uint256 previousBalance = balanceOf(onBehalfOf);
-        uint256 amountScaled = amount.rayDiv(index);
+        
+        // V3.5: Round UP when minting debt - borrower owes slightly more scaled debt
+        // This ensures protocol never under-accounts borrowed amounts
+        uint256 amountScaled = amount.rayDivCeil(index);
         require(amountScaled != 0, Errors.INVALID_MINT_AMOUNT);
 
         uint256 balanceIncrease = balanceOf(onBehalfOf) - previousBalance;
@@ -189,12 +196,18 @@ contract CommodityDebtToken is IERC20 {
      * @param amount The amount being burned
      * @param index The variable debt index of the reserve
      * @return The scaled total supply after burn
+     * 
+     * V3.5 ROUNDING: Uses rayDiv (rounds half-up, effectively down for most cases)
+     * Reasoning: When burning debt (repaying), we round down to ensure users never
+     * under-repay their debt. This ensures complete debt payoff is always possible.
      */
     function burn(
         address from,
         uint256 amount,
         uint256 index
     ) external onlyPool returns (uint256) {
+        // V3.5: Round DOWN when burning debt - user pays slightly less scaled debt
+        // This ensures users can always fully repay their debt
         uint256 amountScaled = amount.rayDiv(index);
         require(amountScaled != 0, Errors.INVALID_BURN_AMOUNT);
 

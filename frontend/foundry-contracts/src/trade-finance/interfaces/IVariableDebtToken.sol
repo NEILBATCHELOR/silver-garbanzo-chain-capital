@@ -10,6 +10,20 @@ import {IInitializableDebtToken} from "./IInitializableDebtToken.sol";
  */
 interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken {
   /**
+   * @notice Emitted when borrow allowance is delegated
+   * @param fromUser The address delegating the borrowing power
+   * @param toUser The address receiving the delegated borrowing power
+   * @param asset The address of the underlying asset
+   * @param amount The amount of allowance delegated
+   */
+  event BorrowAllowanceDelegated(
+    address indexed fromUser,
+    address indexed toUser,
+    address indexed asset,
+    uint256 amount
+  );
+
+  /**
    * @notice Mints debt token to the `onBehalfOf` address
    * @param user The address receiving the borrowed underlying, being the delegatee in case
    * of credit delegate, or same as `onBehalfOf` otherwise
@@ -36,6 +50,21 @@ interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken {
    * @return The scaled total debt of the reserve
    */
   function burn(address from, uint256 amount, uint256 index) external returns (uint256);
+
+  /**
+   * @notice Returns the borrow allowance of the user
+   * @param fromUser The user delegating the borrowing power
+   * @param toUser The user receiving the delegated borrowing power
+   * @return The borrow allowance
+   */
+  function borrowAllowance(address fromUser, address toUser) external view returns (uint256);
+
+  /**
+   * @notice Approves delegation of borrowing power
+   * @param delegatee The address to delegate borrowing power to
+   * @param amount The amount of borrowing power to delegate
+   */
+  function approveDelegation(address delegatee, uint256 amount) external;
 
   /**
    * @notice Returns the address of the underlying asset of this debtToken

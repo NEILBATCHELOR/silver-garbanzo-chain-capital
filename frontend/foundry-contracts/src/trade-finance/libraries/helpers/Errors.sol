@@ -43,6 +43,9 @@ library Errors {
   
   string public constant UNAUTHORIZED_ROLE = '10'; 
   // 'The caller does not have the required role'
+  
+  string public constant CALLER_NOT_POSITION_MANAGER = '11A';
+  // 'The caller is not an authorized position manager for this user'
 
   // ==============================================
   // POOL CONFIGURATION & REGISTRATION (11-30)
