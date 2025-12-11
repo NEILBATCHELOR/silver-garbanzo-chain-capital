@@ -96,7 +96,7 @@ export const RPC_CONFIG = {
   // Injective EVM Networks (EVM-compatible endpoints, not Cosmos RPC)
   injective: {
     mainnet: "https://sentry.evm-rpc.injective.network",
-    testnet: "https://k8s.testnet.json-rpc.injective.network"
+    testnet: "https://light-responsive-card.injective-testnet.quiknode.pro/1bfd0c3e5f4cb82ff9e7be06008ad1c82f946d38/"
   },
   
   // Holesky and Hoodi Testnets

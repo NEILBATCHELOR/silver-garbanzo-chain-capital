@@ -557,7 +557,7 @@ export const CHAIN_INFO: Record<number, ChainInfo> = {
     name: 'Injective Testnet',
     type: 'testnet',
     explorer: 'https://testnet.blockscout.injective.network',
-    rpcUrl: 'https://k8s.testnet.json-rpc.injective.network',
+    rpcUrl: 'https://light-responsive-card.injective-testnet.quiknode.pro/1bfd0c3e5f4cb82ff9e7be06008ad1c82f946d38/',
     eip1559: true, // Note: EVM Chain ID 1439 maps to native chain ID 'injective-888'
   },
   747474: {
