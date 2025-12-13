@@ -5,11 +5,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {ICommodityToken} from "../interfaces/ICommodityToken.sol";
+import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {EIP712Base} from "../libraries/helpers/EIP712Base.sol";
-
-interface ICommodityLendingPool {
-    function getReserveNormalizedIncome(address asset) external view returns (uint256);
-}
 
 /**
  * @title CommodityReceiptToken

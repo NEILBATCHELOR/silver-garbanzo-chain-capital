@@ -73,7 +73,7 @@ library DataTypes {
     uint128 unbacked;
     uint128 isolationModeTotalDebt;
     
-    // Aave V4 Horizon additions for advanced risk management
+    // Chain Capital V4 Horizon additions for advanced risk management
     uint128 deficit;                    // Deficit tracking for bad debt coverage
     uint128 virtualUnderlyingBalance;   // Virtual accounting balance
     

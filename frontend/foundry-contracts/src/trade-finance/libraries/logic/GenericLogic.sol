@@ -15,7 +15,7 @@ import {EModeLogic} from "./EModeLogic.sol";
 
 /**
  * @title GenericLogic library
- * @author Chain Capital (Adapted from Aave V3)
+ * @author Chain Capital (Adapted from Chain Capital V3)
  * @notice Implements protocol-level logic to calculate and validate the state of a user
  */
 library GenericLogic {
@@ -138,7 +138,7 @@ library GenericLogic {
 
       if (params.userConfig.isBorrowing(vars.i)) {
         // Note: For commodity finance, we always use virtual accounting
-        // Remove GHO-specific logic from Aave
+        // Remove GHO-specific logic from Chain Capital
         vars.totalDebtInBaseCurrency += _getUserDebtInBaseCurrency(
           params.user,
           currentReserve,

@@ -355,7 +355,7 @@ This shouldn't happen due to modular architecture. If it does:
 - [Component Analysis](../../../docs/COMMODITY_TRADE_FINANCE_COMPONENT_ANALYSIS.md)
 - [Implementation Spec](../../../docs/COMMODITY_TRADE_FINANCE_IMPLEMENTATION.md)
 - [Haircut Engine Guide](../../../docs/HAIRCUT_ENGINE_USAGE.md)
-- [Aave Learnings](../../../docs/AAVE_LEARNINGS_SUMMARY.md)
+- [Chain Capital Learnings](../../../docs/AAVE_LEARNINGS_SUMMARY.md)
 
 ## 🆘 Support
 

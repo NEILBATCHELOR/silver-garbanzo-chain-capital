@@ -160,6 +160,7 @@ contract FactoryRegistry is
         _addStandard("ERC4626");
         _addStandard("ERC1400");
         _addStandard("ERC20Rebasing");
+        _addStandard("TradeFinance");
     }
     
     // ============ Factory Registration ============

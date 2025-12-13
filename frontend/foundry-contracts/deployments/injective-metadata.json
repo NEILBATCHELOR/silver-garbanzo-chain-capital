@@ -1,0 +1,125 @@
+{
+  "network": "Injective EVM Testnet",
+  "chainId": "1439",
+  "deploymentDate": "2025-12-12",
+  "blockscoutExplorer": "https://testnet.blockscout.injective.network",
+  "blockscoutApi": "https://testnet.blockscout-api.injective.network/api",
+  "rpcUrl": "https://light-responsive-card.injective-testnet.quiknode.pro/1bfd0c3e5f4cb82ff9e7be06008ad1c82f946d38/",
+  "totalContracts": 80,
+  "verifiedContracts": 80,
+  "abisExtracted": 75,
+  
+  "contractCategories": {
+    "infrastructure": {
+      "description": "Core infrastructure contracts",
+      "contracts": ["policyEngine", "policyRegistry", "tokenRegistry", "upgradeGovernor", "haircutEngine", "extensionRegistry", "factoryRegistry"]
+    },
+    "masters": {
+      "description": "Master template contracts",
+      "contracts": ["erc20Master", "erc721Master", "erc1155Master", "erc1400Master", "erc3525Master", "erc4626Master", "erc20RebasingMaster", "erc20WrapperMaster", "erc721WrapperMaster"]
+    },
+    "beacons": {
+      "description": "Beacon proxy contracts for upgradeability",
+      "contracts": ["erc20Beacon", "erc721Beacon", "erc1155Beacon", "erc1400Beacon", "erc3525Beacon", "erc4626Beacon", "erc20RebasingBeacon", "erc20WrapperBeacon", "erc721WrapperBeacon"]
+    },
+    "factories": {
+      "description": "Factory contracts for token deployment",
+      "contracts": ["erc20Factory", "erc721Factory", "erc1155Factory", "erc1400Factory", "erc3525Factory", "erc4626Factory", "erc20WrapperFactory", "erc721WrapperFactory", "beaconProxyFactory"]
+    },
+    "extensionFactories": {
+      "description": "Factory contracts for extension deployment",
+      "contracts": ["erc20ExtensionFactory", "erc721ExtensionFactory", "erc1155ExtensionFactory", "erc1400ExtensionFactory", "erc3525ExtensionFactory", "erc4626ExtensionFactory", "universalExtensionFactory"]
+    },
+    "extensions": {
+      "description": "Modular extension contracts",
+      "subcategories": {
+        "compliance": ["complianceModule"],
+        "vesting": ["vestingModule"],
+        "governance": ["votesModule"],
+        "fees": ["feeModule"],
+        "royalties": ["erc721RoyaltyModule", "erc1155RoyaltyModule"],
+        "erc1400": ["erc1400ControllerModule", "erc1400DocumentModule", "erc1400TransferRestrictionsModule"],
+        "erc3525": ["erc3525SlotApprovableModule", "erc3525SlotManagerModule", "erc3525ValueExchangeModule"],
+        "erc4626": ["erc4626FeeStrategyModule", "erc4626WithdrawalQueueModule", "erc4626YieldStrategyModule", "erc4626AsyncVaultModule", "erc4626NativeVaultModule", "erc4626RouterModule"],
+        "nft": ["consecutiveModule", "fractionModule", "rentalModule", "soulboundModule"],
+        "other": ["documentModule", "flashMintModule", "granularApprovalModule", "metadataEventsModule", "multiAssetVaultModule", "payableModule", "permitModule", "snapshotModule", "supplyCapModule", "temporaryApprovalModule", "timelockModule", "uriManagementModule"]
+      }
+    },
+    "deployers": {
+      "description": "Deployment utility contracts",
+      "contracts": ["create2Deployer", "universalDeployer", "beaconProxyFactory"]
+    },
+    "governance": {
+      "description": "Governance contracts",
+      "contracts": ["upgradeGovernance", "upgradeGovernor"]
+    },
+    "wallets": {
+      "description": "Multi-sig wallet contracts",
+      "contracts": ["multiSigWallet", "multiSigWalletFactory"]
+    }
+  },
+  
+  "pendingAbiExtraction": [
+    {
+      "key": "extensionRegistry",
+      "address": "0x3e2811EDAE85584040607265619Fa00E01Ea68EC",
+      "source": "src/factories/ExtensionRegistry.sol:ExtensionRegistry",
+      "reason": "BlockScout indexing in progress"
+    },
+    {
+      "key": "factoryRegistry",
+      "address": "0x9e2E91b7C2b0142A9c5F80Ef3C7A18c935c597fd",
+      "source": "src/factories/FactoryRegistry.sol:FactoryRegistry",
+      "reason": "BlockScout indexing in progress"
+    },
+    {
+      "key": "policyEngine",
+      "address": "0x802A61fc159EcC0dF08215076188cEF2439b48e8",
+      "source": "src/policy/PolicyEngine.sol:PolicyEngine",
+      "reason": "BlockScout indexing in progress"
+    },
+    {
+      "key": "policyRegistry",
+      "address": "0x1184ceCC42D8eCe5aAee3C49B0605e6e08b0c4BB",
+      "source": "src/policy/PolicyRegistry.sol:PolicyRegistry",
+      "reason": "BlockScout indexing in progress"
+    },
+    {
+      "key": "tokenRegistry",
+      "address": "0xcf98E3608DBbD8848E4fF199600f308Ffb63d110",
+      "source": "src/registry/TokenRegistry.sol:TokenRegistry",
+      "reason": "BlockScout indexing in progress"
+    }
+  ],
+  
+  "gasOptimization": {
+    "deploymentMethod": "Factory-based cloning",
+    "estimatedGasSavings": "75%",
+    "templateInstanceArchitecture": true,
+    "upgradeabilityPattern": "Beacon Proxy"
+  },
+  
+  "compilerSettings": {
+    "solcVersion": "0.8.28",
+    "optimizer": true,
+    "optimizerRuns": 200,
+    "viaIR": true,
+    "evmVersion": "paris"
+  },
+  
+  "deploymentStats": {
+    "deploymentDuration": "10-15 minutes",
+    "gasUsed": "~5-10 INJ",
+    "nonceRange": "21-154",
+    "deploymentWallet": "0x1a102bce3a65beb97f8babd83d1e00ebd588ea2c"
+  },
+  
+  "notes": [
+    "All 80 contracts successfully verified on BlockScout",
+    "75 ABIs extracted - 5 pending BlockScout indexing",
+    "Run reverify-failed-contracts.sh to retry failed ABIs after 10 minutes",
+    "All contracts use template-instance architecture for gas efficiency",
+    "Beacon proxies enable upgradeability without redeployment",
+    "Factory pattern allows 75% gas savings on user token deployments"
+  ]
+}

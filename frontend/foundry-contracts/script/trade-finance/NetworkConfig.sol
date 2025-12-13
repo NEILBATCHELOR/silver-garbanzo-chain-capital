@@ -181,7 +181,7 @@ contract NetworkConfig is Script {
             explorerUrl: "https://arbiscan.io",
             explorerApiUrl: "https://api.arbiscan.io/api",
             deployer: vm.envAddress("DEPLOYER_ADDRESS"),
-            goldPriceFeed: 0x0bE7C1338e1B1e7bF58dD8F1447c4F73D9DfCA2d, // XAU/USD
+            goldPriceFeed: 0x0be7C1338e1B1e7BF58DD8F1447C4f73d9DFCa2D, // XAU/USD
             silverPriceFeed: address(0),
             oilPriceFeed: address(0),
             ethPriceFeed: 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612, // ETH/USD
@@ -208,7 +208,7 @@ contract NetworkConfig is Script {
             ethPriceFeed: 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165, // ETH/USD
             isTestnet: true,
             hasSequencer: true,
-            sequencerFeed: 0x00D4a2dF2AB9e57e065f18cf70f5F94B20c19a1a, // Arbitrum Sepolia sequencer
+            sequencerFeed: 0x00D4A2dF2Ab9e57e065f18CF70f5F94B20c19A1a, // Arbitrum Sepolia sequencer
             governanceMultiSig: vm.envAddress("DEPLOYER_ADDRESS"),
             emergencyAdmin: vm.envAddress("DEPLOYER_ADDRESS"),
             baseFeeMultiplier: 105,
@@ -223,7 +223,7 @@ contract NetworkConfig is Script {
             explorerUrl: "https://optimistic.etherscan.io",
             explorerApiUrl: "https://api-optimistic.etherscan.io/api",
             deployer: vm.envAddress("DEPLOYER_ADDRESS"),
-            goldPriceFeed: 0x9A7B213E13fF6653a7C024F90a1371E0097C0D66, // XAU/USD
+            goldPriceFeed: 0x9A7b213e13Ff6653a7C024f90A1371E0097C0D66, // XAU/USD
             silverPriceFeed: address(0),
             oilPriceFeed: address(0),
             ethPriceFeed: 0x13e3Ee699D1909E989722E753853AE30b17e08c5, // ETH/USD
@@ -250,7 +250,7 @@ contract NetworkConfig is Script {
             ethPriceFeed: 0x61Ec26aA57019C486B10502285c5A3D4A4750AD7, // ETH/USD
             isTestnet: true,
             hasSequencer: true,
-            sequencerFeed: 0x29e65d5a1c5065Ca4ca4D17E0F84030AB35f0e98, // Optimism Sepolia sequencer
+            sequencerFeed: 0x29E65d5A1c5065ca4Ca4d17E0f84030Ab35f0E98, // Optimism Sepolia sequencer
             governanceMultiSig: vm.envAddress("DEPLOYER_ADDRESS"),
             emergencyAdmin: vm.envAddress("DEPLOYER_ADDRESS"),
             baseFeeMultiplier: 110,

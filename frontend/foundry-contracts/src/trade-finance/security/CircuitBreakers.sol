@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IPoolAddressesProvider} from "../interfaces/IPoolAddressesProvider.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
+import {IACLManager} from "../interfaces/IACLManager.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 
@@ -296,9 +297,4 @@ contract CircuitBreakers {
 
         return metrics;
     }
-}
-
-// Interface stub for ACLManager
-interface IACLManager {
-    function hasRole(bytes32 role, address account) external view returns (bool);
 }

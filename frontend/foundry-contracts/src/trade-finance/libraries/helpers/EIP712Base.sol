@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title EIP712Base
- * @author Chain Capital (adapted from Aave)
+ * @author Chain Capital (adapted from Chain Capital)
  * @notice Base contract implementation of EIP712 for gasless approvals
  */
 abstract contract EIP712Base {

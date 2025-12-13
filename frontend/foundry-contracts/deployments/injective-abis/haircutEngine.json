@@ -1,0 +1,643 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_riskAdmin",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_governance",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oracleValue",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalHaircut",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "adjustedValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "HaircutCalculated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "baseHaircut",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "minHaircut",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maxHaircut",
+        "type": "uint256"
+      }
+    ],
+    "name": "HaircutConfigured",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "dataPoints",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "startTime",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "endTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "PriceDataLoaded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "volatility",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maxDrawdown",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "var95",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "calculatedAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "RiskMetricsUpdated",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "BASIS_POINTS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "DRAWDOWN_MULTIPLIER",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "VOLATILITY_MULTIPLIER",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "oracleValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "quality",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "certificateDate",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateHaircut",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "totalHaircut",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "adjustedValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "baseComponent",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "volatilityComponent",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "drawdownComponent",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "qualityComponent",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "ageComponent",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "liquidityComponent",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct HaircutEngine.HaircutResult",
+        "name": "result",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getPriceHistory",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "price",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "volume",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct HaircutEngine.PricePoint[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getRiskMetrics",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "volatility",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxDrawdown",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "valueAtRisk95",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "valueAtRisk99",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "sharpeRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "liquidityScore",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dataPoints",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "calculatedAt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct HaircutEngine.RiskMetrics",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "governance",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "price",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "volume",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct HaircutEngine.PricePoint[]",
+        "name": "prices",
+        "type": "tuple[]"
+      }
+    ],
+    "name": "loadPriceData",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "priceHistory",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "price",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "volume",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "riskAdmin",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "riskMetrics",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "volatility",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxDrawdown",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "valueAtRisk95",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "valueAtRisk99",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "sharpeRatio",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "liquidityScore",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "dataPoints",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "calculatedAt",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ratePerDay",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxDiscount",
+        "type": "uint256"
+      }
+    ],
+    "name": "setAgeDepreciation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "baseHaircut",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minHaircut",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxHaircut",
+        "type": "uint256"
+      }
+    ],
+    "name": "setHaircutConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "quality",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "discount",
+        "type": "uint256"
+      }
+    ],
+    "name": "setQualityDiscount",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HaircutEngine.CommodityType",
+        "name": "commodityType",
+        "type": "uint8"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "volatility",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxDrawdown",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "valueAtRisk95",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "valueAtRisk99",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "sharpeRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "liquidityScore",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "dataPoints",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "calculatedAt",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct HaircutEngine.RiskMetrics",
+        "name": "metrics",
+        "type": "tuple"
+      }
+    ],
+    "name": "updateRiskMetrics",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

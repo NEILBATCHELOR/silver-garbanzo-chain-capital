@@ -78,7 +78,7 @@ library FlashLoanLogic {
   // Helper struct to avoid stack too deep errors
   struct FlashLoanLocalVars {
     IFlashLoanReceiver receiver;
-    uint256 i;  // Loop counter stored in struct (Aave V3 pattern)
+    uint256 i;  // Loop counter stored in struct (Chain Capital V3 pattern)
     address currentAsset;
     uint256 currentAmount;
     uint256[] totalPremiums;
@@ -161,7 +161,7 @@ library FlashLoanLogic {
           })
         );
       } else {
-        // Convert to debt position - inline struct construction (Aave V3 pattern)
+        // Convert to debt position - inline struct construction (Chain Capital V3 pattern)
         BorrowLogic.executeBorrow(
           reservesData,
           reservesList,

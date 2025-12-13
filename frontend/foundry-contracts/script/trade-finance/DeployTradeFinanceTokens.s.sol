@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 import "./NetworkConfig.sol";
 import "../../src/trade-finance/tokens/CommodityReceiptToken.sol";
 import "../../src/trade-finance/tokens/CommodityDebtToken.sol";
+import "../../src/trade-finance/interfaces/ICommodityLendingPool.sol";
 
 /**
  * @title DeployTradeFinanceTokens
@@ -13,7 +14,7 @@ import "../../src/trade-finance/tokens/CommodityDebtToken.sol";
  * @dev Step 2 of Trade Finance deployment
  * 
  * Usage:
- *   forge script script/trade-finance/DeployTrade FinanceTokens.s.sol:DeployTradeFinanceTokens \
+ *   forge script script/trade-finance/DeployTradeFinanceTokens.s.sol:DeployTradeFinanceTokens \
  *     --rpc-url $RPC_URL \
  *     --broadcast \
  *     --verify
@@ -91,14 +92,12 @@ contract DeployTradeFinanceTokens is Script, NetworkConfig {
             poolAddress,
             address(0), // Underlying commodity (set later)
             "Chain Capital Gold",
-            "cGOLD",
-            18
+            "cGOLD"
         ));
         console.log("  cGOLD:", deployment.cGold);
         
         deployment.dGold = address(new CommodityDebtToken(
-            poolAddress,
-            address(0), // Underlying asset (USDC/USDT)
+            ICommodityLendingPool(poolAddress),
             "Chain Capital Gold Debt",
             "dGOLD",
             18
@@ -113,14 +112,12 @@ contract DeployTradeFinanceTokens is Script, NetworkConfig {
             poolAddress,
             address(0),
             "Chain Capital Silver",
-            "cSILVER",
-            18
+            "cSILVER"
         ));
         console.log("  cSILVER:", deployment.cSilver);
         
         deployment.dSilver = address(new CommodityDebtToken(
-            poolAddress,
-            address(0),
+            ICommodityLendingPool(poolAddress),
             "Chain Capital Silver Debt",
             "dSILVER",
             18
@@ -135,14 +132,12 @@ contract DeployTradeFinanceTokens is Script, NetworkConfig {
             poolAddress,
             address(0),
             "Chain Capital Oil",
-            "cOIL",
-            18
+            "cOIL"
         ));
         console.log("  cOIL:", deployment.cOil);
         
         deployment.dOil = address(new CommodityDebtToken(
-            poolAddress,
-            address(0),
+            ICommodityLendingPool(poolAddress),
             "Chain Capital Oil Debt",
             "dOIL",
             18
@@ -157,14 +152,12 @@ contract DeployTradeFinanceTokens is Script, NetworkConfig {
             poolAddress,
             address(0),
             "Chain Capital Soybeans",
-            "cSOY",
-            18
+            "cSOY"
         ));
         console.log("  cSOY:", deployment.cSoybeans);
         
         deployment.dSoybeans = address(new CommodityDebtToken(
-            poolAddress,
-            address(0),
+            ICommodityLendingPool(poolAddress),
             "Chain Capital Soybeans Debt",
             "dSOY",
             18

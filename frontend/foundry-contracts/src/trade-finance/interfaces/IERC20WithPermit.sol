@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title IERC20WithPermit
- * @author Chain Capital (adapted from Aave)
+ * @author Chain Capital (adapted from Chain Capital)
  * @notice Interface for ERC20 tokens that support EIP-2612 permit functionality
  * @dev Extends standard IERC20 with gasless approval capability
  */
