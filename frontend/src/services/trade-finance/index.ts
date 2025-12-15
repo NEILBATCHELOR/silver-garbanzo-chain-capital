@@ -7,7 +7,7 @@
 // Chain Type (re-exported from wallet utils)
 export { ChainType } from '@/services/wallet/AddressUtils';
 
-// Pool Operations
+// Pool Operations (Blockchain Transactions)
 export { 
   CommodityPoolService,
   createCommodityPoolService,
@@ -22,6 +22,29 @@ export {
   type LiquidateParams,
   type HealthFactorResult
 } from './CommodityPoolService';
+
+// API Service (Backend Data Queries)
+export {
+  TradeFinanceAPIService,
+  createTradeFinanceAPIService,
+  type HealthFactorResponse,
+  type PositionDetails,
+  type LiquidatablePosition,
+  type PricePoint,
+  type RiskMetrics,
+  type HaircutRecommendation
+} from './TradeFinanceAPIService';
+
+// WebSocket Client (Real-Time Updates)
+export {
+  TradeFinanceWebSocketClient,
+  createTradeFinanceWebSocketClient,
+  type PriceUpdate,
+  type HealthFactorUpdate,
+  type LiquidationAlert,
+  type PositionUpdate,
+  type WebSocketMessage
+} from './WebSocketClient';
 
 // Tokenization
 export {

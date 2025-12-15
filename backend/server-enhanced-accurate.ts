@@ -47,8 +47,8 @@ import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
 // import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
 
-// Trade Finance Routes (3 services)
-import { haircutRoutes, positionsRoutes, oraclesRoutes } from './src/routes/trade-finance'
+// Trade Finance Routes (4 services)
+import { haircutRoutes, positionsRoutes, oraclesRoutes, priceManagementRoutes } from './src/routes/trade-finance'
 
 // Admin & Deployment Routes
 import { deploymentRoutes } from './src/routes/deploymentRoutes'
@@ -634,6 +634,18 @@ async function buildApp(): Promise<FastifyInstance> {
 
     await app.register(import('@fastify/sensible'))
 
+    // Register WebSocket support for real-time updates (Trade Finance)
+    await app.register(import('@fastify/websocket'), {
+      options: {
+        maxPayload: 1048576, // 1MB
+        verifyClient: (info, callback) => {
+          // Allow all connections in development
+          // TODO: Add proper authentication in production
+          callback(true)
+        }
+      }
+    })
+
     // Register JWT authentication with Supabase JWT secret
     // This is critical for verifying JWT tokens issued by Supabase Auth
     const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
@@ -909,6 +921,45 @@ Comprehensive platform supporting:
     await app.register(haircutRoutes)  // Handles /api/trade-finance/haircut/*
     await app.register(positionsRoutes)  // Handles /api/trade-finance/positions/*
     await app.register(oraclesRoutes)  // Handles /api/trade-finance/oracles/*
+    await app.register(priceManagementRoutes)  // Handles /api/trade-finance/prices/*
+
+    // Trade Finance WebSocket for real-time updates
+    await app.register(async (fastify) => {
+      const { TradeFinanceWebSocketManager } = await import('./src/services/trade-finance/WebSocketService')
+      const wsManager = new TradeFinanceWebSocketManager()
+      
+      // WebSocket endpoint
+      fastify.get('/api/trade-finance/ws', { websocket: true }, (connection, request) => {
+        const { socket } = connection
+        
+        // Extract project_id from query params
+        const url = new URL(request.url, 'http://localhost')
+        const projectId = url.searchParams.get('project_id')
+        
+        if (!projectId) {
+          socket.close(1008, 'project_id required')
+          return
+        }
+        
+        // Generate unique client ID
+        const clientId = `${projectId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        
+        // Register client
+        wsManager.registerClient(clientId, socket, projectId)
+        
+        // Send welcome message
+        socket.send(JSON.stringify({
+          type: 'CONNECTED',
+          clientId,
+          timestamp: new Date().toISOString()
+        }))
+      })
+      
+      // Expose manager for broadcasting from other routes
+      (fastify as any).tradeFinanceWS = wsManager
+      
+      logger.info('[WebSocket] Trade Finance WebSocket registered at /api/trade-finance/ws')
+    })
 
   } catch (error) {
     logger.error({ error }, 'Route registration failed')

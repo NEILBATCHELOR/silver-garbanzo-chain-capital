@@ -1,10 +1,10 @@
 /**
  * Liquidatable Positions Component
- * Dashboard for liquidators showing positions available for liquidation
+ * Dashboard for liquidators showing positions available for liquidation with real-time updates
  * Filters: Health Factor < 1.0, sorts by profitability
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,39 +15,35 @@ import { AlertCircle, TrendingDown, Zap, Loader2, Search, RefreshCw, DollarSign 
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 
-interface LiquidatablePosition {
-  id: string
-  borrower: string
-  commodityToken: string
+// Import services
+import { createTradeFinanceAPIService, TradeFinanceAPIService, LiquidatablePosition as APILiquidatablePosition } from '@/services/trade-finance'
+import { TradeFinanceWebSocketClient, LiquidationAlert } from '@/services/trade-finance/WebSocketClient'
+
+interface LiquidatablePosition extends APILiquidatablePosition {
   commodityName: string
-  collateralAmount: string
-  collateralValueUSD: string
-  borrowedAsset: string
-  borrowedAmount: string
-  borrowedValueUSD: string
-  healthFactor: number
   liquidationBonus: number
   potentialProfit: string
-  liquidationThreshold: number
   urgency: 'critical' | 'high' | 'medium'
 }
 
 interface LiquidatablePositionsProps {
-  poolAddress?: string
-  chainId?: number
-  networkType?: 'mainnet' | 'testnet'
+  projectId: string
+  apiBaseURL?: string
+  wsURL?: string
   onLiquidate?: (position: LiquidatablePosition) => void
   autoRefresh?: boolean
   refreshInterval?: number // milliseconds
+  healthFactorThreshold?: number
 }
 
 export function LiquidatablePositions({
-  poolAddress = '0x...',
-  chainId = 11155111,
-  networkType = 'testnet',
+  projectId,
+  apiBaseURL,
+  wsURL,
   onLiquidate,
   autoRefresh = true,
-  refreshInterval = 30000 // 30 seconds
+  refreshInterval = 30000, // 30 seconds
+  healthFactorThreshold = 1.0
 }: LiquidatablePositionsProps) {
   const [positions, setPositions] = useState<LiquidatablePosition[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -55,75 +51,84 @@ export function LiquidatablePositions({
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'profit' | 'healthFactor' | 'urgency'>('profit')
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [apiService, setApiService] = useState<TradeFinanceAPIService | null>(null)
+  const [wsClient, setWsClient] = useState<TradeFinanceWebSocketClient | null>(null)
+
+  // Initialize API service
+  useEffect(() => {
+    const service = createTradeFinanceAPIService(projectId, apiBaseURL)
+    setApiService(service)
+  }, [projectId, apiBaseURL])
+
+  // Initialize WebSocket client
+  useEffect(() => {
+    const initWebSocket = async () => {
+      try {
+        const client = new TradeFinanceWebSocketClient(projectId, wsURL)
+        await client.connect()
+
+        // Subscribe to liquidation alerts
+        client.subscribe('liquidation-alerts')
+
+        // Handle liquidation alerts
+        client.on('LIQUIDATION_ALERT', (data: LiquidationAlert) => {
+          toast.warning('New Liquidation Opportunity!', {
+            description: `Position ${data.userAddress.slice(0, 6)}... - HF: ${data.healthFactor.toFixed(2)}`
+          })
+          
+          // Refresh positions to include the new one
+          fetchPositions()
+        })
+
+        setWsClient(client)
+      } catch (error) {
+        console.error('WebSocket connection failed:', error)
+        // Continue without WebSocket
+      }
+    }
+
+    initWebSocket()
+
+    return () => {
+      if (wsClient) {
+        wsClient.disconnect()
+      }
+    }
+  }, [projectId, wsURL])
 
   // Fetch liquidatable positions
-  const fetchPositions = async () => {
+  const fetchPositions = useCallback(async () => {
+    if (!apiService) return
+
     try {
       setIsLoading(true)
       setError(null)
 
-      // TODO: Replace with actual service call
-      // const poolService = createCommodityPoolService({
-      //   poolAddress,
-      //   chainType: ChainType.ETHEREUM,
-      //   chainId,
-      //   networkType
-      // })
-      // const result = await poolService.getLiquidatablePositions()
+      // Get liquidatable positions from API
+      const response = await apiService.getLiquidatablePositions(healthFactorThreshold)
 
-      // Mock data
-      const mockPositions: LiquidatablePosition[] = [
-        {
-          id: '1',
-          borrower: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-          commodityToken: '0xabc123',
-          commodityName: 'Gold (GOLD)',
-          collateralAmount: '5.2',
-          collateralValueUSD: '10,660',
-          borrowedAsset: 'USDC',
-          borrowedAmount: '10,800',
-          borrowedValueUSD: '10,800',
-          healthFactor: 0.97,
-          liquidationBonus: 5,
-          potentialProfit: '533',
-          liquidationThreshold: 85,
-          urgency: 'critical'
-        },
-        {
-          id: '2',
-          borrower: '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
-          commodityToken: '0xdef456',
-          commodityName: 'Silver (SILVER)',
-          collateralAmount: '450.0',
-          collateralValueUSD: '11,025',
-          borrowedAsset: 'USDT',
-          borrowedAmount: '11,100',
-          borrowedValueUSD: '11,100',
-          healthFactor: 0.99,
-          liquidationBonus: 5,
-          potentialProfit: '551.25',
-          liquidationThreshold: 85,
-          urgency: 'high'
-        },
-        {
-          id: '3',
-          borrower: '0x9F2f3C2c0b735e62f39d1a8b63a1c4f9B5e4D3A1',
-          commodityToken: '0xghi789',
-          commodityName: 'Crude Oil (OIL)',
-          collateralAmount: '800.0',
-          collateralValueUSD: '57,960',
-          borrowedAsset: 'DAI',
-          borrowedAmount: '58,500',
-          borrowedValueUSD: '58,500',
-          healthFactor: 0.99,
-          liquidationBonus: 8,
-          potentialProfit: '4,636.80',
-          liquidationThreshold: 75,
-          urgency: 'high'
+      // Transform API response to Position format
+      const transformedPositions: LiquidatablePosition[] = response.positions.map((pos) => {
+        // Calculate potential profit (liquidation bonus * debt covered)
+        const debtValue = pos.totalDebt
+        const liquidationBonus = 5 // 5% default bonus - should come from config
+        const potentialProfit = (debtValue * liquidationBonus / 100).toFixed(2)
+
+        // Determine urgency based on health factor
+        const urgency: 'critical' | 'high' | 'medium' = 
+          pos.healthFactor < 0.95 ? 'critical' :
+          pos.healthFactor < 0.98 ? 'high' : 'medium'
+
+        return {
+          ...pos,
+          commodityName: `${pos.collateral[0]?.commodity_type || 'Unknown'} (...)`,
+          liquidationBonus,
+          potentialProfit,
+          urgency
         }
-      ]
+      })
 
-      setPositions(mockPositions)
+      setPositions(transformedPositions)
       setLastRefresh(new Date())
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch positions'
@@ -132,29 +137,28 @@ export function LiquidatablePositions({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [apiService, healthFactorThreshold])
 
   // Initial fetch
   useEffect(() => {
     fetchPositions()
-  }, [poolAddress, chainId, networkType])
+  }, [fetchPositions])
 
-  // Auto-refresh
+  // Auto-refresh (only if WebSocket is not connected)
   useEffect(() => {
-    if (!autoRefresh) return
+    if (!autoRefresh || wsClient) return
 
     const interval = setInterval(() => {
       fetchPositions()
     }, refreshInterval)
 
     return () => clearInterval(interval)
-  }, [autoRefresh, refreshInterval])
+  }, [autoRefresh, refreshInterval, wsClient, fetchPositions])
 
   // Filter positions
   const filteredPositions = positions.filter(p => 
-    p.borrower.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.commodityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.borrowedAsset.toLowerCase().includes(searchTerm.toLowerCase())
+    p.walletAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.commodityName.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Sort positions
@@ -216,6 +220,7 @@ export function LiquidatablePositions({
             <AlertCircle className="h-8 w-8 text-destructive" />
             <p className="text-sm text-muted-foreground">{error}</p>
             <Button variant="outline" size="sm" onClick={fetchPositions}>
+              <RefreshCw className="h-4 w-4 mr-2" />
               Retry
             </Button>
           </div>
@@ -232,6 +237,12 @@ export function LiquidatablePositions({
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-orange-500" />
               Liquidatable Positions
+              {wsClient && (
+                <Badge variant="secondary" className="text-xs">
+                  <span className="h-2 w-2 rounded-full bg-green-500 mr-1" />
+                  Live
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription>
               {sortedPositions.length} position{sortedPositions.length !== 1 ? 's' : ''} available for liquidation
@@ -262,7 +273,7 @@ export function LiquidatablePositions({
           <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by address, commodity, or asset..."
+              placeholder="Search by address or commodity..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"
@@ -314,7 +325,9 @@ export function LiquidatablePositions({
                 <div>
                   <p className="text-sm text-muted-foreground">Avg Health Factor</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {(sortedPositions.reduce((sum, p) => sum + p.healthFactor, 0) / sortedPositions.length).toFixed(2)}
+                    {sortedPositions.length > 0 
+                      ? (sortedPositions.reduce((sum, p) => sum + p.healthFactor, 0) / sortedPositions.length).toFixed(2)
+                      : '0.00'}
                   </p>
                 </div>
                 <TrendingDown className="h-8 w-8 text-blue-600" />
@@ -344,10 +357,10 @@ export function LiquidatablePositions({
               </TableHeader>
               <TableBody>
                 {sortedPositions.map((position) => (
-                  <TableRow key={position.id}>
+                  <TableRow key={position.walletAddress}>
                     {/* Borrower */}
                     <TableCell className="font-mono text-xs">
-                      {position.borrower.slice(0, 6)}...{position.borrower.slice(-4)}
+                      {position.walletAddress.slice(0, 6)}...{position.walletAddress.slice(-4)}
                     </TableCell>
 
                     {/* Collateral */}
@@ -355,7 +368,7 @@ export function LiquidatablePositions({
                       <div className="flex flex-col space-y-1">
                         <span className="font-medium">{position.commodityName}</span>
                         <span className="text-xs text-muted-foreground">
-                          {position.collateralAmount} ≈ ${position.collateralValueUSD}
+                          ${position.totalCollateralValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                     </TableCell>
@@ -363,9 +376,8 @@ export function LiquidatablePositions({
                     {/* Debt */}
                     <TableCell>
                       <div className="flex flex-col space-y-1">
-                        <span className="font-medium">{position.borrowedAsset}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ${position.borrowedAmount}
+                        <span className="font-medium">
+                          ${position.totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                     </TableCell>
