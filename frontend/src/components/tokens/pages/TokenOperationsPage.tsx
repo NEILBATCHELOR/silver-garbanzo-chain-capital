@@ -72,19 +72,57 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
     return uuidRegex.test(uuid);
   };
 
-  // Fetch available tokens for selection
+  // Fetch available tokens for selection - ONLY tokens with actual deployments
   const fetchAvailableTokens = async () => {
     if (!projectId) return;
     
     try {
-      const projectTokens = await getTokens(projectId);
-      // Filter for deployed tokens that can have operations performed on them
-      const deployedTokens = projectTokens.filter(t => 
-        t.status === 'deployed' || t.address
-      );
+      // Query token_deployments table directly and join with tokens
+      // This ensures we ONLY show tokens that have actual deployment records
+      const { data, error } = await supabase
+        .from('token_deployments')
+        .select(`
+          id,
+          token_id,
+          contract_address,
+          network,
+          status,
+          deployed_at,
+          tokens!inner (
+            id,
+            name,
+            symbol,
+            standard,
+            status,
+            project_id
+          )
+        `)
+        .eq('tokens.project_id', projectId)
+        .in('status', ['confirmed', 'deployed', 'active']); // Only confirmed/successful deployments
+      
+      if (error) {
+        console.error('Error fetching deployed tokens:', error);
+        throw error;
+      }
+      
+      // Map to Token interface, using deployment data
+      const deployedTokens: Token[] = (data || []).map(deployment => ({
+        id: deployment.tokens.id,
+        name: deployment.tokens.name,
+        symbol: deployment.tokens.symbol,
+        standard: deployment.tokens.standard,
+        status: deployment.tokens.status,
+        address: deployment.contract_address, // Use deployment address
+        chain: deployment.network, // Use deployment network
+        created_at: deployment.deployed_at || '',
+        updated_at: deployment.deployed_at || ''
+      }));
+      
+      console.log(`✅ Found ${deployedTokens.length} deployed tokens with deployment records`);
       setTokens(deployedTokens);
     } catch (error) {
       console.error('Error fetching tokens:', error);
+      setTokens([]); // Clear tokens on error
     }
   };
 
@@ -146,17 +184,22 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
       setLoading(true);
       setError(null);
       
-      const tokenData = await getToken(tokenId);
-
-      if (!tokenData) {
-        setError('Token not found');
-        setShowTokenSelection(true);
-        await fetchAvailableTokens();
-        return;
-      }
-
-      // Check if token is deployed
-      if (!tokenData.address && tokenData.status !== 'deployed') {
+      // First, verify the token has a deployment record
+      const { data: deploymentData, error: deploymentError } = await supabase
+        .from('token_deployments')
+        .select(`
+          id,
+          contract_address,
+          network,
+          status,
+          deployed_at
+        `)
+        .eq('token_id', tokenId)
+        .in('status', ['confirmed', 'deployed', 'active'])
+        .single();
+      
+      if (deploymentError || !deploymentData) {
+        console.error('No deployment record found:', deploymentError);
         setError('This token has not been deployed yet. Please deploy the token first.');
         toast({
           title: "Token Not Deployed",
@@ -166,17 +209,37 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
 
         // Redirect to deployment page
         setTimeout(() => {
-          navigate(`/projects/${projectId}/tokens/${tokenId}/deploy`);
+          if (projectId) {
+            navigate(`/projects/${projectId}/tokens/${tokenId}/deploy`);
+          }
         }, 2000);
         return;
       }
 
-      setToken(tokenData);
+      // Now get the token details
+      const tokenData = await getToken(tokenId);
+
+      if (!tokenData) {
+        setError('Token not found');
+        setShowTokenSelection(true);
+        await fetchAvailableTokens();
+        return;
+      }
+
+      // Merge deployment data into token data
+      const enrichedTokenData = {
+        ...tokenData,
+        address: deploymentData.contract_address,
+        chain: deploymentData.network,
+        status: 'deployed' // Override status since we know it's deployed
+      };
+
+      setToken(enrichedTokenData);
       setShowTokenSelection(false);
       
       // 🆕 Load modules for this token
-      if (tokenData.id) {
-        await fetchTokenModules(tokenData.id);
+      if (enrichedTokenData.id) {
+        await fetchTokenModules(enrichedTokenData.id);
       }
     } catch (error) {
       console.error('Error fetching token:', error);

@@ -9,6 +9,9 @@
  */
 
 import { supabase } from '@/infrastructure/database/client';
+import { rpcManager } from '@/infrastructure/web3/rpc';
+import type { SupportedChain, NetworkType } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
+import { CHAIN_IDS, getChainName } from '@/infrastructure/web3/utils/chainIds';
 
 // ============================================
 // Types
@@ -212,53 +215,85 @@ export const CONTRACT_MAPPINGS: Record<string, ContractCategory> = {
 
 export interface NetworkConfig {
   chainId: number;
-  rpcUrl: string;
+  chainName: SupportedChain;
+  networkType: NetworkType;
   explorerUrl: string;
   explorerApiUrl?: string;
   name: string;
   environment: 'mainnet' | 'testnet';
 }
 
+/**
+ * Get RPC URL for a network configuration
+ * Uses the centralized RPC manager instead of hardcoded URLs
+ */
+function getRpcUrlForNetwork(config: NetworkConfig): string | null {
+  return rpcManager.getRPCUrl(config.chainName, config.networkType);
+}
+
 export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   hoodi: {
-    chainId: 560048,
-    rpcUrl: 'https://ethereum-hoodi-rpc.publicnode.com/',
+    chainId: CHAIN_IDS.hoodi,
+    chainName: 'hoodi' as SupportedChain,
+    networkType: 'testnet',
     explorerUrl: 'https://hoodi.etherscan.io',
     explorerApiUrl: 'https://api-hoodi.etherscan.io/api',
     name: 'Hoodi Testnet',
     environment: 'testnet'
   },
   sepolia: {
-    chainId: 11155111,
-    rpcUrl: 'https://rpc.sepolia.org',
+    chainId: CHAIN_IDS.sepolia,
+    chainName: 'sepolia' as SupportedChain,
+    networkType: 'testnet',
     explorerUrl: 'https://sepolia.etherscan.io',
     explorerApiUrl: 'https://api-sepolia.etherscan.io/api',
     name: 'Sepolia Testnet',
     environment: 'testnet'
   },
-  mainnet: {
-    chainId: 1,
-    rpcUrl: 'https://eth.llamarpc.com',
+  ethereum: {
+    chainId: CHAIN_IDS.ethereum,
+    chainName: 'ethereum' as SupportedChain,
+    networkType: 'mainnet',
     explorerUrl: 'https://etherscan.io',
     explorerApiUrl: 'https://api.etherscan.io/api',
     name: 'Ethereum Mainnet',
     environment: 'mainnet'
   },
   polygon: {
-    chainId: 137,
-    rpcUrl: 'https://polygon-rpc.com',
+    chainId: CHAIN_IDS.polygon,
+    chainName: 'polygon' as SupportedChain,
+    networkType: 'mainnet',
     explorerUrl: 'https://polygonscan.com',
     explorerApiUrl: 'https://api.polygonscan.com/api',
     name: 'Polygon',
     environment: 'mainnet'
   },
   arbitrum: {
-    chainId: 42161,
-    rpcUrl: 'https://arb1.arbitrum.io/rpc',
+    chainId: CHAIN_IDS.arbitrumOne,
+    chainName: 'arbitrum' as SupportedChain,
+    networkType: 'mainnet',
     explorerUrl: 'https://arbiscan.io',
     explorerApiUrl: 'https://api.arbiscan.io/api',
     name: 'Arbitrum One',
     environment: 'mainnet'
+  },
+  injective: {
+    chainId: CHAIN_IDS.injective,
+    chainName: 'injective' as SupportedChain,
+    networkType: 'mainnet',
+    explorerUrl: 'https://explorer.injective.network',
+    explorerApiUrl: 'https://api.injective.network/api',
+    name: 'Injective',
+    environment: 'mainnet'
+  },
+  injectiveTestnet: {
+    chainId: CHAIN_IDS.injectiveTestnet,
+    chainName: 'injective' as SupportedChain,
+    networkType: 'testnet',
+    explorerUrl: 'https://testnet.explorer.injective.network',
+    explorerApiUrl: 'https://testnet-api.injective.network/api',
+    name: 'Injective Testnet',
+    environment: 'testnet'
   }
 };
 
@@ -594,9 +629,15 @@ export class DeploymentArtifactService {
     
     if (!mapping || !config) return '';
 
+    const rpcUrl = getRpcUrlForNetwork(config);
+    if (!rpcUrl) {
+      console.warn(`No RPC URL available for network: ${network}`);
+      return '';
+    }
+
     const sourcePath = mapping.sourcePath.replace('.json', '').replace('/', ':');
     
-    return `forge verify-contract ${contractAddress} ${sourcePath} --chain-id ${config.chainId} --rpc-url ${config.rpcUrl} --etherscan-api-key $ETHERSCAN_API_KEY --watch`;
+    return `forge verify-contract ${contractAddress} ${sourcePath} --chain-id ${config.chainId} --rpc-url ${rpcUrl} --etherscan-api-key $ETHERSCAN_API_KEY --watch`;
   }
 
   /**
@@ -604,6 +645,19 @@ export class DeploymentArtifactService {
    */
   static getNetworkConfig(network: string): NetworkConfig | undefined {
     return NETWORK_CONFIGS[network];
+  }
+
+  /**
+   * Get RPC URL for a network
+   * Uses the centralized RPC manager to retrieve URLs from environment or fallbacks
+   */
+  static getRpcUrl(network: string): string | null {
+    const config = NETWORK_CONFIGS[network];
+    if (!config) {
+      console.warn(`Unknown network: ${network}`);
+      return null;
+    }
+    return getRpcUrlForNetwork(config);
   }
 
   /**

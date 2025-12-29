@@ -95,14 +95,14 @@ export class InstanceConfigurationService {
       // Extract module selection from JSONB config
       const moduleSelection = this.extractModuleSelection(params);
       
-      // Check if any modules selected
+      // Check if any modules selected - EARLY RETURN
       if (!this.hasAnyModulesSelected(moduleSelection)) {
-        console.log('ℹ️ No extension modules selected for deployment');
-        return result;
+        console.log('ℹ️ No extension modules selected for deployment - skipping module deployment');
+        return result; // Return immediately with empty result
       }
 
       console.log('🏭 Deploying NEW module instances for token:', tokenAddress);
-      console.log('📦 Selected modules:', moduleSelection);
+      console.log('📦 Selected modules:', Object.keys(moduleSelection).filter(k => !k.endsWith('Config') && moduleSelection[k as keyof ModuleSelection]));
 
       // Determine token standard first (needed for factory lookup)
       const tokenStandard = this.getTokenStandard(params.tokenType);
@@ -118,14 +118,20 @@ export class InstanceConfigurationService {
         console.warn('⚠️ No extension factory found, cannot deploy module instances');
         result.failed.push({
           moduleType: 'all',
-          error: 'Extension factory contract not found in database'
+          error: 'Extension factory contract not found in database. Modules must be deployed manually.'
         });
-        return result;
+        return result; // Return early - don't fail entire deployment
       }
 
       console.log(`✅ Using extension factory at: ${factoryAddress}`);
 
       // Deploy module instances using InstanceDeploymentService
+      console.log('🔄 Calling InstanceDeploymentService.deployAndAttachModules...');
+      console.log(`   - Token: ${tokenAddress}`);
+      console.log(`   - Factory: ${factoryAddress}`);
+      console.log(`   - Network: ${params.blockchain} (${params.environment})`);
+      console.log(`   - Standard: ${tokenStandard}`);
+      
       const deployedModules = await InstanceDeploymentService.deployAndAttachModules(
         tokenAddress,
         tokenId,
@@ -137,6 +143,8 @@ export class InstanceConfigurationService {
         factoryAddress
       );
 
+      console.log('✅ InstanceDeploymentService completed');
+      
       // Transform results for return
       result.deployed = deployedModules.map(module => ({
         moduleType: module.moduleType,

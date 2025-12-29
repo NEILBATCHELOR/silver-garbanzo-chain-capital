@@ -106,6 +106,18 @@ const EXPLORER_URLS: Record<string, { base: string; transaction: string; address
     address: '/address/',
     block: '/block/'
   },
+  hoodi: {
+    base: 'https://hoodi.etherscan.io',
+    transaction: '/tx/',
+    address: '/address/',
+    block: '/block/'
+  },
+  'hoodi-testnet': {
+    base: 'https://hoodi.etherscan.io',
+    transaction: '/tx/',
+    address: '/address/',
+    block: '/block/'
+  },
   solana: {
     base: 'https://explorer.solana.com',
     transaction: '/tx/',

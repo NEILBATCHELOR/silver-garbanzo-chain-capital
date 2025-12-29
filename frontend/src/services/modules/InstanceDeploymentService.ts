@@ -56,7 +56,7 @@ export class InstanceDeploymentService {
     // Get factory contract
     const factory = new ethers.Contract(
       factoryAddress,
-      await this.getFactoryABI(network, environment),
+      await this.getFactoryABI(factoryAddress, network, environment),
       deployer
     );
 
@@ -381,7 +381,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW compliance module instance for token ${tokenAddress}`);
-    const tx = await factory.deployComplianceModule(
+    const tx = await factory.deployCompliance(
       tokenAddress,
       config.kycRequired || false,
       config.whitelistRequired || false
@@ -432,7 +432,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW vesting module instance for token ${tokenAddress}`);
-    const tx = await factory.deployVestingModule(tokenAddress);
+    const tx = await factory.deployVesting(tokenAddress);
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -478,29 +478,9 @@ export class InstanceDeploymentService {
       throw new Error('Document module master not found');
     }
 
-    console.log(`Deploying NEW document module instance for token ${tokenAddress}`);
-    const tx = await factory.deployDocumentModule(tokenAddress);
-    const receipt = await tx.wait();
-
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'DocumentModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
-
-    if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
-    }
-
-    console.log(`NEW document module deployed at: ${newModuleAddress}`);
-    await token.setDocumentModule(newModuleAddress);
-
-    return {
-      moduleAddress: newModuleAddress,
-      masterAddress: masterModule.contractAddress,
-      deploymentTxHash: receipt.hash,
-      moduleType: 'document',
-      configuration: config
-    };
+    // NOTE: Document module not yet available in ERC20 extension factory
+    // This is a universal module that may require a different factory
+    throw new Error('Document module deployment not yet implemented for ERC20 tokens');
   }
 
   /**
@@ -525,33 +505,9 @@ export class InstanceDeploymentService {
       throw new Error('Policy engine master not found');
     }
 
-    console.log(`Deploying NEW policy engine instance for token ${tokenAddress}`);
-    const tx = await factory.deployPolicyEngine(
-      tokenAddress,
-      config.rulesEnabled || [],
-      config.validatorsEnabled || []
-    );
-    const receipt = await tx.wait();
-
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'PolicyEngineDeployed'
-    );
-    const newModuleAddress = event?.args?.engineAddress || event?.args?.moduleAddress;
-
-    if (!newModuleAddress) {
-      throw new Error('Failed to get deployed policy engine address');
-    }
-
-    console.log(`NEW policy engine deployed at: ${newModuleAddress}`);
-    await token.setPolicyEngine(newModuleAddress);
-
-    return {
-      moduleAddress: newModuleAddress,
-      masterAddress: masterModule.contractAddress,
-      deploymentTxHash: receipt.hash,
-      moduleType: 'policy_engine',
-      configuration: config
-    };
+    // NOTE: Policy engine not yet available in ERC20 extension factory
+    // This is a universal module that may require a different factory
+    throw new Error('Policy engine deployment not yet implemented for ERC20 tokens');
   }
 
   // ============ DEPLOYMENT METHODS - ERC20 MODULES ============
@@ -580,9 +536,9 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW fee module instance for token ${tokenAddress}`);
-    const tx = await factory.deployFeeModule(
+    const tx = await factory.deployFees(
       tokenAddress,
-      config.transferFeeBps || 0,
+      config.transferFeeBps || config.feePercent || 0,
       config.feeRecipient || deployer.address
     );
     const receipt = await tx.wait();
@@ -631,7 +587,11 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW flash mint module instance for token ${tokenAddress}`);
-    const tx = await factory.deployFlashMintModule(tokenAddress);
+    const tx = await factory.deployFlashMint(
+      tokenAddress,
+      config.maxFlashLoan || 0,
+      config.flashFee || 0
+    );
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -678,7 +638,11 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW permit module instance for token ${tokenAddress}`);
-    const tx = await factory.deployPermitModule(tokenAddress);
+    const tx = await factory.deployPermit(
+      tokenAddress,
+      config.name || 'Token',
+      config.version || '1'
+    );
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -725,7 +689,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW snapshot module instance for token ${tokenAddress}`);
-    const tx = await factory.deploySnapshotModule(tokenAddress);
+    const tx = await factory.deploySnapshot(tokenAddress);
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -772,7 +736,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW timelock module instance for token ${tokenAddress}`);
-    const tx = await factory.deployTimelockModule(
+    const tx = await factory.deployTimelock(
       tokenAddress,
       config.minDelay || 0
     );
@@ -822,7 +786,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW votes module instance for token ${tokenAddress}`);
-    const tx = await factory.deployVotesModule(tokenAddress);
+    const tx = await factory.deployVotes(tokenAddress);
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -869,7 +833,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW payable token module instance for token ${tokenAddress}`);
-    const tx = await factory.deployPayableTokenModule(tokenAddress);
+    const tx = await factory.deployPayable(tokenAddress);
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -916,10 +880,7 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW temporary approval module instance for token ${tokenAddress}`);
-    const tx = await factory.deployTemporaryApprovalModule(
-      tokenAddress,
-      config.defaultDuration || 3600
-    );
+    const tx = await factory.deployTemporaryApproval(tokenAddress);
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -1414,17 +1375,20 @@ export class InstanceDeploymentService {
     console.log(`Saved ${modules.length} module deployments to database`);
   }
 
-  private static async getFactoryABI(network: string, environment: string): Promise<any> {
+  private static async getFactoryABI(factoryAddress: string, network: string, environment: string): Promise<any> {
     const { data, error } = await supabase
       .from('contract_masters')
       .select('abi')
+      .eq('contract_address', factoryAddress.toLowerCase())
       .eq('network', network)
       .eq('environment', environment)
       .eq('is_active', true)
-      .like('contract_type', '%factory%')
       .single();
 
-    if (error || !data) throw new Error('Factory ABI not found');
+    if (error || !data) {
+      console.error('Factory ABI lookup failed:', { factoryAddress, network, environment, error });
+      throw new Error(`Factory ABI not found for address ${factoryAddress}`);
+    }
     return data.abi;
   }
 

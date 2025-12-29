@@ -821,14 +821,14 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       
       // Show deployment started toast
       toast({
-        title: "🚀 Deployment Started",
-        description: `Deploying ${tokenConfig.name} to ${blockchain}...`,
+        title: "Deployment Started",
+        description: `Deploying ${tokenConfig.name} token to ${blockchain} ${environment}`,
         variant: "default",
       });
       
-      console.log(`🚀 Starting deployment to ${blockchain} (${environment}) with optimization: ${useOptimization}`);
-      console.log(`📍 Using wallet: ${deploymentWalletAddress}`);
-      console.log(`🎯 Token ID: ${tokenId}, User ID: ${currentUserId}`);
+      console.log(`[DEPLOY] Starting deployment to ${blockchain} (${environment}) with optimization: ${useOptimization}`);
+      console.log(`[DEPLOY] Using wallet: ${deploymentWalletAddress}`);
+      console.log(`[DEPLOY] Token ID: ${tokenId}, User ID: ${currentUserId}`);
       
       // ✅ FIX #9: Extract enabled module configs BEFORE database update
       const enabledModules = extractEnabledModuleConfigs(extensionModuleConfigs);
@@ -1000,7 +1000,7 @@ Need help? Visit our documentation or contact support.`;
         setError(helpfulMessage);
         
         toast({
-          title: "❌ Insufficient Funds",
+          title: "Insufficient Funds",
           description: `Your wallet needs more ${blockchain === 'ethereum' ? 'ETH' : blockchain.toUpperCase()} for deployment.`,
           variant: "destructive",
         });
@@ -1008,7 +1008,7 @@ Need help? Visit our documentation or contact support.`;
         setError(errorMessage);
         
         toast({
-          title: "❌ Deployment Failed",
+          title: "Deployment Failed",
           description: errorMessage.substring(0, 100) + (errorMessage.length > 100 ? '...' : ''),
           variant: "destructive",
         });
@@ -1392,31 +1392,11 @@ Need help? Visit our documentation or contact support.`;
           moduleConfigs={extensionModuleConfigs}
         />
         
-        {/* Deploy Button - with debug info */}
-        {/* Show why button is disabled if it is */}
-        {(isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId) && (
-          <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertTitle className="text-blue-800 dark:text-blue-300">Deploy Button Status</AlertTitle>
-            <AlertDescription className="text-blue-700 dark:text-blue-400">
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                {authLoading && <li>⏳ Authenticating user...</li>}
-                {!currentUserId && !authLoading && <li>❌ No authenticated user (please refresh and log in)</li>}
-                {isDeploying && <li>⏳ Deployment in progress...</li>}
-                {!blockchain && <li>❌ No blockchain selected</li>}
-                {!walletAddress && <li>❌ No wallet address loaded (check DeploymentDashboard above)</li>}
-                {isLoadingWallet && <li>⏳ Loading wallet...</li>}
-                {blockchain && walletAddress && currentUserId && !isDeploying && !isLoadingWallet && !authLoading && (
-                  <li>✅ All conditions met - button should be enabled</li>
-                )}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Deploy Button - removed debug status box per user request */}
         
         <Button 
           onClick={() => {
-            console.log('🚀 Deploy button clicked!');
+            console.log('Deploy button clicked');
             console.log('Button state:', {
               isDeploying,
               blockchain,
@@ -1428,7 +1408,7 @@ Need help? Visit our documentation or contact support.`;
             });
             handleDeploymentConfirmation();
           }} 
-          disabled={isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId} // ✅ FIX #1: Disable during auth loading
+          disabled={isDeploying || !blockchain || !walletAddress || isLoadingWallet || authLoading || !currentUserId}
           className="w-full"
           size="lg"
         >
@@ -1440,7 +1420,7 @@ Need help? Visit our documentation or contact support.`;
           ) : isDeploying ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {useOptimization ? 'Optimizing & Deploying...' : 'Deploying...'}
+              {useOptimization ? 'Optimizing and Deploying Token...' : 'Deploying Token...'}
             </>
           ) : (
             <>

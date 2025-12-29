@@ -136,85 +136,116 @@ export class EnhancedGasEstimationService {
   }
   
   /**
-   * Detect if blockchain is a testnet (Sepolia or Holesky)
+   * Detect if blockchain is a testnet
    */
   private isTestnet(blockchain: string): boolean {
-    const testnets = ['sepolia', 'holesky'];
+    const testnets = ['sepolia', 'holesky', 'hoodi', 'base-sepolia', 'optimism-sepolia', 'arbitrum-sepolia', 'avalanche-fuji', 'bsc-testnet', 'polygon-amoy'];
     return testnets.includes(blockchain.toLowerCase());
   }
   
   /**
    * Get fee data optimized for testnets
-   * Uses TestnetGasService for Sepolia/Holesky with fallback to RealTimeFeeEstimator
+   * Uses TestnetGasService for Sepolia/Holesky, simple config for other testnets
    */
   private async getTestnetFeeData(blockchain: string, priority: FeePriority): Promise<any> {
-    console.log(`[EnhancedGasEstimation] 🧪 Testnet detected: ${blockchain} - using TestnetGasService`);
+    console.log(`[EnhancedGasEstimation] 🧪 Testnet detected: ${blockchain} - using testnet gas configuration`);
     
-    try {
-      // Use TestnetGasService for Sepolia/Holesky
-      const testnetGas = blockchain.toLowerCase() === 'sepolia' 
-        ? await getSepoliaGas()
-        : await getHoleskyGas();
-      
-      console.log(`[EnhancedGasEstimation] ✅ TestnetGasService data:`, {
-        baseFee: testnetGas.suggestBaseFee,
-        safe: testnetGas.safe,
-        propose: testnetGas.propose,
-        fast: testnetGas.fast
-      });
-      
-      // Select priority fee based on priority level
-      const priorityFeeMap = {
-        [FeePriority.LOW]: testnetGas.safe,
-        [FeePriority.MEDIUM]: testnetGas.propose,
-        [FeePriority.HIGH]: testnetGas.fast,
-        [FeePriority.URGENT]: testnetGas.fast * 1.5
-      };
-      
-      const priorityFeeGwei = priorityFeeMap[priority];
-      const baseFeeGwei = testnetGas.suggestBaseFee;
-      
-      // Convert priority to gas oracle priority level
-      const priorityLevelMap = {
-        [FeePriority.LOW]: 'low' as const,
-        [FeePriority.MEDIUM]: 'medium' as const,
-        [FeePriority.HIGH]: 'high' as const,
-        [FeePriority.URGENT]: 'high' as const
-      };
-      
-      // Build EIP-1559 fees
-      const { maxFeePerGas, maxPriorityFeePerGas } = buildEip1559Fees(
-        testnetGas,
-        priorityLevelMap[priority]
-      );
-      
-      // Return in RealTimeFeeEstimator-compatible format
-      return {
-        gasPrice: undefined, // EIP-1559 only for testnets
-        maxFeePerGas: maxFeePerGas.toString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
-        estimatedTimeSeconds: 15, // Testnets are typically fast
-        networkCongestion: 'low',
-        priority,
-        source: 'testnet-rpc'
-      };
-    } catch (error: any) {
-      console.warn(`[EnhancedGasEstimation] ⚠️ TestnetGasService failed, falling back to RealTimeFeeEstimator:`, error.message);
-      
-      // Fallback to RealTimeFeeEstimator
+    const blockchainLower = blockchain.toLowerCase();
+    
+    // For Sepolia and Holesky, use TestnetGasService
+    if (blockchainLower === 'sepolia' || blockchainLower === 'holesky') {
       try {
-        const feeData = await this.feeEstimator.getOptimalFeeData(blockchain, priority);
-        console.log(`[EnhancedGasEstimation] ✅ Fallback successful - using RealTimeFeeEstimator`);
-        return feeData;
-      } catch (fallbackError: any) {
-        console.error(`[EnhancedGasEstimation] ❌ Both TestnetGasService and RealTimeFeeEstimator failed`);
-        throw new Error(
-          `Failed to fetch testnet gas prices: ${error.message}. ` +
-          `Fallback also failed: ${fallbackError.message}. ` +
-          `Ensure VITE_${blockchain.toUpperCase()}_RPC_URL is configured with a valid endpoint.`
+        const testnetGas = blockchainLower === 'sepolia' 
+          ? await getSepoliaGas()
+          : await getHoleskyGas();
+        
+        console.log(`[EnhancedGasEstimation] ✅ TestnetGasService data:`, {
+          baseFee: testnetGas.suggestBaseFee,
+          safe: testnetGas.safe,
+          propose: testnetGas.propose,
+          fast: testnetGas.fast
+        });
+        
+        // Select priority fee based on priority level
+        const priorityFeeMap = {
+          [FeePriority.LOW]: testnetGas.safe,
+          [FeePriority.MEDIUM]: testnetGas.propose,
+          [FeePriority.HIGH]: testnetGas.fast,
+          [FeePriority.URGENT]: testnetGas.fast * 1.5
+        };
+        
+        const priorityFeeGwei = priorityFeeMap[priority];
+        const baseFeeGwei = testnetGas.suggestBaseFee;
+        
+        // Convert priority to gas oracle priority level
+        const priorityLevelMap = {
+          [FeePriority.LOW]: 'low' as const,
+          [FeePriority.MEDIUM]: 'medium' as const,
+          [FeePriority.HIGH]: 'high' as const,
+          [FeePriority.URGENT]: 'high' as const
+        };
+        
+        // Build EIP-1559 fees
+        const { maxFeePerGas, maxPriorityFeePerGas } = buildEip1559Fees(
+          testnetGas,
+          priorityLevelMap[priority]
         );
+        
+        // Return in RealTimeFeeEstimator-compatible format
+        return {
+          gasPrice: undefined, // EIP-1559 only for testnets
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+          estimatedTimeSeconds: 15, // Testnets are typically fast
+          networkCongestion: 'low',
+          priority,
+          source: 'testnet-rpc'
+        };
+      } catch (error: any) {
+        console.warn(`[EnhancedGasEstimation] ⚠️ TestnetGasService failed, falling back to RealTimeFeeEstimator:`, error.message);
+        
+        // Fallback to RealTimeFeeEstimator
+        try {
+          const feeData = await this.feeEstimator.getOptimalFeeData(blockchain, priority);
+          console.log(`[EnhancedGasEstimation] ✅ Fallback successful - using RealTimeFeeEstimator`);
+          return feeData;
+        } catch (fallbackError: any) {
+          console.error(`[EnhancedGasEstimation] ❌ Both TestnetGasService and RealTimeFeeEstimator failed`);
+          throw new Error(
+            `Failed to fetch testnet gas prices: ${error.message}. ` +
+            `Fallback also failed: ${fallbackError.message}. ` +
+            `Ensure VITE_${blockchain.toUpperCase()}_RPC_URL is configured with a valid endpoint.`
+          );
+        }
       }
     }
+    
+    // For all other testnets (hoodi, base-sepolia, etc.), use simple testnet-optimized gas prices
+    console.log(`[EnhancedGasEstimation] ✅ Using generic testnet gas configuration for ${blockchain}`);
+    
+    // Testnet-optimized gas prices (much lower than mainnet)
+    // Most testnets have very low gas prices (< 1 Gwei)
+    const priorityFeeMap = {
+      [FeePriority.LOW]: '0.1',      // 0.1 Gwei
+      [FeePriority.MEDIUM]: '0.5',   // 0.5 Gwei
+      [FeePriority.HIGH]: '1.0',     // 1.0 Gwei
+      [FeePriority.URGENT]: '2.0'    // 2.0 Gwei
+    };
+    
+    const maxPriorityFeePerGas = priorityFeeMap[priority];
+    // For testnets, base fee is typically very low
+    const baseFee = '0.5'; // 0.5 Gwei base fee
+    const maxFeePerGas = (parseFloat(baseFee) + parseFloat(maxPriorityFeePerGas)).toString();
+    
+    return {
+      gasPrice: undefined, // EIP-1559 only
+      maxFeePerGas: ethers.parseUnits(maxFeePerGas, 'gwei').toString(),
+      maxPriorityFeePerGas: ethers.parseUnits(maxPriorityFeePerGas, 'gwei').toString(),
+      estimatedTimeSeconds: 15,
+      networkCongestion: 'low',
+      priority,
+      source: 'testnet-optimized'
+    };
   }
   
   /**

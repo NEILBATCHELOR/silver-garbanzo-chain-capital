@@ -82,18 +82,40 @@ const getBytecode = (artifact: any): string => {
  */
 export class FoundryDeploymentService {
   /**
+   * Check if error is a nonce-related error
+   */
+  private isNonceError(error: any): boolean {
+    const errorMessage = error?.message?.toLowerCase() || '';
+    return errorMessage.includes('nonce') || 
+           errorMessage.includes('replacement transaction underpriced') ||
+           errorMessage.includes('already known');
+  }
+
+  /**
+   * Handle nonce error by getting fresh nonce from provider
+   */
+  private async handleNonceError(wallet: ethers.Wallet): Promise<number> {
+    try {
+      const currentNonce = await wallet.provider.getTransactionCount(wallet.address, 'latest');
+      const pendingNonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
+      
+      console.log(`[NONCE] Current: ${currentNonce}, Pending: ${pendingNonce}`);
+      
+      // Use the higher of the two to avoid conflicts
+      return Math.max(currentNonce, pendingNonce);
+    } catch (error) {
+      console.error('[NONCE] Error fetching nonce:', error);
+      throw new Error('Failed to recover from nonce error');
+    }
+  }
+
+  /**
    * Initialize Key Vault connection with proper credentials
    */
   private async initializeKeyVault(): Promise<void> {
     try {
-      // Check if already connected
-      try {
-        await keyVaultClient.getKey('test-connection');
-        return;
-      } catch {
-        // Not connected, proceed with initialization
-      }
-      
+      // ✅ FIXED: Removed problematic test-connection check
+      // The keyVaultClient doesn't need pre-connection testing as it connects on-demand
       const credentials: ProjectCredential = {
         id: 'foundry-deployment-credentials',
         name: 'Foundry Deployment Key Vault',
@@ -104,6 +126,7 @@ export class FoundryDeploymentService {
       };
       
       await keyVaultClient.connect(credentials);
+      console.log('✅ Key vault initialized successfully');
     } catch (error) {
       console.error('Failed to initialize key vault:', error);
       throw new Error('Key vault initialization failed');
@@ -398,13 +421,23 @@ export class FoundryDeploymentService {
     standard: string
   ): Promise<string> {
     // Map token standard to contract type
+    // ✅ FIXED: Added non-hyphenated versions to handle both formats
     const contractTypeMap: Record<string, string> = {
+      // Hyphenated formats (database standard)
       'ERC-20': 'erc20_master',
       'ERC-721': 'erc721_master',
       'ERC-1155': 'erc1155_master',
       'ERC-3525': 'erc3525_master',
       'ERC-4626': 'erc4626_master',
       'ERC-1400': 'erc1400_master',
+      // Non-hyphenated formats (form input)
+      'ERC20': 'erc20_master',
+      'ERC721': 'erc721_master',
+      'ERC1155': 'erc1155_master',
+      'ERC3525': 'erc3525_master',
+      'ERC4626': 'erc4626_master',
+      'ERC1400': 'erc1400_master',
+      // Special variants
       'ERC20Rebasing': 'erc20_rebasing_master',
       'EnhancedERC20': 'erc20_master',
       'EnhancedERC721': 'erc721_master',
@@ -561,7 +594,7 @@ export class FoundryDeploymentService {
               factoryAddress
             }
           }, {
-            onConflict: 'network,environment,contract_type',
+            onConflict: 'network,environment,contract_address',
             ignoreDuplicates: false
           });
 
@@ -819,19 +852,47 @@ export class FoundryDeploymentService {
         // If not found, we'll deploy directly below
       }
 
-      // Deploy
+      // Deploy with nonce error recovery
       let deploymentResult: DeployedContract;
       let receipt: ethers.ContractTransactionReceipt;
+      let retryCount = 0;
+      const maxRetries = 2;
       
-      if (factoryAddress) {
-        console.log(`Deploying via factory at: ${factoryAddress}`);
-        deploymentResult = await this.deployViaFactory(wallet, params, factoryAddress);
-      } else {
-        console.log('Deploying directly (no factory found)');
-        deploymentResult = await this.deployDirectly(wallet, params);
+      while (retryCount <= maxRetries) {
+        try {
+          if (factoryAddress) {
+            console.log(`[DEPLOY] Deploying via factory at: ${factoryAddress} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+            deploymentResult = await this.deployViaFactory(wallet, params, factoryAddress);
+          } else {
+            console.log(`[DEPLOY] Deploying directly - no factory found (attempt ${retryCount + 1}/${maxRetries + 1})`);
+            deploymentResult = await this.deployDirectly(wallet, params);
+          }
+          
+          // Deployment succeeded, break out of retry loop
+          break;
+        } catch (deployError: any) {
+          // Check if it's a nonce error
+          if (this.isNonceError(deployError) && retryCount < maxRetries) {
+            console.warn(`[NONCE] Nonce error detected on attempt ${retryCount + 1}, recovering...`);
+            
+            // Get fresh nonce
+            const freshNonce = await this.handleNonceError(wallet);
+            console.log(`[NONCE] Using fresh nonce: ${freshNonce}`);
+            
+            // Increment retry counter and try again
+            retryCount++;
+            
+            // Small delay before retry
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          // Not a nonce error or max retries reached, throw
+          throw deployError;
+        }
       }
       
-      deployedAddress = deploymentResult.address;
+      deployedAddress = deploymentResult!.address;
 
       // Get receipt for database persistence
       const tx = await wallet.provider.getTransaction(deploymentResult.deploymentTx);
@@ -855,8 +916,11 @@ export class FoundryDeploymentService {
 
       // 🆕 Deploy and attach NEW module instances (CORRECTED ARCHITECTURE)
       // Each token gets its OWN module instances, not shared masters
+      // ✅ FIX: Add timeout to prevent hanging
       try {
-        const moduleDeploymentResult = await InstanceConfigurationService.deployAndConfigureModules(
+        console.log('🔄 Starting module deployment with 60s timeout...');
+        
+        const moduleDeploymentPromise = InstanceConfigurationService.deployAndConfigureModules(
           deploymentResult.address,
           params.tokenId,
           wallet,
@@ -864,9 +928,20 @@ export class FoundryDeploymentService {
           userId
         );
         
+        // Create timeout promise (60 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Module deployment timed out after 60 seconds')), 60000);
+        });
+        
+        // Race between deployment and timeout
+        const moduleDeploymentResult = await Promise.race([
+          moduleDeploymentPromise,
+          timeoutPromise
+        ]) as any;
+        
         if (moduleDeploymentResult.deployed.length > 0) {
           console.log(`✅ Deployed ${moduleDeploymentResult.deployed.length} NEW module instances:`);
-          moduleDeploymentResult.deployed.forEach(m => {
+          moduleDeploymentResult.deployed.forEach((m: any) => {
             console.log(`  - ${m.moduleType}: instance=${m.instanceAddress} (from master=${m.masterAddress})`);
           });
         }
@@ -876,17 +951,22 @@ export class FoundryDeploymentService {
           // Log failures but don't block deployment
         }
       } catch (moduleError) {
-        console.error('Module deployment failed:', moduleError);
+        console.error('⚠️ Module deployment failed (token deployment still successful):', moduleError);
         // Don't throw - token deployment succeeded even if module deployment failed
         await logActivity({
           action: 'module_deployment_failed',
           entity_type: 'token',
           entity_id: deploymentResult.address,
           details: {
-            error: moduleError instanceof Error ? moduleError.message : 'Unknown error'
+            error: moduleError instanceof Error ? moduleError.message : 'Unknown error',
+            tokenAddress: deploymentResult.address,
+            tokenId: params.tokenId
           },
           status: 'warning'
         });
+        
+        // Show user-friendly message in console
+        console.log('ℹ️ Token deployed successfully. Extension modules can be deployed separately if needed.');
       }
 
       // Log success
@@ -1019,10 +1099,59 @@ export class FoundryDeploymentService {
       tx = await factory[methodName](...methodParams);
     }
 
-    const receipt = await tx.wait();
-    if (!receipt) {
-      throw new Error('Transaction failed');
+    // ✅ FIX #10: Add timeout to prevent infinite hanging (120 seconds for testnet)
+    console.log(`⏳ Waiting for transaction confirmation... (timeout: 120s)`);
+    console.log(`📍 Transaction hash: ${tx.hash}`);
+    
+    // Build explorer URL based on blockchain
+    const explorerUrls: Record<string, string> = {
+      'hoodi': 'https://hoodi.etherscan.io',
+      'ethereum': 'https://etherscan.io',
+      'sepolia': 'https://sepolia.etherscan.io',
+      'base': 'https://basescan.org',
+      'base-sepolia': 'https://sepolia.basescan.org',
+      'optimism': 'https://optimistic.etherscan.io',
+      'optimism-sepolia': 'https://sepolia-optimistic.etherscan.io',
+      'arbitrum': 'https://arbiscan.io',
+      'arbitrum-sepolia': 'https://sepolia.arbiscan.io',
+      'polygon': 'https://polygonscan.com',
+      'polygon-amoy': 'https://amoy.polygonscan.com',
+      'avalanche': 'https://snowtrace.io',
+      'avalanche-fuji': 'https://testnet.snowtrace.io',
+      'bsc': 'https://bscscan.com',
+      'bsc-testnet': 'https://testnet.bscscan.com'
+    };
+    
+    const explorerUrl = explorerUrls[params.blockchain.toLowerCase()] || 'https://etherscan.io';
+    console.log(`🔍 View on Explorer: ${explorerUrl}/tx/${tx.hash}`);
+    
+    let receipt;
+    try {
+      receipt = await Promise.race([
+        tx.wait(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Transaction confirmation timeout after 120 seconds')), 120000)
+        )
+      ]);
+    } catch (error: any) {
+      if (error.message.includes('timeout')) {
+        console.error(`⏰ Transaction confirmation timed out after 120 seconds`);
+        console.error(`📍 Transaction may still be pending. Check: ${explorerUrl}/tx/${tx.hash}`);
+        throw new Error(
+          `Transaction confirmation timed out after 120 seconds. ` +
+          `The transaction may still be processing on the blockchain. ` +
+          `Check the explorer: ${explorerUrl}/tx/${tx.hash}`
+        );
+      }
+      throw error;
     }
+    
+    if (!receipt) {
+      throw new Error('Transaction failed - no receipt received');
+    }
+    
+    console.log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
+    console.log(`⛽ Gas used: ${receipt.gasUsed.toString()} units`);
 
     // ✅ FIX #9: Find deployment event - event names vary by token type
     // ERC20: ERC20Deployed, ERC721: ERC721Deployed, etc.

@@ -89,8 +89,8 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
         net: 'hoodi',
         displayName: 'Hoodi Testnet',
         isTestnet: true,
-        explorerUrl: 'https://light-hoodi.beaconcha.in',
-        rpcUrl: 'https://rpc.hoodi.ethpandaops.io',
+        explorerUrl: 'https://hoodi.etherscan.io',
+        rpcUrl: 'https://eth-hoodi.g.alchemy.com/v2/Z3UXs7SblJNf-xGhHBc63iDRi9xqWCYP',
         balanceServiceKey: 'hoodi',
         nativeCurrency: {
           name: 'Hoodi Ether',

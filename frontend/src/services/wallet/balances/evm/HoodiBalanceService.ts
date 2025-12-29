@@ -2,8 +2,8 @@
  * Hoodi Ethereum Testnet Balance Service
  * 
  * Chain ID: 560048
- * RPC: https://rpc.hoodi.ethpandaops.io
- * Explorer: https://light-hoodi.beaconcha.in/
+ * RPC: https://eth-hoodi.g.alchemy.com/v2/Z3UXs7SblJNf-xGhHBc63iDRi9xqWCYP
+ * Explorer: https://hoodi.etherscan.io/
  * 
  * Hoodi is an Ethereum testnet for testing purposes
  */
@@ -20,8 +20,8 @@ export class HoodiBalanceService extends BaseEVMBalanceService {
       symbol: 'ETH',
       decimals: 18,
       networkType: 'testnet',
-      rpcUrl: import.meta.env.VITE_HOODI_RPC_URL || 'https://rpc.hoodi.ethpandaops.io',
-      explorerUrl: 'https://light-hoodi.beaconcha.in',
+      rpcUrl: import.meta.env.VITE_HOODI_RPC_URL || 'https://eth-hoodi.g.alchemy.com/v2/Z3UXs7SblJNf-xGhHBc63iDRi9xqWCYP',
+      explorerUrl: 'https://hoodi.etherscan.io',
       coingeckoId: 'ethereum',
       timeout: 15000,
       isEVM: true
