@@ -108,39 +108,52 @@ export class EventIndexer {
       const currentBlock = await this.provider.getBlockNumber();
       console.log(`[EventIndexer] Indexing historical events from block ${fromBlock} to ${currentBlock}`);
 
+      // Get event filters - using getEvent to properly create filters
+      const contractFilters = this.contract.filters;
+      
       // Supply events
-      const supplyFilter = this.contract.filters.Supply();
-      const supplyEvents = await this.contract.queryFilter(supplyFilter, fromBlock, currentBlock);
-      for (const event of supplyEvents) {
-        await this.processSupplyEvent(event);
+      const supplyFilter = contractFilters['Supply']?.();
+      if (supplyFilter) {
+        const supplyEvents = await this.contract.queryFilter(supplyFilter, fromBlock, currentBlock);
+        for (const event of supplyEvents) {
+          await this.processSupplyEvent(event);
+        }
       }
 
       // Borrow events
-      const borrowFilter = this.contract.filters.Borrow();
-      const borrowEvents = await this.contract.queryFilter(borrowFilter, fromBlock, currentBlock);
-      for (const event of borrowEvents) {
-        await this.processBorrowEvent(event);
+      const borrowFilter = contractFilters['Borrow']?.();
+      if (borrowFilter) {
+        const borrowEvents = await this.contract.queryFilter(borrowFilter, fromBlock, currentBlock);
+        for (const event of borrowEvents) {
+          await this.processBorrowEvent(event);
+        }
       }
 
       // Repay events
-      const repayFilter = this.contract.filters.Repay();
-      const repayEvents = await this.contract.queryFilter(repayFilter, fromBlock, currentBlock);
-      for (const event of repayEvents) {
-        await this.processRepayEvent(event);
+      const repayFilter = contractFilters['Repay']?.();
+      if (repayFilter) {
+        const repayEvents = await this.contract.queryFilter(repayFilter, fromBlock, currentBlock);
+        for (const event of repayEvents) {
+          await this.processRepayEvent(event);
+        }
       }
 
       // Withdraw events
-      const withdrawFilter = this.contract.filters.Withdraw();
-      const withdrawEvents = await this.contract.queryFilter(withdrawFilter, fromBlock, currentBlock);
-      for (const event of withdrawEvents) {
-        await this.processWithdrawEvent(event);
+      const withdrawFilter = contractFilters['Withdraw']?.();
+      if (withdrawFilter) {
+        const withdrawEvents = await this.contract.queryFilter(withdrawFilter, fromBlock, currentBlock);
+        for (const event of withdrawEvents) {
+          await this.processWithdrawEvent(event);
+        }
       }
 
       // Liquidation events
-      const liquidateFilter = this.contract.filters.Liquidate();
-      const liquidateEvents = await this.contract.queryFilter(liquidateFilter, fromBlock, currentBlock);
-      for (const event of liquidateEvents) {
-        await this.processLiquidateEvent(event);
+      const liquidateFilter = contractFilters['Liquidate']?.();
+      if (liquidateFilter) {
+        const liquidateEvents = await this.contract.queryFilter(liquidateFilter, fromBlock, currentBlock);
+        for (const event of liquidateEvents) {
+          await this.processLiquidateEvent(event);
+        }
       }
 
       console.log(`[EventIndexer] Historical indexing complete`);

@@ -16,6 +16,9 @@ import { Label } from '@/components/ui/label'
 import { AlertTriangle, Shield, AlertCircle, CheckCircle2, Pause, Play, Zap, Lock, Unlock, Info, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+// Import API service
+import { createTradeFinanceAPIService, TradeFinanceAPIService } from '@/services/trade-finance'
+
 interface ProtocolStatus {
   isPaused: boolean
   pausedAt: Date | null
@@ -32,6 +35,8 @@ interface EmergencyControlsProps {
   chainId?: number
   networkType?: 'mainnet' | 'testnet'
   adminAddress?: string
+  projectId: string
+  apiBaseURL?: string
   onStatusChange?: (status: ProtocolStatus) => void
 }
 
@@ -40,6 +45,8 @@ export function EmergencyControls({
   chainId = 11155111,
   networkType = 'testnet',
   adminAddress,
+  projectId,
+  apiBaseURL,
   onStatusChange
 }: EmergencyControlsProps) {
   const [status, setStatus] = useState<ProtocolStatus>({
@@ -61,31 +68,36 @@ export function EmergencyControls({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'pause' | 'unpause' | null>(null)
   const [confirmationText, setConfirmationText] = useState('')
+  
+  // API service state
+  const [apiService, setApiService] = useState<TradeFinanceAPIService | null>(null)
+
+  // Initialize API service
+  useEffect(() => {
+    if (!projectId) return
+    
+    const service = createTradeFinanceAPIService(projectId, apiBaseURL)
+    setApiService(service)
+  }, [projectId, apiBaseURL])
 
   // Fetch protocol status
   useEffect(() => {
+    if (!apiService) return
+
     const fetchStatus = async () => {
       try {
         setIsLoading(true)
         setError(null)
 
-        // TODO: Replace with actual service call
-        // const poolService = createCommodityPoolService(config)
-        // const result = await poolService.getProtocolStatus()
+        // Call API to get protocol status
+        const statusData = await apiService.getProtocolStatus()
 
-        // Mock data
-        const mockStatus: ProtocolStatus = {
-          isPaused: false,
-          pausedAt: null,
-          circuitBreakers: {
-            oracleFailure: false,
-            highUtilization: false,
-            largeLiquidation: false
-          },
-          lastUpdate: new Date()
-        }
-
-        setStatus(mockStatus)
+        setStatus({
+          isPaused: statusData.isPaused,
+          pausedAt: statusData.pausedAt ? new Date(statusData.pausedAt) : null,
+          circuitBreakers: statusData.circuitBreakers,
+          lastUpdate: new Date(statusData.lastUpdate)
+        })
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch status'
         setError(errorMessage)
@@ -100,7 +112,7 @@ export function EmergencyControls({
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchStatus, 30000)
     return () => clearInterval(interval)
-  }, [poolAddress, chainId])
+  }, [apiService])
 
   const handlePauseClick = () => {
     setConfirmAction('pause')
@@ -115,7 +127,7 @@ export function EmergencyControls({
   }
 
   const executeAction = async () => {
-    if (!confirmAction || !adminAddress) return
+    if (!confirmAction || !apiService) return
 
     // Require "CONFIRM" to proceed
     if (confirmationText !== 'CONFIRM') {
@@ -128,32 +140,34 @@ export function EmergencyControls({
       setError(null)
       setShowConfirmDialog(false)
 
-      // TODO: Replace with actual service call
-      // const poolService = createCommodityPoolService(config)
-      // if (confirmAction === 'pause') {
-      //   await poolService.pauseProtocol(privateKey)
-      // } else {
-      //   await poolService.unpauseProtocol(privateKey)
-      // }
+      // Call API to pause/unpause protocol
+      if (confirmAction === 'pause') {
+        const result = await apiService.pauseProtocol()
+        
+        const newStatus: ProtocolStatus = {
+          ...status,
+          isPaused: true,
+          pausedAt: new Date(result.pausedAt),
+          lastUpdate: new Date()
+        }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+        setStatus(newStatus)
+        if (onStatusChange) onStatusChange(newStatus)
+        toast.success(result.message || 'Protocol paused successfully')
+      } else {
+        const result = await apiService.unpauseProtocol()
+        
+        const newStatus: ProtocolStatus = {
+          ...status,
+          isPaused: false,
+          pausedAt: null,
+          lastUpdate: new Date()
+        }
 
-      const newStatus: ProtocolStatus = {
-        ...status,
-        isPaused: confirmAction === 'pause',
-        pausedAt: confirmAction === 'pause' ? new Date() : null,
-        lastUpdate: new Date()
+        setStatus(newStatus)
+        if (onStatusChange) onStatusChange(newStatus)
+        toast.success(result.message || 'Protocol unpaused successfully')
       }
-
-      setStatus(newStatus)
-      if (onStatusChange) onStatusChange(newStatus)
-
-      toast.success(
-        confirmAction === 'pause' 
-          ? 'Protocol paused successfully' 
-          : 'Protocol unpaused successfully'
-      )
 
       setConfirmationText('')
     } catch (err) {
@@ -167,16 +181,14 @@ export function EmergencyControls({
   }
 
   const resetCircuitBreaker = async (breaker: keyof ProtocolStatus['circuitBreakers']) => {
+    if (!apiService) return
+
     try {
       setActionInProgress(`reset-${breaker}`)
       setError(null)
 
-      // TODO: Replace with actual service call
-      // const poolService = createCommodityPoolService(config)
-      // await poolService.resetCircuitBreaker(breaker, privateKey)
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Call API to reset circuit breaker
+      const result = await apiService.resetCircuitBreaker(breaker)
 
       const newStatus: ProtocolStatus = {
         ...status,
@@ -190,7 +202,7 @@ export function EmergencyControls({
       setStatus(newStatus)
       if (onStatusChange) onStatusChange(newStatus)
 
-      toast.success(`${breaker} circuit breaker reset`)
+      toast.success(result.message || `${breaker} circuit breaker reset`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to reset circuit breaker'
       setError(errorMessage)

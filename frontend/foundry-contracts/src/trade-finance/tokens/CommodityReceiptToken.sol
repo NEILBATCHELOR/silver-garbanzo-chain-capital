@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {ICommodityToken} from "../interfaces/ICommodityToken.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
+import {IRewardsController} from "../rewards/interfaces/IRewardsController.sol";
 import {EIP712Base} from "../libraries/helpers/EIP712Base.sol";
 
 /**
@@ -49,6 +50,9 @@ contract CommodityReceiptToken is ICommodityToken, EIP712Base {
 
     /// @notice User state for tracking last index
     mapping(address => uint128) private _userLastIndex;
+
+    /// @notice Rewards controller for liquidity mining incentives
+    IRewardsController internal _rewardsController;
 
     // ============ Errors ============
 
@@ -364,6 +368,23 @@ contract CommodityReceiptToken is ICommodityToken, EIP712Base {
         return UNDERLYING_COMMODITY;
     }
 
+    /**
+     * @notice Returns the rewards controller address
+     * @return The rewards controller address
+     */
+    function getRewardsController() external view returns (IRewardsController) {
+        return _rewardsController;
+    }
+
+    /**
+     * @notice Sets the rewards controller
+     * @dev Only callable by the pool
+     * @param controller The new rewards controller address
+     */
+    function setRewardsController(IRewardsController controller) external onlyPool {
+        _rewardsController = controller;
+    }
+
     // ============ Internal Functions ============
 
     /**
@@ -394,11 +415,17 @@ contract CommodityReceiptToken is ICommodityToken, EIP712Base {
 
         _userLastIndex[onBehalfOf] = uint128(index);
 
+        uint256 oldTotalSupply = _scaledTotalSupply;
         _scaledBalances[onBehalfOf] = scaledBalance + amountScaled;
         _scaledTotalSupply += amountScaled;
 
         emit Mint(caller, onBehalfOf, amount, balanceIncrease, index);
         emit Transfer(address(0), onBehalfOf, amount);
+
+        // Update rewards if controller is set
+        if (address(_rewardsController) != address(0)) {
+            _rewardsController.handleAction(onBehalfOf, oldTotalSupply, scaledBalance);
+        }
 
         return scaledBalance == 0;
     }
@@ -430,11 +457,17 @@ contract CommodityReceiptToken is ICommodityToken, EIP712Base {
 
         _userLastIndex[from] = uint128(index);
 
+        uint256 oldTotalSupply = _scaledTotalSupply;
         _scaledBalances[from] = scaledBalance - amountScaled;
         _scaledTotalSupply -= amountScaled;
 
         emit Burn(from, receiverOfUnderlying, amount, balanceIncrease, index);
         emit Transfer(from, address(0), amount);
+
+        // Update rewards if controller is set
+        if (address(_rewardsController) != address(0)) {
+            _rewardsController.handleAction(from, oldTotalSupply, scaledBalance);
+        }
     }
 
     /**
@@ -459,10 +492,19 @@ contract CommodityReceiptToken is ICommodityToken, EIP712Base {
         _userLastIndex[from] = uint128(currentIndex);
         _userLastIndex[to] = uint128(currentIndex);
 
+        uint256 currentTotalSupply = _scaledTotalSupply;
         _scaledBalances[from] = fromScaledBalance - amountScaled;
         _scaledBalances[to] += amountScaled;
 
         emit Transfer(from, to, amount);
+
+        // Update rewards if controller is set
+        if (address(_rewardsController) != address(0)) {
+            _rewardsController.handleAction(from, currentTotalSupply, fromScaledBalance);
+            if (from != to) {
+                _rewardsController.handleAction(to, currentTotalSupply, _scaledBalances[to] - amountScaled);
+            }
+        }
     }
 
     /**

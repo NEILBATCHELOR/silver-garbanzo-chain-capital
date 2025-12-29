@@ -56,6 +56,13 @@ import { supabase } from '@/infrastructure/database/client'; // ✅ ADD: Import 
 import { RoleAssignmentForm } from '@/components/tokens/forms-comprehensive/RoleAssignmentForm';
 import { DeploymentDashboard } from './DeploymentDashboard';
 import type { ProjectWallet } from '../services/deploymentEnhancementService';
+import { 
+  ExtensionModulesSection, 
+  getDefaultModuleConfigs, 
+  extractEnabledModuleConfigs,
+  type ExtensionModuleConfigs 
+} from './ExtensionModulesSection';
+import { DynamicConfigurationSummary } from './DynamicConfigurationSummary';
 
 // Utility function for conditional class names
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -176,6 +183,22 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [moduleConfigs, setModuleConfigs] = useState<Record<string, any>>({});
   
+  // ✅ ADD: Extension module configs state (using typed interface)
+  const [extensionModuleConfigs, setExtensionModuleConfigs] = useState<ExtensionModuleConfigs>(
+    getDefaultModuleConfigs()
+  );
+  
+  // Handler for updating individual module configs
+  const handleModuleConfigChange = <K extends keyof ExtensionModuleConfigs>(
+    moduleKey: K,
+    config: ExtensionModuleConfigs[K]
+  ) => {
+    setExtensionModuleConfigs(prev => ({
+      ...prev,
+      [moduleKey]: config
+    }));
+  };
+  
   // ✅ FIX #1: Fetch current user on component mount with loading state
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -202,6 +225,141 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
     
     fetchCurrentUser();
   }, []); // Run once on mount
+  
+  // ✅ NEW: Load existing extension module configurations from database
+  useEffect(() => {
+    const loadModuleConfigurations = async () => {
+      if (!tokenId) {
+        console.warn('[MODULE CONFIG] No tokenId provided, skipping module config load');
+        return;
+      }
+      
+      try {
+        console.log('[MODULE CONFIG] Loading module configurations for token:', tokenId);
+        
+        // First, get the token to determine its standard
+        const { data: token, error: tokenError } = await supabase
+          .from('tokens')
+          .select('standard')
+          .eq('id', tokenId)
+          .single();
+        
+        if (tokenError) {
+          console.error('[MODULE CONFIG] Error fetching token:', tokenError);
+          return;
+        }
+        
+        if (!token) {
+          console.warn('[MODULE CONFIG] Token not found:', tokenId);
+          return;
+        }
+        
+        const standard = token.standard;
+        console.log('[MODULE CONFIG] Token standard:', standard);
+        
+        // Determine the properties table based on standard
+        // Convert 'ERC-20' to 'erc20', 'ERC-721' to 'erc721', etc.
+        const standardCode = standard.toLowerCase().replace('-', '');
+        const propertiesTable = `token_${standardCode}_properties`;
+        console.log('[MODULE CONFIG] Loading from table:', propertiesTable);
+        
+        // Load properties based on standard
+        const { data: properties, error: propsError } = await supabase
+          .from(propertiesTable)
+          .select('*')
+          .eq('token_id', tokenId)
+          .single();
+        
+        if (propsError) {
+          console.error(`[MODULE CONFIG] Error fetching ${propertiesTable}:`, propsError);
+          return;
+        }
+        
+        if (!properties) {
+          console.log('[MODULE CONFIG] No properties found, using defaults');
+          return;
+        }
+        
+        console.log('[MODULE CONFIG] Loaded properties:', properties);
+        
+        // ✅ Map database fields to ExtensionModuleConfigs interface
+        const loadedConfigs: ExtensionModuleConfigs = {
+          // Universal modules
+          compliance: properties.compliance_config 
+            ? { ...properties.compliance_config, enabled: !!properties.compliance_config.enabled } 
+            : getDefaultModuleConfigs().compliance,
+          
+          vesting: properties.vesting_config 
+            ? { ...properties.vesting_config, enabled: properties.vesting_enabled || !!properties.vesting_config.enabled } 
+            : getDefaultModuleConfigs().vesting,
+          
+          document: properties.document_config 
+            ? { ...properties.document_config, enabled: !!properties.document_config.enabled } 
+            : getDefaultModuleConfigs().document,
+          
+          policyEngine: properties.policy_engine_config 
+            ? { ...properties.policy_engine_config, enabled: !!properties.policy_engine_config.enabled } 
+            : getDefaultModuleConfigs().policyEngine,
+          
+          // ERC20 modules (only for ERC20 tokens)
+          fees: properties.fees_config 
+            ? { ...properties.fees_config, enabled: !!properties.fees_config.enabled } 
+            : properties.fee_on_transfer 
+            ? { ...properties.fee_on_transfer, enabled: !!properties.fee_on_transfer.enabled }
+            : getDefaultModuleConfigs().fees,
+          
+          flashMint: properties.flash_mint_config 
+            ? { ...properties.flash_mint_config } 
+            : { enabled: !!properties.flash_mint },
+          
+          permit: properties.permit_config 
+            ? { ...properties.permit_config } 
+            : { enabled: !!properties.permit },
+          
+          snapshot: properties.snapshot_config 
+            ? { ...properties.snapshot_config } 
+            : { enabled: !!properties.snapshot, automaticSnapshots: false, snapshotInterval: 0 },
+          
+          timelock: properties.timelock_config 
+            ? { ...properties.timelock_config } 
+            : getDefaultModuleConfigs().timelock,
+          
+          votes: properties.votes_config 
+            ? { ...properties.votes_config } 
+            : { enabled: properties.governance_enabled || false },
+          
+          payableToken: properties.payable_token_config 
+            ? { ...properties.payable_token_config } 
+            : { enabled: false },
+          
+          temporaryApproval: properties.temporary_approval_config 
+            ? { ...properties.temporary_approval_config } 
+            : getDefaultModuleConfigs().temporaryApproval,
+        };
+        
+        console.log('[MODULE CONFIG] Loaded module configurations:', loadedConfigs);
+        console.log('[MODULE CONFIG] Enabled modules:', 
+          Object.entries(loadedConfigs)
+            .filter(([_, config]) => (config as any)?.enabled)
+            .map(([key]) => key)
+        );
+        
+        // Update state with loaded configurations
+        setExtensionModuleConfigs(loadedConfigs);
+        
+        toast({
+          title: "Module Configurations Loaded",
+          description: `Loaded existing configurations for ${Object.values(loadedConfigs).filter((c: any) => c?.enabled).length} enabled modules`,
+          variant: "default",
+        });
+        
+      } catch (err) {
+        console.error('[MODULE CONFIG] Unexpected error loading module configurations:', err);
+      }
+    };
+    
+    loadModuleConfigurations();
+  }, [tokenId]); // Load when tokenId changes
   
   // Get network details when blockchain or environment changes
   useEffect(() => {
@@ -672,14 +830,36 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       console.log(`📍 Using wallet: ${deploymentWalletAddress}`);
       console.log(`🎯 Token ID: ${tokenId}, User ID: ${currentUserId}`);
       
+      // ✅ FIX #9: Extract enabled module configs BEFORE database update
+      const enabledModules = extractEnabledModuleConfigs(extensionModuleConfigs);
+      console.log('📦 Enabled Extension Module Configs for deployment:', enabledModules);
+      
       // ✅ FIX #3: Update token record with form values BEFORE deployment
       // ✅ FIX #4: Include deployed_by to ensure user tracking
+      // ✅ FIX #9: Merge module configs into blocks for InstanceConfigurationService
+      const { data: currentToken, error: fetchError } = await supabase
+        .from('tokens')
+        .select('blocks')
+        .eq('id', tokenId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching current token blocks:', fetchError);
+      }
+      
+      // Merge module configs directly into blocks (flat format matches extractModuleSelection fallback)
+      const updatedBlocks = {
+        ...(currentToken?.blocks || {}),
+        ...enabledModules // ✅ FIX #9: Merge flat module configs directly into blocks
+      };
+      
       const { error: updateError } = await supabase
         .from('tokens')
         .update({
           blockchain: blockchain,
           deployment_environment: environment,
-          deployed_by: currentUserId // ✅ FIX #4: Capture deploying user
+          deployed_by: currentUserId, // ✅ FIX #4: Capture deploying user
+          blocks: updatedBlocks // ✅ FIX #9: Save module configs for InstanceConfigurationService
         })
         .eq('id', tokenId);
       
@@ -688,7 +868,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         throw new Error(`Failed to update token configuration: ${updateError.message}`);
       }
       
-      console.log(`✅ FIX #3 & #4: Updated token ${tokenId} with blockchain: ${blockchain}, environment: ${environment}, deployed_by: ${currentUserId}`);
+      console.log(`✅ FIX #3, #4 & #9: Updated token ${tokenId} with blockchain: ${blockchain}, environment: ${environment}, deployed_by: ${currentUserId}, modules:`, Object.keys(enabledModules).filter(k => k.includes('enabled')));
       
       // ✅ NEW: Check if factory deployment is available and configured
       if (factoryConfigured && factoryAddress && useFactoryDeployment) {
@@ -696,6 +876,10 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         console.log(`Factory Address: ${factoryAddress}`);
         console.log(`Selected Modules:`, selectedModules);
         console.log(`Role Addresses:`, roleAddresses);
+        
+        // ✅ Extract enabled module configs for backend
+        const enabledModules = extractEnabledModuleConfigs(extensionModuleConfigs);
+        console.log('📦 Enabled Extension Module Configs:', enabledModules);
         
         // ✅ NEW: Deploy via FactoryDeploymentService
         const factoryResult = await FactoryDeploymentService.deployToken({
@@ -710,7 +894,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
           decimals: tokenConfig.decimals,
           totalSupply: tokenConfig.totalSupply,
           selectedModules: selectedModules,
-          moduleConfigs: moduleConfigs,
+          moduleConfigs: { ...moduleConfigs, ...enabledModules }, // ✅ Merge extension module configs
           roleAddresses: roleAddresses || {},
           gasConfig: {
             gasPrice,
@@ -738,10 +922,15 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
       } else if (useOptimization) {
         console.log('⚡ Using optimized deployment service (not factory)');
         
+        // ✅ Extract enabled module configs for backend
+        const enabledModules = extractEnabledModuleConfigs(extensionModuleConfigs);
+        console.log('📦 Enabled Extension Module Configs:', enabledModules);
+        
         // ✅ Use unified deployment service with optimization
         // ✅ FIX #5: Pass gas configuration from form
         // ✅ FIX #6: Pass selected wallet address to bypass database query
         // ✅ FIX #7: Use deploymentWalletAddress to ensure correct wallet is used
+        // ✅ FIX #8: Pass extension module configs
         const result = await unifiedTokenDeploymentService.deployToken(
           tokenId,
           currentUserId,
@@ -756,7 +945,8 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
               gasLimit: gasLimit,
               maxFeePerGas: maxFeePerGas || undefined,
               maxPriorityFeePerGas: maxPriorityFeePerGas || undefined
-            }
+            },
+            moduleConfigs: enabledModules // ✅ FIX #8: Pass extension module configs
           }
         );
         
@@ -1187,6 +1377,20 @@ Need help? Visit our documentation or contact support.`;
             </div>
           </AlertDescription>
         </Alert>
+        
+        {/* ✅ NEW: Extension Modules Section */}
+        <ExtensionModulesSection
+          tokenStandard={tokenConfig.standard || 'ERC-20'}
+          configs={extensionModuleConfigs}
+          onConfigChange={handleModuleConfigChange}
+          disabled={isDeploying}
+        />
+        
+        {/* ✅ NEW: Dynamic Configuration Summary */}
+        <DynamicConfigurationSummary
+          tokenConfig={tokenConfig}
+          moduleConfigs={extensionModuleConfigs}
+        />
         
         {/* Deploy Button - with debug info */}
         {/* Show why button is disabled if it is */}

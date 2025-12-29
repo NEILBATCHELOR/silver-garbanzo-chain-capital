@@ -47,8 +47,8 @@ import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
 // import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
 
-// Trade Finance Routes (4 services)
-import { haircutRoutes, positionsRoutes, oraclesRoutes, priceManagementRoutes } from './src/routes/trade-finance'
+// Trade Finance Routes (9 services)
+import { haircutRoutes, positionsRoutes, oraclesRoutes, priceManagementRoutes, adminRoutes, rewardsRoutes, liquidationRoutes, treasuryRoutes, stataTokenRoutes } from './src/routes/trade-finance'
 
 // Admin & Deployment Routes
 import { deploymentRoutes } from './src/routes/deploymentRoutes'
@@ -634,17 +634,30 @@ async function buildApp(): Promise<FastifyInstance> {
 
     await app.register(import('@fastify/sensible'))
 
-    // Register WebSocket support for real-time updates (Trade Finance)
-    await app.register(import('@fastify/websocket'), {
-      options: {
-        maxPayload: 1048576, // 1MB
-        verifyClient: (info, callback) => {
-          // Allow all connections in development
-          // TODO: Add proper authentication in production
-          callback(true)
-        }
-      }
-    })
+    // ============================================================================
+    // WEBSOCKET SUPPORT - TEMPORARILY DISABLED
+    // ============================================================================
+    // Issue: @fastify/websocket v11.2.0 requires Fastify v5.x, but we're using v4.29.1
+    // Solution: Commented out until Fastify upgrade or websocket downgrade
+    // Impact: Real-time price/health factor updates disabled (nice-to-have, not critical)
+    // Core trade finance features (tokenization, lending, liquidation) work without this
+    // 
+    // To re-enable:
+    // 1. Upgrade Fastify to v5.x: pnpm add fastify@^5.0.0
+    // OR
+    // 2. Downgrade websocket: pnpm add @fastify/websocket@^10.0.0
+    // 
+    // await app.register(import('@fastify/websocket'), {
+    //   options: {
+    //     maxPayload: 1048576, // 1MB
+    //     verifyClient: (info, callback) => {
+    //       // Allow all connections in development
+    //       // TODO: Add proper authentication in production
+    //       callback(true)
+    //     }
+    //   }
+    // })
+    // ============================================================================
 
     // Register JWT authentication with Supabase JWT secret
     // This is critical for verifying JWT tokens issued by Supabase Auth
@@ -922,44 +935,55 @@ Comprehensive platform supporting:
     await app.register(positionsRoutes)  // Handles /api/trade-finance/positions/*
     await app.register(oraclesRoutes)  // Handles /api/trade-finance/oracles/*
     await app.register(priceManagementRoutes)  // Handles /api/trade-finance/prices/*
+    await app.register(adminRoutes)  // Handles /api/trade-finance/admin/*
+    await app.register(rewardsRoutes)  // Handles /api/trade-finance/rewards/*
+    await app.register(liquidationRoutes)  // Handles /api/trade-finance/liquidation/*
+    await app.register(treasuryRoutes)  // Handles /api/trade-finance/treasury/*
+    await app.register(stataTokenRoutes)  // Handles /api/trade-finance/stata-tokens/*
 
-    // Trade Finance WebSocket for real-time updates
-    await app.register(async (fastify) => {
-      const { TradeFinanceWebSocketManager } = await import('./src/services/trade-finance/WebSocketService')
-      const wsManager = new TradeFinanceWebSocketManager()
-      
-      // WebSocket endpoint
-      fastify.get('/api/trade-finance/ws', { websocket: true }, (connection, request) => {
-        const { socket } = connection
-        
-        // Extract project_id from query params
-        const url = new URL(request.url, 'http://localhost')
-        const projectId = url.searchParams.get('project_id')
-        
-        if (!projectId) {
-          socket.close(1008, 'project_id required')
-          return
-        }
-        
-        // Generate unique client ID
-        const clientId = `${projectId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        
-        // Register client
-        wsManager.registerClient(clientId, socket, projectId)
-        
-        // Send welcome message
-        socket.send(JSON.stringify({
-          type: 'CONNECTED',
-          clientId,
-          timestamp: new Date().toISOString()
-        }))
-      })
-      
-      // Expose manager for broadcasting from other routes
-      (fastify as any).tradeFinanceWS = wsManager
-      
-      logger.info('[WebSocket] Trade Finance WebSocket registered at /api/trade-finance/ws')
-    })
+    // ============================================================================
+    // TRADE FINANCE WEBSOCKET - TEMPORARILY DISABLED
+    // ============================================================================
+    // Disabled due to @fastify/websocket version mismatch (see line 637-660)
+    // This provides real-time updates but is NOT critical for core functionality
+    // 
+    // await app.register(async (fastify) => {
+    //   const { TradeFinanceWebSocketManager } = await import('./src/services/trade-finance/WebSocketService')
+    //   const wsManager = new TradeFinanceWebSocketManager()
+    //   
+    //   // WebSocket endpoint
+    //   fastify.get('/api/trade-finance/ws', { websocket: true }, (connection, request) => {
+    //     const { socket } = connection
+    //     
+    //     // Extract project_id from query params
+    //     const url = new URL(request.url, 'http://localhost')
+    //     const projectId = url.searchParams.get('project_id')
+    //     
+    //     if (!projectId) {
+    //       socket.close(1008, 'project_id required')
+    //       return
+    //     }
+    //     
+    //     // Generate unique client ID
+    //     const clientId = `${projectId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    //     
+    //     // Register client
+    //     wsManager.registerClient(clientId, socket, projectId)
+    //     
+    //     // Send welcome message
+    //     socket.send(JSON.stringify({
+    //       type: 'CONNECTED',
+    //       clientId,
+    //       timestamp: new Date().toISOString()
+    //     }))
+    //   })
+    //   
+    //   // Expose manager for broadcasting from other routes
+    //   (fastify as any).tradeFinanceWS = wsManager
+    //   
+    //   logger.info('[WebSocket] Trade Finance WebSocket registered at /api/trade-finance/ws')
+    // })
+    // ============================================================================
 
   } catch (error) {
     logger.error({ error }, 'Route registration failed')

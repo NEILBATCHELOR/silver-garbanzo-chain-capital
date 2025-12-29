@@ -13845,33 +13845,6 @@ model blackout_periods {
   @@schema("public")
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model contract_masters_backup_20251121 {
-  id                 String?   @db.Uuid
-  network            String?
-  environment        String?
-  contract_type      String?
-  contract_address   String?
-  version            String?
-  abi_version        String?
-  abi                Json?     @db.Json
-  abi_hash           String?
-  deployed_at        DateTime? @db.Timestamptz(6)
-  deployed_by        String?   @db.Uuid
-  deployment_tx_hash String?
-  is_active          Boolean?
-  deprecated_at      DateTime? @db.Timestamptz(6)
-  deployment_data    Json?
-  created_at         DateTime? @db.Timestamptz(6)
-  updated_at         DateTime? @db.Timestamptz(6)
-  contract_details   Json?
-  initial_owner      String?
-  is_template        Boolean?
-
-  @@ignore
-  @@schema("public")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model deployment_audit_logs {
@@ -14611,6 +14584,248 @@ model staking_apr_config {
   updated_at        DateTime? @default(now()) @db.Timestamptz(6)
 
   @@index([blockchain], map: "idx_staking_apr_config_blockchain")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model oauth_client_states {
+  id            String   @id @db.Uuid
+  provider_type String
+  code_verifier String?
+  created_at    DateTime @db.Timestamptz(6)
+
+  @@index([created_at], map: "idx_oauth_client_states_created_at")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_authorized_claimers {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_address    String    @db.VarChar(42)
+  claimer_address String    @db.VarChar(42)
+  chain_id        Int       @default(1)
+  is_active       Boolean?  @default(true)
+  authorized_at   DateTime? @default(now()) @db.Timestamptz(6)
+  revoked_at      DateTime? @db.Timestamptz(6)
+  expires_at      DateTime? @db.Timestamptz(6)
+
+  @@unique([user_address, claimer_address, chain_id], map: "trade_finance_authorized_clai_user_address_claimer_address__key")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_commodity_emission_configs {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commodity_type        String    @unique @db.VarChar(50)
+  commodity_type_hash   String?   @db.VarChar(66)
+  seasonal_multiplier   Decimal?  @default(1.0) @db.Decimal(38, 18)
+  volatility_adjustment Decimal?  @default(0) @db.Decimal(38, 18)
+  min_emission          Decimal?  @default(0) @db.Decimal(78, 0)
+  max_emission          Decimal?  @db.Decimal(78, 0)
+  is_active             Boolean?  @default(true)
+  effective_from        DateTime? @default(now()) @db.Timestamptz(6)
+  effective_until       DateTime? @db.Timestamptz(6)
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_emission_admins {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reward_token_address String    @db.VarChar(42)
+  admin_address        String    @db.VarChar(42)
+  chain_id             Int       @default(1)
+  is_active            Boolean?  @default(true)
+  granted_at           DateTime? @default(now()) @db.Timestamptz(6)
+  revoked_at           DateTime? @db.Timestamptz(6)
+
+  @@unique([reward_token_address, chain_id])
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_rewards_claims {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_address         String    @db.VarChar(42)
+  reward_token_address String    @db.VarChar(42)
+  reward_token_symbol  String?   @db.VarChar(50)
+  amount               Decimal   @db.Decimal(78, 0)
+  amount_formatted     Decimal?  @db.Decimal(38, 18)
+  to_address           String    @db.VarChar(42)
+  claimer_address      String?   @db.VarChar(42)
+  transaction_hash     String?   @db.VarChar(66)
+  block_number         BigInt?
+  chain_id             Int       @default(1)
+  claimed_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([chain_id], map: "idx_claims_chain")
+  @@index([reward_token_address], map: "idx_claims_reward")
+  @@index([claimed_at], map: "idx_claims_timestamp")
+  @@index([user_address], map: "idx_claims_user")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_rewards_config {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_address             String    @db.VarChar(42)
+  asset_symbol              String?   @db.VarChar(50)
+  reward_token_address      String    @db.VarChar(42)
+  reward_token_symbol       String?   @db.VarChar(50)
+  emission_per_second       Decimal   @default(0) @db.Decimal(78, 0)
+  distribution_end          DateTime  @db.Timestamptz(6)
+  distribution_start        DateTime? @default(now()) @db.Timestamptz(6)
+  transfer_strategy_address String?   @db.VarChar(42)
+  transfer_strategy_type    String?   @default("pull") @db.VarChar(50)
+  reward_oracle_address     String?   @db.VarChar(42)
+  reward_decimals           Int?      @default(18) @db.SmallInt
+  asset_decimals            Int?      @default(18) @db.SmallInt
+  current_index             Decimal?  @default(0) @db.Decimal(78, 0)
+  last_update_timestamp     DateTime? @default(now()) @db.Timestamptz(6)
+  is_active                 Boolean?  @default(true)
+  chain_id                  Int       @default(1)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([asset_address, reward_token_address, chain_id])
+  @@index([asset_address], map: "idx_rewards_config_asset")
+  @@index([chain_id], map: "idx_rewards_config_chain")
+  @@index([reward_token_address], map: "idx_rewards_config_reward")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_rewards_snapshots {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_address         String    @db.VarChar(42)
+  reward_token_address  String    @db.VarChar(42)
+  snapshot_timestamp    DateTime  @db.Timestamptz(6)
+  total_distributed     Decimal?  @default(0) @db.Decimal(78, 0)
+  total_claimed         Decimal?  @default(0) @db.Decimal(78, 0)
+  total_unclaimed       Decimal?  @default(0) @db.Decimal(78, 0)
+  unique_claimers       Int?      @default(0)
+  current_emission_rate Decimal?  @db.Decimal(78, 0)
+  current_index         Decimal?  @db.Decimal(78, 0)
+  chain_id              Int       @default(1)
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([asset_address, reward_token_address], map: "idx_snapshots_asset_reward")
+  @@index([snapshot_timestamp], map: "idx_snapshots_timestamp")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_transfer_strategies {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  strategy_address         String    @db.VarChar(42)
+  strategy_type            String    @db.VarChar(50)
+  rewards_vault_address    String?   @db.VarChar(42)
+  staked_token_address     String?   @db.VarChar(42)
+  underlying_token_address String?   @db.VarChar(42)
+  chain_id                 Int       @default(1)
+  is_active                Boolean?  @default(true)
+  deployed_at              DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([strategy_address, chain_id])
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model trade_finance_user_rewards {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_address          String    @db.VarChar(42)
+  asset_address         String    @db.VarChar(42)
+  reward_token_address  String    @db.VarChar(42)
+  user_index            Decimal?  @default(0) @db.Decimal(78, 0)
+  accrued_amount        Decimal?  @default(0) @db.Decimal(78, 0)
+  claimed_amount        Decimal?  @default(0) @db.Decimal(78, 0)
+  last_update_timestamp DateTime? @default(now()) @db.Timestamptz(6)
+  chain_id              Int       @default(1)
+  created_at            DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_address, asset_address, reward_token_address, chain_id])
+  @@index([asset_address], map: "idx_user_rewards_asset")
+  @@index([chain_id], map: "idx_user_rewards_chain")
+  @@index([reward_token_address], map: "idx_user_rewards_reward")
+  @@index([user_address], map: "idx_user_rewards_user")
+  @@schema("public")
+}
+
+model trade_finance_interest_rate_config {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reserve_address           String    @db.VarChar(42)
+  chain_id                  Int       @default(1)
+  optimal_usage_ratio       Int       @default(8000)
+  base_variable_borrow_rate Int       @default(100)
+  variable_rate_slope1      Int       @default(400)
+  variable_rate_slope2      Int       @default(6000)
+  commodity_type            Int       @default(0)
+  seasonal_enabled          Boolean?  @default(false)
+  storage_adjustment_bps    Int?      @default(0)
+  quality_decay_rate_bps    Int?      @default(0)
+  contango_adjustment_bps   Int?      @default(0)
+  asset_symbol              String?   @db.VarChar(20)
+  is_active                 Boolean?  @default(true)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([reserve_address, chain_id])
+  @@index([commodity_type], map: "idx_interest_rate_config_commodity")
+  @@index([reserve_address], map: "idx_interest_rate_config_reserve")
+  @@schema("public")
+}
+
+model trade_finance_rate_history {
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reserve_address              String    @db.VarChar(42)
+  chain_id                     Int       @default(1)
+  liquidity_rate_ray           String    @db.VarChar(78)
+  variable_borrow_rate_ray     String    @db.VarChar(78)
+  utilization_ratio_ray        String    @db.VarChar(78)
+  liquidity_rate_percent       Decimal?  @db.Decimal(10, 4)
+  variable_borrow_rate_percent Decimal?  @db.Decimal(10, 4)
+  utilization_percent          Decimal?  @db.Decimal(10, 4)
+  total_supply                 String?   @db.VarChar(78)
+  total_borrows                String?   @db.VarChar(78)
+  available_liquidity          String?   @db.VarChar(78)
+  seasonal_multiplier_bps      Int?
+  commodity_adjustment_bps     Int?
+  snapshot_timestamp           DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([reserve_address], map: "idx_rate_history_reserve")
+  @@index([snapshot_timestamp(sort: Desc)], map: "idx_rate_history_timestamp")
+  @@schema("public")
+}
+
+model trade_finance_rate_simulations {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reserve_address          String    @db.VarChar(42)
+  chain_id                 Int       @default(1)
+  simulated_utilization    Decimal   @db.Decimal(10, 4)
+  simulated_liquidity_rate Decimal   @db.Decimal(10, 4)
+  simulated_borrow_rate    Decimal   @db.Decimal(10, 4)
+  with_seasonal_adjustment Boolean?  @default(false)
+  seasonal_month           Int?
+  simulation_timestamp     DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model trade_finance_seasonal_multipliers {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commodity_type Int
+  month          Int
+  multiplier_bps Int       @default(10000)
+  description    String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([commodity_type, month])
+  @@index([commodity_type], map: "idx_seasonal_multipliers_commodity")
   @@schema("public")
 }
 

@@ -107,3 +107,40 @@ export {
 export type { 
   MetalPrice 
 } from './PreciousMetalsPriceService'
+
+// Rewards Service
+export {
+  RewardsService,
+  rewardsService
+} from './RewardsService'
+export type {
+  RewardsConfig,
+  RewardsConfigInput,
+  UserReward,
+  RewardsClaim,
+  ClaimableReward,
+  AuthorizedClaimer,
+  UserRewardsSummary,
+  RewardsSnapshot,
+  CommodityEmissionSchedule
+} from './RewardsService'
+
+// Liquidation Service
+export { LiquidationService } from './LiquidationService'
+export type {
+  DutchAuction,
+  MarginCall,
+  FlashLiquidation,
+  InsuranceClaim
+} from './LiquidationService'
+
+// Treasury Service
+export { TreasuryService } from './TreasuryService'
+export type {
+  FeeCollection,
+  FeeAccumulation,
+  RevenueRecipient,
+  FeeDistribution,
+  PaymentStream,
+  ProtocolReserve
+} from './TreasuryService'

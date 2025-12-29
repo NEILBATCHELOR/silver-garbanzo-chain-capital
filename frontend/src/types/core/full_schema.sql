@@ -7610,6 +7610,20 @@ $$;
 
 
 --
+-- Name: update_trade_finance_rewards_timestamp(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_trade_finance_rewards_timestamp() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_transfer_operations_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -11835,34 +11849,6 @@ COMMENT ON COLUMN public.contract_masters.is_active IS 'Whether this is the curr
 --
 
 COMMENT ON COLUMN public.contract_masters.deployment_data IS 'JSONB field for additional metadata: source_file, implementation_address, features, category, etherscan_link, etc.';
-
-
---
--- Name: contract_masters_backup_20251121; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.contract_masters_backup_20251121 (
-    id uuid,
-    network text,
-    environment text,
-    contract_type text,
-    contract_address text,
-    version text,
-    abi_version text,
-    abi json,
-    abi_hash text,
-    deployed_at timestamp with time zone,
-    deployed_by uuid,
-    deployment_tx_hash text,
-    is_active boolean,
-    deprecated_at timestamp with time zone,
-    deployment_data jsonb,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    contract_details jsonb,
-    initial_owner text,
-    is_template boolean
-);
 
 
 --
@@ -27032,6 +27018,637 @@ COMMENT ON VIEW public.token_whitelist_summary IS 'Comprehensive view of whiteli
 
 
 --
+-- Name: trade_finance_auction_executions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_auction_executions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    auction_id bigint NOT NULL,
+    liquidator_address character varying(42) NOT NULL,
+    collateral_received numeric(78,0) NOT NULL,
+    debt_paid numeric(78,0) NOT NULL,
+    final_price numeric(78,0) NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    executed_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_authorized_claimers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_authorized_claimers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    claimer_address character varying(42) NOT NULL,
+    chain_id integer DEFAULT 1 NOT NULL,
+    is_active boolean DEFAULT true,
+    authorized_at timestamp with time zone DEFAULT now(),
+    revoked_at timestamp with time zone,
+    expires_at timestamp with time zone
+);
+
+
+--
+-- Name: TABLE trade_finance_authorized_claimers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_authorized_claimers IS 'Delegated claiming permissions for institutional accounts';
+
+
+--
+-- Name: COLUMN trade_finance_authorized_claimers.expires_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.trade_finance_authorized_claimers.expires_at IS 'Optional expiration date for the claimer authorization';
+
+
+--
+-- Name: trade_finance_commodity_emission_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_commodity_emission_configs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity_type character varying(50) NOT NULL,
+    commodity_type_hash character varying(66),
+    seasonal_multiplier numeric(38,18) DEFAULT 1.0,
+    volatility_adjustment numeric(38,18) DEFAULT 0,
+    min_emission numeric(78,0) DEFAULT 0,
+    max_emission numeric(78,0),
+    is_active boolean DEFAULT true,
+    effective_from timestamp with time zone DEFAULT now(),
+    effective_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE trade_finance_commodity_emission_configs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_commodity_emission_configs IS 'Commodity-specific emission adjustments';
+
+
+--
+-- Name: trade_finance_dutch_auctions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_dutch_auctions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    auction_id bigint NOT NULL,
+    user_address character varying(42) NOT NULL,
+    collateral_asset character varying(42) NOT NULL,
+    debt_asset character varying(42) NOT NULL,
+    collateral_amount numeric(78,0) NOT NULL,
+    debt_amount numeric(78,0) NOT NULL,
+    start_time timestamp without time zone NOT NULL,
+    duration integer NOT NULL,
+    start_price numeric(78,0) NOT NULL,
+    start_discount_bps integer NOT NULL,
+    end_discount_bps integer NOT NULL,
+    use_exponential_decay boolean DEFAULT false,
+    active boolean DEFAULT true,
+    physical_delivery_requested boolean DEFAULT false,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_emission_admins; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_emission_admins (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reward_token_address character varying(42) NOT NULL,
+    admin_address character varying(42) NOT NULL,
+    chain_id integer DEFAULT 1 NOT NULL,
+    is_active boolean DEFAULT true,
+    granted_at timestamp with time zone DEFAULT now(),
+    revoked_at timestamp with time zone
+);
+
+
+--
+-- Name: TABLE trade_finance_emission_admins; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_emission_admins IS 'Admin permissions per reward token';
+
+
+--
+-- Name: trade_finance_fee_accumulations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_fee_accumulations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_address character varying(42) NOT NULL,
+    current_amount numeric(78,0) DEFAULT 0,
+    total_collected numeric(78,0) DEFAULT 0,
+    last_collected timestamp without time zone,
+    last_distributed timestamp without time zone,
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_fee_collections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_fee_collections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_address character varying(42) NOT NULL,
+    amount numeric(78,0) NOT NULL,
+    fee_source character varying(50) NOT NULL,
+    collector_address character varying(42),
+    transaction_hash character varying(66),
+    block_number bigint,
+    collected_at timestamp without time zone DEFAULT now(),
+    CONSTRAINT trade_finance_fee_collections_fee_source_check CHECK (((fee_source)::text = ANY ((ARRAY['INTEREST_SPREAD'::character varying, 'FLASH_LOAN'::character varying, 'LIQUIDATION_BONUS'::character varying, 'ORACLE_SUBSCRIPTION'::character varying, 'POSITION_MANAGEMENT'::character varying, 'OTHER'::character varying])::text[])))
+);
+
+
+--
+-- Name: trade_finance_fee_distributions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_fee_distributions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_address character varying(42) NOT NULL,
+    recipient_id character varying(50) NOT NULL,
+    recipient_address character varying(42) NOT NULL,
+    amount numeric(78,0) NOT NULL,
+    share_bps integer NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    distributed_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_flash_liquidations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_flash_liquidations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    liquidation_id bigint NOT NULL,
+    initiator_address character varying(42) NOT NULL,
+    user_address character varying(42) NOT NULL,
+    collateral_asset character varying(42) NOT NULL,
+    debt_asset character varying(42) NOT NULL,
+    flash_loan_amount numeric(78,0) NOT NULL,
+    collateral_received numeric(78,0) NOT NULL,
+    debt_covered numeric(78,0) NOT NULL,
+    flash_loan_fee numeric(78,0) NOT NULL,
+    profit numeric(78,0) NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    executed_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_health_warnings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_health_warnings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    health_factor numeric(78,18) NOT NULL,
+    warning_type character varying(20) NOT NULL,
+    issued_at timestamp without time zone DEFAULT now(),
+    acknowledged boolean DEFAULT false,
+    CONSTRAINT trade_finance_health_warnings_warning_type_check CHECK (((warning_type)::text = ANY ((ARRAY['LOW'::character varying, 'CRITICAL'::character varying, 'MARGIN_CALL'::character varying])::text[])))
+);
+
+
+--
+-- Name: trade_finance_insurance_claims; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_insurance_claims (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    commodity_type character varying(50) NOT NULL,
+    claim_amount numeric(78,0) NOT NULL,
+    claim_reason text,
+    status character varying(20) DEFAULT 'PENDING'::character varying,
+    initiated_at timestamp without time zone DEFAULT now(),
+    resolved_at timestamp without time zone,
+    payout_amount numeric(78,0),
+    CONSTRAINT trade_finance_insurance_claims_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'PAID'::character varying])::text[])))
+);
+
+
+--
+-- Name: trade_finance_interest_rate_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_interest_rate_config (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reserve_address character varying(42) NOT NULL,
+    chain_id integer DEFAULT 1 NOT NULL,
+    optimal_usage_ratio integer DEFAULT 8000 NOT NULL,
+    base_variable_borrow_rate integer DEFAULT 100 NOT NULL,
+    variable_rate_slope1 integer DEFAULT 400 NOT NULL,
+    variable_rate_slope2 integer DEFAULT 6000 NOT NULL,
+    commodity_type integer DEFAULT 0 NOT NULL,
+    seasonal_enabled boolean DEFAULT false,
+    storage_adjustment_bps integer DEFAULT 0,
+    quality_decay_rate_bps integer DEFAULT 0,
+    contango_adjustment_bps integer DEFAULT 0,
+    asset_symbol character varying(20),
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_margin_calls; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_margin_calls (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    commodity_type character varying(50) NOT NULL,
+    start_time timestamp without time zone NOT NULL,
+    end_time timestamp without time zone NOT NULL,
+    initial_health_factor numeric(78,18) NOT NULL,
+    required_collateral numeric(78,0) NOT NULL,
+    resolved boolean DEFAULT false,
+    liquidated boolean DEFAULT false,
+    resolution_time timestamp without time zone,
+    collateral_added numeric(78,0),
+    new_health_factor numeric(78,18),
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_partial_liquidations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_partial_liquidations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    liquidator_address character varying(42) NOT NULL,
+    collateral_asset character varying(42) NOT NULL,
+    debt_asset character varying(42) NOT NULL,
+    collateral_liquidated numeric(78,0) NOT NULL,
+    debt_covered numeric(78,0) NOT NULL,
+    new_health_factor numeric(78,18) NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    executed_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_payment_streams; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_payment_streams (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stream_id bigint NOT NULL,
+    sender_address character varying(42) NOT NULL,
+    recipient_address character varying(42) NOT NULL,
+    token_address character varying(42) NOT NULL,
+    deposit_amount numeric(78,0) NOT NULL,
+    start_time timestamp without time zone NOT NULL,
+    stop_time timestamp without time zone NOT NULL,
+    remaining_balance numeric(78,0) NOT NULL,
+    rate_per_second numeric(78,0) NOT NULL,
+    withdrawn_amount numeric(78,0) DEFAULT 0,
+    canceled boolean DEFAULT false,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_protocol_reserve; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_protocol_reserve (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_address character varying(42) NOT NULL,
+    total_balance numeric(78,0) DEFAULT 0,
+    allocated_amount numeric(78,0) DEFAULT 0,
+    available_amount numeric(78,0) DEFAULT 0,
+    last_deposit timestamp without time zone,
+    last_withdrawal timestamp without time zone,
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_rate_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_rate_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reserve_address character varying(42) NOT NULL,
+    chain_id integer DEFAULT 1 NOT NULL,
+    liquidity_rate_ray character varying(78) NOT NULL,
+    variable_borrow_rate_ray character varying(78) NOT NULL,
+    utilization_ratio_ray character varying(78) NOT NULL,
+    liquidity_rate_percent numeric(10,4),
+    variable_borrow_rate_percent numeric(10,4),
+    utilization_percent numeric(10,4),
+    total_supply character varying(78),
+    total_borrows character varying(78),
+    available_liquidity character varying(78),
+    seasonal_multiplier_bps integer,
+    commodity_adjustment_bps integer,
+    snapshot_timestamp timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_rate_simulations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_rate_simulations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reserve_address character varying(42) NOT NULL,
+    chain_id integer DEFAULT 1 NOT NULL,
+    simulated_utilization numeric(10,4) NOT NULL,
+    simulated_liquidity_rate numeric(10,4) NOT NULL,
+    simulated_borrow_rate numeric(10,4) NOT NULL,
+    with_seasonal_adjustment boolean DEFAULT false,
+    seasonal_month integer,
+    simulation_timestamp timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_reserve_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_reserve_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_address character varying(42) NOT NULL,
+    transaction_type character varying(20) NOT NULL,
+    amount numeric(78,0) NOT NULL,
+    purpose text,
+    authorized_by character varying(42) NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    executed_at timestamp without time zone DEFAULT now(),
+    CONSTRAINT trade_finance_reserve_transactions_transaction_type_check CHECK (((transaction_type)::text = ANY ((ARRAY['DEPOSIT'::character varying, 'WITHDRAWAL'::character varying, 'ALLOCATION'::character varying, 'DEALLOCATION'::character varying])::text[])))
+);
+
+
+--
+-- Name: trade_finance_revenue_recipients; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_revenue_recipients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    recipient_id character varying(50) NOT NULL,
+    recipient_address character varying(42) NOT NULL,
+    recipient_name character varying(100),
+    recipient_type character varying(30),
+    fee_share_bps integer NOT NULL,
+    active boolean DEFAULT true,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    CONSTRAINT trade_finance_revenue_recipients_fee_share_bps_check CHECK (((fee_share_bps >= 0) AND (fee_share_bps <= 10000))),
+    CONSTRAINT trade_finance_revenue_recipients_recipient_type_check CHECK (((recipient_type)::text = ANY ((ARRAY['TREASURY'::character varying, 'TEAM'::character varying, 'INSURANCE_FUND'::character varying, 'DEVELOPMENT_FUND'::character varying, 'COMMUNITY'::character varying, 'OPERATIONS'::character varying])::text[])))
+);
+
+
+--
+-- Name: trade_finance_rewards_claims; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_rewards_claims (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    reward_token_address character varying(42) NOT NULL,
+    reward_token_symbol character varying(50),
+    amount numeric(78,0) NOT NULL,
+    amount_formatted numeric(38,18),
+    to_address character varying(42) NOT NULL,
+    claimer_address character varying(42),
+    transaction_hash character varying(66),
+    block_number bigint,
+    chain_id integer DEFAULT 1 NOT NULL,
+    claimed_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE trade_finance_rewards_claims; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_rewards_claims IS 'History of reward claims for audit and analytics';
+
+
+--
+-- Name: trade_finance_rewards_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_rewards_config (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_address character varying(42) NOT NULL,
+    asset_symbol character varying(50),
+    reward_token_address character varying(42) NOT NULL,
+    reward_token_symbol character varying(50),
+    emission_per_second numeric(78,0) DEFAULT 0 NOT NULL,
+    distribution_end timestamp with time zone NOT NULL,
+    distribution_start timestamp with time zone DEFAULT now(),
+    transfer_strategy_address character varying(42),
+    transfer_strategy_type character varying(50) DEFAULT 'pull'::character varying,
+    reward_oracle_address character varying(42),
+    reward_decimals smallint DEFAULT 18,
+    asset_decimals smallint DEFAULT 18,
+    current_index numeric(78,0) DEFAULT 0,
+    last_update_timestamp timestamp with time zone DEFAULT now(),
+    is_active boolean DEFAULT true,
+    chain_id integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE trade_finance_rewards_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_rewards_config IS 'Configuration for reward distributions per asset-reward pair';
+
+
+--
+-- Name: trade_finance_rewards_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_rewards_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    asset_address character varying(42) NOT NULL,
+    reward_token_address character varying(42) NOT NULL,
+    snapshot_timestamp timestamp with time zone NOT NULL,
+    total_distributed numeric(78,0) DEFAULT 0,
+    total_claimed numeric(78,0) DEFAULT 0,
+    total_unclaimed numeric(78,0) DEFAULT 0,
+    unique_claimers integer DEFAULT 0,
+    current_emission_rate numeric(78,0),
+    current_index numeric(78,0),
+    chain_id integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE trade_finance_rewards_snapshots; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_rewards_snapshots IS 'Periodic snapshots for analytics and reporting';
+
+
+--
+-- Name: trade_finance_seasonal_multipliers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_seasonal_multipliers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    commodity_type integer NOT NULL,
+    month integer NOT NULL,
+    multiplier_bps integer DEFAULT 10000 NOT NULL,
+    description text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT trade_finance_seasonal_multipliers_month_check CHECK (((month >= 0) AND (month <= 11))),
+    CONSTRAINT trade_finance_seasonal_multipliers_multiplier_bps_check CHECK (((multiplier_bps >= 7000) AND (multiplier_bps <= 15000)))
+);
+
+
+--
+-- Name: trade_finance_stata_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_stata_operations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stata_token_address character varying(42) NOT NULL,
+    user_address character varying(42) NOT NULL,
+    operation_type character varying(20) NOT NULL,
+    assets_amount numeric(78,0) NOT NULL,
+    shares_amount numeric(78,0) NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    "timestamp" timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_stata_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_stata_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stata_token_address character varying(42) NOT NULL,
+    ctoken_address character varying(42) NOT NULL,
+    underlying_address character varying(42) NOT NULL,
+    commodity_type character varying(50) NOT NULL,
+    name character varying(100) NOT NULL,
+    symbol character varying(20) NOT NULL,
+    total_assets numeric(78,0) DEFAULT 0,
+    total_shares numeric(78,0) DEFAULT 0,
+    deployed_at timestamp without time zone DEFAULT now(),
+    deployer_address character varying(42),
+    chain_id integer DEFAULT 1,
+    is_paused boolean DEFAULT false,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_stream_withdrawals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_stream_withdrawals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stream_id bigint NOT NULL,
+    recipient_address character varying(42) NOT NULL,
+    amount numeric(78,0) NOT NULL,
+    transaction_hash character varying(66),
+    block_number bigint,
+    withdrawn_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_transfer_strategies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_transfer_strategies (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    strategy_address character varying(42) NOT NULL,
+    strategy_type character varying(50) NOT NULL,
+    rewards_vault_address character varying(42),
+    staked_token_address character varying(42),
+    underlying_token_address character varying(42),
+    chain_id integer DEFAULT 1 NOT NULL,
+    is_active boolean DEFAULT true,
+    deployed_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE trade_finance_transfer_strategies; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_transfer_strategies IS 'Registry of transfer strategy contracts';
+
+
+--
+-- Name: trade_finance_treasury_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_treasury_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_address character varying(42) NOT NULL,
+    balance numeric(78,0) NOT NULL,
+    accumulated_fees numeric(78,0) NOT NULL,
+    distributed_amount numeric(78,0) NOT NULL,
+    reserve_balance numeric(78,0) NOT NULL,
+    snapshot_date date NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: trade_finance_user_rewards; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.trade_finance_user_rewards (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_address character varying(42) NOT NULL,
+    asset_address character varying(42) NOT NULL,
+    reward_token_address character varying(42) NOT NULL,
+    user_index numeric(78,0) DEFAULT 0,
+    accrued_amount numeric(78,0) DEFAULT 0,
+    claimed_amount numeric(78,0) DEFAULT 0,
+    last_update_timestamp timestamp with time zone DEFAULT now(),
+    chain_id integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE trade_finance_user_rewards; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.trade_finance_user_rewards IS 'User-level reward tracking with index and accrued amounts';
+
+
+--
 -- Name: transaction_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -33768,6 +34385,382 @@ ALTER TABLE ONLY public.tokens
 
 
 --
+-- Name: trade_finance_auction_executions trade_finance_auction_executions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_auction_executions
+    ADD CONSTRAINT trade_finance_auction_executions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_authorized_claimers trade_finance_authorized_clai_user_address_claimer_address__key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_authorized_claimers
+    ADD CONSTRAINT trade_finance_authorized_clai_user_address_claimer_address__key UNIQUE (user_address, claimer_address, chain_id);
+
+
+--
+-- Name: trade_finance_authorized_claimers trade_finance_authorized_claimers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_authorized_claimers
+    ADD CONSTRAINT trade_finance_authorized_claimers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_commodity_emission_configs trade_finance_commodity_emission_configs_commodity_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_commodity_emission_configs
+    ADD CONSTRAINT trade_finance_commodity_emission_configs_commodity_type_key UNIQUE (commodity_type);
+
+
+--
+-- Name: trade_finance_commodity_emission_configs trade_finance_commodity_emission_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_commodity_emission_configs
+    ADD CONSTRAINT trade_finance_commodity_emission_configs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_dutch_auctions trade_finance_dutch_auctions_auction_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_dutch_auctions
+    ADD CONSTRAINT trade_finance_dutch_auctions_auction_id_key UNIQUE (auction_id);
+
+
+--
+-- Name: trade_finance_dutch_auctions trade_finance_dutch_auctions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_dutch_auctions
+    ADD CONSTRAINT trade_finance_dutch_auctions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_emission_admins trade_finance_emission_admins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_emission_admins
+    ADD CONSTRAINT trade_finance_emission_admins_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_emission_admins trade_finance_emission_admins_reward_token_address_chain_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_emission_admins
+    ADD CONSTRAINT trade_finance_emission_admins_reward_token_address_chain_id_key UNIQUE (reward_token_address, chain_id);
+
+
+--
+-- Name: trade_finance_fee_accumulations trade_finance_fee_accumulations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_fee_accumulations
+    ADD CONSTRAINT trade_finance_fee_accumulations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_fee_accumulations trade_finance_fee_accumulations_token_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_fee_accumulations
+    ADD CONSTRAINT trade_finance_fee_accumulations_token_address_key UNIQUE (token_address);
+
+
+--
+-- Name: trade_finance_fee_collections trade_finance_fee_collections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_fee_collections
+    ADD CONSTRAINT trade_finance_fee_collections_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_fee_distributions trade_finance_fee_distributions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_fee_distributions
+    ADD CONSTRAINT trade_finance_fee_distributions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_flash_liquidations trade_finance_flash_liquidations_liquidation_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_flash_liquidations
+    ADD CONSTRAINT trade_finance_flash_liquidations_liquidation_id_key UNIQUE (liquidation_id);
+
+
+--
+-- Name: trade_finance_flash_liquidations trade_finance_flash_liquidations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_flash_liquidations
+    ADD CONSTRAINT trade_finance_flash_liquidations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_health_warnings trade_finance_health_warnings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_health_warnings
+    ADD CONSTRAINT trade_finance_health_warnings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_insurance_claims trade_finance_insurance_claims_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_insurance_claims
+    ADD CONSTRAINT trade_finance_insurance_claims_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_interest_rate_config trade_finance_interest_rate_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_interest_rate_config
+    ADD CONSTRAINT trade_finance_interest_rate_config_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_interest_rate_config trade_finance_interest_rate_config_reserve_address_chain_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_interest_rate_config
+    ADD CONSTRAINT trade_finance_interest_rate_config_reserve_address_chain_id_key UNIQUE (reserve_address, chain_id);
+
+
+--
+-- Name: trade_finance_margin_calls trade_finance_margin_calls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_margin_calls
+    ADD CONSTRAINT trade_finance_margin_calls_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_partial_liquidations trade_finance_partial_liquidations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_partial_liquidations
+    ADD CONSTRAINT trade_finance_partial_liquidations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_payment_streams trade_finance_payment_streams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_payment_streams
+    ADD CONSTRAINT trade_finance_payment_streams_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_payment_streams trade_finance_payment_streams_stream_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_payment_streams
+    ADD CONSTRAINT trade_finance_payment_streams_stream_id_key UNIQUE (stream_id);
+
+
+--
+-- Name: trade_finance_protocol_reserve trade_finance_protocol_reserve_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_protocol_reserve
+    ADD CONSTRAINT trade_finance_protocol_reserve_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_protocol_reserve trade_finance_protocol_reserve_token_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_protocol_reserve
+    ADD CONSTRAINT trade_finance_protocol_reserve_token_address_key UNIQUE (token_address);
+
+
+--
+-- Name: trade_finance_rate_history trade_finance_rate_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_rate_history
+    ADD CONSTRAINT trade_finance_rate_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_rate_simulations trade_finance_rate_simulations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_rate_simulations
+    ADD CONSTRAINT trade_finance_rate_simulations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_reserve_transactions trade_finance_reserve_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_reserve_transactions
+    ADD CONSTRAINT trade_finance_reserve_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_revenue_recipients trade_finance_revenue_recipients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_revenue_recipients
+    ADD CONSTRAINT trade_finance_revenue_recipients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_revenue_recipients trade_finance_revenue_recipients_recipient_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_revenue_recipients
+    ADD CONSTRAINT trade_finance_revenue_recipients_recipient_id_key UNIQUE (recipient_id);
+
+
+--
+-- Name: trade_finance_rewards_claims trade_finance_rewards_claims_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_rewards_claims
+    ADD CONSTRAINT trade_finance_rewards_claims_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_rewards_config trade_finance_rewards_config_asset_address_reward_token_add_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_rewards_config
+    ADD CONSTRAINT trade_finance_rewards_config_asset_address_reward_token_add_key UNIQUE (asset_address, reward_token_address, chain_id);
+
+
+--
+-- Name: trade_finance_rewards_config trade_finance_rewards_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_rewards_config
+    ADD CONSTRAINT trade_finance_rewards_config_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_rewards_snapshots trade_finance_rewards_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_rewards_snapshots
+    ADD CONSTRAINT trade_finance_rewards_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_seasonal_multipliers trade_finance_seasonal_multipliers_commodity_type_month_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_seasonal_multipliers
+    ADD CONSTRAINT trade_finance_seasonal_multipliers_commodity_type_month_key UNIQUE (commodity_type, month);
+
+
+--
+-- Name: trade_finance_seasonal_multipliers trade_finance_seasonal_multipliers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_seasonal_multipliers
+    ADD CONSTRAINT trade_finance_seasonal_multipliers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_stata_operations trade_finance_stata_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_stata_operations
+    ADD CONSTRAINT trade_finance_stata_operations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_stata_tokens trade_finance_stata_tokens_ctoken_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_stata_tokens
+    ADD CONSTRAINT trade_finance_stata_tokens_ctoken_address_key UNIQUE (ctoken_address);
+
+
+--
+-- Name: trade_finance_stata_tokens trade_finance_stata_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_stata_tokens
+    ADD CONSTRAINT trade_finance_stata_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_stata_tokens trade_finance_stata_tokens_stata_token_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_stata_tokens
+    ADD CONSTRAINT trade_finance_stata_tokens_stata_token_address_key UNIQUE (stata_token_address);
+
+
+--
+-- Name: trade_finance_stream_withdrawals trade_finance_stream_withdrawals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_stream_withdrawals
+    ADD CONSTRAINT trade_finance_stream_withdrawals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_transfer_strategies trade_finance_transfer_strategies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_transfer_strategies
+    ADD CONSTRAINT trade_finance_transfer_strategies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_transfer_strategies trade_finance_transfer_strategies_strategy_address_chain_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_transfer_strategies
+    ADD CONSTRAINT trade_finance_transfer_strategies_strategy_address_chain_id_key UNIQUE (strategy_address, chain_id);
+
+
+--
+-- Name: trade_finance_treasury_snapshots trade_finance_treasury_snapshot_token_address_snapshot_date_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_treasury_snapshots
+    ADD CONSTRAINT trade_finance_treasury_snapshot_token_address_snapshot_date_key UNIQUE (token_address, snapshot_date);
+
+
+--
+-- Name: trade_finance_treasury_snapshots trade_finance_treasury_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_treasury_snapshots
+    ADD CONSTRAINT trade_finance_treasury_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_user_rewards trade_finance_user_rewards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_user_rewards
+    ADD CONSTRAINT trade_finance_user_rewards_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trade_finance_user_rewards trade_finance_user_rewards_user_address_asset_address_rewar_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_user_rewards
+    ADD CONSTRAINT trade_finance_user_rewards_user_address_asset_address_rewar_key UNIQUE (user_address, asset_address, reward_token_address, chain_id);
+
+
+--
 -- Name: transaction_events transaction_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -34796,6 +35789,13 @@ CREATE INDEX idx_auction_comparables_date ON public.auction_comparables USING bt
 
 
 --
+-- Name: idx_auction_executions_auction; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_auction_executions_auction ON public.trade_finance_auction_executions USING btree (auction_id);
+
+
+--
 -- Name: idx_audit_actor; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35486,6 +36486,34 @@ CREATE INDEX idx_cf_rebalancing_events_fund ON public.cf_rebalancing_events USIN
 --
 
 CREATE INDEX idx_cf_rebalancing_events_type ON public.cf_rebalancing_events USING btree (rebalancing_type);
+
+
+--
+-- Name: idx_claims_chain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_claims_chain ON public.trade_finance_rewards_claims USING btree (chain_id);
+
+
+--
+-- Name: idx_claims_reward; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_claims_reward ON public.trade_finance_rewards_claims USING btree (reward_token_address);
+
+
+--
+-- Name: idx_claims_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_claims_timestamp ON public.trade_finance_rewards_claims USING btree (claimed_at);
+
+
+--
+-- Name: idx_claims_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_claims_user ON public.trade_finance_rewards_claims USING btree (user_address);
 
 
 --
@@ -37260,6 +38288,20 @@ CREATE INDEX idx_dtf_token_metadata_network ON public.dtf_token_metadata USING b
 
 
 --
+-- Name: idx_dutch_auctions_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dutch_auctions_active ON public.trade_finance_dutch_auctions USING btree (active) WHERE (active = true);
+
+
+--
+-- Name: idx_dutch_auctions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_dutch_auctions_user ON public.trade_finance_dutch_auctions USING btree (user_address);
+
+
+--
 -- Name: idx_email_log_user; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38135,6 +39177,41 @@ CREATE INDEX idx_faucet_requests_wallet_address ON public.faucet_requests USING 
 
 
 --
+-- Name: idx_fee_collections_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fee_collections_source ON public.trade_finance_fee_collections USING btree (fee_source);
+
+
+--
+-- Name: idx_fee_collections_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fee_collections_time ON public.trade_finance_fee_collections USING btree (collected_at);
+
+
+--
+-- Name: idx_fee_collections_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fee_collections_token ON public.trade_finance_fee_collections USING btree (token_address);
+
+
+--
+-- Name: idx_fee_distributions_recipient; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fee_distributions_recipient ON public.trade_finance_fee_distributions USING btree (recipient_id);
+
+
+--
+-- Name: idx_fee_distributions_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fee_distributions_token ON public.trade_finance_fee_distributions USING btree (token_address);
+
+
+--
 -- Name: idx_fiat_quotes_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38223,6 +39300,13 @@ CREATE INDEX idx_fiat_transactions_user_id ON public.fiat_transactions USING btr
 --
 
 CREATE INDEX idx_fiat_transactions_wallet_address ON public.fiat_transactions USING btree (wallet_address);
+
+
+--
+-- Name: idx_flash_liquidations_initiator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_flash_liquidations_initiator ON public.trade_finance_flash_liquidations USING btree (initiator_address);
 
 
 --
@@ -38405,6 +39489,13 @@ CREATE INDEX idx_guardian_wallets_status ON public.guardian_wallets USING btree 
 --
 
 CREATE INDEX idx_health_checks_service ON public.health_checks USING btree (service);
+
+
+--
+-- Name: idx_health_warnings_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_health_warnings_user ON public.trade_finance_health_warnings USING btree (user_address);
 
 
 --
@@ -38622,6 +39713,34 @@ CREATE INDEX idx_infrastructure_products_project_id ON public.infrastructure_pro
 --
 
 CREATE UNIQUE INDEX idx_infrastructure_products_project_id_unique ON public.infrastructure_products USING btree (project_id);
+
+
+--
+-- Name: idx_insurance_claims_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insurance_claims_status ON public.trade_finance_insurance_claims USING btree (status);
+
+
+--
+-- Name: idx_insurance_claims_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insurance_claims_user ON public.trade_finance_insurance_claims USING btree (user_address);
+
+
+--
+-- Name: idx_interest_rate_config_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_interest_rate_config_commodity ON public.trade_finance_interest_rate_config USING btree (commodity_type);
+
+
+--
+-- Name: idx_interest_rate_config_reserve; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_interest_rate_config_reserve ON public.trade_finance_interest_rate_config USING btree (reserve_address);
 
 
 --
@@ -39056,6 +40175,20 @@ CREATE INDEX idx_lease_agreements_tenant ON public.lease_agreements USING btree 
 --
 
 CREATE INDEX idx_lifecycle_events_product_id ON public.product_lifecycle_events USING btree (product_id);
+
+
+--
+-- Name: idx_margin_calls_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_margin_calls_active ON public.trade_finance_margin_calls USING btree (resolved, liquidated) WHERE ((NOT resolved) AND (NOT liquidated));
+
+
+--
+-- Name: idx_margin_calls_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_margin_calls_user ON public.trade_finance_margin_calls USING btree (user_address);
 
 
 --
@@ -40382,6 +41515,20 @@ CREATE INDEX idx_paymaster_policies_chain_id ON public.paymaster_policies USING 
 
 
 --
+-- Name: idx_payment_streams_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_streams_active ON public.trade_finance_payment_streams USING btree (canceled) WHERE (NOT canceled);
+
+
+--
+-- Name: idx_payment_streams_recipient; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_streams_recipient ON public.trade_finance_payment_streams USING btree (recipient_address);
+
+
+--
 -- Name: idx_pd_collateral_loan; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41677,6 +42824,20 @@ CREATE INDEX idx_ramp_webhook_events_type ON public.ramp_webhook_events USING bt
 
 
 --
+-- Name: idx_rate_history_reserve; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rate_history_reserve ON public.trade_finance_rate_history USING btree (reserve_address);
+
+
+--
+-- Name: idx_rate_history_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rate_history_timestamp ON public.trade_finance_rate_history USING btree (snapshot_timestamp DESC);
+
+
+--
 -- Name: idx_real_estate_products_project_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42090,6 +43251,20 @@ COMMENT ON INDEX public.idx_renewable_energy_credits_receivable_id IS 'Performan
 
 
 --
+-- Name: idx_reserve_transactions_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_reserve_transactions_token ON public.trade_finance_reserve_transactions USING btree (token_address);
+
+
+--
+-- Name: idx_reserve_transactions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_reserve_transactions_type ON public.trade_finance_reserve_transactions USING btree (transaction_type);
+
+
+--
 -- Name: idx_restriction_validation_logs_validated_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42101,6 +43276,34 @@ CREATE INDEX idx_restriction_validation_logs_validated_at ON public.restriction_
 --
 
 CREATE INDEX idx_restriction_validation_logs_wallet_id ON public.restriction_validation_logs USING btree (wallet_id);
+
+
+--
+-- Name: idx_rewards_config_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rewards_config_active ON public.trade_finance_rewards_config USING btree (is_active) WHERE (is_active = true);
+
+
+--
+-- Name: idx_rewards_config_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rewards_config_asset ON public.trade_finance_rewards_config USING btree (asset_address);
+
+
+--
+-- Name: idx_rewards_config_chain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rewards_config_chain ON public.trade_finance_rewards_config USING btree (chain_id);
+
+
+--
+-- Name: idx_rewards_config_reward; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rewards_config_reward ON public.trade_finance_rewards_config USING btree (reward_token_address);
 
 
 --
@@ -42678,6 +43881,13 @@ CREATE INDEX idx_sc_reserve_audits_stablecoin ON public.sc_reserve_audits USING 
 
 
 --
+-- Name: idx_seasonal_multipliers_commodity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_seasonal_multipliers_commodity ON public.trade_finance_seasonal_multipliers USING btree (commodity_type);
+
+
+--
 -- Name: idx_security_audit_logs_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42965,6 +44175,20 @@ CREATE INDEX idx_smart_contract_wallets_wallet_id ON public.smart_contract_walle
 
 
 --
+-- Name: idx_snapshots_asset_reward; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_snapshots_asset_reward ON public.trade_finance_rewards_snapshots USING btree (asset_address, reward_token_address);
+
+
+--
+-- Name: idx_snapshots_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_snapshots_timestamp ON public.trade_finance_rewards_snapshots USING btree (snapshot_timestamp);
+
+
+--
 -- Name: idx_sp_barrier_events_breach; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -43140,6 +44364,27 @@ CREATE INDEX idx_staking_apr_config_blockchain ON public.staking_apr_config USIN
 
 
 --
+-- Name: idx_stata_operations_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stata_operations_token ON public.trade_finance_stata_operations USING btree (stata_token_address);
+
+
+--
+-- Name: idx_stata_operations_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stata_operations_user ON public.trade_finance_stata_operations USING btree (user_address);
+
+
+--
+-- Name: idx_stata_tokens_ctoken; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stata_tokens_ctoken ON public.trade_finance_stata_tokens USING btree (ctoken_address);
+
+
+--
 -- Name: idx_stock_dividends_equity_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -43179,6 +44424,13 @@ CREATE INDEX idx_stock_exchanges_code ON public.stock_exchanges USING btree (exc
 --
 
 CREATE INDEX idx_stock_exchanges_country ON public.stock_exchanges USING btree (country);
+
+
+--
+-- Name: idx_stream_withdrawals_stream; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stream_withdrawals_stream ON public.trade_finance_stream_withdrawals USING btree (stream_id);
 
 
 --
@@ -43847,6 +45099,13 @@ CREATE INDEX idx_transfer_ops_tx_hash ON public.transfer_operations USING btree 
 
 
 --
+-- Name: idx_treasury_snapshots_token_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_treasury_snapshots_token_date ON public.trade_finance_treasury_snapshots USING btree (token_address, snapshot_date);
+
+
+--
 -- Name: idx_user_addresses_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -43956,6 +45215,34 @@ CREATE INDEX idx_user_organization_roles_role_id ON public.user_organization_rol
 --
 
 CREATE INDEX idx_user_organization_roles_user_id ON public.user_organization_roles USING btree (user_id);
+
+
+--
+-- Name: idx_user_rewards_asset; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_rewards_asset ON public.trade_finance_user_rewards USING btree (asset_address);
+
+
+--
+-- Name: idx_user_rewards_chain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_rewards_chain ON public.trade_finance_user_rewards USING btree (chain_id);
+
+
+--
+-- Name: idx_user_rewards_reward; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_rewards_reward ON public.trade_finance_user_rewards USING btree (reward_token_address);
+
+
+--
+-- Name: idx_user_rewards_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_rewards_user ON public.trade_finance_user_rewards USING btree (user_address);
 
 
 --
@@ -45082,6 +46369,13 @@ CREATE TRIGGER trigger_calculate_nav_change BEFORE INSERT OR UPDATE ON public.fu
 
 
 --
+-- Name: trade_finance_commodity_emission_configs trigger_commodity_emission_updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_commodity_emission_updated BEFORE UPDATE ON public.trade_finance_commodity_emission_configs FOR EACH ROW EXECUTE FUNCTION public.update_trade_finance_rewards_timestamp();
+
+
+--
 -- Name: consensus_settings trigger_consensus_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -45093,6 +46387,13 @@ CREATE TRIGGER trigger_consensus_settings_updated_at BEFORE UPDATE ON public.con
 --
 
 CREATE TRIGGER trigger_facet_registry_updated_at BEFORE UPDATE ON public.facet_registry FOR EACH ROW EXECUTE FUNCTION public.update_smart_contract_wallet_updated_at();
+
+
+--
+-- Name: trade_finance_rewards_config trigger_rewards_config_updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_rewards_config_updated BEFORE UPDATE ON public.trade_finance_rewards_config FOR EACH ROW EXECUTE FUNCTION public.update_trade_finance_rewards_timestamp();
 
 
 --
@@ -45401,6 +46702,13 @@ CREATE TRIGGER trigger_update_total_assets AFTER INSERT OR DELETE OR UPDATE ON p
 --
 
 CREATE TRIGGER trigger_user_operations_updated_at BEFORE UPDATE ON public.user_operations FOR EACH ROW EXECUTE FUNCTION public.update_smart_contract_wallet_updated_at();
+
+
+--
+-- Name: trade_finance_user_rewards trigger_user_rewards_updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_user_rewards_updated BEFORE UPDATE ON public.trade_finance_user_rewards FOR EACH ROW EXECUTE FUNCTION public.update_trade_finance_rewards_timestamp();
 
 
 --
@@ -49804,6 +51112,30 @@ ALTER TABLE ONLY public.tokens
 
 
 --
+-- Name: trade_finance_auction_executions trade_finance_auction_executions_auction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_auction_executions
+    ADD CONSTRAINT trade_finance_auction_executions_auction_id_fkey FOREIGN KEY (auction_id) REFERENCES public.trade_finance_dutch_auctions(auction_id);
+
+
+--
+-- Name: trade_finance_fee_distributions trade_finance_fee_distributions_recipient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_fee_distributions
+    ADD CONSTRAINT trade_finance_fee_distributions_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES public.trade_finance_revenue_recipients(recipient_id);
+
+
+--
+-- Name: trade_finance_stream_withdrawals trade_finance_stream_withdrawals_stream_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trade_finance_stream_withdrawals
+    ADD CONSTRAINT trade_finance_stream_withdrawals_stream_id_fkey FOREIGN KEY (stream_id) REFERENCES public.trade_finance_payment_streams(stream_id);
+
+
+--
 -- Name: transaction_signatures transaction_signatures_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -52214,6 +53546,16 @@ GRANT ALL ON FUNCTION public.update_total_assets() TO prisma;
 
 
 --
+-- Name: FUNCTION update_trade_finance_rewards_timestamp(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_trade_finance_rewards_timestamp() TO anon;
+GRANT ALL ON FUNCTION public.update_trade_finance_rewards_timestamp() TO authenticated;
+GRANT ALL ON FUNCTION public.update_trade_finance_rewards_timestamp() TO service_role;
+GRANT ALL ON FUNCTION public.update_trade_finance_rewards_timestamp() TO prisma;
+
+
+--
 -- Name: FUNCTION update_transfer_operations_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -53641,16 +54983,6 @@ GRANT ALL ON TABLE public.contract_masters TO anon;
 GRANT ALL ON TABLE public.contract_masters TO authenticated;
 GRANT ALL ON TABLE public.contract_masters TO service_role;
 GRANT ALL ON TABLE public.contract_masters TO prisma;
-
-
---
--- Name: TABLE contract_masters_backup_20251121; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO anon;
-GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO authenticated;
-GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO service_role;
-GRANT ALL ON TABLE public.contract_masters_backup_20251121 TO prisma;
 
 
 --
@@ -57661,6 +58993,306 @@ GRANT ALL ON TABLE public.token_whitelist_summary TO anon;
 GRANT ALL ON TABLE public.token_whitelist_summary TO authenticated;
 GRANT ALL ON TABLE public.token_whitelist_summary TO service_role;
 GRANT ALL ON TABLE public.token_whitelist_summary TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_auction_executions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_auction_executions TO anon;
+GRANT ALL ON TABLE public.trade_finance_auction_executions TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_auction_executions TO service_role;
+GRANT ALL ON TABLE public.trade_finance_auction_executions TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_authorized_claimers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_authorized_claimers TO anon;
+GRANT ALL ON TABLE public.trade_finance_authorized_claimers TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_authorized_claimers TO service_role;
+GRANT ALL ON TABLE public.trade_finance_authorized_claimers TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_commodity_emission_configs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_commodity_emission_configs TO anon;
+GRANT ALL ON TABLE public.trade_finance_commodity_emission_configs TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_commodity_emission_configs TO service_role;
+GRANT ALL ON TABLE public.trade_finance_commodity_emission_configs TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_dutch_auctions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_dutch_auctions TO anon;
+GRANT ALL ON TABLE public.trade_finance_dutch_auctions TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_dutch_auctions TO service_role;
+GRANT ALL ON TABLE public.trade_finance_dutch_auctions TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_emission_admins; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_emission_admins TO anon;
+GRANT ALL ON TABLE public.trade_finance_emission_admins TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_emission_admins TO service_role;
+GRANT ALL ON TABLE public.trade_finance_emission_admins TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_fee_accumulations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_fee_accumulations TO anon;
+GRANT ALL ON TABLE public.trade_finance_fee_accumulations TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_fee_accumulations TO service_role;
+GRANT ALL ON TABLE public.trade_finance_fee_accumulations TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_fee_collections; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_fee_collections TO anon;
+GRANT ALL ON TABLE public.trade_finance_fee_collections TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_fee_collections TO service_role;
+GRANT ALL ON TABLE public.trade_finance_fee_collections TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_fee_distributions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_fee_distributions TO anon;
+GRANT ALL ON TABLE public.trade_finance_fee_distributions TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_fee_distributions TO service_role;
+GRANT ALL ON TABLE public.trade_finance_fee_distributions TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_flash_liquidations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_flash_liquidations TO anon;
+GRANT ALL ON TABLE public.trade_finance_flash_liquidations TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_flash_liquidations TO service_role;
+GRANT ALL ON TABLE public.trade_finance_flash_liquidations TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_health_warnings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_health_warnings TO anon;
+GRANT ALL ON TABLE public.trade_finance_health_warnings TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_health_warnings TO service_role;
+GRANT ALL ON TABLE public.trade_finance_health_warnings TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_insurance_claims; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_insurance_claims TO anon;
+GRANT ALL ON TABLE public.trade_finance_insurance_claims TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_insurance_claims TO service_role;
+GRANT ALL ON TABLE public.trade_finance_insurance_claims TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_interest_rate_config; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_interest_rate_config TO anon;
+GRANT ALL ON TABLE public.trade_finance_interest_rate_config TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_interest_rate_config TO service_role;
+GRANT ALL ON TABLE public.trade_finance_interest_rate_config TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_margin_calls; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_margin_calls TO anon;
+GRANT ALL ON TABLE public.trade_finance_margin_calls TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_margin_calls TO service_role;
+GRANT ALL ON TABLE public.trade_finance_margin_calls TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_partial_liquidations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_partial_liquidations TO anon;
+GRANT ALL ON TABLE public.trade_finance_partial_liquidations TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_partial_liquidations TO service_role;
+GRANT ALL ON TABLE public.trade_finance_partial_liquidations TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_payment_streams; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_payment_streams TO anon;
+GRANT ALL ON TABLE public.trade_finance_payment_streams TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_payment_streams TO service_role;
+GRANT ALL ON TABLE public.trade_finance_payment_streams TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_protocol_reserve; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_protocol_reserve TO anon;
+GRANT ALL ON TABLE public.trade_finance_protocol_reserve TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_protocol_reserve TO service_role;
+GRANT ALL ON TABLE public.trade_finance_protocol_reserve TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_rate_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_rate_history TO anon;
+GRANT ALL ON TABLE public.trade_finance_rate_history TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_rate_history TO service_role;
+GRANT ALL ON TABLE public.trade_finance_rate_history TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_rate_simulations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_rate_simulations TO anon;
+GRANT ALL ON TABLE public.trade_finance_rate_simulations TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_rate_simulations TO service_role;
+GRANT ALL ON TABLE public.trade_finance_rate_simulations TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_reserve_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_reserve_transactions TO anon;
+GRANT ALL ON TABLE public.trade_finance_reserve_transactions TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_reserve_transactions TO service_role;
+GRANT ALL ON TABLE public.trade_finance_reserve_transactions TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_revenue_recipients; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_revenue_recipients TO anon;
+GRANT ALL ON TABLE public.trade_finance_revenue_recipients TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_revenue_recipients TO service_role;
+GRANT ALL ON TABLE public.trade_finance_revenue_recipients TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_rewards_claims; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_rewards_claims TO anon;
+GRANT ALL ON TABLE public.trade_finance_rewards_claims TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_rewards_claims TO service_role;
+GRANT ALL ON TABLE public.trade_finance_rewards_claims TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_rewards_config; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_rewards_config TO anon;
+GRANT ALL ON TABLE public.trade_finance_rewards_config TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_rewards_config TO service_role;
+GRANT ALL ON TABLE public.trade_finance_rewards_config TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_rewards_snapshots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_rewards_snapshots TO anon;
+GRANT ALL ON TABLE public.trade_finance_rewards_snapshots TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_rewards_snapshots TO service_role;
+GRANT ALL ON TABLE public.trade_finance_rewards_snapshots TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_seasonal_multipliers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_seasonal_multipliers TO anon;
+GRANT ALL ON TABLE public.trade_finance_seasonal_multipliers TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_seasonal_multipliers TO service_role;
+GRANT ALL ON TABLE public.trade_finance_seasonal_multipliers TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_stata_operations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_stata_operations TO anon;
+GRANT ALL ON TABLE public.trade_finance_stata_operations TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_stata_operations TO service_role;
+GRANT ALL ON TABLE public.trade_finance_stata_operations TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_stata_tokens; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_stata_tokens TO anon;
+GRANT ALL ON TABLE public.trade_finance_stata_tokens TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_stata_tokens TO service_role;
+GRANT ALL ON TABLE public.trade_finance_stata_tokens TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_stream_withdrawals; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_stream_withdrawals TO anon;
+GRANT ALL ON TABLE public.trade_finance_stream_withdrawals TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_stream_withdrawals TO service_role;
+GRANT ALL ON TABLE public.trade_finance_stream_withdrawals TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_transfer_strategies; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_transfer_strategies TO anon;
+GRANT ALL ON TABLE public.trade_finance_transfer_strategies TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_transfer_strategies TO service_role;
+GRANT ALL ON TABLE public.trade_finance_transfer_strategies TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_treasury_snapshots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_treasury_snapshots TO anon;
+GRANT ALL ON TABLE public.trade_finance_treasury_snapshots TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_treasury_snapshots TO service_role;
+GRANT ALL ON TABLE public.trade_finance_treasury_snapshots TO prisma;
+
+
+--
+-- Name: TABLE trade_finance_user_rewards; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.trade_finance_user_rewards TO anon;
+GRANT ALL ON TABLE public.trade_finance_user_rewards TO authenticated;
+GRANT ALL ON TABLE public.trade_finance_user_rewards TO service_role;
+GRANT ALL ON TABLE public.trade_finance_user_rewards TO prisma;
 
 
 --

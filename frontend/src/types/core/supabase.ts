@@ -6578,75 +6578,6 @@ export type Database = {
           },
         ]
       }
-      contract_masters_backup_20251121: {
-        Row: {
-          abi: Json | null
-          abi_hash: string | null
-          abi_version: string | null
-          contract_address: string | null
-          contract_details: Json | null
-          contract_type: string | null
-          created_at: string | null
-          deployed_at: string | null
-          deployed_by: string | null
-          deployment_data: Json | null
-          deployment_tx_hash: string | null
-          deprecated_at: string | null
-          environment: string | null
-          id: string | null
-          initial_owner: string | null
-          is_active: boolean | null
-          is_template: boolean | null
-          network: string | null
-          updated_at: string | null
-          version: string | null
-        }
-        Insert: {
-          abi?: Json | null
-          abi_hash?: string | null
-          abi_version?: string | null
-          contract_address?: string | null
-          contract_details?: Json | null
-          contract_type?: string | null
-          created_at?: string | null
-          deployed_at?: string | null
-          deployed_by?: string | null
-          deployment_data?: Json | null
-          deployment_tx_hash?: string | null
-          deprecated_at?: string | null
-          environment?: string | null
-          id?: string | null
-          initial_owner?: string | null
-          is_active?: boolean | null
-          is_template?: boolean | null
-          network?: string | null
-          updated_at?: string | null
-          version?: string | null
-        }
-        Update: {
-          abi?: Json | null
-          abi_hash?: string | null
-          abi_version?: string | null
-          contract_address?: string | null
-          contract_details?: Json | null
-          contract_type?: string | null
-          created_at?: string | null
-          deployed_at?: string | null
-          deployed_by?: string | null
-          deployment_data?: Json | null
-          deployment_tx_hash?: string | null
-          deprecated_at?: string | null
-          environment?: string | null
-          id?: string | null
-          initial_owner?: string | null
-          is_active?: boolean | null
-          is_template?: boolean | null
-          network?: string | null
-          updated_at?: string | null
-          version?: string | null
-        }
-        Relationships: []
-      }
       contract_role_assignments: {
         Row: {
           assigned_by: string | null
@@ -35929,6 +35860,1260 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trade_finance_auction_executions: {
+        Row: {
+          auction_id: number
+          block_number: number | null
+          collateral_received: number
+          debt_paid: number
+          executed_at: string | null
+          final_price: number
+          id: string
+          liquidator_address: string
+          transaction_hash: string | null
+        }
+        Insert: {
+          auction_id: number
+          block_number?: number | null
+          collateral_received: number
+          debt_paid: number
+          executed_at?: string | null
+          final_price: number
+          id?: string
+          liquidator_address: string
+          transaction_hash?: string | null
+        }
+        Update: {
+          auction_id?: number
+          block_number?: number | null
+          collateral_received?: number
+          debt_paid?: number
+          executed_at?: string | null
+          final_price?: number
+          id?: string
+          liquidator_address?: string
+          transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_finance_auction_executions_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "trade_finance_dutch_auctions"
+            referencedColumns: ["auction_id"]
+          },
+        ]
+      }
+      trade_finance_authorized_claimers: {
+        Row: {
+          authorized_at: string | null
+          chain_id: number
+          claimer_address: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          revoked_at: string | null
+          user_address: string
+        }
+        Insert: {
+          authorized_at?: string | null
+          chain_id?: number
+          claimer_address: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          revoked_at?: string | null
+          user_address: string
+        }
+        Update: {
+          authorized_at?: string | null
+          chain_id?: number
+          claimer_address?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          revoked_at?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_commodity_emission_configs: {
+        Row: {
+          commodity_type: string
+          commodity_type_hash: string | null
+          created_at: string | null
+          effective_from: string | null
+          effective_until: string | null
+          id: string
+          is_active: boolean | null
+          max_emission: number | null
+          min_emission: number | null
+          seasonal_multiplier: number | null
+          updated_at: string | null
+          volatility_adjustment: number | null
+        }
+        Insert: {
+          commodity_type: string
+          commodity_type_hash?: string | null
+          created_at?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_emission?: number | null
+          min_emission?: number | null
+          seasonal_multiplier?: number | null
+          updated_at?: string | null
+          volatility_adjustment?: number | null
+        }
+        Update: {
+          commodity_type?: string
+          commodity_type_hash?: string | null
+          created_at?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_emission?: number | null
+          min_emission?: number | null
+          seasonal_multiplier?: number | null
+          updated_at?: string | null
+          volatility_adjustment?: number | null
+        }
+        Relationships: []
+      }
+      trade_finance_dutch_auctions: {
+        Row: {
+          active: boolean | null
+          auction_id: number
+          collateral_amount: number
+          collateral_asset: string
+          created_at: string | null
+          debt_amount: number
+          debt_asset: string
+          duration: number
+          end_discount_bps: number
+          id: string
+          physical_delivery_requested: boolean | null
+          start_discount_bps: number
+          start_price: number
+          start_time: string
+          updated_at: string | null
+          use_exponential_decay: boolean | null
+          user_address: string
+        }
+        Insert: {
+          active?: boolean | null
+          auction_id: number
+          collateral_amount: number
+          collateral_asset: string
+          created_at?: string | null
+          debt_amount: number
+          debt_asset: string
+          duration: number
+          end_discount_bps: number
+          id?: string
+          physical_delivery_requested?: boolean | null
+          start_discount_bps: number
+          start_price: number
+          start_time: string
+          updated_at?: string | null
+          use_exponential_decay?: boolean | null
+          user_address: string
+        }
+        Update: {
+          active?: boolean | null
+          auction_id?: number
+          collateral_amount?: number
+          collateral_asset?: string
+          created_at?: string | null
+          debt_amount?: number
+          debt_asset?: string
+          duration?: number
+          end_discount_bps?: number
+          id?: string
+          physical_delivery_requested?: boolean | null
+          start_discount_bps?: number
+          start_price?: number
+          start_time?: string
+          updated_at?: string | null
+          use_exponential_decay?: boolean | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_emission_admins: {
+        Row: {
+          admin_address: string
+          chain_id: number
+          granted_at: string | null
+          id: string
+          is_active: boolean | null
+          revoked_at: string | null
+          reward_token_address: string
+        }
+        Insert: {
+          admin_address: string
+          chain_id?: number
+          granted_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          revoked_at?: string | null
+          reward_token_address: string
+        }
+        Update: {
+          admin_address?: string
+          chain_id?: number
+          granted_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          revoked_at?: string | null
+          reward_token_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_fee_accumulations: {
+        Row: {
+          current_amount: number | null
+          id: string
+          last_collected: string | null
+          last_distributed: string | null
+          token_address: string
+          total_collected: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          current_amount?: number | null
+          id?: string
+          last_collected?: string | null
+          last_distributed?: string | null
+          token_address: string
+          total_collected?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          current_amount?: number | null
+          id?: string
+          last_collected?: string | null
+          last_distributed?: string | null
+          token_address?: string
+          total_collected?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_fee_collections: {
+        Row: {
+          amount: number
+          block_number: number | null
+          collected_at: string | null
+          collector_address: string | null
+          fee_source: string
+          id: string
+          token_address: string
+          transaction_hash: string | null
+        }
+        Insert: {
+          amount: number
+          block_number?: number | null
+          collected_at?: string | null
+          collector_address?: string | null
+          fee_source: string
+          id?: string
+          token_address: string
+          transaction_hash?: string | null
+        }
+        Update: {
+          amount?: number
+          block_number?: number | null
+          collected_at?: string | null
+          collector_address?: string | null
+          fee_source?: string
+          id?: string
+          token_address?: string
+          transaction_hash?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_fee_distributions: {
+        Row: {
+          amount: number
+          block_number: number | null
+          distributed_at: string | null
+          id: string
+          recipient_address: string
+          recipient_id: string
+          share_bps: number
+          token_address: string
+          transaction_hash: string | null
+        }
+        Insert: {
+          amount: number
+          block_number?: number | null
+          distributed_at?: string | null
+          id?: string
+          recipient_address: string
+          recipient_id: string
+          share_bps: number
+          token_address: string
+          transaction_hash?: string | null
+        }
+        Update: {
+          amount?: number
+          block_number?: number | null
+          distributed_at?: string | null
+          id?: string
+          recipient_address?: string
+          recipient_id?: string
+          share_bps?: number
+          token_address?: string
+          transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_finance_fee_distributions_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "trade_finance_revenue_recipients"
+            referencedColumns: ["recipient_id"]
+          },
+        ]
+      }
+      trade_finance_flash_liquidations: {
+        Row: {
+          block_number: number | null
+          collateral_asset: string
+          collateral_received: number
+          debt_asset: string
+          debt_covered: number
+          executed_at: string | null
+          flash_loan_amount: number
+          flash_loan_fee: number
+          id: string
+          initiator_address: string
+          liquidation_id: number
+          profit: number
+          transaction_hash: string | null
+          user_address: string
+        }
+        Insert: {
+          block_number?: number | null
+          collateral_asset: string
+          collateral_received: number
+          debt_asset: string
+          debt_covered: number
+          executed_at?: string | null
+          flash_loan_amount: number
+          flash_loan_fee: number
+          id?: string
+          initiator_address: string
+          liquidation_id: number
+          profit: number
+          transaction_hash?: string | null
+          user_address: string
+        }
+        Update: {
+          block_number?: number | null
+          collateral_asset?: string
+          collateral_received?: number
+          debt_asset?: string
+          debt_covered?: number
+          executed_at?: string | null
+          flash_loan_amount?: number
+          flash_loan_fee?: number
+          id?: string
+          initiator_address?: string
+          liquidation_id?: number
+          profit?: number
+          transaction_hash?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_health_warnings: {
+        Row: {
+          acknowledged: boolean | null
+          health_factor: number
+          id: string
+          issued_at: string | null
+          user_address: string
+          warning_type: string
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          health_factor: number
+          id?: string
+          issued_at?: string | null
+          user_address: string
+          warning_type: string
+        }
+        Update: {
+          acknowledged?: boolean | null
+          health_factor?: number
+          id?: string
+          issued_at?: string | null
+          user_address?: string
+          warning_type?: string
+        }
+        Relationships: []
+      }
+      trade_finance_insurance_claims: {
+        Row: {
+          claim_amount: number
+          claim_reason: string | null
+          commodity_type: string
+          id: string
+          initiated_at: string | null
+          payout_amount: number | null
+          resolved_at: string | null
+          status: string | null
+          user_address: string
+        }
+        Insert: {
+          claim_amount: number
+          claim_reason?: string | null
+          commodity_type: string
+          id?: string
+          initiated_at?: string | null
+          payout_amount?: number | null
+          resolved_at?: string | null
+          status?: string | null
+          user_address: string
+        }
+        Update: {
+          claim_amount?: number
+          claim_reason?: string | null
+          commodity_type?: string
+          id?: string
+          initiated_at?: string | null
+          payout_amount?: number | null
+          resolved_at?: string | null
+          status?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_interest_rate_config: {
+        Row: {
+          asset_symbol: string | null
+          base_variable_borrow_rate: number
+          chain_id: number
+          commodity_type: number
+          contango_adjustment_bps: number | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          optimal_usage_ratio: number
+          quality_decay_rate_bps: number | null
+          reserve_address: string
+          seasonal_enabled: boolean | null
+          storage_adjustment_bps: number | null
+          updated_at: string | null
+          variable_rate_slope1: number
+          variable_rate_slope2: number
+        }
+        Insert: {
+          asset_symbol?: string | null
+          base_variable_borrow_rate?: number
+          chain_id?: number
+          commodity_type?: number
+          contango_adjustment_bps?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          optimal_usage_ratio?: number
+          quality_decay_rate_bps?: number | null
+          reserve_address: string
+          seasonal_enabled?: boolean | null
+          storage_adjustment_bps?: number | null
+          updated_at?: string | null
+          variable_rate_slope1?: number
+          variable_rate_slope2?: number
+        }
+        Update: {
+          asset_symbol?: string | null
+          base_variable_borrow_rate?: number
+          chain_id?: number
+          commodity_type?: number
+          contango_adjustment_bps?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          optimal_usage_ratio?: number
+          quality_decay_rate_bps?: number | null
+          reserve_address?: string
+          seasonal_enabled?: boolean | null
+          storage_adjustment_bps?: number | null
+          updated_at?: string | null
+          variable_rate_slope1?: number
+          variable_rate_slope2?: number
+        }
+        Relationships: []
+      }
+      trade_finance_margin_calls: {
+        Row: {
+          collateral_added: number | null
+          commodity_type: string
+          created_at: string | null
+          end_time: string
+          id: string
+          initial_health_factor: number
+          liquidated: boolean | null
+          new_health_factor: number | null
+          required_collateral: number
+          resolution_time: string | null
+          resolved: boolean | null
+          start_time: string
+          updated_at: string | null
+          user_address: string
+        }
+        Insert: {
+          collateral_added?: number | null
+          commodity_type: string
+          created_at?: string | null
+          end_time: string
+          id?: string
+          initial_health_factor: number
+          liquidated?: boolean | null
+          new_health_factor?: number | null
+          required_collateral: number
+          resolution_time?: string | null
+          resolved?: boolean | null
+          start_time: string
+          updated_at?: string | null
+          user_address: string
+        }
+        Update: {
+          collateral_added?: number | null
+          commodity_type?: string
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          initial_health_factor?: number
+          liquidated?: boolean | null
+          new_health_factor?: number | null
+          required_collateral?: number
+          resolution_time?: string | null
+          resolved?: boolean | null
+          start_time?: string
+          updated_at?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_partial_liquidations: {
+        Row: {
+          block_number: number | null
+          collateral_asset: string
+          collateral_liquidated: number
+          debt_asset: string
+          debt_covered: number
+          executed_at: string | null
+          id: string
+          liquidator_address: string
+          new_health_factor: number
+          transaction_hash: string | null
+          user_address: string
+        }
+        Insert: {
+          block_number?: number | null
+          collateral_asset: string
+          collateral_liquidated: number
+          debt_asset: string
+          debt_covered: number
+          executed_at?: string | null
+          id?: string
+          liquidator_address: string
+          new_health_factor: number
+          transaction_hash?: string | null
+          user_address: string
+        }
+        Update: {
+          block_number?: number | null
+          collateral_asset?: string
+          collateral_liquidated?: number
+          debt_asset?: string
+          debt_covered?: number
+          executed_at?: string | null
+          id?: string
+          liquidator_address?: string
+          new_health_factor?: number
+          transaction_hash?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_payment_streams: {
+        Row: {
+          canceled: boolean | null
+          created_at: string | null
+          deposit_amount: number
+          id: string
+          rate_per_second: number
+          recipient_address: string
+          remaining_balance: number
+          sender_address: string
+          start_time: string
+          stop_time: string
+          stream_id: number
+          token_address: string
+          updated_at: string | null
+          withdrawn_amount: number | null
+        }
+        Insert: {
+          canceled?: boolean | null
+          created_at?: string | null
+          deposit_amount: number
+          id?: string
+          rate_per_second: number
+          recipient_address: string
+          remaining_balance: number
+          sender_address: string
+          start_time: string
+          stop_time: string
+          stream_id: number
+          token_address: string
+          updated_at?: string | null
+          withdrawn_amount?: number | null
+        }
+        Update: {
+          canceled?: boolean | null
+          created_at?: string | null
+          deposit_amount?: number
+          id?: string
+          rate_per_second?: number
+          recipient_address?: string
+          remaining_balance?: number
+          sender_address?: string
+          start_time?: string
+          stop_time?: string
+          stream_id?: number
+          token_address?: string
+          updated_at?: string | null
+          withdrawn_amount?: number | null
+        }
+        Relationships: []
+      }
+      trade_finance_protocol_reserve: {
+        Row: {
+          allocated_amount: number | null
+          available_amount: number | null
+          id: string
+          last_deposit: string | null
+          last_withdrawal: string | null
+          token_address: string
+          total_balance: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          allocated_amount?: number | null
+          available_amount?: number | null
+          id?: string
+          last_deposit?: string | null
+          last_withdrawal?: string | null
+          token_address: string
+          total_balance?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          allocated_amount?: number | null
+          available_amount?: number | null
+          id?: string
+          last_deposit?: string | null
+          last_withdrawal?: string | null
+          token_address?: string
+          total_balance?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_rate_history: {
+        Row: {
+          available_liquidity: string | null
+          chain_id: number
+          commodity_adjustment_bps: number | null
+          id: string
+          liquidity_rate_percent: number | null
+          liquidity_rate_ray: string
+          reserve_address: string
+          seasonal_multiplier_bps: number | null
+          snapshot_timestamp: string | null
+          total_borrows: string | null
+          total_supply: string | null
+          utilization_percent: number | null
+          utilization_ratio_ray: string
+          variable_borrow_rate_percent: number | null
+          variable_borrow_rate_ray: string
+        }
+        Insert: {
+          available_liquidity?: string | null
+          chain_id?: number
+          commodity_adjustment_bps?: number | null
+          id?: string
+          liquidity_rate_percent?: number | null
+          liquidity_rate_ray: string
+          reserve_address: string
+          seasonal_multiplier_bps?: number | null
+          snapshot_timestamp?: string | null
+          total_borrows?: string | null
+          total_supply?: string | null
+          utilization_percent?: number | null
+          utilization_ratio_ray: string
+          variable_borrow_rate_percent?: number | null
+          variable_borrow_rate_ray: string
+        }
+        Update: {
+          available_liquidity?: string | null
+          chain_id?: number
+          commodity_adjustment_bps?: number | null
+          id?: string
+          liquidity_rate_percent?: number | null
+          liquidity_rate_ray?: string
+          reserve_address?: string
+          seasonal_multiplier_bps?: number | null
+          snapshot_timestamp?: string | null
+          total_borrows?: string | null
+          total_supply?: string | null
+          utilization_percent?: number | null
+          utilization_ratio_ray?: string
+          variable_borrow_rate_percent?: number | null
+          variable_borrow_rate_ray?: string
+        }
+        Relationships: []
+      }
+      trade_finance_rate_simulations: {
+        Row: {
+          chain_id: number
+          id: string
+          reserve_address: string
+          seasonal_month: number | null
+          simulated_borrow_rate: number
+          simulated_liquidity_rate: number
+          simulated_utilization: number
+          simulation_timestamp: string | null
+          with_seasonal_adjustment: boolean | null
+        }
+        Insert: {
+          chain_id?: number
+          id?: string
+          reserve_address: string
+          seasonal_month?: number | null
+          simulated_borrow_rate: number
+          simulated_liquidity_rate: number
+          simulated_utilization: number
+          simulation_timestamp?: string | null
+          with_seasonal_adjustment?: boolean | null
+        }
+        Update: {
+          chain_id?: number
+          id?: string
+          reserve_address?: string
+          seasonal_month?: number | null
+          simulated_borrow_rate?: number
+          simulated_liquidity_rate?: number
+          simulated_utilization?: number
+          simulation_timestamp?: string | null
+          with_seasonal_adjustment?: boolean | null
+        }
+        Relationships: []
+      }
+      trade_finance_reserve_transactions: {
+        Row: {
+          amount: number
+          authorized_by: string
+          block_number: number | null
+          executed_at: string | null
+          id: string
+          purpose: string | null
+          token_address: string
+          transaction_hash: string | null
+          transaction_type: string
+        }
+        Insert: {
+          amount: number
+          authorized_by: string
+          block_number?: number | null
+          executed_at?: string | null
+          id?: string
+          purpose?: string | null
+          token_address: string
+          transaction_hash?: string | null
+          transaction_type: string
+        }
+        Update: {
+          amount?: number
+          authorized_by?: string
+          block_number?: number | null
+          executed_at?: string | null
+          id?: string
+          purpose?: string | null
+          token_address?: string
+          transaction_hash?: string | null
+          transaction_type?: string
+        }
+        Relationships: []
+      }
+      trade_finance_revenue_recipients: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          fee_share_bps: number
+          id: string
+          recipient_address: string
+          recipient_id: string
+          recipient_name: string | null
+          recipient_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          fee_share_bps: number
+          id?: string
+          recipient_address: string
+          recipient_id: string
+          recipient_name?: string | null
+          recipient_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          fee_share_bps?: number
+          id?: string
+          recipient_address?: string
+          recipient_id?: string
+          recipient_name?: string | null
+          recipient_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_rewards_claims: {
+        Row: {
+          amount: number
+          amount_formatted: number | null
+          block_number: number | null
+          chain_id: number
+          claimed_at: string | null
+          claimer_address: string | null
+          id: string
+          reward_token_address: string
+          reward_token_symbol: string | null
+          to_address: string
+          transaction_hash: string | null
+          user_address: string
+        }
+        Insert: {
+          amount: number
+          amount_formatted?: number | null
+          block_number?: number | null
+          chain_id?: number
+          claimed_at?: string | null
+          claimer_address?: string | null
+          id?: string
+          reward_token_address: string
+          reward_token_symbol?: string | null
+          to_address: string
+          transaction_hash?: string | null
+          user_address: string
+        }
+        Update: {
+          amount?: number
+          amount_formatted?: number | null
+          block_number?: number | null
+          chain_id?: number
+          claimed_at?: string | null
+          claimer_address?: string | null
+          id?: string
+          reward_token_address?: string
+          reward_token_symbol?: string | null
+          to_address?: string
+          transaction_hash?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_rewards_config: {
+        Row: {
+          asset_address: string
+          asset_decimals: number | null
+          asset_symbol: string | null
+          chain_id: number
+          created_at: string | null
+          current_index: number | null
+          distribution_end: string
+          distribution_start: string | null
+          emission_per_second: number
+          id: string
+          is_active: boolean | null
+          last_update_timestamp: string | null
+          reward_decimals: number | null
+          reward_oracle_address: string | null
+          reward_token_address: string
+          reward_token_symbol: string | null
+          transfer_strategy_address: string | null
+          transfer_strategy_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_address: string
+          asset_decimals?: number | null
+          asset_symbol?: string | null
+          chain_id?: number
+          created_at?: string | null
+          current_index?: number | null
+          distribution_end: string
+          distribution_start?: string | null
+          emission_per_second?: number
+          id?: string
+          is_active?: boolean | null
+          last_update_timestamp?: string | null
+          reward_decimals?: number | null
+          reward_oracle_address?: string | null
+          reward_token_address: string
+          reward_token_symbol?: string | null
+          transfer_strategy_address?: string | null
+          transfer_strategy_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_address?: string
+          asset_decimals?: number | null
+          asset_symbol?: string | null
+          chain_id?: number
+          created_at?: string | null
+          current_index?: number | null
+          distribution_end?: string
+          distribution_start?: string | null
+          emission_per_second?: number
+          id?: string
+          is_active?: boolean | null
+          last_update_timestamp?: string | null
+          reward_decimals?: number | null
+          reward_oracle_address?: string | null
+          reward_token_address?: string
+          reward_token_symbol?: string | null
+          transfer_strategy_address?: string | null
+          transfer_strategy_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_rewards_snapshots: {
+        Row: {
+          asset_address: string
+          chain_id: number
+          created_at: string | null
+          current_emission_rate: number | null
+          current_index: number | null
+          id: string
+          reward_token_address: string
+          snapshot_timestamp: string
+          total_claimed: number | null
+          total_distributed: number | null
+          total_unclaimed: number | null
+          unique_claimers: number | null
+        }
+        Insert: {
+          asset_address: string
+          chain_id?: number
+          created_at?: string | null
+          current_emission_rate?: number | null
+          current_index?: number | null
+          id?: string
+          reward_token_address: string
+          snapshot_timestamp: string
+          total_claimed?: number | null
+          total_distributed?: number | null
+          total_unclaimed?: number | null
+          unique_claimers?: number | null
+        }
+        Update: {
+          asset_address?: string
+          chain_id?: number
+          created_at?: string | null
+          current_emission_rate?: number | null
+          current_index?: number | null
+          id?: string
+          reward_token_address?: string
+          snapshot_timestamp?: string
+          total_claimed?: number | null
+          total_distributed?: number | null
+          total_unclaimed?: number | null
+          unique_claimers?: number | null
+        }
+        Relationships: []
+      }
+      trade_finance_seasonal_multipliers: {
+        Row: {
+          commodity_type: number
+          created_at: string | null
+          description: string | null
+          id: string
+          month: number
+          multiplier_bps: number
+          updated_at: string | null
+        }
+        Insert: {
+          commodity_type: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          month: number
+          multiplier_bps?: number
+          updated_at?: string | null
+        }
+        Update: {
+          commodity_type?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          month?: number
+          multiplier_bps?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_stata_operations: {
+        Row: {
+          assets_amount: number
+          block_number: number | null
+          id: string
+          operation_type: string
+          shares_amount: number
+          stata_token_address: string
+          timestamp: string | null
+          transaction_hash: string | null
+          user_address: string
+        }
+        Insert: {
+          assets_amount: number
+          block_number?: number | null
+          id?: string
+          operation_type: string
+          shares_amount: number
+          stata_token_address: string
+          timestamp?: string | null
+          transaction_hash?: string | null
+          user_address: string
+        }
+        Update: {
+          assets_amount?: number
+          block_number?: number | null
+          id?: string
+          operation_type?: string
+          shares_amount?: number
+          stata_token_address?: string
+          timestamp?: string | null
+          transaction_hash?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_stata_tokens: {
+        Row: {
+          chain_id: number | null
+          commodity_type: string
+          created_at: string | null
+          ctoken_address: string
+          deployed_at: string | null
+          deployer_address: string | null
+          id: string
+          is_paused: boolean | null
+          name: string
+          stata_token_address: string
+          symbol: string
+          total_assets: number | null
+          total_shares: number | null
+          underlying_address: string
+          updated_at: string | null
+        }
+        Insert: {
+          chain_id?: number | null
+          commodity_type: string
+          created_at?: string | null
+          ctoken_address: string
+          deployed_at?: string | null
+          deployer_address?: string | null
+          id?: string
+          is_paused?: boolean | null
+          name: string
+          stata_token_address: string
+          symbol: string
+          total_assets?: number | null
+          total_shares?: number | null
+          underlying_address: string
+          updated_at?: string | null
+        }
+        Update: {
+          chain_id?: number | null
+          commodity_type?: string
+          created_at?: string | null
+          ctoken_address?: string
+          deployed_at?: string | null
+          deployer_address?: string | null
+          id?: string
+          is_paused?: boolean | null
+          name?: string
+          stata_token_address?: string
+          symbol?: string
+          total_assets?: number | null
+          total_shares?: number | null
+          underlying_address?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_stream_withdrawals: {
+        Row: {
+          amount: number
+          block_number: number | null
+          id: string
+          recipient_address: string
+          stream_id: number
+          transaction_hash: string | null
+          withdrawn_at: string | null
+        }
+        Insert: {
+          amount: number
+          block_number?: number | null
+          id?: string
+          recipient_address: string
+          stream_id: number
+          transaction_hash?: string | null
+          withdrawn_at?: string | null
+        }
+        Update: {
+          amount?: number
+          block_number?: number | null
+          id?: string
+          recipient_address?: string
+          stream_id?: number
+          transaction_hash?: string | null
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_finance_stream_withdrawals_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "trade_finance_payment_streams"
+            referencedColumns: ["stream_id"]
+          },
+        ]
+      }
+      trade_finance_transfer_strategies: {
+        Row: {
+          chain_id: number
+          deployed_at: string | null
+          id: string
+          is_active: boolean | null
+          rewards_vault_address: string | null
+          staked_token_address: string | null
+          strategy_address: string
+          strategy_type: string
+          underlying_token_address: string | null
+        }
+        Insert: {
+          chain_id?: number
+          deployed_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          rewards_vault_address?: string | null
+          staked_token_address?: string | null
+          strategy_address: string
+          strategy_type: string
+          underlying_token_address?: string | null
+        }
+        Update: {
+          chain_id?: number
+          deployed_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          rewards_vault_address?: string | null
+          staked_token_address?: string | null
+          strategy_address?: string
+          strategy_type?: string
+          underlying_token_address?: string | null
+        }
+        Relationships: []
+      }
+      trade_finance_treasury_snapshots: {
+        Row: {
+          accumulated_fees: number
+          balance: number
+          created_at: string | null
+          distributed_amount: number
+          id: string
+          reserve_balance: number
+          snapshot_date: string
+          token_address: string
+        }
+        Insert: {
+          accumulated_fees: number
+          balance: number
+          created_at?: string | null
+          distributed_amount: number
+          id?: string
+          reserve_balance: number
+          snapshot_date: string
+          token_address: string
+        }
+        Update: {
+          accumulated_fees?: number
+          balance?: number
+          created_at?: string | null
+          distributed_amount?: number
+          id?: string
+          reserve_balance?: number
+          snapshot_date?: string
+          token_address?: string
+        }
+        Relationships: []
+      }
+      trade_finance_user_rewards: {
+        Row: {
+          accrued_amount: number | null
+          asset_address: string
+          chain_id: number
+          claimed_amount: number | null
+          created_at: string | null
+          id: string
+          last_update_timestamp: string | null
+          reward_token_address: string
+          updated_at: string | null
+          user_address: string
+          user_index: number | null
+        }
+        Insert: {
+          accrued_amount?: number | null
+          asset_address: string
+          chain_id?: number
+          claimed_amount?: number | null
+          created_at?: string | null
+          id?: string
+          last_update_timestamp?: string | null
+          reward_token_address: string
+          updated_at?: string | null
+          user_address: string
+          user_index?: number | null
+        }
+        Update: {
+          accrued_amount?: number | null
+          asset_address?: string
+          chain_id?: number
+          claimed_amount?: number | null
+          created_at?: string | null
+          id?: string
+          last_update_timestamp?: string | null
+          reward_token_address?: string
+          updated_at?: string | null
+          user_address?: string
+          user_index?: number | null
+        }
+        Relationships: []
       }
       transaction_events: {
         Row: {

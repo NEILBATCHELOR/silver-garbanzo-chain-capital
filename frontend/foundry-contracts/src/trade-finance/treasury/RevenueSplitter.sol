@@ -1,0 +1,347 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IACLManager} from "../interfaces/IACLManager.sol";
+
+/**
+ * @title RevenueSplitter
+ * @notice Automated revenue distribution to multiple beneficiaries
+ * @dev Handles proportional distribution of protocol revenue
+ * 
+ * Revenue Recipients:
+ * - Protocol Treasury (40%)
+ * - Team / Development (20%)
+ * - Insurance Reserve (20%)
+ * - Liquidity Mining Rewards (15%)
+ * - Operations / Marketing (5%)
+ * 
+ * Key Features:
+ * - Proportional distribution based on shares
+ * - Multi-token support
+ * - Batch distribution optimization
+ * - Pull payment pattern for gas efficiency
+ * - Historical tracking
+ */
+contract RevenueSplitter is ReentrancyGuard {
+    using SafeERC20 for IERC20;
+    
+    // ============ Structs ============
+    
+    struct Beneficiary {
+        address payable account;
+        uint256 shares;
+        uint256 released;
+    }
+    
+    struct TokenDistribution {
+        uint256 totalReleased;
+        uint256 totalReceived;
+        mapping(address => uint256) released;
+    }
+    
+    // ============ Immutable Variables ============
+    
+    IACLManager public immutable ACL_MANAGER;
+    
+    // ============ State Variables ============
+    
+    // Beneficiary accounts
+    Beneficiary[] private _beneficiaries;
+    
+    // Total shares across all beneficiaries
+    uint256 private _totalShares;
+    
+    // Token => distribution data
+    mapping(address => TokenDistribution) private _tokenDistributions;
+    
+    // Account => index in beneficiaries array
+    mapping(address => uint256) private _beneficiaryIndex;
+    
+    // Whether an account is a beneficiary
+    mapping(address => bool) private _isBeneficiary;
+    
+    // ============ Events ============
+    
+    event BeneficiaryAdded(address indexed account, uint256 shares);
+    event BeneficiaryRemoved(address indexed account);
+    event BeneficiaryUpdated(address indexed account, uint256 oldShares, uint256 newShares);
+    event PaymentReleased(address indexed to, address indexed token, uint256 amount);
+    event PaymentReceived(address indexed from, uint256 amount);
+    
+    // ============ Errors ============
+    
+    error OnlyAdmin();
+    error InvalidShares();
+    error NoBeneficiaries();
+    error AlreadyBeneficiary();
+    error NotBeneficiary();
+    error NoPaymentDue();
+    
+    // ============ Modifiers ============
+    
+    modifier onlyAdmin() {
+        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) revert OnlyAdmin();
+        _;
+    }
+    
+    // ============ Constructor ============
+    
+    constructor(
+        address aclManager,
+        address[] memory accounts,
+        uint256[] memory shares
+    ) {
+        require(accounts.length == shares.length, "Length mismatch");
+        require(accounts.length > 0, "No beneficiaries");
+        
+        ACL_MANAGER = IACLManager(aclManager);
+        
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _addBeneficiary(payable(accounts[i]), shares[i]);
+        }
+    }
+    
+    // ============ Admin Functions ============
+    
+    /**
+     * @notice Add new beneficiary
+     */
+    function addBeneficiary(
+        address payable account,
+        uint256 shares
+    ) external onlyAdmin {
+        _addBeneficiary(account, shares);
+    }
+    
+    /**
+     * @notice Remove beneficiary
+     */
+    function removeBeneficiary(address account) external onlyAdmin {
+        if (!_isBeneficiary[account]) revert NotBeneficiary();
+        
+        uint256 idx = _beneficiaryIndex[account];
+        uint256 shares = _beneficiaries[idx].shares;
+        
+        // Move last beneficiary to removed position
+        uint256 lastIdx = _beneficiaries.length - 1;
+        if (idx != lastIdx) {
+            Beneficiary storage lastBeneficiary = _beneficiaries[lastIdx];
+            _beneficiaries[idx] = lastBeneficiary;
+            _beneficiaryIndex[lastBeneficiary.account] = idx;
+        }
+        
+        _beneficiaries.pop();
+        delete _beneficiaryIndex[account];
+        delete _isBeneficiary[account];
+        
+        _totalShares -= shares;
+        
+        emit BeneficiaryRemoved(account);
+    }
+    
+    /**
+     * @notice Update beneficiary shares
+     */
+    function updateBeneficiary(
+        address account,
+        uint256 newShares
+    ) external onlyAdmin {
+        if (!_isBeneficiary[account]) revert NotBeneficiary();
+        if (newShares == 0) revert InvalidShares();
+        
+        uint256 idx = _beneficiaryIndex[account];
+        uint256 oldShares = _beneficiaries[idx].shares;
+        
+        _totalShares = _totalShares - oldShares + newShares;
+        _beneficiaries[idx].shares = newShares;
+        
+        emit BeneficiaryUpdated(account, oldShares, newShares);
+    }
+    
+    // ============ Distribution Functions ============
+    
+    /**
+     * @notice Release payment for ERC20 token
+     */
+    function release(address token, address account) external nonReentrant {
+        if (!_isBeneficiary[account]) revert NotBeneficiary();
+        
+        uint256 payment = _pendingPayment(token, account);
+        if (payment == 0) revert NoPaymentDue();
+        
+        uint256 idx = _beneficiaryIndex[account];
+        _beneficiaries[idx].released += payment;
+        _tokenDistributions[token].released[account] += payment;
+        _tokenDistributions[token].totalReleased += payment;
+        
+        IERC20(token).safeTransfer(account, payment);
+        emit PaymentReleased(account, token, payment);
+    }
+    
+    /**
+     * @notice Batch release for multiple tokens
+     */
+    function batchRelease(
+        address[] calldata tokens,
+        address account
+    ) external nonReentrant {
+        if (!_isBeneficiary[account]) revert NotBeneficiary();
+        
+        for (uint256 i = 0; i < tokens.length; i++) {
+            uint256 payment = _pendingPayment(tokens[i], account);
+            
+            if (payment > 0) {
+                uint256 idx = _beneficiaryIndex[account];
+                _beneficiaries[idx].released += payment;
+                _tokenDistributions[tokens[i]].released[account] += payment;
+                _tokenDistributions[tokens[i]].totalReleased += payment;
+                
+                IERC20(tokens[i]).safeTransfer(account, payment);
+                emit PaymentReleased(account, tokens[i], payment);
+            }
+        }
+    }
+    
+    /**
+     * @notice Distribute to all beneficiaries (admin function)
+     */
+    function distributeAll(address token) external nonReentrant onlyAdmin {
+        for (uint256 i = 0; i < _beneficiaries.length; i++) {
+            address account = _beneficiaries[i].account;
+            uint256 payment = _pendingPayment(token, account);
+            
+            if (payment > 0) {
+                _beneficiaries[i].released += payment;
+                _tokenDistributions[token].released[account] += payment;
+                _tokenDistributions[token].totalReleased += payment;
+                
+                IERC20(token).safeTransfer(account, payment);
+                emit PaymentReleased(account, token, payment);
+            }
+        }
+    }
+    
+    // ============ Internal Functions ============
+    
+    function _addBeneficiary(
+        address payable account,
+        uint256 shares
+    ) internal {
+        require(account != address(0), "Invalid account");
+        require(shares > 0, "Shares must be positive");
+        if (_isBeneficiary[account]) revert AlreadyBeneficiary();
+        
+        _beneficiaries.push(Beneficiary({
+            account: account,
+            shares: shares,
+            released: 0
+        }));
+        
+        _beneficiaryIndex[account] = _beneficiaries.length - 1;
+        _isBeneficiary[account] = true;
+        _totalShares += shares;
+        
+        emit BeneficiaryAdded(account, shares);
+    }
+    
+    function _pendingPayment(
+        address token,
+        address account
+    ) internal view returns (uint256) {
+        if (!_isBeneficiary[account]) return 0;
+        
+        uint256 totalReceived = IERC20(token).balanceOf(address(this)) +
+            _tokenDistributions[token].totalReleased;
+        
+        uint256 idx = _beneficiaryIndex[account];
+        uint256 shares = _beneficiaries[idx].shares;
+        
+        uint256 totalPayment = (totalReceived * shares) / _totalShares;
+        uint256 alreadyReleased = _tokenDistributions[token].released[account];
+        
+        return totalPayment > alreadyReleased ? 
+            totalPayment - alreadyReleased : 0;
+    }
+    
+    // ============ View Functions ============
+    
+    /**
+     * @notice Get beneficiary info
+     */
+    function beneficiary(address account)
+        external
+        view
+        returns (
+            address payable beneficiaryAccount,
+            uint256 shares,
+            uint256 releasedAmount
+        )
+    {
+        if (!_isBeneficiary[account]) revert NotBeneficiary();
+        
+        uint256 idx = _beneficiaryIndex[account];
+        Beneficiary storage b = _beneficiaries[idx];
+        return (b.account, b.shares, b.released);
+    }
+    
+    /**
+     * @notice Get all beneficiaries
+     */
+    function getBeneficiaries() 
+        external 
+        view 
+        returns (address[] memory accounts, uint256[] memory shares) 
+    {
+        uint256 length = _beneficiaries.length;
+        accounts = new address[](length);
+        shares = new uint256[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            accounts[i] = _beneficiaries[i].account;
+            shares[i] = _beneficiaries[i].shares;
+        }
+    }
+    
+    /**
+     * @notice Get total shares
+     */
+    function totalShares() external view returns (uint256) {
+        return _totalShares;
+    }
+    
+    /**
+     * @notice Get pending payment for token
+     */
+    function pendingPayment(
+        address token,
+        address account
+    ) external view returns (uint256) {
+        return _pendingPayment(token, account);
+    }
+    
+    /**
+     * @notice Get released amount for token
+     */
+    function released(
+        address token,
+        address account
+    ) external view returns (uint256) {
+        return _tokenDistributions[token].released[account];
+    }
+    
+    /**
+     * @notice Get total released for token
+     */
+    function totalReleased(address token) external view returns (uint256) {
+        return _tokenDistributions[token].totalReleased;
+    }
+    
+    // ============ Receive Function ============
+    
+    receive() external payable {
+        emit PaymentReceived(msg.sender, msg.value);
+    }
+}

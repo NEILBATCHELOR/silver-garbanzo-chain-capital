@@ -4,7 +4,7 @@
  * Process: Select commodity → Set parameters → Review → Submit
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { AlertCircle, CheckCircle2, Info, Plus, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+
+// Import API service
+import { createTradeFinanceAPIService, TradeFinanceAPIService } from '@/services/trade-finance'
 
 interface NewAssetParams {
   // Basic Info
@@ -50,6 +53,8 @@ interface AssetListingProps {
   chainId?: number
   networkType?: 'mainnet' | 'testnet'
   adminAddress?: string
+  projectId: string
+  apiBaseURL?: string
   onAssetListed?: (asset: NewAssetParams) => void
 }
 
@@ -58,6 +63,8 @@ export function AssetListing({
   chainId = 11155111,
   networkType = 'testnet',
   adminAddress,
+  projectId,
+  apiBaseURL,
   onAssetListed
 }: AssetListingProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -82,6 +89,17 @@ export function AssetListing({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  
+  // API service state
+  const [apiService, setApiService] = useState<TradeFinanceAPIService | null>(null)
+
+  // Initialize API service
+  useEffect(() => {
+    if (!projectId) return
+    
+    const service = createTradeFinanceAPIService(projectId, apiBaseURL)
+    setApiService(service)
+  }, [projectId, apiBaseURL])
 
   // Commodity type options
   const commodityTypes = [
@@ -196,8 +214,8 @@ export function AssetListing({
       return
     }
 
-    if (!adminAddress) {
-      setError('Admin address required')
+    if (!apiService) {
+      setError('API service not initialized')
       return
     }
 
@@ -205,44 +223,60 @@ export function AssetListing({
       setIsSubmitting(true)
       setError(null)
 
-      // TODO: Replace with actual service call
-      // const poolService = createCommodityPoolService(config)
-      // await poolService.listNewAsset(params, privateKey)
+      // Call API to list new asset
+      const result = await apiService.listAsset({
+        commodityType: params.commodityType,
+        commodityName: params.commodityName,
+        tokenAddress: params.tokenAddress,
+        oracleAddress: params.oracleAddress,
+        ltv: params.ltv,
+        liquidationThreshold: params.liquidationThreshold,
+        liquidationBonus: params.liquidationBonus,
+        baseInterestRate: params.baseInterestRate,
+        optimalUtilization: params.optimalUtilization,
+        slope1: params.slope1,
+        slope2: params.slope2,
+        supplyCap: params.supplyCap,
+        borrowCap: params.borrowCap,
+        isIsolated: params.isIsolated,
+        debtCeiling: params.debtCeiling,
+        borrowableInIsolation: params.borrowableInIsolation,
+      })
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      if (result.success) {
+        setSuccess(true)
+        toast.success(result.message || `${params.commodityName} listed successfully!`)
 
-      setSuccess(true)
-      toast.success(`${params.commodityName} listed successfully!`)
+        if (onAssetListed) {
+          onAssetListed(params)
+        }
 
-      if (onAssetListed) {
-        onAssetListed(params)
+        // Reset after success
+        setTimeout(() => {
+          setStep(1)
+          setParams({
+            commodityType: '',
+            commodityName: '',
+            tokenAddress: '',
+            oracleAddress: '',
+            ltv: 7000,
+            liquidationThreshold: 7500,
+            liquidationBonus: 800,
+            baseInterestRate: 200,
+            optimalUtilization: 80,
+            slope1: 400,
+            slope2: 6000,
+            supplyCap: '10000000',
+            borrowCap: '8000000',
+            isIsolated: false,
+            debtCeiling: '0',
+            borrowableInIsolation: ['USDC', 'USDT', 'DAI']
+          })
+          setSuccess(false)
+        }, 3000)
+      } else {
+        throw new Error('Failed to list asset')
       }
-
-      // Reset after success
-      setTimeout(() => {
-        setStep(1)
-        setParams({
-          commodityType: '',
-          commodityName: '',
-          tokenAddress: '',
-          oracleAddress: '',
-          ltv: 7000,
-          liquidationThreshold: 7500,
-          liquidationBonus: 800,
-          baseInterestRate: 200,
-          optimalUtilization: 80,
-          slope1: 400,
-          slope2: 6000,
-          supplyCap: '10000000',
-          borrowCap: '8000000',
-          isIsolated: false,
-          debtCeiling: '0',
-          borrowableInIsolation: ['USDC', 'USDT', 'DAI']
-        })
-        setSuccess(false)
-      }, 3000)
-
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to list asset'
       setError(errorMessage)

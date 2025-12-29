@@ -200,6 +200,40 @@ export class TradeFinanceAPIService {
   // ============================================================================
 
   /**
+   * Get haircut configuration for a commodity (convenience method)
+   */
+  async getHaircut(commodityType: string): Promise<{
+    success: boolean;
+    data: {
+      baseHaircut: number;
+      liquidationThreshold: number;
+      liquidationBonus: number;
+    };
+  }> {
+    try {
+      const riskParams = await this.getRiskParameters(commodityType)
+      
+      return {
+        success: true,
+        data: {
+          baseHaircut: riskParams.ltv,
+          liquidationThreshold: riskParams.liquidationThreshold,
+          liquidationBonus: riskParams.liquidationBonus,
+        }
+      }
+    } catch (err) {
+      return {
+        success: false,
+        data: {
+          baseHaircut: 0,
+          liquidationThreshold: 0,
+          liquidationBonus: 0,
+        }
+      }
+    }
+  }
+
+  /**
    * Calculate haircut from historical price data
    */
   async calculateHaircut(
@@ -434,6 +468,284 @@ export class TradeFinanceAPIService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error?.message || 'Failed to load historical data');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  // ============================================================================
+  // RISK PARAMETERS (ADMIN)
+  // ============================================================================
+
+  /**
+   * Update risk parameters for a commodity
+   */
+  async updateRiskParameters(params: {
+    commodityType: string;
+    ltv: number;
+    liquidationThreshold: number;
+    liquidationBonus: number;
+    baseInterestRate: number;
+    optimalUtilization: number;
+    slope1: number;
+    slope2: number;
+    supplyCap: string;
+    borrowCap: string;
+    isIsolated: boolean;
+    debtCeiling: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    commodityType: string;
+  }> {
+    const response = await fetch(`${this.baseURL}/api/trade-finance/admin/risk-parameters`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...params,
+        projectId: this.projectId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to update risk parameters');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Get risk parameters for a commodity
+   */
+  async getRiskParameters(commodityType: string): Promise<{
+    commodityType: string;
+    ltv: number;
+    liquidationThreshold: number;
+    liquidationBonus: number;
+    baseInterestRate: number;
+    optimalUtilization: number;
+    slope1: number;
+    slope2: number;
+    supplyCap: string;
+    borrowCap: string;
+    isIsolated: boolean;
+    debtCeiling: string;
+    updatedAt: string;
+  }> {
+    const response = await fetch(
+      `${this.baseURL}/api/trade-finance/admin/risk-parameters/${commodityType}?project_id=${this.projectId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to fetch risk parameters');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  // ============================================================================
+  // ASSET LISTING (ADMIN)
+  // ============================================================================
+
+  /**
+   * List a new commodity asset
+   */
+  async listAsset(params: {
+    commodityType: string;
+    commodityName: string;
+    tokenAddress: string;
+    oracleAddress: string;
+    ltv: number;
+    liquidationThreshold: number;
+    liquidationBonus: number;
+    baseInterestRate: number;
+    optimalUtilization: number;
+    slope1: number;
+    slope2: number;
+    supplyCap: string;
+    borrowCap: string;
+    isIsolated: boolean;
+    debtCeiling: string;
+    borrowableInIsolation: string[];
+  }): Promise<{
+    success: boolean;
+    message: string;
+    assetId: string;
+  }> {
+    const response = await fetch(`${this.baseURL}/api/trade-finance/admin/list-asset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...params,
+        projectId: this.projectId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to list asset');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Get listed assets
+   */
+  async getListedAssets(): Promise<Array<{
+    commodityType: string;
+    commodityName: string;
+    tokenAddress: string;
+    oracleAddress: string;
+    isActive: boolean;
+    listedAt: string;
+  }>> {
+    const response = await fetch(
+      `${this.baseURL}/api/trade-finance/admin/listed-assets?project_id=${this.projectId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to fetch listed assets');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  // ============================================================================
+  // EMERGENCY CONTROLS (ADMIN)
+  // ============================================================================
+
+  /**
+   * Get protocol status
+   */
+  async getProtocolStatus(): Promise<{
+    isPaused: boolean;
+    pausedAt: string | null;
+    circuitBreakers: {
+      oracleFailure: boolean;
+      highUtilization: boolean;
+      largeLiquidation: boolean;
+    };
+    lastUpdate: string;
+  }> {
+    const response = await fetch(
+      `${this.baseURL}/api/trade-finance/admin/protocol-status?project_id=${this.projectId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to fetch protocol status');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Pause protocol
+   */
+  async pauseProtocol(): Promise<{
+    success: boolean;
+    message: string;
+    pausedAt: string;
+  }> {
+    const response = await fetch(`${this.baseURL}/api/trade-finance/admin/pause`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId: this.projectId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to pause protocol');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Unpause protocol
+   */
+  async unpauseProtocol(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const response = await fetch(`${this.baseURL}/api/trade-finance/admin/unpause`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId: this.projectId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to unpause protocol');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Reset circuit breaker
+   */
+  async resetCircuitBreaker(breakerType: 'oracleFailure' | 'highUtilization' | 'largeLiquidation'): Promise<{
+    success: boolean;
+    message: string;
+    breakerType: string;
+  }> {
+    const response = await fetch(`${this.baseURL}/api/trade-finance/admin/circuit-breaker/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId: this.projectId,
+        breakerType,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to reset circuit breaker');
     }
 
     const result = await response.json();

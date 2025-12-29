@@ -158,31 +158,66 @@ export function mapToFoundryERC3525Config(
 
 /**
  * Main mapping function that routes to appropriate mapper based on token standard
+ * ✅ FIX #9: Now includes module configs from blocks for extension deployment
  */
 export function mapTokenToFoundryConfig(
   tokenData: any,
   standard: TokenStandard,
   ownerAddress: string
 ): FoundryTokenConfig {
+  let baseConfig: FoundryTokenConfig;
+  
   switch (standard) {
     case 'ERC-20':
-      return mapToFoundryERC20Config(tokenData, ownerAddress);
+      baseConfig = mapToFoundryERC20Config(tokenData, ownerAddress);
+      break;
     
     case 'ERC-721':
-      return mapToFoundryERC721Config(tokenData, ownerAddress);
+      baseConfig = mapToFoundryERC721Config(tokenData, ownerAddress);
+      break;
     
     case 'ERC-1155':
-      return mapToFoundryERC1155Config(tokenData, ownerAddress);
+      baseConfig = mapToFoundryERC1155Config(tokenData, ownerAddress);
+      break;
     
     case 'ERC-4626':
-      return mapToFoundryERC4626Config(tokenData, ownerAddress);
+      baseConfig = mapToFoundryERC4626Config(tokenData, ownerAddress);
+      break;
     
     case 'ERC-3525':
-      return mapToFoundryERC3525Config(tokenData, ownerAddress);
+      baseConfig = mapToFoundryERC3525Config(tokenData, ownerAddress);
+      break;
     
     default:
       throw new Error(`Unsupported token standard for Foundry deployment: ${standard}`);
   }
+  
+  // ✅ FIX #9: Pass through module configs from blocks for extension module deployment
+  // The flat format (compliance_enabled, compliance_config, etc.) is used by InstanceConfigurationService.extractModuleSelection()
+  const blocks = tokenData.blocks || {};
+  const moduleKeys = [
+    'compliance_enabled', 'compliance_config',
+    'vesting_enabled', 'vesting_config',
+    'document_enabled', 'document_config',
+    'policy_engine_enabled', 'policyEngine_config',
+    'fees_enabled', 'fee_on_transfer',
+    'flash_mint', 'permit', 'snapshot', 'snapshot_config',
+    'timelock', 'timelock_config', 'votes',
+    'payable_token', 'temporary_approval', 'temporary_approval_config'
+  ];
+  
+  for (const key of moduleKeys) {
+    if (blocks[key] !== undefined) {
+      (baseConfig as any)[key] = blocks[key];
+    }
+  }
+  
+  const enabledModules = moduleKeys.filter(k => k.includes('enabled') && blocks[k]);
+  if (enabledModules.length > 0) {
+    console.log('📦 [ConfigMapper] Including module configs:', enabledModules);
+  }
+  
+  return baseConfig;
 }
 
 /**

@@ -1,10 +1,10 @@
 /**
- * Borrow Modal Component
+ * Borrow Modal Component - INTEGRATED
  * Modal for borrowing stablecoins against commodity collateral
- * Pattern: Similar to SupplyModal
+ * NOW WITH: Real-time price API + WebSocket updates
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,12 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Loader2, AlertCircle, CheckCircle2, Info, TrendingUp } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Info, TrendingUp, RefreshCw } from 'lucide-react'
 import { ethers } from 'ethers'
 import { toast } from 'sonner'
 
 // Import services
 import { createCommodityPoolService, ChainType } from '@/services/trade-finance'
+import { createTradeFinanceAPIService, TradeFinanceAPIService } from '@/services/trade-finance'
+import { TradeFinanceWebSocketClient, PriceUpdate } from '@/services/trade-finance/WebSocketClient'
 
 interface BorrowModalProps {
   open: boolean
@@ -28,6 +30,9 @@ interface BorrowModalProps {
   userAddress?: string
   chainId?: number
   networkType?: 'mainnet' | 'testnet'
+  projectId: string
+  apiBaseURL?: string
+  wsURL?: string
   currentHealthFactor?: number
   availableToBorrow?: string // In USD
 }
@@ -43,10 +48,13 @@ export function BorrowModal({
   open,
   onClose,
   onSuccess,
-  poolAddress = '0x...', // TODO: Get from config
+  poolAddress = '0x...',
   userAddress,
-  chainId = 11155111, // Sepolia default
+  chainId = 11155111,
   networkType = 'testnet',
+  projectId,
+  apiBaseURL,
+  wsURL,
   currentHealthFactor = 0,
   availableToBorrow = '0'
 }: BorrowModalProps) {
@@ -57,6 +65,13 @@ export function BorrowModal({
   const [success, setSuccess] = useState(false)
   const [txHash, setTxHash] = useState<string | null>(null)
   const [newHealthFactor, setNewHealthFactor] = useState<number>(currentHealthFactor)
+  
+  // API & WebSocket state
+  const [apiService, setApiService] = useState<TradeFinanceAPIService | null>(null)
+  const [wsClient, setWsClient] = useState<TradeFinanceWebSocketClient | null>(null)
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({})
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false)
+  const [lastPriceUpdate, setLastPriceUpdate] = useState<Date>(new Date())
 
   // Stablecoin assets available for borrowing
   const stablecoins: StablecoinAsset[] = [
@@ -81,6 +96,99 @@ export function BorrowModal({
   ]
 
   const selectedAssetData = stablecoins.find(a => a.address === selectedAsset)
+
+  // Initialize API service
+  useEffect(() => {
+    if (!open || !projectId) return
+    
+    const service = createTradeFinanceAPIService(projectId, apiBaseURL)
+    setApiService(service)
+  }, [open, projectId, apiBaseURL])
+
+  // Initialize WebSocket client
+  useEffect(() => {
+    if (!open || !projectId) return
+
+    const initWebSocket = async () => {
+      try {
+        const client = new TradeFinanceWebSocketClient(projectId, wsURL)
+        await client.connect()
+
+        // Subscribe to price updates
+        client.subscribe('prices')
+
+        // Handle real-time price updates
+        client.on('PRICE_UPDATE', (data: PriceUpdate) => {
+          setLivePrices(prev => ({
+            ...prev,
+            [data.commodity]: data.price
+          }))
+          setLastPriceUpdate(new Date())
+        })
+
+        setWsClient(client)
+      } catch (error) {
+        console.error('WebSocket connection failed:', error)
+        // Continue without WebSocket - will use polling
+      }
+    }
+
+    initWebSocket()
+
+    return () => {
+      if (wsClient) {
+        wsClient.disconnect()
+      }
+    }
+  }, [open, projectId, wsURL])
+
+  // Fetch current prices from API
+  const fetchPrices = useCallback(async () => {
+    if (!apiService || !open) return
+
+    try {
+      setIsLoadingPrices(true)
+      
+      // Fetch prices for all relevant commodities
+      const commodities = ['GOLD', 'SILVER', 'OIL'] // TODO: Get from user's collateral
+      const priceData: Record<string, number> = {}
+
+      for (const commodity of commodities) {
+        try {
+          const response = await apiService.getCurrentPrice(commodity)
+          priceData[commodity] = response.price
+        } catch (error) {
+          console.error(`Failed to fetch price for ${commodity}:`, error)
+        }
+      }
+
+      setLivePrices(priceData)
+      setLastPriceUpdate(new Date())
+    } catch (error) {
+      console.error('Failed to fetch prices:', error)
+      toast.error('Failed to fetch commodity prices')
+    } finally {
+      setIsLoadingPrices(false)
+    }
+  }, [apiService, open])
+
+  // Initial price fetch
+  useEffect(() => {
+    if (open) {
+      fetchPrices()
+    }
+  }, [open, fetchPrices])
+
+  // Auto-refresh prices if WebSocket not connected
+  useEffect(() => {
+    if (!open || wsClient) return
+
+    const interval = setInterval(() => {
+      fetchPrices()
+    }, 30000) // Every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [open, wsClient, fetchPrices])
 
   // Calculate new health factor when amount changes
   useEffect(() => {
@@ -190,16 +298,46 @@ export function BorrowModal({
     setSuccess(false)
     setTxHash(null)
     setNewHealthFactor(currentHealthFactor)
+    setLivePrices({})
     onClose()
   }
+
+  const timeSinceUpdate = Math.floor((Date.now() - lastPriceUpdate.getTime()) / 1000)
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>Borrow Stablecoins</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Borrow Stablecoins</span>
+            <div className="flex items-center gap-2">
+              {wsClient && (
+                <Badge variant="secondary" className="text-xs">
+                  <span className="h-2 w-2 rounded-full bg-green-500 mr-1" />
+                  Live
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchPrices}
+                disabled={isLoadingPrices}
+              >
+                {isLoadingPrices ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </DialogTitle>
           <DialogDescription>
             Borrow stablecoins against your commodity collateral
+            {wsClient && (
+              <span className="text-xs ml-2">
+                • Prices updated {timeSinceUpdate}s ago
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -217,6 +355,21 @@ export function BorrowModal({
               </p>
             </div>
           </div>
+
+          {/* Live Commodity Prices */}
+          {Object.keys(livePrices).length > 0 && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-medium text-blue-900 mb-2">Live Collateral Prices</p>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(livePrices).map(([commodity, price]) => (
+                  <div key={commodity} className="text-xs">
+                    <span className="font-medium">{commodity}:</span>
+                    <span className="ml-1">${price.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Asset Selection */}
           <div className="space-y-2">

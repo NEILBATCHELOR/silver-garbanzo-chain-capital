@@ -38,6 +38,7 @@ export interface GasConfig {
  * Unified deployment options
  * ✅ FIX #5: Added gasConfig property
  * ✅ FIX #6: Added walletAddress property for using pre-selected wallets
+ * ✅ FIX #8: Added moduleConfigs property for extension module configs
  */
 export interface UnifiedDeploymentOptions {
   useOptimization?: boolean; // Default: true for complex contracts
@@ -45,6 +46,7 @@ export interface UnifiedDeploymentOptions {
   enableAnalytics?: boolean; // Default: true
   gasConfig?: GasConfig; // ✅ FIX #5: Gas configuration from form
   walletAddress?: string; // ✅ FIX #6: Pre-selected wallet address (bypasses database query)
+  moduleConfigs?: Record<string, any>; // ✅ FIX #8: Extension module configurations
 }
 
 /**
@@ -870,8 +872,11 @@ export class UnifiedTokenDeploymentService {
       forceStrategy = 'auto',
       enableAnalytics = true,
       gasConfig, // ✅ FIX #5: Extract gas configuration from options
-      walletAddress: providedWalletAddress // ✅ FIX #6: Extract wallet address from options
+      walletAddress: providedWalletAddress, // ✅ FIX #6: Extract wallet address from options
+      moduleConfigs // ✅ FIX #9: Extract extension module configurations from options
     } = options;
+    
+    console.log('📦 [UnifiedDeployment] Module configs received:', moduleConfigs ? Object.keys(moduleConfigs) : 'none');
 
     try {
       // Step 1: Get token details for analysis

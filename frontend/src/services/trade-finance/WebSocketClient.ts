@@ -205,7 +205,33 @@ export class TradeFinanceWebSocketClient {
   }
 
   /**
-   * Register a message handler
+   * Register a message handler (legacy event-based API)
+   */
+  on(eventType: string, handler: MessageHandler): void {
+    // Map event types to channels for backward compatibility
+    const channel = this.eventTypeToChannel(eventType);
+    if (!this.messageHandlers.has(channel)) {
+      this.messageHandlers.set(channel, new Set());
+    }
+    this.messageHandlers.get(channel)!.add(handler);
+  }
+
+  /**
+   * Remove a message handler (legacy event-based API)
+   */
+  off(eventType: string, handler: MessageHandler): void {
+    const channel = this.eventTypeToChannel(eventType);
+    const handlers = this.messageHandlers.get(channel);
+    if (handlers) {
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        this.messageHandlers.delete(channel);
+      }
+    }
+  }
+
+  /**
+   * Register a message handler (channel-based API)
    */
   onMessage(channel: string, handler: MessageHandler): void {
     if (!this.messageHandlers.has(channel)) {
@@ -215,7 +241,7 @@ export class TradeFinanceWebSocketClient {
   }
 
   /**
-   * Remove a message handler
+   * Remove a message handler (channel-based API)
    */
   offMessage(channel: string, handler: MessageHandler): void {
     const handlers = this.messageHandlers.get(channel);
@@ -225,6 +251,14 @@ export class TradeFinanceWebSocketClient {
         this.messageHandlers.delete(channel);
       }
     }
+  }
+
+  /**
+   * Map event types to channels
+   */
+  private eventTypeToChannel(eventType: string): string {
+    // Generic mapping - handlers will be called for all messages of this type
+    return `event:${eventType}`;
   }
 
   /**
@@ -253,10 +287,23 @@ export class TradeFinanceWebSocketClient {
       channel = `position:${message.userAddress}`;
     }
 
-    // Call handlers
-    const handlers = this.messageHandlers.get(channel);
-    if (handlers) {
-      handlers.forEach((handler) => {
+    // Call channel-specific handlers
+    const channelHandlers = this.messageHandlers.get(channel);
+    if (channelHandlers) {
+      channelHandlers.forEach((handler) => {
+        try {
+          handler(message);
+        } catch (error) {
+          console.error('[WS] Handler error:', error);
+        }
+      });
+    }
+
+    // Call event-type handlers (for backward compatibility)
+    const eventChannel = `event:${message.type}`;
+    const eventHandlers = this.messageHandlers.get(eventChannel);
+    if (eventHandlers) {
+      eventHandlers.forEach((handler) => {
         try {
           handler(message);
         } catch (error) {

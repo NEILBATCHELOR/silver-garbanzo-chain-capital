@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
+import {IRewardsController} from "../rewards/interfaces/IRewardsController.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
 
 /**
@@ -32,6 +33,9 @@ contract CommodityDebtToken is IERC20 {
 
     // Borrow allowances for credit delegation
     mapping(address => mapping(address => uint256)) private _borrowAllowances;
+
+    /// @notice Rewards controller for liquidity mining incentives
+    IRewardsController internal _rewardsController;
 
     // ============ Events ============
 
@@ -146,6 +150,23 @@ contract CommodityDebtToken is IERC20 {
         return _scaledBalances[user];
     }
 
+    /**
+     * @notice Returns the rewards controller address
+     * @return The rewards controller address
+     */
+    function getRewardsController() external view returns (IRewardsController) {
+        return _rewardsController;
+    }
+
+    /**
+     * @notice Sets the rewards controller
+     * @dev Only callable by the pool
+     * @param controller The new rewards controller address
+     */
+    function setRewardsController(IRewardsController controller) external onlyPool {
+        _rewardsController = controller;
+    }
+
     // ============ Mint & Burn Functions ============
 
     /**
@@ -172,6 +193,8 @@ contract CommodityDebtToken is IERC20 {
         }
 
         uint256 previousBalance = balanceOf(onBehalfOf);
+        uint256 previousScaledBalance = _scaledBalances[onBehalfOf];
+        uint256 oldTotalSupply = _scaledTotalSupply;
         
         // V3.5: Round UP when minting debt - borrower owes slightly more scaled debt
         // This ensures protocol never under-accounts borrowed amounts
@@ -185,6 +208,11 @@ contract CommodityDebtToken is IERC20 {
 
         emit Transfer(address(0), onBehalfOf, amount);
         emit Mint(user, onBehalfOf, amount, balanceIncrease, index);
+
+        // Update rewards if controller is set
+        if (address(_rewardsController) != address(0)) {
+            _rewardsController.handleAction(onBehalfOf, oldTotalSupply, previousScaledBalance);
+        }
 
         return previousBalance == 0;
     }
@@ -206,18 +234,26 @@ contract CommodityDebtToken is IERC20 {
         uint256 amount,
         uint256 index
     ) external onlyPool returns (uint256) {
+        uint256 previousScaledBalance = _scaledBalances[from];
+        uint256 oldTotalSupply = _scaledTotalSupply;
+        
         // V3.5: Round DOWN when burning debt - user pays slightly less scaled debt
         // This ensures users can always fully repay their debt
         uint256 amountScaled = amount.rayDiv(index);
         require(amountScaled != 0, Errors.INVALID_BURN_AMOUNT);
 
-        uint256 balanceIncrease = balanceOf(from) - _scaledBalances[from].rayMul(index);
+        uint256 balanceIncrease = balanceOf(from) - previousScaledBalance.rayMul(index);
 
         _scaledBalances[from] -= amountScaled;
         _scaledTotalSupply -= amountScaled;
 
         emit Transfer(from, address(0), amount);
         emit Burn(from, address(0), amount, balanceIncrease, index);
+
+        // Update rewards if controller is set
+        if (address(_rewardsController) != address(0)) {
+            _rewardsController.handleAction(from, oldTotalSupply, previousScaledBalance);
+        }
 
         return _scaledTotalSupply;
     }

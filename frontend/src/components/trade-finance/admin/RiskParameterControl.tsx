@@ -15,8 +15,11 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
-import { AlertCircle, CheckCircle2, Info, Save, RotateCcw, TrendingUp, Shield, AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Info, Save, RotateCcw, TrendingUp, Shield, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
+
+// Import API service
+import { createTradeFinanceAPIService, TradeFinanceAPIService } from '@/services/trade-finance'
 
 interface CommodityRiskParams {
   commodityType: string
@@ -44,6 +47,8 @@ interface RiskParameterControlProps {
   chainId?: number
   networkType?: 'mainnet' | 'testnet'
   adminAddress?: string
+  projectId: string
+  apiBaseURL?: string
   onParameterUpdate?: (params: CommodityRiskParams) => void
 }
 
@@ -52,6 +57,8 @@ export function RiskParameterControl({
   chainId = 11155111,
   networkType = 'testnet',
   adminAddress,
+  projectId,
+  apiBaseURL,
   onParameterUpdate
 }: RiskParameterControlProps) {
   const [selectedCommodity, setSelectedCommodity] = useState<string>('')
@@ -61,6 +68,17 @@ export function RiskParameterControl({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
+  
+  // API service state
+  const [apiService, setApiService] = useState<TradeFinanceAPIService | null>(null)
+
+  // Initialize API service
+  useEffect(() => {
+    if (!projectId) return
+    
+    const service = createTradeFinanceAPIService(projectId, apiBaseURL)
+    setApiService(service)
+  }, [projectId, apiBaseURL])
 
   // Available commodities
   const commodities = [
@@ -73,28 +91,79 @@ export function RiskParameterControl({
 
   // Load parameters when commodity selected
   useEffect(() => {
-    if (!selectedCommodity) return
+    if (!selectedCommodity || !apiService) return
 
     const fetchParams = async () => {
       setIsLoading(true)
       setError(null)
 
       try {
-        // TODO: Replace with actual service call
-        // const poolService = createCommodityPoolService(config)
-        // const result = await poolService.getRiskParameters(selectedCommodity)
+        // Fetch actual haircut data from API
+        const haircutResponse = await apiService.getHaircut(selectedCommodity)
+        
+        if (haircutResponse.success && haircutResponse.data) {
+          const haircutData = haircutResponse.data
 
-        // Mock data
+          // Build params from API data
+          const fetchedParams: CommodityRiskParams = {
+            commodityType: selectedCommodity,
+            commodityName: commodities.find(c => c.value === selectedCommodity)?.label || '',
+            ltv: haircutData.baseHaircut || (selectedCommodity === 'GOLD' ? 8000 : selectedCommodity === 'OIL' ? 7000 : 6000),
+            liquidationThreshold: haircutData.liquidationThreshold || (selectedCommodity === 'GOLD' ? 8500 : selectedCommodity === 'OIL' ? 7500 : 7000),
+            liquidationBonus: haircutData.liquidationBonus || (selectedCommodity === 'GOLD' ? 500 : selectedCommodity === 'OIL' ? 800 : 1000),
+            baseInterestRate: 200,
+            optimalUtilization: 80,
+            slope1: 400,
+            slope2: 6000,
+            supplyCap: selectedCommodity === 'GOLD' ? '50000000' : '10000000',
+            borrowCap: selectedCommodity === 'GOLD' ? '40000000' : '8000000',
+            isActive: true,
+            isIsolated: selectedCommodity === 'CARBON',
+            debtCeiling: selectedCommodity === 'CARBON' ? '5000000' : '0'
+          }
+
+          setParams(fetchedParams)
+          setOriginalParams(fetchedParams)
+          setHasChanges(false)
+        } else {
+          // Fallback to mock data if API fails
+          const mockParams: CommodityRiskParams = {
+            commodityType: selectedCommodity,
+            commodityName: commodities.find(c => c.value === selectedCommodity)?.label || '',
+            ltv: selectedCommodity === 'GOLD' ? 8000 : selectedCommodity === 'OIL' ? 7000 : 6000,
+            liquidationThreshold: selectedCommodity === 'GOLD' ? 8500 : selectedCommodity === 'OIL' ? 7500 : 7000,
+            liquidationBonus: selectedCommodity === 'GOLD' ? 500 : selectedCommodity === 'OIL' ? 800 : 1000,
+            baseInterestRate: 200,
+            optimalUtilization: 80,
+            slope1: 400,
+            slope2: 6000,
+            supplyCap: selectedCommodity === 'GOLD' ? '50000000' : '10000000',
+            borrowCap: selectedCommodity === 'GOLD' ? '40000000' : '8000000',
+            isActive: true,
+            isIsolated: selectedCommodity === 'CARBON',
+            debtCeiling: selectedCommodity === 'CARBON' ? '5000000' : '0'
+          }
+
+          setParams(mockParams)
+          setOriginalParams(mockParams)
+          setHasChanges(false)
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load parameters'
+        setError(errorMessage)
+        toast.error(errorMessage)
+        
+        // Fallback to mock data on error
         const mockParams: CommodityRiskParams = {
           commodityType: selectedCommodity,
           commodityName: commodities.find(c => c.value === selectedCommodity)?.label || '',
           ltv: selectedCommodity === 'GOLD' ? 8000 : selectedCommodity === 'OIL' ? 7000 : 6000,
           liquidationThreshold: selectedCommodity === 'GOLD' ? 8500 : selectedCommodity === 'OIL' ? 7500 : 7000,
           liquidationBonus: selectedCommodity === 'GOLD' ? 500 : selectedCommodity === 'OIL' ? 800 : 1000,
-          baseInterestRate: 200, // 2%
-          optimalUtilization: 80, // 80%
-          slope1: 400, // 4%
-          slope2: 6000, // 60%
+          baseInterestRate: 200,
+          optimalUtilization: 80,
+          slope1: 400,
+          slope2: 6000,
           supplyCap: selectedCommodity === 'GOLD' ? '50000000' : '10000000',
           borrowCap: selectedCommodity === 'GOLD' ? '40000000' : '8000000',
           isActive: true,
@@ -105,17 +174,13 @@ export function RiskParameterControl({
         setParams(mockParams)
         setOriginalParams(mockParams)
         setHasChanges(false)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load parameters'
-        setError(errorMessage)
-        toast.error(errorMessage)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchParams()
-  }, [selectedCommodity])
+  }, [selectedCommodity, apiService])
 
   // Check for changes
   useEffect(() => {
@@ -145,8 +210,8 @@ export function RiskParameterControl({
 
   // Save parameters
   const handleSave = async () => {
-    if (!params || !adminAddress) {
-      setError('Missing required parameters')
+    if (!params || !apiService) {
+      setError('Missing required parameters or API service')
       return
     }
 
@@ -154,19 +219,32 @@ export function RiskParameterControl({
       setIsSaving(true)
       setError(null)
 
-      // TODO: Replace with actual service call
-      // const poolService = createCommodityPoolService(config)
-      // await poolService.updateRiskParameters(params, privateKey)
+      // Call API to update risk parameters
+      const result = await apiService.updateRiskParameters({
+        commodityType: params.commodityType,
+        ltv: params.ltv,
+        liquidationThreshold: params.liquidationThreshold,
+        liquidationBonus: params.liquidationBonus,
+        baseInterestRate: params.baseInterestRate,
+        optimalUtilization: params.optimalUtilization,
+        slope1: params.slope1,
+        slope2: params.slope2,
+        supplyCap: params.supplyCap,
+        borrowCap: params.borrowCap,
+        isIsolated: params.isIsolated,
+        debtCeiling: params.debtCeiling,
+      })
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      if (result.success) {
+        setOriginalParams(params)
+        setHasChanges(false)
+        toast.success(result.message || 'Risk parameters updated successfully')
 
-      setOriginalParams(params)
-      setHasChanges(false)
-      toast.success('Risk parameters updated successfully')
-
-      if (onParameterUpdate) {
-        onParameterUpdate(params)
+        if (onParameterUpdate) {
+          onParameterUpdate(params)
+        }
+      } else {
+        throw new Error('Failed to update parameters')
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update parameters'

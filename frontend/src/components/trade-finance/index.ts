@@ -16,7 +16,33 @@ export { BorrowModal, HealthFactorDisplay } from './borrow'
 export { PositionsList, PositionDetails, SupplySummary, BorrowSummary } from './positions'
 
 // Liquidation Components
-export { LiquidatablePositions, LiquidateModal } from './liquidation'
+export { 
+  LiquidatablePositions, 
+  LiquidateModal,
+  GracePeriodCountdown,
+  PhysicalDeliveryModal,
+  WarehouseTransferModal
+} from './liquidation'
 
 // Admin Components
 export { RiskParameterControl, AssetListing, EmergencyControls } from './admin'
+
+// Rewards Components
+export { RewardsDashboard, RewardsCard, APYDisplay, CompoundVsClaimOptimizer } from './rewards'
+
+// Treasury Components
+export { 
+  TreasuryDashboard, 
+  FeeCollectionHistory, 
+  RevenueDistributionChart, 
+  ProtocolReserveMonitor, 
+  RevenueRecipientManager 
+} from './treasury'
+
+// StataToken Components
+export {
+  StataTokenDashboard,
+  WrapUnwrapModal,
+  StataTokenDetails,
+  DeployStataTokenModal
+} from './stata-token'
