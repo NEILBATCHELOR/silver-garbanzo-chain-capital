@@ -106,6 +106,7 @@ import { TransactionConfirmation } from "@/components/wallet/components/Transact
 import { ErrorDisplay } from "@/components/wallet/components/ErrorDisplay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BatchTransferForm, type BatchTransferEntry } from "@/components/wallet/components/batch";
 
 // Wallet type for unified handling
 type WalletOption = {
@@ -156,6 +157,7 @@ export const TransferTab: React.FC = () => {
   
   // State
   const [transferState, setTransferState] = useState<TransferState>("input");
+  const [transferMode, setTransferMode] = useState<"single" | "batch">("single"); // Transfer mode: single or batch
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1809,66 +1811,100 @@ export const TransferTab: React.FC = () => {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
-      <div className="md:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {transferState === "input" && "Transfer Details"}
-              {transferState === "confirmation" && "Confirm Transfer"}
-              {transferState === "processing" && "Processing Transaction"}
-              {transferState === "success" && "Transaction Successful"}
-              {transferState === "error" && "Transaction Failed"}
-            </CardTitle>
-            <CardDescription>
-              {transferState === "input" && "Send assets between wallets"}
-              {transferState === "confirmation" && "Verify the transfer details"}
-              {transferState === "processing" && "Your transaction is being processed"}
-              {transferState === "success" && "Your transfer has been completed"}
-              {transferState === "error" && "There was an error processing your transaction"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderTransferContent()}
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="space-y-6">
-        {/* Recent Addresses - Gas configuration now in main form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Addresses</CardTitle>
-            <CardDescription>Previously used addresses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentAddresses 
-              onSelectAddress={async (address) => {
-                form.setValue("toAddress", address);
-                setToAddressMode('custom');
-                // Track address selection when user clicks a recent address
-                if (user?.id) {
-                  await addressSelectionTracker.trackSelection(
-                    user.id,
-                    address,
-                    projectId,
-                    'recent_addresses_click'
-                  );
-                }
-              }}
-              currentWalletId={form.watch("fromWallet")}
+    <Tabs value={transferMode} onValueChange={(v) => setTransferMode(v as "single" | "batch")} className="w-full">
+      <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsTrigger value="single">Single Transfer</TabsTrigger>
+        <TabsTrigger value="batch">Batch Transfer</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="single">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {transferState === "input" && "Transfer Details"}
+                  {transferState === "confirmation" && "Confirm Transfer"}
+                  {transferState === "processing" && "Processing Transaction"}
+                  {transferState === "success" && "Transaction Successful"}
+                  {transferState === "error" && "Transaction Failed"}
+                </CardTitle>
+                <CardDescription>
+                  {transferState === "input" && "Send assets between wallets"}
+                  {transferState === "confirmation" && "Verify the transfer details"}
+                  {transferState === "processing" && "Your transaction is being processed"}
+                  {transferState === "success" && "Your transfer has been completed"}
+                  {transferState === "error" && "There was an error processing your transaction"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderTransferContent()}
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="space-y-6">
+            {/* Recent Addresses - Gas configuration now in main form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Addresses</CardTitle>
+                <CardDescription>Previously used addresses</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RecentAddresses 
+                  onSelectAddress={async (address) => {
+                    form.setValue("toAddress", address);
+                    setToAddressMode('custom');
+                    // Track address selection when user clicks a recent address
+                    if (user?.id) {
+                      await addressSelectionTracker.trackSelection(
+                        user.id,
+                        address,
+                        projectId,
+                        'recent_addresses_click'
+                      );
+                    }
+                  }}
+                  currentWalletId={form.watch("fromWallet")}
+                />
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* QR Code Scanner Dialog */}
+          {showQrScanner && (
+            <QrCodeScanner 
+              onClose={() => setShowQrScanner(false)} 
+              onScan={handleQrScan} 
             />
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* QR Code Scanner Dialog */}
-      {showQrScanner && (
-        <QrCodeScanner 
-          onClose={() => setShowQrScanner(false)} 
-          onScan={handleQrScan} 
+          )}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="batch">
+        <BatchTransferForm
+          wallets={walletOptions.filter(w => w.type === 'project')}
+          onComplete={(results) => {
+            const successCount = results.filter((r) => r.status === "success").length;
+            const errorCount = results.filter((r) => r.status === "error").length;
+            
+            toast({
+              title: "Batch Transfer Complete",
+              description: `${successCount} transfers successful, ${errorCount} failed`,
+            });
+
+            // Refresh wallet balances
+            if (projectId) {
+              internalWalletService.refreshAllBalances(projectId).then((wallets) => {
+                setAllWallets(wallets);
+              });
+            }
+          }}
+          onCancel={() => {
+            setTransferMode("single");
+          }}
         />
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 };
