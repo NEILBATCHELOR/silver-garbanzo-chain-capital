@@ -80,6 +80,11 @@ const getBytecode = (artifact: any): string => {
  * - DYNAMIC: Initialization parameters from user forms (unique per deployment)
  * - DATABASE-DRIVEN: Contract addresses loaded from database via contractConfigurationService
  */
+
+// ✅ FIX #11: Network-specific transaction confirmation timeouts (in milliseconds)
+// Simple 2-minute timeout for all networks
+const TRANSACTION_TIMEOUT_MS = 120000; // 2 minutes
+
 export class FoundryDeploymentService {
   /**
    * Check if error is a nonce-related error
@@ -818,18 +823,47 @@ export class FoundryDeploymentService {
         throw new Error(`No private key found for project wallet`);
       }
 
-      // Get provider
+      // Get provider with comprehensive logging
       const environment = params.environment === 'mainnet' 
         ? NetworkEnvironment.MAINNET 
         : NetworkEnvironment.TESTNET;
+      
+      console.log(`🌐 [RPC DEBUG] Requesting provider for blockchain: "${params.blockchain}", environment: "${environment}"`);
       
       const provider = providerManager.getProviderForEnvironment(params.blockchain as any, environment);
       if (!provider) {
         throw new Error(`No provider available for ${params.blockchain} (${environment})`);
       }
 
+      // Verify provider connection and network
+      try {
+        const network = await provider.getNetwork();
+        const rpcUrl = (provider as any).connection?.url || (provider as any)._getConnection?.()?.url || 'unknown';
+        console.log(`✅ [RPC DEBUG] Provider connected successfully`);
+        console.log(`  - RPC URL: ${rpcUrl}`);
+        console.log(`  - Chain ID: ${network.chainId}`);
+        console.log(`  - Network Name: ${network.name}`);
+        
+        // Verify chain ID matches expected
+        const { getChainId } = await import('@/infrastructure/web3/utils/chainIds');
+        const expectedChainId = getChainId(params.blockchain);
+        if (expectedChainId && Number(network.chainId) !== expectedChainId) {
+          console.error(`⚠️ [RPC DEBUG] CHAIN ID MISMATCH!`);
+          console.error(`  - Expected: ${expectedChainId}`);
+          console.error(`  - Got: ${network.chainId}`);
+          throw new Error(
+            `Chain ID mismatch: Provider connected to chain ${network.chainId} ` +
+            `but expected ${expectedChainId} for ${params.blockchain}`
+          );
+        }
+      } catch (error) {
+        console.error(`❌ [RPC DEBUG] Provider verification failed:`, error);
+        throw new Error(`Failed to verify RPC provider: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
       // Create wallet
       const wallet = new ethers.Wallet(privateKey, provider);
+      console.log(`👛 [RPC DEBUG] Wallet created: ${wallet.address}`);
 
       // Estimate gas and check balance
       const estimatedGas = await this.estimateContractDeploymentGas(wallet, params);
@@ -1099,9 +1133,38 @@ export class FoundryDeploymentService {
       tx = await factory[methodName](...methodParams);
     }
 
-    // ✅ FIX #10: Add timeout to prevent infinite hanging (120 seconds for testnet)
-    console.log(`⏳ Waiting for transaction confirmation... (timeout: 120s)`);
-    console.log(`📍 Transaction hash: ${tx.hash}`);
+    // Comprehensive transaction debugging
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`🔍 TRANSACTION SUBMITTED - FULL DETAILS`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`📍 Transaction Hash: ${tx.hash}`);
+    console.log(`👛 From: ${tx.from}`);
+    console.log(`📬 To: ${tx.to}`);
+    console.log(`⛽ Gas Limit: ${tx.gasLimit?.toString()}`);
+    console.log(`💰 Gas Price: ${tx.gasPrice ? ethers.formatUnits(tx.gasPrice, 'gwei') + ' Gwei' : 'N/A'}`);
+    console.log(`🔢 Nonce: ${tx.nonce}`);
+    console.log(`⛓️  Chain ID: ${tx.chainId}`);
+    console.log(`📊 Value: ${ethers.formatEther(tx.value || 0)} ETH`);
+    
+    // Verify transaction was actually broadcast
+    try {
+      const txFromNetwork = await wallet.provider.getTransaction(tx.hash);
+      if (txFromNetwork) {
+        console.log(`✅ Transaction verified on network`);
+        console.log(`   Block Number: ${txFromNetwork.blockNumber || 'pending'}`);
+        console.log(`   Block Hash: ${txFromNetwork.blockHash || 'pending'}`);
+      } else {
+        console.error(`❌ WARNING: Transaction ${tx.hash} NOT FOUND on network!`);
+        console.error(`   This means the transaction was never broadcast`);
+      }
+    } catch (verifyError) {
+      console.error(`❌ Error verifying transaction on network:`, verifyError);
+    }
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+    // Simple 2-minute timeout for all networks
+    const timeoutSeconds = 120;
+    console.log(`⏳ Waiting for transaction confirmation... (timeout: ${timeoutSeconds}s)`);
     
     // Build explorer URL based on blockchain
     const explorerUrls: Record<string, string> = {
@@ -1130,16 +1193,17 @@ export class FoundryDeploymentService {
       receipt = await Promise.race([
         tx.wait(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Transaction confirmation timeout after 120 seconds')), 120000)
+          setTimeout(() => reject(new Error(`Transaction confirmation timeout after ${timeoutSeconds} seconds`)), TRANSACTION_TIMEOUT_MS)
         )
       ]);
     } catch (error: any) {
       if (error.message.includes('timeout')) {
-        console.error(`⏰ Transaction confirmation timed out after 120 seconds`);
-        console.error(`📍 Transaction may still be pending. Check: ${explorerUrl}/tx/${tx.hash}`);
+        console.error(`⏰ Transaction confirmation timed out after ${timeoutSeconds} seconds`);
+        console.error(`📍 Transaction hash: ${tx.hash}`);
+        console.error(`📍 Check explorer: ${explorerUrl}/tx/${tx.hash}`);
         throw new Error(
-          `Transaction confirmation timed out after 120 seconds. ` +
-          `The transaction may still be processing on the blockchain. ` +
+          `Transaction confirmation timed out after ${timeoutSeconds} seconds. ` +
+          `Transaction hash: ${tx.hash}. ` +
           `Check the explorer: ${explorerUrl}/tx/${tx.hash}`
         );
       }

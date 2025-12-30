@@ -634,7 +634,6 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
       'parity',
       'product_type',
       'project_id', // project_id is in tokens table only
-      'uri' // uri doesn't exist in properties tables
     ];
 
     // If this is the tokens table, return all fields

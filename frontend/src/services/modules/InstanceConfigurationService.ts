@@ -215,6 +215,11 @@ export class InstanceConfigurationService {
   private static extractModuleSelection(params: FoundryDeploymentParams): ModuleSelection {
     // Check if moduleSelection exists in config (new format)
     const config = params.config as any;
+    
+    // 🔍 DEBUG: Log received config to understand data structure
+    console.log('🔍 [ModuleSelection] Config keys:', Object.keys(config).filter(k => k.includes('enabled') || k.includes('_config') || k.includes('Module')));
+    console.log('🔍 [ModuleSelection] Checking modules - fees_enabled:', config.fees_enabled, 'compliance_enabled:', config.compliance_enabled);
+    
     if (config.moduleSelection) {
       return config.moduleSelection;
     }
@@ -274,21 +279,21 @@ export class InstanceConfigurationService {
     // ERC20-specific modules
     if (tokenStandard === 'erc20') {
       
-      // FEES - Reads from fee_on_transfer JSONB
-      if (config.fees_enabled || config.feesModuleAddress || config.fee_on_transfer) {
+      // FEES - Reads from BOTH old format (fees_enabled + fee_on_transfer) AND new format (fees_config)
+      if (config.fees_enabled || config.fees_config?.enabled || config.feesModuleAddress || config.fee_on_transfer) {
         selection.fees = true;
         
-        if (config.fee_on_transfer && config.fee_on_transfer.percentage !== undefined) {
-          selection.feesConfig = {
-            transferFeeBps: Math.round((config.fee_on_transfer.percentage || 0) * 100),
-            feeRecipient: config.fee_on_transfer.recipient || config.initialOwner || ''
-          };
-        } else {
-          selection.feesConfig = {
-            transferFeeBps: config.transfer_fee_bps || 0,
-            feeRecipient: config.fee_recipient || config.initialOwner || ''
-          };
-        }
+        // Extract from BOTH formats - prioritize new format, fallback to old
+        const feesConfig = config.fees_config || config.fee_on_transfer || {};
+        const transferFeeBps = feesConfig.transferFeeBps || feesConfig.feePercentage || 0;
+        const recipient = feesConfig.feeRecipient || feesConfig.recipient || config.initialOwner || 'DEPLOYER';
+        
+        selection.feesConfig = {
+          transferFeeBps: transferFeeBps,
+          feeRecipient: recipient
+        };
+        
+        console.log('💰 [ModuleSelection] Fees enabled - TransferFeeBps:', transferFeeBps, 'Recipient:', recipient);
       }
       
       // TIMELOCK - Reads from timelock_config JSONB (individual token locks)
@@ -456,6 +461,11 @@ export class InstanceConfigurationService {
           : ['DEFAULT'];
       }
     }
+
+    // 🔍 DEBUG: Log final module selection
+    const selectedModuleNames = Object.keys(selection).filter(k => !k.endsWith('Config') && selection[k as keyof ModuleSelection]);
+    console.log('✅ [ModuleSelection] Final selected modules:', selectedModuleNames);
+    console.log('✅ [ModuleSelection] Full selection object:', selection);
 
     return selection;
   }

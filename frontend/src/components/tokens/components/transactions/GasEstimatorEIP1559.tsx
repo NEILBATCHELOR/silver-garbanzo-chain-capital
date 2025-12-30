@@ -201,14 +201,24 @@ const GasEstimatorEIP1559: React.FC<GasEstimatorEIP1559Props> = ({
   
   const congestionInfo = getNetworkCongestionInfo();
   
-  // Set initial manual values from fetched data
+  // Set initial manual values from fetched data with minimum defaults
   useEffect(() => {
     if (feeData && !manualMaxFee && !manualPriorityFee) {
       if (feeData.maxFeePerGas) {
-        setManualMaxFee(formatGwei(feeData.maxFeePerGas));
+        // Use fetched value or default to 20 Gwei minimum
+        const fetchedMaxFee = parseFloat(formatGwei(feeData.maxFeePerGas));
+        setManualMaxFee((fetchedMaxFee < 20 ? 20 : fetchedMaxFee).toString());
+      } else {
+        // Default to 20 Gwei if no data
+        setManualMaxFee('20');
       }
       if (feeData.maxPriorityFeePerGas) {
-        setManualPriorityFee(formatGwei(feeData.maxPriorityFeePerGas));
+        // Use fetched value or default to 5 Gwei minimum
+        const fetchedPriorityFee = parseFloat(formatGwei(feeData.maxPriorityFeePerGas));
+        setManualPriorityFee((fetchedPriorityFee < 5 ? 5 : fetchedPriorityFee).toString());
+      } else {
+        // Default to 5 Gwei if no data
+        setManualPriorityFee('5');
       }
     }
   }, [feeData]);
@@ -365,17 +375,17 @@ const GasEstimatorEIP1559: React.FC<GasEstimatorEIP1559Props> = ({
                         <Input
                           id="maxPriorityFee"
                           type="number"
-                          step="0.01"
+                          step="1"
                           min="0"
                           value={manualPriorityFee}
                           onChange={(e) => setManualPriorityFee(e.target.value)}
-                          placeholder="2.0"
+                          placeholder="5"
                           className="flex-1"
                         />
                         <span className="text-xs text-muted-foreground">Gwei</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Recommended: 1-5 Gwei for standard transactions
+                        Recommended: 5 Gwei for standard transactions
                       </p>
                     </div>
                     
@@ -387,11 +397,11 @@ const GasEstimatorEIP1559: React.FC<GasEstimatorEIP1559Props> = ({
                         <Input
                           id="maxFeePerGas"
                           type="number"
-                          step="0.1"
+                          step="1"
                           min="0"
                           value={manualMaxFee}
                           onChange={(e) => setManualMaxFee(e.target.value)}
-                          placeholder="20.0"
+                          placeholder="20"
                           className="flex-1"
                         />
                         <span className="text-xs text-muted-foreground">Gwei</span>

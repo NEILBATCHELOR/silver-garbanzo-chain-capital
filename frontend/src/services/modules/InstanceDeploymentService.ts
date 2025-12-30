@@ -536,10 +536,21 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW fee module instance for token ${tokenAddress}`);
+    
+    // Ensure fee recipient is valid (not empty string, undefined, or placeholder)
+    const feeRecipient = config.feeRecipient && 
+                         config.feeRecipient.trim() &&
+                         config.feeRecipient !== 'DEPLOYER'
+      ? config.feeRecipient 
+      : deployer.address;
+    
+    const feeBps = config.transferFeeBps || config.feePercent || 0;
+    console.log(`Fee module config: {transferFeeBps: ${feeBps}, feeRecipient: ${feeRecipient}}`);
+    
     const tx = await factory.deployFees(
       tokenAddress,
-      config.transferFeeBps || config.feePercent || 0,
-      config.feeRecipient || deployer.address
+      feeBps,
+      feeRecipient
     );
     const receipt = await tx.wait();
 

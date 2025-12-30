@@ -175,8 +175,8 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const [estimatedGasData, setEstimatedGasData] = useState<EIP1559FeeData | null>(null);
   
   // EIP-1559 specific state
-  const [maxFeePerGas, setMaxFeePerGas] = useState<string>(parentMaxFeePerGas || '');
-  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>(parentMaxPriorityFeePerGas || '');
+  const [maxFeePerGas, setMaxFeePerGas] = useState<string>(parentMaxFeePerGas || '20'); // Default 20 Gwei for EIP-1559
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<string>(parentMaxPriorityFeePerGas || '5'); // Default 5 Gwei for EIP-1559
   const [isEIP1559Network, setIsEIP1559Network] = useState<boolean>(false);
   
   // ✅ ADD: Module selection state
@@ -404,19 +404,28 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   
   // ✅ FIX: Sync selectedWallet from DeploymentDashboard with walletAddress state
   // This takes priority over auto-load
+  // Updated to watch wallet_address property explicitly to catch all changes
   useEffect(() => {
-    console.log('🔄 [WALLET SYNC] Selected wallet changed:', selectedWallet);
+    const currentWalletAddress = selectedWallet?.wallet_address;
+    
+    console.log('🔄 [WALLET SYNC] Selected wallet changed:', {
+      walletId: selectedWallet?.id,
+      walletAddress: currentWalletAddress
+    });
     console.log('🔄 [WALLET SYNC] Current walletAddress state:', walletAddress);
     console.log('🔄 [WALLET SYNC] walletIntegrationMode:', walletIntegrationMode);
     
-    if (selectedWallet && selectedWallet.wallet_address) {
-      console.log('✅ [WALLET SYNC] Setting wallet address from DeploymentDashboard:', selectedWallet.wallet_address);
+    if (selectedWallet && currentWalletAddress) {
+      console.log('✅ [WALLET SYNC] Setting wallet address from DeploymentDashboard:', currentWalletAddress);
       console.log('🔄 [WALLET SYNC] Previous wallet address:', walletAddress);
       
-      // Force update the wallet address
-      setWalletAddress(selectedWallet.wallet_address);
-      
-      console.log('✅ [WALLET SYNC] Wallet address updated to:', selectedWallet.wallet_address);
+      // Force update the wallet address - only if it's different to avoid infinite loops
+      if (walletAddress !== currentWalletAddress) {
+        setWalletAddress(currentWalletAddress);
+        console.log('✅ [WALLET SYNC] Wallet address updated to:', currentWalletAddress);
+      } else {
+        console.log('✅ [WALLET SYNC] Wallet address already synced');
+      }
       
       // Note: Private keys are not exposed through ProjectWallet interface
       // They are securely stored and accessed through encryption services
@@ -431,7 +440,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
     } else {
       console.log('⚠️ [WALLET SYNC] No valid wallet to sync. selectedWallet:', selectedWallet);
     }
-  }, [selectedWallet]);
+  }, [selectedWallet, selectedWallet?.wallet_address, walletIntegrationMode]);
   
   /**
    * Load wallet for selected network
@@ -612,9 +621,9 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
     const recommendations: Record<string, { price: string; limit: number; note: string }> = {
       ethereum: { price: '20-50', limit: 3000000, note: 'Mainnet: 20-50 Gwei typical' },
       polygon: { price: '30-100', limit: 3000000, note: 'Polygon: 30-100 Gwei typical' },
-      base: { price: '0.001-0.01', limit: 3000000, note: 'Base: 0.001-0.01 Gwei typical' },
-      arbitrum: { price: '0.1-1', limit: 3000000, note: 'Arbitrum: 0.1-1 Gwei typical' },
-      optimism: { price: '0.001-0.1', limit: 3000000, note: 'Optimism: 0.001-0.1 Gwei typical' },
+      base: { price: '1-5', limit: 3000000, note: 'Base: 1-5 Gwei typical' },
+      arbitrum: { price: '1-5', limit: 3000000, note: 'Arbitrum: 1-5 Gwei typical' },
+      optimism: { price: '1-5', limit: 3000000, note: 'Optimism: 1-5 Gwei typical' },
       avalanche: { price: '25-50', limit: 3000000, note: 'Avalanche: 25-50 Gwei typical' },
       bsc: { price: '3-5', limit: 3000000, note: 'BSC: 3-5 Gwei typical' }
     };
@@ -733,7 +742,9 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const handleDeploymentConfirmation = () => {
     console.log('🚀 Deploy button clicked - validating inputs...');
     console.log('📊 [STATE CHECK] selectedWallet:', selectedWallet);
+    console.log('📊 [STATE CHECK] selectedWallet.wallet_address:', selectedWallet?.wallet_address);
     console.log('📊 [STATE CHECK] walletAddress state:', walletAddress);
+    console.log('📊 [STATE CHECK] Deployment will use:', selectedWallet?.wallet_address || walletAddress);
     console.log('Blockchain:', blockchain);
     console.log('Current User ID:', currentUserId);
     console.log('Auth Loading:', authLoading);
@@ -1240,7 +1251,7 @@ Need help? Visit our documentation or contact support.`;
                   <Input
                     id="gasPrice"
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     value={gasPrice}
                     onChange={(e) => handleGasPriceChange(e.target.value)}
@@ -1467,7 +1478,12 @@ Need help? Visit our documentation or contact support.`;
             <div>{networkDetails?.name || blockchain}</div>
             
             <div className="font-medium">Wallet:</div>
-            <div className="font-mono text-xs">{walletAddress.slice(0, 10)}...{walletAddress.slice(-8)}</div>
+            <div className="font-mono text-xs">
+              {(() => {
+                const deployWallet = selectedWallet?.wallet_address || walletAddress;
+                return `${deployWallet.slice(0, 10)}...${deployWallet.slice(-8)}`;
+              })()}
+            </div>
             
             <div className="font-medium">Wallet Mode:</div>
             <div className="flex items-center">
