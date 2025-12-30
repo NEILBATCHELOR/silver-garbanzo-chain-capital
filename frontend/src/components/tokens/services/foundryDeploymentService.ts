@@ -15,6 +15,7 @@ import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
 import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
 import { WalletAuditService } from '@/services/security/walletAuditService';
+import { NonceManagerClient } from '@/services/nonce/nonceManagerClient';
 import type { ProjectCredential } from '@/types/credentials';
 import { 
   FoundryDeploymentParams, 
@@ -176,12 +177,14 @@ export class FoundryDeploymentService {
   /**
    * Build gas configuration options for transactions
    * ✅ FIX #5: Helper method to convert GasConfig to transaction options
+   * ✅ FIX #10: Added nonce to return type for explicit nonce management
    */
   private buildGasOptions(gasConfig?: GasConfig): {
     gasPrice?: bigint;
     gasLimit?: bigint;
     maxFeePerGas?: bigint;
     maxPriorityFeePerGas?: bigint;
+    nonce?: number;
   } {
     if (!gasConfig) return {};
 
@@ -220,6 +223,12 @@ export class FoundryDeploymentService {
       }
     }
 
+    // Nonce (for nonce management)
+    if (gasConfig.nonce !== undefined) {
+      options.nonce = gasConfig.nonce;
+      console.log(`✅ [NONCE] Using reserved nonce ${gasConfig.nonce} in gas options`);
+    }
+
     console.log('✅ FIX #5: Built gas options from config:', {
       input: gasConfig,
       output: options
@@ -229,12 +238,59 @@ export class FoundryDeploymentService {
   }
 
   /**
+   * Get wallet ID from project_wallets table
+   * Used for nonce management
+   * @param projectId Project ID
+   * @param blockchain Blockchain type
+   * @param walletAddress Optional specific wallet address to look up
+   * @returns Wallet ID (UUID)
+   */
+  private async getProjectWalletId(
+    projectId: string,
+    blockchain: string,
+    walletAddress?: string
+  ): Promise<string> {
+    try {
+      let query = supabase
+        .from('project_wallets')
+        .select('id, wallet_address, wallet_type')
+        .eq('project_id', projectId);
+      
+      if (walletAddress) {
+        // Lookup by address only - EVM addresses work across all chains
+        query = query.eq('wallet_address', walletAddress);
+      } else {
+        // No specific address - filter by wallet_type
+        query = query.eq('wallet_type', blockchain);
+      }
+      
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error || !data) {
+        const msg = walletAddress
+          ? `No wallet found with address ${walletAddress} for project ${projectId}`
+          : `No wallet found for project ${projectId} on ${blockchain}`;
+        throw new Error(msg);
+      }
+      
+      return data.id;
+    } catch (error) {
+      console.error('Failed to get project wallet ID:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get private key from project_wallets table
    * IMPORTANT: Decrypts encrypted private keys before use
    * @param projectId Project ID
    * @param blockchain Blockchain type
    * @param userId User ID for auditing
    * @param walletAddress Optional specific wallet address to look up
+   * @returns Object with privateKey and walletId
    */
   private async getProjectWalletPrivateKey(
     projectId: string,
@@ -809,8 +865,25 @@ export class FoundryDeploymentService {
     let deployedAddress: string | undefined;
     let masterAddress: string | null = null;
     let factoryAddress: string | null = null;
+    let reservedNonce: number | null = null;
+    let walletId: string | null = null;
+    
+    // 🔍 DEBUG: Log the gasConfig at entry point
+    console.log(`🎯 [DEPLOY TOKEN ENTRY] params.gasConfig at entry:`, params.gasConfig);
+    console.log(`🎯 [DEPLOY TOKEN ENTRY] maxFeePerGas:`, params.gasConfig?.maxFeePerGas);
+    console.log(`🎯 [DEPLOY TOKEN ENTRY] maxPriorityFeePerGas:`, params.gasConfig?.maxPriorityFeePerGas);
+    console.log(`🎯 [DEPLOY TOKEN ENTRY] gasPrice:`, params.gasConfig?.gasPrice);
+    console.log(`🎯 [DEPLOY TOKEN ENTRY] gasLimit:`, params.gasConfig?.gasLimit);
     
     try {
+      // Get wallet ID for nonce management
+      walletId = await this.getProjectWalletId(
+        projectId,
+        params.blockchain,
+        walletAddress
+      );
+      console.log(`✅ [NONCE] Got wallet ID: ${walletId}`);
+      
       // Get private key (with decryption) - pass wallet address if provided
       const privateKey = await this.getProjectWalletPrivateKey(
         projectId, 
@@ -886,44 +959,38 @@ export class FoundryDeploymentService {
         // If not found, we'll deploy directly below
       }
 
-      // Deploy with nonce error recovery
+      // ✅ NONCE MANAGEMENT: Reserve nonce before deployment
+      console.log(`🔒 [NONCE] Reserving nonce for wallet ${walletId}...`);
+      const nonceReservation = await NonceManagerClient.reserveNonce(walletId, params.blockchain);
+      
+      if (!nonceReservation.success || !nonceReservation.data) {
+        throw new Error(`Failed to reserve nonce: ${nonceReservation.error || 'Unknown error'}`);
+      }
+      
+      reservedNonce = nonceReservation.data.nonce;
+      console.log(`✅ [NONCE] Reserved nonce ${reservedNonce} (expires: ${nonceReservation.data.expires_at})`);
+
+      // Deploy with reserved nonce
       let deploymentResult: DeployedContract;
       let receipt: ethers.ContractTransactionReceipt;
-      let retryCount = 0;
-      const maxRetries = 2;
       
-      while (retryCount <= maxRetries) {
-        try {
-          if (factoryAddress) {
-            console.log(`[DEPLOY] Deploying via factory at: ${factoryAddress} (attempt ${retryCount + 1}/${maxRetries + 1})`);
-            deploymentResult = await this.deployViaFactory(wallet, params, factoryAddress);
-          } else {
-            console.log(`[DEPLOY] Deploying directly - no factory found (attempt ${retryCount + 1}/${maxRetries + 1})`);
-            deploymentResult = await this.deployDirectly(wallet, params);
-          }
-          
-          // Deployment succeeded, break out of retry loop
-          break;
-        } catch (deployError: any) {
-          // Check if it's a nonce error
-          if (this.isNonceError(deployError) && retryCount < maxRetries) {
-            console.warn(`[NONCE] Nonce error detected on attempt ${retryCount + 1}, recovering...`);
-            
-            // Get fresh nonce
-            const freshNonce = await this.handleNonceError(wallet);
-            console.log(`[NONCE] Using fresh nonce: ${freshNonce}`);
-            
-            // Increment retry counter and try again
-            retryCount++;
-            
-            // Small delay before retry
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            continue;
-          }
-          
-          // Not a nonce error or max retries reached, throw
-          throw deployError;
+      try {
+        // Add reserved nonce to gas options
+        if (!params.gasConfig) {
+          params.gasConfig = {};
         }
+        params.gasConfig.nonce = reservedNonce;
+        
+        if (factoryAddress) {
+          console.log(`[DEPLOY] Deploying via factory at: ${factoryAddress} with nonce ${reservedNonce}`);
+          deploymentResult = await this.deployViaFactory(wallet, params, factoryAddress);
+        } else {
+          console.log(`[DEPLOY] Deploying directly with nonce ${reservedNonce}`);
+          deploymentResult = await this.deployDirectly(wallet, params);
+        }
+      } catch (deployError) {
+        console.error(`❌ [DEPLOY] Deployment failed:`, deployError);
+        throw deployError; // Will be caught by outer try-catch which releases nonce
       }
       
       deployedAddress = deploymentResult!.address;
@@ -1019,6 +1086,18 @@ export class FoundryDeploymentService {
         }
       });
 
+      // ✅ NONCE MANAGEMENT: Confirm nonce usage after successful deployment
+      if (walletId && reservedNonce !== null) {
+        console.log(`✅ [NONCE] Confirming nonce ${reservedNonce} for wallet ${walletId}...`);
+        const confirmResult = await NonceManagerClient.confirmNonce(walletId, params.blockchain, reservedNonce);
+        if (!confirmResult.success) {
+          console.warn(`⚠️ [NONCE] Failed to confirm nonce: ${confirmResult.error}`);
+          // Don't fail deployment if confirmation fails - nonce will auto-expire
+        } else {
+          console.log(`✅ [NONCE] Nonce ${reservedNonce} confirmed successfully`);
+        }
+      }
+
       return {
         status: DeploymentStatus.SUCCESS,
         tokenAddress: deploymentResult.address,
@@ -1029,6 +1108,18 @@ export class FoundryDeploymentService {
 
     } catch (error) {
       console.error('Foundry token deployment failed:', error);
+      
+      // ✅ NONCE MANAGEMENT: Release nonce on failure
+      if (walletId && reservedNonce !== null) {
+        console.log(`🔓 [NONCE] Releasing nonce ${reservedNonce} for wallet ${walletId}...`);
+        const releaseResult = await NonceManagerClient.releaseNonce(walletId, params.blockchain, reservedNonce);
+        if (!releaseResult.success) {
+          console.warn(`⚠️ [NONCE] Failed to release nonce: ${releaseResult.error}`);
+          // Don't fail if release fails - nonce will auto-expire
+        } else {
+          console.log(`✅ [NONCE] Nonce ${reservedNonce} released successfully`);
+        }
+      }
       
       // Attempt database rollback if we have a deployed address
       if (deployedAddress) {
@@ -1118,20 +1209,43 @@ export class FoundryDeploymentService {
     // ✅ FIX #9: Build individual parameters for factory methods (not encoded config)
     const methodParams = this.buildFactoryMethodParams(params, normalizedType);
     
+    // 🔍 DEBUG: Log the gasConfig we received
+    console.log(`📊 [GAS CONFIG DEBUG] params.gasConfig received:`, params.gasConfig);
+    console.log(`📊 [GAS CONFIG DEBUG] params.gasConfig.maxFeePerGas:`, params.gasConfig?.maxFeePerGas);
+    console.log(`📊 [GAS CONFIG DEBUG] params.gasConfig.maxPriorityFeePerGas:`, params.gasConfig?.maxPriorityFeePerGas);
+    
     // ✅ FIX #5: Build gas options from params.gasConfig
     const gasOptions = this.buildGasOptions(params.gasConfig);
     
+    // ✅ FIX #10: Add explicit nonce management to prevent stuck transactions
+    // Check for pending transactions and warn if nonce gap exists
+    const latestNonce = await wallet.provider.getTransactionCount(wallet.address, 'latest');
+    const pendingNonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
+    
+    console.log(`🔢 [NONCE CHECK] Wallet: ${wallet.address}`);
+    console.log(`   - Latest Nonce (mined): ${latestNonce}`);
+    console.log(`   - Pending Nonce: ${pendingNonce}`);
+    console.log(`   - Pending Transactions: ${pendingNonce - latestNonce}`);
+    
+    if (pendingNonce > latestNonce) {
+      const pendingCount = pendingNonce - latestNonce;
+      console.warn(`⚠️ [NONCE WARNING] ${pendingCount} pending transaction(s) detected!`);
+      console.warn(`   This transaction will use nonce ${pendingNonce} and wait for nonces ${latestNonce}-${pendingNonce - 1} to be mined.`);
+      console.warn(`   If previous transactions are stuck, this deployment will also be stuck.`);
+      console.warn(`   Consider using the transaction rescue utility: npx tsx scripts/clearStuckTransactions.ts`);
+    }
+    
+    // Explicitly set nonce to pending nonce to ensure proper sequencing
+    gasOptions.nonce = pendingNonce;
+    console.log(`✅ [NONCE] Using nonce: ${pendingNonce}`);
+    
     console.log(`🚀 Calling factory method: ${methodName}`);
     console.log(`📋 Method parameters:`, methodParams);
-    console.log(`⛽ Gas options:`, gasOptions);
+    console.log(`⛽ Gas options (with nonce):`, gasOptions);
     
     // ✅ FIX #9: Call factory method with individual parameters + gas options
-    if (Object.keys(gasOptions).length > 0) {
-      console.log('✅ Deploying via factory with gas configuration');
-      tx = await factory[methodName](...methodParams, gasOptions);
-    } else {
-      tx = await factory[methodName](...methodParams);
-    }
+    console.log('✅ Deploying via factory with gas configuration and explicit nonce');
+    tx = await factory[methodName](...methodParams, gasOptions);
 
     // Comprehensive transaction debugging
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);

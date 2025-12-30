@@ -235,6 +235,11 @@ export const enhancedTokenDeploymentService = {
     walletAddress?: string,
     gasConfig?: any
   ): Promise<DeploymentResult> {
+    // 🔍 DEBUG: Log gasConfig at entry
+    console.log(`🎯 [deployWithFoundry ENTRY] gasConfig received:`, gasConfig);
+    console.log(`🎯 [deployWithFoundry ENTRY] maxFeePerGas:`, gasConfig?.maxFeePerGas);
+    console.log(`🎯 [deployWithFoundry ENTRY] maxPriorityFeePerGas:`, gasConfig?.maxPriorityFeePerGas);
+    
     try {
       // Ensure we have a projectId
       if (!token.project_id) {
@@ -291,6 +296,11 @@ export const enhancedTokenDeploymentService = {
         environment,
         gasConfig  // ✅ FIX #5: Pass gas config to deployment params
       };
+      
+      // 🔍 DEBUG: Log deploymentParams.gasConfig before calling foundryDeploymentService
+      console.log(`🎯 [deployWithFoundry] deploymentParams.gasConfig before foundry call:`, deploymentParams.gasConfig);
+      console.log(`🎯 [deployWithFoundry] maxFeePerGas:`, deploymentParams.gasConfig?.maxFeePerGas);
+      console.log(`🎯 [deployWithFoundry] maxPriorityFeePerGas:`, deploymentParams.gasConfig?.maxPriorityFeePerGas);
       
       // Deploy using Foundry service with wallet address
       return await foundryDeploymentService.deployToken(

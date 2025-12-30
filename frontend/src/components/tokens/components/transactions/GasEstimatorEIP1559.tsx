@@ -42,7 +42,7 @@ import { FeePriority, NetworkCongestion } from '@/services/blockchain/FeeEstimat
 
 export interface GasEstimatorEIP1559Props {
   blockchain: string;
-  onSelectFeeData: (feeData: EIP1559FeeData) => void;
+  onSelectFeeData: (feeData: EIP1559FeeData, isManualMode?: boolean) => void;
   defaultPriority?: FeePriority;
   className?: string;
   showAdvanced?: boolean;
@@ -105,17 +105,15 @@ const GasEstimatorEIP1559: React.FC<GasEstimatorEIP1559Props> = ({
       
       setFeeData(enhancedData);
       
-      // Pass data to parent (use manual overrides if in advanced mode)
-      if (advancedMode && manualMaxFee && manualPriorityFee) {
-        const manualData: EIP1559FeeData = {
-          ...enhancedData,
-          maxFeePerGas: (parseFloat(manualMaxFee) * 1e9).toString(),
-          maxPriorityFeePerGas: (parseFloat(manualPriorityFee) * 1e9).toString()
-        };
-        onSelectFeeData(manualData);
-      } else {
-        onSelectFeeData(enhancedData);
+      // 🔥 CRITICAL FIX: If in advanced mode, DON'T send automatic values to parent
+      // Manual values will be sent by the useEffect that watches manualMaxFee/manualPriorityFee
+      if (advancedMode) {
+        console.log('⚠️ [GasEstimator] Advanced mode active - skipping automatic fee data update');
+        return;
       }
+      
+      // Only send automatic values when NOT in advanced mode
+      onSelectFeeData(enhancedData, false);
     } catch (error) {
       setError(`Failed to fetch fee data: ${(error as Error).message}`);
       console.error('Error fetching fee data:', error);
@@ -128,23 +126,38 @@ const GasEstimatorEIP1559: React.FC<GasEstimatorEIP1559Props> = ({
   useEffect(() => {
     fetchFeeData();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchFeeData, 30000);
+    // 🔥 FIX: Only set up auto-refresh when NOT in advanced mode
+    if (advancedMode) {
+      console.log('⚠️ [GasEstimator] Advanced mode enabled - auto-refresh disabled');
+      return;
+    }
+    
+    // Refresh every 30 seconds (only when NOT in advanced mode)
+    const interval = setInterval(() => {
+      if (!advancedMode) {
+        fetchFeeData();
+      }
+    }, 30000);
     
     return () => clearInterval(interval);
-  }, [blockchain, priority]);
+  }, [blockchain, priority]); // 🔥 FIX: Don't include advancedMode in dependencies
   
-  // Update parent when manual values change
+  // 🔥 NEW: Separate effect to send manual values when advanced mode is enabled or values change
   useEffect(() => {
     if (advancedMode && feeData && manualMaxFee && manualPriorityFee) {
+      console.log('📊 [GasEstimator] Sending manual gas values:', { maxFee: manualMaxFee, priorityFee: manualPriorityFee });
       const manualData: EIP1559FeeData = {
         ...feeData,
         maxFeePerGas: (parseFloat(manualMaxFee) * 1e9).toString(),
         maxPriorityFeePerGas: (parseFloat(manualPriorityFee) * 1e9).toString()
       };
-      onSelectFeeData(manualData);
+      onSelectFeeData(manualData, true); // Pass true to indicate manual mode
+    } else if (!advancedMode && feeData) {
+      // 🔥 When switching back to automatic mode, send automatic values
+      console.log('📊 [GasEstimator] Switching to automatic mode - sending automatic values');
+      onSelectFeeData(feeData, false);
     }
-  }, [manualMaxFee, manualPriorityFee, advancedMode]);
+  }, [manualMaxFee, manualPriorityFee, advancedMode, feeData]);
   
   const formatGwei = (wei: string) => {
     if (!wei) return '0';

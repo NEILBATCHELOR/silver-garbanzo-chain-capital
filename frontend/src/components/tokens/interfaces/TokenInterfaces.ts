@@ -309,12 +309,14 @@ export type FoundryTokenConfig =
 /**
  * Gas configuration for deployment transactions
  * ✅ FIX #5: Added for gas configuration passing
+ * ✅ FIX #11: Added nonce for nonce management
  */
 export interface GasConfig {
   gasPrice?: string; // Legacy gas price in Gwei
   gasLimit?: number; // Gas limit
   maxFeePerGas?: string; // EIP-1559 max fee per gas in Gwei
   maxPriorityFeePerGas?: string; // EIP-1559 max priority fee per gas in Gwei
+  nonce?: number; // Transaction nonce for nonce management
 }
 
 /**

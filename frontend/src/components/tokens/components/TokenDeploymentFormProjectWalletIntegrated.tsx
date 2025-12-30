@@ -572,19 +572,49 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   };
   
   /**
-   * Handle gas estimation from GasEstimatorEIP1559 component
+   * Handle gas estimation updates from GasEstimatorEIP1559 component
    */
-  const handleGasEstimate = (feeData: EIP1559FeeData) => {
+  const handleGasEstimate = (feeData: EIP1559FeeData, isManualMode: boolean = false) => {
     setEstimatedGasData(feeData);
     
     // Determine if network supports EIP-1559
     const supportsEIP1559 = !!(feeData.maxFeePerGas && feeData.maxPriorityFeePerGas);
     setIsEIP1559Network(supportsEIP1559);
     
+    // 🔥 CRITICAL FIX: If gas estimator is in advanced mode, don't auto-update
+    // BUT keep gasConfigMode as 'estimator' so the component stays visible
+    if (isManualMode) {
+      console.log('⚠️ [GAS ESTIMATION] Gas estimator in advanced mode - respecting manual values');
+      console.log('📊 [GAS ESTIMATION] Manual values from estimator: maxFeePerGas:', (Number(feeData.maxFeePerGas) / 1e9).toFixed(2), 'maxPriorityFeePerGas:', (Number(feeData.maxPriorityFeePerGas) / 1e9).toFixed(2));
+      // Update state with manual values from gas estimator but don't switch to manual mode
+      if (supportsEIP1559) {
+        const maxFeeGwei = (Number(feeData.maxFeePerGas) / 1e9).toFixed(2);
+        const priorityFeeGwei = (Number(feeData.maxPriorityFeePerGas) / 1e9).toFixed(2);
+        
+        setMaxFeePerGas(maxFeeGwei);
+        setMaxPriorityFeePerGas(priorityFeeGwei);
+        onMaxFeePerGasChange?.(maxFeeGwei);
+        onMaxPriorityFeePerGasChange?.(priorityFeeGwei);
+        setGasPrice(maxFeeGwei);
+        onGasPriceChange?.(maxFeeGwei);
+      }
+      return; // Don't do automatic updates
+    }
+    
+    // 🔥 CRITICAL FIX: Only auto-update if in estimator mode AND not in manual config mode
+    if (gasConfigMode === 'manual') {
+      console.log('⚠️ [GAS ESTIMATION] Skipping automatic gas update - user switched to manual configuration');
+      console.log('📊 [GAS ESTIMATION] Manual values: maxFeePerGas:', maxFeePerGas, 'maxPriorityFeePerGas:', maxPriorityFeePerGas);
+      return;  // Do NOT overwrite user's manual settings
+    }
+    
     if (supportsEIP1559) {
       // EIP-1559 network - use maxFeePerGas and maxPriorityFeePerGas
       const maxFeeGwei = (Number(feeData.maxFeePerGas) / 1e9).toFixed(2);
       const priorityFeeGwei = (Number(feeData.maxPriorityFeePerGas) / 1e9).toFixed(2);
+      
+      console.log('🤖 [GAS ESTIMATION] Auto-updating gas settings (estimator mode)');
+      console.log('📊 [GAS ESTIMATION] New values: maxFeePerGas:', maxFeeGwei, 'maxPriorityFeePerGas:', priorityFeeGwei);
       
       setMaxFeePerGas(maxFeeGwei);
       setMaxPriorityFeePerGas(priorityFeeGwei);
@@ -637,6 +667,7 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const handleGasPriceChange = (value: string) => {
     setGasPrice(value);
     onGasPriceChange?.(value);
+    setGasConfigMode('manual');  // 🔥 Mark as manual configuration
   };
   
   /**
@@ -645,6 +676,25 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
   const handleGasLimitChange = (value: number) => {
     setGasLimit(value);
     onGasLimitChange?.(value);
+    setGasConfigMode('manual');  // 🔥 Mark as manual configuration
+  };
+  
+  /**
+   * Handle manual EIP-1559 max fee per gas change
+   */
+  const handleMaxFeePerGasChange = (value: string) => {
+    setMaxFeePerGas(value);
+    onMaxFeePerGasChange?.(value);
+    setGasConfigMode('manual');  // 🔥 Mark as manual configuration
+  };
+  
+  /**
+   * Handle manual EIP-1559 max priority fee per gas change
+   */
+  const handleMaxPriorityFeePerGasChange = (value: string) => {
+    setMaxPriorityFeePerGas(value);
+    onMaxPriorityFeePerGasChange?.(value);
+    setGasConfigMode('manual');  // 🔥 Mark as manual configuration
   };
   
   const handleBlockchainChange = (value: string) => {

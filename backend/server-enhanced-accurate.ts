@@ -30,6 +30,7 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
+import nonceRoutes from './src/routes/nonce'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes, etfDataInputRoutes, etfCalculationRoutes } from './src/routes/nav/index'
 import { etfTokenLinksRoutes } from './src/routes/etf-token-links.routes'
 
@@ -296,10 +297,21 @@ const SERVICE_CATALOG = {
         operations: ['Encryption', 'Decryption', 'Secure Storage', 'Key Rotation', 'Backup'],
         prefix: '/api/wallet',
         description: 'Wallet encryption and secure key management services'
+      },
+      {
+        name: 'Nonce Management',
+        endpoints: 4,
+        routes: [
+          'POST /api/nonce/reserve (reserve)', 'POST /api/nonce/confirm (confirm)',
+          'POST /api/nonce/release (release)', 'GET /api/nonce/info (info)'
+        ],
+        operations: ['Reserve', 'Confirm', 'Release', 'Query', 'Race Condition Prevention'],
+        prefix: '/api/nonce',
+        description: 'Transaction nonce management for preventing double-spending and conflicts'
       }
     ],
-    total_endpoints: 87,
-    total_services: 3
+    total_endpoints: 91,
+    total_services: 4
   },
   compliance_governance: {
     category: 'Compliance & Governance',
@@ -879,6 +891,7 @@ Comprehensive platform supporting:
     await app.register(documentRoutes, { prefix: apiPrefix })
     await app.register(walletRoutes, { prefix: apiPrefix })
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
+    await app.register(nonceRoutes)  // Nonce management at /api/nonce/*
     await app.register(baseWalletRoutes, { prefix: '/api' })  // Base Network wallet service
     await app.register(calendarRoutes, { prefix: apiPrefix })
 
@@ -1110,7 +1123,7 @@ async function start() {
     console.log(`📊 AVAILABLE SERVICES (${TOTAL_SERVICES}):`)
     console.log('   🏢 Core Business (6): Projects, Investors, Cap Tables, Tokens, Subscriptions, Documents')
     console.log('   📊 NAV Operations (5): Bond Data Input, Bond Calculations, MMF Data, MMF Calcs, MMF Enhancements')
-    console.log('   💰 Financial Ops (3): Wallets, Factoring, Wallet Encryption')
+    console.log('   💰 Financial Ops (4): Wallets, Factoring, Wallet Encryption, Nonce Management')
     console.log('   ⚖️  Compliance (4): Compliance, Organizations, Policies, Rules')
     console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
     console.log('   💳 PSP Services (10): Auth, Balances, External Accounts, Identity, Payments, Settings, Trades, Transactions, Virtual Accounts, Webhooks')
