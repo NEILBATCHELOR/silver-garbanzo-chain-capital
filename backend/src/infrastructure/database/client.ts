@@ -22,16 +22,9 @@ export async function initializeDatabase(): Promise<PrismaClient> {
   }
 
   try {
-    // Get database URL from environment
-    const databaseUrl = process.env.DATABASE_URL
-    
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL environment variable is not set')
-    }
-
-    // Prisma 7: Pass databaseUrl in constructor for direct connection
+    // Prisma 7: Connection URL is read from prisma.config.ts
+    // No need to pass it to the constructor
     prisma = new PrismaClient({
-      datasourceUrl: databaseUrl,
       log: [
         { level: 'info', emit: 'stdout' },
         { level: 'warn', emit: 'stdout' },
