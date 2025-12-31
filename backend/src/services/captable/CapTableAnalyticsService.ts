@@ -2,7 +2,7 @@
 // Provides comprehensive analytics and reporting for captable operations
 
 import { BaseService } from '../BaseService'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 import { logger } from '@/utils/logger'
 import {
   CapTableAnalytics,

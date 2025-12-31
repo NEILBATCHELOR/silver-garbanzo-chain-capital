@@ -19,7 +19,7 @@ import {
   ValidationWarning,
   ServiceResult
 } from '@/types/captable-service'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 
 export class CapTableValidationService extends BaseService {
   constructor() {

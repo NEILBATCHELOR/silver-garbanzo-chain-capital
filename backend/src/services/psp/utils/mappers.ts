@@ -5,7 +5,7 @@
  * Handles Decimal to string conversions for type safety
  */
 
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 import { decimalToString, decimalToStringOrNull } from '../../../utils/decimal-helpers'
 import type { PSPPayment, PSPTrade } from '../../../types/psp'
 

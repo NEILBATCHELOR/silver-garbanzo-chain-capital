@@ -19,7 +19,7 @@ import type {
   TransactionSummary
 } from './transactionHistoryService';
 import type { PSPBalance } from '@/types/psp';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from 'decimal.js';
 import { decimalToString } from '@/utils/decimal-helpers';
 
 export type StatementPeriod = 'daily' | 'weekly' | 'monthly' | 'custom';

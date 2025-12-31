@@ -1,7 +1,7 @@
 // Captable Service Types
 // TypeScript interfaces for the Captable backend service
 
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 import { 
   cap_tables as CapTable, 
   investors as Investor, 

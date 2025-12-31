@@ -5,7 +5,7 @@
  * Handles precision and type safety for financial calculations
  */
 
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 
 /**
  * Convert Prisma Decimal to number safely

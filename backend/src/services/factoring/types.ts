@@ -1,5 +1,5 @@
 import { ServiceResult, PaginatedResponse, QueryOptions } from '@/types/index'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 
 // Core factoring entity types based on database schema
 export interface Provider {

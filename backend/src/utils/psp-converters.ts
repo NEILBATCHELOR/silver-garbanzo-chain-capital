@@ -5,7 +5,7 @@
  * Handles Decimal ↔ String conversions and nullable field transformations.
  */
 
-import { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 import type {
   psp_balances,
   psp_payments,

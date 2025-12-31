@@ -37,24 +37,27 @@ export interface Token {
   description?: string
 }
 
-// Token Standards Enum
+// Token Standards Enum - Database uses hyphens
 export enum TokenStandard {
-  ERC_20 = 'ERC_20',
-  ERC_721 = 'ERC_721',
-  ERC_1155 = 'ERC_1155',
-  ERC_1400 = 'ERC_1400',
-  ERC_3525 = 'ERC_3525',
-  ERC_4626 = 'ERC_4626'
+  ERC_20 = 'ERC-20',
+  ERC_721 = 'ERC-721',
+  ERC_1155 = 'ERC-1155',
+  ERC_1400 = 'ERC-1400',
+  ERC_3525 = 'ERC-3525',
+  ERC_4626 = 'ERC-4626'
 }
 
-// Token Status Enum
+// Token Status Enum - Database uses spaces
 export enum TokenStatus {
   DRAFT = 'DRAFT',
-  UNDER_REVIEW = 'UNDER_REVIEW',
+  UNDER_REVIEW = 'UNDER REVIEW',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  READY_TO_MINT = 'READY TO MINT',
+  MINTED = 'MINTED',
   DEPLOYED = 'DEPLOYED',
-  READY_TO_MINT = 'READY_TO_MINT'
+  PAUSED = 'PAUSED',
+  DISTRIBUTED = 'DISTRIBUTED'
 }
 
 // Token Configuration Mode

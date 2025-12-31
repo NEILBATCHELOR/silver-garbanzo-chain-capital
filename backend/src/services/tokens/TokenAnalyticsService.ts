@@ -392,7 +392,11 @@ export class TokenAnalyticsService extends BaseService {
       ])
 
       const mostPopularConfigMode = configModeDistribution
-        .sort((a, b) => b._count - a._count)[0]?.config_mode || 'min'
+        .sort((a, b) => {
+          const countA = a._count ?? 0
+          const countB = b._count ?? 0
+          return (typeof countB === 'number' ? countB : 0) - (typeof countA === 'number' ? countA : 0)
+        })[0]?.config_mode || 'min'
 
       // Get popular features for this standard
       const popularFeatures = await this.getPopularFeaturesForStandard(standard)

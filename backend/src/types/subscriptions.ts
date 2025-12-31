@@ -6,7 +6,7 @@
  */
 
 import type { ServiceResult, PaginatedResponse } from './index'
-import type { Decimal } from '@prisma/client/runtime/library'
+import { Decimal } from 'decimal.js'
 
 // ===============================
 // Core Entity Types
