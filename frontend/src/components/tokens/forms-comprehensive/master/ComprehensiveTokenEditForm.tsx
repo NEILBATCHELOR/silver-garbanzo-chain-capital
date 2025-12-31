@@ -46,10 +46,7 @@ import {
   ERC1400PropertiesTab,
   ERC1400PartitionsTab,
   ERC1400ControllersTab,
-  ERC1400CorporateActionsTab,
-  ERC1400CustodyProvidersTab,
-  ERC1400DocumentsTab,
-  ERC1400RegulatoryFilingsTab
+  ERC1400DocumentsTab
 } from '../tabs/erc1400';
 import {
   ERC3525PropertiesTab,
@@ -219,27 +216,6 @@ const getTabConfig = (standard: TokenStandard) => {
           description: 'Legal documents',
           icon: <FileText className="w-4 h-4" />,
           component: ERC1400DocumentsTab
-        },
-        {
-          id: 'token_erc1400_corporate_actions',
-          label: 'Corporate Actions',
-          description: 'Corporate events',
-          icon: <Settings className="w-4 h-4" />,
-          component: ERC1400CorporateActionsTab
-        },
-        {
-          id: 'token_erc1400_custody_providers',
-          label: 'Custody Providers',
-          description: 'Custodian management',
-          icon: <Vault className="w-4 h-4" />,
-          component: ERC1400CustodyProvidersTab
-        },
-        {
-          id: 'token_erc1400_regulatory_filings',
-          label: 'Regulatory Filings',
-          description: 'Compliance filings',
-          icon: <Shield className="w-4 h-4" />,
-          component: ERC1400RegulatoryFilingsTab
         }
       ];
 

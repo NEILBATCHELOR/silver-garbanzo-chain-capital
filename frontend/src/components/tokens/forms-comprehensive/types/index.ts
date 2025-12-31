@@ -248,53 +248,6 @@ export interface TokenERC1400DocumentsData extends BaseTableData {
   document_name?: string; // Keep for backward compatibility
 }
 
-export interface TokenERC1400CorporateActionsData extends BaseTableData {
-  action_type: string;
-  announcement_date: string;
-  record_date?: string;
-  effective_date?: string;
-  payment_date?: string;
-  action_details: any; // jsonb
-  impact_on_supply?: string;
-  impact_on_price?: string;
-  shareholder_approval_required?: boolean;
-  voting_deadline?: string;
-  regulatory_approval_required?: boolean;
-  status?: string;
-  execution_transaction_hash?: string;
-  description?: string; // Keep for backward compatibility
-  execution_date?: string; // Keep for backward compatibility
-  parameters?: any; // Keep for backward compatibility
-}
-
-export interface TokenERC1400CustodyProvidersData extends BaseTableData {
-  provider_name: string;
-  provider_type: string;
-  provider_address?: string;
-  provider_lei?: string;
-  custody_agreement_hash?: string;
-  is_active?: boolean;
-  certification_level?: string;
-  jurisdiction?: string;
-  regulatory_approvals?: string[];
-  integration_status?: string;
-  service_types?: string[]; // Keep for backward compatibility
-}
-
-export interface TokenERC1400RegulatoryFilingsData extends BaseTableData {
-  filing_type: string;
-  filing_date: string;
-  filing_jurisdiction: string;
-  filing_reference?: string;
-  document_hash?: string;
-  document_uri?: string;
-  regulatory_body?: string;
-  compliance_status?: string;
-  due_date?: string;
-  auto_generated?: boolean;
-  status?: string; // Keep for backward compatibility
-}
-
 export interface TokenERC1400PartitionBalancesData extends BaseTableData {
   partition_id: string;
   holder_address: string;
@@ -517,9 +470,6 @@ export type TokenTableData =
   | TokenERC1400PartitionsData
   | TokenERC1400ControllersData
   | TokenERC1400DocumentsData
-  | TokenERC1400CorporateActionsData
-  | TokenERC1400CustodyProvidersData
-  | TokenERC1400RegulatoryFilingsData
   | TokenERC1400PartitionBalancesData
   | TokenERC1400PartitionOperatorsData
   | TokenERC1400PartitionTransfersData

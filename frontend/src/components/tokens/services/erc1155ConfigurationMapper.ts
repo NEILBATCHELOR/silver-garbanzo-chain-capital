@@ -16,7 +16,6 @@ export interface ERC1155FormData {
   royalty_receiver?: string;
   is_burnable?: boolean;
   is_pausable?: boolean;
-  access_control?: string;
   updatable_uris?: boolean;
   supply_tracking?: boolean;
   enable_approval_for_all?: boolean;
@@ -286,7 +285,6 @@ export class ERC1155ConfigurationMapper {
       royalty_receiver: props.royalty_receiver || '',
       is_burnable: props.is_burnable || false,
       is_pausable: props.is_pausable || false,
-      access_control: props.access_control || 'ownable',
       updatable_uris: props.updatable_uris || false,
       supply_tracking: props.supply_tracking || true,
       enable_approval_for_all: props.enable_approval_for_all ?? true,

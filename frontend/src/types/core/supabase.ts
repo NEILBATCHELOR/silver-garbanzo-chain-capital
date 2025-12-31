@@ -1238,13 +1238,6 @@ export type Database = {
             foreignKeyName: "approval_workflows_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "approval_workflows_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -1253,13 +1246,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "approval_workflows_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -7008,13 +6994,6 @@ export type Database = {
             foreignKeyName: "fk_token"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -7023,13 +7002,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -11869,13 +11841,6 @@ export type Database = {
             foreignKeyName: "etf_token_links_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "etf_token_links_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -11884,13 +11849,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "etf_token_links_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -12097,13 +12055,6 @@ export type Database = {
             foreignKeyName: "exchange_rate_history_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "exchange_rate_history_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -12112,13 +12063,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "exchange_rate_history_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -28368,13 +28312,6 @@ export type Database = {
             foreignKeyName: "token_allocations_token_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_allocations_token_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -28383,13 +28320,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_allocations_token_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -28485,13 +28415,6 @@ export type Database = {
             foreignKeyName: "token_climate_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_climate_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -28500,13 +28423,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_climate_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -28605,13 +28521,6 @@ export type Database = {
             foreignKeyName: "fk_token_id"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token_id"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -28620,13 +28529,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token_id"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -28736,13 +28638,6 @@ export type Database = {
             foreignKeyName: "token_deployment_verifications_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_deployment_verifications_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -28751,13 +28646,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_deployment_verifications_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -28871,13 +28759,6 @@ export type Database = {
             foreignKeyName: "token_deployments_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_deployments_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -28886,13 +28767,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_deployments_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29005,13 +28879,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_balances_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_balances_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29020,13 +28887,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_balances_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29121,13 +28981,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_crafting_recipes_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_crafting_recipes_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29136,13 +28989,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_crafting_recipes_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29228,13 +29074,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_discount_tiers_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_discount_tiers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29243,13 +29082,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_discount_tiers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29277,265 +29109,109 @@ export type Database = {
       }
       token_erc1155_properties: {
         Row: {
-          access_control: string | null
-          airdrop_enabled: boolean | null
-          airdrop_snapshot_block: number | null
-          atomic_swaps_enabled: boolean | null
-          base_price: string | null
           base_uri: string | null
-          batch_minting_config: Json | null
           batch_minting_enabled: boolean | null
-          batch_transfer_limits: Json | null
-          bridge_enabled: boolean | null
-          bridgeable_token_types: string[] | null
-          bulk_discount_enabled: boolean | null
-          bulk_discount_tiers: Json | null
-          bundle_trading_enabled: boolean | null
-          burn_roles: string[] | null
-          burning_enabled: boolean | null
-          claim_end_time: string | null
-          claim_period_enabled: boolean | null
-          claim_start_time: string | null
-          community_treasury_enabled: boolean | null
           compliance_config: Json | null
           compliance_module_address: string | null
-          consumable_tokens: boolean | null
-          container_config: Json | null
           container_enabled: boolean | null
-          crafting_enabled: boolean | null
           created_at: string | null
-          cross_collection_trading: boolean | null
-          default_restriction_policy: string | null
           document_config: Json | null
           document_module_address: string | null
-          dynamic_uri_config: Json | null
           dynamic_uris: boolean | null
-          enable_approval_for_all: boolean | null
-          experience_points_enabled: boolean | null
-          fusion_enabled: boolean | null
           granular_approval_config: Json | null
           has_royalty: boolean | null
           id: string
           initial_owner: string | null
           is_burnable: boolean | null
           is_pausable: boolean | null
-          layer2_support_enabled: boolean | null
-          lazy_minting_enabled: boolean | null
-          leveling_enabled: boolean | null
-          marketplace_fee_percentage: string | null
-          marketplace_fee_recipient: string | null
-          marketplace_fees_enabled: boolean | null
-          max_supply_per_type: string | null
           metadata_storage: string | null
-          metadata_update_roles: string[] | null
-          mint_roles: string[] | null
           policy_engine_address: string | null
           policy_engine_config: Json | null
-          price_multipliers: Json | null
-          pricing_model: string | null
-          proposal_creation_threshold: string | null
-          referral_percentage: string | null
-          referral_rewards_enabled: boolean | null
           royalty_config: Json | null
           royalty_module_address: string | null
           royalty_percentage: string | null
           royalty_receiver: string | null
-          sales_config: Json | null
           supply_cap_config: Json | null
           supply_cap_module_address: string | null
           supply_tracking: boolean | null
-          supply_tracking_advanced: boolean | null
-          supported_layer2_networks: string[] | null
           token_id: string
-          token_recipes: Json | null
-          transfer_restrictions: Json | null
-          treasury_percentage: string | null
-          updatable_metadata: boolean | null
           updatable_uris: boolean | null
           updated_at: string | null
           uri_management_config: Json | null
           uri_management_module_address: string | null
-          use_geographic_restrictions: boolean | null
           vesting_config: Json | null
           vesting_module_address: string | null
-          voting_power_enabled: boolean | null
-          voting_weight_per_token: Json | null
           whitelist_config: Json | null
-          wrapped_versions: Json | null
         }
         Insert: {
-          access_control?: string | null
-          airdrop_enabled?: boolean | null
-          airdrop_snapshot_block?: number | null
-          atomic_swaps_enabled?: boolean | null
-          base_price?: string | null
           base_uri?: string | null
-          batch_minting_config?: Json | null
           batch_minting_enabled?: boolean | null
-          batch_transfer_limits?: Json | null
-          bridge_enabled?: boolean | null
-          bridgeable_token_types?: string[] | null
-          bulk_discount_enabled?: boolean | null
-          bulk_discount_tiers?: Json | null
-          bundle_trading_enabled?: boolean | null
-          burn_roles?: string[] | null
-          burning_enabled?: boolean | null
-          claim_end_time?: string | null
-          claim_period_enabled?: boolean | null
-          claim_start_time?: string | null
-          community_treasury_enabled?: boolean | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          consumable_tokens?: boolean | null
-          container_config?: Json | null
           container_enabled?: boolean | null
-          crafting_enabled?: boolean | null
           created_at?: string | null
-          cross_collection_trading?: boolean | null
-          default_restriction_policy?: string | null
           document_config?: Json | null
           document_module_address?: string | null
-          dynamic_uri_config?: Json | null
           dynamic_uris?: boolean | null
-          enable_approval_for_all?: boolean | null
-          experience_points_enabled?: boolean | null
-          fusion_enabled?: boolean | null
           granular_approval_config?: Json | null
           has_royalty?: boolean | null
           id?: string
           initial_owner?: string | null
           is_burnable?: boolean | null
           is_pausable?: boolean | null
-          layer2_support_enabled?: boolean | null
-          lazy_minting_enabled?: boolean | null
-          leveling_enabled?: boolean | null
-          marketplace_fee_percentage?: string | null
-          marketplace_fee_recipient?: string | null
-          marketplace_fees_enabled?: boolean | null
-          max_supply_per_type?: string | null
           metadata_storage?: string | null
-          metadata_update_roles?: string[] | null
-          mint_roles?: string[] | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
-          price_multipliers?: Json | null
-          pricing_model?: string | null
-          proposal_creation_threshold?: string | null
-          referral_percentage?: string | null
-          referral_rewards_enabled?: boolean | null
           royalty_config?: Json | null
           royalty_module_address?: string | null
           royalty_percentage?: string | null
           royalty_receiver?: string | null
-          sales_config?: Json | null
           supply_cap_config?: Json | null
           supply_cap_module_address?: string | null
           supply_tracking?: boolean | null
-          supply_tracking_advanced?: boolean | null
-          supported_layer2_networks?: string[] | null
           token_id: string
-          token_recipes?: Json | null
-          transfer_restrictions?: Json | null
-          treasury_percentage?: string | null
-          updatable_metadata?: boolean | null
           updatable_uris?: boolean | null
           updated_at?: string | null
           uri_management_config?: Json | null
           uri_management_module_address?: string | null
-          use_geographic_restrictions?: boolean | null
           vesting_config?: Json | null
           vesting_module_address?: string | null
-          voting_power_enabled?: boolean | null
-          voting_weight_per_token?: Json | null
           whitelist_config?: Json | null
-          wrapped_versions?: Json | null
         }
         Update: {
-          access_control?: string | null
-          airdrop_enabled?: boolean | null
-          airdrop_snapshot_block?: number | null
-          atomic_swaps_enabled?: boolean | null
-          base_price?: string | null
           base_uri?: string | null
-          batch_minting_config?: Json | null
           batch_minting_enabled?: boolean | null
-          batch_transfer_limits?: Json | null
-          bridge_enabled?: boolean | null
-          bridgeable_token_types?: string[] | null
-          bulk_discount_enabled?: boolean | null
-          bulk_discount_tiers?: Json | null
-          bundle_trading_enabled?: boolean | null
-          burn_roles?: string[] | null
-          burning_enabled?: boolean | null
-          claim_end_time?: string | null
-          claim_period_enabled?: boolean | null
-          claim_start_time?: string | null
-          community_treasury_enabled?: boolean | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          consumable_tokens?: boolean | null
-          container_config?: Json | null
           container_enabled?: boolean | null
-          crafting_enabled?: boolean | null
           created_at?: string | null
-          cross_collection_trading?: boolean | null
-          default_restriction_policy?: string | null
           document_config?: Json | null
           document_module_address?: string | null
-          dynamic_uri_config?: Json | null
           dynamic_uris?: boolean | null
-          enable_approval_for_all?: boolean | null
-          experience_points_enabled?: boolean | null
-          fusion_enabled?: boolean | null
           granular_approval_config?: Json | null
           has_royalty?: boolean | null
           id?: string
           initial_owner?: string | null
           is_burnable?: boolean | null
           is_pausable?: boolean | null
-          layer2_support_enabled?: boolean | null
-          lazy_minting_enabled?: boolean | null
-          leveling_enabled?: boolean | null
-          marketplace_fee_percentage?: string | null
-          marketplace_fee_recipient?: string | null
-          marketplace_fees_enabled?: boolean | null
-          max_supply_per_type?: string | null
           metadata_storage?: string | null
-          metadata_update_roles?: string[] | null
-          mint_roles?: string[] | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
-          price_multipliers?: Json | null
-          pricing_model?: string | null
-          proposal_creation_threshold?: string | null
-          referral_percentage?: string | null
-          referral_rewards_enabled?: boolean | null
           royalty_config?: Json | null
           royalty_module_address?: string | null
           royalty_percentage?: string | null
           royalty_receiver?: string | null
-          sales_config?: Json | null
           supply_cap_config?: Json | null
           supply_cap_module_address?: string | null
           supply_tracking?: boolean | null
-          supply_tracking_advanced?: boolean | null
-          supported_layer2_networks?: string[] | null
           token_id?: string
-          token_recipes?: Json | null
-          transfer_restrictions?: Json | null
-          treasury_percentage?: string | null
-          updatable_metadata?: boolean | null
           updatable_uris?: boolean | null
           updated_at?: string | null
           uri_management_config?: Json | null
           uri_management_module_address?: string | null
-          use_geographic_restrictions?: boolean | null
           vesting_config?: Json | null
           vesting_module_address?: string | null
-          voting_power_enabled?: boolean | null
-          voting_weight_per_token?: Json | null
           whitelist_config?: Json | null
-          wrapped_versions?: Json | null
         }
         Relationships: [
           {
@@ -29563,13 +29239,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29578,13 +29247,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29685,13 +29347,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_type_configs_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_type_configs_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29700,13 +29355,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_type_configs_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29795,13 +29443,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_types_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_types_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29810,13 +29451,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_types_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29893,13 +29527,6 @@ export type Database = {
             foreignKeyName: "token_erc1155_uri_mappings_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_uri_mappings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -29908,13 +29535,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1155_uri_mappings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -29991,13 +29611,6 @@ export type Database = {
             foreignKeyName: "token_erc1400_controllers_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_controllers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -30006,13 +29619,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_controllers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -30031,259 +29637,6 @@ export type Database = {
           },
           {
             foreignKeyName: "token_erc1400_controllers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "tokens"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      token_erc1400_corporate_actions: {
-        Row: {
-          action_details: Json
-          action_type: string
-          announcement_date: string
-          created_at: string | null
-          effective_date: string | null
-          execution_transaction_hash: string | null
-          id: string
-          impact_on_price: string | null
-          impact_on_supply: string | null
-          payment_date: string | null
-          record_date: string | null
-          regulatory_approval_required: boolean | null
-          shareholder_approval_required: boolean | null
-          status: string | null
-          token_id: string
-          updated_at: string | null
-          voting_deadline: string | null
-        }
-        Insert: {
-          action_details: Json
-          action_type: string
-          announcement_date: string
-          created_at?: string | null
-          effective_date?: string | null
-          execution_transaction_hash?: string | null
-          id?: string
-          impact_on_price?: string | null
-          impact_on_supply?: string | null
-          payment_date?: string | null
-          record_date?: string | null
-          regulatory_approval_required?: boolean | null
-          shareholder_approval_required?: boolean | null
-          status?: string | null
-          token_id: string
-          updated_at?: string | null
-          voting_deadline?: string | null
-        }
-        Update: {
-          action_details?: Json
-          action_type?: string
-          announcement_date?: string
-          created_at?: string | null
-          effective_date?: string | null
-          execution_transaction_hash?: string | null
-          id?: string
-          impact_on_price?: string | null
-          impact_on_supply?: string | null
-          payment_date?: string | null
-          record_date?: string | null
-          regulatory_approval_required?: boolean | null
-          shareholder_approval_required?: boolean | null
-          status?: string | null
-          token_id?: string
-          updated_at?: string | null
-          voting_deadline?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "climate_token_summary"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "problematic_token_deployments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc1155_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc20_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc721_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_whitelist_summary"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_corporate_actions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "tokens"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      token_erc1400_custody_providers: {
-        Row: {
-          certification_level: string | null
-          created_at: string | null
-          custody_agreement_hash: string | null
-          id: string
-          integration_status: string | null
-          is_active: boolean | null
-          jurisdiction: string | null
-          provider_address: string | null
-          provider_lei: string | null
-          provider_name: string
-          provider_type: string
-          regulatory_approvals: string[] | null
-          token_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          certification_level?: string | null
-          created_at?: string | null
-          custody_agreement_hash?: string | null
-          id?: string
-          integration_status?: string | null
-          is_active?: boolean | null
-          jurisdiction?: string | null
-          provider_address?: string | null
-          provider_lei?: string | null
-          provider_name: string
-          provider_type: string
-          regulatory_approvals?: string[] | null
-          token_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          certification_level?: string | null
-          created_at?: string | null
-          custody_agreement_hash?: string | null
-          id?: string
-          integration_status?: string | null
-          is_active?: boolean | null
-          jurisdiction?: string | null
-          provider_address?: string | null
-          provider_lei?: string | null
-          provider_name?: string
-          provider_type?: string
-          regulatory_approvals?: string[] | null
-          token_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "climate_token_summary"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "problematic_token_deployments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc1155_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc20_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc721_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_whitelist_summary"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_custody_providers_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "tokens"
@@ -30348,13 +29701,6 @@ export type Database = {
             foreignKeyName: "token_erc1400_documents_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_documents_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -30363,13 +29709,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_documents_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -30593,13 +29932,6 @@ export type Database = {
             foreignKeyName: "token_erc1400_partitions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_partitions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -30608,13 +29940,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_partitions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -30643,41 +29968,20 @@ export type Database = {
       token_erc1400_properties: {
         Row: {
           accredited_investor_only: boolean | null
-          advanced_corporate_actions: boolean | null
-          advanced_governance_enabled: boolean | null
-          advanced_risk_management: boolean | null
-          aml_monitoring_enabled: boolean | null
-          audit_trail_comprehensive: boolean | null
           auto_compliance: boolean | null
-          automated_sanctions_screening: boolean | null
-          beneficial_ownership_tracking: boolean | null
-          board_election_support: boolean | null
-          buyback_programs_enabled: boolean | null
           cap: string | null
-          central_securities_depository_integration: boolean | null
-          clearing_house_integration: boolean | null
-          collateral_management_enabled: boolean | null
           compliance_automation_level: string | null
           compliance_module: string | null
           compliance_module_address: string | null
-          compliance_officer_notifications: boolean | null
           compliance_settings: Json | null
-          concentration_limits: Json | null
           controller_address: string | null
           controller_config: Json | null
           controller_module_address: string | null
           corporate_actions: boolean | null
           created_at: string | null
-          cross_border_trading_enabled: boolean | null
-          cross_chain_bridge_support: boolean | null
-          cumulative_voting_enabled: boolean | null
-          currency_hedging_enabled: boolean | null
-          custody_integration_enabled: boolean | null
           custom_features: Json | null
           decimals: number | null
           default_partitions: Json | null
-          default_restriction_policy: string | null
-          disaster_recovery_enabled: boolean | null
           dividend_distribution: boolean | null
           document_hash: string | null
           document_management: boolean | null
@@ -30685,24 +29989,16 @@ export type Database = {
           document_uri: string | null
           enforce_kyc: boolean | null
           enhanced_document_config: Json | null
-          enhanced_reporting_enabled: boolean | null
           enhanced_transfer_restrictions_config: Json | null
           erc1400_document_module_address: string | null
-          esg_reporting_enabled: boolean | null
-          financial_data_vendor_integration: boolean | null
           forced_redemption_enabled: boolean | null
           forced_transfers: boolean | null
-          foreign_ownership_restrictions: Json | null
-          geographic_restrictions: Json | null
           granular_control: boolean | null
+          granularity: number | null
           holding_period: number | null
           id: string
           initial_owner: string | null
           initial_supply: string | null
-          institutional_grade: boolean | null
-          institutional_voting_services: boolean | null
-          institutional_wallet_support: boolean | null
-          insurance_coverage_enabled: boolean | null
           investor_accreditation: boolean | null
           investor_limits: Json | null
           investor_whitelist_enabled: boolean | null
@@ -30711,107 +30007,47 @@ export type Database = {
           is_mintable: boolean | null
           is_multi_class: boolean | null
           is_pausable: boolean | null
-          iso20022_messaging_support: boolean | null
           issuance_modules: boolean | null
           issuing_entity_lei: string | null
           issuing_entity_name: string | null
           issuing_jurisdiction: string | null
           jurisdiction_restrictions: Json | null
           kyc_settings: Json | null
-          layer2_scaling_support: boolean | null
           legal_terms: string | null
           manual_approvals: boolean | null
-          margin_requirements_dynamic: boolean | null
-          market_data_feeds_enabled: boolean | null
           max_investor_count: number | null
-          mergers_acquisitions_support: boolean | null
-          multi_jurisdiction_compliance: boolean | null
           partition_config: Json | null
-          passport_regime_support: boolean | null
-          pep_screening_enabled: boolean | null
-          performance_analytics_enabled: boolean | null
           policy_engine_address: string | null
-          position_limits_enabled: boolean | null
-          position_reconciliation_enabled: boolean | null
-          price_discovery_mechanisms: Json | null
-          prime_brokerage_support: boolean | null
           prospectus: string | null
-          proxy_voting_enabled: boolean | null
-          quorum_requirements: Json | null
-          real_time_compliance_monitoring: boolean | null
-          real_time_shareholder_registry: boolean | null
           recovery_mechanism: boolean | null
           regulation_type: string | null
-          regulatory_equivalence_mapping: Json | null
-          regulatory_filing_automation: boolean | null
-          regulatory_reporting_automation: boolean | null
           require_kyc: boolean | null
-          rights_offerings_enabled: boolean | null
           security_type: string | null
-          settlement_integration: string | null
-          share_repurchase_automation: boolean | null
-          spin_offs_enabled: boolean | null
-          stock_dividends_enabled: boolean | null
-          stock_splits_enabled: boolean | null
-          stress_testing_enabled: boolean | null
-          suspicious_activity_reporting: boolean | null
-          swift_integration_enabled: boolean | null
-          third_party_custody_addresses: string[] | null
           token_details: string | null
           token_id: string
-          traditional_finance_integration: boolean | null
           tranche_transferability: boolean | null
-          transaction_monitoring_rules: Json | null
-          transfer_restrictions: Json | null
           transfer_restrictions_module_address: string | null
-          treasury_management_enabled: boolean | null
-          treaty_benefits_enabled: boolean | null
           updated_at: string | null
-          use_geographic_restrictions: boolean | null
           vesting_module_address: string | null
-          voting_delegation_enabled: boolean | null
-          weighted_voting_by_class: boolean | null
           whitelist_config: Json | null
           whitelist_enabled: boolean | null
-          withholding_tax_automation: boolean | null
         }
         Insert: {
           accredited_investor_only?: boolean | null
-          advanced_corporate_actions?: boolean | null
-          advanced_governance_enabled?: boolean | null
-          advanced_risk_management?: boolean | null
-          aml_monitoring_enabled?: boolean | null
-          audit_trail_comprehensive?: boolean | null
           auto_compliance?: boolean | null
-          automated_sanctions_screening?: boolean | null
-          beneficial_ownership_tracking?: boolean | null
-          board_election_support?: boolean | null
-          buyback_programs_enabled?: boolean | null
           cap?: string | null
-          central_securities_depository_integration?: boolean | null
-          clearing_house_integration?: boolean | null
-          collateral_management_enabled?: boolean | null
           compliance_automation_level?: string | null
           compliance_module?: string | null
           compliance_module_address?: string | null
-          compliance_officer_notifications?: boolean | null
           compliance_settings?: Json | null
-          concentration_limits?: Json | null
           controller_address?: string | null
           controller_config?: Json | null
           controller_module_address?: string | null
           corporate_actions?: boolean | null
           created_at?: string | null
-          cross_border_trading_enabled?: boolean | null
-          cross_chain_bridge_support?: boolean | null
-          cumulative_voting_enabled?: boolean | null
-          currency_hedging_enabled?: boolean | null
-          custody_integration_enabled?: boolean | null
           custom_features?: Json | null
           decimals?: number | null
           default_partitions?: Json | null
-          default_restriction_policy?: string | null
-          disaster_recovery_enabled?: boolean | null
           dividend_distribution?: boolean | null
           document_hash?: string | null
           document_management?: boolean | null
@@ -30819,24 +30055,16 @@ export type Database = {
           document_uri?: string | null
           enforce_kyc?: boolean | null
           enhanced_document_config?: Json | null
-          enhanced_reporting_enabled?: boolean | null
           enhanced_transfer_restrictions_config?: Json | null
           erc1400_document_module_address?: string | null
-          esg_reporting_enabled?: boolean | null
-          financial_data_vendor_integration?: boolean | null
           forced_redemption_enabled?: boolean | null
           forced_transfers?: boolean | null
-          foreign_ownership_restrictions?: Json | null
-          geographic_restrictions?: Json | null
           granular_control?: boolean | null
+          granularity?: number | null
           holding_period?: number | null
           id?: string
           initial_owner?: string | null
           initial_supply?: string | null
-          institutional_grade?: boolean | null
-          institutional_voting_services?: boolean | null
-          institutional_wallet_support?: boolean | null
-          insurance_coverage_enabled?: boolean | null
           investor_accreditation?: boolean | null
           investor_limits?: Json | null
           investor_whitelist_enabled?: boolean | null
@@ -30845,107 +30073,47 @@ export type Database = {
           is_mintable?: boolean | null
           is_multi_class?: boolean | null
           is_pausable?: boolean | null
-          iso20022_messaging_support?: boolean | null
           issuance_modules?: boolean | null
           issuing_entity_lei?: string | null
           issuing_entity_name?: string | null
           issuing_jurisdiction?: string | null
           jurisdiction_restrictions?: Json | null
           kyc_settings?: Json | null
-          layer2_scaling_support?: boolean | null
           legal_terms?: string | null
           manual_approvals?: boolean | null
-          margin_requirements_dynamic?: boolean | null
-          market_data_feeds_enabled?: boolean | null
           max_investor_count?: number | null
-          mergers_acquisitions_support?: boolean | null
-          multi_jurisdiction_compliance?: boolean | null
           partition_config?: Json | null
-          passport_regime_support?: boolean | null
-          pep_screening_enabled?: boolean | null
-          performance_analytics_enabled?: boolean | null
           policy_engine_address?: string | null
-          position_limits_enabled?: boolean | null
-          position_reconciliation_enabled?: boolean | null
-          price_discovery_mechanisms?: Json | null
-          prime_brokerage_support?: boolean | null
           prospectus?: string | null
-          proxy_voting_enabled?: boolean | null
-          quorum_requirements?: Json | null
-          real_time_compliance_monitoring?: boolean | null
-          real_time_shareholder_registry?: boolean | null
           recovery_mechanism?: boolean | null
           regulation_type?: string | null
-          regulatory_equivalence_mapping?: Json | null
-          regulatory_filing_automation?: boolean | null
-          regulatory_reporting_automation?: boolean | null
           require_kyc?: boolean | null
-          rights_offerings_enabled?: boolean | null
           security_type?: string | null
-          settlement_integration?: string | null
-          share_repurchase_automation?: boolean | null
-          spin_offs_enabled?: boolean | null
-          stock_dividends_enabled?: boolean | null
-          stock_splits_enabled?: boolean | null
-          stress_testing_enabled?: boolean | null
-          suspicious_activity_reporting?: boolean | null
-          swift_integration_enabled?: boolean | null
-          third_party_custody_addresses?: string[] | null
           token_details?: string | null
           token_id: string
-          traditional_finance_integration?: boolean | null
           tranche_transferability?: boolean | null
-          transaction_monitoring_rules?: Json | null
-          transfer_restrictions?: Json | null
           transfer_restrictions_module_address?: string | null
-          treasury_management_enabled?: boolean | null
-          treaty_benefits_enabled?: boolean | null
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
           vesting_module_address?: string | null
-          voting_delegation_enabled?: boolean | null
-          weighted_voting_by_class?: boolean | null
           whitelist_config?: Json | null
           whitelist_enabled?: boolean | null
-          withholding_tax_automation?: boolean | null
         }
         Update: {
           accredited_investor_only?: boolean | null
-          advanced_corporate_actions?: boolean | null
-          advanced_governance_enabled?: boolean | null
-          advanced_risk_management?: boolean | null
-          aml_monitoring_enabled?: boolean | null
-          audit_trail_comprehensive?: boolean | null
           auto_compliance?: boolean | null
-          automated_sanctions_screening?: boolean | null
-          beneficial_ownership_tracking?: boolean | null
-          board_election_support?: boolean | null
-          buyback_programs_enabled?: boolean | null
           cap?: string | null
-          central_securities_depository_integration?: boolean | null
-          clearing_house_integration?: boolean | null
-          collateral_management_enabled?: boolean | null
           compliance_automation_level?: string | null
           compliance_module?: string | null
           compliance_module_address?: string | null
-          compliance_officer_notifications?: boolean | null
           compliance_settings?: Json | null
-          concentration_limits?: Json | null
           controller_address?: string | null
           controller_config?: Json | null
           controller_module_address?: string | null
           corporate_actions?: boolean | null
           created_at?: string | null
-          cross_border_trading_enabled?: boolean | null
-          cross_chain_bridge_support?: boolean | null
-          cumulative_voting_enabled?: boolean | null
-          currency_hedging_enabled?: boolean | null
-          custody_integration_enabled?: boolean | null
           custom_features?: Json | null
           decimals?: number | null
           default_partitions?: Json | null
-          default_restriction_policy?: string | null
-          disaster_recovery_enabled?: boolean | null
           dividend_distribution?: boolean | null
           document_hash?: string | null
           document_management?: boolean | null
@@ -30953,24 +30121,16 @@ export type Database = {
           document_uri?: string | null
           enforce_kyc?: boolean | null
           enhanced_document_config?: Json | null
-          enhanced_reporting_enabled?: boolean | null
           enhanced_transfer_restrictions_config?: Json | null
           erc1400_document_module_address?: string | null
-          esg_reporting_enabled?: boolean | null
-          financial_data_vendor_integration?: boolean | null
           forced_redemption_enabled?: boolean | null
           forced_transfers?: boolean | null
-          foreign_ownership_restrictions?: Json | null
-          geographic_restrictions?: Json | null
           granular_control?: boolean | null
+          granularity?: number | null
           holding_period?: number | null
           id?: string
           initial_owner?: string | null
           initial_supply?: string | null
-          institutional_grade?: boolean | null
-          institutional_voting_services?: boolean | null
-          institutional_wallet_support?: boolean | null
-          insurance_coverage_enabled?: boolean | null
           investor_accreditation?: boolean | null
           investor_limits?: Json | null
           investor_whitelist_enabled?: boolean | null
@@ -30979,69 +30139,30 @@ export type Database = {
           is_mintable?: boolean | null
           is_multi_class?: boolean | null
           is_pausable?: boolean | null
-          iso20022_messaging_support?: boolean | null
           issuance_modules?: boolean | null
           issuing_entity_lei?: string | null
           issuing_entity_name?: string | null
           issuing_jurisdiction?: string | null
           jurisdiction_restrictions?: Json | null
           kyc_settings?: Json | null
-          layer2_scaling_support?: boolean | null
           legal_terms?: string | null
           manual_approvals?: boolean | null
-          margin_requirements_dynamic?: boolean | null
-          market_data_feeds_enabled?: boolean | null
           max_investor_count?: number | null
-          mergers_acquisitions_support?: boolean | null
-          multi_jurisdiction_compliance?: boolean | null
           partition_config?: Json | null
-          passport_regime_support?: boolean | null
-          pep_screening_enabled?: boolean | null
-          performance_analytics_enabled?: boolean | null
           policy_engine_address?: string | null
-          position_limits_enabled?: boolean | null
-          position_reconciliation_enabled?: boolean | null
-          price_discovery_mechanisms?: Json | null
-          prime_brokerage_support?: boolean | null
           prospectus?: string | null
-          proxy_voting_enabled?: boolean | null
-          quorum_requirements?: Json | null
-          real_time_compliance_monitoring?: boolean | null
-          real_time_shareholder_registry?: boolean | null
           recovery_mechanism?: boolean | null
           regulation_type?: string | null
-          regulatory_equivalence_mapping?: Json | null
-          regulatory_filing_automation?: boolean | null
-          regulatory_reporting_automation?: boolean | null
           require_kyc?: boolean | null
-          rights_offerings_enabled?: boolean | null
           security_type?: string | null
-          settlement_integration?: string | null
-          share_repurchase_automation?: boolean | null
-          spin_offs_enabled?: boolean | null
-          stock_dividends_enabled?: boolean | null
-          stock_splits_enabled?: boolean | null
-          stress_testing_enabled?: boolean | null
-          suspicious_activity_reporting?: boolean | null
-          swift_integration_enabled?: boolean | null
-          third_party_custody_addresses?: string[] | null
           token_details?: string | null
           token_id?: string
-          traditional_finance_integration?: boolean | null
           tranche_transferability?: boolean | null
-          transaction_monitoring_rules?: Json | null
-          transfer_restrictions?: Json | null
           transfer_restrictions_module_address?: string | null
-          treasury_management_enabled?: boolean | null
-          treaty_benefits_enabled?: boolean | null
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
           vesting_module_address?: string | null
-          voting_delegation_enabled?: boolean | null
-          weighted_voting_by_class?: boolean | null
           whitelist_config?: Json | null
           whitelist_enabled?: boolean | null
-          withholding_tax_automation?: boolean | null
         }
         Relationships: [
           {
@@ -31069,13 +30190,6 @@ export type Database = {
             foreignKeyName: "token_erc1400_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -31084,13 +30198,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -31111,128 +30218,6 @@ export type Database = {
             foreignKeyName: "token_erc1400_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "tokens"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      token_erc1400_regulatory_filings: {
-        Row: {
-          auto_generated: boolean | null
-          compliance_status: string | null
-          created_at: string | null
-          document_hash: string | null
-          document_uri: string | null
-          due_date: string | null
-          filing_date: string
-          filing_jurisdiction: string
-          filing_reference: string | null
-          filing_type: string
-          id: string
-          regulatory_body: string | null
-          token_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          auto_generated?: boolean | null
-          compliance_status?: string | null
-          created_at?: string | null
-          document_hash?: string | null
-          document_uri?: string | null
-          due_date?: string | null
-          filing_date: string
-          filing_jurisdiction: string
-          filing_reference?: string | null
-          filing_type: string
-          id?: string
-          regulatory_body?: string | null
-          token_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          auto_generated?: boolean | null
-          compliance_status?: string | null
-          created_at?: string | null
-          document_hash?: string | null
-          document_uri?: string | null
-          due_date?: string | null
-          filing_date?: string
-          filing_jurisdiction?: string
-          filing_reference?: string | null
-          filing_type?: string
-          id?: string
-          regulatory_body?: string | null
-          token_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "climate_token_summary"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "problematic_token_deployments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc1155_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc20_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc721_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_whitelist_summary"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc1400_regulatory_filings_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "tokens"
             referencedColumns: ["id"]
           },
@@ -31240,268 +30225,112 @@ export type Database = {
       }
       token_erc20_properties: {
         Row: {
-          access_control: string | null
-          allow_management: boolean | null
-          anti_whale_enabled: boolean | null
-          auto_liquidity_enabled: boolean | null
-          blacklist_enabled: boolean | null
-          burn_on_transfer: boolean | null
-          burn_percentage: string | null
-          burnable_by: string | null
-          buy_fee_enabled: boolean | null
           cap: string | null
-          charity_fee_percentage: string | null
           compliance_config: Json | null
           compliance_module_address: string | null
-          cooldown_period: number | null
           created_at: string | null
-          default_restriction_policy: string | null
-          deflation_enabled: boolean | null
-          deflation_rate: string | null
           document_config: Json | null
-          fee_on_transfer: Json | null
+          document_module_address: string | null
           fees_config: Json | null
           fees_module_address: string | null
           flash_mint_config: Json | null
           flash_mint_module_address: string | null
-          gas_config: Json | null
-          governance_enabled: boolean | null
-          governance_features: Json | null
-          governance_token_address: string | null
           id: string
           initial_owner: string | null
           initial_supply: string | null
           is_burnable: boolean | null
           is_mintable: boolean | null
           is_pausable: boolean | null
-          liquidity_fee_percentage: string | null
-          lottery_enabled: boolean | null
-          lottery_percentage: string | null
-          marketing_fee_percentage: string | null
-          max_total_supply: string | null
-          max_wallet_amount: string | null
-          mintable_by: string | null
-          pausable_by: string | null
           payable_token_config: Json | null
           payable_token_module_address: string | null
-          permit: boolean | null
           permit_config: Json | null
           permit_module_address: string | null
           policy_engine_address: string | null
           policy_engine_config: Json | null
-          presale_enabled: boolean | null
-          presale_end_time: string | null
-          presale_rate: string | null
-          presale_start_time: string | null
-          proposal_threshold: string | null
-          quorum_percentage: string | null
-          rebasing: Json | null
-          reflection_enabled: boolean | null
-          reflection_percentage: string | null
-          sell_fee_enabled: boolean | null
-          snapshot: boolean | null
           snapshot_config: Json | null
           snapshot_module_address: string | null
-          staking_enabled: boolean | null
-          staking_rewards_rate: string | null
           temporary_approval_config: Json | null
           temporary_approval_module_address: string | null
           timelock_config: Json | null
-          timelock_delay: number | null
           timelock_module_address: string | null
           token_id: string
-          token_type: string | null
-          trading_start_time: string | null
-          transfer_config: Json | null
           updated_at: string | null
-          use_geographic_restrictions: boolean | null
-          vesting_cliff_period: number | null
           vesting_config: Json | null
-          vesting_enabled: boolean | null
           vesting_module_address: string | null
-          vesting_release_frequency: string | null
-          vesting_total_period: number | null
           votes_config: Json | null
           votes_module_address: string | null
-          voting_delay: number | null
-          voting_period: number | null
-          whitelist_config: Json | null
         }
         Insert: {
-          access_control?: string | null
-          allow_management?: boolean | null
-          anti_whale_enabled?: boolean | null
-          auto_liquidity_enabled?: boolean | null
-          blacklist_enabled?: boolean | null
-          burn_on_transfer?: boolean | null
-          burn_percentage?: string | null
-          burnable_by?: string | null
-          buy_fee_enabled?: boolean | null
           cap?: string | null
-          charity_fee_percentage?: string | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          cooldown_period?: number | null
           created_at?: string | null
-          default_restriction_policy?: string | null
-          deflation_enabled?: boolean | null
-          deflation_rate?: string | null
           document_config?: Json | null
-          fee_on_transfer?: Json | null
+          document_module_address?: string | null
           fees_config?: Json | null
           fees_module_address?: string | null
           flash_mint_config?: Json | null
           flash_mint_module_address?: string | null
-          gas_config?: Json | null
-          governance_enabled?: boolean | null
-          governance_features?: Json | null
-          governance_token_address?: string | null
           id?: string
           initial_owner?: string | null
           initial_supply?: string | null
           is_burnable?: boolean | null
           is_mintable?: boolean | null
           is_pausable?: boolean | null
-          liquidity_fee_percentage?: string | null
-          lottery_enabled?: boolean | null
-          lottery_percentage?: string | null
-          marketing_fee_percentage?: string | null
-          max_total_supply?: string | null
-          max_wallet_amount?: string | null
-          mintable_by?: string | null
-          pausable_by?: string | null
           payable_token_config?: Json | null
           payable_token_module_address?: string | null
-          permit?: boolean | null
           permit_config?: Json | null
           permit_module_address?: string | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
-          presale_enabled?: boolean | null
-          presale_end_time?: string | null
-          presale_rate?: string | null
-          presale_start_time?: string | null
-          proposal_threshold?: string | null
-          quorum_percentage?: string | null
-          rebasing?: Json | null
-          reflection_enabled?: boolean | null
-          reflection_percentage?: string | null
-          sell_fee_enabled?: boolean | null
-          snapshot?: boolean | null
           snapshot_config?: Json | null
           snapshot_module_address?: string | null
-          staking_enabled?: boolean | null
-          staking_rewards_rate?: string | null
           temporary_approval_config?: Json | null
           temporary_approval_module_address?: string | null
           timelock_config?: Json | null
-          timelock_delay?: number | null
           timelock_module_address?: string | null
           token_id: string
-          token_type?: string | null
-          trading_start_time?: string | null
-          transfer_config?: Json | null
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
-          vesting_cliff_period?: number | null
           vesting_config?: Json | null
-          vesting_enabled?: boolean | null
           vesting_module_address?: string | null
-          vesting_release_frequency?: string | null
-          vesting_total_period?: number | null
           votes_config?: Json | null
           votes_module_address?: string | null
-          voting_delay?: number | null
-          voting_period?: number | null
-          whitelist_config?: Json | null
         }
         Update: {
-          access_control?: string | null
-          allow_management?: boolean | null
-          anti_whale_enabled?: boolean | null
-          auto_liquidity_enabled?: boolean | null
-          blacklist_enabled?: boolean | null
-          burn_on_transfer?: boolean | null
-          burn_percentage?: string | null
-          burnable_by?: string | null
-          buy_fee_enabled?: boolean | null
           cap?: string | null
-          charity_fee_percentage?: string | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          cooldown_period?: number | null
           created_at?: string | null
-          default_restriction_policy?: string | null
-          deflation_enabled?: boolean | null
-          deflation_rate?: string | null
           document_config?: Json | null
-          fee_on_transfer?: Json | null
+          document_module_address?: string | null
           fees_config?: Json | null
           fees_module_address?: string | null
           flash_mint_config?: Json | null
           flash_mint_module_address?: string | null
-          gas_config?: Json | null
-          governance_enabled?: boolean | null
-          governance_features?: Json | null
-          governance_token_address?: string | null
           id?: string
           initial_owner?: string | null
           initial_supply?: string | null
           is_burnable?: boolean | null
           is_mintable?: boolean | null
           is_pausable?: boolean | null
-          liquidity_fee_percentage?: string | null
-          lottery_enabled?: boolean | null
-          lottery_percentage?: string | null
-          marketing_fee_percentage?: string | null
-          max_total_supply?: string | null
-          max_wallet_amount?: string | null
-          mintable_by?: string | null
-          pausable_by?: string | null
           payable_token_config?: Json | null
           payable_token_module_address?: string | null
-          permit?: boolean | null
           permit_config?: Json | null
           permit_module_address?: string | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
-          presale_enabled?: boolean | null
-          presale_end_time?: string | null
-          presale_rate?: string | null
-          presale_start_time?: string | null
-          proposal_threshold?: string | null
-          quorum_percentage?: string | null
-          rebasing?: Json | null
-          reflection_enabled?: boolean | null
-          reflection_percentage?: string | null
-          sell_fee_enabled?: boolean | null
-          snapshot?: boolean | null
           snapshot_config?: Json | null
           snapshot_module_address?: string | null
-          staking_enabled?: boolean | null
-          staking_rewards_rate?: string | null
           temporary_approval_config?: Json | null
           temporary_approval_module_address?: string | null
           timelock_config?: Json | null
-          timelock_delay?: number | null
           timelock_module_address?: string | null
           token_id?: string
-          token_type?: string | null
-          trading_start_time?: string | null
-          transfer_config?: Json | null
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
-          vesting_cliff_period?: number | null
           vesting_config?: Json | null
-          vesting_enabled?: boolean | null
           vesting_module_address?: string | null
-          vesting_release_frequency?: string | null
-          vesting_total_period?: number | null
           votes_config?: Json | null
           votes_module_address?: string | null
-          voting_delay?: number | null
-          voting_period?: number | null
-          whitelist_config?: Json | null
         }
         Relationships: [
           {
@@ -31529,13 +30358,6 @@ export type Database = {
             foreignKeyName: "token_erc20_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc20_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -31544,13 +30366,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc20_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -31636,13 +30451,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_allocations_linked_token_id_fkey"
             columns: ["linked_token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_allocations_linked_token_id_fkey"
-            columns: ["linked_token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -31651,13 +30459,6 @@ export type Database = {
             columns: ["linked_token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_allocations_linked_token_id_fkey"
-            columns: ["linked_token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -31706,13 +30507,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_allocations_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_allocations_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -31721,13 +30515,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_allocations_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -31819,13 +30606,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_payment_schedules_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_payment_schedules_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -31834,13 +30614,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_payment_schedules_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -31868,373 +30641,223 @@ export type Database = {
       }
       token_erc3525_properties: {
         Row: {
-          access_control: string | null
-          accredited_investor_only: boolean | null
-          accrual_enabled: boolean | null
-          accrual_frequency: string | null
-          accrual_rate: string | null
           allows_slot_enumeration: boolean | null
-          approval_workflow_enabled: boolean | null
-          audit_trail_enhanced: boolean | null
           auto_unit_calculation: boolean | null
           base_uri: string | null
-          batch_operations_enabled: boolean | null
-          collateral_factor: string | null
           compliance_config: Json | null
           compliance_module_address: string | null
-          compound_interest_enabled: boolean | null
           coupon_frequency: string | null
           created_at: string | null
-          cross_slot_transfers: boolean | null
           custom_extensions: string | null
           custom_slot_properties: Json | null
-          default_restriction_policy: string | null
-          delegate_enabled: boolean | null
           derivative_type: string | null
           document_config: Json | null
           document_module_address: string | null
           dynamic_metadata: boolean | null
-          dynamic_slot_creation: boolean | null
           early_redemption_enabled: boolean | null
-          emergency_pause_enabled: boolean | null
           expiration_date: string | null
           financial_instrument_type: string | null
-          flash_loan_enabled: boolean | null
           fractional_ownership_enabled: boolean | null
           fractionalizable: boolean | null
-          geographic_restrictions: string[] | null
           has_royalty: boolean | null
-          holding_period_restrictions: number | null
           id: string
           initial_owner: string | null
-          institutional_custody_support: boolean | null
           interest_rate: string | null
           is_burnable: boolean | null
           is_pausable: boolean | null
-          kyc_required: boolean | null
+          legacy_properties: Json | null
           leverage_ratio: string | null
-          liquidation_threshold: string | null
-          liquidity_provision_enabled: boolean | null
           margin_requirements: Json | null
-          market_maker_enabled: boolean | null
           maturity_date: string | null
           mergable: boolean | null
           metadata: Json | null
           metadata_storage: string | null
-          minimum_trade_value: string | null
-          multi_signature_required: boolean | null
-          partial_value_trading: boolean | null
           payment_schedule: Json | null
           permissioning_advanced: boolean | null
           permissioning_enabled: boolean | null
           policy_engine_address: string | null
           policy_engine_config: Json | null
           principal_amount: string | null
-          proposal_value_threshold: string | null
-          quorum_calculation_method: string | null
-          recovery_mechanisms: Json | null
           redemption_penalty_rate: string | null
-          regulatory_compliance_enabled: boolean | null
-          reporting_requirements: Json | null
           royalty_percentage: string | null
           royalty_receiver: string | null
           sales_config: Json | null
           settlement_type: string | null
-          slot_admin_roles: string[] | null
           slot_approvable_config: Json | null
           slot_approvable_module_address: string | null
           slot_approvals: boolean | null
-          slot_creation_enabled: boolean | null
           slot_enumeration_enabled: boolean | null
-          slot_freeze_enabled: boolean | null
           slot_manager_config: Json | null
           slot_manager_module_address: string | null
-          slot_marketplace_enabled: boolean | null
-          slot_merge_enabled: boolean | null
-          slot_split_enabled: boolean | null
           slot_transfer_restrictions: Json | null
           slot_transfer_validation: Json | null
           slot_type: string | null
-          slot_voting_enabled: boolean | null
           splittable: boolean | null
-          staking_yield_rate: string | null
           strike_price: string | null
           supply_tracking: boolean | null
           token_id: string
-          trading_fee_percentage: string | null
-          trading_fees_enabled: boolean | null
-          transfer_limits: Json | null
           underlying_asset: string | null
           underlying_asset_address: string | null
           updatable_slots: boolean | null
           updatable_uris: boolean | null
           updatable_values: boolean | null
           updated_at: string | null
-          use_geographic_restrictions: boolean | null
-          value_adjustment_enabled: boolean | null
           value_aggregation: boolean | null
           value_aggregation_enabled: boolean | null
           value_approvals: boolean | null
-          value_calculation_formula: string | null
-          value_computation_method: string | null
           value_decimals: number | null
           value_exchange_config: Json | null
           value_exchange_module_address: string | null
-          value_marketplace_enabled: boolean | null
-          value_oracle_address: string | null
           value_transfer_restrictions: Json | null
           value_transfers_enabled: boolean | null
-          value_weighted_voting: boolean | null
           vesting_module_address: string | null
-          voting_power_calculation: string | null
           whitelist_config: Json | null
-          yield_farming_enabled: boolean | null
         }
         Insert: {
-          access_control?: string | null
-          accredited_investor_only?: boolean | null
-          accrual_enabled?: boolean | null
-          accrual_frequency?: string | null
-          accrual_rate?: string | null
           allows_slot_enumeration?: boolean | null
-          approval_workflow_enabled?: boolean | null
-          audit_trail_enhanced?: boolean | null
           auto_unit_calculation?: boolean | null
           base_uri?: string | null
-          batch_operations_enabled?: boolean | null
-          collateral_factor?: string | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          compound_interest_enabled?: boolean | null
           coupon_frequency?: string | null
           created_at?: string | null
-          cross_slot_transfers?: boolean | null
           custom_extensions?: string | null
           custom_slot_properties?: Json | null
-          default_restriction_policy?: string | null
-          delegate_enabled?: boolean | null
           derivative_type?: string | null
           document_config?: Json | null
           document_module_address?: string | null
           dynamic_metadata?: boolean | null
-          dynamic_slot_creation?: boolean | null
           early_redemption_enabled?: boolean | null
-          emergency_pause_enabled?: boolean | null
           expiration_date?: string | null
           financial_instrument_type?: string | null
-          flash_loan_enabled?: boolean | null
           fractional_ownership_enabled?: boolean | null
           fractionalizable?: boolean | null
-          geographic_restrictions?: string[] | null
           has_royalty?: boolean | null
-          holding_period_restrictions?: number | null
           id?: string
           initial_owner?: string | null
-          institutional_custody_support?: boolean | null
           interest_rate?: string | null
           is_burnable?: boolean | null
           is_pausable?: boolean | null
-          kyc_required?: boolean | null
+          legacy_properties?: Json | null
           leverage_ratio?: string | null
-          liquidation_threshold?: string | null
-          liquidity_provision_enabled?: boolean | null
           margin_requirements?: Json | null
-          market_maker_enabled?: boolean | null
           maturity_date?: string | null
           mergable?: boolean | null
           metadata?: Json | null
           metadata_storage?: string | null
-          minimum_trade_value?: string | null
-          multi_signature_required?: boolean | null
-          partial_value_trading?: boolean | null
           payment_schedule?: Json | null
           permissioning_advanced?: boolean | null
           permissioning_enabled?: boolean | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
           principal_amount?: string | null
-          proposal_value_threshold?: string | null
-          quorum_calculation_method?: string | null
-          recovery_mechanisms?: Json | null
           redemption_penalty_rate?: string | null
-          regulatory_compliance_enabled?: boolean | null
-          reporting_requirements?: Json | null
           royalty_percentage?: string | null
           royalty_receiver?: string | null
           sales_config?: Json | null
           settlement_type?: string | null
-          slot_admin_roles?: string[] | null
           slot_approvable_config?: Json | null
           slot_approvable_module_address?: string | null
           slot_approvals?: boolean | null
-          slot_creation_enabled?: boolean | null
           slot_enumeration_enabled?: boolean | null
-          slot_freeze_enabled?: boolean | null
           slot_manager_config?: Json | null
           slot_manager_module_address?: string | null
-          slot_marketplace_enabled?: boolean | null
-          slot_merge_enabled?: boolean | null
-          slot_split_enabled?: boolean | null
           slot_transfer_restrictions?: Json | null
           slot_transfer_validation?: Json | null
           slot_type?: string | null
-          slot_voting_enabled?: boolean | null
           splittable?: boolean | null
-          staking_yield_rate?: string | null
           strike_price?: string | null
           supply_tracking?: boolean | null
           token_id: string
-          trading_fee_percentage?: string | null
-          trading_fees_enabled?: boolean | null
-          transfer_limits?: Json | null
           underlying_asset?: string | null
           underlying_asset_address?: string | null
           updatable_slots?: boolean | null
           updatable_uris?: boolean | null
           updatable_values?: boolean | null
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
-          value_adjustment_enabled?: boolean | null
           value_aggregation?: boolean | null
           value_aggregation_enabled?: boolean | null
           value_approvals?: boolean | null
-          value_calculation_formula?: string | null
-          value_computation_method?: string | null
           value_decimals?: number | null
           value_exchange_config?: Json | null
           value_exchange_module_address?: string | null
-          value_marketplace_enabled?: boolean | null
-          value_oracle_address?: string | null
           value_transfer_restrictions?: Json | null
           value_transfers_enabled?: boolean | null
-          value_weighted_voting?: boolean | null
           vesting_module_address?: string | null
-          voting_power_calculation?: string | null
           whitelist_config?: Json | null
-          yield_farming_enabled?: boolean | null
         }
         Update: {
-          access_control?: string | null
-          accredited_investor_only?: boolean | null
-          accrual_enabled?: boolean | null
-          accrual_frequency?: string | null
-          accrual_rate?: string | null
           allows_slot_enumeration?: boolean | null
-          approval_workflow_enabled?: boolean | null
-          audit_trail_enhanced?: boolean | null
           auto_unit_calculation?: boolean | null
           base_uri?: string | null
-          batch_operations_enabled?: boolean | null
-          collateral_factor?: string | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          compound_interest_enabled?: boolean | null
           coupon_frequency?: string | null
           created_at?: string | null
-          cross_slot_transfers?: boolean | null
           custom_extensions?: string | null
           custom_slot_properties?: Json | null
-          default_restriction_policy?: string | null
-          delegate_enabled?: boolean | null
           derivative_type?: string | null
           document_config?: Json | null
           document_module_address?: string | null
           dynamic_metadata?: boolean | null
-          dynamic_slot_creation?: boolean | null
           early_redemption_enabled?: boolean | null
-          emergency_pause_enabled?: boolean | null
           expiration_date?: string | null
           financial_instrument_type?: string | null
-          flash_loan_enabled?: boolean | null
           fractional_ownership_enabled?: boolean | null
           fractionalizable?: boolean | null
-          geographic_restrictions?: string[] | null
           has_royalty?: boolean | null
-          holding_period_restrictions?: number | null
           id?: string
           initial_owner?: string | null
-          institutional_custody_support?: boolean | null
           interest_rate?: string | null
           is_burnable?: boolean | null
           is_pausable?: boolean | null
-          kyc_required?: boolean | null
+          legacy_properties?: Json | null
           leverage_ratio?: string | null
-          liquidation_threshold?: string | null
-          liquidity_provision_enabled?: boolean | null
           margin_requirements?: Json | null
-          market_maker_enabled?: boolean | null
           maturity_date?: string | null
           mergable?: boolean | null
           metadata?: Json | null
           metadata_storage?: string | null
-          minimum_trade_value?: string | null
-          multi_signature_required?: boolean | null
-          partial_value_trading?: boolean | null
           payment_schedule?: Json | null
           permissioning_advanced?: boolean | null
           permissioning_enabled?: boolean | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
           principal_amount?: string | null
-          proposal_value_threshold?: string | null
-          quorum_calculation_method?: string | null
-          recovery_mechanisms?: Json | null
           redemption_penalty_rate?: string | null
-          regulatory_compliance_enabled?: boolean | null
-          reporting_requirements?: Json | null
           royalty_percentage?: string | null
           royalty_receiver?: string | null
           sales_config?: Json | null
           settlement_type?: string | null
-          slot_admin_roles?: string[] | null
           slot_approvable_config?: Json | null
           slot_approvable_module_address?: string | null
           slot_approvals?: boolean | null
-          slot_creation_enabled?: boolean | null
           slot_enumeration_enabled?: boolean | null
-          slot_freeze_enabled?: boolean | null
           slot_manager_config?: Json | null
           slot_manager_module_address?: string | null
-          slot_marketplace_enabled?: boolean | null
-          slot_merge_enabled?: boolean | null
-          slot_split_enabled?: boolean | null
           slot_transfer_restrictions?: Json | null
           slot_transfer_validation?: Json | null
           slot_type?: string | null
-          slot_voting_enabled?: boolean | null
           splittable?: boolean | null
-          staking_yield_rate?: string | null
           strike_price?: string | null
           supply_tracking?: boolean | null
           token_id?: string
-          trading_fee_percentage?: string | null
-          trading_fees_enabled?: boolean | null
-          transfer_limits?: Json | null
           underlying_asset?: string | null
           underlying_asset_address?: string | null
           updatable_slots?: boolean | null
           updatable_uris?: boolean | null
           updatable_values?: boolean | null
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
-          value_adjustment_enabled?: boolean | null
           value_aggregation?: boolean | null
           value_aggregation_enabled?: boolean | null
           value_approvals?: boolean | null
-          value_calculation_formula?: string | null
-          value_computation_method?: string | null
           value_decimals?: number | null
           value_exchange_config?: Json | null
           value_exchange_module_address?: string | null
-          value_marketplace_enabled?: boolean | null
-          value_oracle_address?: string | null
           value_transfer_restrictions?: Json | null
           value_transfers_enabled?: boolean | null
-          value_weighted_voting?: boolean | null
           vesting_module_address?: string | null
-          voting_power_calculation?: string | null
           whitelist_config?: Json | null
-          yield_farming_enabled?: boolean | null
         }
         Relationships: [
           {
@@ -32262,13 +30885,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32277,13 +30893,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -32390,13 +30999,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_slot_configs_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_slot_configs_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32405,13 +31007,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_slot_configs_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -32500,13 +31095,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_slots_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_slots_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32515,13 +31103,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_slots_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -32616,13 +31197,6 @@ export type Database = {
             foreignKeyName: "token_erc3525_value_adjustments_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_value_adjustments_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32631,13 +31205,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc3525_value_adjustments_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -32723,13 +31290,6 @@ export type Database = {
             foreignKeyName: "token_erc4626_asset_allocations_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_asset_allocations_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32738,13 +31298,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_asset_allocations_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -32842,13 +31395,6 @@ export type Database = {
             foreignKeyName: "token_erc4626_fee_tiers_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_fee_tiers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32857,13 +31403,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_fee_tiers_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -32970,13 +31509,6 @@ export type Database = {
             foreignKeyName: "token_erc4626_performance_metrics_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_performance_metrics_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -32985,13 +31517,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_performance_metrics_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -33019,124 +31544,78 @@ export type Database = {
       }
       token_erc4626_properties: {
         Row: {
-          access_control: string | null
           apy_tracking_enabled: boolean | null
-          arbitrage_enabled: boolean | null
           asset_address: string | null
           asset_decimals: number | null
           asset_name: string | null
           asset_symbol: string | null
           async_vault_config: Json | null
           async_vault_module_address: string | null
-          audit_trail_comprehensive: boolean | null
           auto_compounding_enabled: boolean | null
           automated_rebalancing: boolean | null
-          automated_reporting: boolean | null
-          benchmark_index: string | null
-          benchmark_tracking_enabled: boolean | null
-          borrowing_enabled: boolean | null
-          bridge_protocols: string[] | null
           circuit_breaker_enabled: boolean | null
           compliance_config: Json | null
           compliance_module_address: string | null
-          compliance_reporting_enabled: boolean | null
           compound_frequency: string | null
           created_at: string | null
-          cross_chain_yield_enabled: boolean | null
-          cross_dex_optimization: boolean | null
-          custody_integration: boolean | null
           custom_strategy: boolean | null
-          default_restriction_policy: string | null
-          defi_protocol_integrations: string[] | null
           deposit_fee: string | null
           deposit_limit: string | null
-          diversification_enabled: boolean | null
           document_config: Json | null
           document_module_address: string | null
           dynamic_fees_enabled: boolean | null
-          early_withdrawal_penalty: string | null
           emergency_exit_enabled: boolean | null
           emergency_shutdown: boolean | null
-          fee_rebate_enabled: boolean | null
           fee_recipient: string | null
           fee_strategy_config: Json | null
           fee_strategy_module_address: string | null
           fee_structure: Json | null
           fee_tier_system_enabled: boolean | null
-          fee_voting_enabled: boolean | null
           flash_loans: boolean | null
-          fund_administration_enabled: boolean | null
-          gas_fee_optimization: boolean | null
-          governance_token_address: string | null
-          governance_token_enabled: boolean | null
           id: string
-          impermanent_loss_protection: boolean | null
           initial_owner: string | null
-          institutional_grade: boolean | null
           insurance_coverage_amount: string | null
           insurance_enabled: boolean | null
           insurance_provider: string | null
           is_burnable: boolean | null
           is_mintable: boolean | null
           is_pausable: boolean | null
-          late_withdrawal_penalty: string | null
-          lending_protocol_enabled: boolean | null
-          leverage_enabled: boolean | null
-          liquidity_incentives_rate: string | null
-          liquidity_mining_enabled: boolean | null
-          liquidity_provider_rewards: Json | null
           liquidity_reserve: string | null
           management_fee: string | null
-          manager_performance_threshold: string | null
-          manager_replacement_enabled: boolean | null
-          market_making_enabled: boolean | null
           max_deposit: string | null
           max_drawdown_threshold: string | null
-          max_leverage_ratio: string | null
           max_slippage: string | null
           max_withdrawal: string | null
           min_deposit: string | null
           min_withdrawal: string | null
-          mobile_app_integration: boolean | null
           multi_asset_enabled: boolean | null
           multi_asset_vault_config: Json | null
           multi_asset_vault_module_address: string | null
           native_vault_config: Json | null
           native_vault_module_address: string | null
-          notification_system_enabled: boolean | null
           performance_fee: string | null
           performance_fee_high_water_mark: boolean | null
-          performance_history_retention: number | null
           performance_metrics: boolean | null
           performance_tracking: boolean | null
           permit: boolean | null
           policy_engine_address: string | null
           policy_engine_config: Json | null
-          portfolio_analytics_enabled: boolean | null
-          real_time_pnl_tracking: boolean | null
           rebalance_threshold: string | null
           rebalancing_enabled: boolean | null
           rebalancing_rules: Json | null
-          regulatory_framework: string | null
           risk_management_enabled: boolean | null
           risk_tolerance: string | null
           router_config: Json | null
           router_module_address: string | null
-          social_trading_enabled: boolean | null
           stop_loss_enabled: boolean | null
           stop_loss_threshold: string | null
           strategy_complexity: string | null
           strategy_controller: string | null
           strategy_documentation: string | null
-          strategy_voting_enabled: boolean | null
-          tax_reporting_enabled: boolean | null
-          third_party_audits_enabled: boolean | null
           token_id: string
           updated_at: string | null
-          use_geographic_restrictions: boolean | null
           vault_strategy: string | null
           vault_type: string | null
-          voting_power_per_share: string | null
           whitelist_config: Json | null
           withdrawal_fee: string | null
           withdrawal_limit: string | null
@@ -33144,7 +31623,6 @@ export type Database = {
           withdrawal_queue_module_address: string | null
           withdrawal_rules: Json | null
           yield_distribution_schedule: string | null
-          yield_optimization_enabled: boolean | null
           yield_optimization_strategy: string | null
           yield_source: string | null
           yield_sources: Json | null
@@ -33152,124 +31630,78 @@ export type Database = {
           yield_strategy_module_address: string | null
         }
         Insert: {
-          access_control?: string | null
           apy_tracking_enabled?: boolean | null
-          arbitrage_enabled?: boolean | null
           asset_address?: string | null
           asset_decimals?: number | null
           asset_name?: string | null
           asset_symbol?: string | null
           async_vault_config?: Json | null
           async_vault_module_address?: string | null
-          audit_trail_comprehensive?: boolean | null
           auto_compounding_enabled?: boolean | null
           automated_rebalancing?: boolean | null
-          automated_reporting?: boolean | null
-          benchmark_index?: string | null
-          benchmark_tracking_enabled?: boolean | null
-          borrowing_enabled?: boolean | null
-          bridge_protocols?: string[] | null
           circuit_breaker_enabled?: boolean | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          compliance_reporting_enabled?: boolean | null
           compound_frequency?: string | null
           created_at?: string | null
-          cross_chain_yield_enabled?: boolean | null
-          cross_dex_optimization?: boolean | null
-          custody_integration?: boolean | null
           custom_strategy?: boolean | null
-          default_restriction_policy?: string | null
-          defi_protocol_integrations?: string[] | null
           deposit_fee?: string | null
           deposit_limit?: string | null
-          diversification_enabled?: boolean | null
           document_config?: Json | null
           document_module_address?: string | null
           dynamic_fees_enabled?: boolean | null
-          early_withdrawal_penalty?: string | null
           emergency_exit_enabled?: boolean | null
           emergency_shutdown?: boolean | null
-          fee_rebate_enabled?: boolean | null
           fee_recipient?: string | null
           fee_strategy_config?: Json | null
           fee_strategy_module_address?: string | null
           fee_structure?: Json | null
           fee_tier_system_enabled?: boolean | null
-          fee_voting_enabled?: boolean | null
           flash_loans?: boolean | null
-          fund_administration_enabled?: boolean | null
-          gas_fee_optimization?: boolean | null
-          governance_token_address?: string | null
-          governance_token_enabled?: boolean | null
           id?: string
-          impermanent_loss_protection?: boolean | null
           initial_owner?: string | null
-          institutional_grade?: boolean | null
           insurance_coverage_amount?: string | null
           insurance_enabled?: boolean | null
           insurance_provider?: string | null
           is_burnable?: boolean | null
           is_mintable?: boolean | null
           is_pausable?: boolean | null
-          late_withdrawal_penalty?: string | null
-          lending_protocol_enabled?: boolean | null
-          leverage_enabled?: boolean | null
-          liquidity_incentives_rate?: string | null
-          liquidity_mining_enabled?: boolean | null
-          liquidity_provider_rewards?: Json | null
           liquidity_reserve?: string | null
           management_fee?: string | null
-          manager_performance_threshold?: string | null
-          manager_replacement_enabled?: boolean | null
-          market_making_enabled?: boolean | null
           max_deposit?: string | null
           max_drawdown_threshold?: string | null
-          max_leverage_ratio?: string | null
           max_slippage?: string | null
           max_withdrawal?: string | null
           min_deposit?: string | null
           min_withdrawal?: string | null
-          mobile_app_integration?: boolean | null
           multi_asset_enabled?: boolean | null
           multi_asset_vault_config?: Json | null
           multi_asset_vault_module_address?: string | null
           native_vault_config?: Json | null
           native_vault_module_address?: string | null
-          notification_system_enabled?: boolean | null
           performance_fee?: string | null
           performance_fee_high_water_mark?: boolean | null
-          performance_history_retention?: number | null
           performance_metrics?: boolean | null
           performance_tracking?: boolean | null
           permit?: boolean | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
-          portfolio_analytics_enabled?: boolean | null
-          real_time_pnl_tracking?: boolean | null
           rebalance_threshold?: string | null
           rebalancing_enabled?: boolean | null
           rebalancing_rules?: Json | null
-          regulatory_framework?: string | null
           risk_management_enabled?: boolean | null
           risk_tolerance?: string | null
           router_config?: Json | null
           router_module_address?: string | null
-          social_trading_enabled?: boolean | null
           stop_loss_enabled?: boolean | null
           stop_loss_threshold?: string | null
           strategy_complexity?: string | null
           strategy_controller?: string | null
           strategy_documentation?: string | null
-          strategy_voting_enabled?: boolean | null
-          tax_reporting_enabled?: boolean | null
-          third_party_audits_enabled?: boolean | null
           token_id: string
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
           vault_strategy?: string | null
           vault_type?: string | null
-          voting_power_per_share?: string | null
           whitelist_config?: Json | null
           withdrawal_fee?: string | null
           withdrawal_limit?: string | null
@@ -33277,7 +31709,6 @@ export type Database = {
           withdrawal_queue_module_address?: string | null
           withdrawal_rules?: Json | null
           yield_distribution_schedule?: string | null
-          yield_optimization_enabled?: boolean | null
           yield_optimization_strategy?: string | null
           yield_source?: string | null
           yield_sources?: Json | null
@@ -33285,124 +31716,78 @@ export type Database = {
           yield_strategy_module_address?: string | null
         }
         Update: {
-          access_control?: string | null
           apy_tracking_enabled?: boolean | null
-          arbitrage_enabled?: boolean | null
           asset_address?: string | null
           asset_decimals?: number | null
           asset_name?: string | null
           asset_symbol?: string | null
           async_vault_config?: Json | null
           async_vault_module_address?: string | null
-          audit_trail_comprehensive?: boolean | null
           auto_compounding_enabled?: boolean | null
           automated_rebalancing?: boolean | null
-          automated_reporting?: boolean | null
-          benchmark_index?: string | null
-          benchmark_tracking_enabled?: boolean | null
-          borrowing_enabled?: boolean | null
-          bridge_protocols?: string[] | null
           circuit_breaker_enabled?: boolean | null
           compliance_config?: Json | null
           compliance_module_address?: string | null
-          compliance_reporting_enabled?: boolean | null
           compound_frequency?: string | null
           created_at?: string | null
-          cross_chain_yield_enabled?: boolean | null
-          cross_dex_optimization?: boolean | null
-          custody_integration?: boolean | null
           custom_strategy?: boolean | null
-          default_restriction_policy?: string | null
-          defi_protocol_integrations?: string[] | null
           deposit_fee?: string | null
           deposit_limit?: string | null
-          diversification_enabled?: boolean | null
           document_config?: Json | null
           document_module_address?: string | null
           dynamic_fees_enabled?: boolean | null
-          early_withdrawal_penalty?: string | null
           emergency_exit_enabled?: boolean | null
           emergency_shutdown?: boolean | null
-          fee_rebate_enabled?: boolean | null
           fee_recipient?: string | null
           fee_strategy_config?: Json | null
           fee_strategy_module_address?: string | null
           fee_structure?: Json | null
           fee_tier_system_enabled?: boolean | null
-          fee_voting_enabled?: boolean | null
           flash_loans?: boolean | null
-          fund_administration_enabled?: boolean | null
-          gas_fee_optimization?: boolean | null
-          governance_token_address?: string | null
-          governance_token_enabled?: boolean | null
           id?: string
-          impermanent_loss_protection?: boolean | null
           initial_owner?: string | null
-          institutional_grade?: boolean | null
           insurance_coverage_amount?: string | null
           insurance_enabled?: boolean | null
           insurance_provider?: string | null
           is_burnable?: boolean | null
           is_mintable?: boolean | null
           is_pausable?: boolean | null
-          late_withdrawal_penalty?: string | null
-          lending_protocol_enabled?: boolean | null
-          leverage_enabled?: boolean | null
-          liquidity_incentives_rate?: string | null
-          liquidity_mining_enabled?: boolean | null
-          liquidity_provider_rewards?: Json | null
           liquidity_reserve?: string | null
           management_fee?: string | null
-          manager_performance_threshold?: string | null
-          manager_replacement_enabled?: boolean | null
-          market_making_enabled?: boolean | null
           max_deposit?: string | null
           max_drawdown_threshold?: string | null
-          max_leverage_ratio?: string | null
           max_slippage?: string | null
           max_withdrawal?: string | null
           min_deposit?: string | null
           min_withdrawal?: string | null
-          mobile_app_integration?: boolean | null
           multi_asset_enabled?: boolean | null
           multi_asset_vault_config?: Json | null
           multi_asset_vault_module_address?: string | null
           native_vault_config?: Json | null
           native_vault_module_address?: string | null
-          notification_system_enabled?: boolean | null
           performance_fee?: string | null
           performance_fee_high_water_mark?: boolean | null
-          performance_history_retention?: number | null
           performance_metrics?: boolean | null
           performance_tracking?: boolean | null
           permit?: boolean | null
           policy_engine_address?: string | null
           policy_engine_config?: Json | null
-          portfolio_analytics_enabled?: boolean | null
-          real_time_pnl_tracking?: boolean | null
           rebalance_threshold?: string | null
           rebalancing_enabled?: boolean | null
           rebalancing_rules?: Json | null
-          regulatory_framework?: string | null
           risk_management_enabled?: boolean | null
           risk_tolerance?: string | null
           router_config?: Json | null
           router_module_address?: string | null
-          social_trading_enabled?: boolean | null
           stop_loss_enabled?: boolean | null
           stop_loss_threshold?: string | null
           strategy_complexity?: string | null
           strategy_controller?: string | null
           strategy_documentation?: string | null
-          strategy_voting_enabled?: boolean | null
-          tax_reporting_enabled?: boolean | null
-          third_party_audits_enabled?: boolean | null
           token_id?: string
           updated_at?: string | null
-          use_geographic_restrictions?: boolean | null
           vault_strategy?: string | null
           vault_type?: string | null
-          voting_power_per_share?: string | null
           whitelist_config?: Json | null
           withdrawal_fee?: string | null
           withdrawal_limit?: string | null
@@ -33410,7 +31795,6 @@ export type Database = {
           withdrawal_queue_module_address?: string | null
           withdrawal_rules?: Json | null
           yield_distribution_schedule?: string | null
-          yield_optimization_enabled?: boolean | null
           yield_optimization_strategy?: string | null
           yield_source?: string | null
           yield_sources?: Json | null
@@ -33443,13 +31827,6 @@ export type Database = {
             foreignKeyName: "token_erc4626_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -33458,13 +31835,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -33553,13 +31923,6 @@ export type Database = {
             foreignKeyName: "token_erc4626_strategy_params_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_strategy_params_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -33568,13 +31931,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_strategy_params_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -33681,13 +32037,6 @@ export type Database = {
             foreignKeyName: "token_erc4626_vault_strategies_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_vault_strategies_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -33696,13 +32045,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc4626_vault_strategies_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -33779,13 +32121,6 @@ export type Database = {
             foreignKeyName: "token_erc721_attributes_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_attributes_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -33794,13 +32129,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_attributes_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -33901,13 +32229,6 @@ export type Database = {
             foreignKeyName: "token_erc721_mint_phases_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_mint_phases_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -33916,13 +32237,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_mint_phases_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -33950,43 +32264,20 @@ export type Database = {
       }
       token_erc721_properties: {
         Row: {
-          access_control: string | null
-          admin_mint_enabled: boolean | null
           asset_type: string | null
           auto_increment_ids: boolean | null
-          auto_reveal: boolean | null
           base_uri: string | null
-          batch_minting_config: Json | null
-          breeding_enabled: boolean | null
-          bridge_contracts: Json | null
-          burn_roles: string[] | null
           compliance_config: Json | null
           compliance_enabled: boolean | null
           compliance_module_address: string | null
           consecutive: boolean | null
           consecutive_config: Json | null
           consecutive_module_address: string | null
-          contract_uri: string | null
           created_at: string | null
-          creator_earnings_address: string | null
-          creator_earnings_enabled: boolean | null
-          creator_earnings_percentage: string | null
-          cross_chain_enabled: boolean | null
-          custom_base_uri: string | null
-          custom_operator_filter_address: string | null
-          default_restriction_policy: string | null
           document_config: Json | null
           document_enabled: boolean | null
           document_module_address: string | null
-          dutch_auction_duration: number | null
-          dutch_auction_enabled: boolean | null
-          dutch_auction_end_price: string | null
-          dutch_auction_start_price: string | null
-          dynamic_uri_config: Json | null
-          enable_dynamic_metadata: boolean | null
-          enable_fractional_ownership: boolean | null
           enumerable: boolean | null
-          evolution_enabled: boolean | null
           fractionalization_config: Json | null
           fractionalization_module_address: string | null
           has_royalty: boolean | null
@@ -33995,42 +32286,20 @@ export type Database = {
           is_burnable: boolean | null
           is_mintable: boolean | null
           is_pausable: boolean | null
-          layer2_enabled: boolean | null
-          layer2_networks: string[] | null
-          marketplace_approved: string[] | null
-          max_mints_per_tx: number | null
-          max_mints_per_wallet: number | null
+          legacy_properties: Json | null
           max_supply: string | null
           metadata_events: boolean | null
           metadata_events_config: Json | null
           metadata_events_module_address: string | null
-          metadata_frozen: boolean | null
-          metadata_provenance_hash: string | null
-          metadata_storage: string | null
-          mint_phases_enabled: boolean | null
-          mint_roles: string[] | null
           minting_method: string | null
-          minting_price: string | null
-          operator_filter_enabled: boolean | null
           permission_config: Json | null
-          placeholder_image_uri: string | null
           policy_engine_address: string | null
           policy_engine_enabled: boolean | null
           policy_rules_enabled: string | null
           policy_validators_enabled: string | null
-          pre_reveal_uri: string | null
-          public_mint_enabled: boolean | null
-          public_sale_enabled: boolean | null
-          public_sale_end_time: string | null
-          public_sale_price: string | null
-          public_sale_start_time: string | null
           rental_config: Json | null
           rental_enabled: boolean | null
           rental_module_address: string | null
-          reserved_tokens: number | null
-          reveal_batch_size: number | null
-          reveal_delay: number | null
-          revealable: boolean | null
           royalty_module_address: string | null
           royalty_percentage: string | null
           royalty_receiver: string | null
@@ -34038,69 +32307,31 @@ export type Database = {
           soulbound: boolean | null
           soulbound_config: Json | null
           soulbound_module_address: string | null
-          staking_enabled: boolean | null
-          staking_rewards_rate: string | null
-          staking_rewards_token_address: string | null
           supply_cap_enabled: boolean | null
-          supply_validation_enabled: boolean | null
           token_id: string
           total_supply_cap: string | null
-          transfer_locked: boolean | null
-          transfer_restrictions: Json | null
           updatable_uris: boolean | null
           updated_at: string | null
-          uri_storage: string | null
-          use_geographic_restrictions: boolean | null
-          use_safe_transfer: boolean | null
-          utility_enabled: boolean | null
-          utility_type: string | null
           vesting_config: Json | null
           vesting_enabled: boolean | null
           vesting_module_address: string | null
           whitelist_config: Json | null
-          whitelist_sale_enabled: boolean | null
-          whitelist_sale_end_time: string | null
-          whitelist_sale_price: string | null
-          whitelist_sale_start_time: string | null
         }
         Insert: {
-          access_control?: string | null
-          admin_mint_enabled?: boolean | null
           asset_type?: string | null
           auto_increment_ids?: boolean | null
-          auto_reveal?: boolean | null
           base_uri?: string | null
-          batch_minting_config?: Json | null
-          breeding_enabled?: boolean | null
-          bridge_contracts?: Json | null
-          burn_roles?: string[] | null
           compliance_config?: Json | null
           compliance_enabled?: boolean | null
           compliance_module_address?: string | null
           consecutive?: boolean | null
           consecutive_config?: Json | null
           consecutive_module_address?: string | null
-          contract_uri?: string | null
           created_at?: string | null
-          creator_earnings_address?: string | null
-          creator_earnings_enabled?: boolean | null
-          creator_earnings_percentage?: string | null
-          cross_chain_enabled?: boolean | null
-          custom_base_uri?: string | null
-          custom_operator_filter_address?: string | null
-          default_restriction_policy?: string | null
           document_config?: Json | null
           document_enabled?: boolean | null
           document_module_address?: string | null
-          dutch_auction_duration?: number | null
-          dutch_auction_enabled?: boolean | null
-          dutch_auction_end_price?: string | null
-          dutch_auction_start_price?: string | null
-          dynamic_uri_config?: Json | null
-          enable_dynamic_metadata?: boolean | null
-          enable_fractional_ownership?: boolean | null
           enumerable?: boolean | null
-          evolution_enabled?: boolean | null
           fractionalization_config?: Json | null
           fractionalization_module_address?: string | null
           has_royalty?: boolean | null
@@ -34109,42 +32340,20 @@ export type Database = {
           is_burnable?: boolean | null
           is_mintable?: boolean | null
           is_pausable?: boolean | null
-          layer2_enabled?: boolean | null
-          layer2_networks?: string[] | null
-          marketplace_approved?: string[] | null
-          max_mints_per_tx?: number | null
-          max_mints_per_wallet?: number | null
+          legacy_properties?: Json | null
           max_supply?: string | null
           metadata_events?: boolean | null
           metadata_events_config?: Json | null
           metadata_events_module_address?: string | null
-          metadata_frozen?: boolean | null
-          metadata_provenance_hash?: string | null
-          metadata_storage?: string | null
-          mint_phases_enabled?: boolean | null
-          mint_roles?: string[] | null
           minting_method?: string | null
-          minting_price?: string | null
-          operator_filter_enabled?: boolean | null
           permission_config?: Json | null
-          placeholder_image_uri?: string | null
           policy_engine_address?: string | null
           policy_engine_enabled?: boolean | null
           policy_rules_enabled?: string | null
           policy_validators_enabled?: string | null
-          pre_reveal_uri?: string | null
-          public_mint_enabled?: boolean | null
-          public_sale_enabled?: boolean | null
-          public_sale_end_time?: string | null
-          public_sale_price?: string | null
-          public_sale_start_time?: string | null
           rental_config?: Json | null
           rental_enabled?: boolean | null
           rental_module_address?: string | null
-          reserved_tokens?: number | null
-          reveal_batch_size?: number | null
-          reveal_delay?: number | null
-          revealable?: boolean | null
           royalty_module_address?: string | null
           royalty_percentage?: string | null
           royalty_receiver?: string | null
@@ -34152,69 +32361,31 @@ export type Database = {
           soulbound?: boolean | null
           soulbound_config?: Json | null
           soulbound_module_address?: string | null
-          staking_enabled?: boolean | null
-          staking_rewards_rate?: string | null
-          staking_rewards_token_address?: string | null
           supply_cap_enabled?: boolean | null
-          supply_validation_enabled?: boolean | null
           token_id: string
           total_supply_cap?: string | null
-          transfer_locked?: boolean | null
-          transfer_restrictions?: Json | null
           updatable_uris?: boolean | null
           updated_at?: string | null
-          uri_storage?: string | null
-          use_geographic_restrictions?: boolean | null
-          use_safe_transfer?: boolean | null
-          utility_enabled?: boolean | null
-          utility_type?: string | null
           vesting_config?: Json | null
           vesting_enabled?: boolean | null
           vesting_module_address?: string | null
           whitelist_config?: Json | null
-          whitelist_sale_enabled?: boolean | null
-          whitelist_sale_end_time?: string | null
-          whitelist_sale_price?: string | null
-          whitelist_sale_start_time?: string | null
         }
         Update: {
-          access_control?: string | null
-          admin_mint_enabled?: boolean | null
           asset_type?: string | null
           auto_increment_ids?: boolean | null
-          auto_reveal?: boolean | null
           base_uri?: string | null
-          batch_minting_config?: Json | null
-          breeding_enabled?: boolean | null
-          bridge_contracts?: Json | null
-          burn_roles?: string[] | null
           compliance_config?: Json | null
           compliance_enabled?: boolean | null
           compliance_module_address?: string | null
           consecutive?: boolean | null
           consecutive_config?: Json | null
           consecutive_module_address?: string | null
-          contract_uri?: string | null
           created_at?: string | null
-          creator_earnings_address?: string | null
-          creator_earnings_enabled?: boolean | null
-          creator_earnings_percentage?: string | null
-          cross_chain_enabled?: boolean | null
-          custom_base_uri?: string | null
-          custom_operator_filter_address?: string | null
-          default_restriction_policy?: string | null
           document_config?: Json | null
           document_enabled?: boolean | null
           document_module_address?: string | null
-          dutch_auction_duration?: number | null
-          dutch_auction_enabled?: boolean | null
-          dutch_auction_end_price?: string | null
-          dutch_auction_start_price?: string | null
-          dynamic_uri_config?: Json | null
-          enable_dynamic_metadata?: boolean | null
-          enable_fractional_ownership?: boolean | null
           enumerable?: boolean | null
-          evolution_enabled?: boolean | null
           fractionalization_config?: Json | null
           fractionalization_module_address?: string | null
           has_royalty?: boolean | null
@@ -34223,42 +32394,20 @@ export type Database = {
           is_burnable?: boolean | null
           is_mintable?: boolean | null
           is_pausable?: boolean | null
-          layer2_enabled?: boolean | null
-          layer2_networks?: string[] | null
-          marketplace_approved?: string[] | null
-          max_mints_per_tx?: number | null
-          max_mints_per_wallet?: number | null
+          legacy_properties?: Json | null
           max_supply?: string | null
           metadata_events?: boolean | null
           metadata_events_config?: Json | null
           metadata_events_module_address?: string | null
-          metadata_frozen?: boolean | null
-          metadata_provenance_hash?: string | null
-          metadata_storage?: string | null
-          mint_phases_enabled?: boolean | null
-          mint_roles?: string[] | null
           minting_method?: string | null
-          minting_price?: string | null
-          operator_filter_enabled?: boolean | null
           permission_config?: Json | null
-          placeholder_image_uri?: string | null
           policy_engine_address?: string | null
           policy_engine_enabled?: boolean | null
           policy_rules_enabled?: string | null
           policy_validators_enabled?: string | null
-          pre_reveal_uri?: string | null
-          public_mint_enabled?: boolean | null
-          public_sale_enabled?: boolean | null
-          public_sale_end_time?: string | null
-          public_sale_price?: string | null
-          public_sale_start_time?: string | null
           rental_config?: Json | null
           rental_enabled?: boolean | null
           rental_module_address?: string | null
-          reserved_tokens?: number | null
-          reveal_batch_size?: number | null
-          reveal_delay?: number | null
-          revealable?: boolean | null
           royalty_module_address?: string | null
           royalty_percentage?: string | null
           royalty_receiver?: string | null
@@ -34266,30 +32415,15 @@ export type Database = {
           soulbound?: boolean | null
           soulbound_config?: Json | null
           soulbound_module_address?: string | null
-          staking_enabled?: boolean | null
-          staking_rewards_rate?: string | null
-          staking_rewards_token_address?: string | null
           supply_cap_enabled?: boolean | null
-          supply_validation_enabled?: boolean | null
           token_id?: string
           total_supply_cap?: string | null
-          transfer_locked?: boolean | null
-          transfer_restrictions?: Json | null
           updatable_uris?: boolean | null
           updated_at?: string | null
-          uri_storage?: string | null
-          use_geographic_restrictions?: boolean | null
-          use_safe_transfer?: boolean | null
-          utility_enabled?: boolean | null
-          utility_type?: string | null
           vesting_config?: Json | null
           vesting_enabled?: boolean | null
           vesting_module_address?: string | null
           whitelist_config?: Json | null
-          whitelist_sale_enabled?: boolean | null
-          whitelist_sale_end_time?: string | null
-          whitelist_sale_price?: string | null
-          whitelist_sale_start_time?: string | null
         }
         Relationships: [
           {
@@ -34317,13 +32451,6 @@ export type Database = {
             foreignKeyName: "token_erc721_properties_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: true
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -34332,13 +32459,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_properties_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: true
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -34424,13 +32544,6 @@ export type Database = {
             foreignKeyName: "token_erc721_trait_definitions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_trait_definitions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -34439,13 +32552,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_erc721_trait_definitions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -34528,13 +32634,6 @@ export type Database = {
             foreignKeyName: "fk_token"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -34543,13 +32642,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -34654,13 +32746,6 @@ export type Database = {
             foreignKeyName: "token_exchange_configs_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_exchange_configs_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -34669,13 +32754,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_exchange_configs_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -34790,13 +32868,6 @@ export type Database = {
             foreignKeyName: "token_extensions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_extensions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -34805,13 +32876,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_extensions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -34941,13 +33005,6 @@ export type Database = {
             foreignKeyName: "token_geographic_restrictions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_geographic_restrictions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -34956,13 +33013,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_geographic_restrictions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -35063,13 +33113,6 @@ export type Database = {
             foreignKeyName: "token_modules_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_modules_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -35078,13 +33121,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_modules_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -35212,13 +33248,6 @@ export type Database = {
             foreignKeyName: "token_operations_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_operations_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -35227,13 +33256,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_operations_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -35328,13 +33350,6 @@ export type Database = {
             foreignKeyName: "token_sanctions_rules_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_sanctions_rules_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -35343,13 +33358,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_sanctions_rules_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -35491,13 +33499,6 @@ export type Database = {
             foreignKeyName: "token_versions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_versions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -35506,13 +33507,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_versions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -35619,13 +33613,6 @@ export type Database = {
             foreignKeyName: "fk_token_whitelists_token_id"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token_whitelists_token_id"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -35634,13 +33621,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "fk_token_whitelists_token_id"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -35689,13 +33669,6 @@ export type Database = {
             foreignKeyName: "token_whitelists_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_whitelists_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -35704,13 +33677,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_whitelists_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -38130,13 +36096,6 @@ export type Database = {
             foreignKeyName: "valuation_price_history_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "valuation_price_history_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -38145,13 +36104,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "valuation_price_history_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -40098,41 +38050,20 @@ export type Database = {
       }
       token_erc1155_view: {
         Row: {
-          access_control: string | null
-          airdrop_enabled: boolean | null
-          base_price: string | null
           base_uri: string | null
-          batch_minting_config: Json | null
-          batch_transfer_limits: Json | null
-          bridge_enabled: boolean | null
-          bulk_discount_enabled: boolean | null
-          burning_enabled: boolean | null
-          claim_end_time: string | null
-          claim_period_enabled: boolean | null
-          claim_start_time: string | null
-          container_config: Json | null
-          crafting_enabled: boolean | null
           decimals: number | null
           description: string | null
-          dynamic_uri_config: Json | null
-          enable_approval_for_all: boolean | null
           erc1155_property_id: string | null
-          experience_points_enabled: boolean | null
-          fusion_enabled: boolean | null
           has_royalty: boolean | null
           is_burnable: boolean | null
           is_pausable: boolean | null
-          lazy_minting_enabled: boolean | null
-          marketplace_fees_enabled: boolean | null
           metadata: Json | null
           metadata_storage: string | null
           name: string | null
-          pricing_model: string | null
           property_created_at: string | null
           property_updated_at: string | null
           royalty_percentage: string | null
           royalty_receiver: string | null
-          sales_config: Json | null
           standard: Database["public"]["Enums"]["token_standard_enum"] | null
           status: Database["public"]["Enums"]["token_status_enum"] | null
           supply_tracking: boolean | null
@@ -40141,192 +38072,90 @@ export type Database = {
           token_id: string | null
           token_updated_at: string | null
           total_supply: string | null
-          transfer_restrictions: Json | null
-          updatable_metadata: boolean | null
           updatable_uris: boolean | null
-          voting_power_enabled: boolean | null
-          whitelist_config: Json | null
-        }
-        Relationships: []
-      }
-      token_erc1400_view: {
-        Row: {
-          advanced_corporate_actions: boolean | null
-          advanced_governance_enabled: boolean | null
-          advanced_risk_management: boolean | null
-          aml_monitoring_enabled: boolean | null
-          auto_compliance: boolean | null
-          automated_sanctions_screening: boolean | null
-          beneficial_ownership_tracking: boolean | null
-          cap: string | null
-          compliance_automation_level: string | null
-          compliance_module: string | null
-          compliance_settings: Json | null
-          controller_address: string | null
-          corporate_actions: boolean | null
-          cross_border_trading_enabled: boolean | null
-          custody_integration_enabled: boolean | null
-          custom_features: Json | null
-          decimals: number | null
-          description: string | null
-          dividend_distribution: boolean | null
-          document_hash: string | null
-          document_management: boolean | null
-          document_uri: string | null
-          enforce_kyc: boolean | null
-          enhanced_reporting_enabled: boolean | null
-          erc1400_property_id: string | null
-          forced_redemption_enabled: boolean | null
-          forced_transfers: boolean | null
-          geographic_restrictions: Json | null
-          granular_control: boolean | null
-          holding_period: number | null
-          initial_supply: string | null
-          institutional_grade: boolean | null
-          insurance_coverage_enabled: boolean | null
-          investor_accreditation: boolean | null
-          is_burnable: boolean | null
-          is_issuable: boolean | null
-          is_mintable: boolean | null
-          is_multi_class: boolean | null
-          is_pausable: boolean | null
-          iso20022_messaging_support: boolean | null
-          issuance_modules: boolean | null
-          issuing_entity_lei: string | null
-          issuing_entity_name: string | null
-          issuing_jurisdiction: string | null
-          kyc_settings: Json | null
-          legal_terms: string | null
-          manual_approvals: boolean | null
-          max_investor_count: number | null
-          metadata: Json | null
-          multi_jurisdiction_compliance: boolean | null
-          name: string | null
-          prime_brokerage_support: boolean | null
-          property_created_at: string | null
-          property_updated_at: string | null
-          prospectus: string | null
-          proxy_voting_enabled: boolean | null
-          real_time_compliance_monitoring: boolean | null
-          recovery_mechanism: boolean | null
-          regulation_type: string | null
-          require_kyc: boolean | null
-          security_type: string | null
-          settlement_integration: string | null
-          standard: Database["public"]["Enums"]["token_standard_enum"] | null
-          status: Database["public"]["Enums"]["token_status_enum"] | null
-          stock_splits_enabled: boolean | null
-          swift_integration_enabled: boolean | null
-          symbol: string | null
-          token_created_at: string | null
-          token_details: string | null
-          token_id: string | null
-          token_updated_at: string | null
-          total_supply: string | null
-          traditional_finance_integration: boolean | null
-          tranche_transferability: boolean | null
-          transfer_restrictions: Json | null
-          treasury_management_enabled: boolean | null
-          whitelist_enabled: boolean | null
         }
         Relationships: []
       }
       token_erc20_view: {
         Row: {
-          access_control: string | null
-          allow_management: boolean | null
-          anti_whale_enabled: boolean | null
           cap: string | null
-          compliance_config: Json | null
           decimals: number | null
           description: string | null
           erc20_property_id: string | null
-          fee_on_transfer: Json | null
-          gas_config: Json | null
-          governance_enabled: boolean | null
-          governance_features: Json | null
+          initial_owner: string | null
           initial_supply: string | null
           is_burnable: boolean | null
           is_mintable: boolean | null
           is_pausable: boolean | null
-          max_wallet_amount: string | null
           metadata: Json | null
           name: string | null
-          permit: boolean | null
-          presale_enabled: boolean | null
-          presale_rate: string | null
           property_created_at: string | null
           property_updated_at: string | null
-          proposal_threshold: string | null
-          quorum_percentage: string | null
-          rebasing: Json | null
-          reflection_enabled: boolean | null
-          reflection_percentage: string | null
-          snapshot: boolean | null
           standard: Database["public"]["Enums"]["token_standard_enum"] | null
           status: Database["public"]["Enums"]["token_status_enum"] | null
           symbol: string | null
           token_created_at: string | null
           token_id: string | null
-          token_type: string | null
           token_updated_at: string | null
           total_supply: string | null
-          trading_start_time: string | null
-          transfer_config: Json | null
-          vesting_cliff_period: number | null
-          vesting_enabled: boolean | null
-          voting_delay: number | null
-          voting_period: number | null
-          whitelist_config: Json | null
         }
         Relationships: []
       }
       token_erc3525_view: {
         Row: {
-          access_control: string | null
-          accredited_investor_only: boolean | null
-          accrual_enabled: boolean | null
-          accrual_rate: string | null
           allows_slot_enumeration: boolean | null
+          auto_unit_calculation: boolean | null
           base_uri: string | null
-          compound_interest_enabled: boolean | null
+          compliance_config: Json | null
+          compliance_module_address: string | null
           coupon_frequency: string | null
-          cross_slot_transfers: boolean | null
+          custom_extensions: string | null
+          custom_slot_properties: Json | null
           decimals: number | null
           derivative_type: string | null
           description: string | null
+          document_config: Json | null
+          document_module_address: string | null
           dynamic_metadata: boolean | null
-          dynamic_slot_creation: boolean | null
           early_redemption_enabled: boolean | null
           erc3525_property_id: string | null
           expiration_date: string | null
           financial_instrument_type: string | null
-          flash_loan_enabled: boolean | null
           fractional_ownership_enabled: boolean | null
+          fractionalizable: boolean | null
           has_royalty: boolean | null
+          initial_owner: string | null
           interest_rate: string | null
           is_burnable: boolean | null
           is_pausable: boolean | null
-          kyc_required: boolean | null
-          liquidity_provision_enabled: boolean | null
+          leverage_ratio: string | null
+          margin_requirements: Json | null
           maturity_date: string | null
           mergable: boolean | null
           metadata: Json | null
           metadata_storage: string | null
-          minimum_trade_value: string | null
           name: string | null
-          partial_value_trading: boolean | null
+          payment_schedule: Json | null
+          permissioning_advanced: boolean | null
           permissioning_enabled: boolean | null
+          policy_engine_address: string | null
+          policy_engine_config: Json | null
           principal_amount: string | null
           property_created_at: string | null
+          property_metadata: Json | null
           property_updated_at: string | null
-          regulatory_compliance_enabled: boolean | null
+          redemption_penalty_rate: string | null
           royalty_percentage: string | null
           royalty_receiver: string | null
           sales_config: Json | null
           settlement_type: string | null
+          slot_approvable_config: Json | null
+          slot_approvable_module_address: string | null
           slot_approvals: boolean | null
-          slot_creation_enabled: boolean | null
+          slot_enumeration_enabled: boolean | null
+          slot_manager_config: Json | null
+          slot_manager_module_address: string | null
+          slot_transfer_restrictions: Json | null
           slot_transfer_validation: Json | null
           slot_type: string | null
           splittable: boolean | null
@@ -40340,119 +38169,46 @@ export type Database = {
           token_updated_at: string | null
           total_supply: string | null
           underlying_asset: string | null
+          underlying_asset_address: string | null
           updatable_slots: boolean | null
           updatable_uris: boolean | null
           updatable_values: boolean | null
           value_aggregation: boolean | null
+          value_aggregation_enabled: boolean | null
           value_approvals: boolean | null
-          value_computation_method: string | null
           value_decimals: number | null
+          value_exchange_config: Json | null
+          value_exchange_module_address: string | null
+          value_transfer_restrictions: Json | null
           value_transfers_enabled: boolean | null
-          yield_farming_enabled: boolean | null
-        }
-        Relationships: []
-      }
-      token_erc4626_view: {
-        Row: {
-          access_control: string | null
-          apy_tracking_enabled: boolean | null
-          asset_address: string | null
-          asset_decimals: number | null
-          asset_name: string | null
-          asset_symbol: string | null
-          auto_compounding_enabled: boolean | null
-          automated_rebalancing: boolean | null
-          benchmark_index: string | null
-          benchmark_tracking_enabled: boolean | null
-          circuit_breaker_enabled: boolean | null
-          compliance_reporting_enabled: boolean | null
-          compound_frequency: string | null
-          cross_chain_yield_enabled: boolean | null
-          custom_strategy: boolean | null
-          decimals: number | null
-          description: string | null
-          emergency_exit_enabled: boolean | null
-          emergency_shutdown: boolean | null
-          erc4626_property_id: string | null
-          fee_structure: Json | null
-          fee_voting_enabled: boolean | null
-          flash_loans: boolean | null
-          governance_token_enabled: boolean | null
-          institutional_grade: boolean | null
-          insurance_enabled: boolean | null
-          is_burnable: boolean | null
-          is_mintable: boolean | null
-          is_pausable: boolean | null
-          liquidity_mining_enabled: boolean | null
-          market_making_enabled: boolean | null
-          metadata: Json | null
-          multi_asset_enabled: boolean | null
-          name: string | null
-          performance_metrics: boolean | null
-          permit: boolean | null
-          property_created_at: string | null
-          property_updated_at: string | null
-          rebalancing_enabled: boolean | null
-          rebalancing_rules: Json | null
-          risk_management_enabled: boolean | null
-          risk_tolerance: string | null
-          standard: Database["public"]["Enums"]["token_standard_enum"] | null
-          status: Database["public"]["Enums"]["token_status_enum"] | null
-          strategy_complexity: string | null
-          strategy_controller: string | null
-          strategy_voting_enabled: boolean | null
-          symbol: string | null
-          third_party_audits_enabled: boolean | null
-          token_created_at: string | null
-          token_id: string | null
-          token_updated_at: string | null
-          total_supply: string | null
-          vault_strategy: string | null
-          vault_type: string | null
-          yield_optimization_enabled: boolean | null
-          yield_source: string | null
+          vesting_module_address: string | null
+          whitelist_config: Json | null
         }
         Relationships: []
       }
       token_erc721_view: {
         Row: {
-          access_control: string | null
           asset_type: string | null
           auto_increment_ids: boolean | null
           base_uri: string | null
-          contract_uri: string | null
-          cross_chain_enabled: boolean | null
           decimals: number | null
           description: string | null
-          enable_dynamic_metadata: boolean | null
-          enable_fractional_ownership: boolean | null
           enumerable: boolean | null
           erc721_property_id: string | null
           has_royalty: boolean | null
           is_burnable: boolean | null
           is_pausable: boolean | null
-          max_mints_per_tx: number | null
-          max_mints_per_wallet: number | null
           max_supply: string | null
           metadata: Json | null
-          metadata_storage: string | null
           minting_method: string | null
-          minting_price: string | null
           name: string | null
           permission_config: Json | null
-          pre_reveal_uri: string | null
           property_created_at: string | null
           property_updated_at: string | null
-          public_sale_enabled: boolean | null
-          public_sale_price: string | null
-          public_sale_start_time: string | null
-          reserved_tokens: number | null
-          revealable: boolean | null
           royalty_percentage: string | null
           royalty_receiver: string | null
           sales_config: Json | null
           soulbound: boolean | null
-          staking_enabled: boolean | null
           standard: Database["public"]["Enums"]["token_standard_enum"] | null
           status: Database["public"]["Enums"]["token_status_enum"] | null
           symbol: string | null
@@ -40461,13 +38217,6 @@ export type Database = {
           token_updated_at: string | null
           total_supply: string | null
           updatable_uris: boolean | null
-          uri_storage: string | null
-          utility_enabled: boolean | null
-          utility_type: string | null
-          whitelist_config: Json | null
-          whitelist_sale_enabled: boolean | null
-          whitelist_sale_price: string | null
-          whitelist_sale_start_time: string | null
         }
         Relationships: []
       }
@@ -40519,13 +38268,6 @@ export type Database = {
             foreignKeyName: "token_geographic_restrictions_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "token_erc1400_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_geographic_restrictions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
             referencedRelation: "token_erc20_view"
             referencedColumns: ["token_id"]
           },
@@ -40534,13 +38276,6 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "token_erc3525_view"
-            referencedColumns: ["token_id"]
-          },
-          {
-            foreignKeyName: "token_geographic_restrictions_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "token_erc4626_view"
             referencedColumns: ["token_id"]
           },
           {
@@ -40569,12 +38304,6 @@ export type Database = {
       token_whitelist_summary: {
         Row: {
           created_at: string | null
-          erc1155_whitelist_enabled: boolean | null
-          erc1400_whitelist_enabled: boolean | null
-          erc20_whitelist_enabled: boolean | null
-          erc3525_whitelist_enabled: boolean | null
-          erc4626_whitelist_enabled: boolean | null
-          erc721_whitelist_enabled: boolean | null
           token_id: string | null
           token_name: string | null
           token_standard:
@@ -40582,6 +38311,7 @@ export type Database = {
             | null
           token_symbol: string | null
           updated_at: string | null
+          whitelist_enabled: boolean | null
           whitelisted_address_count: number | null
         }
         Relationships: []

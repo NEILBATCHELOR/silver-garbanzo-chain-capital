@@ -2,14 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle2, Settings, Palette, Gamepad2, MapPin, Link, Layers } from "lucide-react";
+import { AlertCircle, CheckCircle2, Settings, Layers } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Import sub-forms
+// Import sub-forms (Gaming and Pricing forms removed)
 import ERC1155BaseForm from "./ERC1155BaseForm";
 import ERC1155TypesForm from "./ERC1155TypesForm";
-import ERC1155PricingForm from "./ERC1155PricingForm";
-import ERC1155GamingForm from "./ERC1155GamingForm";
 import ERC1155TypeConfigsForm from "./ERC1155TypeConfigsForm";
 import ERC1155UriMappingsForm from "./ERC1155UriMappingsForm";
 
@@ -21,7 +19,7 @@ interface ERC1155ConfigProps {
 }
 
 interface ERC1155CompleteConfig {
-  // Base configuration from token_erc1155_properties
+  // Base configuration from token_erc1155_properties (CLEANED)
   base_uri?: string;
   metadata_storage?: string;
   has_royalty?: boolean;
@@ -29,104 +27,77 @@ interface ERC1155CompleteConfig {
   royalty_receiver?: string;
   is_burnable?: boolean;
   is_pausable?: boolean;
-  access_control?: string;
   updatable_uris?: boolean;
   supply_tracking?: boolean;
-  enable_approval_for_all?: boolean;
   batch_minting_enabled?: boolean;
   container_enabled?: boolean;
-  use_geographic_restrictions?: boolean;
-  default_restriction_policy?: string;
   dynamic_uris?: boolean;
   updatable_metadata?: boolean;
-  supply_tracking_advanced?: boolean;
-  max_supply_per_type?: string;
-  burning_enabled?: boolean;
-  mint_roles?: string[];
-  burn_roles?: string[];
-  metadata_update_roles?: string[];
   
-  // Pricing configuration
-  pricing_model?: string;
-  base_price?: string;
-  bulk_discount_enabled?: boolean;
-  referral_rewards_enabled?: boolean;
-  referral_percentage?: string;
-  lazy_minting_enabled?: boolean;
-  airdrop_enabled?: boolean;
-  airdrop_snapshot_block?: number;
-  claim_period_enabled?: boolean;
-  claim_start_time?: string;
-  claim_end_time?: string;
-  marketplace_fees_enabled?: boolean;
-  marketplace_fee_percentage?: string;
-  marketplace_fee_recipient?: string;
-  bundle_trading_enabled?: boolean;
-  atomic_swaps_enabled?: boolean;
-  cross_collection_trading?: boolean;
-  
-  // Gaming configuration
-  crafting_enabled?: boolean;
-  fusion_enabled?: boolean;
-  experience_points_enabled?: boolean;
-  leveling_enabled?: boolean;
-  consumable_tokens?: boolean;
-  voting_power_enabled?: boolean;
-  voting_weight_per_token?: any;
-  community_treasury_enabled?: boolean;
-  treasury_percentage?: string;
-  proposal_creation_threshold?: string;
-  bridge_enabled?: boolean;
-  bridgeable_token_types?: string[];
-  wrapped_versions?: any;
-  layer2_support_enabled?: boolean;
-  supported_layer2_networks?: string[];
+  // Compliance - KEPT per requirements
+  use_geographic_restrictions?: boolean;
+  default_restriction_policy?: string;
+  whitelist_config?: any;
   
   // Related table data
   tokenTypes?: any[];
-  discountTiers?: any[];
-  craftingRecipes?: any[];
   typeConfigs?: any[];
   uriMappings?: any[];
 }
 
 /**
- * ERC-1155 Comprehensive Configuration Component
- * Orchestrates all sub-forms and manages complete token configuration
- * Covers all 69 fields from token_erc1155_properties plus 6 supporting tables
+ * ERC-1155 Configuration Component (CLEANED)
+ * 
+ * Removed per FORM_UPDATES_REQUIRED.md:
+ * - Gaming mechanics (crafting, fusion, leveling, consumable tokens)
+ * - Marketplace features (pricing models, discounts, marketplace fees)
+ * - Rewards/incentives (referral rewards, airdrops, claim periods)
+ * - Governance (voting power, community treasury)
+ * - Cross-chain (bridge, layer2)
+ * - Role management arrays (mint_roles, burn_roles, metadata_update_roles)
+ * 
+ * Kept:
+ * - Core ERC-1155 properties
+ * - Royalties (ERC-2981)
+ * - Supply tracking (ERC-5615)
+ * - Metadata management (ERC-4906)
+ * - Compliance features (whitelist_config)
  */
 const ERC1155Config: React.FC<ERC1155ConfigProps> = ({ 
   onConfigChange,
   initialConfig = {},
   setTokenForm,
-  tokenForm
+  tokenForm = {}
 }) => {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [config, setConfig] = useState<ERC1155CompleteConfig>(() => {
-    const defaultConfig: ERC1155CompleteConfig = {
-      // Base defaults
-      metadata_storage: "ipfs",
-      access_control: "ownable",
-      supply_tracking: true,
-      enable_approval_for_all: true,
-      default_restriction_policy: "allowed",
-      pricing_model: "fixed",
-      
-      // Initialize arrays
-      tokenTypes: [],
-      discountTiers: [],
-      craftingRecipes: [],
-      typeConfigs: [],
-      uriMappings: [],
-      mint_roles: [],
-      burn_roles: [],
-      metadata_update_roles: [],
-      bridgeable_token_types: [],
-      supported_layer2_networks: []
-    };
+  const [activeTab, setActiveTab] = useState("base");
+  const [config, setConfig] = useState<ERC1155CompleteConfig>({
+    // Base properties
+    base_uri: initialConfig.base_uri || tokenForm.base_uri || "",
+    metadata_storage: initialConfig.metadata_storage || tokenForm.metadata_storage || "ipfs",
+    has_royalty: initialConfig.has_royalty ?? tokenForm.has_royalty ?? false,
+    royalty_percentage: initialConfig.royalty_percentage || tokenForm.royalty_percentage || "",
+    royalty_receiver: initialConfig.royalty_receiver || tokenForm.royalty_receiver || "",
+    is_burnable: initialConfig.is_burnable ?? tokenForm.is_burnable ?? false,
+    is_pausable: initialConfig.is_pausable ?? tokenForm.is_pausable ?? false,
+    updatable_uris: initialConfig.updatable_uris ?? tokenForm.updatable_uris ?? false,
+    supply_tracking: initialConfig.supply_tracking ?? tokenForm.supply_tracking ?? true,
+    batch_minting_enabled: initialConfig.batch_minting_enabled ?? tokenForm.batch_minting_enabled ?? true,
+    container_enabled: initialConfig.container_enabled ?? tokenForm.container_enabled ?? false,
+    dynamic_uris: initialConfig.dynamic_uris ?? tokenForm.dynamic_uris ?? false,
+    updatable_metadata: initialConfig.updatable_metadata ?? tokenForm.updatable_metadata ?? false,
     
-    return { ...defaultConfig, ...initialConfig };
+    // Compliance
+    use_geographic_restrictions: initialConfig.use_geographic_restrictions ?? tokenForm.use_geographic_restrictions ?? false,
+    default_restriction_policy: initialConfig.default_restriction_policy || tokenForm.default_restriction_policy || "allowed",
+    whitelist_config: initialConfig.whitelist_config || tokenForm.whitelist_config || {},
+    
+    // Related tables
+    tokenTypes: initialConfig.tokenTypes || [],
+    typeConfigs: initialConfig.typeConfigs || [],
+    uriMappings: initialConfig.uriMappings || []
   });
+
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Update parent when config changes
   useEffect(() => {
@@ -134,256 +105,191 @@ const ERC1155Config: React.FC<ERC1155ConfigProps> = ({
       onConfigChange(config);
     }
     if (setTokenForm) {
-      setTokenForm(prev => ({ ...prev, ...config }));
+      setTokenForm(config);
     }
   }, [config, onConfigChange, setTokenForm]);
 
-  // Handle base configuration changes
   const handleBaseConfigChange = (field: string, value: any) => {
-    setConfig(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setConfig(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handle related table data changes
-  const handleTableDataChange = (table: string, data: any[]) => {
-    setConfig(prev => ({
-      ...prev,
-      [table]: data
-    }));
+  const handleTypesChange = (types: any[]) => {
+    setConfig(prev => ({ ...prev, tokenTypes: types }));
   };
 
-  // Validation functions
-  const getValidationStatus = () => {
-    const issues = [];
-    const warnings = [];
+  const handleTypeConfigsChange = (typeConfigs: any[]) => {
+    setConfig(prev => ({ ...prev, typeConfigs }));
+  };
 
-    // Check required fields
-    if (!config.tokenTypes || config.tokenTypes.length === 0) {
-      issues.push("At least one token type must be defined");
+  const handleUriMappingsChange = (uriMappings: any[]) => {
+    setConfig(prev => ({ ...prev, uriMappings }));
+  };
+
+  // Validation
+  const validateConfig = () => {
+    const errors: string[] = [];
+
+    // Base URI validation
+    if (!config.base_uri || config.base_uri.trim() === "") {
+      errors.push("Base URI is required");
     }
 
-    // Check royalty configuration
+    // Royalty validation
     if (config.has_royalty) {
-      if (!config.royalty_percentage || parseFloat(config.royalty_percentage) <= 0) {
-        issues.push("Royalty percentage must be greater than 0 when royalties are enabled");
+      if (!config.royalty_percentage || parseFloat(config.royalty_percentage) < 0 || parseFloat(config.royalty_percentage) > 100) {
+        errors.push("Royalty percentage must be between 0 and 100");
       }
-      if (!config.royalty_receiver) {
-        issues.push("Royalty receiver address is required when royalties are enabled");
+      if (!config.royalty_receiver || !/^0x[a-fA-F0-9]{40}$/.test(config.royalty_receiver)) {
+        errors.push("Valid royalty receiver address is required");
       }
     }
 
-    // Check pricing configuration
-    if (config.pricing_model !== "free" && (!config.base_price || parseFloat(config.base_price) <= 0)) {
-      warnings.push("Base price should be set for non-free pricing models");
+    // Token types validation
+    if (!config.tokenTypes || config.tokenTypes.length === 0) {
+      errors.push("At least one token type must be defined");
     }
 
-    // Check URI configuration
-    if (!config.base_uri && (!config.uriMappings || config.uriMappings.length === 0)) {
-      warnings.push("Either base URI or individual URI mappings should be configured");
-    }
-
-    return { issues, warnings };
+    setValidationErrors(errors);
+    return errors.length === 0;
   };
 
-  const { issues, warnings } = getValidationStatus();
-
-  // Get tab completion status
-  const getTabStatus = (tab: string) => {
-    switch (tab) {
-      case "types":
-        return config.tokenTypes && config.tokenTypes.length > 0;
-      case "pricing":
-        return config.pricing_model && (config.pricing_model === "free" || config.base_price);
-      case "gaming":
-        return !config.crafting_enabled || (config.craftingRecipes && config.craftingRecipes.length > 0);
-      case "configs":
-        return true; // Optional
-      case "uris":
-        return config.base_uri || (config.uriMappings && config.uriMappings.length > 0);
-      default:
-        return true;
-    }
-  };
+  const isConfigValid = validationErrors.length === 0;
 
   return (
     <div className="space-y-6">
-      {/* Configuration Overview */}
+      {/* Header */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
-                ERC-1155 Multi-Token Configuration
-              </CardTitle>
+              <CardTitle className="text-2xl font-bold">ERC-1155 Multi-Token Configuration</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Comprehensive configuration for ERC-1155 multi-token contracts with advanced features
+                Configure your multi-token standard contract with support for fungible and non-fungible token types
               </p>
             </div>
-            <div className="flex gap-2">
-              {issues.length === 0 && warnings.length === 0 ? (
-                <Badge variant="default" className="bg-green-100 text-green-800">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Valid Configuration
-                </Badge>
+            <Badge variant={isConfigValid ? "default" : "destructive"}>
+              {isConfigValid ? (
+                <><CheckCircle2 className="mr-1 h-3 w-3" /> Valid</>
               ) : (
-                <Badge variant="destructive">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  {issues.length} Issues
-                </Badge>
+                <><AlertCircle className="mr-1 h-3 w-3" /> {validationErrors.length} Error{validationErrors.length !== 1 ? 's' : ''}</>
               )}
-            </div>
+            </Badge>
           </div>
         </CardHeader>
-        <CardContent>
-          {/* Validation Messages */}
-          {issues.length > 0 && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Issues that need to be resolved:</strong>
-                <ul className="list-disc list-inside mt-2">
-                  {issues.map((issue, index) => (
-                    <li key={index}>{issue}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {warnings.length > 0 && (
-            <Alert className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Recommendations:</strong>
-                <ul className="list-disc list-inside mt-2">
-                  {warnings.map((warning, index) => (
-                    <li key={index}>{warning}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Configuration Summary */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {config.tokenTypes?.length || 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Token Types</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {config.craftingRecipes?.length || 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Crafting Recipes</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {config.discountTiers?.length || 0}
-              </div>
-              <div className="text-sm text-muted-foreground">Discount Tiers</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {config.uriMappings?.length || 0}
-              </div>
-              <div className="text-sm text-muted-foreground">URI Mappings</div>
-            </div>
-          </div>
-        </CardContent>
       </Card>
 
-      {/* Configuration Forms */}
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <ul className="list-disc list-inside space-y-1">
+              {validationErrors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Configuration Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="overview" className="flex items-center gap-1">
-            <Settings className="h-3 w-3" />
-            Base
-            {getTabStatus("overview") && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="base" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Base Properties
           </TabsTrigger>
-          <TabsTrigger value="types" className="flex items-center gap-1">
-            <Layers className="h-3 w-3" />
-            Types
-            {getTabStatus("types") && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+          <TabsTrigger value="types" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Token Types
           </TabsTrigger>
-          <TabsTrigger value="pricing" className="flex items-center gap-1">
-            <Palette className="h-3 w-3" />
-            Pricing
-            {getTabStatus("pricing") && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+          <TabsTrigger value="type-configs" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Type Configs
           </TabsTrigger>
-          <TabsTrigger value="gaming" className="flex items-center gap-1">
-            <Gamepad2 className="h-3 w-3" />
-            Gaming
-            {getTabStatus("gaming") && <CheckCircle2 className="h-3 w-3 text-green-600" />}
-          </TabsTrigger>
-          <TabsTrigger value="configs" className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            Configs
-            {getTabStatus("configs") && <CheckCircle2 className="h-3 w-3 text-green-600" />}
-          </TabsTrigger>
-          <TabsTrigger value="uris" className="flex items-center gap-1">
-            <Link className="h-3 w-3" />
-            URIs
-            {getTabStatus("uris") && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+          <TabsTrigger value="uri-mappings" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            URI Mappings
           </TabsTrigger>
         </TabsList>
 
-        {/* Base Configuration */}
-        <TabsContent value="overview">
+        {/* Base Properties Tab */}
+        <TabsContent value="base" className="space-y-4">
           <ERC1155BaseForm
             config={config}
             onChange={handleBaseConfigChange}
           />
         </TabsContent>
 
-        {/* Token Types Management */}
-        <TabsContent value="types">
+        {/* Token Types Tab */}
+        <TabsContent value="types" className="space-y-4">
           <ERC1155TypesForm
             tokenTypes={config.tokenTypes || []}
-            onChange={(tokenTypes) => handleTableDataChange("tokenTypes", tokenTypes)}
+            onChange={handleTypesChange}
           />
         </TabsContent>
 
-        {/* Pricing & Economics */}
-        <TabsContent value="pricing">
-          <ERC1155PricingForm
-            config={config}
-            discountTiers={config.discountTiers || []}
-            onChange={handleBaseConfigChange}
-            onDiscountTiersChange={(tiers) => handleTableDataChange("discountTiers", tiers)}
-          />
-        </TabsContent>
-
-        {/* Gaming & Utility */}
-        <TabsContent value="gaming">
-          <ERC1155GamingForm
-            config={config}
-            craftingRecipes={config.craftingRecipes || []}
-            onChange={handleBaseConfigChange}
-            onCraftingRecipesChange={(recipes) => handleTableDataChange("craftingRecipes", recipes)}
-          />
-        </TabsContent>
-
-        {/* Type Configurations */}
-        <TabsContent value="configs">
+        {/* Type Configurations Tab */}
+        <TabsContent value="type-configs" className="space-y-4">
           <ERC1155TypeConfigsForm
             typeConfigs={config.typeConfigs || []}
-            onChange={(typeConfigs) => handleTableDataChange("typeConfigs", typeConfigs)}
+            onChange={handleTypeConfigsChange}
           />
         </TabsContent>
 
-        {/* URI Mappings */}
-        <TabsContent value="uris">
+        {/* URI Mappings Tab */}
+        <TabsContent value="uri-mappings" className="space-y-4">
           <ERC1155UriMappingsForm
             uriMappings={config.uriMappings || []}
-            onChange={(uriMappings) => handleTableDataChange("uriMappings", uriMappings)}
+            onChange={handleUriMappingsChange}
           />
         </TabsContent>
       </Tabs>
+
+      {/* Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Configuration Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Token Types:</span>
+              <span className="ml-2 font-medium">{config.tokenTypes?.length || 0}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Burnable:</span>
+              <Badge variant={config.is_burnable ? "default" : "secondary"} className="ml-2">
+                {config.is_burnable ? "Yes" : "No"}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Pausable:</span>
+              <Badge variant={config.is_pausable ? "default" : "secondary"} className="ml-2">
+                {config.is_pausable ? "Yes" : "No"}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Royalties:</span>
+              <Badge variant={config.has_royalty ? "default" : "secondary"} className="ml-2">
+                {config.has_royalty ? `${config.royalty_percentage}%` : "Disabled"}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Supply Tracking:</span>
+              <Badge variant={config.supply_tracking ? "default" : "secondary"} className="ml-2">
+                {config.supply_tracking ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Batch Minting:</span>
+              <Badge variant={config.batch_minting_enabled ? "default" : "secondary"} className="ml-2">
+                {config.batch_minting_enabled ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

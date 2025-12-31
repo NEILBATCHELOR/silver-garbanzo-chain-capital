@@ -368,9 +368,11 @@ export interface ERC1400MasterConfig {
   name: string;
   symbol: string;
   decimals: number;             // Token decimals (uint8: 0-255)
+  granularity: number;          // ERC-1400 MANDATORY: Minimum transferable unit (1 = fully divisible)
   defaultPartitions: string[];  // Initial partition names (as bytes32)
   owner: string;
   isControllable: boolean;      // Whether token can be controlled
+  isIssuable?: boolean;         // Whether new tokens can be issued
 }
 
 // ============ COMPLETE MODULE CONFIGURATION TYPE ============

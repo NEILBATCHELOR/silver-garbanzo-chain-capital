@@ -14,6 +14,8 @@ export interface EnhancedERC1400Config {
   baseConfig: {
     name: string;
     symbol: string;
+    decimals: number;
+    granularity: number; // ERC-1400 mandatory: minimum transferable unit
     initialSupply: string;
     cap: string;
     controllerAddress: string;
@@ -25,7 +27,6 @@ export interface EnhancedERC1400Config {
     isMintable: boolean;
     isBurnable: boolean;
     isPausable: boolean;
-    decimals: number;
   };
   
   // Security token metadata (set post-deployment)
@@ -393,6 +394,8 @@ export class ERC1400ConfigurationMapper {
     return {
       name: tokenForm.name || '',
       symbol: tokenForm.symbol || '',
+      decimals: tokenForm.decimals || 18,
+      granularity: (props as any).granularity || 1, // ERC-1400 mandatory: minimum transferable unit (defaults to 1)
       initialSupply: props.initialSupply || tokenForm.initialSupply || '0',
       cap: props.cap || tokenForm.cap || '0',
       controllerAddress: props.controllerAddress || tokenForm.initialOwner || ethers.ZeroAddress,
@@ -401,8 +404,7 @@ export class ERC1400ConfigurationMapper {
       documentHash: props.documentHash || '0x0000000000000000000000000000000000000000000000000000000000000000',
       isMintable: props.isMintable ?? false,
       isBurnable: props.isBurnable ?? false,
-      isPausable: props.isPausable ?? false,
-      decimals: tokenForm.decimals || 18
+      isPausable: props.isPausable ?? false
     };
   }
 

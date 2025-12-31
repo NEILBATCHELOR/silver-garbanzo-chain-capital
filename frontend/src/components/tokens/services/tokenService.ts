@@ -446,7 +446,6 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
         gas_config: blocks.gasConfig || blocks.gas_config,
         compliance_config: blocks.complianceConfig || blocks.compliance_config,
         whitelist_config: blocks.whitelistConfig || blocks.whitelist_config,
-        access_control: blocks.access_control || blocks.accessControl || 'ownable',
         allow_management: blocks.allow_management || blocks.allowanceManagement || false,
         permit: blocks.permit || false,
         snapshot: blocks.snapshot || false,
@@ -472,7 +471,6 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
         auto_increment_ids: blocks.auto_increment_ids ?? blocks.autoIncrementIds ?? true,
         enumerable: blocks.enumerable ?? true,
         uri_storage: blocks.uri_storage || blocks.uriStorage || 'tokenId',
-        access_control: blocks.access_control || blocks.accessControl || 'ownable',
         updatable_uris: blocks.updatable_uris || blocks.updatableUris || false,
         
         // JSONB configurations
@@ -494,7 +492,6 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
         royalty_receiver: blocks.royalty_receiver || blocks.royaltyReceiver,
         is_burnable: blocks.is_burnable || blocks.isBurnable || false,
         is_pausable: blocks.is_pausable || blocks.isPausable || false,
-        access_control: blocks.access_control || blocks.accessControl || 'ownable',
         updatable_uris: blocks.updatable_uris || blocks.updatableUris || false,
         supply_tracking: blocks.supply_tracking || blocks.supplyTracking || true,
         enable_approval_for_all: blocks.enable_approval_for_all || blocks.enableApprovalForAll || true,
@@ -614,7 +611,6 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
         royalty_receiver: blocks.royalty_receiver || blocks.royaltyReceiver,
         slot_approvals: blocks.slot_approvals || blocks.slotApprovals || true,
         value_approvals: blocks.value_approvals || blocks.valueApprovals || true,
-        access_control: blocks.access_control || blocks.accessControl || 'ownable',
         updatable_uris: blocks.updatable_uris || blocks.updatableUris || false,
         updatable_slots: blocks.updatable_slots || blocks.updatableSlots || false,
         value_transfers_enabled: blocks.value_transfers_enabled || blocks.valueTransfersEnabled || true,
@@ -694,7 +690,6 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
         vault_strategy: blocks.vault_strategy || blocks.vaultStrategy || (blocks.yieldStrategy?.protocol ? blocks.yieldStrategy.protocol[0] : 'simple'),
         custom_strategy: blocks.custom_strategy || blocks.customStrategy || false,
         strategy_controller: blocks.strategy_controller || blocks.strategyController,
-        access_control: blocks.access_control || blocks.accessControl || 'ownable',
         
         // Standard features
         is_mintable: blocks.is_mintable || blocks.isMintable || false,
@@ -1719,7 +1714,6 @@ function processStandardSpecificFields(fields: Record<string, any>, standard?: s
     'royaltyPercentage': 'royalty_percentage',
     'royaltyReceiver': 'royalty_receiver',
     'tokenType': 'token_type',
-    'accessControl': 'access_control',
     'allowanceManagement': 'allow_management',
     'maxSupply': 'max_supply',
     'assetType': 'asset_type',

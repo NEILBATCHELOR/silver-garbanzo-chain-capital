@@ -23864,66 +23864,14 @@ CREATE TABLE public.token_erc1155_properties (
     royalty_receiver text,
     is_burnable boolean DEFAULT false,
     is_pausable boolean DEFAULT false,
-    access_control text DEFAULT 'ownable'::text,
     updatable_uris boolean DEFAULT false,
     supply_tracking boolean DEFAULT true,
-    enable_approval_for_all boolean DEFAULT true,
-    sales_config jsonb,
     whitelist_config jsonb,
-    batch_transfer_limits jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    dynamic_uri_config jsonb,
-    batch_minting_config jsonb,
-    transfer_restrictions jsonb,
-    container_config jsonb,
     dynamic_uris boolean,
     batch_minting_enabled boolean DEFAULT false,
     container_enabled boolean DEFAULT false,
-    use_geographic_restrictions boolean DEFAULT false,
-    default_restriction_policy text DEFAULT 'allowed'::text,
-    mint_roles text[],
-    burning_enabled boolean DEFAULT false,
-    burn_roles text[],
-    updatable_metadata boolean DEFAULT false,
-    metadata_update_roles text[],
-    supply_tracking_advanced boolean DEFAULT false,
-    max_supply_per_type text,
-    pricing_model text DEFAULT 'fixed'::text,
-    base_price text,
-    price_multipliers jsonb,
-    bulk_discount_enabled boolean DEFAULT false,
-    bulk_discount_tiers jsonb,
-    referral_rewards_enabled boolean DEFAULT false,
-    referral_percentage text,
-    lazy_minting_enabled boolean DEFAULT false,
-    airdrop_enabled boolean DEFAULT false,
-    airdrop_snapshot_block integer,
-    claim_period_enabled boolean DEFAULT false,
-    claim_start_time timestamp with time zone,
-    claim_end_time timestamp with time zone,
-    crafting_enabled boolean DEFAULT false,
-    fusion_enabled boolean DEFAULT false,
-    token_recipes jsonb,
-    experience_points_enabled boolean DEFAULT false,
-    leveling_enabled boolean DEFAULT false,
-    consumable_tokens boolean DEFAULT false,
-    marketplace_fees_enabled boolean DEFAULT false,
-    marketplace_fee_percentage text,
-    marketplace_fee_recipient text,
-    bundle_trading_enabled boolean DEFAULT false,
-    atomic_swaps_enabled boolean DEFAULT false,
-    cross_collection_trading boolean DEFAULT false,
-    voting_power_enabled boolean DEFAULT false,
-    voting_weight_per_token jsonb,
-    community_treasury_enabled boolean DEFAULT false,
-    treasury_percentage text,
-    proposal_creation_threshold text,
-    bridge_enabled boolean DEFAULT false,
-    bridgeable_token_types text[],
-    wrapped_versions jsonb,
-    layer2_support_enabled boolean DEFAULT false,
-    supported_layer2_networks text[],
     compliance_module_address text,
     policy_engine_address text,
     vesting_module_address text,
@@ -23940,9 +23888,7 @@ CREATE TABLE public.token_erc1155_properties (
     compliance_config jsonb,
     policy_engine_config jsonb,
     granular_approval_config jsonb,
-    CONSTRAINT batch_transfer_limits_structure_check CHECK (((batch_transfer_limits IS NULL) OR (jsonb_typeof(batch_transfer_limits) = 'object'::text))),
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
-    CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
     CONSTRAINT token_erc1155_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1155_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1155_properties_initial_owner_format CHECK (((initial_owner IS NULL) OR (initial_owner ~* '^0x[a-f0-9]{40}$'::text))),
@@ -23955,48 +23901,6 @@ CREATE TABLE public.token_erc1155_properties (
     CONSTRAINT valid_vesting_config_erc1155 CHECK (((vesting_config IS NULL) OR public.validate_vesting_config(vesting_config))),
     CONSTRAINT whitelist_config_structure_check CHECK (((whitelist_config IS NULL) OR ((jsonb_typeof(whitelist_config) = 'object'::text) AND (whitelist_config ? 'enabled'::text) AND (((whitelist_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text])))))
 );
-
-
---
--- Name: COLUMN token_erc1155_properties.pricing_model; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1155_properties.pricing_model IS 'Pricing strategy: fixed, dynamic, or auction-based';
-
-
---
--- Name: COLUMN token_erc1155_properties.lazy_minting_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1155_properties.lazy_minting_enabled IS 'Whether tokens are minted on-demand rather than pre-minted';
-
-
---
--- Name: COLUMN token_erc1155_properties.crafting_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1155_properties.crafting_enabled IS 'Whether token types can be combined to create new tokens';
-
-
---
--- Name: COLUMN token_erc1155_properties.consumable_tokens; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1155_properties.consumable_tokens IS 'Whether some token types are consumed on use';
-
-
---
--- Name: COLUMN token_erc1155_properties.voting_power_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1155_properties.voting_power_enabled IS 'Whether different token types have governance voting power';
-
-
---
--- Name: COLUMN token_erc1155_properties.bridge_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1155_properties.bridge_enabled IS 'Whether tokens can be bridged to other chains';
 
 
 --
@@ -24169,38 +24073,20 @@ CREATE VIEW public.token_erc1155_view AS
     p.royalty_receiver,
     p.is_burnable,
     p.is_pausable,
-    p.access_control,
     p.updatable_uris,
     p.supply_tracking,
-    p.enable_approval_for_all,
-    p.sales_config,
-    p.whitelist_config,
-    p.batch_transfer_limits,
-    p.dynamic_uri_config,
-    p.batch_minting_config,
-    p.transfer_restrictions,
-    p.container_config,
-    p.lazy_minting_enabled,
-    p.burning_enabled,
-    p.updatable_metadata,
-    p.crafting_enabled,
-    p.fusion_enabled,
-    p.experience_points_enabled,
-    p.voting_power_enabled,
-    p.marketplace_fees_enabled,
-    p.bridge_enabled,
-    p.pricing_model,
-    p.base_price,
-    p.bulk_discount_enabled,
-    p.airdrop_enabled,
-    p.claim_period_enabled,
-    p.claim_start_time,
-    p.claim_end_time,
     p.created_at AS property_created_at,
     p.updated_at AS property_updated_at
    FROM (public.tokens t
      LEFT JOIN public.token_erc1155_properties p ON ((t.id = p.token_id)))
   WHERE (t.standard = 'ERC-1155'::public.token_standard_enum);
+
+
+--
+-- Name: VIEW token_erc1155_view; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.token_erc1155_view IS 'ERC-1155 token view - Cleaned up 2025-12-30: Removed 70 non-standard fields. Kept only ERC-1155 core and documented extensions (ERC-2981, ERC-4906, ERC-5615, ERC1155Burnable, ERC1155Pausable).';
 
 
 --
@@ -24212,53 +24098,6 @@ CREATE TABLE public.token_erc1400_controllers (
     token_id uuid NOT NULL,
     address text NOT NULL,
     permissions text[],
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: token_erc1400_corporate_actions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.token_erc1400_corporate_actions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    token_id uuid NOT NULL,
-    action_type text NOT NULL,
-    announcement_date date NOT NULL,
-    record_date date,
-    effective_date date,
-    payment_date date,
-    action_details jsonb NOT NULL,
-    impact_on_supply text,
-    impact_on_price text,
-    shareholder_approval_required boolean DEFAULT false,
-    voting_deadline date,
-    regulatory_approval_required boolean DEFAULT false,
-    status text DEFAULT 'announced'::text,
-    execution_transaction_hash text,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: token_erc1400_custody_providers; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.token_erc1400_custody_providers (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    token_id uuid NOT NULL,
-    provider_name text NOT NULL,
-    provider_type text NOT NULL,
-    provider_address text,
-    provider_lei text,
-    custody_agreement_hash text,
-    is_active boolean DEFAULT true,
-    certification_level text,
-    jurisdiction text,
-    regulatory_approvals text[],
-    integration_status text DEFAULT 'pending'::text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -24398,7 +24237,6 @@ CREATE TABLE public.token_erc1400_properties (
     issuing_jurisdiction text,
     issuing_entity_name text,
     issuing_entity_lei text,
-    transfer_restrictions jsonb,
     kyc_settings jsonb,
     compliance_settings jsonb,
     forced_transfers boolean DEFAULT false,
@@ -24428,80 +24266,12 @@ CREATE TABLE public.token_erc1400_properties (
     dividend_distribution boolean DEFAULT false,
     corporate_actions boolean DEFAULT false,
     custom_features jsonb,
-    geographic_restrictions jsonb DEFAULT '[]'::jsonb,
     compliance_automation_level text DEFAULT 'manual'::text,
     whitelist_config jsonb,
     investor_whitelist_enabled boolean DEFAULT false,
     accredited_investor_only boolean DEFAULT false,
     jurisdiction_restrictions jsonb DEFAULT '[]'::jsonb,
     investor_limits jsonb DEFAULT '{}'::jsonb,
-    use_geographic_restrictions boolean DEFAULT false,
-    default_restriction_policy text DEFAULT 'blocked'::text,
-    institutional_grade boolean DEFAULT false,
-    custody_integration_enabled boolean DEFAULT false,
-    prime_brokerage_support boolean DEFAULT false,
-    settlement_integration text,
-    clearing_house_integration boolean DEFAULT false,
-    central_securities_depository_integration boolean DEFAULT false,
-    third_party_custody_addresses text[],
-    institutional_wallet_support boolean DEFAULT false,
-    real_time_compliance_monitoring boolean DEFAULT false,
-    automated_sanctions_screening boolean DEFAULT false,
-    pep_screening_enabled boolean DEFAULT false,
-    aml_monitoring_enabled boolean DEFAULT false,
-    transaction_monitoring_rules jsonb,
-    suspicious_activity_reporting boolean DEFAULT false,
-    compliance_officer_notifications boolean DEFAULT false,
-    regulatory_reporting_automation boolean DEFAULT false,
-    advanced_corporate_actions boolean DEFAULT false,
-    stock_splits_enabled boolean DEFAULT false,
-    stock_dividends_enabled boolean DEFAULT false,
-    rights_offerings_enabled boolean DEFAULT false,
-    spin_offs_enabled boolean DEFAULT false,
-    mergers_acquisitions_support boolean DEFAULT false,
-    treasury_management_enabled boolean DEFAULT false,
-    buyback_programs_enabled boolean DEFAULT false,
-    share_repurchase_automation boolean DEFAULT false,
-    advanced_governance_enabled boolean DEFAULT false,
-    proxy_voting_enabled boolean DEFAULT false,
-    cumulative_voting_enabled boolean DEFAULT false,
-    weighted_voting_by_class boolean DEFAULT false,
-    quorum_requirements jsonb,
-    voting_delegation_enabled boolean DEFAULT false,
-    institutional_voting_services boolean DEFAULT false,
-    board_election_support boolean DEFAULT false,
-    cross_border_trading_enabled boolean DEFAULT false,
-    multi_jurisdiction_compliance boolean DEFAULT false,
-    passport_regime_support boolean DEFAULT false,
-    treaty_benefits_enabled boolean DEFAULT false,
-    withholding_tax_automation boolean DEFAULT false,
-    currency_hedging_enabled boolean DEFAULT false,
-    foreign_ownership_restrictions jsonb,
-    regulatory_equivalence_mapping jsonb,
-    enhanced_reporting_enabled boolean DEFAULT false,
-    real_time_shareholder_registry boolean DEFAULT false,
-    beneficial_ownership_tracking boolean DEFAULT false,
-    position_reconciliation_enabled boolean DEFAULT false,
-    regulatory_filing_automation boolean DEFAULT false,
-    audit_trail_comprehensive boolean DEFAULT false,
-    performance_analytics_enabled boolean DEFAULT false,
-    esg_reporting_enabled boolean DEFAULT false,
-    traditional_finance_integration boolean DEFAULT false,
-    swift_integration_enabled boolean DEFAULT false,
-    iso20022_messaging_support boolean DEFAULT false,
-    financial_data_vendor_integration boolean DEFAULT false,
-    market_data_feeds_enabled boolean DEFAULT false,
-    price_discovery_mechanisms jsonb,
-    cross_chain_bridge_support boolean DEFAULT false,
-    layer2_scaling_support boolean DEFAULT false,
-    advanced_risk_management boolean DEFAULT false,
-    position_limits_enabled boolean DEFAULT false,
-    concentration_limits jsonb,
-    stress_testing_enabled boolean DEFAULT false,
-    margin_requirements_dynamic boolean DEFAULT false,
-    collateral_management_enabled boolean DEFAULT false,
-    insurance_coverage_enabled boolean DEFAULT false,
-    disaster_recovery_enabled boolean DEFAULT false,
     compliance_module_address text,
     policy_engine_address text,
     vesting_module_address text,
@@ -24515,7 +24285,9 @@ CREATE TABLE public.token_erc1400_properties (
     enhanced_transfer_restrictions_config jsonb,
     enhanced_document_config jsonb,
     partition_config jsonb,
+    granularity bigint DEFAULT 1,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
+    CONSTRAINT granularity_positive CHECK ((granularity > 0)),
     CONSTRAINT token_erc1400_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1400_properties_controller_module_address_check CHECK (((controller_module_address IS NULL) OR (controller_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_erc1400_properties_document_module_address_check CHECK (((document_module_address IS NULL) OR (document_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -24561,48 +24333,6 @@ COMMENT ON COLUMN public.token_erc1400_properties.jurisdiction_restrictions IS '
 --
 
 COMMENT ON COLUMN public.token_erc1400_properties.investor_limits IS 'JSON object defining maximum investors, holding periods, and investment limits';
-
-
---
--- Name: COLUMN token_erc1400_properties.institutional_grade; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1400_properties.institutional_grade IS 'Whether token meets institutional investment standards';
-
-
---
--- Name: COLUMN token_erc1400_properties.custody_integration_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1400_properties.custody_integration_enabled IS 'Whether token supports institutional custody integration';
-
-
---
--- Name: COLUMN token_erc1400_properties.real_time_compliance_monitoring; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1400_properties.real_time_compliance_monitoring IS 'Whether real-time compliance monitoring is active';
-
-
---
--- Name: COLUMN token_erc1400_properties.advanced_corporate_actions; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1400_properties.advanced_corporate_actions IS 'Whether advanced corporate actions are supported';
-
-
---
--- Name: COLUMN token_erc1400_properties.cross_border_trading_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1400_properties.cross_border_trading_enabled IS 'Whether cross-border trading is enabled';
-
-
---
--- Name: COLUMN token_erc1400_properties.traditional_finance_integration; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc1400_properties.traditional_finance_integration IS 'Whether integration with traditional finance systems is enabled';
 
 
 --
@@ -24690,112 +24420,10 @@ COMMENT ON COLUMN public.token_erc1400_properties.partition_config IS 'Partition
 
 
 --
--- Name: token_erc1400_regulatory_filings; Type: TABLE; Schema: public; Owner: -
+-- Name: COLUMN token_erc1400_properties.granularity; Type: COMMENT; Schema: public; Owner: -
 --
 
-CREATE TABLE public.token_erc1400_regulatory_filings (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    token_id uuid NOT NULL,
-    filing_type text NOT NULL,
-    filing_date date NOT NULL,
-    filing_jurisdiction text NOT NULL,
-    filing_reference text,
-    document_hash text,
-    document_uri text,
-    regulatory_body text,
-    compliance_status text DEFAULT 'pending'::text,
-    due_date date,
-    auto_generated boolean DEFAULT false,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: token_erc1400_view; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.token_erc1400_view AS
- SELECT t.id AS token_id,
-    t.name,
-    t.symbol,
-    t.decimals,
-    t.standard,
-    t.total_supply,
-    t.metadata,
-    t.status,
-    t.description,
-    t.created_at AS token_created_at,
-    t.updated_at AS token_updated_at,
-    p.id AS erc1400_property_id,
-    p.initial_supply,
-    p.cap,
-    p.is_mintable,
-    p.is_burnable,
-    p.is_pausable,
-    p.document_uri,
-    p.document_hash,
-    p.controller_address,
-    p.require_kyc,
-    p.security_type,
-    p.issuing_jurisdiction,
-    p.issuing_entity_name,
-    p.issuing_entity_lei,
-    p.transfer_restrictions,
-    p.kyc_settings,
-    p.compliance_settings,
-    p.forced_transfers,
-    p.issuance_modules,
-    p.document_management,
-    p.recovery_mechanism,
-    p.regulation_type,
-    p.is_multi_class,
-    p.tranche_transferability,
-    p.token_details,
-    p.legal_terms,
-    p.prospectus,
-    p.enforce_kyc,
-    p.forced_redemption_enabled,
-    p.whitelist_enabled,
-    p.holding_period,
-    p.max_investor_count,
-    p.investor_accreditation,
-    p.auto_compliance,
-    p.manual_approvals,
-    p.compliance_module,
-    p.is_issuable,
-    p.granular_control,
-    p.dividend_distribution,
-    p.corporate_actions,
-    p.custom_features,
-    p.geographic_restrictions,
-    p.compliance_automation_level,
-    p.institutional_grade,
-    p.custody_integration_enabled,
-    p.prime_brokerage_support,
-    p.settlement_integration,
-    p.real_time_compliance_monitoring,
-    p.automated_sanctions_screening,
-    p.aml_monitoring_enabled,
-    p.advanced_corporate_actions,
-    p.stock_splits_enabled,
-    p.treasury_management_enabled,
-    p.advanced_governance_enabled,
-    p.proxy_voting_enabled,
-    p.cross_border_trading_enabled,
-    p.multi_jurisdiction_compliance,
-    p.enhanced_reporting_enabled,
-    p.beneficial_ownership_tracking,
-    p.traditional_finance_integration,
-    p.swift_integration_enabled,
-    p.iso20022_messaging_support,
-    p.advanced_risk_management,
-    p.insurance_coverage_enabled,
-    p.created_at AS property_created_at,
-    p.updated_at AS property_updated_at
-   FROM (public.tokens t
-     LEFT JOIN public.token_erc1400_properties p ON ((t.id = p.token_id)))
-  WHERE (t.standard = 'ERC-1400'::public.token_standard_enum);
+COMMENT ON COLUMN public.token_erc1400_properties.granularity IS 'ERC-1400 mandatory: Minimum transferable unit. 1 = fully divisible, 100 = cents, 10000 = basis points';
 
 
 --
@@ -24810,62 +24438,8 @@ CREATE TABLE public.token_erc20_properties (
     is_mintable boolean DEFAULT false,
     is_burnable boolean DEFAULT false,
     is_pausable boolean DEFAULT false,
-    token_type text DEFAULT 'utility'::text,
-    access_control text DEFAULT 'ownable'::text,
-    allow_management boolean DEFAULT false,
-    permit boolean DEFAULT false,
-    snapshot boolean DEFAULT false,
-    fee_on_transfer jsonb,
-    rebasing jsonb,
-    governance_features jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    transfer_config jsonb,
-    gas_config jsonb,
-    compliance_config jsonb,
-    whitelist_config jsonb,
-    governance_enabled boolean DEFAULT false,
-    quorum_percentage text,
-    proposal_threshold text,
-    voting_delay integer,
-    voting_period integer,
-    timelock_delay integer,
-    governance_token_address text,
-    pausable_by text,
-    mintable_by text,
-    burnable_by text,
-    max_total_supply text,
-    anti_whale_enabled boolean DEFAULT false,
-    max_wallet_amount text,
-    cooldown_period integer,
-    blacklist_enabled boolean DEFAULT false,
-    deflation_enabled boolean DEFAULT false,
-    deflation_rate text,
-    staking_enabled boolean DEFAULT false,
-    staking_rewards_rate text,
-    buy_fee_enabled boolean DEFAULT false,
-    sell_fee_enabled boolean DEFAULT false,
-    liquidity_fee_percentage text,
-    marketing_fee_percentage text,
-    charity_fee_percentage text,
-    auto_liquidity_enabled boolean DEFAULT false,
-    reflection_enabled boolean DEFAULT false,
-    reflection_percentage text,
-    burn_on_transfer boolean DEFAULT false,
-    burn_percentage text,
-    lottery_enabled boolean DEFAULT false,
-    lottery_percentage text,
-    trading_start_time timestamp with time zone,
-    presale_enabled boolean DEFAULT false,
-    presale_rate text,
-    presale_start_time timestamp with time zone,
-    presale_end_time timestamp with time zone,
-    vesting_enabled boolean DEFAULT false,
-    vesting_cliff_period integer,
-    vesting_total_period integer,
-    vesting_release_frequency text DEFAULT 'monthly'::text,
-    use_geographic_restrictions boolean DEFAULT false,
-    default_restriction_policy text DEFAULT 'allowed'::text,
     compliance_module_address text,
     vesting_module_address text,
     fees_module_address text,
@@ -24889,8 +24463,8 @@ CREATE TABLE public.token_erc20_properties (
     snapshot_config jsonb,
     votes_config jsonb,
     payable_token_config jsonb,
-    CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
-    CONSTRAINT compliance_config_reporting_interval_check CHECK (((compliance_config IS NULL) OR (((compliance_config -> 'reportingInterval'::text))::text = ANY (ARRAY['"daily"'::text, '"weekly"'::text, '"monthly"'::text, '"quarterly"'::text, '"annually"'::text])))),
+    document_module_address text,
+    compliance_config jsonb,
     CONSTRAINT compliance_module_address_format CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT fees_module_address_format CHECK (((fees_module_address IS NULL) OR (fees_module_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT policy_engine_address_format CHECK (((policy_engine_address IS NULL) OR (policy_engine_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
@@ -24909,45 +24483,13 @@ CREATE TABLE public.token_erc20_properties (
 
 
 --
--- Name: COLUMN token_erc20_properties.compliance_config; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE token_erc20_properties; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.token_erc20_properties.compliance_config IS 'Compliance settings: {kycRequired, whitelistRequired, kycProvider, restrictedCountries}';
-
-
---
--- Name: COLUMN token_erc20_properties.governance_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc20_properties.governance_enabled IS 'Whether DAO governance features are enabled';
-
-
---
--- Name: COLUMN token_erc20_properties.quorum_percentage; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc20_properties.quorum_percentage IS 'Minimum percentage of tokens needed for governance proposals';
-
-
---
--- Name: COLUMN token_erc20_properties.anti_whale_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc20_properties.anti_whale_enabled IS 'Whether anti-whale mechanisms are active';
-
-
---
--- Name: COLUMN token_erc20_properties.reflection_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc20_properties.reflection_enabled IS 'Whether reflection rewards are enabled for holders';
-
-
---
--- Name: COLUMN token_erc20_properties.vesting_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc20_properties.vesting_enabled IS 'Whether token vesting schedules are enforced';
+COMMENT ON TABLE public.token_erc20_properties IS 'ERC20 token properties - Streamlined to essential fields only. 
+Module-specific configurations (governance, vesting, fees, compliance) 
+should be stored in token_modules and module_configurations tables.
+Cleaned: 2025-05-15 - Removed 53 unused/deprecated fields.';
 
 
 --
@@ -25070,6 +24612,20 @@ COMMENT ON COLUMN public.token_erc20_properties.fees_config IS 'Fee configuratio
 
 
 --
+-- Name: COLUMN token_erc20_properties.document_module_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.document_module_address IS 'Deployed address of the Document Management extension module';
+
+
+--
+-- Name: COLUMN token_erc20_properties.compliance_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.compliance_config IS 'JSONB configuration for KYC/AML compliance settings';
+
+
+--
 -- Name: token_erc20_view; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -25086,42 +24642,24 @@ CREATE VIEW public.token_erc20_view AS
     t.created_at AS token_created_at,
     t.updated_at AS token_updated_at,
     p.id AS erc20_property_id,
-    p.token_type,
     p.cap,
     p.initial_supply,
-    p.access_control,
-    p.allow_management,
     p.is_mintable,
     p.is_burnable,
     p.is_pausable,
-    p.snapshot,
-    p.permit,
-    p.rebasing,
-    p.fee_on_transfer,
-    p.governance_features,
-    p.compliance_config,
-    p.transfer_config,
-    p.gas_config,
-    p.whitelist_config,
-    p.governance_enabled,
-    p.quorum_percentage,
-    p.proposal_threshold,
-    p.voting_delay,
-    p.voting_period,
-    p.anti_whale_enabled,
-    p.max_wallet_amount,
-    p.reflection_enabled,
-    p.reflection_percentage,
-    p.vesting_enabled,
-    p.vesting_cliff_period,
-    p.presale_enabled,
-    p.presale_rate,
-    p.trading_start_time,
+    p.initial_owner,
     p.created_at AS property_created_at,
     p.updated_at AS property_updated_at
    FROM (public.tokens t
      LEFT JOIN public.token_erc20_properties p ON ((t.id = p.token_id)))
   WHERE (t.standard = 'ERC-20'::public.token_standard_enum);
+
+
+--
+-- Name: VIEW token_erc20_view; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.token_erc20_view IS 'ERC-20 token view - Updated 2025-12-30: Removed token_type, access_control, default_restriction_policy fields. Data archived in legacy_properties JSONB column.';
 
 
 --
@@ -25185,7 +24723,6 @@ CREATE TABLE public.token_erc3525_properties (
     royalty_receiver text,
     slot_approvals boolean DEFAULT true,
     value_approvals boolean DEFAULT true,
-    access_control text DEFAULT 'ownable'::text,
     updatable_uris boolean DEFAULT false,
     updatable_slots boolean DEFAULT false,
     value_transfers_enabled boolean DEFAULT true,
@@ -25228,57 +24765,7 @@ CREATE TABLE public.token_erc3525_properties (
     settlement_type text,
     margin_requirements jsonb,
     leverage_ratio text,
-    slot_creation_enabled boolean DEFAULT false,
-    dynamic_slot_creation boolean DEFAULT false,
-    slot_admin_roles text[],
-    slot_freeze_enabled boolean DEFAULT false,
-    slot_merge_enabled boolean DEFAULT false,
-    slot_split_enabled boolean DEFAULT false,
-    cross_slot_transfers boolean DEFAULT false,
-    value_computation_method text,
-    value_oracle_address text,
-    value_calculation_formula text,
-    accrual_enabled boolean DEFAULT false,
-    accrual_rate text,
-    accrual_frequency text,
-    value_adjustment_enabled boolean DEFAULT false,
-    slot_marketplace_enabled boolean DEFAULT false,
-    value_marketplace_enabled boolean DEFAULT false,
-    partial_value_trading boolean DEFAULT false,
-    minimum_trade_value text,
-    trading_fees_enabled boolean DEFAULT false,
-    trading_fee_percentage text,
-    market_maker_enabled boolean DEFAULT false,
-    slot_voting_enabled boolean DEFAULT false,
-    value_weighted_voting boolean DEFAULT false,
-    voting_power_calculation text,
-    quorum_calculation_method text,
-    proposal_value_threshold text,
-    delegate_enabled boolean DEFAULT false,
-    yield_farming_enabled boolean DEFAULT false,
-    liquidity_provision_enabled boolean DEFAULT false,
-    staking_yield_rate text,
-    compound_interest_enabled boolean DEFAULT false,
-    flash_loan_enabled boolean DEFAULT false,
-    collateral_factor text,
-    liquidation_threshold text,
-    regulatory_compliance_enabled boolean DEFAULT false,
-    kyc_required boolean DEFAULT false,
-    accredited_investor_only boolean DEFAULT false,
-    holding_period_restrictions integer,
-    transfer_limits jsonb,
-    reporting_requirements jsonb,
-    multi_signature_required boolean DEFAULT false,
-    approval_workflow_enabled boolean DEFAULT false,
-    institutional_custody_support boolean DEFAULT false,
-    audit_trail_enhanced boolean DEFAULT false,
-    batch_operations_enabled boolean DEFAULT false,
-    emergency_pause_enabled boolean DEFAULT false,
-    recovery_mechanisms jsonb,
     whitelist_config jsonb,
-    use_geographic_restrictions boolean DEFAULT false,
-    default_restriction_policy text DEFAULT 'blocked'::text,
-    geographic_restrictions text[],
     compliance_module_address text,
     policy_engine_address text,
     vesting_module_address text,
@@ -25293,6 +24780,7 @@ CREATE TABLE public.token_erc3525_properties (
     document_config jsonb,
     compliance_config jsonb,
     policy_engine_config jsonb,
+    legacy_properties jsonb DEFAULT '{}'::jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_erc3525_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
     CONSTRAINT slot_transfer_validation_enhanced_check CHECK (((slot_transfer_validation IS NULL) OR ((jsonb_typeof(slot_transfer_validation) = 'object'::text) AND (slot_transfer_validation ? 'rules'::text)))),
@@ -25376,34 +24864,6 @@ COMMENT ON COLUMN public.token_erc3525_properties.value_aggregation_enabled IS '
 --
 
 COMMENT ON COLUMN public.token_erc3525_properties.financial_instrument_type IS 'Type of financial instrument: bond, loan, equity, derivative';
-
-
---
--- Name: COLUMN token_erc3525_properties.slot_creation_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc3525_properties.slot_creation_enabled IS 'Whether new slots can be dynamically created';
-
-
---
--- Name: COLUMN token_erc3525_properties.partial_value_trading; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc3525_properties.partial_value_trading IS 'Whether partial token values can be traded';
-
-
---
--- Name: COLUMN token_erc3525_properties.yield_farming_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc3525_properties.yield_farming_enabled IS 'Whether tokens can be used for yield farming';
-
-
---
--- Name: COLUMN token_erc3525_properties.regulatory_compliance_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc3525_properties.regulatory_compliance_enabled IS 'Whether tokens are subject to regulatory compliance';
 
 
 --
@@ -25580,7 +25040,6 @@ CREATE VIEW public.token_erc3525_view AS
     p.royalty_receiver,
     p.slot_approvals,
     p.value_approvals,
-    p.access_control,
     p.updatable_uris,
     p.updatable_slots,
     p.value_transfers_enabled,
@@ -25594,38 +25053,60 @@ CREATE VIEW public.token_erc3525_view AS
     p.permissioning_enabled,
     p.supply_tracking,
     p.updatable_values,
+    p.custom_extensions,
+    p.fractionalizable,
     p.fractional_ownership_enabled,
+    p.auto_unit_calculation,
+    p.custom_slot_properties,
+    p.slot_enumeration_enabled,
+    p.value_aggregation_enabled,
+    p.permissioning_advanced,
+    p.slot_transfer_restrictions,
+    p.value_transfer_restrictions,
     p.financial_instrument_type,
     p.principal_amount,
     p.interest_rate,
     p.maturity_date,
     p.coupon_frequency,
+    p.payment_schedule,
     p.early_redemption_enabled,
+    p.redemption_penalty_rate,
     p.derivative_type,
     p.underlying_asset,
+    p.underlying_asset_address,
     p.strike_price,
     p.expiration_date,
     p.settlement_type,
-    p.slot_creation_enabled,
-    p.dynamic_slot_creation,
-    p.cross_slot_transfers,
-    p.value_computation_method,
-    p.accrual_enabled,
-    p.accrual_rate,
-    p.partial_value_trading,
-    p.minimum_trade_value,
-    p.yield_farming_enabled,
-    p.liquidity_provision_enabled,
-    p.compound_interest_enabled,
-    p.flash_loan_enabled,
-    p.regulatory_compliance_enabled,
-    p.kyc_required,
-    p.accredited_investor_only,
+    p.margin_requirements,
+    p.leverage_ratio,
+    p.compliance_module_address,
+    p.policy_engine_address,
+    p.vesting_module_address,
+    p.document_module_address,
+    p.slot_approvable_module_address,
+    p.slot_manager_module_address,
+    p.value_exchange_module_address,
+    p.initial_owner,
+    p.value_exchange_config,
+    p.slot_manager_config,
+    p.slot_approvable_config,
+    p.document_config,
+    p.compliance_config,
+    p.policy_engine_config,
+    p.whitelist_config,
+    p.metadata AS property_metadata,
     p.created_at AS property_created_at,
     p.updated_at AS property_updated_at
    FROM (public.tokens t
      LEFT JOIN public.token_erc3525_properties p ON ((t.id = p.token_id)))
   WHERE (t.standard = 'ERC-3525'::public.token_standard_enum);
+
+
+--
+-- Name: VIEW token_erc3525_view; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.token_erc3525_view IS 'ERC-3525 view - Cleaned 2025-12-31: Removed 10 operational/enterprise fields. Kept whitelist_config, ERC-3525 standard fields, and financial instrument parameters.';
 
 
 --
@@ -25708,7 +25189,6 @@ CREATE TABLE public.token_erc4626_properties (
     vault_strategy text DEFAULT 'simple'::text,
     custom_strategy boolean DEFAULT false,
     strategy_controller text,
-    access_control text DEFAULT 'ownable'::text,
     permit boolean DEFAULT false,
     flash_loans boolean DEFAULT false,
     emergency_shutdown boolean DEFAULT false,
@@ -25735,11 +25215,8 @@ CREATE TABLE public.token_erc4626_properties (
     performance_fee text,
     fee_recipient text,
     withdrawal_rules jsonb,
-    yield_optimization_enabled boolean DEFAULT false,
     automated_rebalancing boolean DEFAULT false,
     whitelist_config jsonb,
-    use_geographic_restrictions boolean DEFAULT false,
-    default_restriction_policy text DEFAULT 'allowed'::text,
     strategy_complexity text DEFAULT 'simple'::text,
     multi_asset_enabled boolean DEFAULT false,
     rebalancing_enabled boolean DEFAULT false,
@@ -25747,11 +25224,7 @@ CREATE TABLE public.token_erc4626_properties (
     yield_optimization_strategy text,
     risk_management_enabled boolean DEFAULT false,
     risk_tolerance text,
-    diversification_enabled boolean DEFAULT false,
     apy_tracking_enabled boolean DEFAULT false,
-    benchmark_tracking_enabled boolean DEFAULT false,
-    benchmark_index text,
-    performance_history_retention integer DEFAULT 365,
     yield_sources jsonb,
     yield_distribution_schedule text,
     compound_frequency text DEFAULT 'continuous'::text,
@@ -25763,48 +25236,9 @@ CREATE TABLE public.token_erc4626_properties (
     max_drawdown_threshold text,
     stop_loss_enabled boolean DEFAULT false,
     stop_loss_threshold text,
-    governance_token_enabled boolean DEFAULT false,
-    governance_token_address text,
-    voting_power_per_share text DEFAULT '1'::text,
-    strategy_voting_enabled boolean DEFAULT false,
-    fee_voting_enabled boolean DEFAULT false,
-    manager_performance_threshold text,
-    manager_replacement_enabled boolean DEFAULT false,
     dynamic_fees_enabled boolean DEFAULT false,
     performance_fee_high_water_mark boolean DEFAULT false,
     fee_tier_system_enabled boolean DEFAULT false,
-    early_withdrawal_penalty text,
-    late_withdrawal_penalty text,
-    gas_fee_optimization boolean DEFAULT false,
-    fee_rebate_enabled boolean DEFAULT false,
-    liquidity_mining_enabled boolean DEFAULT false,
-    liquidity_incentives_rate text,
-    market_making_enabled boolean DEFAULT false,
-    arbitrage_enabled boolean DEFAULT false,
-    cross_dex_optimization boolean DEFAULT false,
-    liquidity_provider_rewards jsonb,
-    impermanent_loss_protection boolean DEFAULT false,
-    defi_protocol_integrations text[],
-    lending_protocol_enabled boolean DEFAULT false,
-    borrowing_enabled boolean DEFAULT false,
-    leverage_enabled boolean DEFAULT false,
-    max_leverage_ratio text,
-    cross_chain_yield_enabled boolean DEFAULT false,
-    bridge_protocols text[],
-    portfolio_analytics_enabled boolean DEFAULT false,
-    real_time_pnl_tracking boolean DEFAULT false,
-    tax_reporting_enabled boolean DEFAULT false,
-    automated_reporting boolean DEFAULT false,
-    notification_system_enabled boolean DEFAULT false,
-    mobile_app_integration boolean DEFAULT false,
-    social_trading_enabled boolean DEFAULT false,
-    institutional_grade boolean DEFAULT false,
-    custody_integration boolean DEFAULT false,
-    audit_trail_comprehensive boolean DEFAULT false,
-    compliance_reporting_enabled boolean DEFAULT false,
-    regulatory_framework text,
-    fund_administration_enabled boolean DEFAULT false,
-    third_party_audits_enabled boolean DEFAULT false,
     compliance_module_address text,
     policy_engine_address text,
     document_module_address text,
@@ -25890,20 +25324,6 @@ COMMENT ON COLUMN public.token_erc4626_properties.risk_management_enabled IS 'Wh
 --
 
 COMMENT ON COLUMN public.token_erc4626_properties.insurance_enabled IS 'Whether vault deposits are insured';
-
-
---
--- Name: COLUMN token_erc4626_properties.governance_token_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc4626_properties.governance_token_enabled IS 'Whether vault shares have governance rights';
-
-
---
--- Name: COLUMN token_erc4626_properties.institutional_grade; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc4626_properties.institutional_grade IS 'Whether vault meets institutional investment standards';
 
 
 --
@@ -26068,73 +25488,6 @@ CREATE TABLE public.token_erc4626_vault_strategies (
 
 
 --
--- Name: token_erc4626_view; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.token_erc4626_view AS
- SELECT t.id AS token_id,
-    t.name,
-    t.symbol,
-    t.decimals,
-    t.standard,
-    t.total_supply,
-    t.metadata,
-    t.status,
-    t.description,
-    t.created_at AS token_created_at,
-    t.updated_at AS token_updated_at,
-    p.id AS erc4626_property_id,
-    p.asset_address,
-    p.asset_name,
-    p.asset_symbol,
-    p.asset_decimals,
-    p.vault_type,
-    p.is_mintable,
-    p.is_burnable,
-    p.is_pausable,
-    p.vault_strategy,
-    p.custom_strategy,
-    p.strategy_controller,
-    p.access_control,
-    p.permit,
-    p.flash_loans,
-    p.emergency_shutdown,
-    p.fee_structure,
-    p.rebalancing_rules,
-    p.performance_metrics,
-    p.yield_source,
-    p.automated_rebalancing,
-    p.strategy_complexity,
-    p.multi_asset_enabled,
-    p.rebalancing_enabled,
-    p.auto_compounding_enabled,
-    p.yield_optimization_enabled,
-    p.risk_management_enabled,
-    p.risk_tolerance,
-    p.apy_tracking_enabled,
-    p.benchmark_tracking_enabled,
-    p.benchmark_index,
-    p.compound_frequency,
-    p.governance_token_enabled,
-    p.strategy_voting_enabled,
-    p.fee_voting_enabled,
-    p.insurance_enabled,
-    p.emergency_exit_enabled,
-    p.circuit_breaker_enabled,
-    p.liquidity_mining_enabled,
-    p.market_making_enabled,
-    p.cross_chain_yield_enabled,
-    p.institutional_grade,
-    p.compliance_reporting_enabled,
-    p.third_party_audits_enabled,
-    p.created_at AS property_created_at,
-    p.updated_at AS property_updated_at
-   FROM (public.tokens t
-     LEFT JOIN public.token_erc4626_properties p ON ((t.id = p.token_id)))
-  WHERE (t.standard = 'ERC-4626'::public.token_standard_enum);
-
-
---
 -- Name: token_erc721_attributes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -26178,7 +25531,6 @@ CREATE TABLE public.token_erc721_properties (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     token_id uuid NOT NULL,
     base_uri text,
-    metadata_storage text DEFAULT 'ipfs'::text,
     max_supply text,
     has_royalty boolean DEFAULT false,
     royalty_percentage text,
@@ -26189,8 +25541,6 @@ CREATE TABLE public.token_erc721_properties (
     minting_method text DEFAULT 'open'::text,
     auto_increment_ids boolean DEFAULT true,
     enumerable boolean DEFAULT true,
-    uri_storage text DEFAULT 'tokenId'::text,
-    access_control text DEFAULT 'ownable'::text,
     updatable_uris boolean DEFAULT false,
     sales_config jsonb,
     whitelist_config jsonb,
@@ -26198,67 +25548,9 @@ CREATE TABLE public.token_erc721_properties (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     is_mintable boolean,
-    dynamic_uri_config jsonb,
-    batch_minting_config jsonb,
-    transfer_restrictions jsonb,
-    supply_validation_enabled boolean DEFAULT true,
-    contract_uri text,
-    custom_base_uri text,
-    revealable boolean DEFAULT false,
-    pre_reveal_uri text,
-    reserved_tokens integer DEFAULT 0,
-    minting_price text,
-    max_mints_per_tx integer,
-    max_mints_per_wallet integer,
-    enable_fractional_ownership boolean DEFAULT false,
-    enable_dynamic_metadata boolean DEFAULT false,
-    use_safe_transfer boolean DEFAULT true,
-    public_sale_enabled boolean DEFAULT false,
-    public_sale_price text,
-    public_sale_start_time timestamp with time zone,
-    public_sale_end_time timestamp with time zone,
-    whitelist_sale_enabled boolean DEFAULT false,
-    whitelist_sale_price text,
-    whitelist_sale_start_time timestamp with time zone,
-    whitelist_sale_end_time timestamp with time zone,
-    reveal_batch_size integer,
-    auto_reveal boolean DEFAULT false,
-    reveal_delay integer,
-    placeholder_image_uri text,
-    metadata_frozen boolean DEFAULT false,
-    metadata_provenance_hash text,
-    mint_roles text[],
-    admin_mint_enabled boolean DEFAULT true,
-    public_mint_enabled boolean DEFAULT false,
-    burn_roles text[],
-    transfer_locked boolean DEFAULT false,
     soulbound boolean DEFAULT false,
-    creator_earnings_enabled boolean DEFAULT false,
-    creator_earnings_percentage text,
-    creator_earnings_address text,
-    marketplace_approved text[],
-    operator_filter_enabled boolean DEFAULT false,
-    custom_operator_filter_address text,
-    utility_enabled boolean DEFAULT false,
-    utility_type text,
-    staking_enabled boolean DEFAULT false,
-    staking_rewards_token_address text,
-    staking_rewards_rate text,
-    breeding_enabled boolean DEFAULT false,
-    evolution_enabled boolean DEFAULT false,
     supply_cap_enabled boolean DEFAULT false,
     total_supply_cap text,
-    mint_phases_enabled boolean DEFAULT false,
-    dutch_auction_enabled boolean DEFAULT false,
-    dutch_auction_start_price text,
-    dutch_auction_end_price text,
-    dutch_auction_duration integer,
-    cross_chain_enabled boolean DEFAULT false,
-    bridge_contracts jsonb,
-    layer2_enabled boolean DEFAULT false,
-    layer2_networks text[],
-    use_geographic_restrictions boolean DEFAULT false,
-    default_restriction_policy text DEFAULT 'allowed'::text,
     compliance_module_address text,
     policy_engine_address text,
     vesting_module_address text,
@@ -26287,6 +25579,7 @@ CREATE TABLE public.token_erc721_properties (
     consecutive_config jsonb,
     metadata_events_config jsonb,
     soulbound_config jsonb,
+    legacy_properties jsonb DEFAULT '{}'::jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
     CONSTRAINT token_erc721_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -26306,31 +25599,10 @@ CREATE TABLE public.token_erc721_properties (
 
 
 --
--- Name: COLUMN token_erc721_properties.contract_uri; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE token_erc721_properties; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.token_erc721_properties.contract_uri IS 'Contract-level metadata URI';
-
-
---
--- Name: COLUMN token_erc721_properties.revealable; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc721_properties.revealable IS 'Whether NFTs are revealed in batches';
-
-
---
--- Name: COLUMN token_erc721_properties.reserved_tokens; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc721_properties.reserved_tokens IS 'Number of tokens reserved for team/partnerships';
-
-
---
--- Name: COLUMN token_erc721_properties.enable_fractional_ownership; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc721_properties.enable_fractional_ownership IS 'Whether NFTs can be fractionalized';
+COMMENT ON TABLE public.token_erc721_properties IS 'ERC-721 properties - Phase 2 cleanup complete (2025-12-30): Removed 17 sales/minting fields';
 
 
 --
@@ -26338,27 +25610,6 @@ COMMENT ON COLUMN public.token_erc721_properties.enable_fractional_ownership IS 
 --
 
 COMMENT ON COLUMN public.token_erc721_properties.soulbound IS 'Whether tokens are non-transferable after mint';
-
-
---
--- Name: COLUMN token_erc721_properties.utility_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc721_properties.utility_enabled IS 'Whether NFTs have utility beyond collectibility';
-
-
---
--- Name: COLUMN token_erc721_properties.staking_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc721_properties.staking_enabled IS 'Whether NFTs can be staked for rewards';
-
-
---
--- Name: COLUMN token_erc721_properties.cross_chain_enabled; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.token_erc721_properties.cross_chain_enabled IS 'Whether NFTs support cross-chain transfers';
 
 
 --
@@ -26522,7 +25773,6 @@ CREATE VIEW public.token_erc721_view AS
     t.updated_at AS token_updated_at,
     p.id AS erc721_property_id,
     p.base_uri,
-    p.metadata_storage,
     p.max_supply,
     p.has_royalty,
     p.royalty_percentage,
@@ -26533,32 +25783,10 @@ CREATE VIEW public.token_erc721_view AS
     p.minting_method,
     p.auto_increment_ids,
     p.enumerable,
-    p.uri_storage,
-    p.access_control,
     p.updatable_uris,
     p.sales_config,
-    p.whitelist_config,
     p.permission_config,
-    p.contract_uri,
-    p.revealable,
-    p.pre_reveal_uri,
-    p.reserved_tokens,
-    p.minting_price,
-    p.max_mints_per_tx,
-    p.max_mints_per_wallet,
-    p.enable_fractional_ownership,
-    p.enable_dynamic_metadata,
-    p.public_sale_enabled,
-    p.public_sale_price,
-    p.public_sale_start_time,
-    p.whitelist_sale_enabled,
-    p.whitelist_sale_price,
-    p.whitelist_sale_start_time,
-    p.utility_enabled,
-    p.utility_type,
-    p.staking_enabled,
     p.soulbound,
-    p.cross_chain_enabled,
     p.created_at AS property_created_at,
     p.updated_at AS property_updated_at
    FROM (public.tokens t
@@ -26970,34 +26198,18 @@ CREATE VIEW public.token_whitelist_summary AS
     t.symbol AS token_symbol,
     t.standard AS token_standard,
         CASE
-            WHEN (t.standard = 'ERC-20'::public.token_standard_enum) THEN COALESCE(((erc20.whitelist_config ->> 'enabled'::text))::boolean, false)
-            ELSE NULL::boolean
-        END AS erc20_whitelist_enabled,
-        CASE
+            WHEN (t.standard = 'ERC-20'::public.token_standard_enum) THEN COALESCE((tw.address_count > 0), false)
             WHEN (t.standard = 'ERC-721'::public.token_standard_enum) THEN COALESCE(((erc721.whitelist_config ->> 'enabled'::text))::boolean, false)
-            ELSE NULL::boolean
-        END AS erc721_whitelist_enabled,
-        CASE
             WHEN (t.standard = 'ERC-1155'::public.token_standard_enum) THEN COALESCE(((erc1155.whitelist_config ->> 'enabled'::text))::boolean, false)
-            ELSE NULL::boolean
-        END AS erc1155_whitelist_enabled,
-        CASE
             WHEN (t.standard = 'ERC-1400'::public.token_standard_enum) THEN COALESCE(erc1400.investor_whitelist_enabled, false)
-            ELSE NULL::boolean
-        END AS erc1400_whitelist_enabled,
-        CASE
             WHEN (t.standard = 'ERC-3525'::public.token_standard_enum) THEN COALESCE(((erc3525.whitelist_config ->> 'enabled'::text))::boolean, false)
-            ELSE NULL::boolean
-        END AS erc3525_whitelist_enabled,
-        CASE
             WHEN (t.standard = 'ERC-4626'::public.token_standard_enum) THEN COALESCE(((erc4626.whitelist_config ->> 'enabled'::text))::boolean, false)
             ELSE NULL::boolean
-        END AS erc4626_whitelist_enabled,
+        END AS whitelist_enabled,
     COALESCE(tw.address_count, (0)::bigint) AS whitelisted_address_count,
     t.created_at,
     t.updated_at
-   FROM (((((((public.tokens t
-     LEFT JOIN public.token_erc20_properties erc20 ON ((t.id = erc20.token_id)))
+   FROM ((((((public.tokens t
      LEFT JOIN public.token_erc721_properties erc721 ON ((t.id = erc721.token_id)))
      LEFT JOIN public.token_erc1155_properties erc1155 ON ((t.id = erc1155.token_id)))
      LEFT JOIN public.token_erc1400_properties erc1400 ON ((t.id = erc1400.token_id)))
@@ -27008,13 +26220,6 @@ CREATE VIEW public.token_whitelist_summary AS
            FROM public.token_whitelists
           WHERE (token_whitelists.is_active = true)
           GROUP BY token_whitelists.token_id) tw ON ((t.id = tw.token_id)));
-
-
---
--- Name: VIEW token_whitelist_summary; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON VIEW public.token_whitelist_summary IS 'Comprehensive view of whitelist status across all token standards';
 
 
 --
@@ -34017,22 +33222,6 @@ ALTER TABLE ONLY public.token_erc1400_controllers
 
 
 --
--- Name: token_erc1400_corporate_actions token_erc1400_corporate_actions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.token_erc1400_corporate_actions
-    ADD CONSTRAINT token_erc1400_corporate_actions_pkey PRIMARY KEY (id);
-
-
---
--- Name: token_erc1400_custody_providers token_erc1400_custody_providers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.token_erc1400_custody_providers
-    ADD CONSTRAINT token_erc1400_custody_providers_pkey PRIMARY KEY (id);
-
-
---
 -- Name: token_erc1400_documents token_erc1400_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -34094,14 +33283,6 @@ ALTER TABLE ONLY public.token_erc1400_partitions
 
 ALTER TABLE ONLY public.token_erc1400_properties
     ADD CONSTRAINT token_erc1400_properties_pkey PRIMARY KEY (id);
-
-
---
--- Name: token_erc1400_regulatory_filings token_erc1400_regulatory_filings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.token_erc1400_regulatory_filings
-    ADD CONSTRAINT token_erc1400_regulatory_filings_pkey PRIMARY KEY (id);
 
 
 --
@@ -38428,13 +37609,6 @@ CREATE INDEX idx_equity_products_ticker_symbol ON public.equity_products USING b
 
 
 --
--- Name: idx_erc1155_bridge; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1155_bridge ON public.token_erc1155_properties USING btree (bridge_enabled);
-
-
---
 -- Name: idx_erc1155_compliance_module; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38442,31 +37616,10 @@ CREATE INDEX idx_erc1155_compliance_module ON public.token_erc1155_properties US
 
 
 --
--- Name: idx_erc1155_crafting; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1155_crafting ON public.token_erc1155_properties USING btree (crafting_enabled);
-
-
---
--- Name: idx_erc1155_lazy_minting; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1155_lazy_minting ON public.token_erc1155_properties USING btree (lazy_minting_enabled);
-
-
---
 -- Name: idx_erc1155_policy_engine; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc1155_policy_engine ON public.token_erc1155_properties USING btree (policy_engine_address) WHERE (policy_engine_address IS NOT NULL);
-
-
---
--- Name: idx_erc1155_pricing_model; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1155_pricing_model ON public.token_erc1155_properties USING btree (pricing_model);
 
 
 --
@@ -38491,31 +37644,10 @@ CREATE INDEX idx_erc1155_uri_management_config ON public.token_erc1155_propertie
 
 
 --
--- Name: idx_erc1155_voting_power; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1155_voting_power ON public.token_erc1155_properties USING btree (voting_power_enabled);
-
-
---
--- Name: idx_erc1400_advanced_governance; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1400_advanced_governance ON public.token_erc1400_properties USING btree (advanced_governance_enabled);
-
-
---
 -- Name: idx_erc1400_compliance_module; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc1400_compliance_module ON public.token_erc1400_properties USING btree (compliance_module_address) WHERE (compliance_module_address IS NOT NULL);
-
-
---
--- Name: idx_erc1400_compliance_monitoring; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1400_compliance_monitoring ON public.token_erc1400_properties USING btree (real_time_compliance_monitoring);
 
 
 --
@@ -38533,45 +37665,10 @@ CREATE INDEX idx_erc1400_controller_module ON public.token_erc1400_properties US
 
 
 --
--- Name: idx_erc1400_cross_border; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1400_cross_border ON public.token_erc1400_properties USING btree (cross_border_trading_enabled);
-
-
---
--- Name: idx_erc1400_custody_integration; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1400_custody_integration ON public.token_erc1400_properties USING btree (custody_integration_enabled);
-
-
---
--- Name: idx_erc1400_institutional_grade; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1400_institutional_grade ON public.token_erc1400_properties USING btree (institutional_grade);
-
-
---
--- Name: idx_erc1400_traditional_finance; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc1400_traditional_finance ON public.token_erc1400_properties USING btree (traditional_finance_integration);
-
-
---
 -- Name: idx_erc1400_transfer_restrictions; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc1400_transfer_restrictions ON public.token_erc1400_properties USING gin (enhanced_transfer_restrictions_config);
-
-
---
--- Name: idx_erc20_compliance_config; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc20_compliance_config ON public.token_erc20_properties USING gin (compliance_config);
 
 
 --
@@ -38589,13 +37686,6 @@ CREATE INDEX idx_erc20_flash_mint ON public.token_erc20_properties USING btree (
 
 
 --
--- Name: idx_erc20_governance_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc20_governance_enabled ON public.token_erc20_properties USING btree (governance_enabled);
-
-
---
 -- Name: idx_erc20_permit; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -38603,31 +37693,10 @@ CREATE INDEX idx_erc20_permit ON public.token_erc20_properties USING btree (perm
 
 
 --
--- Name: idx_erc20_presale_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc20_presale_enabled ON public.token_erc20_properties USING btree (presale_enabled);
-
-
---
 -- Name: idx_erc20_snapshot; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc20_snapshot ON public.token_erc20_properties USING btree (snapshot_module_address) WHERE (snapshot_module_address IS NOT NULL);
-
-
---
--- Name: idx_erc20_token_type; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc20_token_type ON public.token_erc20_properties USING btree (token_type);
-
-
---
--- Name: idx_erc20_trading_start; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc20_trading_start ON public.token_erc20_properties USING btree (trading_start_time);
 
 
 --
@@ -38642,13 +37711,6 @@ CREATE INDEX idx_erc20_vesting_config ON public.token_erc20_properties USING gin
 --
 
 CREATE INDEX idx_erc20_votes ON public.token_erc20_properties USING btree (votes_module_address) WHERE (votes_module_address IS NOT NULL);
-
-
---
--- Name: idx_erc3525_compliance; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc3525_compliance ON public.token_erc3525_properties USING btree (regulatory_compliance_enabled);
 
 
 --
@@ -38701,24 +37763,10 @@ CREATE INDEX idx_erc3525_slot_manager_config ON public.token_erc3525_properties 
 
 
 --
--- Name: idx_erc3525_slot_marketplace; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc3525_slot_marketplace ON public.token_erc3525_properties USING btree (slot_marketplace_enabled);
-
-
---
 -- Name: idx_erc3525_value_exchange_config; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc3525_value_exchange_config ON public.token_erc3525_properties USING gin (value_exchange_config);
-
-
---
--- Name: idx_erc3525_yield_farming; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc3525_yield_farming ON public.token_erc3525_properties USING btree (yield_farming_enabled);
 
 
 --
@@ -38754,20 +37802,6 @@ CREATE INDEX idx_erc4626_compound_frequency ON public.token_erc4626_properties U
 --
 
 CREATE INDEX idx_erc4626_fee_strategy_config ON public.token_erc4626_properties USING gin (fee_strategy_config);
-
-
---
--- Name: idx_erc4626_governance; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc4626_governance ON public.token_erc4626_properties USING btree (governance_token_enabled);
-
-
---
--- Name: idx_erc4626_institutional; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc4626_institutional ON public.token_erc4626_properties USING btree (institutional_grade);
 
 
 --
@@ -38817,13 +37851,6 @@ CREATE INDEX idx_erc4626_strategy_complexity ON public.token_erc4626_properties 
 --
 
 CREATE INDEX idx_erc4626_withdrawal_queue_config ON public.token_erc4626_properties USING gin (withdrawal_queue_config);
-
-
---
--- Name: idx_erc4626_yield_optimization; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc4626_yield_optimization ON public.token_erc4626_properties USING btree (yield_optimization_enabled);
 
 
 --
@@ -38890,24 +37917,10 @@ CREATE INDEX idx_erc721_policy_engine ON public.token_erc721_properties USING bt
 
 
 --
--- Name: idx_erc721_public_sale; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc721_public_sale ON public.token_erc721_properties USING btree (public_sale_enabled, public_sale_start_time);
-
-
---
 -- Name: idx_erc721_rental_config; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc721_rental_config ON public.token_erc721_properties USING gin (rental_config);
-
-
---
--- Name: idx_erc721_revealable; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc721_revealable ON public.token_erc721_properties USING btree (revealable);
 
 
 --
@@ -38918,31 +37931,10 @@ CREATE INDEX idx_erc721_royalty_module ON public.token_erc721_properties USING b
 
 
 --
--- Name: idx_erc721_staking; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc721_staking ON public.token_erc721_properties USING btree (staking_enabled);
-
-
---
--- Name: idx_erc721_utility; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc721_utility ON public.token_erc721_properties USING btree (utility_enabled, utility_type);
-
-
---
 -- Name: idx_erc721_vesting_config; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc721_vesting_config ON public.token_erc721_properties USING gin (vesting_config);
-
-
---
--- Name: idx_erc721_whitelist_sale; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_erc721_whitelist_sale ON public.token_erc721_properties USING btree (whitelist_sale_enabled, whitelist_sale_start_time);
 
 
 --
@@ -44690,13 +43682,6 @@ CREATE INDEX idx_token_erc1400_whitelist_enabled ON public.token_erc1400_propert
 --
 
 CREATE INDEX idx_token_erc20_properties_initial_owner ON public.token_erc20_properties USING btree (initial_owner) WHERE (initial_owner IS NOT NULL);
-
-
---
--- Name: idx_token_erc20_whitelist_enabled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_token_erc20_whitelist_enabled ON public.token_erc20_properties USING gin (((whitelist_config -> 'enabled'::text))) WHERE ((whitelist_config -> 'enabled'::text) = 'true'::jsonb);
 
 
 --
@@ -50768,22 +49753,6 @@ ALTER TABLE ONLY public.token_erc1400_controllers
 
 
 --
--- Name: token_erc1400_corporate_actions token_erc1400_corporate_actions_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.token_erc1400_corporate_actions
-    ADD CONSTRAINT token_erc1400_corporate_actions_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
-
-
---
--- Name: token_erc1400_custody_providers token_erc1400_custody_providers_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.token_erc1400_custody_providers
-    ADD CONSTRAINT token_erc1400_custody_providers_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
-
-
---
 -- Name: token_erc1400_documents token_erc1400_documents_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -50829,14 +49798,6 @@ ALTER TABLE ONLY public.token_erc1400_partitions
 
 ALTER TABLE ONLY public.token_erc1400_properties
     ADD CONSTRAINT token_erc1400_properties_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
-
-
---
--- Name: token_erc1400_regulatory_filings token_erc1400_regulatory_filings_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.token_erc1400_regulatory_filings
-    ADD CONSTRAINT token_erc1400_regulatory_filings_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
 
 
 --
@@ -58566,26 +57527,6 @@ GRANT ALL ON TABLE public.token_erc1400_controllers TO prisma;
 
 
 --
--- Name: TABLE token_erc1400_corporate_actions; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO anon;
-GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO authenticated;
-GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO service_role;
-GRANT ALL ON TABLE public.token_erc1400_corporate_actions TO prisma;
-
-
---
--- Name: TABLE token_erc1400_custody_providers; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.token_erc1400_custody_providers TO anon;
-GRANT ALL ON TABLE public.token_erc1400_custody_providers TO authenticated;
-GRANT ALL ON TABLE public.token_erc1400_custody_providers TO service_role;
-GRANT ALL ON TABLE public.token_erc1400_custody_providers TO prisma;
-
-
---
 -- Name: TABLE token_erc1400_documents; Type: ACL; Schema: public; Owner: -
 --
 
@@ -58643,26 +57584,6 @@ GRANT ALL ON TABLE public.token_erc1400_properties TO anon;
 GRANT ALL ON TABLE public.token_erc1400_properties TO authenticated;
 GRANT ALL ON TABLE public.token_erc1400_properties TO service_role;
 GRANT ALL ON TABLE public.token_erc1400_properties TO prisma;
-
-
---
--- Name: TABLE token_erc1400_regulatory_filings; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO anon;
-GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO authenticated;
-GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO service_role;
-GRANT ALL ON TABLE public.token_erc1400_regulatory_filings TO prisma;
-
-
---
--- Name: TABLE token_erc1400_view; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.token_erc1400_view TO anon;
-GRANT ALL ON TABLE public.token_erc1400_view TO authenticated;
-GRANT ALL ON TABLE public.token_erc1400_view TO service_role;
-GRANT ALL ON TABLE public.token_erc1400_view TO prisma;
 
 
 --
@@ -58813,16 +57734,6 @@ GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO anon;
 GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO authenticated;
 GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO service_role;
 GRANT ALL ON TABLE public.token_erc4626_vault_strategies TO prisma;
-
-
---
--- Name: TABLE token_erc4626_view; Type: ACL; Schema: public; Owner: -
---
-
-GRANT ALL ON TABLE public.token_erc4626_view TO anon;
-GRANT ALL ON TABLE public.token_erc4626_view TO authenticated;
-GRANT ALL ON TABLE public.token_erc4626_view TO service_role;
-GRANT ALL ON TABLE public.token_erc4626_view TO prisma;
 
 
 --

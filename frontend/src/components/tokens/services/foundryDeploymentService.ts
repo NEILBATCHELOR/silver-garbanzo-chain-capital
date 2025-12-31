@@ -1803,17 +1803,24 @@ export class FoundryDeploymentService {
 
   /**
    * Encode ERC1400 configuration for contract deployment
+   * ✅ FIXED: Added granularity (ERC-1400 mandatory parameter)
    */
   private encodeERC1400Config(config: any): any {
     return {
       name: config.name,
       symbol: config.symbol,
-      initialSupply: ethers.parseUnits(config.initialSupply || '0', 18),
-      cap: config.cap === '0' ? 0 : ethers.parseUnits(config.cap || '0', 18),
+      decimals: config.decimals || 18,
+      granularity: config.granularity || 1, // ERC-1400 mandatory: minimum transferable unit
+      initialSupply: ethers.parseUnits(config.initialSupply || '0', config.decimals || 18),
+      cap: config.cap === '0' ? 0 : ethers.parseUnits(config.cap || '0', config.decimals || 18),
       controllerAddress: config.controllerAddress || config.initialOwner || ethers.ZeroAddress,
       requireKyc: config.requireKyc ?? true,
       documentUri: config.documentUri || '',
-      documentHash: config.documentHash || '0x0000000000000000000000000000000000000000000000000000000000000000'
+      documentHash: config.documentHash || '0x0000000000000000000000000000000000000000000000000000000000000000',
+      // Additional ERC-1400 mandatory parameters
+      defaultPartitions: config.defaultPartitions || [],
+      isControllable: config.isControllable ?? false,
+      isIssuable: config.isIssuable ?? true
     };
   }
 

@@ -178,7 +178,7 @@ export const extractEnabledModuleConfigs = (configs: ExtensionModuleConfigs): Re
   // ERC20 modules
   if (configs.fees.enabled) {
     enabledModules.fees_enabled = true;
-    enabledModules.fee_on_transfer = configs.fees;
+    enabledModules.fees_config = configs.fees; // ✅ FIX: Use new format for proper module deployment
   }
   
   if (configs.flashMint.enabled) {

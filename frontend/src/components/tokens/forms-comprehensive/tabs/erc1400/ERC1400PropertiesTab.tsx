@@ -8,6 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Settings, Puzzle } from 'lucide-react';
 
@@ -15,7 +19,7 @@ import { TokenERC1400PropertiesData, ConfigMode, TokensTableData } from '../../t
 import { ProjectWalletSelector } from '../../../ui/ProjectWalletSelector';
 
 // Master Contract Configs
-import { ERC1400MasterConfigPanel } from '../../contracts/masters';
+// Note: ERC1400MasterConfigPanel replaced with inline fields
 
 // Extension Module Configs
 import {
@@ -89,9 +93,11 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
     name: tokenTableData.name || '',
     symbol: tokenTableData.symbol || '',
     decimals: propertiesData.decimals || 18,
+    granularity: (propertiesData as any).granularity || 1,  // ERC-1400 mandatory
     defaultPartitions: propertiesData.default_partitions || [],
     owner: propertiesData.initial_owner || '',
-    isControllable: propertiesData.is_controllable || false
+    isControllable: propertiesData.is_controllable || false,
+    isIssuable: (propertiesData as any).is_issuable || false
   });
 
   // ✅ FIX: Update masterConfig when data loads asynchronously
@@ -100,17 +106,21 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
       name: tokenTableData.name || '',
       symbol: tokenTableData.symbol || '',
       decimals: propertiesData.decimals || 18,
+      granularity: (propertiesData as any).granularity || 1,
       defaultPartitions: propertiesData.default_partitions || [],
       owner: propertiesData.initial_owner || '',
-      isControllable: propertiesData.is_controllable || false
+      isControllable: propertiesData.is_controllable || false,
+      isIssuable: (propertiesData as any).is_issuable || false
     });
   }, [
     tokenTableData.name, 
     tokenTableData.symbol, 
     propertiesData.decimals, 
+    (propertiesData as any).granularity,
     propertiesData.default_partitions, 
     propertiesData.initial_owner,
-    propertiesData.is_controllable
+    propertiesData.is_controllable,
+    (propertiesData as any).is_issuable
   ]);
 
   // Extension Module Configuration States
@@ -208,9 +218,11 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
     setMasterConfig(newConfig);
     // Only update fields that belong to token_erc1400_properties table
     handleFieldChange('decimals', newConfig.decimals);
+    handleFieldChange('granularity', newConfig.granularity);
     handleFieldChange('default_partitions', newConfig.defaultPartitions);
     handleFieldChange('initial_owner', newConfig.owner);
     handleFieldChange('is_controllable', newConfig.isControllable);
+    handleFieldChange('is_issuable', newConfig.isIssuable || false);
     // NOTE: name and symbol are read-only here and must be edited in Basic Info tab
   };
 
@@ -271,13 +283,96 @@ export const ERC1400PropertiesTab: React.FC<ERC1400PropertiesTabProps> = ({
             <CardHeader>
               <CardTitle>ERC1400 Security Token Configuration</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ERC1400MasterConfigPanel
-                config={masterConfig}
-                onChange={handleMasterConfigChange}
-                disabled={isSubmitting}
-                errors={{}}
-              />
+            <CardContent className="space-y-4">
+              {/* Token Decimals */}
+              <div>
+                <Label>Decimals *</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="18"
+                  value={masterConfig.decimals}
+                  onChange={(e) => handleMasterConfigChange({
+                    ...masterConfig,
+                    decimals: parseInt(e.target.value) || 18
+                  })}
+                  disabled={isSubmitting}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Number of decimal places (0-18, typically 18 for security tokens)
+                </p>
+              </div>
+
+              {/* Granularity - ERC-1400 MANDATORY */}
+              <div>
+                <Label>Granularity * (ERC-1400 Required)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={masterConfig.granularity}
+                  onChange={(e) => handleMasterConfigChange({
+                    ...masterConfig,
+                    granularity: parseInt(e.target.value) || 1
+                  })}
+                  disabled={isSubmitting}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Minimum transferable unit. Examples: 1 = fully divisible, 100 = cents, 10000 = basis points
+                </p>
+              </div>
+
+              {/* Default Partitions */}
+              <div>
+                <Label>Default Partitions</Label>
+                <Textarea
+                  value={masterConfig.defaultPartitions.join(', ')}
+                  onChange={(e) => handleMasterConfigChange({
+                    ...masterConfig,
+                    defaultPartitions: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                  })}
+                  disabled={isSubmitting}
+                  placeholder="default, locked, reserved (comma-separated)"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Initial partition names for token classification
+                </p>
+              </div>
+
+              {/* Is Controllable */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Controllable (ERC-1644)</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable controller forced transfers and redemptions
+                  </p>
+                </div>
+                <Switch
+                  checked={masterConfig.isControllable}
+                  onCheckedChange={(checked) => handleMasterConfigChange({
+                    ...masterConfig,
+                    isControllable: checked
+                  })}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              {/* Is Issuable */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Issuable</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable new token issuance after deployment
+                  </p>
+                </div>
+                <Switch
+                  checked={masterConfig.isIssuable || false}
+                  onCheckedChange={(checked) => handleMasterConfigChange({
+                    ...masterConfig,
+                    isIssuable: checked
+                  })}
+                  disabled={isSubmitting}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
