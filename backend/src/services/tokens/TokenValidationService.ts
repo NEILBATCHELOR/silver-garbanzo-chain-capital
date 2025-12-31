@@ -531,8 +531,11 @@ export class TokenValidationService extends BaseService {
       [TokenStatus.DRAFT]: [TokenStatus.UNDER_REVIEW, TokenStatus.REJECTED],
       [TokenStatus.UNDER_REVIEW]: [TokenStatus.APPROVED, TokenStatus.REJECTED, TokenStatus.DRAFT],
       [TokenStatus.APPROVED]: [TokenStatus.READY_TO_MINT, TokenStatus.DEPLOYED, TokenStatus.REJECTED],
-      [TokenStatus.READY_TO_MINT]: [TokenStatus.DEPLOYED, TokenStatus.REJECTED],
-      [TokenStatus.DEPLOYED]: [TokenStatus.REJECTED],
+      [TokenStatus.READY_TO_MINT]: [TokenStatus.MINTED, TokenStatus.DEPLOYED, TokenStatus.REJECTED],
+      [TokenStatus.MINTED]: [TokenStatus.DEPLOYED, TokenStatus.DISTRIBUTED, TokenStatus.PAUSED],
+      [TokenStatus.DEPLOYED]: [TokenStatus.PAUSED, TokenStatus.DISTRIBUTED, TokenStatus.REJECTED],
+      [TokenStatus.PAUSED]: [TokenStatus.DEPLOYED, TokenStatus.REJECTED],
+      [TokenStatus.DISTRIBUTED]: [TokenStatus.PAUSED, TokenStatus.REJECTED],
       [TokenStatus.REJECTED]: [TokenStatus.DRAFT]
     }
 
