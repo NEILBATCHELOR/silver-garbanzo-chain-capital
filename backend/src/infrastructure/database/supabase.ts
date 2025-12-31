@@ -11,23 +11,40 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.warn('⚠️  Supabase credentials not configured. Some features may not work.');
+// Check if credentials are configured
+const isConfigured = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY);
+
+if (!isConfigured) {
+  console.warn('⚠️  Supabase credentials not configured. Supabase client will not be available.');
 }
 
 /**
  * Supabase client instance with service role key
  * Bypasses RLS for admin operations
+ * Returns null if credentials are not configured
  */
-export const supabase: SupabaseClient = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+export const supabase: SupabaseClient | null = isConfigured 
+  ? createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+  : null;
+
+/**
+ * Get Supabase client with error handling
+ * Throws error if client is not available
+ */
+export function getSupabaseClient(): SupabaseClient {
+  if (!supabase) {
+    throw new Error('Supabase client not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
   }
-);
+  return supabase;
+}
 
 export default supabase;

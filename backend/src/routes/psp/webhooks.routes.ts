@@ -17,10 +17,9 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { WebhookService } from '@/services/psp/webhooks/webhookService';
 import { logger } from '@/utils/logger';
-import { PrismaClient } from '@/infrastructure/database/generated/index';
+import { getDatabase } from '@/infrastructure/database/client';
 
 const webhookService = new WebhookService();
-const prisma = new PrismaClient();
 
 /**
  * Helper to extract and validate project_id
@@ -60,6 +59,7 @@ async function getAndValidateProjectId(
 
   // Verify user has access to this project
   try {
+    const prisma = getDatabase(); // Get database instance when needed
     const project = await prisma.projects.findFirst({
       where: {
         id: projectId,
