@@ -35,7 +35,8 @@ export const erc20ValidationSchema = baseTokenSchema.extend({
   ),
   cap: z.string().optional().refine(
     (val) => {
-      if (!val) return true;
+      // Allow empty, undefined, or '0' (treated as "no cap")
+      if (!val || val === '0') return true;
       try {
         const bigNum = ethers.parseUnits(val, 0);
         return bigNum > 0n;
@@ -44,7 +45,7 @@ export const erc20ValidationSchema = baseTokenSchema.extend({
       }
     },
     {
-      message: 'Cap must be a valid positive number',
+      message: 'Cap must be a valid positive number or zero for no cap',
     }
   ),
   isMintable: z.boolean().default(true),

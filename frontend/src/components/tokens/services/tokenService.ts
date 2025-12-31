@@ -417,18 +417,39 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
   
   switch(standard) {
     case 'ERC-20':
-      // Enhanced feeOnTransfer handling
-      let feeOnTransferValue = null;
+      // Enhanced feeOnTransfer handling - store in fees_config JSONB field
+      let feesConfig = blocks.fees_config || blocks.feesConfig;
       if (blocks.fee_on_transfer || blocks.feeOnTransfer) {
         const feeData = blocks.fee_on_transfer || blocks.feeOnTransfer;
-        feeOnTransferValue = {
-          enabled: !!feeData.enabled,
-          fee: feeData.fee || "0",
-          feeType: feeData.feeType || "percentage",
-          // Only set recipient if it's a valid non-empty address
-          recipient: feeData.recipient && feeData.recipient !== "" && feeData.recipient !== "0x0000000000000000000000000000000000000000"
-            ? feeData.recipient
-            : null
+        feesConfig = {
+          ...feesConfig,
+          feeOnTransfer: {
+            enabled: !!feeData.enabled,
+            fee: feeData.fee || "0",
+            feeType: feeData.feeType || "percentage",
+            // Only set recipient if it's a valid non-empty address
+            recipient: feeData.recipient && feeData.recipient !== "" && feeData.recipient !== "0x0000000000000000000000000000000000000000"
+              ? feeData.recipient
+              : null
+          }
+        };
+      }
+      
+      // Build permit_config if permit features are enabled
+      let permitConfig = blocks.permit_config || blocks.permitConfig;
+      if (blocks.permit) {
+        permitConfig = {
+          ...permitConfig,
+          enabled: true
+        };
+      }
+      
+      // Build snapshot_config if snapshot features are enabled
+      let snapshotConfig = blocks.snapshot_config || blocks.snapshotConfig;
+      if (blocks.snapshot) {
+        snapshotConfig = {
+          ...snapshotConfig,
+          enabled: true
         };
       }
       
@@ -439,19 +460,35 @@ function createStandardPropertiesRecord(standard: string, tokenId: string, block
         is_mintable: blocks.is_mintable || blocks.isMintable || false,
         is_burnable: blocks.is_burnable || blocks.isBurnable || false,
         is_pausable: blocks.is_pausable || blocks.isPausable || false,
-        token_type: blocks.token_type || blocks.tokenType || 'utility',
         
-        // JSONB configurations
-        transfer_config: blocks.transferConfig || blocks.transfer_config,
-        gas_config: blocks.gasConfig || blocks.gas_config,
-        compliance_config: blocks.complianceConfig || blocks.compliance_config,
-        whitelist_config: blocks.whitelistConfig || blocks.whitelist_config,
-        allow_management: blocks.allow_management || blocks.allowanceManagement || false,
-        permit: blocks.permit || false,
-        snapshot: blocks.snapshot || false,
-        fee_on_transfer: feeOnTransferValue, // Use processed value
-        rebasing: blocks.rebasing,
-        governance_features: blocks.governance_features || blocks.governanceFeatures
+        // Module addresses (if provided)
+        compliance_module_address: blocks.compliance_module_address || blocks.complianceModuleAddress,
+        vesting_module_address: blocks.vesting_module_address || blocks.vestingModuleAddress,
+        fees_module_address: blocks.fees_module_address || blocks.feesModuleAddress,
+        policy_engine_address: blocks.policy_engine_address || blocks.policyEngineAddress,
+        flash_mint_module_address: blocks.flash_mint_module_address || blocks.flashMintModuleAddress,
+        permit_module_address: blocks.permit_module_address || blocks.permitModuleAddress,
+        snapshot_module_address: blocks.snapshot_module_address || blocks.snapshotModuleAddress,
+        timelock_module_address: blocks.timelock_module_address || blocks.timelockModuleAddress,
+        votes_module_address: blocks.votes_module_address || blocks.votesModuleAddress,
+        payable_token_module_address: blocks.payable_token_module_address || blocks.payableTokenModuleAddress,
+        temporary_approval_module_address: blocks.temporary_approval_module_address || blocks.temporaryApprovalModuleAddress,
+        document_module_address: blocks.document_module_address || blocks.documentModuleAddress,
+        initial_owner: blocks.initial_owner || blocks.initialOwner,
+        
+        // JSONB configurations (matching actual database schema)
+        timelock_config: blocks.timelock_config || blocks.timelockConfig,
+        temporary_approval_config: blocks.temporary_approval_config || blocks.temporaryApprovalConfig,
+        vesting_config: blocks.vesting_config || blocks.vestingConfig,
+        document_config: blocks.document_config || blocks.documentConfig,
+        policy_engine_config: blocks.policy_engine_config || blocks.policyEngineConfig,
+        fees_config: feesConfig,
+        flash_mint_config: blocks.flash_mint_config || blocks.flashMintConfig,
+        permit_config: permitConfig,
+        snapshot_config: snapshotConfig,
+        votes_config: blocks.votes_config || blocks.votesConfig,
+        payable_token_config: blocks.payable_token_config || blocks.payableTokenConfig,
+        compliance_config: blocks.compliance_config || blocks.complianceConfig
       };
       
     case 'ERC-721':

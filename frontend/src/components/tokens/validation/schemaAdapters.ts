@@ -60,7 +60,6 @@ function erc20Adapter(formData: any): any {
     is_burnable: formData.isBurnable,
     is_pausable: formData.isPausable,
     token_type: formData.tokenType,
-    access_control: formData.accessControl,
     allowance_management: formData.allowanceManagement,
     permit_enabled: formData.permit,
     snapshot_enabled: formData.snapshot,
